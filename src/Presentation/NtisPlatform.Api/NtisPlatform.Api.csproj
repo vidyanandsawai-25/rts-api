@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- All common properties are inherited from Directory.Build.props -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="$(MicrosoftPackageVersion)" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="$(SwashbuckleVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Application\NtisPlatform.Application\NtisPlatform.Application.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\NtisPlatform.Infrastructure\NtisPlatform.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

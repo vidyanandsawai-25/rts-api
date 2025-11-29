@@ -1,0 +1,74 @@
+<Project>
+
+  <!-- Centralized NuGet Package Versions -->
+  <PropertyGroup>
+    <!-- Microsoft packages (aligned with .NET version) -->
+    <MicrosoftPackageVersion>10.0.0</MicrosoftPackageVersion>
+    
+    <!-- Third-party packages -->
+    <SwashbuckleVersion>10.0.1</SwashbuckleVersion>
+    <MoqVersion>4.20.72</MoqVersion>
+    <XunitVersion>2.9.3</XunitVersion>
+    <XunitRunnerVersion>3.1.4</XunitRunnerVersion>
+    <CoverletVersion>6.0.4</CoverletVersion>
+    <MicrosoftTestSdkVersion>17.14.1</MicrosoftTestSdkVersion>
+  </PropertyGroup>
+
+  <!-- Custom build targets that apply to all projects -->
+
+  <!-- Code Analysis and Quality -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- Compiler Warnings Configuration -->
+  <PropertyGroup>
+    <!-- Treat specific warnings as errors -->
+    <WarningsAsErrors>CS8600;CS8602;CS8603;CS8604</WarningsAsErrors>
+  </PropertyGroup>
+
+  <!-- Package Metadata for all projects when packing -->
+  <PropertyGroup>
+    <PackageProjectUrl>https://github.com/your-org/ntis-platform</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/your-org/ntis-platform.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>ntis;platform;enterprise;clean-architecture</PackageTags>
+  </PropertyGroup>
+
+  <!-- Source Link Support for debugging -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- Custom build targets -->
+  <Target Name="CustomBeforeBuild" BeforeTargets="BeforeBuild">
+    <Message Text="Building $(MSBuildProjectName)..." Importance="high" />
+  </Target>
+
+  <Target Name="CustomAfterBuild" AfterTargets="AfterBuild">
+    <Message Text="$(MSBuildProjectName) build completed successfully!" Importance="high" />
+  </Target>
+
+  <!-- Clean additional files -->
+  <Target Name="CustomClean" AfterTargets="Clean">
+    <Message Text="Performing custom cleanup for $(MSBuildProjectName)..." Importance="high" />
+  </Target>
+
+  <!-- Custom target to display build information -->
+  <Target Name="DisplayBuildInfo" BeforeTargets="Build">
+    <Message Text="====================================" Importance="high" />
+    <Message Text="Project: $(MSBuildProjectName)" Importance="high" />
+    <Message Text="Configuration: $(Configuration)" Importance="high" />
+    <Message Text="Target Framework: $(TargetFramework)" Importance="high" />
+    <Message Text="Output Path: $(OutputPath)" Importance="high" />
+    <Message Text="====================================" Importance="high" />
+  </Target>
+
+</Project>
