@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
 
         // Application Layer - Services
         services.AddScoped<ISampleService, SampleService>();
+        services.AddScoped<IServiceManagementService, ServiceManagementService>();
 
         // API Layer - Controllers, Swagger, CORS
         services.AddControllers();
