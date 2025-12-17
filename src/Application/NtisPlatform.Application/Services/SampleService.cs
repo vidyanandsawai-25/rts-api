@@ -38,7 +38,7 @@ public class SampleService : ISampleService
             Name = dto.Name,
             Description = dto.Description,
             IsActive = dto.IsActive,
-            CreatedAt = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow
         };
 
         var created = await _repository.AddAsync(entity, cancellationToken);
@@ -58,7 +58,7 @@ public class SampleService : ISampleService
         entity.Name = dto.Name;
         entity.Description = dto.Description;
         entity.IsActive = dto.IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedDate = DateTime.UtcNow;
 
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -78,8 +78,8 @@ public class SampleService : ISampleService
             Name = entity.Name,
             Description = entity.Description,
             IsActive = entity.IsActive,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = entity.UpdatedAt
+            CreatedAt = entity.CreatedDate,
+            UpdatedAt = entity.UpdatedDate
         };
     }
 }
