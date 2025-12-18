@@ -32,7 +32,7 @@ public class SampleServiceTests
             Name = "Test",
             Description = "Test Description",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -69,8 +69,8 @@ public class SampleServiceTests
         // Arrange
         var entities = new List<SampleEntity>
         {
-            new() { Id = 1, Name = "Test1", Description = "Desc1", IsActive = true, CreatedDate = DateTime.UtcNow },
-            new() { Id = 2, Name = "Test2", Description = "Desc2", IsActive = false, CreatedDate = DateTime.UtcNow }
+            new() { Id = 1, Name = "Test1", Description = "Desc1", IsActive = true, CreatedAt = DateTime.UtcNow },
+            new() { Id = 2, Name = "Test2", Description = "Desc2", IsActive = false, CreatedAt = DateTime.UtcNow }
         };
 
         _mockRepository.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
@@ -101,7 +101,7 @@ public class SampleServiceTests
             Name = createDto.Name,
             Description = createDto.Description,
             IsActive = createDto.IsActive,
-            CreatedDate = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         };
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<SampleEntity>(), It.IsAny<CancellationToken>()))
@@ -139,7 +139,7 @@ public class SampleServiceTests
             Name = "Old Name",
             Description = "Old Description",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))

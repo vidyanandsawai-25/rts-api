@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
@@ -45,9 +44,12 @@ public class Repository<T> : IRepository<T> where T : BaseEntity
 
     public virtual async Task DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var rows = await _dbSet
-       .Where(e => e.Id == id)
-       .ExecuteDeleteAsync(cancellationToken);
+        var entity = await GetByIdAsync(id, cancellationToken);
+        if (entity != null)
+        {
+            entity.IsDeleted = true;
+            await UpdateAsync(entity, cancellationToken);
+        }
     }
 
     public virtual async Task<bool> ExistsAsync(int id, CancellationToken cancellationToken = default)

@@ -30,9 +30,6 @@ public static class ServiceCollectionExtensions
         // Application Layer - Services
         services.AddScoped<ISampleService, SampleService>();
         services.AddScoped<IServiceManagementService, ServiceManagementService>();
-        services.AddScoped<IPTISConstructionTypeMasterService, PTISConstructionTypeMasterService>();
-        services.AddScoped<IPTISFloorMasterService, PTISFloorMasterService>();
-
 
         // API Layer - Controllers, Swagger, CORS
         services.AddControllers();

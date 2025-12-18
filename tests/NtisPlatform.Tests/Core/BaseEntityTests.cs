@@ -20,11 +20,11 @@ public class BaseEntityTests
 
         // Assert
         Assert.Equal(0, entity.Id);
-        Assert.Equal(default(DateTime), entity.CreatedDate);
-        Assert.Null(entity.UpdatedDate);
+        Assert.Equal(default(DateTime), entity.CreatedAt);
+        Assert.Null(entity.UpdatedAt);
         Assert.Null(entity.CreatedBy);
         Assert.Null(entity.UpdatedBy);
-        //Assert.False(entity.IsDeleted);
+        Assert.False(entity.IsDeleted);
     }
 
     [Fact]
@@ -36,18 +36,18 @@ public class BaseEntityTests
 
         // Act
         entity.Id = 1;
-        entity.CreatedDate = now;
-        entity.UpdatedDate = now;
+        entity.CreatedAt = now;
+        entity.UpdatedAt = now;
         entity.CreatedBy = "admin";
         entity.UpdatedBy = "admin";
-        //entity.IsDeleted = true;
+        entity.IsDeleted = true;
 
         // Assert
         Assert.Equal(1, entity.Id);
-        Assert.Equal(now, entity.CreatedDate);
-        Assert.Equal(now, entity.UpdatedDate);
+        Assert.Equal(now, entity.CreatedAt);
+        Assert.Equal(now, entity.UpdatedAt);
         Assert.Equal("admin", entity.CreatedBy);
         Assert.Equal("admin", entity.UpdatedBy);
-        //Assert.True(entity.IsDeleted);
+        Assert.True(entity.IsDeleted);
     }
 }
