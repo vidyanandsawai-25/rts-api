@@ -4,7 +4,9 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="$(MicrosoftPackageVersion)" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftPackageVersion)" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="$(SwashbuckleVersion)" />
+    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
   </ItemGroup>
 
   <ItemGroup>

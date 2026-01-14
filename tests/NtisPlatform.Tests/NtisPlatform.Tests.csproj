@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftTestSdkVersion)" />
+    <PackageReference Include="MockQueryable.EntityFrameworkCore" Version="10.0.1" />
     <PackageReference Include="Moq" Version="$(MoqVersion)" />
     <PackageReference Include="xunit" Version="$(XunitVersion)" />
     <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVersion)" />

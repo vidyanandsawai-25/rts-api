@@ -1,0 +1,90 @@
+### Variables
+@baseUrl = http://localhost:5268
+@accessToken = 
+@refreshToken = 
+
+### ============================================
+### AUTHENTICATION APIs
+### ============================================
+
+### 1. Login
+# @name login
+POST {{baseUrl}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Admin@123",
+  "clientType": 1,
+  "authProvider": 1,
+  "device": {
+    "deviceName": "REST Client",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "VSCode REST Client"
+  }
+}
+
+### Extract tokens from login response
+@accessToken = {{login.response.body.accessToken}}
+@refreshToken = {{login.response.body.refreshToken}}
+
+### 2. Refresh Token
+# @name refresh
+POST {{baseUrl}}/api/Auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}",
+  "device": {
+    "deviceName": "REST Client",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "VSCode REST Client"
+  }
+}
+
+### Update tokens from refresh response
+@accessToken = {{refresh.response.body.accessToken}}
+@refreshToken = {{refresh.response.body.refreshToken}}
+
+### 3. Validate Session
+# @name validateSession
+POST {{baseUrl}}/api/Auth/validate-session
+Content-Type: application/json
+
+{
+  "accessToken": "{{accessToken}}"
+}
+
+### 4. Logout
+# @name logout
+POST {{baseUrl}}/api/Auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+### ============================================
+### Quick Test Scenarios
+### ============================================
+
+### Scenario 1: Complete Auth Flow
+# 1. Run Login request
+# 2. Tokens will auto-populate from response
+# 3. Run other authenticated requests
+
+### Scenario 2: Test with Different Users
+POST {{baseUrl}}/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "password": "Test@123",
+  "clientType": 1,
+  "authProvider": 1,
+  "device": {
+    "deviceName": "REST Client",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "VSCode REST Client"
+  }
+}

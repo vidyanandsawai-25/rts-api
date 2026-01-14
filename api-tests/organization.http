@@ -1,0 +1,65 @@
+### Variables
+@baseUrl = https://localhost:44346
+@accessToken = your-access-token-here
+
+### ============================================
+### ORGANIZATION APIs
+### ============================================
+
+### 1. Check Setup Status (Public)
+# @name setupStatus
+GET {{baseUrl}}/api/Organization/setup-status
+Content-Type: application/json
+
+### 2. Complete Initial Setup (Public, One-time)
+# @name initialSetup
+POST {{baseUrl}}/api/Organization/initial-setup
+Content-Type: application/json
+
+{
+  "organizationName": "Mumbai Municipal Corporation",
+  "primaryContactEmail": "contact@mumbai.gov.in",
+  "primaryContactPhone": "+91-22-12345678",
+  "address": "Municipal Building, Fort",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "postalCode": "400001",
+  "country": "India",
+  "adminUsername": "admin",
+  "adminPassword": "Admin@123",
+  "adminEmail": "admin@mumbai.gov.in",
+  "adminFirstName": "System",
+  "adminLastName": "Administrator"
+}
+
+### 3. Get Organization Info (Public)
+# @name orgInfo
+GET {{baseUrl}}/api/Organization/info
+Content-Type: application/json
+
+### 4. Get Organization Details (SuperAdmin Only)
+# @name getOrganization
+GET {{baseUrl}}/api/Organization
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+### 5. Update Organization (SuperAdmin Only)
+# @name updateOrganization
+PUT {{baseUrl}}/api/Organization
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "name": "Mumbai Municipal Corporation",
+  "logoUrl": "/uploads/logos/mumbai-logo.png",
+  "primaryContactEmail": "contact@mumbai.gov.in",
+  "primaryContactPhone": "+91-22-12345678",
+  "websiteUrl": "https://mumbai.gov.in",
+  "address": "Municipal Building, Fort",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "postalCode": "400001",
+  "country": "India",
+  "description": "Municipal Corporation serving Mumbai city",
+  "taxId": "GST123456789"
+}

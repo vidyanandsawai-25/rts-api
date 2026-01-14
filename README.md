@@ -11,6 +11,7 @@ Enterprise-grade .NET 10 server-side API application built with clean architectu
 - [Configuration](#configuration)
 - [Running the Application](#running-the-application)
 - [Database Migrations](#database-migrations)
+- [API Testing](#api-testing)
 - [Running Tests](#running-tests)
 - [Deployment](#deployment)
 - [Authentication](#authentication)
@@ -214,6 +215,70 @@ dotnet ef database update --startup-project ../NtisPlatform.Api/NtisPlatform.Api
 cd src/NtisPlatform.Infrastructure
 dotnet ef migrations remove --startup-project ../NtisPlatform.Api/NtisPlatform.Api.csproj
 ```
+
+## 🧪 API Testing
+
+The project includes REST Client test files for easy API testing directly in VS Code.
+
+### Setup
+
+1. Install the **REST Client** extension in VS Code:
+   - Extension ID: `humao.rest-client`
+   - Or search "REST Client" by Huachao Mao in VS Code Extensions
+
+2. Navigate to the `api-tests/` folder for all test files
+
+### Available Test Files
+
+- **auth.http** - Authentication endpoints (login, refresh, logout, validate session)
+- **organization.http** - Organization management endpoints
+- **README.md** - Detailed usage guide and tips
+
+### Quick Start
+
+1. Open any `.http` file (e.g., `api-tests/auth.http`)
+2. Click **Send Request** above any endpoint
+3. Or press `Ctrl+Alt+R` (Windows) or `Cmd+Alt+R` (Mac)
+4. View response in split panel
+
+### Example: Test Login Flow
+
+```http
+### Login
+# @name login
+POST http://localhost:5000/api/Auth/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "Admin@123",
+  "authProvider": "Basic",
+  "clientType": "Web",
+  "device": {
+    "deviceName": "REST Client",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "VSCode REST Client"
+  }
+}
+
+### Extract token from response
+@accessToken = {{login.response.body.accessToken}}
+
+### Use token in authenticated request
+GET http://localhost:5000/api/Organization
+Authorization: Bearer {{accessToken}}
+```
+
+### Benefits
+
+- ✅ Version controlled with your code
+- ✅ No separate app required
+- ✅ Auto-extract tokens from responses
+- ✅ Share with team via Git
+- ✅ Works offline
+- ✅ Plain text format
+
+See `api-tests/README.md` for detailed documentation.
 
 ## 🧪 Running Tests
 

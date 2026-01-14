@@ -12,3 +12,11 @@ public abstract class BaseEntity
     public string? UpdatedBy { get; set; }
     public bool IsDeleted { get; set; }
 }
+public abstract class CommonBaseEntity
+{
+ 
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? UpdatedDate { get; set; }
+    public int? CreatedBy { get; set; }
+    public int? UpdatedBy { get; set; }
+}

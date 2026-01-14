@@ -1,6 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
@@ -23,9 +21,6 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Infrastructure Layer - Repositories
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
-// Application Layer - Services
-builder.Services.AddScoped<ISampleService, SampleService>();
 
 // Add the background worker
 builder.Services.AddHostedService<Worker>();

@@ -1,9 +1,20 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
+using Microsoft.IdentityModel.Tokens;
+using NtisPlatform.Api.Controllers.Master;
+using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Auth;
+using NtisPlatform.Application.Resources;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Infrastructure.Services.Auth;
+using System.Text;
 
 namespace NtisPlatform.Api.Extensions;
 
@@ -17,29 +28,59 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddAllServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Infrastructure Layer - Database
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
+        // Infrastructure Layer - Database (Single deployment per organization)
+        services.AddHttpContextAccessor();
+
+        // Register organization context (reads from config at deployment)
+        // Register DbContext with single connection string
+        services.AddDbContext<ApplicationDbContext>((sp, options) =>
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            options.UseSqlServer(connectionString);
+        });
 
         // Infrastructure Layer - Repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
 
+        // Authentication Services
+        services.AddScoped<IPasswordHasher, Infrastructure.Services.Auth.PasswordHasher>();
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
+        services.AddScoped<IAuthService, AuthService>();
+
+        // Authentication Providers
+        services.AddScoped<IAuthenticationProvider, BasicAuthProvider>();
+        // TODO: Add other providers when implemented
+        // services.AddScoped<IAuthenticationProvider, AzureAdAuthProvider>();
+        // services.AddScoped<IAuthenticationProvider, GoogleAuthProvider>();
+
         // Application Layer - Services
-        services.AddScoped<ISampleService, SampleService>();
-        services.AddScoped<IServiceManagementService, ServiceManagementService>();
+        services.AddScoped<IOrganizationService, OrganizationService>();
+        services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
+
+        // CRUD Services
+        services.AddScoped<IFloorService, FloorService>();
+        services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
+        services.AddScoped<ISubFloorService, SubFloorService>();
+        services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
+
+        // Localization (DB-backed)
+        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
+        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();
+
+        // AutoMapper
+        services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
 
         // API Layer - Controllers, Swagger, CORS
         services.AddControllers();
         services.AddEndpointsApiExplorer();
-        
+
         services.AddSwaggerGen(options =>
         {
-            options.SwaggerDoc("v1", new() 
-            { 
-                Title = "NTIS Platform API", 
+            options.SwaggerDoc("v1", new()
+            {
+                Title = "NTIS Platform API",
                 Version = "v1",
                 Description = "Enterprise-grade .NET API with clean architecture",
                 Contact = new() { Name = "NTIS Platform Team" }
@@ -60,31 +101,105 @@ public static class ServiceCollectionExtensions
         {
             options.AddPolicy("AllowAll", policy =>
             {
-                policy.AllowAnyOrigin()
+                policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                       .AllowAnyMethod()
-                      .AllowAnyHeader();
+                      .AllowAnyHeader()
+                      .AllowCredentials(); // Required for cookies
             });
-
-            // TODO: Configure production CORS policy
-            // options.AddPolicy("Production", policy =>
-            // {
-            //     policy.WithOrigins("https://yourdomain.com")
-            //           .AllowAnyMethod()
-            //           .AllowAnyHeader();
-            // });
         });
 
-        // TODO: Add authentication
-        // services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        //     .AddJwtBearer(options => { ... });
+        // JWT Authentication
+        var jwtKey = configuration.GetValue<string>("Jwt:Key")
+            ?? throw new InvalidOperationException("JWT key not configured");
 
-        // TODO: Add caching
-        // services.AddMemoryCache();
-        // services.AddResponseCaching();
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ValidateIssuer = true,
+                ValidIssuer = configuration.GetValue<string>("Jwt:Issuer"),
+                ValidateAudience = true,
+                ValidAudience = configuration.GetValue<string>("Jwt:Audience"),
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
 
-        // TODO: Add health checks
-        // services.AddHealthChecks()
-        //     .AddDbContextCheck<ApplicationDbContext>();
+            // Support reading token from cookie for web clients
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var token = context.Request.Cookies["session_token"];
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        context.Token = token;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+        services.AddAuthorization();
+
+        // Rate Limiting (ASP.NET Core 7+)
+        services.AddRateLimiter(options =>
+        {
+            // Global default policy for all endpoints (unless overridden)
+            options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new System.Threading.RateLimiting.SlidingWindowRateLimiterOptions
+                    {
+                        PermitLimit = 100, // 100 requests
+                        Window = TimeSpan.FromMinutes(1), // per minute
+                        SegmentsPerWindow = 6, // 6 segments (10 seconds each)
+                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0
+                    }));
+
+            // Stricter fixed window rate limiter for login endpoint
+            options.AddPolicy("login", context =>
+                System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5, // 5 attempts
+                        Window = TimeSpan.FromMinutes(15), // per 15 minutes
+                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                        QueueLimit = 0 // No queueing
+                    }));
+
+            // On rejection, return 429 Too Many Requests
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+                var retryAfterSeconds = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
+                    ? (double?)retryAfter.TotalSeconds
+                    : null;
+
+                await context.HttpContext.Response.WriteAsJsonAsync(new
+                {
+                    error = "Too Many Requests",
+                    message = "Rate limit exceeded. Please try again later.",
+                    retryAfter = retryAfterSeconds
+                }, cancellationToken);
+            };
+        });
+
+        // Caching
+        services.AddMemoryCache();
+        services.AddResponseCaching();
+
+        // Health checks
+        services.AddHealthChecks();
 
         return services;
     }

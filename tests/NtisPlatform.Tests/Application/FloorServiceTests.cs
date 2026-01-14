@@ -1,0 +1,355 @@
+﻿using AutoMapper;
+using MockQueryable;
+using Moq;
+using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace NtisPlatform.Tests.Application;
+
+    public class FloorServiceTests
+    {
+    private readonly Mock<IRepository<FloorEntity, string>> _mockRepository;
+    private readonly Mock<IUnitOfWork> _mockUnitOfWork;
+    private readonly Mock<IMapper> _mockMapper;
+    private readonly FloorService _service;
+
+    public FloorServiceTests()
+    {
+        _mockRepository = new Mock<IRepository<FloorEntity, string>>();
+        _mockUnitOfWork = new Mock<IUnitOfWork>();
+        _mockMapper = new Mock<IMapper>();
+
+        // Service is calling SaveChangesAsync (NOT transactions), so setup SaveChangesAsync.
+        // If your SaveChangesAsync returns Task (not Task<int>), change ReturnsAsync(1) to Returns(Task.CompletedTask).
+        _mockUnitOfWork
+            .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Optional: keep these setups if your interface has them (harmless even if not called)
+        _mockUnitOfWork
+            .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork
+            .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _service = new FloorService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_ExistingId_ReturnsDto()
+    {
+        // Arrange
+        var entity = new FloorEntity
+        {
+            FloorID = "1",
+            Description = "1 st",
+            DescriptionEnglish = "1 st",
+            MaxFloorNo = 2,
+            SequenceNo = 1,
+            CreatedDate = DateTime.UtcNow,
+            CreatedBy = 31,
+            UpdatedDate = DateTime.UtcNow,
+            UpdatedBy = 31
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+
+        _mockMapper.Setup(m => m.Map<FloorDto>(It.IsAny<FloorEntity>()))
+            .Returns(new FloorDto
+            {
+                FloorID = "1",
+                Description = "1 st",
+                DescriptionEnglish = "1 st",
+                MaxFloorNo = 2,
+                SequenceNo = 1
+            });
+
+        // Act
+        var result = await _service.GetByIdAsync("1");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("1", result.FloorID);
+        Assert.Equal("1 st", result.Description);
+        Assert.Equal("1 st", result.DescriptionEnglish);
+        Assert.Equal(2, result.MaxFloorNo);
+        Assert.Equal(1, result.SequenceNo);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_NonExistingId_ReturnsNull()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity?)null);
+
+        // Act
+        var result = await _service.GetByIdAsync("9999");
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ReturnsAllEntities()
+    {
+        // Arrange
+        var entities = new List<FloorEntity>
+        {
+            new() { FloorID = "1", Description = "Test1", DescriptionEnglish = "Desc1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.UtcNow },
+            new() { FloorID = "2", Description = "Test2", DescriptionEnglish = "Desc2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.UtcNow },
+        };
+
+        var mockQuery = entities.BuildMock(); // async IQueryable
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+
+        var mapperConfig = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<FloorEntity, FloorDto>();
+        });
+
+        mapperConfig.AssertConfigurationIsValid();
+        IMapper mapper = mapperConfig.CreateMapper();
+
+        var service = new FloorService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            mapper);
+
+        var qp = new FloorQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+            SearchTerm = null!,
+            SortBy = null!
+        };
+
+        // Act
+        var result = await service.GetAllAsync(qp, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Contains(items, x => x.FloorID == "1");
+        Assert.Contains(items, x => x.FloorID == "2");
+    }
+
+    [Fact]
+    public async Task CreateAsync_ValidDto_ReturnsCreatedDto()
+    {
+        // Arrange
+        var createDto = new CreateFloorDto
+        {
+            FloorID = "1",
+            Description = "New Description",
+            DescriptionEnglish = "New English Description",
+            MaxFloorNo = 1,
+            SequenceNo = 1
+        };
+
+        _mockMapper
+            .Setup(m => m.Map<FloorEntity>(It.IsAny<CreateFloorDto>()))
+            .Returns((CreateFloorDto dto) => new FloorEntity
+            {
+                FloorID = dto.FloorID,
+                Description = dto.Description,
+                DescriptionEnglish = dto.DescriptionEnglish,
+                MaxFloorNo = dto.MaxFloorNo,
+                SequenceNo = dto.SequenceNo,
+                CreatedBy = 31,
+                CreatedDate = DateTime.UtcNow
+            });
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity e, CancellationToken _) => e);
+
+        _mockMapper
+            .Setup(m => m.Map<FloorDto>(It.IsAny<FloorEntity>()))
+            .Returns((FloorEntity e) => new FloorDto
+            {
+                FloorID = e.FloorID,
+                Description = e.Description,
+                DescriptionEnglish = e.DescriptionEnglish,
+                MaxFloorNo = e.MaxFloorNo,
+                SequenceNo = e.SequenceNo
+            });
+
+        // Act
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("1", result.FloorID);
+        Assert.Equal("New Description", result.Description);
+        Assert.Equal("New English Description", result.DescriptionEnglish);
+        Assert.Equal(1, result.MaxFloorNo);
+        Assert.Equal(1, result.SequenceNo);
+
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        // Service calls SaveChangesAsync (based on your test output)
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        // Not called by service (based on your test output)
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ExistingEntity_UpdatesSuccessfully()
+    {
+        // Arrange
+        var updateDto = new UpdateFloorDto
+        {
+            FloorID="1",
+            Description = "New Description",
+            DescriptionEnglish = "New English Description",
+            MaxFloorNo = 1,
+            SequenceNo = 1
+        };
+
+        var existingEntity = new FloorEntity
+        {
+            FloorID = "1",
+            Description = "Old Description",
+            DescriptionEnglish = "Old English Description",
+            MaxFloorNo = 1,
+            SequenceNo = 1
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateFloorDto>(), It.IsAny<FloorEntity>()))
+            .Callback((UpdateFloorDto src, FloorEntity dest) =>
+            {
+                dest.Description = src.Description;
+                dest.DescriptionEnglish = src.DescriptionEnglish;
+            });
+
+        // Act
+        await _service.UpdateAsync("1", updateDto, CancellationToken.None);
+
+        // Assert
+        _mockRepository.Verify(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+
+        Assert.Equal("New Description", existingEntity.Description);
+        Assert.Equal("New English Description", existingEntity.DescriptionEnglish);
+        Assert.Equal("1", existingEntity.FloorID);
+        Assert.Equal(1, existingEntity.MaxFloorNo);
+        Assert.Equal(1, existingEntity.SequenceNo);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
+    {
+        // Arrange
+        var updateDto = new UpdateFloorDto
+        {
+            FloorID = "1",
+            Description = "Description",
+            DescriptionEnglish = "English Description",
+            MaxFloorNo = 1,
+            SequenceNo = 1
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity?)null);
+
+        // Act
+        await _service.UpdateAsync("9999", updateDto, CancellationToken.None);
+
+        // Assert
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
+    {
+        // Arrange
+        var idToDelete = "9999";
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity?)null);
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.False(result);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
+    {
+        // Arrange
+        var idToDelete = "A";
+
+        var existingEntity = new FloorEntity
+        {
+            FloorID = idToDelete,
+            Description = "Old Description",
+            DescriptionEnglish = "Old English Description",
+            MaxFloorNo = 1,
+            SequenceNo = 1
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+}
+
