@@ -1,28 +1,31 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- All common properties are inherited from Directory.Build.props -->
+	<!-- All common properties are inherited from Directory.Build.props -->
 
-  <PropertyGroup>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftTestSdkVersion)" />
-    <PackageReference Include="MockQueryable.EntityFrameworkCore" Version="10.0.1" />
-    <PackageReference Include="Moq" Version="$(MoqVersion)" />
-    <PackageReference Include="xunit" Version="$(XunitVersion)" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVersion)" />
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />
+		<PackageReference Include="FluentAssertions" Version="8.8.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.2" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftTestSdkVersion)" />
+		<PackageReference Include="MockQueryable.EntityFrameworkCore" Version="10.0.1" />
+		<PackageReference Include="MockQueryable.Moq" Version="10.0.1" />
+		<PackageReference Include="Moq" Version="$(MoqVersion)" />
+		<PackageReference Include="xunit" Version="$(XunitVersion)" />
+		<PackageReference Include="xunit.runner.visualstudio" Version="$(XunitRunnerVersion)" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
+	<ItemGroup>
+		<Using Include="Xunit" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
-    <ProjectReference Include="..\..\src\Application\NtisPlatform.Application\NtisPlatform.Application.csproj" />
-    <ProjectReference Include="..\..\src\Infrastructure\NtisPlatform.Infrastructure\NtisPlatform.Infrastructure.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
+		<ProjectReference Include="..\..\src\Application\NtisPlatform.Application\NtisPlatform.Application.csproj" />
+		<ProjectReference Include="..\..\src\Infrastructure\NtisPlatform.Infrastructure\NtisPlatform.Infrastructure.csproj" />
+	</ItemGroup>
 
 </Project>

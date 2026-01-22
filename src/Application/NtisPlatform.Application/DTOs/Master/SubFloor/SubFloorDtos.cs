@@ -8,6 +8,7 @@ public class SubFloorDto
     public string? SubFloorDescription { get; set; }
     public string? SubFloorDescriptionEnglish { get; set; }
     public decimal? SubFloorPercentage { get; set; }
+    public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }
@@ -26,6 +27,7 @@ public class CreateSubFloorDto
     public string? SubFloorDescriptionEnglish { get; set; }
 
     public decimal? SubFloorPercentage { get; set; }
+    public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
 }
 
@@ -38,10 +40,12 @@ public class UpdateSubFloorDto
 
     [StringLength(200)]
     public string? SubFloorDescription { get; set; }
-    [StringLength(200)]
-    public decimal? SubFloorPercentage { get; set; }
+
     [StringLength(200)]
     public string? SubFloorDescriptionEnglish { get; set; }
+
+    public decimal? SubFloorPercentage { get; set; }
+    public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
 
 }

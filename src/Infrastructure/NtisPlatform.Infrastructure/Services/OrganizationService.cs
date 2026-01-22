@@ -63,7 +63,7 @@ public class OrganizationService : IOrganizationService
         existing.Name = organization.Name;
         existing.IsActive = organization.IsActive;
         existing.IsSetupComplete = organization.IsSetupComplete;
-        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdatedAt = DateTime.Now;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -88,8 +88,8 @@ public class OrganizationService : IOrganizationService
         }
 
         // Create new organization
-        organization.CreatedAt = DateTime.UtcNow;
-        organization.UpdatedAt = DateTime.UtcNow;
+        organization.CreatedAt = DateTime.Now;
+        organization.UpdatedAt = DateTime.Now;
 
         _context.Organizations.Add(organization);
         await _context.SaveChangesAsync(cancellationToken);
@@ -124,8 +124,8 @@ public class OrganizationService : IOrganizationService
         // Create or update organization (only core fields)
         if (existing == null)
         {
-            organization.CreatedAt = DateTime.UtcNow;
-            organization.UpdatedAt = DateTime.UtcNow;
+            organization.CreatedAt = DateTime.Now;
+            organization.UpdatedAt = DateTime.Now;
             organization.IsSetupComplete = true;
             organization.IsActive = true;
 
@@ -135,7 +135,7 @@ public class OrganizationService : IOrganizationService
         {
             existing.Name = organization.Name;
             existing.IsSetupComplete = true;
-            existing.UpdatedAt = DateTime.UtcNow;
+            existing.UpdatedAt = DateTime.Now;
             
             organization = existing;
         }
@@ -146,7 +146,7 @@ public class OrganizationService : IOrganizationService
 
         if (existingUser == null)
         {
-            adminUser.CreatedAt = DateTime.UtcNow;
+            adminUser.CreatedAt = DateTime.Now;
             adminUser.IsActive = true;
             adminUser.RequiresTwoFactor = false;
             
@@ -161,7 +161,7 @@ public class OrganizationService : IOrganizationService
                 {
                     UserId = adminUser.Id,
                     RoleId = superAdminRole.Id,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now
                 };
                 _context.UserRoles.Add(userRole);
             }
@@ -190,7 +190,7 @@ public class OrganizationService : IOrganizationService
             if (existingSetting != null)
             {
                 existingSetting.Value = setting.Value;
-                existingSetting.UpdatedAt = DateTime.UtcNow;
+                existingSetting.UpdatedAt = DateTime.Now;
                 updatedCount++;
             }
             else
@@ -202,8 +202,8 @@ public class OrganizationService : IOrganizationService
                     Value = setting.Value,
                     DataType = "String", // Default to string
                     Category = DetermineCategory(setting.Key),
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
                 };
                 _context.OrganizationSettings.Add(newSetting);
                 updatedCount++;

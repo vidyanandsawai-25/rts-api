@@ -40,7 +40,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.ConstructionId);
             entity.Property(e => e.Description);
             entity.Property(e => e.DescriptionEnglish);
-            entity.Property(e => e.GroupID);
             entity.Property(e => e.KeyboardShortCutKey);
             entity.Property(e => e.KeyWiseSequence);
             entity.Property(e => e.CreatedBy);

@@ -50,7 +50,7 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         // Set UpdatedDate for CommonBaseEntity
         if (entity is CommonBaseEntity commonEntity)
         {
-            commonEntity.UpdatedDate = DateTime.UtcNow;
+            commonEntity.UpdatedDate = DateTime.Now;
         }
         
         _dbSet.Update(entity);

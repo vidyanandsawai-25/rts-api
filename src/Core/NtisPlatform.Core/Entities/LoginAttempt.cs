@@ -13,7 +13,7 @@ public class LoginAttempt : BaseEntity
     public string? FailureReason { get; set; }
     public string? AuthProvider { get; set; }
     public string? ClientType { get; set; }
-    public DateTime AttemptedAt { get; set; } = DateTime.UtcNow;
+    public DateTime AttemptedAt { get; set; } = DateTime.Now;
 
     // Navigation properties
     public virtual User? User { get; set; }

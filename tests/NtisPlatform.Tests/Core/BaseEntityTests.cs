@@ -32,7 +32,7 @@ public class BaseEntityTests
     {
         // Arrange
         var entity = new TestEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         // Act
         entity.Id = 1;

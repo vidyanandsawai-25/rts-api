@@ -4,17 +4,14 @@ namespace NtisPlatform.Application.DTOs;
 
 public class ConstructionTypeDto
 {
-    public string ConstructionId { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string DescriptionEnglish { get; set; } = string.Empty;
-    public string GroupID { get; set; } = string.Empty;
-    public string KeyboardShortCutKey { get; set; } = string.Empty;
+    public string? ConstructionId { get; set; } = string.Empty;
+    public string? Description { get; set; } = string.Empty;
+    public string? DescriptionEnglish { get; set; } = string.Empty;
+    public string? KeyboardShortCutKey { get; set; } = string.Empty;
     public int? KeyWiseSequence { get; set; }
-
+    public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
-    public int? CreatedBy { get; set; }
-    public int? UpdatedBy { get; set; }
 }
 
 public class CreateConstructionTypeDto
@@ -30,13 +27,12 @@ public class CreateConstructionTypeDto
     [StringLength(100, ErrorMessage = "Construction_DescriptionEnglish_MaxLen_100")]
     public string DescriptionEnglish { get; set; } = string.Empty;
 
-    [StringLength(50, ErrorMessage = "Construction_GroupID_MaxLen_50")]
-    public string GroupID { get; set; } = string.Empty;
 
     [StringLength(20, ErrorMessage = "Construction_KeyboardShortCutKey_MaxLen_20")]
     public string KeyboardShortCutKey { get; set; } = string.Empty;
 
     public int? KeyWiseSequence { get; set; }
+    public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
 }
 
@@ -53,12 +49,9 @@ public class UpdateConstructionTypeDto
     [StringLength(100, ErrorMessage = "Construction_DescriptionEnglish_MaxLen_100")]
     public string DescriptionEnglish { get; set; } = string.Empty;
 
-    [StringLength(50, ErrorMessage = "Construction_GroupID_MaxLen_50")]
-    public string GroupID { get; set; } = string.Empty;
-
     [StringLength(20, ErrorMessage = "Construction_KeyboardShortCutKey_MaxLen_20")]
     public string KeyboardShortCutKey { get; set; } = string.Empty;
-
     public int? KeyWiseSequence { get; set; }
+    public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
 }

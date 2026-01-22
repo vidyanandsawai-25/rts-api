@@ -7,7 +7,7 @@ public class MultilingualDetailsDtos
     public string? Key { get; set; } = string.Empty;
     public string? Culture { get; set; } = string.Empty;
     public string? Value { get; set; } = string.Empty;
-
+    public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }
@@ -19,7 +19,7 @@ public class CreateMultilingualDetailsDtos
     public string? Key { get; set; } = string.Empty;
     public string? Culture { get; set; } = string.Empty;
     public string? Value { get; set; } = string.Empty;
-
+    public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
 }
 
@@ -30,5 +30,6 @@ public class UpdateMultilingualDetailsDtos
     public string? Key { get; set; } = string.Empty;
     public string? Culture { get; set; } = string.Empty;
     public string? Value { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
 }

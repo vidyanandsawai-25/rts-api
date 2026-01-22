@@ -1,53 +1,71 @@
 name: CI Build and Test
 
 on:
-    pull_request:
-        branches: 
-        - 'main*'
-        - 'dev*'
-        - 'feature*'
+  pull_request:
+    branches:
+      - 'main*'
+      - 'dev*'
+      - 'feature*'
+
 jobs:
   build-and-test:
     runs-on: [self-hosted, ci]
-    
+
     defaults:
       run:
         shell: powershell -ExecutionPolicy Bypass -Command "& '{0}'"
-    
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        clean: false
-    
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '10.0.x'
-    
-    - name: Restore dependencies
-      run: dotnet restore NtisPlatform.sln
-    
-    - name: Build solution
-      run: dotnet build NtisPlatform.sln --configuration Release --no-restore
-    
-    - name: Run tests with coverage
-      run: dotnet test NtisPlatform.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
-    
-    - name: Install ReportGenerator
-      run: dotnet tool install --global dotnet-reportgenerator-globaltool
-    
-    - name: Generate Coverage Report
-      run: |
-        $coverageFile = (Get-ChildItem -Path ./coverage -Recurse -Filter "coverage.cobertura.xml" | Select-Object -First 1).FullName
-        reportgenerator "-reports:$coverageFile" "-targetdir:./coveragereport" "-reporttypes:MarkdownSummaryGithub;Cobertura"
-        Copy-Item ./coveragereport/SummaryGithub.md ./code-coverage-results.md
-    
-    - name: Add Coverage PR Comment
-      uses: marocchino/sticky-pull-request-comment@v2
-      if: github.event_name == 'pull_request'
-      with:
-        recreate: true
-        path: code-coverage-results.md
-    
-    - name: Write to Job Summary
-      run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+      - uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Clean coverage artifacts (self-hosted safety)
+        run: |
+          Remove-Item -Recurse -Force ./coverage, ./coveragereport, ./code-coverage-results.md -ErrorAction SilentlyContinue
+
+      - name: Restore dependencies
+        run: dotnet restore NtisPlatform.sln
+
+      - name: Build solution
+        run: dotnet build NtisPlatform.sln --configuration Release --no-restore
+
+      - name: Run tests with coverage
+        run: dotnet test NtisPlatform.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory "./coverage/${{ github.run_id }}"
+
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate Coverage Report
+        run: |
+          Write-Host "Searching for coverage files under ./coverage/${{ github.run_id }} ..."
+          $coverageFiles = Get-ChildItem -Path "./coverage/${{ github.run_id }}" -Recurse -Filter "coverage.cobertura.xml" |
+            Sort-Object LastWriteTime -Descending
+
+          $coverageFiles | Select-Object FullName, LastWriteTime | Format-Table -AutoSize
+
+          if (-not $coverageFiles -or $coverageFiles.Count -eq 0) {
+            throw "No coverage.cobertura.xml found under ./coverage/${{ github.run_id }}. Coverage collection failed."
+          }
+
+          $coverageFile = $coverageFiles[0].FullName
+          Write-Host "Using coverage file: $coverageFile"
+
+          reportgenerator "-reports:$coverageFile" "-targetdir:./coveragereport" "-reporttypes:MarkdownSummaryGithub;Cobertura"
+
+          Copy-Item ./coveragereport/SummaryGithub.md ./code-coverage-results.md -Force
+
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: github.event_name == 'pull_request'
+        with:
+          recreate: true
+          path: code-coverage-results.md
+
+      - name: Write to Job Summary
+        run: Get-Content code-coverage-results.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

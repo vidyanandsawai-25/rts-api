@@ -35,8 +35,10 @@ namespace NtisPlatform.Application.Resources
                 // IMPORTANT: This must return ALL rows for that resource & culture (non-paged).
                 var rows = await _service.GetAllForLocalizationAsync(resource, culture, ct);
 
-                // Build dictionary: Key -> Value
-                return rows.ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
+                // Build dictionary: Key -> Value, excluding rows with null or empty keys or values
+                return rows
+                    .Where(x => !string.IsNullOrWhiteSpace(x.Key) && !string.IsNullOrWhiteSpace(x.Value))
+                    .ToDictionary(x => x.Key, x => x.Value, StringComparer.OrdinalIgnoreCase);
             })!;
         }
 

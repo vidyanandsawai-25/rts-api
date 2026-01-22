@@ -11,8 +11,8 @@ using System.Text;
 
 namespace NtisPlatform.Tests.Application;
 
-    public class FloorServiceTests
-    {
+public class FloorServiceTests
+{
     private readonly Mock<IRepository<FloorEntity, string>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
@@ -53,10 +53,11 @@ namespace NtisPlatform.Tests.Application;
             DescriptionEnglish = "1 st",
             MaxFloorNo = 2,
             SequenceNo = 1,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             CreatedBy = 31,
-            UpdatedDate = DateTime.UtcNow,
-            UpdatedBy = 31
+            UpdatedDate = DateTime.Now,
+            UpdatedBy = 31,
+            IsActive = true
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
@@ -69,7 +70,8 @@ namespace NtisPlatform.Tests.Application;
                 Description = "1 st",
                 DescriptionEnglish = "1 st",
                 MaxFloorNo = 2,
-                SequenceNo = 1
+                SequenceNo = 1,
+                IsActive = true
             });
 
         // Act
@@ -82,6 +84,7 @@ namespace NtisPlatform.Tests.Application;
         Assert.Equal("1 st", result.DescriptionEnglish);
         Assert.Equal(2, result.MaxFloorNo);
         Assert.Equal(1, result.SequenceNo);
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -104,8 +107,8 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entities = new List<FloorEntity>
         {
-            new() { FloorID = "1", Description = "Test1", DescriptionEnglish = "Desc1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.UtcNow },
-            new() { FloorID = "2", Description = "Test2", DescriptionEnglish = "Desc2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.UtcNow },
+            new() { FloorID = "1", Description = "Test1", DescriptionEnglish = "Desc1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
+            new() { FloorID = "2", Description = "Test2", DescriptionEnglish = "Desc2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -156,7 +159,8 @@ namespace NtisPlatform.Tests.Application;
             Description = "New Description",
             DescriptionEnglish = "New English Description",
             MaxFloorNo = 1,
-            SequenceNo = 1
+            SequenceNo = 1,
+            IsActive = true,
         };
 
         _mockMapper
@@ -169,7 +173,8 @@ namespace NtisPlatform.Tests.Application;
                 MaxFloorNo = dto.MaxFloorNo,
                 SequenceNo = dto.SequenceNo,
                 CreatedBy = 31,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now,
+                IsActive = true
             });
 
         _mockRepository
@@ -184,7 +189,8 @@ namespace NtisPlatform.Tests.Application;
                 Description = e.Description,
                 DescriptionEnglish = e.DescriptionEnglish,
                 MaxFloorNo = e.MaxFloorNo,
-                SequenceNo = e.SequenceNo
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive,
             });
 
         // Act
@@ -197,6 +203,7 @@ namespace NtisPlatform.Tests.Application;
         Assert.Equal("New English Description", result.DescriptionEnglish);
         Assert.Equal(1, result.MaxFloorNo);
         Assert.Equal(1, result.SequenceNo);
+        Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
@@ -214,11 +221,12 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var updateDto = new UpdateFloorDto
         {
-            FloorID="1",
+            FloorID = "1",
             Description = "New Description",
             DescriptionEnglish = "New English Description",
             MaxFloorNo = 1,
-            SequenceNo = 1
+            SequenceNo = 1,
+            IsActive = true,
         };
 
         var existingEntity = new FloorEntity
@@ -227,7 +235,8 @@ namespace NtisPlatform.Tests.Application;
             Description = "Old Description",
             DescriptionEnglish = "Old English Description",
             MaxFloorNo = 1,
-            SequenceNo = 1
+            SequenceNo = 1,
+            IsActive = true,
         };
 
         _mockRepository

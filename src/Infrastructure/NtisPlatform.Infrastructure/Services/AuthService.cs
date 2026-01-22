@@ -123,8 +123,8 @@ public class AuthService : IAuthService
                         DeviceInfo = request.Device?.DeviceName,
                         IpAddress = request.Device?.IpAddress,
                         UserAgent = request.Device?.UserAgent,
-                        ExpiresAt = DateTime.UtcNow.AddDays(30),
-                        LastUsedAt = DateTime.UtcNow
+                        ExpiresAt = DateTime.Now.AddDays(30),
+                        LastUsedAt = DateTime.Now
                     };
 
                     _context.RefreshTokens.Add(refreshTokenEntity);
@@ -183,7 +183,7 @@ public class AuthService : IAuthService
             }
 
             // Update last used timestamp
-            refreshToken.LastUsedAt = DateTime.UtcNow;
+            refreshToken.LastUsedAt = DateTime.Now;
 
             // Generate new access token
             var organization = await _organizationService.GetOrganizationAsync(cancellationToken);
@@ -201,7 +201,7 @@ public class AuthService : IAuthService
 
             // Revoke old token
             refreshToken.IsRevoked = true;
-            refreshToken.RevokedAt = DateTime.UtcNow;
+            refreshToken.RevokedAt = DateTime.Now;
             refreshToken.ReplacedByToken = newTokenHash;
 
             // Create new refresh token
@@ -213,8 +213,8 @@ public class AuthService : IAuthService
                 DeviceInfo = request.Device?.DeviceName ?? refreshToken.DeviceInfo,
                 IpAddress = request.Device?.IpAddress ?? refreshToken.IpAddress,
                 UserAgent = request.Device?.UserAgent ?? refreshToken.UserAgent,
-                ExpiresAt = DateTime.UtcNow.AddDays(30),
-                LastUsedAt = DateTime.UtcNow
+                ExpiresAt = DateTime.Now.AddDays(30),
+                LastUsedAt = DateTime.Now
             };
 
             _context.RefreshTokens.Add(newRefreshTokenEntity);
@@ -239,7 +239,7 @@ public class AuthService : IAuthService
         if (token != null)
         {
             token.IsRevoked = true;
-            token.RevokedAt = DateTime.UtcNow;
+            token.RevokedAt = DateTime.Now;
             token.RevokedByIp = ipAddress;
 
             await _context.SaveChangesAsync(cancellationToken);

@@ -19,4 +19,5 @@ public abstract class CommonBaseEntity
     public DateTime? UpdatedDate { get; set; }
     public int? CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
+    public bool IsActive { get; set; } 
 }

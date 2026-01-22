@@ -52,10 +52,11 @@ namespace NtisPlatform.Tests.Application;
             SubFloorDescription = "1 st",
             SubFloorDescriptionEnglish = "1 st",
             SubFloorPercentage = 2,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             CreatedBy = 31,
-            UpdatedDate = DateTime.UtcNow,
-            UpdatedBy = 31
+            UpdatedDate = DateTime.Now,
+            UpdatedBy = 31,
+            IsActive = true
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
@@ -67,7 +68,8 @@ namespace NtisPlatform.Tests.Application;
                 SubFloorId = "1",
                 SubFloorDescription = "1 st",
                 SubFloorDescriptionEnglish = "1 st",
-                SubFloorPercentage = 2
+                SubFloorPercentage = 2,
+                IsActive = true
             });
 
         // Act
@@ -79,6 +81,7 @@ namespace NtisPlatform.Tests.Application;
         Assert.Equal("1 st", result.SubFloorDescription);
         Assert.Equal("1 st", result.SubFloorDescriptionEnglish);
         Assert.Equal(2, result.SubFloorPercentage);
+        Assert.True(result.IsActive);
     }
 
     [Fact]
@@ -101,8 +104,8 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entities = new List<SubFloorEntity>
         {
-            new() { SubFloorId = "1", SubFloorDescription = "Test1", SubFloorDescriptionEnglish = "Desc1", SubFloorPercentage=1, CreatedBy=31, CreatedDate = DateTime.UtcNow },
-            new() { SubFloorId = "2", SubFloorDescription = "Test2", SubFloorDescriptionEnglish = "Desc2", SubFloorPercentage=2, CreatedBy=31, CreatedDate = DateTime.UtcNow },
+            new() { SubFloorId = "1", SubFloorDescription = "Test1", SubFloorDescriptionEnglish = "Desc1", SubFloorPercentage=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
+            new() { SubFloorId = "2", SubFloorDescription = "Test2", SubFloorDescriptionEnglish = "Desc2", SubFloorPercentage=2, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -164,7 +167,7 @@ namespace NtisPlatform.Tests.Application;
                 SubFloorDescriptionEnglish = dto.SubFloorDescriptionEnglish,
                 SubFloorPercentage = dto.SubFloorPercentage,
                 CreatedBy = 31,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             });
 
         _mockRepository
@@ -210,7 +213,8 @@ namespace NtisPlatform.Tests.Application;
             SubFloorId = "1",
             SubFloorDescription = "New Description",
             SubFloorDescriptionEnglish = "New English Description",
-            SubFloorPercentage = 1
+            SubFloorPercentage = 1,
+            IsActive = true
         };
 
         var existingEntity = new SubFloorEntity
@@ -218,7 +222,8 @@ namespace NtisPlatform.Tests.Application;
             SubFloorId = "1",
             SubFloorDescription = "Old Description",
             SubFloorDescriptionEnglish = "Old English Description",
-            SubFloorPercentage = 1
+            SubFloorPercentage = 1,
+            IsActive = true
         };
 
         _mockRepository
@@ -253,6 +258,7 @@ namespace NtisPlatform.Tests.Application;
         Assert.Equal("New English Description", existingEntity.SubFloorDescriptionEnglish);
         Assert.Equal("1", existingEntity.SubFloorId);
         Assert.Equal(1, existingEntity.SubFloorPercentage);
+        Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
@@ -264,7 +270,8 @@ namespace NtisPlatform.Tests.Application;
             SubFloorId = "1",
             SubFloorDescription = "Description",
             SubFloorDescriptionEnglish = "English Description",
-            SubFloorPercentage = 1
+            SubFloorPercentage = 1,
+            IsActive = true,
         };
 
         _mockRepository
@@ -314,7 +321,8 @@ namespace NtisPlatform.Tests.Application;
             SubFloorId = "1",
             SubFloorDescription = "Old Description",
             SubFloorDescriptionEnglish = "Old English Description",
-            SubFloorPercentage = 1
+            SubFloorPercentage = 1,
+            IsActive = true,
         };
 
         _mockRepository

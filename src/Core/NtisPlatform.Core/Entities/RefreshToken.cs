@@ -21,6 +21,6 @@ public class RefreshToken : BaseEntity
     // Navigation properties
     public virtual User User { get; set; } = null!;
 
-    public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
+    public bool IsExpired => DateTime.Now >= ExpiresAt;
     public bool IsActive => !IsRevoked && !IsExpired;
 }

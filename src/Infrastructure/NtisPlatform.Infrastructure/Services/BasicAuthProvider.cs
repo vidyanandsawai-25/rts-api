@@ -46,7 +46,7 @@ public class BasicAuthProvider : IAuthenticationProvider
             }
 
             // Check if account is locked
-            if (user.IsLocked && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.UtcNow)
+            if (user.IsLocked && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.Now)
             {
                 _logger.LogWarning("Login attempt for locked account: {UserId}", user.Id);
                 return AuthResult.Failure(AuthResultStatus.AccountLocked, 
@@ -70,7 +70,7 @@ public class BasicAuthProvider : IAuthenticationProvider
                 if (user.FailedLoginAttempts >= 5)
                 {
                     user.IsLocked = true;
-                    user.LockoutEnd = DateTime.UtcNow.AddMinutes(30);
+                    user.LockoutEnd = DateTime.Now.AddMinutes(30);
                     _logger.LogWarning("Account locked due to failed login attempts: {UserId}", user.Id);
                 }
 
@@ -83,7 +83,7 @@ public class BasicAuthProvider : IAuthenticationProvider
             user.FailedLoginAttempts = 0;
             user.IsLocked = false;
             user.LockoutEnd = null;
-            user.LastLoginAt = DateTime.UtcNow;
+            user.LastLoginAt = DateTime.Now;
 
             await _context.SaveChangesAsync(cancellationToken);
 

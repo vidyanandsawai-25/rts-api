@@ -7,6 +7,7 @@ namespace NtisPlatform.Application.DTOs;
 public class FloorQueryParameters : BaseQueryParameters
 {
     [Filterable]
+    [Searchable]
     [Sortable]
     public string? FloorID { get; set; }
 

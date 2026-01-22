@@ -10,6 +10,7 @@ public class FloorDto
     public int? SequenceNo { get; set; }
     public string? DescriptionEnglish { get; set; }
     public int? MaxFloorNo { get; set; }
+    public bool IsActive { get; set; }
 
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdatedDate { get; set; }
@@ -35,6 +36,7 @@ public class CreateFloorDto
     public string? DescriptionEnglish { get; set; }
 
     public int? MaxFloorNo { get; set; }
+    public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
 }
 
@@ -53,5 +55,6 @@ public class UpdateFloorDto
     public string? DescriptionEnglish { get; set; }
 
     public int? MaxFloorNo { get; set; }
+    public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
 }

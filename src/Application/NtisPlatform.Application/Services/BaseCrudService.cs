@@ -66,7 +66,7 @@ public abstract class BaseCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQu
     public virtual async Task<TDto> CreateAsync(TCreateDto createDto, CancellationToken cancellationToken = default)
     {
         var entity = _mapper.Map<TEntity>(createDto);
-        entity.CreatedAt = DateTime.UtcNow;
+        entity.CreatedAt = DateTime.Now;
         
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -81,7 +81,7 @@ public abstract class BaseCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQu
             return default;
 
         _mapper.Map(updateDto, entity);
-        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedAt = DateTime.Now;
         
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

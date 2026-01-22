@@ -48,12 +48,12 @@ public class ConstructionTypeServiceTests
             ConstructionId = "A",
             Description = "RCC",
             DescriptionEnglish = "RCC",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+D",
             KeyWiseSequence = 1,
-            CreatedDate = DateTime.UtcNow,
+            IsActive = true,
+            CreatedDate = DateTime.Now,
             CreatedBy = 31,
-            UpdatedDate = DateTime.UtcNow,
+            UpdatedDate = DateTime.Now,
             UpdatedBy = 31
         };
 
@@ -66,9 +66,10 @@ public class ConstructionTypeServiceTests
                 ConstructionId = "A",
                 Description = "RCC",
                 DescriptionEnglish = "RCC",
-                GroupID = "1",
+
                 KeyboardShortCutKey = "Alt+D",
                 KeyWiseSequence = 1,
+                IsActive = true,
             });
 
         // Act
@@ -79,9 +80,10 @@ public class ConstructionTypeServiceTests
         Assert.Equal("A", result.ConstructionId);
         Assert.Equal("RCC", result.Description);
         Assert.Equal("RCC", result.DescriptionEnglish);
-        Assert.Equal("1", result.GroupID);
         Assert.Equal("Alt+D", result.KeyboardShortCutKey);
         Assert.Equal(1, result.KeyWiseSequence);
+        Assert.True(result.IsActive);
+
     }
 
     [Fact]
@@ -104,8 +106,8 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entities = new List<ConstructionTypeEntity>
         {
-            new() { ConstructionId = "A", Description = "Test1", DescriptionEnglish = "Desc1", GroupID="1", KeyboardShortCutKey="Alt+D", KeyWiseSequence=1, CreatedBy=31, CreatedDate = DateTime.UtcNow },
-            new() { ConstructionId = "B", Description = "Test2", DescriptionEnglish = "Desc2", GroupID="2", KeyboardShortCutKey="Alt+L", KeyWiseSequence=2, CreatedBy=31, CreatedDate = DateTime.UtcNow },
+            new() { ConstructionId = "A", Description = "Test1", DescriptionEnglish = "Desc1",  KeyboardShortCutKey="Alt+D", KeyWiseSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() { ConstructionId = "B", Description = "Test2", DescriptionEnglish = "Desc2", KeyboardShortCutKey="Alt+L", KeyWiseSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -155,9 +157,9 @@ public class ConstructionTypeServiceTests
             ConstructionId = "A",
             Description = "New Description",
             DescriptionEnglish = "New English Description",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+A",
             KeyWiseSequence = 3,
+            IsActive = true,
         };
 
         _mockMapper
@@ -167,11 +169,11 @@ public class ConstructionTypeServiceTests
                 ConstructionId = dto.ConstructionId,
                 Description = dto.Description,
                 DescriptionEnglish = dto.DescriptionEnglish,
-                GroupID = dto.GroupID,
                 KeyboardShortCutKey = dto.KeyboardShortCutKey,
                 KeyWiseSequence = dto.KeyWiseSequence,
                 CreatedBy = 31,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now,
+                IsActive = true
             });
 
         _mockRepository
@@ -185,9 +187,9 @@ public class ConstructionTypeServiceTests
                 ConstructionId = e.ConstructionId,
                 Description = e.Description,
                 DescriptionEnglish = e.DescriptionEnglish,
-                GroupID = e.GroupID,
                 KeyboardShortCutKey = e.KeyboardShortCutKey,
-                KeyWiseSequence = e.KeyWiseSequence
+                KeyWiseSequence = e.KeyWiseSequence,
+                IsActive = true,
             });
 
         // Act
@@ -198,9 +200,9 @@ public class ConstructionTypeServiceTests
         Assert.Equal("A", result.ConstructionId);
         Assert.Equal("New Description", result.Description);
         Assert.Equal("New English Description", result.DescriptionEnglish);
-        Assert.Equal("1", result.GroupID);
         Assert.Equal("Alt+A", result.KeyboardShortCutKey);
-        Assert.Equal(3, result.KeyWiseSequence);
+        Assert.Equal(3, result.KeyWiseSequence); 
+        Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<ConstructionTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
@@ -220,9 +222,9 @@ public class ConstructionTypeServiceTests
         {
             Description = "New Description",
             DescriptionEnglish = "New English Description",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+A",
             KeyWiseSequence = 3,
+            IsActive = true,
         };
 
         var existingEntity = new ConstructionTypeEntity
@@ -230,9 +232,9 @@ public class ConstructionTypeServiceTests
             ConstructionId = "A",
             Description = "Old Description",
             DescriptionEnglish = "Old English Description",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+A",
             KeyWiseSequence = 3,
+            IsActive = true,
         };
 
         _mockRepository
@@ -265,9 +267,9 @@ public class ConstructionTypeServiceTests
 
         Assert.Equal("New Description", existingEntity.Description);
         Assert.Equal("New English Description", existingEntity.DescriptionEnglish);
-        Assert.Equal("1", existingEntity.GroupID);
         Assert.Equal("Alt+A", existingEntity.KeyboardShortCutKey);
         Assert.Equal(3, existingEntity.KeyWiseSequence);
+        Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
@@ -278,9 +280,9 @@ public class ConstructionTypeServiceTests
         {
             Description = "New Description",
             DescriptionEnglish = "New English Description",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3
+            KeyWiseSequence = 3,
+            IsActive = true
         };
 
         _mockRepository
@@ -330,9 +332,9 @@ public class ConstructionTypeServiceTests
             ConstructionId = idToDelete,
             Description = "RCC",
             DescriptionEnglish = "RCC",
-            GroupID = "1",
             KeyboardShortCutKey = "Alt+A",
             KeyWiseSequence = 3,
+            IsActive = true
         };
 
         _mockRepository
