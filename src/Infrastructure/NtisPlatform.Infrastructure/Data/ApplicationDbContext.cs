@@ -28,6 +28,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
+    public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
 
 
@@ -58,6 +59,24 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DescriptionEnglish);
             entity.Property(e => e.MaxFloorNo);
 
+        });
+		
+		 modelBuilder.Entity<RateEntity>(entity =>
+        {
+            entity.ToTable("RateMaster", "PTIS");
+            entity.HasKey(e => e.ID);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.TaxZoneNo);
+            entity.Property(e => e.FloorID);
+            entity.Property(e => e.TypeOfUseGroupID);
+            entity.Property(e => e.ConstructionID);
+            entity.Property(e => e.MinYear);
+            entity.Property(e => e.MaxYear);
+            entity.Property(e => e.RateSquareMeter);
+            entity.Property(e => e.RateSquareFeet);
+            entity.Property(e => e.RateSectionNo);
+            entity.Property(e => e.RateRemark);
+            entity.Property(e => e.IsActive);
         });
 
               modelBuilder.Entity<SubFloorEntity>(entity =>
