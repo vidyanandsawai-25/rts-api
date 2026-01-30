@@ -29,8 +29,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
+    public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
-
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -255,6 +255,20 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("MultilingualDetails", "PTIS");
             entity.HasIndex(x => new { x.Resource, x.Key, x.Culture })
             .IsUnique();
+        });
+
+        // TaxZone configuration
+        modelBuilder.Entity<TaxZoneEntity>(entity =>
+        {
+            entity.ToTable("TaxZoneMaster", "PTIS");
+            entity.HasKey(e => e.TaxZoneNo);
+            entity.Property(e => e.TaxZoneType);
+            entity.Property(e => e.Remark);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
     }
 }
