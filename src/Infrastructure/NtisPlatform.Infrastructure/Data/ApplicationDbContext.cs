@@ -24,12 +24,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<OrganizationSetting> OrganizationSettings { get; set; } = null!;
     public DbSet<AuthProvider> AuthProviders { get; set; } = null!;
     public DbSet<FeatureFlag> FeatureFlags { get; set; } = null!;
-
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
+    public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -79,15 +79,26 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive);
         });
 
-              modelBuilder.Entity<SubFloorEntity>(entity =>
-              {
-                  entity.ToTable("SubFloorMaster", "PTIS");
-                  entity.HasKey(e => e.SubFloorId);
-                  entity.Property(e => e.SubFloorDescription);
-                  entity.Property(e => e.SubFloorDescriptionEnglish);
-                  entity.Property(e => e.SubFloorPercentage);
+        modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
+        {
+            entity.ToTable("RetentionPolicyFactWiseMaster", "PTIS");
+            entity.HasKey(e => e.ID);
+            entity.Property(e => e.FromFactor);
+            entity.Property(e => e.ToFactor);
+            entity.Property(e => e.FactorValue);
+            entity.Property(e => e.IsActive);
+        });
 
-              });
+        modelBuilder.Entity<SubFloorEntity>(entity =>
+        {
+            entity.ToTable("SubFloorMaster", "PTIS");
+            entity.HasKey(e => e.SubFloorId);
+            entity.Property(e => e.SubFloorDescription);
+            entity.Property(e => e.SubFloorDescriptionEnglish);
+            entity.Property(e => e.SubFloorPercentage);
+
+        });
+
         // User configuration
         modelBuilder.Entity<User>(entity =>
         {

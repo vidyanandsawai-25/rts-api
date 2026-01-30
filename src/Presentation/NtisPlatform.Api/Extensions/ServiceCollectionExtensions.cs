@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();
         services.AddScoped<IRateService, RateService>();
+        services.AddScoped<IRetentionFactWiseService, RetentionFactWiseService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
 
         // Localization (DB-backed)
