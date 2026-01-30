@@ -29,6 +29,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
+    public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
 
@@ -53,31 +54,31 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<FloorEntity>(entity =>
         {
             entity.ToTable("FloorMaster", "PTIS");
-             entity.HasKey(e => e.FloorID);
+            entity.HasKey(e => e.FloorID);
             entity.Property(e => e.Description);
             entity.Property(e => e.SequenceNo);
             entity.Property(e => e.DescriptionEnglish);
             entity.Property(e => e.MaxFloorNo);
 
         });
-		
-		 modelBuilder.Entity<RateEntity>(entity =>
-        {
-            entity.ToTable("RateMaster", "PTIS");
-            entity.HasKey(e => e.ID);
-            entity.Property(e => e.Year);
-            entity.Property(e => e.TaxZoneNo);
-            entity.Property(e => e.FloorID);
-            entity.Property(e => e.TypeOfUseGroupID);
-            entity.Property(e => e.ConstructionID);
-            entity.Property(e => e.MinYear);
-            entity.Property(e => e.MaxYear);
-            entity.Property(e => e.RateSquareMeter);
-            entity.Property(e => e.RateSquareFeet);
-            entity.Property(e => e.RateSectionNo);
-            entity.Property(e => e.RateRemark);
-            entity.Property(e => e.IsActive);
-        });
+
+        modelBuilder.Entity<RateEntity>(entity =>
+       {
+           entity.ToTable("RateMaster", "PTIS");
+           entity.HasKey(e => e.ID);
+           entity.Property(e => e.Year);
+           entity.Property(e => e.TaxZoneNo);
+           entity.Property(e => e.FloorID);
+           entity.Property(e => e.TypeOfUseGroupID);
+           entity.Property(e => e.ConstructionID);
+           entity.Property(e => e.MinYear);
+           entity.Property(e => e.MaxYear);
+           entity.Property(e => e.RateSquareMeter);
+           entity.Property(e => e.RateSquareFeet);
+           entity.Property(e => e.RateSectionNo);
+           entity.Property(e => e.RateRemark);
+           entity.Property(e => e.IsActive);
+       });
 
         modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
         {
@@ -111,7 +112,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.LastName).HasMaxLength(100);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.TwoFactorSecret).HasMaxLength(200);
-            
+
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -124,7 +125,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-            
+
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -134,17 +135,17 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("UserRoles");
             entity.HasKey(e => e.Id);
-            
+
             entity.HasOne(e => e.User)
                 .WithMany(u => u.UserRoles)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             entity.HasOne(e => e.Role)
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(e => e.RoleId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -161,12 +162,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UserAgent).HasMaxLength(500);
             entity.Property(e => e.RevokedByIp).HasMaxLength(45);
             entity.Property(e => e.ReplacedByToken).HasMaxLength(500);
-            
+
             entity.HasOne(e => e.User)
                 .WithMany(u => u.RefreshTokens)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             entity.HasIndex(e => e.TokenHash);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -182,12 +183,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FailureReason).HasMaxLength(500);
             entity.Property(e => e.AuthProvider).HasMaxLength(50);
             entity.Property(e => e.ClientType).HasMaxLength(50);
-            
+
             entity.HasOne(e => e.User)
                 .WithMany(u => u.LoginAttempts)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-            
+
             entity.HasIndex(e => e.AttemptedAt);
             entity.HasIndex(e => e.IpAddress);
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -198,11 +199,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("Organizations");
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.IsActive).IsRequired();
             entity.Property(e => e.IsSetupComplete).IsRequired();
-            
+
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -211,13 +212,13 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("OrganizationSettings");
             entity.HasKey(e => e.Id);
-            
+
             entity.Property(e => e.Key).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Value).HasColumnType("nvarchar(max)");
             entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-            
+
             entity.HasIndex(e => e.Key).IsUnique();
             entity.HasIndex(e => e.Category);
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -231,7 +232,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ProviderType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ConfigJson).HasColumnType("nvarchar(max)");
-            
+
             entity.HasIndex(e => e.ProviderType);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -244,7 +245,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ModuleName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
-            
+
             entity.HasIndex(e => e.ModuleName).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -256,6 +257,17 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(x => new { x.Resource, x.Key, x.Culture })
             .IsUnique();
         });
+        modelBuilder.Entity<RateMasterForCVEntity>(entity =>
+       {
+           entity.ToTable("RateMasterForCV", "PTIS");
+           entity.HasKey(e => e.ID);
+           entity.Property(e => e.OpenPlotRate).HasColumnType("money");
+           entity.Property(e => e.ResidentialRate).HasColumnType("money");
+           entity.Property(e => e.OfficeRate).HasColumnType("money");
+           entity.Property(e => e.ShopRate).HasColumnType("money");
+           entity.Property(e => e.IndustrialRate).HasColumnType("money");
+
+       });
 
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>

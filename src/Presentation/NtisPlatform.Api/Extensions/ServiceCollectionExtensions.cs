@@ -64,6 +64,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();
         services.AddScoped<IRateService, RateService>();
+        services.AddScoped<IRateMasterForCVService, RateMasterForCVService>();
         services.AddScoped<IRetentionFactWiseService, RetentionFactWiseService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
