@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Infrastructure.Data;
 
@@ -33,7 +34,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
-
+    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -294,6 +295,26 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+
+        // YearMaster configuration
+        modelBuilder.Entity<YearMasterEntity>(entity =>
+        {
+            entity.ToTable("YearMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Year).IsRequired();
+            entity.Property(e => e.YearCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.Description).HasMaxLength(250);
+            entity.Property(e => e.IsActive).IsRequired();
+            entity.Property(e => e.StartDate).IsRequired();
+            entity.Property(e => e.EndDate).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => e.YearCode).IsUnique();
         });
     }
 }
