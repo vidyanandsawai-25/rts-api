@@ -68,6 +68,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRetentionFactWiseService, RetentionFactWiseService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
+        services.AddScoped<IDepreciationService, DepreciationService>();
+
 
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();

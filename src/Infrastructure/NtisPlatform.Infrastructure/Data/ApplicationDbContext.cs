@@ -32,6 +32,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -268,6 +269,18 @@ public class ApplicationDbContext : DbContext
            entity.Property(e => e.IndustrialRate).HasColumnType("money");
 
        });
+	   
+	    modelBuilder.Entity<DepreciationMasterEntity>(entity =>
+        {
+            entity.ToTable("DepreciationMaster", "PTIS");
+            entity.HasKey(e => e.ID); 
+            entity.Property(e => e.ConstructionId).HasMaxLength(7);
+            entity.Property(e => e.MinYear);
+            entity.Property(e => e.MaxYear);
+            entity.Property(e => e.Rate).HasColumnType("money");
+            entity.Property(e => e.Year);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
 
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>
