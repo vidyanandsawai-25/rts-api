@@ -72,7 +72,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITaxZoneService, TaxZoneService>();
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
-
+        services.AddScoped<IBankMasterService, BankMasterService>();
 
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();

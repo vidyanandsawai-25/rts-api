@@ -19,7 +19,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserRole> UserRoles { get; set; } = null!;
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
     public DbSet<LoginAttempt> LoginAttempts { get; set; } = null!;
-    
+
     // Organization configuration
     public DbSet<Organization> Organizations { get; set; } = null!;
     public DbSet<OrganizationSetting> OrganizationSettings { get; set; } = null!;
@@ -35,10 +35,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
-    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
+    public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder);
+        base.OnModelCreating(modelBuilder); 
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
         {
             entity.ToTable("ConstructionTypeMaster", "PTIS");
@@ -66,22 +67,22 @@ public class ApplicationDbContext : DbContext
         });
 
         modelBuilder.Entity<RateEntity>(entity =>
-       {
-           entity.ToTable("RateMaster", "PTIS");
-           entity.HasKey(e => e.ID);
-           entity.Property(e => e.Year);
-           entity.Property(e => e.TaxZoneNo);
-           entity.Property(e => e.FloorID);
-           entity.Property(e => e.TypeOfUseGroupID);
-           entity.Property(e => e.ConstructionID);
-           entity.Property(e => e.MinYear);
-           entity.Property(e => e.MaxYear);
-           entity.Property(e => e.RateSquareMeter);
-           entity.Property(e => e.RateSquareFeet);
-           entity.Property(e => e.RateSectionNo);
-           entity.Property(e => e.RateRemark);
-           entity.Property(e => e.IsActive);
-       });
+        {
+            entity.ToTable("RateMaster", "PTIS");
+            entity.HasKey(e => e.ID);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.TaxZoneNo);
+            entity.Property(e => e.FloorID);
+            entity.Property(e => e.TypeOfUseGroupID);
+            entity.Property(e => e.ConstructionID);
+            entity.Property(e => e.MinYear);
+            entity.Property(e => e.MaxYear);
+            entity.Property(e => e.RateSquareMeter);
+            entity.Property(e => e.RateSquareFeet);
+            entity.Property(e => e.RateSectionNo);
+            entity.Property(e => e.RateRemark);
+            entity.Property(e => e.IsActive);
+        });
 
         modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
         {
@@ -274,21 +275,21 @@ public class ApplicationDbContext : DbContext
             .IsUnique();
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
-       {
-           entity.ToTable("RateMasterForCV", "PTIS");
-           entity.HasKey(e => e.ID);
-           entity.Property(e => e.OpenPlotRate).HasColumnType("money");
-           entity.Property(e => e.ResidentialRate).HasColumnType("money");
-           entity.Property(e => e.OfficeRate).HasColumnType("money");
-           entity.Property(e => e.ShopRate).HasColumnType("money");
-           entity.Property(e => e.IndustrialRate).HasColumnType("money");
+        {
+            entity.ToTable("RateMasterForCV", "PTIS");
+            entity.HasKey(e => e.ID);
+            entity.Property(e => e.OpenPlotRate).HasColumnType("money");
+            entity.Property(e => e.ResidentialRate).HasColumnType("money");
+            entity.Property(e => e.OfficeRate).HasColumnType("money");
+            entity.Property(e => e.ShopRate).HasColumnType("money");
+            entity.Property(e => e.IndustrialRate).HasColumnType("money");
 
-       });
-	   
-	    modelBuilder.Entity<DepreciationMasterEntity>(entity =>
+        });
+
+        modelBuilder.Entity<DepreciationMasterEntity>(entity =>
         {
             entity.ToTable("DepreciationMaster", "PTIS");
-            entity.HasKey(e => e.ID); 
+            entity.HasKey(e => e.ID);
             entity.Property(e => e.ConstructionId).HasMaxLength(7);
             entity.Property(e => e.MinYear);
             entity.Property(e => e.MaxYear);
@@ -310,8 +311,29 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
-
-        // YearMaster configuration
+        modelBuilder.Entity<BankMasterEntity>(entity =>
+        {
+            entity.ToTable("BankMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.BankCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.BankName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.BranchName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IFSCCode).IsRequired().HasMaxLength(11);
+            entity.Property(e => e.City).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.State).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Pincode).IsRequired().HasMaxLength(6);
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.Status).HasMaxLength(50);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.BankCode).IsUnique();
+            entity.HasIndex(e => e.IFSCCode).IsUnique();
+            entity.HasIndex(e => e.BankName);
+            entity.HasIndex(e => e.IsActive);
+        });
         modelBuilder.Entity<YearMasterEntity>(entity =>
         {
             entity.ToTable("YearMaster", "Core");
@@ -327,7 +349,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-
             entity.HasIndex(e => e.YearCode).IsUnique();
         });
     }
