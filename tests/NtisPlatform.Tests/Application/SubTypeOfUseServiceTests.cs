@@ -7,17 +7,16 @@ using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;
-
-public class TypeOfUseServiceTests
-{
-    private readonly Mock<IRepository<TypeOfUseEntity, string>> _mockRepository;
+    public class SubTypeOfUseServiceTests
+    {
+    private readonly Mock<IRepository<SubTypeOfUseEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
-    private readonly TypeOfUseService _service;
+    private readonly SubTypeOfUseService _service;
 
-    public TypeOfUseServiceTests()
+    public SubTypeOfUseServiceTests()
     {
-        _mockRepository = new Mock<IRepository<TypeOfUseEntity, string>>();
+        _mockRepository = new Mock<IRepository<SubTypeOfUseEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -36,23 +35,21 @@ public class TypeOfUseServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new TypeOfUseService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new SubTypeOfUseService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
     }
 
     [Fact]
     public async Task GetByIdAsync_ExistingId_ReturnsDto()
     {
         // Arrange
-        var entity = new TypeOfUseEntity
+        var entity = new SubTypeOfUseEntity
         {
+            SubTypeOfUseId=1,
             TypeOfUseID = "R",
             Description = "Residential",
             DescriptionEnglish = "Residential",
-            Type = "R",
-            GroupID = "R",
-            SearchKey = "Alt+D",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -60,38 +57,34 @@ public class TypeOfUseServiceTests
             UpdatedBy = 31
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
-        _mockMapper.Setup(m => m.Map<TypeOfUseDto>(It.IsAny<TypeOfUseEntity>()))
-            .Returns(new TypeOfUseDto
+        _mockMapper.Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
+            .Returns(new SubTypeOfUseDto
             {
+                SubTypeOfUseId = 1,
                 TypeOfUseID = "R",
+                IsActive = true,
                 Description = "Residential",
                 DescriptionEnglish = "Residential",
-                Type = "R",
-                GroupID = "R",
-                SearchKey = "Alt+D",
+                SearchKey  = "Alt+D",
                 SearchSequence = 1,
-                IsSociety = true,
-                IsActive = true,
                 CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
+                UpdatedDate = DateTime.Now,
             });
 
         // Act
-        var result = await _service.GetByIdAsync("R");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.SubTypeOfUseId);
         Assert.Equal("R", result.TypeOfUseID);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("Residential", result.DescriptionEnglish);
-        Assert.Equal("R", result.Type);
-        Assert.Equal("R", result.GroupID);
-        Assert.Equal("Alt+D", result.SearchKey);
+        Assert.Equal("Alt+D", result.SearchKey );
         Assert.Equal(1, result.SearchSequence);
-        Assert.True(result.IsSociety);
         Assert.True(result.IsActive);
     }
 
@@ -99,11 +92,11 @@ public class TypeOfUseServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZZ", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TypeOfUseEntity?)null);
+        _mockRepository.Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SubTypeOfUseEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZZ");
+        var result = await _service.GetByIdAsync(9999);
 
         // Assert
         Assert.Null(result);
@@ -113,10 +106,10 @@ public class TypeOfUseServiceTests
     public async Task GetAllAsync_ReturnsAllEntities()
     {
         // Arrange
-        var entities = new List<TypeOfUseEntity>
+        var entities = new List<SubTypeOfUseEntity>
         {
-            new() { TypeOfUseID = "R", Description = "R", DescriptionEnglish = "Residential", Type="R", GroupID="R", SearchKey="Alt+D",SearchSequence=1,IsSociety=true, IsActive=true,CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
-            new() { TypeOfUseID = "C", Description = "C", DescriptionEnglish = "Commercial", Type="C", GroupID="C", SearchKey="Alt+C",SearchSequence=2,IsSociety=true,IsActive=true, CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now }
+            new() { SubTypeOfUseId=1, TypeOfUseID = "R", Description = "R", DescriptionEnglish = "R", SearchKey ="Alt+D",SearchSequence=1,IsActive=true, CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
+            new() { SubTypeOfUseId=2, TypeOfUseID = "C", Description = "C", DescriptionEnglish = "R", SearchKey ="Alt+C",SearchSequence=2,IsActive=true,CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -124,18 +117,18 @@ public class TypeOfUseServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<TypeOfUseEntity, TypeOfUseDto>();
+            cfg.CreateMap<SubTypeOfUseEntity, SubTypeOfUseDto>();
         });
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new TypeOfUseService(
+        var service = new SubTypeOfUseService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper);
 
-        var qp = new TypeOfUseQueryParameters
+        var qp = new SubTypeOfUseQueryParameters
         {
             PageNumber = 1,
             PageSize = 10,
@@ -153,40 +146,35 @@ public class TypeOfUseServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.TypeOfUseID == "R");
-        Assert.Contains(items, x => x.TypeOfUseID == "C");
+        Assert.Contains(items, x => x.Description == "R");
+        Assert.Contains(items, x => x.Description == "C");
     }
 
     [Fact]
     public async Task CreateAsync_ValidDto_ReturnsCreatedDto()
     {
         // Arrange
-        var createDto = new CreateTypeOfUseDto
+        var createDto = new CreateSubTypeOfUseDto
         {
             TypeOfUseID = "R",
             Description = "Residential",
             DescriptionEnglish = "Residential",
-            Type = "R",
-            GroupID = "R",
-            SearchKey = "Alt+D",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
-            CreatedBy = 31
+            CreatedBy=31
         };
 
         _mockMapper
-            .Setup(m => m.Map<TypeOfUseEntity>(It.IsAny<CreateTypeOfUseDto>()))
-            .Returns((CreateTypeOfUseDto dto) => new TypeOfUseEntity
+            .Setup(m => m.Map<SubTypeOfUseEntity>(It.IsAny<CreateSubTypeOfUseDto>()))
+            .Returns((CreateSubTypeOfUseDto dto) => new SubTypeOfUseEntity
             {
+                SubTypeOfUseId=1,
                 TypeOfUseID = "R",
                 Description = "Residential",
                 DescriptionEnglish = "Residential",
-                Type = "R",
-                GroupID = "R",
-                SearchKey = "Alt+D",
+                SearchKey  = "Alt+D",
                 SearchSequence = 1,
-                IsSociety = true,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
                 CreatedBy = 31,
@@ -195,24 +183,22 @@ public class TypeOfUseServiceTests
             });
 
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<TypeOfUseEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TypeOfUseEntity e, CancellationToken _) => e);
+            .Setup(r => r.AddAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SubTypeOfUseEntity e, CancellationToken _) => e);
 
         _mockMapper
-            .Setup(m => m.Map<TypeOfUseDto>(It.IsAny<TypeOfUseEntity>()))
-            .Returns((TypeOfUseEntity e) => new TypeOfUseDto
+            .Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
+            .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
+                SubTypeOfUseId = 1,
                 TypeOfUseID = "R",
                 Description = "Residential",
                 DescriptionEnglish = "Residential",
-                Type = "R",
-                GroupID = "R",
-                SearchKey = "Alt+D",
+                SearchKey  = "Alt+D",
                 SearchSequence = 1,
-                IsSociety = true,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
+                UpdatedDate = DateTime.Now,
             });
 
         // Act
@@ -220,17 +206,15 @@ public class TypeOfUseServiceTests
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.SubTypeOfUseId);
         Assert.Equal("R", result.TypeOfUseID);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("Residential", result.DescriptionEnglish);
-        Assert.Equal("R", result.Type);
-        Assert.Equal("R", result.GroupID);
-        Assert.Equal("Alt+D", result.SearchKey);
+        Assert.Equal("Alt+D", result.SearchKey );
         Assert.Equal(1, result.SearchSequence);
-        Assert.True(result.IsSociety);
         Assert.True(result.IsActive);
 
-        _mockRepository.Verify(r => r.AddAsync(It.IsAny<TypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         // Service calls SaveChangesAsync (based on your test output)
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -244,29 +228,25 @@ public class TypeOfUseServiceTests
     public async Task UpdateAsync_ExistingEntity_UpdatesSuccessfully()
     {
         // Arrange
-        var updateDto = new UpdateTypeOfUseDto
+        var updateDto = new UpdateSubTypeOfUseDto
         {
+            TypeOfUseID = "R",
             Description = "Residential",
             DescriptionEnglish = "Residential",
-            Type = "R",
-            GroupID = "R",
-            SearchKey = "Alt+D",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
-            UpdatedBy = 31
+            UpdatedBy= 31
         };
 
-        var existingEntity = new TypeOfUseEntity
+        var existingEntity = new SubTypeOfUseEntity
         {
+            SubTypeOfUseId=1,
             TypeOfUseID = "R",
             Description = "Old Residential",
             DescriptionEnglish = "Old Residential",
-            Type = "RR",
-            GroupID = "RR",
-            SearchKey = "Alt+B",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -275,46 +255,39 @@ public class TypeOfUseServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
-            .Setup(r => r.UpdateAsync(It.IsAny<TypeOfUseEntity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockMapper
-            .Setup(m => m.Map(It.IsAny<UpdateTypeOfUseDto>(), It.IsAny<TypeOfUseEntity>()))
-            .Callback((UpdateTypeOfUseDto src, TypeOfUseEntity dest) =>
+            .Setup(m => m.Map(It.IsAny<UpdateSubTypeOfUseDto>(), It.IsAny<SubTypeOfUseEntity>()))
+            .Callback((UpdateSubTypeOfUseDto src, SubTypeOfUseEntity dest) =>
             {
                 dest.Description = src.Description;
                 dest.DescriptionEnglish = src.DescriptionEnglish;
-                dest.Type = src.Type;
-                dest.GroupID = src.GroupID;
-                dest.SearchKey = src.SearchKey;
+                dest.SearchKey  = src.SearchKey ;
                 dest.SearchSequence = src.SearchSequence;
-                dest.IsSociety = src.IsSociety;
             });
 
         // Act
-        await _service.UpdateAsync("R", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("R", existingEntity.TypeOfUseID);
         Assert.Equal("Residential", existingEntity.Description);
         Assert.Equal("Residential", existingEntity.DescriptionEnglish);
-        Assert.Equal("R", existingEntity.Type);
-        Assert.Equal("R", existingEntity.GroupID);
-        Assert.Equal("Alt+D", existingEntity.SearchKey);
+        Assert.Equal("Alt+D", existingEntity.SearchKey );
         Assert.Equal(1, existingEntity.SearchSequence);
-        Assert.True(existingEntity.IsSociety);
         Assert.True(existingEntity.IsActive);
     }
 
@@ -322,28 +295,25 @@ public class TypeOfUseServiceTests
     public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
     {
         // Arrange
-        var updateDto = new UpdateTypeOfUseDto
+        var updateDto = new UpdateSubTypeOfUseDto
         {
             Description = "Residential",
             DescriptionEnglish = "Residential",
-            Type = "R",
-            GroupID = "R",
-            SearchKey = "Alt+D",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
             UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TypeOfUseEntity?)null);
+            .Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SubTypeOfUseEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(9999, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -352,11 +322,11 @@ public class TypeOfUseServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        int idToDelete = 999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TypeOfUseEntity?)null);
+            .ReturnsAsync((SubTypeOfUseEntity?)null);
 
         // Act
         var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
@@ -365,7 +335,7 @@ public class TypeOfUseServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -375,18 +345,16 @@ public class TypeOfUseServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "R";
+        int idToDelete = 1;
 
-        var existingEntity = new TypeOfUseEntity
+        var existingEntity = new SubTypeOfUseEntity
         {
-            TypeOfUseID = idToDelete,
-            Description = "Old Residential",
-            DescriptionEnglish = "Old Residential",
-            Type = "RR",
-            GroupID = "RR",
-            SearchKey = "Alt+B",
+            SubTypeOfUseId = 1,
+            TypeOfUseID = "R",
+            Description = "Residential",
+            DescriptionEnglish = "Residential",
+            SearchKey  = "Alt+D",
             SearchSequence = 1,
-            IsSociety = true,
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,

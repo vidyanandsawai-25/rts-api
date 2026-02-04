@@ -33,6 +33,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
@@ -104,6 +105,21 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubFloorPercentage);
 
         });
+        modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
+        {
+            entity.ToTable("SubTypeOfUseMaster", "PTIS");
+            entity.HasKey(x => x.SubTypeOfUseId);
+            entity.Property(x => x.Description).IsRequired().HasMaxLength(80);
+            entity.Property(x => x.DescriptionEnglish).HasMaxLength(80);
+            entity.Property(x => x.TypeOfUseID).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.SearchKey).HasMaxLength(20);
+            entity.Property(x => x.SearchSequence);
+            entity.Property(x => x.IsActive);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
+        });
          modelBuilder.Entity<TypeOfUseEntity>(entity =>
         {
             entity.ToTable("TypeOfUseMaster", "PTIS");
@@ -114,7 +130,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Type).IsRequired().HasMaxLength(5);
             entity.Property(x => x.GroupID).IsRequired().HasMaxLength(50);
             entity.Property(x => x.SearchKey).HasMaxLength(20);
-            entity.Property(x => x.Sequence);
+            entity.Property(x => x.SearchSequence);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.IsSociety);
             entity.Property(x => x.CreatedBy);

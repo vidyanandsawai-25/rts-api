@@ -11,7 +11,7 @@ public class TypeOfUseDto : CommonBaseDtos
     public string Type { get; set; } = string.Empty;
     public string GroupID { get; set; } = string.Empty;
     public string? SearchKey { get; set; }
-    public int? Sequence { get; set; }
+    public int? SearchSequence { get; set; }
     public bool? IsSociety { get; set; }
 }
 
@@ -39,7 +39,7 @@ public class CreateTypeOfUseDto : CreateCommonBaseDtos
     [StringLength(20, ErrorMessage = "TypeOfUse_SearchKey_MaxLen_20")]
     public string? SearchKey { get; set; }
 
-    public int? Sequence { get; set; }
+    public int? SearchSequence { get; set; }
 
     public bool? IsSociety { get; set; }
 }
@@ -64,7 +64,7 @@ public class UpdateTypeOfUseDto : UpdateCommonBaseDtos
     [StringLength(20, ErrorMessage = "TypeOfUse_SearchKey_MaxLen_20")]
     public string? SearchKey { get; set; }
 
-    public int? Sequence { get; set; }
+    public int? SearchSequence { get; set; }
 
     public bool? IsSociety { get; set; }
 }

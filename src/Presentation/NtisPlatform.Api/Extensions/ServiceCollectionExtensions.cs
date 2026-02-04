@@ -70,6 +70,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IYearMasterService, YearMasterService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
+        services.AddScoped<ISubTypeOfUseService, SubTypeOfUseService>();
         services.AddScoped<ITypeOfUseService, TypeOfUseService>();
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
