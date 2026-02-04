@@ -33,6 +33,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
@@ -96,6 +97,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive);
         });
 
+        modelBuilder.Entity<RetentionYearWiseEntity>(entity =>
+        {
+            entity.ToTable("RetentionPolicyYearWiseMaster", "PTIS");
+            entity.HasKey(e => e.ID);
+            entity.Property(e => e.FromYear);
+            entity.Property(e => e.ToYear);
+            entity.Property(e => e.FactorValue);
+            entity.Property(e => e.IsActive);
+        });
         modelBuilder.Entity<SubFloorEntity>(entity =>
         {
             entity.ToTable("SubFloorMaster", "PTIS");
