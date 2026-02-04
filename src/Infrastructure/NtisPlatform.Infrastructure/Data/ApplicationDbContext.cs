@@ -33,6 +33,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -100,6 +101,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubFloorDescriptionEnglish);
             entity.Property(e => e.SubFloorPercentage);
 
+        });
+        modelBuilder.Entity<TypeOfUseGroupEntity>(entity =>
+        {
+           entity.ToTable("TypeOfUseGroupMaster", "PTIS");
+           entity.HasKey(x => x.TypeOfUseGroupID);
+           entity.Property(x => x.GroupName).IsRequired().HasMaxLength(50);
+           entity.Property(x => x.GroupNameEnglish).HasMaxLength(50);
+           entity.Property(x => x.GroupIcon).HasMaxLength(20);
+           entity.Property(x => x.CreatedBy);
+           entity.Property(x => x.CreatedDate);
+           entity.Property(x => x.UpdatedBy);
+           entity.Property(x => x.UpdatedDate);
+           entity.Property(x => x.IsActive);
         });
 
         // User configuration
