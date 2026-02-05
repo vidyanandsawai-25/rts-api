@@ -39,10 +39,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
+    public DbSet<ZoneEntity> Zones { get; set; } = null!;
     public DbSet<WardEntity> WardEntity { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
 
+    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder); 
@@ -175,6 +177,17 @@ public class ApplicationDbContext : DbContext
            entity.Property(x => x.UpdatedBy);
            entity.Property(x => x.UpdatedDate);
            entity.Property(x => x.IsActive);
+        });
+
+       modelBuilder.Entity<ZoneEntity>(entity =>
+        {
+            entity.ToTable("ZoneMaster", "PTIS");
+            entity.HasKey(x => x.ZoneNo);  
+            entity.Property(x => x.ZoneNo);
+            entity.Property(x => x.Description);
+            entity.Property(x => x.DescriptionEnglish);
+            entity.Property(x => x.SequenceNo);
+            entity.Property(x => x.IsActive);
         });
 
         // User configuration

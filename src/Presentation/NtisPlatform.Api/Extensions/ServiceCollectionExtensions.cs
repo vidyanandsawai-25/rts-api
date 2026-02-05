@@ -78,9 +78,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
+        services.AddScoped<IZoneService, ZoneService>();
+
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
         services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();
+        
 
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
