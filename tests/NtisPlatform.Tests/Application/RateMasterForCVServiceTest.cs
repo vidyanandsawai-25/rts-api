@@ -47,7 +47,7 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new RateMasterForCVEntity
             {
-                ID = 1,
+                Id = 1,
                 MoujaId = 10,
                 SubZoneNo = "SZ-1",
                 SubZoneName = "SubZone A",
@@ -65,7 +65,7 @@ namespace NtisPlatform.Tests.Application
             _mockMapper.Setup(m => m.Map<RateMasterForCVDto>(It.IsAny<RateMasterForCVEntity>()))
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
-                    ID = e.ID,
+                    Id = e.Id,
                     MoujaId = e.MoujaId,
                     SubZoneNo = e.SubZoneNo,
                     SubZoneName = e.SubZoneName,
@@ -80,7 +80,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.GetByIdAsync(1);
 
             Assert.NotNull(result);
-            Assert.Equal(1, result.ID);
+            Assert.Equal(1, result.Id);
             Assert.Equal(10, result.MoujaId);
             Assert.Equal("SZ-1", result.SubZoneNo);
             Assert.Equal("SubZone A", result.SubZoneName);
@@ -108,8 +108,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<RateMasterForCVEntity>
             {
-                new() { ID = 1, MoujaId = 1, SubZoneNo = "SZ-1",SubZoneName="SubZone A",CSN="CSN-001",OpenPlotRate =1000,ResidentialRate=2000,OfficeRate=3000,ShopRate=4000,IndustrialRate=5000},
-                new() { ID = 2, MoujaId = 2, SubZoneNo = "SZ-2",SubZoneName="SubZone B",CSN="CSN-002",OpenPlotRate =1100,ResidentialRate=2200,OfficeRate=3300,ShopRate=4400,IndustrialRate=5500 }
+                new() { Id = 1, MoujaId = 1, SubZoneNo = "SZ-1",SubZoneName="SubZone A",CSN="CSN-001",OpenPlotRate =1000,ResidentialRate=2000,OfficeRate=3000,ShopRate=4000,IndustrialRate=5000},
+                new() { Id = 2, MoujaId = 2, SubZoneNo = "SZ-2",SubZoneName="SubZone B",CSN="CSN-002",OpenPlotRate =1100,ResidentialRate=2200,OfficeRate=3300,ShopRate=4400,IndustrialRate=5500 }
             };
 
             var mockQuery = entities.BuildMock();
@@ -141,8 +141,8 @@ namespace NtisPlatform.Tests.Application
 
             var items = result.Items.ToList();
             Assert.Equal(2, items.Count);
-            Assert.Contains(items, x => x.ID == 1);
-            Assert.Contains(items, x => x.ID == 2);
+            Assert.Contains(items, x => x.Id == 1);
+            Assert.Contains(items, x => x.Id == 2);
         }
 
         [Fact]
@@ -167,7 +167,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RateMasterForCVEntity>(It.IsAny<CreateRateMasterForCVDto>()))
                 .Returns((CreateRateMasterForCVDto dto) => new RateMasterForCVEntity
                 {
-                    ID = dto.ID ?? 0,
+                    Id = dto.Id,
                     MoujaId = dto.MoujaId,
                     SubZoneNo = dto.SubZoneNo,
                     SubZoneName = dto.SubZoneName,
@@ -190,7 +190,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RateMasterForCVDto>(It.IsAny<RateMasterForCVEntity>()))
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
-                    ID = e.ID,
+                    Id = e.Id,
                     MoujaId = e.MoujaId,                    
                     SubZoneNo = e.SubZoneNo,
                     SubZoneName = e.SubZoneName,
@@ -229,7 +229,7 @@ namespace NtisPlatform.Tests.Application
         {
             var updateDto = new UpdateRateMasterForCVDto
             {
-                ID = 1,
+                Id = 1,
                 MoujaId = 1,
                 SubZoneNo = "SZ-11",
                 SubZoneName = "SubZone Z",
@@ -245,7 +245,7 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntity = new RateMasterForCVEntity
             {
-                ID = 1,
+                Id = 1,
                 MoujaId = 10,
                 SubZoneNo = "SZ-5",
                 SubZoneName = "SubZone A",
@@ -293,7 +293,7 @@ namespace NtisPlatform.Tests.Application
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
             
-            Assert.Equal(1, existingEntity.ID);
+            Assert.Equal(1, existingEntity.Id);
             Assert.Equal(1, existingEntity.MoujaId);
             Assert.Equal("SZ-11", existingEntity.SubZoneNo);
             Assert.Equal("SubZone Z", existingEntity.SubZoneName);
@@ -311,7 +311,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
         {
-            var updateDto = new UpdateRateMasterForCVDto { ID = 99, MoujaId = 99 };
+            var updateDto = new UpdateRateMasterForCVDto { Id = 99, MoujaId = 99 };
 
             _mockRepository
                 .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
@@ -343,7 +343,7 @@ namespace NtisPlatform.Tests.Application
         public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
         {
             var idToDelete = 1;
-            var existingEntity = new RateMasterForCVEntity { ID = idToDelete, MoujaId = 10 };
+            var existingEntity = new RateMasterForCVEntity { Id = idToDelete, MoujaId = 10 };
 
             _mockRepository
                 .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))

@@ -33,6 +33,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
     public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
@@ -43,6 +44,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WardEntity> WardEntity { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
+
 
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -348,9 +350,10 @@ public class ApplicationDbContext : DbContext
             .IsUnique();
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
+
         {
             entity.ToTable("RateMasterForCV", "PTIS");
-            entity.HasKey(e => e.ID);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.OpenPlotRate).HasColumnType("money");
             entity.Property(e => e.ResidentialRate).HasColumnType("money");
             entity.Property(e => e.OfficeRate).HasColumnType("money");
@@ -370,6 +373,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Year);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
+
+
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>
         {
@@ -383,6 +388,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
+
+
+        modelBuilder.Entity<MoujaEntity>(entity =>
+        {
+            entity.ToTable("MoujaMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(50);
+		});
+
         modelBuilder.Entity<BankMasterEntity>(entity =>
         {
             entity.ToTable("BankMaster", "Core");
@@ -396,10 +411,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Pincode).IsRequired().HasMaxLength(6);
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.Status).HasMaxLength(50);
+
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.BankCode).IsUnique();
             entity.HasIndex(e => e.IFSCCode).IsUnique();
@@ -423,6 +440,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.YearCode).IsUnique();
         });
+
         modelBuilder.Entity<OfficeEntity>(entity =>
         {
             entity.ToTable("OfficeMaster", "Core");

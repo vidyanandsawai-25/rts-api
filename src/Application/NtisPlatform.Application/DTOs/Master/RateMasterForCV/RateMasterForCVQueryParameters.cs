@@ -7,9 +7,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class RateMasterForCVQueryParameters : BaseQueryParameters
 {
-    [Filterable]
-    [Sortable]
-    public int? ID { get; set; }
+    
     [Filterable]
     [Sortable]
     public int? MoujaId { get; set; }
