@@ -39,6 +39,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
+    public DbSet<WardEntity> WardEntity { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
 
@@ -117,6 +118,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubFloorPercentage);
 
         });
+        modelBuilder.Entity<WardEntity>(entity =>
+        {
+            entity.ToTable("WardMaster", "PTIS");
+            entity.HasKey(x => x.WardNo);
+            entity.Property(x => x.WardNo);
+            entity.Property(x => x.ZoneNo);
+            entity.Property(x => x.Description);
+            entity.Property(x => x.DescriptionEnglish);
+            entity.Property(x => x.SequenceNo);
+            entity.Property(x => x.IsActive); 
+        });
+      
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
         {
             entity.ToTable("SubTypeOfUseMaster", "PTIS");
