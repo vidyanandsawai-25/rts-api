@@ -71,12 +71,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IYearMasterService, YearMasterService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
+        services.AddScoped<IOfficeService, OfficeService>();
         services.AddScoped<ISubTypeOfUseService, SubTypeOfUseService>();
         services.AddScoped<ITypeOfUseService, TypeOfUseService>();
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
-
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
         services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();

@@ -33,12 +33,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
+    public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -342,7 +344,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Year);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
-
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>
         {
@@ -395,6 +396,32 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.YearCode).IsUnique();
+        });
+        modelBuilder.Entity<OfficeEntity>(entity =>
+        {
+            entity.ToTable("OfficeMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.OfficeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.OfficeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.City).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Pincode).IsRequired().HasMaxLength(6);
+            entity.Property(e => e.Phone).HasMaxLength(20);
+            entity.Property(e => e.Email).HasMaxLength(200);
+            entity.Property(e => e.OfficeIncharge);
+            entity.Property(e => e.Designation);
+            entity.Property(e => e.EstablishedDate).HasColumnType("datetime");
+            entity.Property(e => e.Status);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.OfficeCode).IsUnique();
+            entity.HasIndex(e => e.OfficeName);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }
