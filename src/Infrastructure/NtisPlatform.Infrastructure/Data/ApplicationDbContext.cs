@@ -47,6 +47,7 @@ public class ApplicationDbContext : DbContext
 
 
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
+     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder); 
@@ -466,6 +467,18 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.OfficeName);
             entity.HasIndex(e => e.Type);
             entity.HasIndex(e => e.IsActive);
+        });
+        modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RateSectionDetails", "PTIS");
+            entity.HasKey(x => x.RateSectionDetailsID);
+            entity.Property(x => x.RateSectionNo);
+            entity.Property(x => x.WardNo);
+            entity.Property(x => x.IsActive);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
         });
     }
 }
