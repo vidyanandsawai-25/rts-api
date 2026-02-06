@@ -44,6 +44,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WardEntity> WardEntity { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
+    public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
 
 
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
@@ -468,6 +469,14 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.Type);
             entity.HasIndex(e => e.IsActive);
         });
+
+		modelBuilder.Entity<RateSectionEntity>(entity =>
+        {
+            entity.ToTable("RateSectionMaster", "PTIS");
+            entity.HasKey(x => x.RateSectionNo);
+            entity.Property(x => x.RateSectionNo);
+            entity.Property(x => x.Description);
+            entity.Property(x => x.DescriptionEnglish);
         modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
@@ -479,6 +488,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.CreatedDate);
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
+            entity.Property(x => x.IsActive);
+        });
+
         });
     }
 }

@@ -83,6 +83,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBankMasterService, BankMasterService>();
 
         services.AddScoped<IZoneService, ZoneService>();
+        services.AddScoped<IRateSectionService, RateSectionService>();
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
 
         // Localization (DB-backed)
