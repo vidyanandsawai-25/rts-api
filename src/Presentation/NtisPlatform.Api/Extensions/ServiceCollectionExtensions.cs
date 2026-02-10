@@ -71,9 +71,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IYearMasterService, YearMasterService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
-
         services.AddScoped<IMoujaService, MoujaService>();
-
         services.AddScoped<IOfficeService, OfficeService>();
         services.AddScoped<ISubTypeOfUseService, SubTypeOfUseService>();
         services.AddScoped<ITypeOfUseService, TypeOfUseService>();
@@ -81,19 +79,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
-
         services.AddScoped<IZoneService, ZoneService>();
         services.AddScoped<IRateSectionService, RateSectionService>();
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
-
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
-        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();
-        
-
+        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();        
+        services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
-
         // API Layer - Controllers, Swagger, CORS
         services.AddControllers();
         services.AddEndpointsApiExplorer();

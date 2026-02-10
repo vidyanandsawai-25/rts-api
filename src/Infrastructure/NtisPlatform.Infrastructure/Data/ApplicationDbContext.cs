@@ -47,7 +47,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
-     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
+    public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
+    public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder); 
@@ -504,6 +505,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.IsActive);
         });
 
+        });
+
+         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
+        {
+            entity.ToTable("DepartmentMaster", "Core");
+            entity.HasKey(e => e.DepartmentMasterId);
+            entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
+            entity.Property(e => e.DepartmentIcon).HasMaxLength(100);
+            entity.Property(e => e.DepartmentDescription).HasMaxLength(500); 
+            // Indexes
+            entity.HasIndex(e => e.DepartmentCode).IsUnique();
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }
