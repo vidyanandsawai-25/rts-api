@@ -9,7 +9,6 @@ using NtisPlatform.Application.Interfaces.Auth;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Resources;
 using NtisPlatform.Application.Services;
-using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
@@ -67,6 +66,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateService, RateService>();
         services.AddScoped<IRateMasterForCVService, RateMasterForCVService>();
         services.AddScoped<IRetentionFactWiseService, RetentionFactWiseService>();
+        services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IRetentionYearWiseService, RetentionYearWiseService>();
         services.AddScoped<IYearMasterService, YearMasterService>();
         services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();

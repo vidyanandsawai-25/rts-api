@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
@@ -33,6 +33,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
+    public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
     public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
     public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
@@ -45,8 +46,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
-
-
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
      public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -389,6 +388,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+        });
+        // UserRoleMaster configuration
+        modelBuilder.Entity<UserRoleMasterEntity>(entity =>
+        {
+            entity.ToTable("UserRoleMaster", "Core");
+            entity.HasKey(e => e.UserRoleId);
+            entity.Property(e => e.UserRoleName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.UserRoleName).IsUnique();
+            entity.HasIndex(e => e.IsActive);
         });
 
 
