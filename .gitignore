@@ -68,6 +68,12 @@ ScaffoldingReadMe.txt
 # StyleCop
 StyleCopReport.xml
 
+**/*.md
+**/.editorconfig
+
+# Coverage output
+coveragereport/
+
 # Files built by Visual Studio
 *_i.c
 *_p.c

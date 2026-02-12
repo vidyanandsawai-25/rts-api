@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
@@ -46,15 +46,16 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
-    public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;   
-    public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;                
-    public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!; 
-    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;     
-    public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;     
+    public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
+    public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
+    public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
+    public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!;
+    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
+    public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        base.OnModelCreating(modelBuilder); 
+        base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
         {
             entity.ToTable("ConstructionTypeMaster", "PTIS");
@@ -136,9 +137,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Description);
             entity.Property(x => x.DescriptionEnglish);
             entity.Property(x => x.SequenceNo);
-            entity.Property(x => x.IsActive); 
+            entity.Property(x => x.IsActive);
         });
-      
+
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
         {
             entity.ToTable("SubTypeOfUseMaster", "PTIS");
@@ -154,7 +155,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
         });
-         modelBuilder.Entity<TypeOfUseEntity>(entity =>
+        modelBuilder.Entity<TypeOfUseEntity>(entity =>
         {
             entity.ToTable("TypeOfUseMaster", "PTIS");
             entity.HasKey(x => x.TypeOfUseID);
@@ -174,22 +175,22 @@ public class ApplicationDbContext : DbContext
         });
         modelBuilder.Entity<TypeOfUseGroupEntity>(entity =>
         {
-           entity.ToTable("TypeOfUseGroupMaster", "PTIS");
-           entity.HasKey(x => x.TypeOfUseGroupID);
-           entity.Property(x => x.GroupName).IsRequired().HasMaxLength(50);
-           entity.Property(x => x.GroupNameEnglish).HasMaxLength(50);
-           entity.Property(x => x.GroupIcon).HasMaxLength(20);
-           entity.Property(x => x.CreatedBy);
-           entity.Property(x => x.CreatedDate);
-           entity.Property(x => x.UpdatedBy);
-           entity.Property(x => x.UpdatedDate);
-           entity.Property(x => x.IsActive);
+            entity.ToTable("TypeOfUseGroupMaster", "PTIS");
+            entity.HasKey(x => x.TypeOfUseGroupID);
+            entity.Property(x => x.GroupName).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.GroupNameEnglish).HasMaxLength(50);
+            entity.Property(x => x.GroupIcon).HasMaxLength(20);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
+            entity.Property(x => x.IsActive);
         });
 
-       modelBuilder.Entity<ZoneEntity>(entity =>
+        modelBuilder.Entity<ZoneEntity>(entity =>
         {
             entity.ToTable("ZoneMaster", "PTIS");
-            entity.HasKey(x => x.ZoneNo);  
+            entity.HasKey(x => x.ZoneNo);
             entity.Property(x => x.ZoneNo);
             entity.Property(x => x.Description);
             entity.Property(x => x.DescriptionEnglish);
@@ -415,7 +416,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Year);
             entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(50);
-		});
+        });
 
         modelBuilder.Entity<BankMasterEntity>(entity =>
         {
@@ -487,16 +488,16 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
-		modelBuilder.Entity<RateSectionEntity>(entity =>
+        modelBuilder.Entity<RateSectionEntity>(entity =>
         {
             entity.ToTable("RateSectionMaster", "PTIS");
             entity.HasKey(x => x.RateSectionNo);
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
-            entity.Property(x => x.DescriptionEnglish);     
+            entity.Property(x => x.DescriptionEnglish);
 
         });
-          modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
+        modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
             entity.HasKey(x => x.RateSectionDetailsID);
@@ -509,8 +510,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
         });
-		
-		 modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
+
+        modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
         {
             entity.ToTable("ScreenGroupMaster", "Core");
             entity.HasKey(e => e.ScreenGroupId);
@@ -524,12 +525,12 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.DisplayOrder);
         });
-		
-		 modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
+
+        modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
         {
             entity.ToTable("DepartmentLicenceDetails", "Core");
             entity.HasKey(e => e.LicenceDetailsId);
-            entity.Property(e => e.LicenceDuration).HasMaxLength(50); 
+            entity.Property(e => e.LicenceDuration).HasMaxLength(50);
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
                 .WithMany()
@@ -549,7 +550,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DesignationCode).IsUnique();
 
         });
-         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
+        modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
             entity.HasKey(e => e.DepartmentMasterId);
@@ -557,22 +558,34 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
             entity.Property(e => e.DepartmentIcon).HasMaxLength(100);
-            entity.Property(e => e.DepartmentDescription).HasMaxLength(500); 
+            entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
             // Indexes
             entity.HasIndex(e => e.DepartmentMasterId);
             entity.HasIndex(e => e.IsActive);
         });
+        // ActiveTaxes configuration
+        modelBuilder.Entity<ActiveTaxesEntity>(entity =>
+        {
+            entity.ToTable("ActiveTaxesMaster", "PTIS");
+            entity.HasKey(x => x.TaxNameID);
+            entity.Property(x => x.TaxNameID);
+            entity.Property(x => x.TaxName);
+            entity.Property(x => x.TaxNameAlias);
+            entity.Property(x => x.TaxNameOrder);
+            entity.Property(x => x.ActiveTaxHeadsOnly);
+            entity.Property(x => x.DisplayOrder);
+        });
         // DepartmentMaster configuration
-            modelBuilder.Entity<DepartmentMasterEntity>(entity =>
-            {
-                entity.ToTable("DepartmentMaster", "Core");
-                entity.HasKey(e => e.DepartmentMasterId);
-                entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
-                entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
-                entity.Property(e => e.DepartmentIcon).HasMaxLength(200);
-                entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
-                entity.Property(e => e.IsActive);
-            });
+        modelBuilder.Entity<DepartmentMasterEntity>(entity =>
+        {
+            entity.ToTable("DepartmentMaster", "Core");
+            entity.HasKey(e => e.DepartmentMasterId);
+            entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
+            entity.Property(e => e.DepartmentIcon).HasMaxLength(200);
+            entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
+            entity.Property(e => e.IsActive);
+        });
     }
 }
