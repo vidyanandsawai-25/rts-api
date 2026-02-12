@@ -46,7 +46,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
-    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
+    public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;     
+     public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -507,6 +508,19 @@ public class ApplicationDbContext : DbContext
 
         });
 
+        modelBuilder.Entity<DesignationMasterEntity>(entity =>
+        {
+            entity.ToTable("DesignationMaster", "Core");
+            entity.HasKey(e => e.DesignationMasterId);
+            entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DesignationLocal).HasMaxLength(200);
+            entity.Property(e => e.DesignationDescription).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            // Indexes
+            entity.HasIndex(e => e.DesignationCode).IsUnique();
+
+        });
          modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
