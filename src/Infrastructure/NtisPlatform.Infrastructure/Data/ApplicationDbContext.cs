@@ -46,10 +46,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
+    public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;   
+    public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;                
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!; 
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;     
-     public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
-    public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
+    public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;     
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -523,7 +524,18 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.DisplayOrder);
         });
-
+		
+		 modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
+        {
+            entity.ToTable("DepartmentLicenceDetails", "Core");
+            entity.HasKey(e => e.LicenceDetailsId);
+            entity.Property(e => e.LicenceDuration).HasMaxLength(50); 
+            // Configure relationship with DepartmentMaster
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<DesignationMasterEntity>(entity =>
         {
             entity.ToTable("DesignationMaster", "Core");
@@ -547,8 +559,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentIcon).HasMaxLength(100);
             entity.Property(e => e.DepartmentDescription).HasMaxLength(500); 
             // Indexes
-            entity.HasIndex(e => e.DepartmentCode).IsUnique();
+            entity.HasIndex(e => e.DepartmentMasterId);
             entity.HasIndex(e => e.IsActive);
         });
+        // DepartmentMaster configuration
+            modelBuilder.Entity<DepartmentMasterEntity>(entity =>
+            {
+                entity.ToTable("DepartmentMaster", "Core");
+                entity.HasKey(e => e.DepartmentMasterId);
+                entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
+                entity.Property(e => e.DepartmentIcon).HasMaxLength(200);
+                entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
+                entity.Property(e => e.IsActive);
+            });
     }
 }

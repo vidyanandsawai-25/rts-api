@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IZoneService, ZoneService>();
         services.AddScoped<IRateSectionService, RateSectionService>();
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
+        services.AddScoped<IDepartmentLicenceDetailsService, DepartmentLicenceDetailsService>();
         services.AddScoped<IScreenGroupMasterService, ScreenGroupMasterService>();
         services.AddScoped<IDesignationMasterService, DesignationMasterService>();      
         // Localization (DB-backed)

@@ -31,7 +31,7 @@ public class DepartmentLicenceDetailsEntity : CommonBaseEntity
     /// <summary>
     /// Licence duration (e.g., "1 Year", "6 Months")
     /// </summary>
-    public string? LicenceDuration { get; set; }
+    public string? LicenceDuration { get; set; } 
 
     /// <summary>
     /// Navigation property to Department Master
