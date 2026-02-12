@@ -46,6 +46,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
+    public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!; 
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;     
      public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
@@ -491,8 +492,10 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(x => x.RateSectionNo);
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
-            entity.Property(x => x.DescriptionEnglish);
-        modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
+            entity.Property(x => x.DescriptionEnglish);     
+
+        });
+          modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
             entity.HasKey(x => x.RateSectionDetailsID);
@@ -505,7 +508,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
         });
-
+		
+		 modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
+        {
+            entity.ToTable("ScreenGroupMaster", "Core");
+            entity.HasKey(e => e.ScreenGroupId);
+            entity.Property(e => e.ScreenGroupCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ScreenGroupName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.ScreenGroupNameLocal).HasMaxLength(200);
+            entity.Property(e => e.ScreenGroupIcon).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            // Indexes
+            entity.HasIndex(e => e.ScreenGroupCode).IsUnique();
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.DisplayOrder);
         });
 
         modelBuilder.Entity<DesignationMasterEntity>(entity =>
