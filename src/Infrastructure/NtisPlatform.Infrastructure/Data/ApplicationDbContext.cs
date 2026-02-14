@@ -43,8 +43,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> Zones { get; set; } = null!;
     public DbSet<WardEntity> WardEntity { get; set; } = null!;
-    public DbSet<BankMasterEntity> BankMasters { get; set; } = null!; 
-    public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
+    public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
+    public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
+    public DbSet<ScreenMasterEntity> ScreenMaster { get; set; } = null!;
+    public DbSet<ScreenGroupMasterEntity> ScreenGroupMaster { get; set; } = null!;
+    public DbSet<RateSectionEntity> RateSection { get; set; } = null!;   
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
@@ -68,7 +71,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-
         });
 
         modelBuilder.Entity<FloorEntity>(entity =>
@@ -79,7 +81,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SequenceNo);
             entity.Property(e => e.DescriptionEnglish);
             entity.Property(e => e.MaxFloorNo);
-
         });
 
         modelBuilder.Entity<RateEntity>(entity =>
@@ -197,7 +198,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive);
         });
-
         // User configuration
         modelBuilder.Entity<User>(entity =>
         {
@@ -210,7 +210,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.LastName).HasMaxLength(100);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
             entity.Property(e => e.TwoFactorSecret).HasMaxLength(200);
-
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -223,7 +222,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-
             entity.HasIndex(e => e.Name).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -233,17 +231,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("UserRoles");
             entity.HasKey(e => e.Id);
-
             entity.HasOne(e => e.User)
                 .WithMany(u => u.UserRoles)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Role)
+                  entity.HasOne(e => e.Role)
                 .WithMany(r => r.UserRoles)
                 .HasForeignKey(e => e.RoleId)
                 .OnDelete(DeleteBehavior.Cascade);
-
             entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -260,12 +255,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UserAgent).HasMaxLength(500);
             entity.Property(e => e.RevokedByIp).HasMaxLength(45);
             entity.Property(e => e.ReplacedByToken).HasMaxLength(500);
-
             entity.HasOne(e => e.User)
                 .WithMany(u => u.RefreshTokens)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-
             entity.HasIndex(e => e.TokenHash);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -281,12 +274,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FailureReason).HasMaxLength(500);
             entity.Property(e => e.AuthProvider).HasMaxLength(50);
             entity.Property(e => e.ClientType).HasMaxLength(50);
-
             entity.HasOne(e => e.User)
                 .WithMany(u => u.LoginAttempts)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
-
             entity.HasIndex(e => e.AttemptedAt);
             entity.HasIndex(e => e.IpAddress);
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -297,11 +288,9 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("Organizations");
             entity.HasKey(e => e.Id);
-
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.IsActive).IsRequired();
             entity.Property(e => e.IsSetupComplete).IsRequired();
-
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
 
@@ -310,13 +299,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("OrganizationSettings");
             entity.HasKey(e => e.Id);
-
             entity.Property(e => e.Key).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Value).HasColumnType("nvarchar(max)");
             entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-
             entity.HasIndex(e => e.Key).IsUnique();
             entity.HasIndex(e => e.Category);
             entity.HasQueryFilter(e => !e.IsDeleted);
@@ -330,7 +317,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ProviderType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ConfigJson).HasColumnType("nvarchar(max)");
-
             entity.HasIndex(e => e.ProviderType);
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -343,7 +329,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ModuleName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
-
             entity.HasIndex(e => e.ModuleName).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -356,7 +341,6 @@ public class ApplicationDbContext : DbContext
             .IsUnique();
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
-
         {
             entity.ToTable("RateMasterForCV", "PTIS");
             entity.HasKey(e => e.Id);
@@ -365,7 +349,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OfficeRate).HasColumnType("money");
             entity.Property(e => e.ShopRate).HasColumnType("money");
             entity.Property(e => e.IndustrialRate).HasColumnType("money");
-
         });
 
         modelBuilder.Entity<DepreciationMasterEntity>(entity =>
@@ -379,8 +362,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Year);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
-
-
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>
         {
@@ -431,12 +412,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Pincode).IsRequired().HasMaxLength(6);
             entity.Property(e => e.Address).HasMaxLength(500);
             entity.Property(e => e.Status).HasMaxLength(50);
-
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.BankCode).IsUnique();
             entity.HasIndex(e => e.IFSCCode).IsUnique();
@@ -495,9 +474,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
             entity.Property(x => x.DescriptionEnglish);
-
+           
         });
-        modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
+     modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
             entity.HasKey(x => x.RateSectionDetailsID);
@@ -510,20 +489,57 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
         });
+         modelBuilder.Entity<ScreenMasterEntity>(entity =>
+        {
+            entity.ToTable("ScreenMaster", "Core");
+            entity.HasKey(e => e.ScreenMasterId);
+            entity.HasOne(e => e.ScreenGroup)
+                .WithMany()
+                .HasForeignKey(e => e.ScreenGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Module)
+                .WithMany()
+                .HasForeignKey(e => e.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+        });
+        
 
         modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
         {
             entity.ToTable("ScreenGroupMaster", "Core");
             entity.HasKey(e => e.ScreenGroupId);
-            entity.Property(e => e.ScreenGroupCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.ScreenGroupName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.ScreenGroupNameLocal).HasMaxLength(200);
-            entity.Property(e => e.ScreenGroupIcon).HasMaxLength(100);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            // Indexes
-            entity.HasIndex(e => e.ScreenGroupCode).IsUnique();
-            entity.HasIndex(e => e.IsActive);
-            entity.HasIndex(e => e.DisplayOrder);
+        });
+        modelBuilder.Entity<DepartmentMasterEntity>(entity =>
+        {
+            entity.ToTable("DepartmentMaster", "Core");
+            entity.HasKey(e => e.DepartmentMasterId);
+        }); 
+         modelBuilder.Entity<ModuleMasterEntity>(entity =>
+        {
+            entity.ToTable("ModuleMaster", "Core");
+              entity.HasKey(e => e.ModuleMasterId);
+            entity.Property(e => e.DepartmentMasterId)
+                .IsRequired();
+            entity.Property(e => e.ModuleCode)
+                .HasMaxLength(50).IsRequired()
+                .IsRequired();
+            entity.Property(e => e.ModuleName)
+                .HasMaxLength(200).IsRequired()
+                .IsRequired();
+            entity.Property(e => e.ModuleNameLocal).HasMaxLength(200);
+            entity.Property(e => e.ModuleIcon).HasMaxLength(100);
+            entity.Property(e => e.ModuleLabel).HasMaxLength(100);
+            entity.Property(e => e.ModuleDescription).HasMaxLength(500);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+          
+            // Configure relationship with DepartmentMaster
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
