@@ -35,4 +35,5 @@ public class DepartmentMasterEntity : CommonBaseEntity
     /// </summary>
     public string? DepartmentDescription { get; set; }
 
+    public DepartmentMasterEntity Department { get; set; }
 }

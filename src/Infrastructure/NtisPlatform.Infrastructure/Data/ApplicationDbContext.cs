@@ -43,9 +43,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> Zones { get; set; } = null!;
     public DbSet<WardEntity> WardEntity { get; set; } = null!;
-    public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
-    public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
+    public DbSet<BankMasterEntity> BankMasters { get; set; } = null!; 
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
+    public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
@@ -537,18 +537,31 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.DepartmentMasterId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-        modelBuilder.Entity<DesignationMasterEntity>(entity =>
+		  modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
-            entity.ToTable("DesignationMaster", "Core");
-            entity.HasKey(e => e.DesignationMasterId);
-            entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.DesignationLocal).HasMaxLength(200);
-            entity.Property(e => e.DesignationDescription).HasMaxLength(500);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            // Indexes
-            entity.HasIndex(e => e.DesignationCode).IsUnique();
-
+            entity.ToTable("ModuleMaster", "Core");
+            entity.HasKey(e => e.ModuleMasterId);
+            entity.Property(e => e.DepartmentMasterId)
+                .IsRequired();
+            entity.Property(e => e.ModuleCode)
+                .HasMaxLength(50).IsRequired()
+                .IsRequired();
+            entity.Property(e => e.ModuleName)
+                .HasMaxLength(200).IsRequired()
+                .IsRequired();
+            entity.Property(e => e.ModuleNameLocal).HasMaxLength(200);
+            entity.Property(e => e.ModuleIcon).HasMaxLength(100);
+            entity.Property(e => e.ModuleLabel).HasMaxLength(100);
+            entity.Property(e => e.ModuleDescription).HasMaxLength(500);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+          
+            // Configure relationship with DepartmentMaster
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
@@ -563,6 +576,21 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DepartmentMasterId);
             entity.HasIndex(e => e.IsActive);
         });
+
+        // DesignationMasterEntity configuration
+        modelBuilder.Entity<DesignationMasterEntity>(entity =>
+        {
+            entity.ToTable("DesignationMaster", "Core");
+            entity.HasKey(e => e.DesignationMasterId);
+            entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DesignationLocal).HasMaxLength(200);
+            entity.Property(e => e.DesignationDescription).HasMaxLength(500);
+            // Indexes
+            entity.HasIndex(e => e.DesignationMasterId);
+            entity.HasIndex(e => e.DesignationCode).IsUnique();
+        });
+        
         // ActiveTaxes configuration
         modelBuilder.Entity<ActiveTaxesEntity>(entity =>
         {
@@ -575,17 +603,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.ActiveTaxHeadsOnly);
             entity.Property(x => x.DisplayOrder);
         });
-        // DepartmentMaster configuration
-        modelBuilder.Entity<DepartmentMasterEntity>(entity =>
-        {
-            entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.DepartmentMasterId);
-            entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
-            entity.Property(e => e.DepartmentIcon).HasMaxLength(200);
-            entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
-            entity.Property(e => e.IsActive);
-        });
+         
     }
 }

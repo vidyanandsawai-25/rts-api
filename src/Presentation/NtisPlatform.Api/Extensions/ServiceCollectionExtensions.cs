@@ -88,7 +88,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenGroupMasterService, ScreenGroupMasterService>();
         services.AddScoped<IDesignationMasterService, DesignationMasterService>();      
         // Localization (DB-backed)
-        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
+        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();       
+        services.AddScoped<IModuleMasterService, ModuleMasterService>();
         services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();        
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
         // AutoMapper
