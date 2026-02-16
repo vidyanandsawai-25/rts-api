@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IZoneService, ZoneService>();
         services.AddScoped<IRateSectionService, RateSectionService>();
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
+        services.AddScoped<IAssessmentYearRangeService, AssessmentYearRangeService>();
         services.AddScoped<IScreenMasterService, ScreenMasterService>();
 
         services.AddScoped<IActiveTaxesService, ActiveTaxesService>();

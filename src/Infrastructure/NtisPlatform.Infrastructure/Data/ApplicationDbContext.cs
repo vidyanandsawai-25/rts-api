@@ -32,6 +32,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
+    public DbSet<AssessmentYearRangeEntity> AssessmentYearRangeEntities { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
     public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
     public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
@@ -119,6 +120,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ToYear);
             entity.Property(e => e.FactorValue);
             entity.Property(e => e.IsActive);
+        });
+        modelBuilder.Entity<AssessmentYearRangeEntity>(entity =>
+        {
+            entity.ToTable("AssessmentYearRangeMaster", "PTIS");
+            entity.HasKey(e => e.YearId);
+            entity.Property(e => e.FromYear);
+            entity.Property(e => e.ToYear);
+            entity.Property(e => e.IsActive);
+            // Unique constraint for FromYear-ToYear pair
+            entity.HasIndex(e => new { e.FromYear, e.ToYear }).IsUnique();
         });
         modelBuilder.Entity<SubFloorEntity>(entity =>
         {
