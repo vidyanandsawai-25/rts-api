@@ -57,6 +57,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<YearMasterEntity> YearMasterEntity { get; set; } = null!;
     public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
+    public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -521,11 +522,6 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ScreenGroupMaster", "Core");
             entity.HasKey(e => e.ScreenGroupId);
         });
-        modelBuilder.Entity<DepartmentMasterEntity>(entity =>
-        {
-            entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.DepartmentMasterId);
-        }); 
          modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
@@ -616,20 +612,45 @@ public class ApplicationDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.DesignationMasterId);
             entity.HasIndex(e => e.DesignationCode).IsUnique();
-        });
-        
-        // ActiveTaxes configuration
-        modelBuilder.Entity<ActiveTaxesEntity>(entity =>
-        {
-            entity.ToTable("ActiveTaxesMaster", "PTIS");
-            entity.HasKey(x => x.TaxNameID);
-            entity.Property(x => x.TaxNameID);
-            entity.Property(x => x.TaxName);
-            entity.Property(x => x.TaxNameAlias);
-            entity.Property(x => x.TaxNameOrder);
-            entity.Property(x => x.ActiveTaxHeadsOnly);
-            entity.Property(x => x.DisplayOrder);
-        });
-         
+		});
+
+		// ActiveTaxes configuration
+		modelBuilder.Entity<ActiveTaxesEntity>(entity =>
+		{
+			entity.ToTable("ActiveTaxesMaster", "PTIS");
+			entity.HasKey(x => x.TaxNameID);
+			entity.Property(x => x.TaxNameID);
+			entity.Property(x => x.TaxName);
+			entity.Property(x => x.TaxNameAlias);
+			entity.Property(x => x.TaxNameOrder);
+			entity.Property(x => x.ActiveTaxHeadsOnly);
+			entity.Property(x => x.DisplayOrder);
+		});
+
+		// GrievanceCategoryMaster configuration
+		modelBuilder.Entity<GrievanceCategoryEntity>(entity =>
+		{
+			entity.ToTable("GrievanceCategoryMaster", "Core");
+			entity.HasKey(e => e.Id);
+			entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
+			entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
+			entity.Property(e => e.DepartmentId);
+			entity.Property(e => e.Priority).IsRequired().HasMaxLength(50);
+			entity.Property(e => e.ResolutionSla).HasMaxLength(100);
+			entity.Property(e => e.EscalationLevel).HasMaxLength(100);
+			entity.Property(e => e.Description).HasMaxLength(1000);
+			entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+			entity.Property(e => e.CreatedBy);
+			entity.Property(e => e.CreatedDate);
+			entity.Property(e => e.UpdatedBy);
+			entity.Property(e => e.UpdatedDate);
+			entity.HasOne(e => e.Department).WithMany().HasForeignKey(e => e.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+			entity.HasIndex(e => e.CategoryCode).IsUnique();
+			entity.HasIndex(e => e.CategoryName);
+			entity.HasIndex(e => e.DepartmentId);
+			entity.HasIndex(e => e.Priority);
+			entity.HasIndex(e => e.IsActive);
+		});
+
     }
 }

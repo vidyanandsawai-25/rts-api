@@ -95,6 +95,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
         services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();        
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
+        services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
         // API Layer - Controllers, Swagger, CORS
