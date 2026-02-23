@@ -85,7 +85,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
         services.AddScoped<IAssessmentYearRangeService, AssessmentYearRangeService>();
         services.AddScoped<IScreenMasterService, ScreenMasterService>();
-
+        services.AddScoped<IAssessmentYearRangeCVService, AssessmentYearRangeCVService>();
         services.AddScoped<IActiveTaxesService, ActiveTaxesService>();
 
         services.AddScoped<IDepartmentLicenceDetailsService, DepartmentLicenceDetailsService>();

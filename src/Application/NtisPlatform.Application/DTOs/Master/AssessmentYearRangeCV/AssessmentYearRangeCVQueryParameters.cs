@@ -1,9 +1,9 @@
 ﻿using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 
-namespace NtisPlatform.Application.DTOs.Master.AssessmentYearRange
-{
-    public class AssessmentYearRangeQueryParameters : BaseQueryParameters
+namespace NtisPlatform.Application.DTOs;
+
+    public class AssessmentYearRangeCVQueryParameters : BaseQueryParameters  
     {
         [Filterable]
         [Sortable]
@@ -17,4 +17,4 @@ namespace NtisPlatform.Application.DTOs.Master.AssessmentYearRange
         [Sortable]
         public int? ToYear { get; set; }
     }
-}
+

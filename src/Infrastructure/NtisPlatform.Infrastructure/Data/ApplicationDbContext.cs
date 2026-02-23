@@ -40,6 +40,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
+    public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> Zones { get; set; } = null!;
@@ -126,7 +127,17 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AssessmentYearRangeEntity>(entity =>
         {
             entity.ToTable("AssessmentYearRangeMaster", "PTIS");
-            entity.HasKey(e => e.YearId);
+            entity.HasKey(e => e.YearRangeId);
+            entity.Property(e => e.FromYear);
+            entity.Property(e => e.ToYear);
+            entity.Property(e => e.IsActive);
+            // Unique constraint for FromYear-ToYear pair
+            entity.HasIndex(e => new { e.FromYear, e.ToYear }).IsUnique();
+        });
+        modelBuilder.Entity<AssessmentYearRangeCVEntity>(entity =>
+        {
+            entity.ToTable("AssessmentYearRangeMasterCV", "PTIS");
+            entity.HasKey(e => e.YearRangeId);
             entity.Property(e => e.FromYear);
             entity.Property(e => e.ToYear);
             entity.Property(e => e.IsActive);
