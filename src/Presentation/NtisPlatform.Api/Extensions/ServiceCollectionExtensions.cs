@@ -60,6 +60,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
 
         // CRUD Services
+        services.AddScoped<IULBMasterService, ULBMasterService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();

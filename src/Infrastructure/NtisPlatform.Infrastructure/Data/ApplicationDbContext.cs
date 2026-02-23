@@ -58,6 +58,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
+    public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -651,6 +652,48 @@ public class ApplicationDbContext : DbContext
 			entity.HasIndex(e => e.Priority);
 			entity.HasIndex(e => e.IsActive);
 		});
+ 
+        modelBuilder.Entity<ULBMasterEntity>(entity =>
+        {
+            entity.ToTable("ULBMaster", "Core");
+            entity.HasKey(e => e.UlbId);
+            entity.Property(e => e.UlbCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.UlbName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.UlbNameLocal).HasMaxLength(200);
+            entity.Property(e => e.UlbTypeId).IsRequired();
+            entity.Property(e => e.UlbLogo).HasMaxLength(500);
+            entity.Property(e => e.EmailId).HasMaxLength(200);
+            entity.Property(e => e.MobileNo).HasMaxLength(20);
+            entity.Property(e => e.AlternateMobileNo).HasMaxLength(20);
+            entity.Property(e => e.WebsiteUrl).HasMaxLength(200);
+            entity.Property(e => e.ContactPersonName).HasMaxLength(200);
+            entity.Property(e => e.ContactPersonDesignation).HasMaxLength(200);
+            entity.Property(e => e.UlbAddress).HasMaxLength(500);
+            entity.Property(e => e.State).HasMaxLength(100);
+            entity.Property(e => e.District).HasMaxLength(100);
+            entity.Property(e => e.PinCode).HasMaxLength(6);
+            entity.Property(e => e.PartnerName).HasMaxLength(200);
+            entity.Property(e => e.PMName).HasMaxLength(200);
+            entity.Property(e => e.PMEmailId).HasMaxLength(200);
+            entity.Property(e => e.PMMobileNo).HasMaxLength(20);
+            entity.Property(e => e.LicenceType).HasMaxLength(50);
+            entity.Property(e => e.LicenceDuration).HasMaxLength(50);
+            entity.Property(e => e.SupportType).HasMaxLength(100);
+            entity.Property(e => e.LicenceKey).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired();
 
+            // Ignore BaseEntity properties that don't exist in database
+            
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedDate);
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.UpdatedBy);
+
+            // Indexes for better query performance
+            entity.HasIndex(e => e.UlbCode).IsUnique();
+            entity.HasIndex(e => e.UlbTypeId);
+            entity.HasIndex(e => e.IsActive);
+        });
+		
     }
 }
