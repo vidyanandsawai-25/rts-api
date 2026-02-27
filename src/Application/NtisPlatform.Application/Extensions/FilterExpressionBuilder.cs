@@ -30,10 +30,30 @@ public static class FilterExpressionBuilder
         foreach (var property in filterableProperties)
         {
             var value = property.GetValue(queryParameters);
-            if (value == null)
+            var attribute = property.GetCustomAttribute<FilterableAttribute>()!;
+            
+            // Skip null values EXCEPT for IsNull/IsNotNull operators which work on boolean flags
+            if (value == null && attribute.Operator != FilterOperator.IsNull && attribute.Operator != FilterOperator.IsNotNull)
                 continue;
 
-            var attribute = property.GetCustomAttribute<FilterableAttribute>()!;
+            // For IsNull/IsNotNull, check if the boolean flag is true
+            if (attribute.Operator == FilterOperator.IsNull || attribute.Operator == FilterOperator.IsNotNull)
+            {
+                // If value is null or false, skip this filter
+                if (value == null || (value is bool boolValue && !boolValue))
+                    continue;
+            }
+
+            // Skip empty collections for IN/NOT IN
+            if (value is System.Collections.IEnumerable enumerable &&
+                value is not string &&
+                attribute.Operator != FilterOperator.IsNull &&
+                attribute.Operator != FilterOperator.IsNotNull &&
+                !enumerable.Cast<object>().Any())
+            {
+                continue;
+            }
+
             var entityPropertyName = attribute.EntityProperty ?? property.Name;
 
             // Handle special cases for range filters (Min/Max prefix)
@@ -63,7 +83,12 @@ public static class FilterExpressionBuilder
 
             try
             {
-                var expression = BuildComparisonExpression(parameter, entityProperty, value, attribute.Operator, property.Name);
+                // For IsNull/IsNotNull, we don't need the actual value, just pass a dummy
+                var valueToPass = (attribute.Operator == FilterOperator.IsNull || attribute.Operator == FilterOperator.IsNotNull) 
+                    ? new object() 
+                    : value!;
+                    
+                var expression = BuildComparisonExpression(parameter, entityProperty, valueToPass, attribute.Operator, property.Name);
                 if (expression != null)
                 {
                     expressions.Add(expression);
@@ -102,7 +127,25 @@ public static class FilterExpressionBuilder
         var propertyType = entityProperty.PropertyType;
         var underlyingType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 
-        // Convert value to target type
+        // Handle IsNull/IsNotNull operators (no value needed)
+        if (operatorType == FilterOperator.IsNull || operatorType == FilterOperator.IsNotNull)
+        {
+            return BuildNullCheckExpression(propertyAccess, propertyType, operatorType);
+        }
+
+        // Handle IN/NOT IN operators for collections
+        if (operatorType == FilterOperator.In || operatorType == FilterOperator.NotIn)
+        {
+            return BuildInExpression(propertyAccess, value, entityProperty, operatorType);
+        }
+
+        // String operations
+        if (underlyingType == typeof(string))
+        {
+            return BuildStringExpression(propertyAccess, value?.ToString() ?? "", operatorType);
+        }
+
+        // For non-string types, convert value to target type
         object? convertedValue;
         try
         {
@@ -123,22 +166,30 @@ public static class FilterExpressionBuilder
         var constantValue = Expression.Constant(convertedValue, underlyingType);
 
         // Handle nullable types
-        Expression propertyExpression = propertyAccess;
         if (Nullable.GetUnderlyingType(propertyType) != null)
         {
-            propertyExpression = Expression.Property(propertyAccess, "Value");
+            // propertyAccess.HasValue && propertyAccess.Value <op> constantValue
+            var hasValue = Expression.Property(propertyAccess, "HasValue");
+            var valueExpr = Expression.Property(propertyAccess, "Value");
+            Expression comparison = operatorType switch
+            {
+                FilterOperator.Equals => Expression.Equal(valueExpr, constantValue),
+                FilterOperator.NotEquals => Expression.NotEqual(valueExpr, constantValue),
+                FilterOperator.GreaterThan => Expression.GreaterThan(valueExpr, constantValue),
+                FilterOperator.LessThan => Expression.LessThan(valueExpr, constantValue),
+                FilterOperator.GreaterThanOrEqual => Expression.GreaterThanOrEqual(valueExpr, constantValue),
+                FilterOperator.LessThanOrEqual => Expression.LessThanOrEqual(valueExpr, constantValue),
+                _ => throw new Exception($"Operator '{operatorType}' not supported for type '{underlyingType.Name}'")
+            };
+            return Expression.AndAlso(hasValue, comparison);
         }
 
-        // String operations (case-insensitive)
-        if (underlyingType == typeof(string))
-        {
-            return BuildStringExpression(propertyAccess, convertedValue?.ToString() ?? "", operatorType);
-        }
-
-        // Numeric/DateTime comparisons
+        // Non-nullable types
+        Expression propertyExpression = propertyAccess;
         return operatorType switch
         {
             FilterOperator.Equals => Expression.Equal(propertyExpression, constantValue),
+            FilterOperator.NotEquals => Expression.NotEqual(propertyExpression, constantValue),
             FilterOperator.GreaterThan => Expression.GreaterThan(propertyExpression, constantValue),
             FilterOperator.LessThan => Expression.LessThan(propertyExpression, constantValue),
             FilterOperator.GreaterThanOrEqual => Expression.GreaterThanOrEqual(propertyExpression, constantValue),
@@ -149,19 +200,405 @@ public static class FilterExpressionBuilder
 
     private static Expression BuildStringExpression(Expression propertyAccess, string value, FilterOperator operatorType)
     {
-        // Convert to lowercase for case-insensitive comparison
-        var toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
-        var propertyLower = Expression.Call(propertyAccess, toLowerMethod);
-        var valueLower = Expression.Constant(value.ToLower());
-
-        return operatorType switch
+        if (operatorType == FilterOperator.Contains || 
+            operatorType == FilterOperator.StartsWith || 
+            operatorType == FilterOperator.EndsWith)
         {
-            FilterOperator.Equals => Expression.Equal(propertyLower, valueLower),
-            FilterOperator.Contains => Expression.Call(propertyLower, typeof(string).GetMethod("Contains", new[] { typeof(string) })!, valueLower),
-            FilterOperator.StartsWith => Expression.Call(propertyLower, typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!, valueLower),
-            FilterOperator.EndsWith => Expression.Call(propertyLower, typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!, valueLower),
-            _ => throw new Exception($"Operator '{operatorType}' not supported for string type")
-        };
+            var toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
+
+            var propertyNotNull = Expression.NotEqual(
+                propertyAccess,
+                Expression.Constant(null, typeof(string)));
+
+            var propertyLower = Expression.Call(propertyAccess, toLowerMethod);
+            var valueLower = Expression.Constant(value.ToLower());
+
+            Expression textOperation = operatorType switch
+            {
+                FilterOperator.Contains => Expression.Call(
+                    propertyLower,
+                    typeof(string).GetMethod("Contains", new[] { typeof(string) })!,
+                    valueLower),
+
+                FilterOperator.StartsWith => Expression.Call(
+                    propertyLower,
+                    typeof(string).GetMethod("StartsWith", new[] { typeof(string) })!,
+                    valueLower),
+
+                FilterOperator.EndsWith => Expression.Call(
+                    propertyLower,
+                    typeof(string).GetMethod("EndsWith", new[] { typeof(string) })!,
+                    valueLower),
+
+                _ => throw new Exception($"Unexpected operator in string text operations")
+            };
+
+            // property != null && property.ToLower().<op>(value.ToLower())
+            return Expression.AndAlso(propertyNotNull, textOperation);
+        }
+
+        if (operatorType == FilterOperator.GreaterThan || 
+            operatorType == FilterOperator.LessThan || 
+            operatorType == FilterOperator.GreaterThanOrEqual || 
+            operatorType == FilterOperator.LessThanOrEqual)
+        {
+            if (long.TryParse(value, out _))
+            {
+                var numericPropertyNotNull = Expression.NotEqual(
+                    propertyAccess,
+                    Expression.Constant(null, typeof(string)));
+
+                var valueLength = value.Length;
+                var valueLengthConstant = Expression.Constant(valueLength);
+                var valueConstant = Expression.Constant(value);
+                
+                var lengthProperty = typeof(string).GetProperty("Length")!;
+                var propertyLength = Expression.Property(propertyAccess, lengthProperty);
+                
+                var compareToMethod = typeof(string).GetMethod("CompareTo", new[] { typeof(string) })!;
+                var compareToCall = Expression.Call(propertyAccess, compareToMethod, valueConstant);
+                var zero = Expression.Constant(0);
+                
+                Expression lengthComparison, stringComparison, numericRangeComparison;
+                
+                switch (operatorType)
+                {
+                    case FilterOperator.GreaterThan:
+                        lengthComparison = Expression.GreaterThan(propertyLength, valueLengthConstant);
+                        stringComparison = Expression.GreaterThan(compareToCall, zero);
+                        numericRangeComparison = Expression.OrElse(
+                            lengthComparison,
+                            Expression.AndAlso(
+                                Expression.Equal(propertyLength, valueLengthConstant),
+                                stringComparison
+                            )
+                        );
+                        break;
+                        
+                    case FilterOperator.LessThan:
+                        lengthComparison = Expression.LessThan(propertyLength, valueLengthConstant);
+                        stringComparison = Expression.LessThan(compareToCall, zero);
+                        numericRangeComparison = Expression.OrElse(
+                            lengthComparison,
+                            Expression.AndAlso(
+                                Expression.Equal(propertyLength, valueLengthConstant),
+                                stringComparison
+                            )
+                        );
+                        break;
+                        
+                    case FilterOperator.GreaterThanOrEqual:
+                        lengthComparison = Expression.GreaterThan(propertyLength, valueLengthConstant);
+                        stringComparison = Expression.GreaterThanOrEqual(compareToCall, zero);
+                        numericRangeComparison = Expression.OrElse(
+                            lengthComparison,
+                            Expression.AndAlso(
+                                Expression.Equal(propertyLength, valueLengthConstant),
+                                stringComparison
+                            )
+                        );
+                        break;
+                        
+                    case FilterOperator.LessThanOrEqual:
+                        lengthComparison = Expression.LessThan(propertyLength, valueLengthConstant);
+                        stringComparison = Expression.LessThanOrEqual(compareToCall, zero);
+                        numericRangeComparison = Expression.OrElse(
+                            lengthComparison,
+                            Expression.AndAlso(
+                                Expression.Equal(propertyLength, valueLengthConstant),
+                                stringComparison
+                            )
+                        );
+                        break;
+                        
+                    default:
+                        throw new Exception($"Unexpected operator");
+                }
+                
+                return Expression.AndAlso(numericPropertyNotNull, numericRangeComparison);
+            }
+        }
+
+        var fallbackToLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
+        
+        var fallbackPropertyNotNull = Expression.NotEqual(
+            propertyAccess,
+            Expression.Constant(null, typeof(string)));
+        
+        var fallbackPropertyLower = Expression.Call(propertyAccess, fallbackToLowerMethod);
+        var fallbackValueLower = Expression.Constant(value.ToLower());
+        
+        Expression fallbackComparison;
+        if (operatorType == FilterOperator.Equals)
+        {
+            fallbackComparison = Expression.Equal(fallbackPropertyLower, fallbackValueLower);
+        }
+        else if (operatorType == FilterOperator.NotEquals)
+        {
+            fallbackComparison = Expression.NotEqual(fallbackPropertyLower, fallbackValueLower);
+        }
+        else
+        {
+            var compareToMethod = typeof(string).GetMethod("CompareTo", new[] { typeof(string) })!;
+            var compareToCall = Expression.Call(fallbackPropertyLower, compareToMethod, fallbackValueLower);
+            var zero = Expression.Constant(0);
+            
+            fallbackComparison = operatorType switch
+            {
+                FilterOperator.GreaterThan => Expression.GreaterThan(compareToCall, zero),
+                FilterOperator.LessThan => Expression.LessThan(compareToCall, zero),
+                FilterOperator.GreaterThanOrEqual => Expression.GreaterThanOrEqual(compareToCall, zero),
+                FilterOperator.LessThanOrEqual => Expression.LessThanOrEqual(compareToCall, zero),
+                _ => throw new Exception($"Operator '{operatorType}' not supported for string type")
+            };
+        }
+        
+        return Expression.AndAlso(fallbackPropertyNotNull, fallbackComparison);
+    }
+
+    private static Expression BuildInExpression(Expression propertyAccess, object collectionValue, PropertyInfo entityProperty, FilterOperator operatorType)
+    {
+        var valueType = collectionValue.GetType();
+        
+        // Validate that the value is a collection (but not a string)
+        if (!typeof(System.Collections.IEnumerable).IsAssignableFrom(valueType) || valueType == typeof(string))
+        {
+            throw new Exception($"IN/NOT IN operator requires a collection type (List, Array, IEnumerable), got {valueType.Name}");
+        }
+
+        // Check for empty collection - return appropriate constant expression
+        var enumerable = (System.Collections.IEnumerable)collectionValue;
+        var hasElements = enumerable.Cast<object>().Any();
+        if (!hasElements)
+        {
+            // Empty collection: IN returns false, NOT IN returns true
+            return Expression.Constant(operatorType == FilterOperator.NotIn);
+        }
+
+        // Get the element type of the collection
+        var elementType = valueType.IsGenericType 
+            ? valueType.GetGenericArguments()[0] 
+            : valueType.GetElementType() ?? typeof(object);
+
+        var propertyType = entityProperty.PropertyType;
+        var underlyingPropertyType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+
+        // Type validation: collection element type must be compatible with property type
+        var targetType = underlyingPropertyType;
+        var sourceElementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
+        var targetElementType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        
+        if (sourceElementType != targetElementType && !targetElementType.IsAssignableFrom(sourceElementType))
+        {
+            // Check if types can be converted (e.g., int to long, string to enum)
+            var canConvert = CanConvertTypes(sourceElementType, targetElementType);
+            if (!canConvert)
+            {
+                throw new Exception($"IN/NOT IN filter type mismatch: collection contains '{elementType.Name}' but property '{entityProperty.Name}' is '{targetType.Name}'. Ensure the collection element type matches the entity property type.");
+            }
+        }
+
+        Expression? nullCheckExpression = null;
+        Expression propertyToCheck = propertyAccess;
+
+        // Handle nullable types - need to check HasValue before accessing Value
+        if (Nullable.GetUnderlyingType(propertyType) != null)
+        {
+            var hasValueProperty = Expression.Property(propertyAccess, "HasValue");
+            nullCheckExpression = hasValueProperty;
+            // Only access .Value when we know HasValue is true (will be used in AndAlso)
+            propertyToCheck = Expression.Property(propertyAccess, "Value");
+        }
+        else if (propertyType.IsClass)
+        {
+            // For reference types (including string), add null check
+            nullCheckExpression = Expression.NotEqual(propertyAccess, Expression.Constant(null, propertyType));
+        }
+
+        Expression containsCall;
+
+        // For string collections, use case-insensitive comparison
+        if (elementType == typeof(string) && underlyingPropertyType == typeof(string))
+        {
+            // Convert collection to lowercase for case-insensitive comparison
+            var stringEnumerable = enumerable.Cast<string>();
+            var lowerCaseCollection = stringEnumerable
+                .Where(s => s != null)
+                .Select(s => s.ToLower())
+                .ToList();
+            
+            // If after filtering nulls, collection is empty
+            if (lowerCaseCollection.Count == 0)
+            {
+                return Expression.Constant(operatorType == FilterOperator.NotIn);
+            }
+            
+            var lowerCollectionConstant = Expression.Constant(lowerCaseCollection);
+            
+            // Convert property to lowercase for case-insensitive comparison
+            var toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
+            var propertyLower = Expression.Call(propertyToCheck, toLowerMethod);
+            
+            // Use Enumerable.Contains with case-insensitive comparison
+            var containsMethod = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
+                .MakeGenericMethod(typeof(string));
+            
+            containsCall = Expression.Call(null, containsMethod, lowerCollectionConstant, propertyLower);
+        }
+        else
+        {
+            // For non-string types, convert collection elements to target type if needed
+            object convertedCollection = collectionValue;
+            var collectionElementType = elementType;
+            
+            if (sourceElementType != targetElementType)
+            {
+                // Convert collection elements to target type
+                convertedCollection = ConvertCollectionElements(enumerable, targetElementType);
+                collectionElementType = targetElementType;
+            }
+            
+            // Use standard Contains for non-string types
+            var containsMethod = typeof(Enumerable).GetMethods()
+                .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
+                .MakeGenericMethod(collectionElementType);
+            
+            var collectionConstant = Expression.Constant(convertedCollection);
+            containsCall = Expression.Call(null, containsMethod, collectionConstant, propertyToCheck);
+        }
+
+        // Apply NOT for NotIn operator
+        if (operatorType == FilterOperator.NotIn)
+        {
+            containsCall = Expression.Not(containsCall);
+        }
+
+        // Combine with null check if applicable
+        if (nullCheckExpression != null)
+        {
+            if (operatorType == FilterOperator.NotIn)
+            {
+                // For NOT IN: null values should return true (not in the list)
+                // !HasValue || !Contains(value)
+                var invertedNullCheck = Expression.Not(nullCheckExpression);
+                return Expression.OrElse(invertedNullCheck, containsCall);
+            }
+            else
+            {
+                // For IN: HasValue && Contains(value)
+                return Expression.AndAlso(nullCheckExpression, containsCall);
+            }
+        }
+
+        return containsCall;
+    }
+
+    /// <summary>
+    /// Checks if source type can be converted to target type
+    /// </summary>
+    private static bool CanConvertTypes(Type sourceType, Type targetType)
+    {
+        if (sourceType == targetType)
+            return true;
+
+        // Handle numeric conversions
+        var numericTypes = new[] { typeof(byte), typeof(sbyte), typeof(short), typeof(ushort), 
+                                   typeof(int), typeof(uint), typeof(long), typeof(ulong), 
+                                   typeof(float), typeof(double), typeof(decimal) };
+        
+        if (numericTypes.Contains(sourceType) && numericTypes.Contains(targetType))
+            return true;
+
+        // Handle string to enum conversion
+        if (sourceType == typeof(string) && targetType.IsEnum)
+            return true;
+
+        // Handle enum to string conversion
+        if (sourceType.IsEnum && targetType == typeof(string))
+            return true;
+
+        // Handle enum underlying type conversions
+        if (sourceType.IsEnum && numericTypes.Contains(targetType))
+            return true;
+        if (targetType.IsEnum && numericTypes.Contains(sourceType))
+            return true;
+
+        return false;
+    }
+
+    /// <summary>
+    /// Converts collection elements to the target type
+    /// </summary>
+    private static object ConvertCollectionElements(System.Collections.IEnumerable source, Type targetType)
+    {
+        var listType = typeof(List<>).MakeGenericType(targetType);
+        var list = (System.Collections.IList)Activator.CreateInstance(listType)!;
+        
+        foreach (var item in source)
+        {
+            if (item == null)
+                continue;
+                
+            try
+            {
+                object convertedItem;
+                if (targetType.IsEnum && item is string strValue)
+                {
+                    convertedItem = Enum.Parse(targetType, strValue, ignoreCase: true);
+                }
+                else if (targetType.IsEnum)
+                {
+                    convertedItem = Enum.ToObject(targetType, item);
+                }
+                else
+                {
+                    convertedItem = Convert.ChangeType(item, targetType);
+                }
+                list.Add(convertedItem);
+            }
+            catch
+            {
+                // Skip items that can't be converted
+            }
+        }
+        
+        return list;
+    }
+
+    /// <summary>
+    /// Builds expression for IsNull and IsNotNull operators.
+    /// Throws a descriptive exception for non-nullable value types.
+    /// </summary>
+    private static Expression BuildNullCheckExpression(Expression propertyAccess, Type propertyType, FilterOperator operatorType)
+    {
+        var underlyingType = Nullable.GetUnderlyingType(propertyType);
+        
+        // Handle Nullable<T> types (e.g., int?, DateTime?)
+        if (underlyingType != null)
+        {
+            var hasValueProperty = Expression.Property(propertyAccess, "HasValue");
+            return operatorType == FilterOperator.IsNull
+                ? Expression.Not(hasValueProperty)  // !HasValue means IsNull
+                : hasValueProperty;                  // HasValue means IsNotNull
+        }
+        
+        // Handle reference types (classes, strings, etc.)
+        if (propertyType.IsClass)
+        {
+            var nullConstant = Expression.Constant(null, propertyType);
+            return operatorType == FilterOperator.IsNull
+                ? Expression.Equal(propertyAccess, nullConstant)
+                : Expression.NotEqual(propertyAccess, nullConstant);
+        }
+        
+        // Non-nullable value types (int, double, bool, DateTime, enums, structs, etc.)
+        // These can never be null, so IsNull/IsNotNull operators don't make sense
+        throw new Exception(
+            $"Cannot use '{operatorType}' operator on non-nullable value type '{propertyType.Name}'. " +
+            $"The property is of type '{propertyType.Name}' which cannot be null. " +
+            $"Consider using a nullable type '{propertyType.Name}?' in your entity if null checks are required, " +
+            $"or remove the IsNull/IsNotNull filter for this property.");
     }
 
     public static Expression<Func<TEntity, bool>>? BuildSearchExpression<TEntity, TQuery>(TQuery queryParameters)
@@ -174,7 +611,6 @@ public static class FilterExpressionBuilder
         var entityType = typeof(TEntity);
         var parameter = Expression.Parameter(entityType, "x");
         
-        // Get all properties with Searchable attribute
         var searchableProperties = queryType.GetProperties()
             .Where(p => p.GetCustomAttribute<SearchableAttribute>() != null)
             .ToList();

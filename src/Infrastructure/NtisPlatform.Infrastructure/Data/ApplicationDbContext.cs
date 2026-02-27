@@ -49,7 +49,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<ScreenMasterEntity> ScreenMaster { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMaster { get; set; } = null!;
-    public DbSet<RateSectionEntity> RateSection { get; set; } = null!;   
+    public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
@@ -59,6 +59,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<DesignationMasterEntity> DesignationMasters { get; set; } = null!;
     public DbSet<DepartmentMasterEntity> DepartmentMasters { get; set; } = null!;
     public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
+    public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -259,10 +260,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany(u => u.UserRoles)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-                  entity.HasOne(e => e.Role)
-                .WithMany(r => r.UserRoles)
-                .HasForeignKey(e => e.RoleId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(e => e.Role)
+          .WithMany(r => r.UserRoles)
+          .HasForeignKey(e => e.RoleId)
+          .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
             entity.HasQueryFilter(e => !e.IsDeleted);
         });
@@ -498,9 +499,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
             entity.Property(x => x.DescriptionEnglish);
-           
+
         });
-     modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
+        modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
             entity.HasKey(x => x.RateSectionDetailsID);
@@ -513,7 +514,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
         });
-         modelBuilder.Entity<ScreenMasterEntity>(entity =>
+        modelBuilder.Entity<ScreenMasterEntity>(entity =>
         {
             entity.ToTable("ScreenMaster", "Core");
             entity.HasKey(e => e.ScreenMasterId);
@@ -527,52 +528,14 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
         });
-        
+
 
         modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
         {
             entity.ToTable("ScreenGroupMaster", "Core");
             entity.HasKey(e => e.ScreenGroupId);
         });
-         modelBuilder.Entity<ModuleMasterEntity>(entity =>
-        {
-            entity.ToTable("ModuleMaster", "Core");
-              entity.HasKey(e => e.ModuleMasterId);
-            entity.Property(e => e.DepartmentMasterId)
-                .IsRequired();
-            entity.Property(e => e.ModuleCode)
-                .HasMaxLength(50).IsRequired()
-                .IsRequired();
-            entity.Property(e => e.ModuleName)
-                .HasMaxLength(200).IsRequired()
-                .IsRequired();
-            entity.Property(e => e.ModuleNameLocal).HasMaxLength(200);
-            entity.Property(e => e.ModuleIcon).HasMaxLength(100);
-            entity.Property(e => e.ModuleLabel).HasMaxLength(100);
-            entity.Property(e => e.ModuleDescription).HasMaxLength(500);
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValue(true);
-          
-            // Configure relationship with DepartmentMaster
-            entity.HasOne(e => e.Department)
-                .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
-        {
-            entity.ToTable("DepartmentLicenceDetails", "Core");
-            entity.HasKey(e => e.LicenceDetailsId);
-            entity.Property(e => e.LicenceDuration).HasMaxLength(50);
-            // Configure relationship with DepartmentMaster
-            entity.HasOne(e => e.Department)
-                .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-		  modelBuilder.Entity<ModuleMasterEntity>(entity =>
+        modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
             entity.HasKey(e => e.ModuleMasterId);
@@ -591,7 +554,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
-          
+
+            // Configure relationship with DepartmentMaster
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
+        {
+            entity.ToTable("DepartmentLicenceDetails", "Core");
+            entity.HasKey(e => e.LicenceDetailsId);
+            entity.Property(e => e.LicenceDuration).HasMaxLength(50);
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
                 .WithMany()

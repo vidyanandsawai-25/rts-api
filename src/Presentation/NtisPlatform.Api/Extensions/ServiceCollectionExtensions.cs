@@ -87,10 +87,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenMasterService, ScreenMasterService>();
         services.AddScoped<IAssessmentYearRangeCVService, AssessmentYearRangeCVService>();
         services.AddScoped<IActiveTaxesService, ActiveTaxesService>();
-
         services.AddScoped<IDepartmentLicenceDetailsService, DepartmentLicenceDetailsService>();
         services.AddScoped<IScreenGroupMasterService, ScreenGroupMasterService>();
-        services.AddScoped<IDesignationMasterService, DesignationMasterService>();      
+        services.AddScoped<IDesignationMasterService, DesignationMasterService>();
+        services.AddScoped<IPropertyService, PropertyService>();
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();       
         services.AddScoped<IModuleMasterService, ModuleMasterService>();

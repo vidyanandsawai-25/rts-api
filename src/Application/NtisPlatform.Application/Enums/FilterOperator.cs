@@ -9,5 +9,10 @@ public enum FilterOperator
     GreaterThan,
     LessThan,
     GreaterThanOrEqual,
-    LessThanOrEqual
+    LessThanOrEqual,
+    In,
+    IsNull,
+    IsNotNull,
+    NotIn,
+    NotEquals
 }
