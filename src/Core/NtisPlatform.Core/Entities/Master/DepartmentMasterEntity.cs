@@ -8,12 +8,12 @@ public class DepartmentMasterEntity : CommonBaseEntity
     /// <summary>
     /// Unique identifier for the department
     /// </summary>
-    public int DepartmentMasterId { get; set; }
+    public int DepartmentId { get; set; }
 
     /// <summary>
     /// Unique code for the department
     /// </summary>
-    public string? DepartmentCode { get; set; }
+    public string? DepartmentCode { get; set; } 
 
     /// <summary>
     /// Name of the department
@@ -27,7 +27,7 @@ public class DepartmentMasterEntity : CommonBaseEntity
 
     /// <summary>
     /// Icon for the department
-    /// </summary>
+    /// </summary> 
     public string? DepartmentIcon { get; set; }
 
     /// <summary>

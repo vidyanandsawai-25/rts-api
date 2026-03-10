@@ -14,7 +14,7 @@ public class ModuleMasterQueryParameters : BaseQueryParameters
     /// </summary>
     [Filterable]
     [Sortable]
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
 
     /// <summary>
     /// Filter by module code

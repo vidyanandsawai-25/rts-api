@@ -42,16 +42,16 @@ public class DepartmentMasterServiceTests
         // Arrange
         var entity = new DepartmentMasterEntity
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             DepartmentNameLocal = "वित्त",
-            IsActive = true
+            IsActive = true 
         };
 
         var dto = new DepartmentMasterDto
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             DepartmentNameLocal = "वित्त",
@@ -68,7 +68,7 @@ public class DepartmentMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.DepartmentMasterId);
+        Assert.Equal(1, result.DepartmentId);
         Assert.Equal("DEPT001", result.DepartmentCode);
         Assert.Equal("Finance", result.DepartmentName);
     }
@@ -105,7 +105,7 @@ public class DepartmentMasterServiceTests
 
         var entity = new DepartmentMasterEntity
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             DepartmentNameLocal = "वित्त",
@@ -114,7 +114,7 @@ public class DepartmentMasterServiceTests
 
         var returnDto = new DepartmentMasterDto
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             DepartmentNameLocal = "वित्त",
@@ -159,7 +159,7 @@ public class DepartmentMasterServiceTests
 
         var existingEntity = new DepartmentMasterEntity
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             IsActive = true
@@ -167,7 +167,7 @@ public class DepartmentMasterServiceTests
 
         var returnDto = new DepartmentMasterDto
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance Updated",
             DepartmentNameLocal = "वित्त अद्यतन",
@@ -226,7 +226,7 @@ public class DepartmentMasterServiceTests
         // Arrange
         var entity = new DepartmentMasterEntity
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance"
         };

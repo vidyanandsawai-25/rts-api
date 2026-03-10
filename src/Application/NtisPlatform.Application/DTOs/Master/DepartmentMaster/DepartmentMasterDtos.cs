@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.DepartmentMaster;
 /// </summary>
 public class DepartmentMasterDto :CommonBaseDtos
 {
-    public int DepartmentMasterId { get; set; }
+    public int DepartmentId { get; set; }
     public string? DepartmentCode { get; set; }
     public string? DepartmentName { get; set; }
     public string? DepartmentNameLocal { get; set; }

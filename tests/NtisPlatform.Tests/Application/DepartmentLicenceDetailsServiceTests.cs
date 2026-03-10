@@ -43,7 +43,7 @@ public class DepartmentLicenceDetailsServiceTests
         var entity = new DepartmentLicenceDetailsEntity
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
             LicenceDuration = "1 Year",
@@ -53,7 +53,7 @@ public class DepartmentLicenceDetailsServiceTests
         var dto = new DepartmentLicenceDetailsDto
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             DepartmentName = "Finance",
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -72,7 +72,7 @@ public class DepartmentLicenceDetailsServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.LicenceDetailsId);
-        Assert.Equal(1, result.DepartmentMasterId);
+        Assert.Equal(1, result.DepartmentId);
         Assert.Equal("Finance", result.DepartmentName);
         Assert.Equal("1 Year", result.LicenceDuration);
     }
@@ -101,7 +101,7 @@ public class DepartmentLicenceDetailsServiceTests
         // Arrange
         var createDto = new CreateDepartmentLicenceDetailsDto
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
             LicenceDuration = "1 Year",
@@ -111,7 +111,7 @@ public class DepartmentLicenceDetailsServiceTests
         var entity = new DepartmentLicenceDetailsEntity
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
             LicenceDuration = "1 Year",
@@ -121,7 +121,7 @@ public class DepartmentLicenceDetailsServiceTests
         var returnDto = new DepartmentLicenceDetailsDto
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
             LicenceDuration = "1 Year",
@@ -142,7 +142,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.DepartmentMasterId);
+        Assert.Equal(1, result.DepartmentId);
         Assert.Equal("1 Year", result.LicenceDuration);
         _repositoryMock.Verify(x => x.AddAsync(It.IsAny<DepartmentLicenceDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -157,7 +157,7 @@ public class DepartmentLicenceDetailsServiceTests
         // Arrange
         var updateDto = new UpdateDepartmentLicenceDetailsDto
         {
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2027, 1, 1), // Extended
             LicenceDuration = "2 Years",
@@ -167,7 +167,7 @@ public class DepartmentLicenceDetailsServiceTests
         var existingEntity = new DepartmentLicenceDetailsEntity
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
             LicenceDuration = "1 Year"
@@ -176,7 +176,7 @@ public class DepartmentLicenceDetailsServiceTests
         var returnDto = new DepartmentLicenceDetailsDto
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1,
+            DepartmentId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2027, 1, 1),
             LicenceDuration = "2 Years",
@@ -214,7 +214,7 @@ public class DepartmentLicenceDetailsServiceTests
         var entity = new DepartmentLicenceDetailsEntity
         {
             LicenceDetailsId = 1,
-            DepartmentMasterId = 1
+            DepartmentId = 1
         };
 
         _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))

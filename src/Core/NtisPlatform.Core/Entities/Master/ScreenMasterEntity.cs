@@ -8,13 +8,13 @@ public class ScreenMasterEntity : CommonBaseEntity
     /// <summary>
     /// Unique identifier for the screen
     /// </summary>
-    public int ScreenMasterId { get; set; }
+    public int ScreenId { get; set; } 
 
     /// <summary>
     /// Foreign key to screen group
     /// </summary>
     public int ScreenGroupId { get; set; }
-
+ 
     /// <summary>
     /// Foreign key to module
     /// </summary>

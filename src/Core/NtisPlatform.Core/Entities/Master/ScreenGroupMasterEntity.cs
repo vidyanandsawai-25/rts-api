@@ -8,7 +8,7 @@ public class ScreenGroupMasterEntity : CommonBaseEntity
     /// <summary>
     /// Unique identifier for the screen group
     /// </summary>
-    public int ScreenGroupId { get; set; }
+    public int ScreenGroupId { get; set; } 
 
     /// <summary>
     /// Unique code for the screen group

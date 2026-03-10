@@ -8,12 +8,12 @@ public class DesignationMasterEntity : CommonBaseEntity
     /// <summary>
     /// Unique identifier for the designation
     /// </summary>
-    public int DesignationMasterId { get; set; }
+    public int DesignationId { get; set; }
 
     /// <summary>
     /// Unique code for the designation
     /// </summary>
-    public string? DesignationCode { get; set; }
+    public string? DesignationCode { get; set; } 
 
     /// <summary>
     /// Name of the designation

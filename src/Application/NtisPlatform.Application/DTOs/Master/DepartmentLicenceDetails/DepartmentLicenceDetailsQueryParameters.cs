@@ -12,7 +12,7 @@ public class DepartmentLicenceDetailsQueryParameters : BaseQueryParameters
     /// Filter by department
     /// </summary>
     [Filterable]
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
 
     /// <summary>
     /// Filter by active status

@@ -8,12 +8,12 @@ public class ModuleMasterEntity : CommonBaseEntity
     /// <summary>
     /// Unique identifier for the module
     /// </summary>
-    public int ModuleMasterId { get; set; }
+    public int ModuleId { get; set; } 
 
     /// <summary>
-    /// Foreign key to the department this module belongs to
+    /// Foreign key to the department this module belongs to 
     /// </summary>
-    public int DepartmentMasterId { get; set; }
+    public int DepartmentId { get; set; } 
 
     /// <summary>
     /// Unique code for the module
@@ -21,7 +21,7 @@ public class ModuleMasterEntity : CommonBaseEntity
     public string? ModuleCode { get; set; }
 
     /// <summary>
-    /// Name of the module
+    /// Name of the module 
     /// </summary>
     public string? ModuleName { get; set; }
 

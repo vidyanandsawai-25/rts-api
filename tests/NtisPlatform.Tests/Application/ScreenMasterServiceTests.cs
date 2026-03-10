@@ -32,7 +32,7 @@ public class ScreenMasterServiceTests
         // Arrange
         var entity = new ScreenMasterEntity
         {
-            ScreenMasterId = 1,
+            ScreenId = 1,
             ScreenCode = "SCR001",
             ScreenName = "Dashboard",
             ScreenGroupId = 1,
@@ -44,7 +44,7 @@ public class ScreenMasterServiceTests
         _mockMapper.Setup(m => m.Map<ScreenMasterDto>(It.IsAny<ScreenMasterEntity>()))
             .Returns(new ScreenMasterDto 
             { 
-                ScreenMasterId = 1, 
+                ScreenId = 1, 
                 ScreenCode = "SCR001", 
                 ScreenName = "Dashboard",
                 ScreenGroupId = 1,
@@ -56,7 +56,7 @@ public class ScreenMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ScreenMasterId);
+        Assert.Equal(1, result.ScreenId);
         Assert.Equal("SCR001", result.ScreenCode);
         Assert.Equal(1, result.ScreenGroupId);
         Assert.Equal(2, result.ModuleId);
@@ -97,7 +97,7 @@ public class ScreenMasterServiceTests
         // Arrange
         var existingEntity = new ScreenMasterEntity
         {
-            ScreenMasterId = 1,
+            ScreenId = 1,
             ScreenCode = "SCR001",
             ScreenName = "Dashboard",
             ScreenGroupId = 1,
@@ -128,7 +128,7 @@ public class ScreenMasterServiceTests
             .Setup(m => m.Map<ScreenMasterDto>(It.IsAny<ScreenMasterEntity>()))
             .Returns(new ScreenMasterDto
             {
-                ScreenMasterId = 1,
+                ScreenId = 1,
                 ScreenName = "Dashboard Updated",
                 IsActive = false
             });
@@ -170,8 +170,8 @@ public class ScreenMasterServiceTests
         // Arrange
         var entities = new List<ScreenMasterEntity>
         {
-            new() { ScreenMasterId = 1, ScreenCode = "SCR001", ScreenName = "Dashboard", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow },
-            new() { ScreenMasterId = 2, ScreenCode = "SCR002", ScreenName = "Users", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow }
+            new() { ScreenId = 1, ScreenCode = "SCR001", ScreenName = "Dashboard", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow },
+            new() { ScreenId = 2, ScreenCode = "SCR002", ScreenName = "Users", ScreenGroupId = 1, ModuleId = 1, IsActive = true, CreatedDate = DateTime.UtcNow }
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -204,7 +204,7 @@ public class ScreenMasterServiceTests
     public async Task DeleteAsync_ExistingEntity_ReturnsTrue()
     {
         // Arrange
-        var entity = new ScreenMasterEntity { ScreenMasterId = 1 };
+        var entity = new ScreenMasterEntity { ScreenId = 1 };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);

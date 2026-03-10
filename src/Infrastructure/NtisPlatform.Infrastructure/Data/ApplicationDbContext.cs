@@ -517,7 +517,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ScreenMasterEntity>(entity =>
         {
             entity.ToTable("ScreenMaster", "Core");
-            entity.HasKey(e => e.ScreenMasterId);
+            entity.HasKey(e => e.ScreenId);
+            entity.Property(e => e.ScreenId).HasColumnName("ScreenMasterId");
+            entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupMasterId");
+            entity.Property(e => e.ModuleId).HasColumnName("ModuleMasterId");
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
@@ -538,8 +541,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
-            entity.HasKey(e => e.ModuleMasterId);
-            entity.Property(e => e.DepartmentMasterId)
+            entity.HasKey(e => e.ModuleId);
+            entity.Property(e => e.DepartmentId)
                 .IsRequired();
             entity.Property(e => e.ModuleCode)
                 .HasMaxLength(50).IsRequired()
@@ -553,12 +556,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ModuleDescription).HasMaxLength(500);
             entity.Property(e => e.IsActive)
                 .IsRequired()
-                .HasDefaultValue(true);
+                .HasDefaultValue(true); 
 
-            // Configure relationship with DepartmentMaster
+            // Configure relationship with DepartmentId
             entity.HasOne(e => e.Department)
                 .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
+                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -567,23 +570,24 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("DepartmentLicenceDetails", "Core");
             entity.HasKey(e => e.LicenceDetailsId);
             entity.Property(e => e.LicenceDuration).HasMaxLength(50);
-            // Configure relationship with DepartmentMaster
+            // Configure relationship with DepartmentId
             entity.HasOne(e => e.Department)
                 .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
+                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.DepartmentMasterId);
+            entity.HasKey(e => e.DepartmentId);
+            entity.Property(e => e.DepartmentId).HasColumnName("DepartmentMasterId");
             entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
             entity.Property(e => e.DepartmentIcon).HasMaxLength(100);
             entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
             // Indexes
-            entity.HasIndex(e => e.DepartmentMasterId);
+            entity.HasIndex(e => e.DepartmentId);
             entity.HasIndex(e => e.IsActive);
         });
 
@@ -591,13 +595,15 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DesignationMasterEntity>(entity =>
         {
             entity.ToTable("DesignationMaster", "Core");
-            entity.HasKey(e => e.DesignationMasterId);
+            entity.HasKey(e => e.DesignationId);
+            entity.Property(e => e.DesignationId)
+                .HasColumnName("DesignationId");
             entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DesignationLocal).HasMaxLength(200);
             entity.Property(e => e.DesignationDescription).HasMaxLength(500);
             // Indexes
-            entity.HasIndex(e => e.DesignationMasterId);
+            entity.HasIndex(e => e.DesignationId);
             entity.HasIndex(e => e.DesignationCode).IsUnique();
 		});
 

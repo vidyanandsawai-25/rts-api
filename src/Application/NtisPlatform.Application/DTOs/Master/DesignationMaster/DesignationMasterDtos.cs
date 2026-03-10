@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.DesignationMaster;
 /// </summary>
 public class DesignationMasterDto : CommonBaseDtos
 {
-    public int DesignationMasterId { get; set; }
+    public int DesignationId { get; set; }
     public string? DesignationCode { get; set; }
     public string? DesignationName { get; set; }
     public string? DesignationLocal { get; set; }

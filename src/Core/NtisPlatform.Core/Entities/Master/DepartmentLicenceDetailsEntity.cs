@@ -11,12 +11,12 @@ public class DepartmentLicenceDetailsEntity : CommonBaseEntity
     /// <summary>
     /// Primary key - Licence Details ID
     /// </summary>
-    public int LicenceDetailsId { get; set; }
+    public int LicenceDetailsId { get; set; } 
 
     /// <summary>
     /// Foreign key to Department Master
     /// </summary>
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; } 
 
     /// <summary>
     /// Licence start date

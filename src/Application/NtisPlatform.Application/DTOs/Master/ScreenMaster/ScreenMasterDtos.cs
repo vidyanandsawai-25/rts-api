@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs;
 /// </summary>
 public class ScreenMasterDto : CommonBaseDtos
 {
-    public int ScreenMasterId { get; set; }
+    public int ScreenId { get; set; }
     public int ScreenGroupId { get; set; }
     public int? ModuleId { get; set; }
     public string? ScreenCode { get; set; }
