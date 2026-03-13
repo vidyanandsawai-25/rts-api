@@ -2,13 +2,13 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-    public class AssessmentYearRangeCVDto : CommonBaseDtos
+    public class AssessmentYearRangeCVDto : BaseDtos
     {
         public int YearRangeId { get; set; }
         public int FromYear { get; set; }
         public int ToYear { get; set; }
     }
-    public class CreateAssessmentYearRangeCVDto : CreateCommonBaseDtos, IValidatableObject
+    public class CreateAssessmentYearRangeCVDto : CreateBaseDtos, IValidatableObject
     {
         [Required(ErrorMessage = "FromYear_Required")]
         [Range(1900, 9999, ErrorMessage = "FromYear_MustBe4Digits")]
@@ -30,7 +30,7 @@ namespace NtisPlatform.Application.DTOs;
         }
     }
 
-    public class UpdateAssessmentYearRangeCVDto : UpdateCommonBaseDtos, IValidatableObject
+    public class UpdateAssessmentYearRangeCVDto : UpdateBaseDtos, IValidatableObject
     {
 
         [Required(ErrorMessage = "FromYear_Required")]

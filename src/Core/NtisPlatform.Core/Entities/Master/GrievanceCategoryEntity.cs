@@ -3,7 +3,7 @@
     /// <summary>
     /// Entity representing a grievance category for complaint management
     /// </summary>
-    public class GrievanceCategoryEntity : CommonBaseEntity
+    public class GrievanceCategoryEntity : BaseEntity
     {
         /// <summary>
         /// Unique identifier for the grievance category

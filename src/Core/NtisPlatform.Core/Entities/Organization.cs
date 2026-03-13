@@ -7,6 +7,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class Organization : BaseEntity
 {
+    public int Id { get; set; }
     /// <summary>
     /// Organization name displayed in UI
     /// </summary>

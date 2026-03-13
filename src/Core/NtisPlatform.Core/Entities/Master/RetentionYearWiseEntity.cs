@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities;
     /// <summary>
     /// Represents retention policy information based on Year ranges and their corresponding values.
     /// </summary>
-    public class RetentionYearWiseEntity : CommonBaseEntity
+    public class RetentionYearWiseEntity : BaseEntity
     {
         public int ID { get; set; }
         public int? FromYear { get; set; }

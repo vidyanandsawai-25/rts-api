@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Core.Entities;
 
-public class TypeOfUseEntity : CommonBaseEntity
+public class TypeOfUseEntity : BaseEntity
 {
     public string TypeOfUseID { get; set; }
     public string Description { get; set; }

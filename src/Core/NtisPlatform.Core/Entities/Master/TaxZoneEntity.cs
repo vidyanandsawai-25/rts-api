@@ -2,7 +2,7 @@
 /// <summary>
 /// Represents a tax zone entity that manages tax zone information.
 /// </summary>
-public class TaxZoneEntity : CommonBaseEntity
+public class TaxZoneEntity : BaseEntity
 {
     public string TaxZoneNo { get; set; } = null!;
 

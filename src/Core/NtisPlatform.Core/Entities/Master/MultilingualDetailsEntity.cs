@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Core.Entities
 {
-    public class MultilingualDetailsEntity : CommonBaseEntity
+    public class MultilingualDetailsEntity : BaseEntity
     {
         public int Id { get; set; }
         public string? Resource { get; set; } = string.Empty;

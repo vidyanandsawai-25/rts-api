@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Core.Entities;
 
-public class ActiveTaxesEntity : CommonBaseEntity
+public class ActiveTaxesEntity : BaseEntity
 {
     public int TaxNameID { get; set; }
 

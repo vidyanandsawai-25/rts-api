@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class RefreshToken : BaseEntity
 {
+    public int Id { get; set; }
     public int UserId { get; set; }
     public string TokenHash { get; set; } = string.Empty;
     public string ClientType { get; set; } = string.Empty;
@@ -22,5 +23,6 @@ public class RefreshToken : BaseEntity
     public virtual User User { get; set; } = null!;
 
     public bool IsExpired => DateTime.Now >= ExpiresAt;
-    public bool IsActive => !IsRevoked && !IsExpired;
+    // Hides BaseEntity.IsActive - this is a computed property, not stored in DB
+    public new bool IsActive => !IsRevoked && !IsExpired;
 }

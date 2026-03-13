@@ -6,7 +6,7 @@ namespace NtisPlatform.Core.Entities.Master;
 /// Department Licence Details entity for managing department-wise licence information
 /// Maps to collective.DepartmentLicenceDetails table
 /// </summary>
-public class DepartmentLicenceDetailsEntity : CommonBaseEntity
+public class DepartmentLicenceDetailsEntity : BaseEntity
 {
     /// <summary>
     /// Primary key - Licence Details ID

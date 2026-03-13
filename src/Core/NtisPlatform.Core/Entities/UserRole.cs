@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class UserRole : BaseEntity
 {
+    public int Id { get; set; }
     public int UserId { get; set; }
     public int RoleId { get; set; }
 

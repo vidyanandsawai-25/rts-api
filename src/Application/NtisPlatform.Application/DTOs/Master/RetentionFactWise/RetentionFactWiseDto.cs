@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class RetentionFactWiseDto : CommonBaseDtos
+public class RetentionFactWiseDto : BaseDtos
 {
     public int ID { get; set; } 
     public double? FromFactor { get; set; }
@@ -10,7 +10,7 @@ public class RetentionFactWiseDto : CommonBaseDtos
     public double? FactorValue { get; set; }
 
 }
-public class CreateRetentionFactWiseDto : CreateCommonBaseDtos
+public class CreateRetentionFactWiseDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "FromFactor_Required")]
     [Range(0, 100, ErrorMessage = "FromFactor_Range")]
@@ -25,7 +25,7 @@ public class CreateRetentionFactWiseDto : CreateCommonBaseDtos
     public double FactorValue { get; set; }
 }
 
-public class UpdateRetentionFactWiseDto : UpdateCommonBaseDtos
+public class UpdateRetentionFactWiseDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "FromFactor_Required")]
     [Range(0, 100, ErrorMessage = "FromFactor_Range")]

@@ -5,20 +5,20 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
 {
-    public class UserRoleMasterDto : CommonBaseDtos
+    public class UserRoleMasterDto : BaseDtos
     {
         public int UserRoleId { get; set; } = 0;
         public string UserRoleName { get; set; } = string.Empty;
     }
 
-    public class CreateUserRoleMasterDto : CreateCommonBaseDtos
+    public class CreateUserRoleMasterDto : CreateBaseDtos
     {
         [Required(ErrorMessage = "UserRoleName_Required")]
         [StringLength(100, ErrorMessage = "UserRoleName_MaxLen_100")]
         public string UserRoleName { get; set; } = string.Empty;
     }
 
-    public class UpdateUserRoleMasterDto : UpdateCommonBaseDtos
+    public class UpdateUserRoleMasterDto : UpdateBaseDtos
     {
         [Required(ErrorMessage = "UserRoleName_Required")]
         [StringLength(100, ErrorMessage = "UserRoleName_MaxLen_100")]

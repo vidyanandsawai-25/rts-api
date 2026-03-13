@@ -14,7 +14,7 @@ namespace NtisPlatform.Application.DTOs.Master.YearMaster
         public string? Description { get; set; }
     }
     
-    public class CreateYearMasterDto : CreateCommonBaseDtos
+    public class CreateYearMasterDto : CreateBaseDtos
     {
         [Required(ErrorMessage = "Year_Required")]
         [Range(1900, 2100, ErrorMessage = "Year_Range")]
@@ -37,7 +37,7 @@ namespace NtisPlatform.Application.DTOs.Master.YearMaster
         public string? Description { get; set; }
     }
     
-    public class UpdateYearMasterDto : UpdateCommonBaseDtos
+    public class UpdateYearMasterDto : UpdateBaseDtos
     {
         [Required(ErrorMessage = "Year_Required")]
         [Range(1900, 2100, ErrorMessage = "Year_Range")]

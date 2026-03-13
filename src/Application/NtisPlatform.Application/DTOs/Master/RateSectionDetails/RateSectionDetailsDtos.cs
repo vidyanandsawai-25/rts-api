@@ -2,14 +2,14 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class RateSectionDetailsDto : CommonBaseDtos
+public class RateSectionDetailsDto : BaseDtos
 {
     public int RateSectionDetailsID { get; set; } 
     public string RateSectionNo { get; set; } = string.Empty;
     public string WardNo { get; set; } = string.Empty;
 }
 
-public class CreateRateSectionDetailsDto : CreateCommonBaseDtos
+public class CreateRateSectionDetailsDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "RateSectionDetails_RateSectionNo_Required")]
     [StringLength(20, ErrorMessage = "RateSectionDetails_RateSectionNo_MaxLen_20")]
@@ -21,7 +21,7 @@ public class CreateRateSectionDetailsDto : CreateCommonBaseDtos
 }
 
 
-public class UpdateRateSectionDetailsDto : UpdateCommonBaseDtos
+public class UpdateRateSectionDetailsDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "RateSectionDetails_RateSectionNo_Required")]
     [StringLength(20, ErrorMessage = "RateSectionDetails_RateSectionNo_MaxLen_20")]

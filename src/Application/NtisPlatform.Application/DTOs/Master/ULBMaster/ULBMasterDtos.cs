@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.ULBMaster;
 /// <summary>
 /// ULB Master DTO for read operations
 /// </summary>
-public class ULBMasterDto : CommonBaseDtos
+public class ULBMasterDto : BaseDtos
 {
     public int UlbId { get; set; }
     public string UlbCode { get; set; } = string.Empty;
@@ -41,7 +41,7 @@ public class ULBMasterDto : CommonBaseDtos
 /// <summary>
 /// DTO for creating new ULB Master
 /// </summary>
-public class CreateULBMasterDto : CreateCommonBaseDtos
+public class CreateULBMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "UlbCode_Required")]
     [StringLength(50, ErrorMessage = "UlbCode_MaxLen_50")]
@@ -134,7 +134,7 @@ public class CreateULBMasterDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating existing ULB Master
 /// </summary>
-public class UpdateULBMasterDto: UpdateCommonBaseDtos
+public class UpdateULBMasterDto: UpdateBaseDtos
 {
     [Required(ErrorMessage = "UlbCode_Required")]
     [StringLength(50, ErrorMessage = "UlbCode_MaxLen_50")]

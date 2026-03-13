@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs.Master.OfficeMaster;
 
-public class OfficeDto : CommonBaseDtos
+public class OfficeDto : BaseDtos
 {
     public int Id { get; set; }
     public string? OfficeCode { get; set; }
@@ -19,7 +19,7 @@ public class OfficeDto : CommonBaseDtos
     public bool? Status { get; set; }
 }
 
-public class CreateOfficeDto : CreateCommonBaseDtos
+public class CreateOfficeDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "OfficeCode_Required")]
     [StringLength(50, ErrorMessage = "OfficeCode_MaxLen_50")]
@@ -59,7 +59,7 @@ public class CreateOfficeDto : CreateCommonBaseDtos
     public bool? Status { get; set; }
 }
 
-public class UpdateOfficeDto : UpdateCommonBaseDtos
+public class UpdateOfficeDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "OfficeCode_Required")]
     [StringLength(50, ErrorMessage = "OfficeCode_MaxLen_50")]

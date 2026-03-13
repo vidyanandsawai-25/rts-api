@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class AuthProvider : BaseEntity
 {
+    public int Id { get; set; }
     public string ProviderType { get; set; } = string.Empty; // Basic, AzureAD, Google, SAML
     public string DisplayName { get; set; } = string.Empty;
     public bool IsEnabled { get; set; } = true;

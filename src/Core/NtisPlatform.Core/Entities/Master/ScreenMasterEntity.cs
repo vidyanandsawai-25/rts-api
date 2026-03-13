@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities.Master;
 /// <summary>
 /// Entity representing a screen in the system
 /// </summary>
-public class ScreenMasterEntity : CommonBaseEntity
+public class ScreenMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the screen

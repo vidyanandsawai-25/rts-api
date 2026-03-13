@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 
-public class RateEntity : CommonBaseEntity
+public class RateEntity : BaseEntity
 {
     public int ID { get; set; } = 0;
 

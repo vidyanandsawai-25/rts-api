@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.DesignationMaster;
 /// <summary>
 /// DTO for DesignationMaster
 /// </summary>
-public class DesignationMasterDto : CommonBaseDtos
+public class DesignationMasterDto : BaseDtos
 {
     public int DesignationId { get; set; }
     public string? DesignationCode { get; set; }
@@ -17,7 +17,7 @@ public class DesignationMasterDto : CommonBaseDtos
 /// <summary>
 /// DTO for creating a new DesignationMaster
 /// </summary>
-public class CreateDesignationMasterDto : CreateCommonBaseDtos
+public class CreateDesignationMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "Designationcode_Required")]
     [StringLength(50, ErrorMessage = "Designationcode_MaxLen_50")]
@@ -38,7 +38,7 @@ public class CreateDesignationMasterDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating a DesignationMaster
 /// </summary>
-public class UpdateDesignationMasterDto: UpdateCommonBaseDtos
+public class UpdateDesignationMasterDto: UpdateBaseDtos
 {
     [Required(ErrorMessage = "Designationcode_Required")]
     [StringLength(50, ErrorMessage = "Designationcode_MaxLen_50")]

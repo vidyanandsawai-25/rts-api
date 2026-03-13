@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Core.Entities.Master
 {
-    public class OfficeEntity : CommonBaseEntity
+    public class OfficeEntity : BaseEntity
     {
         public int Id { get; set; }
         [Column(TypeName = "nvarchar(50)")]

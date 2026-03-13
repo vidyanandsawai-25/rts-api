@@ -5,7 +5,7 @@ using System.Text;
 
 namespace NtisPlatform.Application.DTOs
 {
-    public class TypeOfUseGroupDto : CommonBaseDtos
+    public class TypeOfUseGroupDto : BaseDtos
     {
         public string TypeOfUseGroupID { get; set; } = "";
         public string GroupName { get; set; } = "";
@@ -13,7 +13,7 @@ namespace NtisPlatform.Application.DTOs
         public string? GroupIcon { get; set; }
     }
 
-    public class CreateTypeOfUseGroupDto : CreateCommonBaseDtos
+    public class CreateTypeOfUseGroupDto : CreateBaseDtos
     {
         [Required(ErrorMessage = "TypeOfUseGroup_TypeOfUseGroupID_Required")]
         [StringLength(10, ErrorMessage = "TypeOfUseGroupID_MaxLen_10")]
@@ -31,7 +31,7 @@ namespace NtisPlatform.Application.DTOs
 
     }
 
-    public class UpdateTypeOfUseGroupDto : UpdateCommonBaseDtos
+    public class UpdateTypeOfUseGroupDto : UpdateBaseDtos
     {
         [Required(ErrorMessage = "TypeOfUseGroup_GroupName_Required")]
         [StringLength(50, ErrorMessage = "GroupName_MaxLen_50")]

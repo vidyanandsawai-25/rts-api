@@ -4,7 +4,7 @@ using System.Text;
 
 namespace NtisPlatform.Core.Entities;
 
-public class TypeOfUseGroupEntity : CommonBaseEntity
+public class TypeOfUseGroupEntity : BaseEntity
 {
     public string TypeOfUseGroupID { get; set; } = "";
     public string? GroupNameEnglish { get; set; }

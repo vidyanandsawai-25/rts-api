@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
 /// <summary>
 /// DTO for ScreenGroupMaster
 /// </summary>
-public class ScreenGroupMasterDto : CommonBaseDtos
+public class ScreenGroupMasterDto : BaseDtos
 {
     public int ScreenGroupId { get; set; }
     public string? ScreenGroupCode { get; set; }
@@ -18,7 +18,7 @@ public class ScreenGroupMasterDto : CommonBaseDtos
 /// <summary>
 /// DTO for creating a new ScreenGroupMaster
 /// </summary>
-public class CreateScreenGroupMasterDto : CreateCommonBaseDtos
+public class CreateScreenGroupMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupCode_Required")]
     [StringLength(50, ErrorMessage = "ScreenGroupCode_MaxLen_50")]
@@ -40,7 +40,7 @@ public class CreateScreenGroupMasterDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating a ScreenGroupMaster
 /// </summary>
-public class UpdateScreenGroupMasterDto :UpdateCommonBaseDtos
+public class UpdateScreenGroupMasterDto :UpdateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupCode_Required")]
     [StringLength(50, ErrorMessage = "ScreenGroupCode_MaxLen_50")]

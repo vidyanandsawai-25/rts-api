@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs;
 /// <summary>
 /// DTO for ScreenMaster
 /// </summary>
-public class ScreenMasterDto : CommonBaseDtos
+public class ScreenMasterDto : BaseDtos
 {
     public int ScreenId { get; set; }
     public int ScreenGroupId { get; set; }
@@ -25,7 +25,7 @@ public class ScreenMasterDto : CommonBaseDtos
 /// <summary>
 /// DTO for creating a new ScreenMaster
 /// </summary>
-public class CreateScreenMasterDto: CreateCommonBaseDtos
+public class CreateScreenMasterDto: CreateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupId_Required")]
     public int ScreenGroupId { get; set; }
@@ -59,7 +59,7 @@ public class CreateScreenMasterDto: CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating a ScreenMaster
 /// </summary>
-public class UpdateScreenMasterDto : UpdateCommonBaseDtos
+public class UpdateScreenMasterDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupId_Required")]
     public int ScreenGroupId { get; set; }

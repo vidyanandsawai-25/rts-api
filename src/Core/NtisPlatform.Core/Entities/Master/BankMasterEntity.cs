@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Core.Entities.Master
 {
-    public class BankMasterEntity : CommonBaseEntity
+    public class BankMasterEntity : BaseEntity
     {
         public int Id { get; set; }
         public string BankCode { get; set; } = string.Empty;

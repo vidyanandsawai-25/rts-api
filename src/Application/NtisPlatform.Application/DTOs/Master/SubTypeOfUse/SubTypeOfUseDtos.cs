@@ -3,7 +3,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class SubTypeOfUseDto : CommonBaseDtos
+public class SubTypeOfUseDto : BaseDtos
 {
     public int SubTypeOfUseId { get; set; }
     public string Description { get; set; } = string.Empty;
@@ -13,7 +13,7 @@ public class SubTypeOfUseDto : CommonBaseDtos
     public int? SearchSequence { get; set; }
 }
 
-public class CreateSubTypeOfUseDto : CreateCommonBaseDtos
+public class CreateSubTypeOfUseDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "SubTypeOfUse_Description_Required")]
     [StringLength(80, ErrorMessage = "Description_MaxLen_80")]
@@ -32,7 +32,7 @@ public class CreateSubTypeOfUseDto : CreateCommonBaseDtos
     public int? SearchSequence { get; set; }
 }
 
-public class UpdateSubTypeOfUseDto : UpdateCommonBaseDtos
+public class UpdateSubTypeOfUseDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "SubTypeOfUse_Description_Required")]
     [StringLength(80, ErrorMessage = "Description_MaxLen_80")]

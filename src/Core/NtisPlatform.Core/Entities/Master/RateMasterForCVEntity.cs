@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace NtisPlatform.Core.Entities;
 
 
-public class RateMasterForCVEntity : CommonBaseEntity
+public class RateMasterForCVEntity : BaseEntity
 {
     public int Id { get; set; } = 0;
 

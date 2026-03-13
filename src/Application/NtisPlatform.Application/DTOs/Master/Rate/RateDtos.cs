@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 //main dto
-public class RateDto: CommonBaseDtos
+public class RateDto: BaseDtos
 {
     public int? ID { get; set; }
     public int? Year { get; set; }
@@ -19,7 +19,7 @@ public class RateDto: CommonBaseDtos
 }
 
 
-public class CreateRateDto: CreateCommonBaseDtos
+public class CreateRateDto: CreateBaseDtos
 {
     public int? ID { get; set; }
 
@@ -54,7 +54,7 @@ public class CreateRateDto: CreateCommonBaseDtos
     public string? RateRemark { get; set; } = string.Empty;
 }
 
-public class UpdateRateDto: UpdateCommonBaseDtos
+public class UpdateRateDto: UpdateBaseDtos
 {
     public int? ID { get; set; }
 

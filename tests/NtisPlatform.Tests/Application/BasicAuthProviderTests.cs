@@ -357,11 +357,9 @@ public class BasicAuthProviderTests : IDisposable
         await _context.Users.AddAsync(user);
         await _context.SaveChangesAsync();
 
-        user.UserRoles = new List<UserRole>
-        {
-            new UserRole { UserId = user.Id, RoleId = role1.Id, Role = role1, User = user },
-            new UserRole { UserId = user.Id, RoleId = role2.Id, Role = role2, User = user }
-        };
+        var userRole1 = new UserRole { UserId = user.Id, RoleId = role1.Id };
+        var userRole2 = new UserRole { UserId = user.Id, RoleId = role2.Id };
+        await _context.UserRoles.AddRangeAsync(userRole1, userRole2);
         await _context.SaveChangesAsync();
 
         var request = new LoginRequest

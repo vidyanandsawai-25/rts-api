@@ -83,7 +83,7 @@ public class OrganizationServiceTests : IDisposable
     public async Task CompleteInitialSetupAsync_CreatesOrgAndAdminUser()
     {
         // Ensure roles table has SuperAdmin role so assignment code can run if present
-        _context.Roles.Add(new Role { Name = "SuperAdmin", CreatedAt = DateTime.Now });
+        _context.Roles.Add(new Role { Name = "SuperAdmin", CreatedDate = DateTime.Now });
         await _context.SaveChangesAsync();
 
         var org = new Organization { Name = "InitOrg" };

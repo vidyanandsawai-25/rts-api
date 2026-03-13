@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Entity representing a designation in the system
 /// </summary>
-public class DesignationMasterEntity : CommonBaseEntity
+public class DesignationMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the designation

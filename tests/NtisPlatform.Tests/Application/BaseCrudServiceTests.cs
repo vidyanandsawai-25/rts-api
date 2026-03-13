@@ -15,6 +15,7 @@ namespace NtisPlatform.Tests.Application;
 
 public class TestEntity : BaseEntity
 {
+    public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsActive { get; set; }
@@ -319,7 +320,7 @@ public class BaseCrudServiceTests
             Id = 1,
             Name = "New Entity",
             Description = "New Description",
-            CreatedAt = DateTime.Now
+            CreatedDate = DateTime.Now
         };
 
         var resultDto = new TestDto
@@ -350,13 +351,13 @@ public class BaseCrudServiceTests
         Assert.Equal("New Description", result.Description);
 
         _repositoryMock.Verify(x => x.AddAsync(
-            It.Is<TestEntity>(e => e.CreatedAt != default(DateTime)),
+            It.Is<TestEntity>(e => e.CreatedDate != default(DateTime)),
             It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task CreateAsync_SetsCreatedAtProperty()
+    public async Task CreateAsync_SetsCreatedDateProperty()
     {
         // Arrange
         var createDto = new TestCreateDto { Name = "Test", Description = "Desc" };
@@ -380,7 +381,7 @@ public class BaseCrudServiceTests
 
         // Assert
         _repositoryMock.Verify(x => x.AddAsync(
-            It.Is<TestEntity>(e => e.CreatedAt >= beforeCreate && e.CreatedAt <= DateTime.Now.AddSeconds(1)),
+            It.Is<TestEntity>(e => e.CreatedDate >= beforeCreate && e.CreatedDate <= DateTime.Now.AddSeconds(1)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -426,7 +427,7 @@ public class BaseCrudServiceTests
             Name = "Original Name",
             Description = "Original Desc",
             IsActive = true,
-            CreatedAt = DateTime.Now.AddDays(-1)
+            CreatedDate = DateTime.Now.AddDays(-1)
         };
 
         var updateDto = new TestUpdateDto
@@ -442,8 +443,8 @@ public class BaseCrudServiceTests
             Name = "Updated Name",
             Description = "Updated Desc",
             IsActive = false,
-            CreatedAt = entity.CreatedAt,
-            UpdatedAt = DateTime.Now
+            CreatedDate = entity.CreatedDate,
+            UpdatedDate = DateTime.Now
         };
 
         var resultDto = new TestDto
@@ -479,7 +480,7 @@ public class BaseCrudServiceTests
         Assert.False(result.IsActive);
 
         _repositoryMock.Verify(x => x.UpdateAsync(
-            It.Is<TestEntity>(e => e.UpdatedAt != null && e.UpdatedAt != default(DateTime)),
+            It.Is<TestEntity>(e => e.UpdatedDate != null && e.UpdatedDate != default(DateTime)),
             It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -508,14 +509,14 @@ public class BaseCrudServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_SetsUpdatedAtProperty()
+    public async Task UpdateAsync_SetsUpdatedDateProperty()
     {
         // Arrange
         var entity = new TestEntity
         {
             Id = 1,
             Name = "Original",
-            CreatedAt = DateTime.Now.AddDays(-1)
+            CreatedDate = DateTime.Now.AddDays(-1)
         };
         var updateDto = new TestUpdateDto { Name = "Updated", Description = "Desc" };
         var beforeUpdate = DateTime.Now;
@@ -540,7 +541,7 @@ public class BaseCrudServiceTests
 
         // Assert
         _repositoryMock.Verify(x => x.UpdateAsync(
-            It.Is<TestEntity>(e => e.UpdatedAt >= beforeUpdate && e.UpdatedAt <= DateTime.Now.AddSeconds(1)),
+            It.Is<TestEntity>(e => e.UpdatedDate >= beforeUpdate && e.UpdatedDate <= DateTime.Now.AddSeconds(1)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -588,7 +589,7 @@ public class BaseCrudServiceTests
         {
             Id = 1,
             Name = "Test Entity",
-            IsDeleted = false
+            IsActive = false
         };
 
         _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))

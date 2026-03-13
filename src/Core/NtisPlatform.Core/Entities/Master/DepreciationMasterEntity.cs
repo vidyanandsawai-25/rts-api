@@ -5,7 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Represents a depreciation master entity used to manage depreciation information.
 /// </summary>
-public class DepreciationMasterEntity : CommonBaseEntity
+public class DepreciationMasterEntity : BaseEntity
 {
     [Required]
     public int ID { get; set; }

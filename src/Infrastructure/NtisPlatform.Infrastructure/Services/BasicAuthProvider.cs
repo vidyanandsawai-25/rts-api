@@ -45,12 +45,21 @@ public class BasicAuthProvider : IAuthenticationProvider
                 return AuthResult.Failure(AuthResultStatus.InvalidCredentials, "Invalid username or password");
             }
 
-            // Check if account is locked
+            // Check if account is locked and lockout has not expired
             if (user.IsLocked && user.LockoutEnd.HasValue && user.LockoutEnd.Value > DateTime.Now)
             {
                 _logger.LogWarning("Login attempt for locked account: {UserId}", user.Id);
                 return AuthResult.Failure(AuthResultStatus.AccountLocked, 
                     $"Account is locked until {user.LockoutEnd.Value:yyyy-MM-dd HH:mm:ss} UTC");
+            }
+
+            // If lockout has expired, unlock the account
+            if (user.IsLocked && user.LockoutEnd.HasValue && user.LockoutEnd.Value <= DateTime.Now)
+            {
+                user.IsLocked = false;
+                user.LockoutEnd = null;
+                user.FailedLoginAttempts = 0;
+                await _context.SaveChangesAsync(cancellationToken);
             }
 
             // Check if account is active
@@ -65,7 +74,7 @@ public class BasicAuthProvider : IAuthenticationProvider
             {
                 // Increment failed login attempts
                 user.FailedLoginAttempts++;
-                
+
                 // Lock account after max attempts (get from OrganizationSettings or use default 5)
                 if (user.FailedLoginAttempts >= 5)
                 {
@@ -79,15 +88,7 @@ public class BasicAuthProvider : IAuthenticationProvider
                 return AuthResult.Failure(AuthResultStatus.InvalidCredentials, "Invalid username or password");
             }
 
-            // Reset failed login attempts on successful login
-            user.FailedLoginAttempts = 0;
-            user.IsLocked = false;
-            user.LockoutEnd = null;
-            user.LastLoginAt = DateTime.Now;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // Check if two-factor is required
+            // Check if two-factor is required (before updating login state)
             if (user.RequiresTwoFactor && string.IsNullOrEmpty(request.TwoFactorCode))
             {
                 var userInfo = MapToUserInfo(user);
@@ -103,6 +104,14 @@ public class BasicAuthProvider : IAuthenticationProvider
                     return AuthResult.Failure(AuthResultStatus.InvalidCredentials, "Invalid two-factor code");
                 }
             }
+
+            // Reset failed login attempts on successful authentication
+            user.FailedLoginAttempts = 0;
+            user.IsLocked = false;
+            user.LockoutEnd = null;
+            user.LastLoginAt = DateTime.Now;
+
+            await _context.SaveChangesAsync(cancellationToken);
 
             return AuthResult.Success(MapToUserInfo(user));
         }

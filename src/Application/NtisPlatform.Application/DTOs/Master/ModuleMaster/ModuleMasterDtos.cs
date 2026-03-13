@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.ModuleMaster;
 /// <summary>
 /// DTO for ModuleMaster
 /// </summary>
-public class ModuleMasterDto :CommonBaseDtos
+public class ModuleMasterDto :BaseDtos
 {
     public int ModuleId { get; set; }
     public int DepartmentId { get; set; }
@@ -21,7 +21,7 @@ public class ModuleMasterDto :CommonBaseDtos
 /// <summary>
 /// DTO for creating a new ModuleMaster
 /// </summary>
-public class CreateModuleMasterDto : CreateCommonBaseDtos
+public class CreateModuleMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "DepartmentId_Required")]
     public int DepartmentId { get; set; }
@@ -50,7 +50,7 @@ public class CreateModuleMasterDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating a ModuleMaster
 /// </summary>
-public class UpdateModuleMasterDto : UpdateCommonBaseDtos
+public class UpdateModuleMasterDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "DepartmentId_Required")]
     public int DepartmentId { get; set; }

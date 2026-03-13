@@ -3,7 +3,7 @@
 // <summary>
 // Represents retention policy information based on factor ranges and their corresponding values.
 // </summary>
-public class RetentionFactWiseEntity : CommonBaseEntity
+public class RetentionFactWiseEntity : BaseEntity
 {
     public int ID { get; set; }
     public double? FromFactor { get; set; }

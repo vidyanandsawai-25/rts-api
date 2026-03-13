@@ -64,13 +64,13 @@ public class TaxZoneEntityTests
     }
 
     [Fact]
-    public void TaxZoneEntity_InheritsFromCommonBaseEntity()
+    public void TaxZoneEntity_InheritsFromBaseEntity()
     {
         // Arrange & Act
         var entity = new TaxZoneEntity();
 
         // Assert
-        Assert.IsAssignableFrom<CommonBaseEntity>(entity);
+        Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 }
 
@@ -104,13 +104,13 @@ public class TaxZoneDtoTests
     }
 
     [Fact]
-    public void TaxZoneDto_InheritsFromCommonBaseDtos()
+    public void TaxZoneDto_InheritsFromBaseDtos()
     {
         // Arrange & Act
         var dto = new TaxZoneDto();
 
         // Assert
-        Assert.IsAssignableFrom<CommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<BaseDtos>(dto);
     }
 
     [Fact]
@@ -272,13 +272,13 @@ public class CreateTaxZoneDtoTests
     }
 
     [Fact]
-    public void CreateTaxZoneDto_InheritsFromCreateCommonBaseDtos()
+    public void CreateTaxZoneDto_InheritsFromCreateBaseDtos()
     {
         // Arrange & Act
         var dto = new CreateTaxZoneDto();
 
         // Assert
-        Assert.IsAssignableFrom<CreateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<CreateBaseDtos>(dto);
     }
 
     [Fact]
@@ -464,13 +464,13 @@ public class UpdateTaxZoneDtoTests
     }
 
     [Fact]
-    public void UpdateTaxZoneDto_InheritsFromUpdateCommonBaseDtos()
+    public void UpdateTaxZoneDto_InheritsFromUpdateBaseDtos()
     {
         // Arrange & Act
         var dto = new UpdateTaxZoneDto();
 
         // Assert
-        Assert.IsAssignableFrom<UpdateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<UpdateBaseDtos>(dto);
     }
 }
 

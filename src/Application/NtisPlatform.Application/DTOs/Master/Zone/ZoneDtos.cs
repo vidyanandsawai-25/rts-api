@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class ZoneDto : CommonBaseDtos
+public class ZoneDto : BaseDtos
 {
     public string ZoneNo { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -10,7 +10,7 @@ public class ZoneDto : CommonBaseDtos
     public int? SequenceNo { get; set; }
 }
 
-public class CreateZoneDto : CreateCommonBaseDtos
+public class CreateZoneDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "Zone_ZoneNo_Required")]
     [StringLength(10, ErrorMessage = "Zone_ZoneNo_MaxLen_10")]
@@ -29,7 +29,7 @@ public class CreateZoneDto : CreateCommonBaseDtos
 }
 
 
-public class UpdateZoneDto : UpdateCommonBaseDtos
+public class UpdateZoneDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "Zone_Description_Required")]
     [StringLength(20, ErrorMessage = "Zone_Description_MaxLen_20")]

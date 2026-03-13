@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Core.Entities
 {
-    public class UserRoleMasterEntity : CommonBaseEntity
+    public class UserRoleMasterEntity : BaseEntity
     {
         public int UserRoleId { get; set; } = 0;
         

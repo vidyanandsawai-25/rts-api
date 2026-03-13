@@ -6,6 +6,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class OrganizationSetting : BaseEntity
 {
+    public int Id { get; set; }
     /// <summary>
     /// Setting key (e.g., "Security.RequiresTwoFactor")
     /// </summary>

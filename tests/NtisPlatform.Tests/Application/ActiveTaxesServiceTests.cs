@@ -136,10 +136,10 @@ public class ActiveTaxesEntityTests
     }
 
     [Fact]
-    public void ActiveTaxesEntity_InheritsFromCommonBaseEntity()
+    public void ActiveTaxesEntity_InheritsFromBaseEntity()
     {
         var entity = new ActiveTaxesEntity();
-        Assert.IsAssignableFrom<CommonBaseEntity>(entity);
+        Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 }
 
@@ -177,10 +177,10 @@ public class ActiveTaxesDtoTests
     }
 
     [Fact]
-    public void ActiveTaxesDto_InheritsFromCommonBaseDtos()
+    public void ActiveTaxesDto_InheritsFromBaseDtos()
     {
         var dto = new ActiveTaxesDto();
-        Assert.IsAssignableFrom<CommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<BaseDtos>(dto);
     }
 
     [Fact]
@@ -337,10 +337,10 @@ public class CreateActiveTaxesDtoTests
     }
 
     [Fact]
-    public void CreateActiveTaxesDto_InheritsFromCreateCommonBaseDtos()
+    public void CreateActiveTaxesDto_InheritsFromCreateBaseDtos()
     {
         var dto = new CreateActiveTaxesDto();
-        Assert.IsAssignableFrom<CreateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<CreateBaseDtos>(dto);
     }
 
     [Fact]
@@ -612,10 +612,10 @@ public class UpdateActiveTaxesDtoTests
     }
 
     [Fact]
-    public void UpdateActiveTaxesDto_InheritsFromUpdateCommonBaseDtos()
+    public void UpdateActiveTaxesDto_InheritsFromUpdateBaseDtos()
     {
         var dto = new UpdateActiveTaxesDto();
-        Assert.IsAssignableFrom<UpdateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<UpdateBaseDtos>(dto);
     }
 }
 

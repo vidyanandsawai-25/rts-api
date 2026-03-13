@@ -18,8 +18,8 @@ public class OrganizationDtoValidationTests
             Name = "Test Organization",
             IsActive = true,
             IsSetupComplete = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Assert
@@ -27,8 +27,8 @@ public class OrganizationDtoValidationTests
         Assert.Equal("Test Organization", response.Name);
         Assert.True(response.IsActive);
         Assert.True(response.IsSetupComplete);
-        Assert.NotEqual(default(DateTime), response.CreatedAt);
-        Assert.NotNull(response.UpdatedAt);
+        Assert.NotEqual(default(DateTime), response.CreatedDate);
+        Assert.NotNull(response.UpdatedDate);
     }
 
     [Fact]
@@ -42,8 +42,8 @@ public class OrganizationDtoValidationTests
         Assert.Equal(string.Empty, response.Name);
         Assert.False(response.IsActive);
         Assert.False(response.IsSetupComplete);
-        Assert.Equal(default(DateTime), response.CreatedAt);
-        Assert.Null(response.UpdatedAt);
+        Assert.Null(response.CreatedDate);
+        Assert.Null(response.UpdatedDate);
     }
 
     #endregion
@@ -214,8 +214,8 @@ public class OrganizationDtoValidationTests
             Description = "Test Description",
             TaxId = "TAX123",
             IsActive = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Assert
@@ -225,7 +225,7 @@ public class OrganizationDtoValidationTests
         Assert.Equal(200, response.LogoWidth);
         Assert.Equal(100, response.LogoHeight);
         Assert.True(response.IsActive);
-        Assert.NotEqual(default(DateTime), response.CreatedAt);
+        Assert.NotEqual(default(DateTime), response.CreatedDate);
     }
 
     [Fact]
@@ -362,13 +362,13 @@ public class OrganizationDtoValidationTests
             Name = "Test",
             IsActive = true,
             IsSetupComplete = false,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = null
+            CreatedDate = DateTime.Now,
+            UpdatedDate = null
         };
 
         // Act & Assert
         Assert.NotNull(response);
-        Assert.Null(response.UpdatedAt);
+        Assert.Null(response.UpdatedDate);
     }
 
     [Fact]
@@ -385,8 +385,8 @@ public class OrganizationDtoValidationTests
             PrimaryContactEmail = "test@test.com",
             PrimaryContactPhone = null,
             IsActive = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = null
+            CreatedDate = DateTime.Now,
+            UpdatedDate = null
         };
 
         // Assert
@@ -395,7 +395,7 @@ public class OrganizationDtoValidationTests
         Assert.Null(response.LogoHeight);
         Assert.NotNull(response.PrimaryContactEmail);
         Assert.Null(response.PrimaryContactPhone);
-        Assert.Null(response.UpdatedAt);
+        Assert.Null(response.UpdatedDate);
     }
 
     #endregion

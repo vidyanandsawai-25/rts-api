@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class RateMasterForCVDto : CommonBaseDtos
+public class RateMasterForCVDto : BaseDtos
 {
     public int Id { get; set; }
 
@@ -26,7 +26,7 @@ public class RateMasterForCVDto : CommonBaseDtos
     
 }
 
-public class CreateRateMasterForCVDto : CreateCommonBaseDtos
+public class CreateRateMasterForCVDto : CreateBaseDtos
 {
     public int Id { get; set; }
 
@@ -63,7 +63,7 @@ public class CreateRateMasterForCVDto : CreateCommonBaseDtos
 }
 
 
-public class UpdateRateMasterForCVDto : UpdateCommonBaseDtos
+public class UpdateRateMasterForCVDto : UpdateBaseDtos
 {    
     public int Id { get; set; }
 

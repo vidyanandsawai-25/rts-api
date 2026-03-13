@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Core.Entities.Master
 {
-    public class YearMasterEntity : CommonBaseEntity
+    public class YearMasterEntity : BaseEntity
     {
         public int Id { get; set; }
         public int Year { get; set; }

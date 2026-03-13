@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Entity representing a screen group in the system
 /// </summary>
-public class ScreenGroupMasterEntity : CommonBaseEntity
+public class ScreenGroupMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the screen group

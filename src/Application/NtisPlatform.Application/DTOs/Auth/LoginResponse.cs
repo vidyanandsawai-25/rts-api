@@ -5,6 +5,7 @@ namespace NtisPlatform.Application.DTOs.Auth;
 /// </summary>
 public class LoginResponse
 {
+    public int Id { get; set; }
     /// <summary>
     /// JWT access token for API authorization
     /// </summary>

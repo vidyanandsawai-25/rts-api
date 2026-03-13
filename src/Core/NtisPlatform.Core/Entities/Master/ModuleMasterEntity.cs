@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Entity representing a module in the system
 /// </summary>
-public class ModuleMasterEntity : CommonBaseEntity
+public class ModuleMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the module

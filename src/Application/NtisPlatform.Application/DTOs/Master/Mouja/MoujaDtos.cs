@@ -3,7 +3,7 @@
 namespace NtisPlatform.Application.DTOs;
 
 
-public class MoujaDto : CommonBaseDtos
+public class MoujaDto : BaseDtos
 {
     public int Id { get; set; } = 0;
 
@@ -13,7 +13,7 @@ public class MoujaDto : CommonBaseDtos
 
 }
 
-public class CreateMoujaDto : CreateCommonBaseDtos
+public class CreateMoujaDto : CreateBaseDtos
 {
     public int Id { get; set; } = 0;
     [Range(1, 9999, ErrorMessage = "Mouja_Year_Range_1900_9999")]
@@ -24,7 +24,7 @@ public class CreateMoujaDto : CreateCommonBaseDtos
     public string MoujaName { get; set; } = string.Empty;
 }
 
-public class UpdateMoujaDto : UpdateCommonBaseDtos
+public class UpdateMoujaDto : UpdateBaseDtos
 {
     public int Id { get; set; } = 0;
     [Range(1, 9999, ErrorMessage = "Mouja_Year_Range_1900_9999")]

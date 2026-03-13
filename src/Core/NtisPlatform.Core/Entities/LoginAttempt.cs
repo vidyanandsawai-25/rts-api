@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class LoginAttempt : BaseEntity
 {
+    public int Id { get; set; }
     public int? UserId { get; set; }
     public string Username { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;

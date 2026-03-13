@@ -2,14 +2,14 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class TaxZoneDto : CommonBaseDtos
+public class TaxZoneDto : BaseDtos
 {
     public string TaxZoneNo { get; set; } = null!;
     public string? TaxZoneType { get; set; }
     public string Remark { get; set; } = null!;
 }
 
-public class CreateTaxZoneDto : CreateCommonBaseDtos
+public class CreateTaxZoneDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "TaxZoneNo_Required")]
     [StringLength(10, ErrorMessage = "TaxZoneNo_MaxLen_10")]  
@@ -23,7 +23,7 @@ public class CreateTaxZoneDto : CreateCommonBaseDtos
     public string Remark { get; set; } = null!;
 }
 
-public class UpdateTaxZoneDto : UpdateCommonBaseDtos
+public class UpdateTaxZoneDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "TaxZoneNo_Required")]
     [StringLength(10, ErrorMessage = "TaxZoneNo_MaxLen_10")]  

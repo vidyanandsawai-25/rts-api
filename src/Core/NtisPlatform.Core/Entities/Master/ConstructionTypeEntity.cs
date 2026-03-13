@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 ///  Represents a ConstructionType entity manage building construction type information.
 /// </summary>
-public class ConstructionTypeEntity :CommonBaseEntity
+public class ConstructionTypeEntity :BaseEntity
 {
     public string? ConstructionId { get; set; } = string.Empty;
     public string? Description { get; set; } = string.Empty;

@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Property;
 /// <summary>
 /// Property DTO for read operations - includes all fields from PropertyMast table
 /// </summary>
-public class PropertyDto : CommonBaseDtos
+public class PropertyDto : BaseDtos
 {
     public int OwnerID { get; set; }
     
@@ -74,7 +74,7 @@ public class PropertyDto : CommonBaseDtos
 /// <summary>
 /// DTO for creating new Property records
 /// </summary>
-public class CreatePropertyDto : CreateCommonBaseDtos
+public class CreatePropertyDto : CreateBaseDtos
 {
     // Required Fields
     [Required(ErrorMessage = "Property_WardNo_Required")]
@@ -188,7 +188,7 @@ public class CreatePropertyDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating existing Property records
 /// </summary>
-public class UpdatePropertyDto : UpdateCommonBaseDtos
+public class UpdatePropertyDto : UpdateBaseDtos
 {
     // Required Fields
     [Required(ErrorMessage = "Property_WardNo_Required")]

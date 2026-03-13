@@ -18,7 +18,7 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
         public string Status { get; set; } = string.Empty;
     }
 
-    public class CreateBankMasterDto : CreateCommonBaseDtos
+    public class CreateBankMasterDto : CreateBaseDtos
     {
         [Required(ErrorMessage = "BankCode_Required")]
         [StringLength(50, ErrorMessage = "BankCode_MaxLen_50")]
@@ -49,7 +49,7 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
         public string Status { get; set; } = string.Empty;
     }
 
-    public class UpdateBankMasterDto : UpdateCommonBaseDtos
+    public class UpdateBankMasterDto : UpdateBaseDtos
     {
         [Required(ErrorMessage = "BankCode_Required")]
         [StringLength(50, ErrorMessage = "BankCode_MaxLen_50")]

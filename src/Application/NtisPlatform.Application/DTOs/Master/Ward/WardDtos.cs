@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class WardDto : CommonBaseDtos
+public class WardDto : BaseDtos
 {
     public string WardNo { get; set; } = string.Empty;
     public string ZoneNo { get; set; } = string.Empty;
@@ -11,7 +11,7 @@ public class WardDto : CommonBaseDtos
     public int? SequenceNo { get; set; }
 }
 
-public class CreateWardDto : CreateCommonBaseDtos
+public class CreateWardDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "Ward_WardNo_Required")]
     [StringLength(10, ErrorMessage = "Ward_ZoneNo_MaxLen_10")]
@@ -31,7 +31,7 @@ public class CreateWardDto : CreateCommonBaseDtos
     public int? SequenceNo { get; set; }
 }
 
-public class UpdateWardDto : UpdateCommonBaseDtos
+public class UpdateWardDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "Ward_ZoneNo_Required")]
     [StringLength(10, ErrorMessage = "Ward_ZoneNo_MaxLen_10")]

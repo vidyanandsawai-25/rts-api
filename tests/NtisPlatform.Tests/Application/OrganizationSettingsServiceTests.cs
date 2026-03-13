@@ -37,8 +37,8 @@ public class OrganizationSettingsServiceTests : IDisposable
     {
         _context.OrganizationSettings.AddRange(new[]
         {
-            new OrganizationSetting { Key = "A.K1", Value = "v1", Category = "Cat1", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            new OrganizationSetting { Key = "B.K2", Value = "v2", Category = "Cat2", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+            new OrganizationSetting { Key = "A.K1", Value = "v1", Category = "Cat1", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now },
+            new OrganizationSetting { Key = "B.K2", Value = "v2", Category = "Cat2", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now }
         });
         await _context.SaveChangesAsync();
 
@@ -57,8 +57,8 @@ public class OrganizationSettingsServiceTests : IDisposable
     {
         _context.OrganizationSettings.AddRange(new[]
         {
-            new OrganizationSetting { Key = "Branding.Logo", Value = "logo.png", Category = "Branding", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            new OrganizationSetting { Key = "Security.Policy", Value = "strict", Category = "Security", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+            new OrganizationSetting { Key = "Branding.Logo", Value = "logo.png", Category = "Branding", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now },
+            new OrganizationSetting { Key = "Security.Policy", Value = "strict", Category = "Security", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now }
         });
         await _context.SaveChangesAsync();
 
@@ -70,7 +70,7 @@ public class OrganizationSettingsServiceTests : IDisposable
     [Fact]
     public async Task GetSettingAsync_ReturnsValueAnd_SettingUpdateReflects()
     {
-        _context.OrganizationSettings.Add(new OrganizationSetting { Key = "Test.Key", Value = "v1", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now });
+        _context.OrganizationSettings.Add(new OrganizationSetting { Key = "Test.Key", Value = "v1", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now });
         await _context.SaveChangesAsync();
 
         var val = await _service.GetSettingAsync("Test.Key", CancellationToken.None);
@@ -96,9 +96,9 @@ public class OrganizationSettingsServiceTests : IDisposable
     {
         _context.OrganizationSettings.AddRange(new[]
         {
-            new OrganizationSetting { Key = "Bool.Key", Value = "true", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            new OrganizationSetting { Key = "Int.Key", Value = "42", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            new OrganizationSetting { Key = "Date.Key", Value = "2020-01-02T03:04:05", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+            new OrganizationSetting { Key = "Bool.Key", Value = "true", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now },
+            new OrganizationSetting { Key = "Int.Key", Value = "42", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now },
+            new OrganizationSetting { Key = "Date.Key", Value = "2020-01-02T03:04:05", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now }
         });
         await _context.SaveChangesAsync();
 
@@ -117,8 +117,8 @@ public class OrganizationSettingsServiceTests : IDisposable
     {
         _context.OrganizationSettings.AddRange(new[]
         {
-            new OrganizationSetting { Key = "U.A", Value = "1", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now },
-            new OrganizationSetting { Key = "U.B", Value = "2", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now }
+            new OrganizationSetting { Key = "U.A", Value = "1", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now },
+            new OrganizationSetting { Key = "U.B", Value = "2", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now }
         });
         await _context.SaveChangesAsync();
 
@@ -142,7 +142,7 @@ public class OrganizationSettingsServiceTests : IDisposable
     [Fact]
     public async Task GetSettingEntityAsync_ReturnsEntity()
     {
-        _context.OrganizationSettings.Add(new OrganizationSetting { Key = "E.Key", Value = "val", Category = "Other", CreatedAt = DateTime.Now, UpdatedAt = DateTime.Now });
+        _context.OrganizationSettings.Add(new OrganizationSetting { Key = "E.Key", Value = "val", Category = "Other", CreatedDate = DateTime.Now, UpdatedDate = DateTime.Now });
         await _context.SaveChangesAsync();
 
         var ent = await _service.GetSettingEntityAsync("E.Key", CancellationToken.None);

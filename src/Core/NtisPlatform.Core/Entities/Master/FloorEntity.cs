@@ -5,7 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Represents a floor entity manage floor information.
 /// </summary>
-public class FloorEntity :CommonBaseEntity
+public class FloorEntity :BaseEntity
 {
     [Required]
     [StringLength(5)]

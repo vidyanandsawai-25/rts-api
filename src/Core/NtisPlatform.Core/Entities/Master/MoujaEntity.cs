@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Core.Entities;
 
-public class MoujaEntity : CommonBaseEntity
+public class MoujaEntity : BaseEntity
 {
     public int Id { get; set; } = 0;
 

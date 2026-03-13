@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class ActiveTaxesDto : CommonBaseDtos
+public class ActiveTaxesDto : BaseDtos
 {
     public int TaxNameID { get; set; }
     public string? TaxName { get; set; } = string.Empty;
@@ -12,7 +12,7 @@ public class ActiveTaxesDto : CommonBaseDtos
     public int? DisplayOrder { get; set; }
 }
 
-public class CreateActiveTaxesDto : CreateCommonBaseDtos
+public class CreateActiveTaxesDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "ActiveTaxes_TaxName_Required")]
     [StringLength(200, ErrorMessage = "ActiveTaxes_TaxName_MaxLen_200")]
@@ -30,7 +30,7 @@ public class CreateActiveTaxesDto : CreateCommonBaseDtos
     public int? DisplayOrder { get; set; }
 }
 
-public class UpdateActiveTaxesDto : UpdateCommonBaseDtos
+public class UpdateActiveTaxesDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ActiveTaxes_TaxName_Required")]
     [StringLength(200, ErrorMessage = "ActiveTaxes_TaxName_MaxLen_200")]

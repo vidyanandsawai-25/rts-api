@@ -237,7 +237,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TwoFactorSecret).HasMaxLength(200);
             entity.HasIndex(e => e.Username).IsUnique();
             entity.HasIndex(e => e.Email).IsUnique();
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            // Removed incorrect query filter - users should be queried with explicit IsActive checks
         });
 
         // Role configuration
@@ -248,7 +248,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.HasIndex(e => e.Name).IsUnique();
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            entity.HasQueryFilter(e => e.IsActive);
         });
 
         // UserRole configuration
@@ -265,7 +265,7 @@ public class ApplicationDbContext : DbContext
           .HasForeignKey(e => e.RoleId)
           .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            entity.HasQueryFilter(e => e.IsActive);
         });
 
         // RefreshToken configuration
@@ -285,7 +285,12 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(e => e.TokenHash);
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            // Ignore computed properties
+            entity.Ignore(e => e.IsActive);
+            entity.Ignore(e => e.IsExpired);
+            // Note: RefreshToken.IsActive is a computed property (!IsRevoked && !IsExpired)
+            // Cannot use as query filter since it's not a database column
+            // Use explicit filtering in queries: .Where(rt => !rt.IsRevoked && rt.ExpiresAt > DateTime.Now)
         });
 
         // LoginAttempt configuration
@@ -305,7 +310,7 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
             entity.HasIndex(e => e.AttemptedAt);
             entity.HasIndex(e => e.IpAddress);
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            // Removed incorrect query filter - should query with explicit IsActive checks if needed
         });
 
         // Organization configuration (minimal entity)
@@ -316,7 +321,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
             entity.Property(e => e.IsActive).IsRequired();
             entity.Property(e => e.IsSetupComplete).IsRequired();
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            // Removed incorrect query filter - should query with explicit IsActive checks if needed
         });
 
         // OrganizationSetting configuration (key-value store)
@@ -331,7 +336,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.HasIndex(e => e.Key).IsUnique();
             entity.HasIndex(e => e.Category);
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            // Removed incorrect query filter - should query with explicit IsActive checks if needed
         });
 
         // AuthProvider configuration
@@ -343,7 +348,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ConfigJson).HasColumnType("nvarchar(max)");
             entity.HasIndex(e => e.ProviderType);
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            entity.HasQueryFilter(e => e.IsActive);
         });
 
         // FeatureFlag configuration
@@ -355,7 +360,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
             entity.HasIndex(e => e.ModuleName).IsUnique();
-            entity.HasQueryFilter(e => !e.IsDeleted);
+            entity.HasQueryFilter(e => e.IsActive);
         });
 
         // MultilingualDetail configuration

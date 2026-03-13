@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Entity representing a department in the system
 /// </summary>
-public class DepartmentMasterEntity : CommonBaseEntity
+public class DepartmentMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the department

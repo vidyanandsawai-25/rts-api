@@ -9,6 +9,7 @@ public class BaseEntityTests
 {
     private class TestEntity : BaseEntity
     {
+        public int Id { get; set; }
         public string TestProperty { get; set; } = string.Empty;
     }
 
@@ -20,11 +21,11 @@ public class BaseEntityTests
 
         // Assert
         Assert.Equal(0, entity.Id);
-        Assert.Equal(default(DateTime), entity.CreatedAt);
-        Assert.Null(entity.UpdatedAt);
+        Assert.Null(entity.CreatedDate);
+        Assert.Null(entity.UpdatedDate);
         Assert.Null(entity.CreatedBy);
         Assert.Null(entity.UpdatedBy);
-        Assert.False(entity.IsDeleted);
+        Assert.True(entity.IsActive); // Default is now true (entities are active by default)
     }
 
     [Fact]
@@ -36,18 +37,18 @@ public class BaseEntityTests
 
         // Act
         entity.Id = 1;
-        entity.CreatedAt = now;
-        entity.UpdatedAt = now;
-        entity.CreatedBy = "admin";
-        entity.UpdatedBy = "admin";
-        entity.IsDeleted = true;
+        entity.CreatedDate = now;
+        entity.UpdatedDate = now;
+        entity.CreatedBy = 1;
+        entity.UpdatedBy = 1;
+        entity.IsActive = true;
 
         // Assert
         Assert.Equal(1, entity.Id);
-        Assert.Equal(now, entity.CreatedAt);
-        Assert.Equal(now, entity.UpdatedAt);
-        Assert.Equal("admin", entity.CreatedBy);
-        Assert.Equal("admin", entity.UpdatedBy);
-        Assert.True(entity.IsDeleted);
+        Assert.Equal(now, entity.CreatedDate);
+        Assert.Equal(now, entity.UpdatedDate);
+        Assert.Equal(1, entity.CreatedBy);
+        Assert.Equal(1, entity.UpdatedBy);
+        Assert.True(entity.IsActive);
     }
 }

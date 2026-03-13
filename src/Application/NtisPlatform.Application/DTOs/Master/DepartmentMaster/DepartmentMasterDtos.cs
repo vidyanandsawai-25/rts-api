@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.DepartmentMaster;
 /// <summary>
 /// DTO for DepartmentMaster
 /// </summary>
-public class DepartmentMasterDto :CommonBaseDtos
+public class DepartmentMasterDto :BaseDtos
 {
     public int DepartmentId { get; set; }
     public string? DepartmentCode { get; set; }
@@ -19,7 +19,7 @@ public class DepartmentMasterDto :CommonBaseDtos
 /// <summary>
 /// DTO for creating a new DepartmentMaster
 /// </summary>
-public class CreateDepartmentMasterDto : CreateCommonBaseDtos
+public class CreateDepartmentMasterDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "DepartmentCode_Required")]
     [StringLength(50, ErrorMessage = "DepartmentCode_MaxLen_50")]
@@ -43,7 +43,7 @@ public class CreateDepartmentMasterDto : CreateCommonBaseDtos
 /// <summary>
 /// DTO for updating a DepartmentMaster
 /// </summary>
-public class UpdateDepartmentMasterDto : UpdateCommonBaseDtos
+public class UpdateDepartmentMasterDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "DepartmentCode_Required")]
     [StringLength(50, ErrorMessage = "DepartmentCode_MaxLen_50")]

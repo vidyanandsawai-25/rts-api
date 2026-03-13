@@ -8,7 +8,7 @@ namespace NtisPlatform.Infrastructure.Repositories;
 
 /// <summary>
 /// Generic repository implementation using EF Core
-/// Handles both BaseEntity (int keys, soft delete) and CommonBaseEntity (string keys, hard delete)
+/// Handles both BaseEntity (int keys, soft delete) and BaseEntity (string keys, hard delete)
 /// </summary>
 /// <typeparam name="T">Entity type</typeparam>
 /// <typeparam name="TKey">Primary key type</typeparam>
@@ -35,8 +35,8 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
-        // Set CreatedDate for CommonBaseEntity
-        if (entity is CommonBaseEntity commonEntity)
+        // Set CreatedDate for BaseEntity
+        if (entity is BaseEntity commonEntity)
         {
             commonEntity.CreatedDate = DateTime.Now;
         }
@@ -47,8 +47,8 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
 
     public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
-        // Set UpdatedDate for CommonBaseEntity
-        if (entity is CommonBaseEntity commonEntity)
+        // Set UpdatedDate for BaseEntity
+        if (entity is BaseEntity commonEntity)
         {
             commonEntity.UpdatedDate = DateTime.Now;
         }
@@ -62,13 +62,25 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         var entity = await GetByIdAsync(id, cancellationToken);
         if (entity != null)
         {
-            // Soft delete for BaseEntity
-            if (entity is BaseEntity baseEntity)
+            // For entities implementing IHardDeletable, perform soft delete and set deletion timestamp
+            // The entity will be permanently deleted by the nightly cleanup task
+            if (entity is IHardDeletable hardDeletable && entity is BaseEntity baseEntityForHardDelete)
             {
-                baseEntity.IsDeleted = true;
+                baseEntityForHardDelete.IsActive = false;
+                // Only set deletion date if not already set (preserves original deletion timestamp)
+                if (!hardDeletable.MarkedForDeletionDate.HasValue)
+                {
+                    hardDeletable.MarkedForDeletionDate = DateTime.Now;
+                }
                 await UpdateAsync(entity, cancellationToken);
             }
-            // Hard delete for CommonBaseEntity
+            // Soft delete for regular BaseEntity
+            else if (entity is BaseEntity baseEntity)
+            {
+                baseEntity.IsActive = false;
+                await UpdateAsync(entity, cancellationToken);
+            }
+            // Hard delete for entities that don't inherit from BaseEntity
             else
             {
                 _dbSet.Remove(entity);

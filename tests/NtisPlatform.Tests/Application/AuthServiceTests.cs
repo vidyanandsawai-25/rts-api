@@ -222,9 +222,9 @@ public class AuthServiceTests : IDisposable
             .ReturnsAsync(new Organization { Id = 2, Name = "O" });
 
         // Prepare user, role and refresh token
-        var role = new Role { Id = 10, Name = "User", CreatedAt = DateTime.Now };
+        var role = new Role { Id = 10, Name = "User", CreatedDate = DateTime.Now, IsActive = true };
         var user = new User { Id = 3, Username = "u", Email = "e@e", PasswordHash = "h", IsActive = true };
-        var userRole = new UserRole { User = user, Role = role, RoleId = role.Id, UserId = user.Id, CreatedAt = DateTime.Now };
+        var userRole = new UserRole { User = user, Role = role, RoleId = role.Id, UserId = user.Id, CreatedDate = DateTime.Now, IsActive = true };
         user.UserRoles = new System.Collections.Generic.List<UserRole> { userRole };
 
         // Create token string and hash

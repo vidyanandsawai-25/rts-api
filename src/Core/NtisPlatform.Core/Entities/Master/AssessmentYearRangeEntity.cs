@@ -1,7 +1,7 @@
 ﻿
 namespace NtisPlatform.Core.Entities.Master;
 
-public class AssessmentYearRangeEntity : CommonBaseEntity
+public class AssessmentYearRangeEntity : BaseEntity
 {
     public int YearRangeId { get; set; }
     public int FromYear { get; set; }

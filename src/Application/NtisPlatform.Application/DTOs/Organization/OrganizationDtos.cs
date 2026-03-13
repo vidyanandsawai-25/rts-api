@@ -9,8 +9,8 @@ public class BasicOrganizationResponse
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public bool IsSetupComplete { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }
 
 /// <summary>
@@ -70,8 +70,8 @@ public class OrganizationResponse
     public string? Description { get; set; }
     public string? TaxId { get; set; }
     public bool IsActive { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public DateTime? UpdatedDate { get; set; }
 }
 
 /// <summary>

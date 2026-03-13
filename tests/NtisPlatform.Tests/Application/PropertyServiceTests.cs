@@ -65,10 +65,10 @@ public class PropertyEntityTests
     }
 
     [Fact]
-    public void PropertyEntity_InheritsFromCommonBaseEntity()
+    public void PropertyEntity_InheritsFromBaseEntity()
     {
         var entity = new PropertyEntity();
-        Assert.IsAssignableFrom<CommonBaseEntity>(entity);
+        Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 }
 
@@ -103,10 +103,10 @@ public class PropertyDtoTests
     }
 
     [Fact]
-    public void PropertyDto_InheritsFromCommonBaseDtos()
+    public void PropertyDto_InheritsFromBaseDtos()
     {
         var dto = new PropertyDto();
-        Assert.IsAssignableFrom<CommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<BaseDtos>(dto);
     }
 
     [Fact]
@@ -250,10 +250,10 @@ public class CreatePropertyDtoTests
     }
 
     [Fact]
-    public void CreatePropertyDto_InheritsFromCreateCommonBaseDtos()
+    public void CreatePropertyDto_InheritsFromCreateBaseDtos()
     {
         var dto = new CreatePropertyDto();
-        Assert.IsAssignableFrom<CreateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<CreateBaseDtos>(dto);
     }
 
     [Fact]
@@ -408,10 +408,10 @@ public class UpdatePropertyDtoTests
     }
 
     [Fact]
-    public void UpdatePropertyDto_InheritsFromUpdateCommonBaseDtos()
+    public void UpdatePropertyDto_InheritsFromUpdateBaseDtos()
     {
         var dto = new UpdatePropertyDto();
-        Assert.IsAssignableFrom<UpdateCommonBaseDtos>(dto);
+        Assert.IsAssignableFrom<UpdateBaseDtos>(dto);
     }
 }
 

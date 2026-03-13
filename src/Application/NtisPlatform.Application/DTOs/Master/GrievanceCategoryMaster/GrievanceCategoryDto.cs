@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster
 {
-    public class GrievanceCategoryDto : CommonBaseDtos
+    public class GrievanceCategoryDto : BaseDtos
     {
         public int Id { get; set; }
         public string CategoryCode { get; set; } = null!;
@@ -15,7 +15,7 @@ namespace NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster
         public string? Description { get; set; }
     }
     
-    public class CreateGrievanceCategoryDto : CreateCommonBaseDtos
+    public class CreateGrievanceCategoryDto : CreateBaseDtos
     {
         [Required(ErrorMessage = "CategoryCode_Required")]
         [StringLength(50, ErrorMessage = "CategoryCode_MaxLen_50")]
@@ -41,7 +41,7 @@ namespace NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster
         public string? Description { get; set; }
     }
     
-    public class UpdateGrievanceCategoryDto : UpdateCommonBaseDtos
+    public class UpdateGrievanceCategoryDto : UpdateBaseDtos
     {
         [Required(ErrorMessage = "CategoryCode_Required")]
         [StringLength(50, ErrorMessage = "CategoryCode_MaxLen_50")]

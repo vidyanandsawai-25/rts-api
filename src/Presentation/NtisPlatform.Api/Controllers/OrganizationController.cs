@@ -130,8 +130,8 @@ public class OrganizationController : ControllerBase
                 Name = completedOrg.Name,
                 IsActive = completedOrg.IsActive,
                 IsSetupComplete = completedOrg.IsSetupComplete,
-                CreatedAt = completedOrg.CreatedAt,
-                UpdatedAt = completedOrg.UpdatedAt
+                CreatedDate = completedOrg.CreatedDate,
+                UpdatedDate = completedOrg.UpdatedDate
             }
         });
     }
@@ -203,8 +203,8 @@ public class OrganizationController : ControllerBase
             Name = organization.Name,
             IsActive = organization.IsActive,
             IsSetupComplete = organization.IsSetupComplete,
-            CreatedAt = organization.CreatedAt,
-            UpdatedAt = organization.UpdatedAt
+            CreatedDate = organization.CreatedDate,
+            UpdatedDate = organization.UpdatedDate
         };
 
         return Ok(response);
@@ -249,8 +249,8 @@ public class OrganizationController : ControllerBase
             Name = updated.Name,
             IsActive = updated.IsActive,
             IsSetupComplete = updated.IsSetupComplete,
-            CreatedAt = updated.CreatedAt,
-            UpdatedAt = updated.UpdatedAt
+            CreatedDate = updated.CreatedDate,
+            UpdatedDate = updated.UpdatedDate
         };
 
         return Ok(response);

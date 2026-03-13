@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Core.Entities;
 
-public class SubTypeOfUseEntity : CommonBaseEntity
+public class SubTypeOfUseEntity : BaseEntity
 {
     public int SubTypeOfUseId { get; set; }
     public string Description { get; set; } = string.Empty;

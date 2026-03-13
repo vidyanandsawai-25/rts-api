@@ -129,7 +129,7 @@ public class OrganizationSettingsService : IOrganizationSettingsService
         }
 
         setting.Value = value;
-        setting.UpdatedAt = DateTime.Now;
+        setting.UpdatedDate = DateTime.Now;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -151,7 +151,7 @@ public class OrganizationSettingsService : IOrganizationSettingsService
             if (setting != null)
             {
                 setting.Value = kvp.Value;
-                setting.UpdatedAt = DateTime.Now;
+                setting.UpdatedDate = DateTime.Now;
             }
         }
 

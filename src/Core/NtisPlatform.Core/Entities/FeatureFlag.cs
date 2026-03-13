@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class FeatureFlag : BaseEntity
 {
+    public int Id { get; set; }
     public string ModuleName { get; set; } = string.Empty;
     public bool IsEnabled { get; set; } = false;
     public string? Description { get; set; }

@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Represents a Ward master entities.
 /// </summary>
-public class WardEntity : CommonBaseEntity
+public class WardEntity : BaseEntity
 {
     public string WardNo { get; set; } = string.Empty;
     public string ZoneNo { get; set; } = string.Empty;

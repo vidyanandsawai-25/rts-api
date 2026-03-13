@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -11,7 +12,7 @@ namespace NtisPlatform.Core.Entities;
 /// Consumers should handle potential NULL values when querying legacy records.
 /// </summary>
 [Table("PropertyMast", Schema = "PTIS")]
-public class PropertyEntity : CommonBaseEntity
+public class PropertyEntity : BaseEntity, IHardDeletable
 {
     /// <summary>
     /// Primary key - Unique identifier for the property owner.
@@ -119,6 +120,16 @@ public class PropertyEntity : CommonBaseEntity
     // Society Information
     public int? SocietyID { get; set; }
 
-    // Status
+    // Hard Deletion Support (IHardDeletable)
+    /// <summary>
+    /// Indicates whether the entity is marked for permanent deletion.
+    /// When set to true, entity will be soft-deleted and removed by the nightly cleanup task.
+    /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
+    
+    /// <summary>
+    /// Date and time when the entity was marked for deletion.
+    /// Used by the cleanup task to determine when to perform hard deletion.
+    /// </summary>
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

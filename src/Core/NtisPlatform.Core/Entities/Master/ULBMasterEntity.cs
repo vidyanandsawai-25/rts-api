@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities;
 /// Urban Local Body Master entity for managing ULB information
 /// Maps to Core.ULBMaster table
 /// </summary>
-public class ULBMasterEntity : CommonBaseEntity
+public class ULBMasterEntity : BaseEntity
 {
     /// <summary>
     /// Primary key - ULB ID

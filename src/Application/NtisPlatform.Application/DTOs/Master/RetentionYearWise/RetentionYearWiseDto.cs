@@ -2,7 +2,7 @@
 
 namespace NtisPlatform.Application.DTOs;
 
-public class RetentionYearWiseDto : CommonBaseDtos
+public class RetentionYearWiseDto : BaseDtos
 {
     public int Id { get; set; }
     public int? FromYear { get; set; }
@@ -10,7 +10,7 @@ public class RetentionYearWiseDto : CommonBaseDtos
     public double? FactorValue { get; set; }
 
 }
-public class CreateRetentionYearWiseDto : CreateCommonBaseDtos, IValidatableObject
+public class CreateRetentionYearWiseDto : CreateBaseDtos, IValidatableObject
 {
     [Required(ErrorMessage = "FromYear_Required")]
     [Range(1900, 9999, ErrorMessage = "FromYear_MustBe4Digits")]
@@ -36,7 +36,7 @@ public class CreateRetentionYearWiseDto : CreateCommonBaseDtos, IValidatableObje
     }
 }
 
-public class UpdateRetentionYearWiseDto : UpdateCommonBaseDtos, IValidatableObject
+public class UpdateRetentionYearWiseDto : UpdateBaseDtos, IValidatableObject
 {
 
     [Required(ErrorMessage = "FromYear_Required")]

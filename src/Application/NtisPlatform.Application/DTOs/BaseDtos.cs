@@ -1,6 +1,6 @@
 ﻿namespace NtisPlatform.Application.DTOs;
 
-public class CommonBaseDtos
+public class BaseDtos
 {
     public bool IsActive { get; set; }
 
@@ -8,12 +8,12 @@ public class CommonBaseDtos
     public DateTime? UpdatedDate { get; set; }
 }
 
-public class CreateCommonBaseDtos
+public class CreateBaseDtos
 {
     public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
 }
-public class UpdateCommonBaseDtos
+public class UpdateBaseDtos
 {
     public bool IsActive { get; set; }
     public int? UpdatedBy { get; set; }
