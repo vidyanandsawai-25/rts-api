@@ -8,7 +8,7 @@ namespace NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster
     {
         [Filterable]
         [Sortable]
-        public int? Id { get; set; }
+        public int? GrievanceCategoryId { get; set; }
 
         [Filterable(FilterOperator.Contains)]
         [Searchable]

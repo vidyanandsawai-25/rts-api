@@ -50,7 +50,7 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entity = new GrievanceCategoryEntity
         {
-            Id = 1,
+            GrievanceCategoryId = 1,
             CategoryCode = "GRV001",
             CategoryName = "Service Quality Issue",
             DepartmentId = 1,
@@ -67,7 +67,7 @@ public class GrievanceCategoryServiceTests
         _mockMapper.Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns(new GrievanceCategoryDto
             {
-                Id = 1,
+                GrievanceCategoryId = 1,
                 CategoryCode = "GRV001",
                 CategoryName = "Service Quality Issue",
                 DepartmentId = 1,
@@ -83,7 +83,7 @@ public class GrievanceCategoryServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.GrievanceCategoryId);
         Assert.Equal("GRV001", result.CategoryCode);
         Assert.Equal("Service Quality Issue", result.CategoryName);
         Assert.Equal(1, result.DepartmentId);
@@ -140,8 +140,8 @@ public class GrievanceCategoryServiceTests
         var entities = new List<GrievanceCategoryEntity>
         {
             new() 
-            { 
-                Id = 1, 
+            {
+                GrievanceCategoryId = 1, 
                 CategoryCode = "GRV001",
                 CategoryName = "Service Quality Issue",
                 DepartmentId = 1,
@@ -152,8 +152,8 @@ public class GrievanceCategoryServiceTests
                 IsActive = true
             },
             new() 
-            { 
-                Id = 2, 
+            {
+                GrievanceCategoryId = 2, 
                 CategoryCode = "GRV002",
                 CategoryName = "Billing Issue",
                 DepartmentId = 2,
@@ -164,8 +164,8 @@ public class GrievanceCategoryServiceTests
                 IsActive = true
             },
             new() 
-            { 
-                Id = 3, 
+            {
+                GrievanceCategoryId = 3, 
                 CategoryCode = "GRV003",
                 CategoryName = "Technical Support",
                 DepartmentId = 3,
@@ -219,9 +219,9 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entities = new List<GrievanceCategoryEntity>
         {
-            new() { Id = 1, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
-            new() { Id = 2, CategoryCode = "BIL001", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
-            new() { Id = 3, CategoryCode = "GRV002", CategoryName = "Technical Support", Priority = "Low", IsActive = true }
+            new() { GrievanceCategoryId = 1, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
+            new() { GrievanceCategoryId = 2, CategoryCode = "BIL001", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
+            new() { GrievanceCategoryId = 3, CategoryCode = "GRV002", CategoryName = "Technical Support", Priority = "Low", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -260,9 +260,9 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entities = new List<GrievanceCategoryEntity>
         {
-            new() { Id = 1, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
-            new() { Id = 2, CategoryCode = "GRV002", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
-            new() { Id = 3, CategoryCode = "GRV003", CategoryName = "Technical Support", Priority = "High", IsActive = true }
+            new() { GrievanceCategoryId = 1, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
+            new() { GrievanceCategoryId = 2, CategoryCode = "GRV002", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
+            new() { GrievanceCategoryId = 3, CategoryCode = "GRV003", CategoryName = "Technical Support", Priority = "High", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -334,7 +334,7 @@ public class GrievanceCategoryServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new GrievanceCategoryEntity
             {
-                Id = i,
+                GrievanceCategoryId = i,
                 CategoryCode = $"GRV{i:000}",
                 CategoryName = $"Category {i}",
                 Priority = "Medium",
@@ -377,9 +377,9 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entities = new List<GrievanceCategoryEntity>
         {
-            new() { Id = 1, CategoryCode = "GRV001", CategoryName = "Service Quality Issue", Priority = "High", IsActive = true },
-            new() { Id = 2, CategoryCode = "BIL001", CategoryName = "Billing Problem", Priority = "Medium", IsActive = true },
-            new() { Id = 3, CategoryCode = "TEC001", CategoryName = "Technical Service Support", Priority = "Low", IsActive = true }
+            new() { GrievanceCategoryId = 1, CategoryCode = "GRV001", CategoryName = "Service Quality Issue", Priority = "High", IsActive = true },
+            new() { GrievanceCategoryId = 2, CategoryCode = "BIL001", CategoryName = "Billing Problem", Priority = "Medium", IsActive = true },
+            new() { GrievanceCategoryId = 3, CategoryCode = "TEC001", CategoryName = "Technical Service Support", Priority = "Low", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -453,7 +453,7 @@ public class GrievanceCategoryServiceTests
             .Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((GrievanceCategoryEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.GrievanceCategoryId = 1;
                 return e;
             });
 
@@ -461,7 +461,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns((GrievanceCategoryEntity e) => new GrievanceCategoryDto
             {
-                Id = e.Id,
+                GrievanceCategoryId = e.GrievanceCategoryId,
                 CategoryCode = e.CategoryCode,
                 CategoryName = e.CategoryName,
                 DepartmentId = e.DepartmentId,
@@ -477,7 +477,7 @@ public class GrievanceCategoryServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.GrievanceCategoryId);
         Assert.Equal("GRV001", result.CategoryCode);
         Assert.Equal("Service Quality Issue", result.CategoryName);
         Assert.Equal(1, result.DepartmentId);
@@ -510,7 +510,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryEntity>(It.IsAny<CreateGrievanceCategoryDto>()))
             .Returns(new GrievanceCategoryEntity
             {
-                Id = 0,
+                GrievanceCategoryId = 0,
                 CategoryCode = "OLD001",
                 CategoryName = "Obsolete Category",
                 Priority = "Low",
@@ -521,7 +521,7 @@ public class GrievanceCategoryServiceTests
             .Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((GrievanceCategoryEntity e, CancellationToken _) =>
             {
-                e.Id = 2;
+                e.GrievanceCategoryId = 2;
                 return e;
             });
 
@@ -529,7 +529,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns(new GrievanceCategoryDto
             {
-                Id = 2,
+                GrievanceCategoryId = 2,
                 CategoryCode = "OLD001",
                 CategoryName = "Obsolete Category",
                 IsActive = false
@@ -601,7 +601,7 @@ public class GrievanceCategoryServiceTests
             .Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((GrievanceCategoryEntity e, CancellationToken _) =>
             {
-                e.Id = 3;
+                e.GrievanceCategoryId = 3;
                 return e;
             });
 
@@ -609,7 +609,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns(new GrievanceCategoryDto
             {
-                Id = 3,
+                GrievanceCategoryId = 3,
                 CategoryCode = "GRV002",
                 CategoryName = "Basic Category",
                 Priority = "Medium",
@@ -621,7 +621,7 @@ public class GrievanceCategoryServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(3, result.Id);
+        Assert.Equal(3, result.GrievanceCategoryId);
         Assert.Equal("GRV002", result.CategoryCode);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -649,7 +649,7 @@ public class GrievanceCategoryServiceTests
 
         var existingEntity = new GrievanceCategoryEntity
         {
-            Id = 1,
+            GrievanceCategoryId = 1,
             CategoryCode = "GRV001",
             CategoryName = "Service Quality Issue",
             DepartmentId = 1,
@@ -684,7 +684,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns((GrievanceCategoryEntity e) => new GrievanceCategoryDto
             {
-                Id = e.Id,
+                GrievanceCategoryId = e.GrievanceCategoryId,
                 CategoryCode = e.CategoryCode,
                 CategoryName = e.CategoryName,
                 DepartmentId = e.DepartmentId,
@@ -754,7 +754,7 @@ public class GrievanceCategoryServiceTests
 
         var existingEntity = new GrievanceCategoryEntity
         {
-            Id = 1,
+            GrievanceCategoryId = 1,
             CategoryCode = "GRV001",
             CategoryName = "Service Quality Issue",
             Priority = "Low",
@@ -784,7 +784,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns((GrievanceCategoryEntity e) => new GrievanceCategoryDto
             {
-                Id = e.Id,
+                GrievanceCategoryId = e.GrievanceCategoryId,
                 Priority = e.Priority,
                 ResolutionSla = e.ResolutionSla,
                 EscalationLevel = e.EscalationLevel,
@@ -814,7 +814,7 @@ public class GrievanceCategoryServiceTests
 
         var existingEntity = new GrievanceCategoryEntity
         {
-            Id = idToDelete,
+            GrievanceCategoryId = idToDelete,
             CategoryCode = "OLD001",
             CategoryName = "Old Category",
             Priority = "Low",
@@ -847,7 +847,7 @@ public class GrievanceCategoryServiceTests
 
         var existingEntity = new GrievanceCategoryEntity
         {
-            Id = idToDelete,
+            GrievanceCategoryId = idToDelete,
             CategoryCode = "GRV001",
             CategoryName = "Active Category",
             Priority = "High",
@@ -934,7 +934,7 @@ public class GrievanceCategoryServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GrievanceCategoryEntity { Id = 1 });
+            .ReturnsAsync(new GrievanceCategoryEntity { GrievanceCategoryId = 1 });
 
         _mockMapper
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
@@ -955,7 +955,7 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var existingEntity = new GrievanceCategoryEntity
         {
-            Id = 1,
+            GrievanceCategoryId = 1,
             CategoryCode = "GRV001",
             CategoryName = "Service Quality"
         };
@@ -997,7 +997,7 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entity = new GrievanceCategoryEntity
         {
-            Id = 1,
+            GrievanceCategoryId = 1,
             CategoryCode = "GRV001",
             CategoryName = "Service Quality"
         };
@@ -1032,7 +1032,7 @@ public class GrievanceCategoryServiceTests
             .Returns(new GrievanceCategoryEntity());
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GrievanceCategoryEntity { Id = 1 });
+            .ReturnsAsync(new GrievanceCategoryEntity { GrievanceCategoryId = 1 });
 
         _mockMapper.Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns(new GrievanceCategoryDto());
@@ -1055,9 +1055,9 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entities = new List<GrievanceCategoryEntity>
         {
-            new() { Id = 1, CategoryCode = "GRV002", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
-            new() { Id = 2, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
-            new() { Id = 3, CategoryCode = "GRV003", CategoryName = "Technical Support", Priority = "Low", IsActive = true }
+            new() { GrievanceCategoryId = 1, CategoryCode = "GRV002", CategoryName = "Billing Issue", Priority = "Medium", IsActive = true },
+            new() { GrievanceCategoryId = 2, CategoryCode = "GRV001", CategoryName = "Service Quality", Priority = "High", IsActive = true },
+            new() { GrievanceCategoryId = 3, CategoryCode = "GRV003", CategoryName = "Technical Support", Priority = "Low", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -1123,7 +1123,7 @@ public class GrievanceCategoryServiceTests
             .Setup(r => r.AddAsync(It.IsAny<GrievanceCategoryEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((GrievanceCategoryEntity e, CancellationToken _) =>
             {
-                e.Id = 5;
+                e.GrievanceCategoryId = 5;
                 return e;
             });
 
@@ -1131,7 +1131,7 @@ public class GrievanceCategoryServiceTests
             .Setup(m => m.Map<GrievanceCategoryDto>(It.IsAny<GrievanceCategoryEntity>()))
             .Returns((GrievanceCategoryEntity e) => new GrievanceCategoryDto
             {
-                Id = e.Id,
+                GrievanceCategoryId = e.GrievanceCategoryId,
                 CategoryCode = e.CategoryCode,
                 CategoryName = e.CategoryName,
                 DepartmentId = e.DepartmentId,
@@ -1147,7 +1147,7 @@ public class GrievanceCategoryServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(5, result.Id);
+        Assert.Equal(5, result.GrievanceCategoryId);
         Assert.Equal("GRV005", result.CategoryCode);
         Assert.Equal("Infrastructure Issue", result.CategoryName);
         Assert.Equal(5, result.DepartmentId);
@@ -1164,9 +1164,9 @@ public class GrievanceCategoryServiceTests
         // Arrange
         var entities = new List<GrievanceCategoryEntity>
         {
-            new() { Id = 1, CategoryCode = "GRV001", CategoryName = "Active Category 1", Priority = "High", IsActive = true },
-            new() { Id = 2, CategoryCode = "GRV002", CategoryName = "Inactive Category", Priority = "Medium", IsActive = false },
-            new() { Id = 3, CategoryCode = "GRV003", CategoryName = "Active Category 2", Priority = "Low", IsActive = true }
+            new() { GrievanceCategoryId = 1, CategoryCode = "GRV001", CategoryName = "Active Category 1", Priority = "High", IsActive = true },
+            new() { GrievanceCategoryId = 2, CategoryCode = "GRV002", CategoryName = "Inactive Category", Priority = "Medium", IsActive = false },
+            new() { GrievanceCategoryId = 3, CategoryCode = "GRV003", CategoryName = "Active Category 2", Priority = "Low", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();

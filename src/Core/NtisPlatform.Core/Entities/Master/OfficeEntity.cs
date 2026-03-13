@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities.Master
 {
     public class OfficeEntity : BaseEntity
     {
-        public int Id { get; set; }
+        public int OfficeId { get; set; }
         [Column(TypeName = "nvarchar(50)")]
         public string OfficeCode { get; set; } = string.Empty;
         [Column(TypeName = "nvarchar(200)")]

@@ -49,7 +49,7 @@ public class YearMasterServiceTests
         // Arrange
         var entity = new YearMasterEntity
         {
-            Id = 1,
+            YearId = 1,
             Year = 2024,
             YearCode = "2024-25",
             IsActive = true,
@@ -65,7 +65,7 @@ public class YearMasterServiceTests
         _mockMapper.Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns(new YearMasterDto
             {
-                Id = 1,
+                YearId = 1,
                 Year = 2024,
                 YearCode = "2024-25",
                 IsActive = true,
@@ -80,7 +80,7 @@ public class YearMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.YearId);
         Assert.Equal(2024, result.Year);
         Assert.Equal("2024-25", result.YearCode);
         Assert.True(result.IsActive);
@@ -137,7 +137,7 @@ public class YearMasterServiceTests
         {
             new() 
             { 
-                Id = 1, 
+                YearId = 1, 
                 Year = 2024, 
                 YearCode = "2024-25",
                 IsActive = true,
@@ -147,7 +147,7 @@ public class YearMasterServiceTests
             },
             new() 
             { 
-                Id = 2, 
+                YearId = 2, 
                 Year = 2023, 
                 YearCode = "2023-24",
                 IsActive = false,
@@ -157,7 +157,7 @@ public class YearMasterServiceTests
             },
             new() 
             { 
-                Id = 3, 
+                YearId = 3, 
                 Year = 2025, 
                 YearCode = "2025-26",
                 IsActive = false,
@@ -209,9 +209,9 @@ public class YearMasterServiceTests
         // Arrange
         var entities = new List<YearMasterEntity>
         {
-            new() { Id = 1, Year = 2024, YearCode = "2024-25", IsActive = true },
-            new() { Id = 2, Year = 2023, YearCode = "2023-24", IsActive = false },
-            new() { Id = 3, Year = 2025, YearCode = "2025-26", IsActive = false }
+            new() { YearId = 1, Year = 2024, YearCode = "2024-25", IsActive = true },
+            new() { YearId = 2, Year = 2023, YearCode = "2023-24", IsActive = false },
+            new() { YearId = 3, Year = 2025, YearCode = "2025-26", IsActive = false }
         };
 
         var mockQuery = entities.BuildMock();
@@ -279,7 +279,7 @@ public class YearMasterServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new YearMasterEntity
             {
-                Id = i,
+                YearId = i,
                 Year = 2000 + i,
                 YearCode = $"{2000 + i}-{2001 + i}",
                 IsActive = i == 24,
@@ -353,7 +353,7 @@ public class YearMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<YearMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((YearMasterEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.YearId = 1;
                 return e;
             });
 
@@ -361,7 +361,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns((YearMasterEntity e) => new YearMasterDto
             {
-                Id = e.Id,
+                YearId = e.YearId,
                 Year = e.Year,
                 YearCode = e.YearCode,
                 IsActive = e.IsActive,
@@ -376,7 +376,7 @@ public class YearMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.YearId);
         Assert.Equal(2024, result.Year);
         Assert.Equal("2024-25", result.YearCode);
         Assert.True(result.IsActive);
@@ -408,7 +408,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterEntity>(It.IsAny<CreateYearMasterDto>()))
             .Returns(new YearMasterEntity
             {
-                Id = 0,
+                YearId = 0,
                 Year = 2023,
                 YearCode = "2023-24",
                 IsActive = false,
@@ -422,7 +422,7 @@ public class YearMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<YearMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((YearMasterEntity e, CancellationToken _) =>
             {
-                e.Id = 2;
+                e.YearId = 2;
                 return e;
             });
 
@@ -430,7 +430,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns(new YearMasterDto
             {
-                Id = 2,
+                YearId = 2,
                 Year = 2023,
                 YearCode = "2023-24",
                 IsActive = false,
@@ -533,7 +533,7 @@ public class YearMasterServiceTests
 
         var existingEntity = new YearMasterEntity
         {
-            Id = 1,
+            YearId = 1,
             Year = 2024,
             YearCode = "2024-25",
             IsActive = false,
@@ -568,7 +568,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns((YearMasterEntity e) => new YearMasterDto
             {
-                Id = e.Id,
+                YearId = e.YearId,
                 Year = e.Year,
                 YearCode = e.YearCode,
                 IsActive = e.IsActive,
@@ -608,7 +608,7 @@ public class YearMasterServiceTests
 
         var existingEntity = new YearMasterEntity
         {
-            Id = 1,
+            YearId = 1,
             Year = 2024,
             YearCode = "2024-25",
             IsActive = true,
@@ -637,7 +637,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns(new YearMasterDto
             {
-                Id = 1,
+                YearId = 1,
                 Year = 2024,
                 YearCode = "2024-25",
                 IsActive = false,
@@ -691,7 +691,7 @@ public class YearMasterServiceTests
 
         var existingEntity = new YearMasterEntity
         {
-            Id = idToDelete,
+            YearId = idToDelete,
             Year = 2023,
             YearCode = "2023-24",
             IsActive = false,
@@ -763,7 +763,7 @@ public class YearMasterServiceTests
 
         var existingEntity = new YearMasterEntity
         {
-            Id = idToDelete,
+            YearId = idToDelete,
             Year = 2024,
             YearCode = "2024-25",
             IsActive = true,
@@ -810,7 +810,7 @@ public class YearMasterServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<YearMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new YearMasterEntity { Id = 1 });
+            .ReturnsAsync(new YearMasterEntity { YearId = 1 });
 
         _mockMapper
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
@@ -831,7 +831,7 @@ public class YearMasterServiceTests
         // Arrange
         var existingEntity = new YearMasterEntity
         {
-            Id = 1,
+            YearId = 1,
             Year = 2024,
             YearCode = "2024-25"
         };
@@ -872,7 +872,7 @@ public class YearMasterServiceTests
         // Arrange
         var entity = new YearMasterEntity
         {
-            Id = 1,
+            YearId = 1,
             Year = 2024,
             YearCode = "2024-25"
         };
@@ -906,7 +906,7 @@ public class YearMasterServiceTests
             .Returns(new YearMasterEntity());
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<YearMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new YearMasterEntity { Id = 1 });
+            .ReturnsAsync(new YearMasterEntity { YearId = 1 });
 
         _mockMapper.Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns(new YearMasterDto());
@@ -929,9 +929,9 @@ public class YearMasterServiceTests
         // Arrange
         var entities = new List<YearMasterEntity>
         {
-            new() { Id = 1, Year = 2024, YearCode = "2024-25", IsActive = true },
-            new() { Id = 2, Year = 2023, YearCode = "2023-24", IsActive = false },
-            new() { Id = 3, Year = 2025, YearCode = "2025-26", IsActive = false }
+            new() { YearId = 1, Year = 2024, YearCode = "2024-25", IsActive = true },
+            new() { YearId = 2, Year = 2023, YearCode = "2023-24", IsActive = false },
+            new() { YearId = 3, Year = 2025, YearCode = "2025-26", IsActive = false }
         };
 
         var mockQuery = entities.BuildMock();
@@ -998,7 +998,7 @@ public class YearMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<YearMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((YearMasterEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.YearId = 1;
                 return e;
             });
 
@@ -1006,7 +1006,7 @@ public class YearMasterServiceTests
             .Setup(m => m.Map<YearMasterDto>(It.IsAny<YearMasterEntity>()))
             .Returns((YearMasterEntity e) => new YearMasterDto
             {
-                Id = e.Id,
+                YearId = e.YearId,
                 Year = e.Year,
                 YearCode = e.YearCode,
                 StartDate = e.StartDate,

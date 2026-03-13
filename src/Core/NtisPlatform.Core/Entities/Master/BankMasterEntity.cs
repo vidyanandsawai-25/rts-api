@@ -2,7 +2,7 @@
 {
     public class BankMasterEntity : BaseEntity
     {
-        public int Id { get; set; }
+        public int BankId { get; set; }
         public string BankCode { get; set; } = string.Empty;
         public string BankName { get; set; } = string.Empty;
         public string BranchName { get; set; } = string.Empty;

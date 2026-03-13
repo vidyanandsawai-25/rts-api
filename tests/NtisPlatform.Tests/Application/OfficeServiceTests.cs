@@ -50,7 +50,7 @@ public class OfficeServiceTests
         // Arrange
         var entity = new OfficeEntity
         {
-            Id = 1,
+            OfficeId = 1,
             OfficeCode = "HQ001",
             OfficeName = "Head Office",
             Type = "Headquarters",
@@ -72,7 +72,7 @@ public class OfficeServiceTests
         _mockMapper.Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns(new OfficeDto
             {
-                Id = 1,
+                OfficeId = 1,
                 OfficeCode = "HQ001",
                 OfficeName = "Head Office",
                 Type = "Headquarters",
@@ -93,7 +93,7 @@ public class OfficeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.OfficeId);
         Assert.Equal("HQ001", result.OfficeCode);
         Assert.Equal("Head Office", result.OfficeName);
         Assert.Equal("Headquarters", result.Type);
@@ -149,8 +149,8 @@ public class OfficeServiceTests
         var entities = new List<OfficeEntity>
         {
             new() 
-            { 
-                Id = 1, 
+            {
+                OfficeId = 1, 
                 OfficeCode = "HQ001",
                 OfficeName = "Head Office",
                 Type = "Headquarters",
@@ -159,8 +159,8 @@ public class OfficeServiceTests
                 Status = true
             },
             new() 
-            { 
-                Id = 2, 
+            {
+                OfficeId = 2, 
                 OfficeCode = "BR001",
                 OfficeName = "Branch Office 1",
                 Type = "Branch",
@@ -169,8 +169,8 @@ public class OfficeServiceTests
                 Status = true
             },
             new() 
-            { 
-                Id = 3, 
+            {
+                OfficeId = 3, 
                 OfficeCode = "BR002",
                 OfficeName = "Branch Office 2",
                 Type = "Branch",
@@ -222,9 +222,9 @@ public class OfficeServiceTests
         // Arrange
         var entities = new List<OfficeEntity>
         {
-            new() { Id = 1, OfficeCode = "HQ001", OfficeName = "Head Office", Type = "Headquarters", IsActive = true },
-            new() { Id = 2, OfficeCode = "BR001", OfficeName = "Branch 1", Type = "Branch", IsActive = true },
-            new() { Id = 3, OfficeCode = "BR002", OfficeName = "Branch 2", Type = "Branch", IsActive = true }
+            new() { OfficeId = 1, OfficeCode = "HQ001", OfficeName = "Head Office", Type = "Headquarters", IsActive = true },
+            new() { OfficeId = 2, OfficeCode = "BR001", OfficeName = "Branch 1", Type = "Branch", IsActive = true },
+            new() { OfficeId = 3, OfficeCode = "BR002", OfficeName = "Branch 2", Type = "Branch", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -293,7 +293,7 @@ public class OfficeServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new OfficeEntity
             {
-                Id = i,
+                OfficeId = i,
                 OfficeCode = $"OFF{i:000}",
                 OfficeName = $"Office {i}",
                 Type = i % 2 == 0 ? "Branch" : "Regional",
@@ -379,7 +379,7 @@ public class OfficeServiceTests
             .Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OfficeEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.OfficeId = 1;
                 return e;
             });
 
@@ -387,7 +387,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 OfficeCode = e.OfficeCode,
                 OfficeName = e.OfficeName,
                 Type = e.Type,
@@ -408,7 +408,7 @@ public class OfficeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.Id);
+        Assert.Equal(1, result.OfficeId);
         Assert.Equal("HQ001", result.OfficeCode);
         Assert.Equal("Head Office", result.OfficeName);
         Assert.Equal("Headquarters", result.Type);
@@ -441,7 +441,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeEntity>(It.IsAny<CreateOfficeDto>()))
             .Returns(new OfficeEntity
             {
-                Id = 0,
+                OfficeId = 0,
                 OfficeCode = "OLD001",
                 OfficeName = "Old Office",
                 Type = "Closed",
@@ -455,7 +455,7 @@ public class OfficeServiceTests
             .Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OfficeEntity e, CancellationToken _) =>
             {
-                e.Id = 2;
+                e.OfficeId = 2;
                 return e;
             });
 
@@ -463,7 +463,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns(new OfficeDto
             {
-                Id = 2,
+                OfficeId = 2,
                 OfficeCode = "OLD001",
                 OfficeName = "Old Office",
                 Type = "Closed",
@@ -552,7 +552,7 @@ public class OfficeServiceTests
             .Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OfficeEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.OfficeId = 1;
                 return e;
             });
 
@@ -560,7 +560,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 OfficeCode = e.OfficeCode,
                 Address = e.Address,
                 Phone = e.Phone,
@@ -607,7 +607,7 @@ public class OfficeServiceTests
 
         var existingEntity = new OfficeEntity
         {
-            Id = 1,
+            OfficeId = 1,
             OfficeCode = "HQ001",
             OfficeName = "Head Office",
             Type = "Headquarters",
@@ -647,7 +647,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 OfficeCode = e.OfficeCode,
                 OfficeName = e.OfficeName,
                 Type = e.Type,
@@ -721,7 +721,7 @@ public class OfficeServiceTests
 
         var existingEntity = new OfficeEntity
         {
-            Id = 2,
+            OfficeId = 2,
             OfficeCode = "BR001",
             OfficeName = "Branch Office",
             Type = "Branch",
@@ -750,7 +750,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 Type = e.Type,
                 OfficeName = e.OfficeName
             });
@@ -783,7 +783,7 @@ public class OfficeServiceTests
 
         var existingEntity = new OfficeEntity
         {
-            Id = 3,
+            OfficeId = 3,
             OfficeCode = "BR002",
             OfficeName = "Active Branch",
             Type = "Branch",
@@ -812,7 +812,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 IsActive = e.IsActive,
                 Status = e.Status,
                 OfficeName = e.OfficeName
@@ -840,7 +840,7 @@ public class OfficeServiceTests
 
         var existingEntity = new OfficeEntity
         {
-            Id = idToDelete,
+            OfficeId = idToDelete,
             OfficeCode = "OLD001",
             OfficeName = "Old Office",
             IsActive = false,
@@ -873,7 +873,7 @@ public class OfficeServiceTests
 
         var existingEntity = new OfficeEntity
         {
-            Id = idToDelete,
+            OfficeId = idToDelete,
             OfficeCode = "HQ001",
             OfficeName = "Head Office",
             IsActive = true,
@@ -960,7 +960,7 @@ public class OfficeServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new OfficeEntity { Id = 1 });
+            .ReturnsAsync(new OfficeEntity { OfficeId = 1 });
 
         _mockMapper
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
@@ -981,7 +981,7 @@ public class OfficeServiceTests
         // Arrange
         var existingEntity = new OfficeEntity
         {
-            Id = 1,
+            OfficeId = 1,
             OfficeCode = "HQ001",
             OfficeName = "Head Office"
         };
@@ -1020,7 +1020,7 @@ public class OfficeServiceTests
         // Arrange
         var existingEntity = new OfficeEntity
         {
-            Id = 1,
+            OfficeId = 1,
             OfficeCode = "OLD001",
             OfficeName = "Old Office"
         };
@@ -1050,7 +1050,7 @@ public class OfficeServiceTests
         // Arrange
         var entity = new OfficeEntity
         {
-            Id = 1,
+            OfficeId = 1,
             OfficeCode = "HQ001",
             OfficeName = "Head Office"
         };
@@ -1085,7 +1085,7 @@ public class OfficeServiceTests
             .Returns(new OfficeEntity());
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new OfficeEntity { Id = 1 });
+            .ReturnsAsync(new OfficeEntity { OfficeId = 1 });
 
         _mockMapper.Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns(new OfficeDto());
@@ -1112,7 +1112,7 @@ public class OfficeServiceTests
             Email = "updated@company.com"
         };
 
-        var existingEntity = new OfficeEntity { Id = 1 };
+        var existingEntity = new OfficeEntity { OfficeId = 1 };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
@@ -1141,9 +1141,9 @@ public class OfficeServiceTests
         // Arrange
         var entities = new List<OfficeEntity>
         {
-            new() { Id = 1, OfficeCode = "BR003", OfficeName = "Zebra Branch", Type = "Branch", IsActive = true },
-            new() { Id = 2, OfficeCode = "BR001", OfficeName = "Alpha Branch", Type = "Branch", IsActive = true },
-            new() { Id = 3, OfficeCode = "BR002", OfficeName = "Beta Branch", Type = "Branch", IsActive = true }
+            new() { OfficeId = 1, OfficeCode = "BR003", OfficeName = "Zebra Branch", Type = "Branch", IsActive = true },
+            new() { OfficeId = 2, OfficeCode = "BR001", OfficeName = "Alpha Branch", Type = "Branch", IsActive = true },
+            new() { OfficeId = 3, OfficeCode = "BR002", OfficeName = "Beta Branch", Type = "Branch", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -1210,7 +1210,7 @@ public class OfficeServiceTests
             .Setup(r => r.AddAsync(It.IsAny<OfficeEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OfficeEntity e, CancellationToken _) =>
             {
-                e.Id = 1;
+                e.OfficeId = 1;
                 return e;
             });
 
@@ -1218,7 +1218,7 @@ public class OfficeServiceTests
             .Setup(m => m.Map<OfficeDto>(It.IsAny<OfficeEntity>()))
             .Returns((OfficeEntity e) => new OfficeDto
             {
-                Id = e.Id,
+                OfficeId = e.OfficeId,
                 Type = e.Type,
                 EstablishedDate = e.EstablishedDate
             });

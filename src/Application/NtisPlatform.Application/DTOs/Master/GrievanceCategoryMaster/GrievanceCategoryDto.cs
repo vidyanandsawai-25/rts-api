@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster
 {
     public class GrievanceCategoryDto : BaseDtos
     {
-        public int Id { get; set; }
+        public int GrievanceCategoryId { get; set; }
         public string CategoryCode { get; set; } = null!;
         public string CategoryName { get; set; } = null!;
         public int? DepartmentId { get; set; }

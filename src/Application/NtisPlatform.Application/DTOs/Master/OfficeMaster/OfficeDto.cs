@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs.Master.OfficeMaster;
 
 public class OfficeDto : BaseDtos
 {
-    public int Id { get; set; }
+    public int OfficeId { get; set; }
     public string? OfficeCode { get; set; }
     public string? OfficeName { get; set; }
     public string? Type { get; set; }

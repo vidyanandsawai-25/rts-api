@@ -8,7 +8,7 @@
         /// <summary>
         /// Unique identifier for the grievance category
         /// </summary>
-        public int Id { get; set; }
+        public int GrievanceCategoryId { get; set; }
 
         /// <summary>
         /// Unique code identifying the grievance category

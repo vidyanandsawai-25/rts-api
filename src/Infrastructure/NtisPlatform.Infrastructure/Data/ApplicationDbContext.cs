@@ -432,7 +432,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<BankMasterEntity>(entity =>
         {
             entity.ToTable("BankMaster", "Core");
-            entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.BankId);
             entity.Property(e => e.BankCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.BankName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.BranchName).IsRequired().HasMaxLength(200);
@@ -455,7 +455,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<YearMasterEntity>(entity =>
         {
             entity.ToTable("YearMaster", "Core");
-            entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.YearId);
             entity.Property(e => e.Year).IsRequired();
             entity.Property(e => e.YearCode).IsRequired().HasMaxLength(20);
             entity.Property(e => e.Status).HasMaxLength(50);
@@ -473,7 +473,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<OfficeEntity>(entity =>
         {
             entity.ToTable("OfficeMaster", "Core");
-            entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.OfficeId);
             entity.Property(e => e.OfficeCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.OfficeName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
@@ -629,7 +629,7 @@ public class ApplicationDbContext : DbContext
 		modelBuilder.Entity<GrievanceCategoryEntity>(entity =>
 		{
 			entity.ToTable("GrievanceCategoryMaster", "Core");
-			entity.HasKey(e => e.Id);
+			entity.HasKey(e => e.GrievanceCategoryId);
 			entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
 			entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
 			entity.Property(e => e.DepartmentId);

@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs.Master.YearMaster
 {
     public class YearMasterDto
     {
-        public int? Id { get; set; }
+        public int? YearId { get; set; }
         public int? Year { get; set; }
         public string? YearCode { get; set; }
         public bool IsActive { get; set; }
