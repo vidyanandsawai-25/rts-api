@@ -49,6 +49,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<ScreenMasterEntity> ScreenMaster { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMaster { get; set; } = null!;
+    public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
@@ -452,6 +453,52 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BankName);
             entity.HasIndex(e => e.IsActive);
         });
+
+        modelBuilder.Entity<RoleWiseScreenAccessMasterEntity>(entity =>
+        {
+            entity.ToTable("RoleWiseScreenAccessMaster", "Core");
+            entity.HasKey(e => e.RoleWiseScreenAccessId);
+            entity.Property(e => e.UserRoleId).IsRequired();
+            entity.Property(e => e.ScreenId).IsRequired();
+            entity.Property(e => e.CanView).IsRequired();
+            entity.Property(e => e.CanEdit).IsRequired();
+            entity.Property(e => e.CanDelete).IsRequired();
+            entity.Property(e => e.HaveFullAccess).IsRequired();
+            entity.Property(e => e.HaveNoAccess).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            
+            // Foreign key relationships
+            entity.HasOne(e => e.UserRole)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserRoleId)
+                  .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
+
+            entity.HasOne(e => e.Screen)
+                  .WithMany()
+                  .HasForeignKey(e => e.ScreenId)
+                  .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
+            
+            // Unique constraint on UserRoleId + ScreenId combination (filtered for active records only)
+            // This allows re-creating a role-screen access after it was soft-deleted
+            entity.HasIndex(e => new { e.UserRoleId, e.ScreenId })
+                  .IsUnique()
+                  .HasFilter("[IsActive] = 1")
+                  .HasDatabaseName("UX_RoleWiseScreenAccess_UserRole_Screen_Active");
+            
+            // Optimized filtered indexes for query performance
+            entity.HasIndex(e => new { e.UserRoleId, e.IsActive })
+                  .HasFilter("[IsActive] = 1")
+                  .HasDatabaseName("IX_RoleWiseScreenAccess_UserRole_Active");
+            
+            entity.HasIndex(e => new { e.ScreenId, e.IsActive })
+                  .HasFilter("[IsActive] = 1")
+                  .HasDatabaseName("IX_RoleWiseScreenAccess_Screen_Active");
+        });
+
         modelBuilder.Entity<YearMasterEntity>(entity =>
         {
             entity.ToTable("YearMaster", "Core");
