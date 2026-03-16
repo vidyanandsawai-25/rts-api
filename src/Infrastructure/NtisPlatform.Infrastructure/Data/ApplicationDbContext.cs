@@ -62,6 +62,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
     public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
+	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
+	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -738,6 +740,42 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.UlbTypeId);
             entity.HasIndex(e => e.IsActive);
         });
+		  modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
+        {
+            entity.ToTable("ConfigCategoryMaster", "Core");
+            entity.HasKey(e => e.CategoryId);
+            entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedBy);
+
+            entity.HasIndex(e => e.CategoryCode).IsUnique();
+       
+        }); 
 		
+		modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
+        {
+            entity.ToTable("ConfigKeyMaster", "Core");
+            entity.HasKey(e => e.ConfigKeyId);
+            entity.Property(e => e.ConfigCode).IsRequired().HasMaxLength(60);
+            entity.Property(e => e.ConfigName).IsRequired().HasMaxLength(150);
+            entity.Property(e => e.Description).HasMaxLength(400);
+            entity.Property(e => e.DataType).HasMaxLength(20);
+            entity.Property(e => e.ControlType).HasMaxLength(30);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            
+            // Foreign Key Relationship
+            entity.HasOne(e => e.Category)
+                .WithMany(c => c.ConfigKeys)
+                .HasForeignKey(e => e.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            // Indexes
+            entity.HasIndex(e => e.ConfigCode).IsUnique();
+            entity.HasIndex(e => e.CategoryId);
+            entity.HasIndex(e => e.IsActive);
+        });
     }
 }
