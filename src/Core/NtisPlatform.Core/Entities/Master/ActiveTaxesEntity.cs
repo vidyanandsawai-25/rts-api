@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities;
 
 public class ActiveTaxesEntity : BaseEntity
 {
-    public int TaxNameID { get; set; }
+    public int ActiveTaxesId { get; set; }
 
     [Column(TypeName = "nvarchar(200)")]
     public string? TaxName { get; set; }
@@ -12,7 +12,7 @@ public class ActiveTaxesEntity : BaseEntity
     [Column(TypeName = "nvarchar(200)")]
     public string? TaxNameAlias { get; set; }
 
-    public int? TaxNameOrder { get; set; }
-    public bool? ActiveTaxHeadsOnly { get; set; }
     public int? DisplayOrder { get; set; }
+
+    public bool TaxOnUnit { get; set; }
 }

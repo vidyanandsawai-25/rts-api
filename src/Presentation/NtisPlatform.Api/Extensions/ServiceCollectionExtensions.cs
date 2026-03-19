@@ -98,6 +98,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();        
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
+        services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         // AutoMapper

@@ -1,21 +1,15 @@
 using AutoMapper;
 using MockQueryable;
 using Moq;
-using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Property;
-using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
 using System.Reflection;
-using System.Threading;
-using System.Threading.Tasks;
-using Xunit;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -28,10 +22,18 @@ public class PropertyEntityTests
     {
         var entity = new PropertyEntity
         {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
+            PropertyId = 1,
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
             PartitionNo = "A",
+            PropertyTypeId = 1,
+            UPICId = "UPIC123",
+            OpenPlot = false,
+            CSN = "CSN001",
+            CategoryId = 1,
+            OwnerName = "John Doe",
+            MarkedForDeletion = false,
             IsActive = true,
             CreatedBy = 1,
             CreatedDate = DateTime.Now,
@@ -39,29 +41,14 @@ public class PropertyEntityTests
             UpdatedDate = DateTime.Now
         };
 
-        Assert.Equal(1001, entity.OwnerID);
-        Assert.Equal("01", entity.WardNo);
-        Assert.Equal("100", entity.PropertyNo);
+        Assert.Equal(1, entity.PropertyId);
+        Assert.Equal(1, entity.TaxZoneId);
+        Assert.Equal(10, entity.WardId);
+        Assert.Equal("PROP001", entity.PropertyNo);
         Assert.Equal("A", entity.PartitionNo);
+        Assert.Equal("John Doe", entity.OwnerName);
+        Assert.False(entity.MarkedForDeletion);
         Assert.True(entity.IsActive);
-        Assert.Equal(1, entity.CreatedBy);
-        Assert.NotNull(entity.CreatedDate);
-        Assert.Equal(2, entity.UpdatedBy);
-        Assert.NotNull(entity.UpdatedDate);
-    }
-
-    [Fact]
-    public void PropertyEntity_PartitionNo_CanBeNull()
-    {
-        var entity = new PropertyEntity
-        {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = null
-        };
-
-        Assert.Null(entity.PartitionNo);
     }
 
     [Fact]
@@ -83,23 +70,36 @@ public class PropertyDtoTests
     {
         var dto = new PropertyDto
         {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
+            PropertyId = 1,
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
             PartitionNo = "A",
-            IsActive = true,
-            CreatedDate = DateTime.Now,
-            UpdatedDate = DateTime.Now
+            PropertyTypeId = 1,
+            OwnerName = "John Doe",
+            MarkedForDeletion = false,
+            IsActive = true
         };
 
-        Assert.Equal(1001, dto.OwnerID);
-        Assert.Equal("01", dto.WardNo);
-        Assert.Equal("100", dto.PropertyNo);
+        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal(1, dto.TaxZoneId);
+        Assert.Equal(10, dto.WardId);
+        Assert.Equal("PROP001", dto.PropertyNo);
         Assert.Equal("A", dto.PartitionNo);
-        Assert.Equal("100-A", dto.DisplayProperty);
-        Assert.True(dto.IsActive);
-        Assert.NotNull(dto.CreatedDate);
-        Assert.NotNull(dto.UpdatedDate);
+        Assert.Equal("John Doe", dto.OwnerName);
+        Assert.False(dto.MarkedForDeletion);
+    }
+
+    [Fact]
+    public void PropertyDto_DisplayProperty_WithPropertyNoAndPartition_ReturnsFormattedString()
+    {
+        var dto = new PropertyDto
+        {
+            PropertyNo = "PROP001",
+            PartitionNo = "A"
+        };
+
+        Assert.Equal("PROP001-A", dto.DisplayProperty);
     }
 
     [Fact]
@@ -114,24 +114,23 @@ public class PropertyDtoTests
     {
         var dto = new PropertyDto
         {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = null
-        };
-
-        Assert.Null(dto.PartitionNo);
-    }
-    [Fact]
-    public void PropertyDto_DisplayProperty_WhenPropertyNoIsNull_ReturnsHyphenPartition()
-    {
-        var dto = new PropertyDto
-        {
-            PropertyNo = null,
+            PropertyNo = "PROP001",
             PartitionNo = "A"
         };
 
-        Assert.Equal("-A", dto.DisplayProperty);
+        Assert.Equal("PROP001-A", dto.DisplayProperty);
+    }
+
+    [Fact]
+    public void PropertyDto_DisplayProperty_WithPropertyNoOnly_ReturnsPropertyNo()
+    {
+        var dto = new PropertyDto
+        {
+            PropertyNo = "PROP001",
+            PartitionNo = null
+        };
+
+        Assert.Equal("PROP001", dto.DisplayProperty);
     }
 }
 
@@ -154,9 +153,11 @@ public class CreatePropertyDtoTests
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
             PartitionNo = "A",
+            OwnerName = "John Doe",
             CreatedBy = 1
         };
 
@@ -165,45 +166,33 @@ public class CreatePropertyDtoTests
     }
 
     [Fact]
-    public void CreatePropertyDto_WardNoRequired_FailsValidation()
+    public void CreatePropertyDto_MissingTaxZoneId_FailsValidation()
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = "",
-            PropertyNo = "100"
+            WardId = 10,
+            PropertyNo = "PROP001"
         };
 
         var results = Validate(dto);
+        // TaxZoneId defaults to 0 which now fails Range validation
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "Property_WardNo_Required");
+        Assert.Contains(results, r => r.ErrorMessage == "Property_TaxZoneId_Invalid");
     }
 
     [Fact]
-    public void CreatePropertyDto_WardNoMaxLength_FailsValidation()
+    public void CreatePropertyDto_MissingWardId_FailsValidation()
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = new string('X', 11),
-            PropertyNo = "100"
+            TaxZoneId = 1,
+            PropertyNo = "PROP001"
         };
 
         var results = Validate(dto);
+        // WardId defaults to 0 which now fails Range validation
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "Property_WardNo_MaxLen_10");
-    }
-
-    [Fact]
-    public void CreatePropertyDto_PropertyNoRequired_FailsValidation()
-    {
-        var dto = new CreatePropertyDto
-        {
-            WardNo = "01",
-            PropertyNo = ""
-        };
-
-        var results = Validate(dto);
-        Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "Property_PropertyNo_Required");
+        Assert.Contains(results, r => r.ErrorMessage == "Property_WardId_Invalid");
     }
 
     [Fact]
@@ -211,8 +200,9 @@ public class CreatePropertyDtoTests
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = new string('Y', 11)
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = new string('X', 11) // 11 characters, max is 10
         };
 
         var results = Validate(dto);
@@ -221,28 +211,43 @@ public class CreatePropertyDtoTests
     }
 
     [Fact]
-    public void CreatePropertyDto_PartitionNoMaxLength_FailsValidation()
+    public void CreatePropertyDto_InvalidEmail_FailsValidation()
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = new string('Z', 11)
+            TaxZoneId = 1,
+            WardId = 10,
+            EmailId = "invalid-email" // Invalid email format
         };
 
         var results = Validate(dto);
+        // OptionalEmail validation now catches invalid email format
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "Property_PartitionNo_MaxLen_10");
+        Assert.Contains(results, r => r.ErrorMessage == "Property_EmailId_Invalid");
     }
 
     [Fact]
-    public void CreatePropertyDto_PartitionNoCanBeNull_PassesValidation()
+    public void CreatePropertyDto_EmptyEmail_PassesValidation()
     {
         var dto = new CreatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = null
+            TaxZoneId = 1,
+            WardId = 10,
+            EmailId = "" // Empty email is allowed
+        };
+
+        var results = Validate(dto);
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void CreatePropertyDto_ValidEmail_PassesValidation()
+    {
+        var dto = new CreatePropertyDto
+        {
+            TaxZoneId = 1,
+            WardId = 10,
+            EmailId = "test@example.com"
         };
 
         var results = Validate(dto);
@@ -254,23 +259,6 @@ public class CreatePropertyDtoTests
     {
         var dto = new CreatePropertyDto();
         Assert.IsAssignableFrom<CreateBaseDtos>(dto);
-    }
-
-    [Fact]
-    public void CreatePropertyDto_AllProperties_GetSet_WorksCorrectly()
-    {
-        var dto = new CreatePropertyDto
-        {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "A",
-            CreatedBy = 1
-        };
-
-        Assert.Equal("01", dto.WardNo);
-        Assert.Equal("100", dto.PropertyNo);
-        Assert.Equal("A", dto.PartitionNo);
-        Assert.Equal(1, dto.CreatedBy);
     }
 }
 
@@ -293,9 +281,10 @@ public class UpdatePropertyDtoTests
     {
         var dto = new UpdatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "A",
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
+            OwnerName = "John Doe Updated",
             UpdatedBy = 1,
             IsActive = true
         };
@@ -305,42 +294,31 @@ public class UpdatePropertyDtoTests
     }
 
     [Fact]
-    public void UpdatePropertyDto_WardNoRequired_FailsValidation()
+    public void UpdatePropertyDto_TaxZoneIdInvalid_FailsValidation()
     {
         var dto = new UpdatePropertyDto
         {
-            WardNo = "",
-            PropertyNo = "100"
+            TaxZoneId = 0,
+            WardId = 10
         };
 
         var results = Validate(dto);
         Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage == "Property_TaxZoneId_Invalid");
     }
 
     [Fact]
-    public void UpdatePropertyDto_WardNoMaxLength_FailsValidation()
+    public void UpdatePropertyDto_WardIdInvalid_FailsValidation()
     {
         var dto = new UpdatePropertyDto
         {
-            WardNo = new string('X', 11),
-            PropertyNo = "100"
+            TaxZoneId = 1,
+            WardId = 0
         };
 
         var results = Validate(dto);
         Assert.NotEmpty(results);
-    }
-
-    [Fact]
-    public void UpdatePropertyDto_PropertyNoRequired_FailsValidation()
-    {
-        var dto = new UpdatePropertyDto
-        {
-            WardNo = "01",
-            PropertyNo = ""
-        };
-
-        var results = Validate(dto);
-        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage == "Property_WardId_Invalid");
     }
 
     [Fact]
@@ -348,20 +326,23 @@ public class UpdatePropertyDtoTests
     {
         var dto = new UpdatePropertyDto
         {
-            WardNo = "01",
+            TaxZoneId = 1,
+            WardId = 10,
             PropertyNo = new string('Y', 11)
         };
 
         var results = Validate(dto);
         Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage == "Property_PropertyNo_MaxLen_10");
     }
 
     [Fact]
     public void UpdatePropertyDto_Touches_Nullables_And_Validates_Success()
     {
         var dto = new UpdatePropertyDto();
-        dto.WardNo = "01";
-        dto.PropertyNo = "100";
+        dto.TaxZoneId = 1;
+        dto.WardId = 10;
+        dto.PropertyNo = "PROP001";
         dto.PartitionNo = "A";
         dto.UpdatedBy = 123;
         dto.IsActive = true;
@@ -369,8 +350,9 @@ public class UpdatePropertyDtoTests
         var partitionNo = dto.PartitionNo;
         var updatedBy = dto.UpdatedBy;
 
-        Assert.Equal("01", dto.WardNo);
-        Assert.Equal("100", dto.PropertyNo);
+        Assert.Equal(1, dto.TaxZoneId);
+        Assert.Equal(10, dto.WardId);
+        Assert.Equal("PROP001", dto.PropertyNo);
         Assert.Equal("A", partitionNo);
         Assert.Equal(123, updatedBy);
         Assert.True(dto.IsActive);
@@ -383,8 +365,8 @@ public class UpdatePropertyDtoTests
     public void UpdatePropertyDto_Touches_Null_Assignments_And_Validates_Fail()
     {
         var dto = new UpdatePropertyDto();
-        dto.WardNo = "";
-        dto.PropertyNo = "";
+        dto.TaxZoneId = 0;
+        dto.WardId = 0;
         dto.PartitionNo = null;
         dto.UpdatedBy = null;
 
@@ -403,8 +385,6 @@ public class UpdatePropertyDtoTests
         Assert.False(dto.IsActive);
         Assert.Null(dto.PartitionNo);
         Assert.Null(dto.UpdatedBy);
-        _ = dto.WardNo;
-        _ = dto.PropertyNo;
     }
 
     [Fact]
@@ -629,35 +609,38 @@ public class PropertyServiceTests
     {
         var entity = new PropertyEntity
         {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
+            PropertyId = 1,
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
             PartitionNo = "A",
+            OwnerName = "John Doe",
             CreatedDate = DateTime.Now,
             IsActive = true
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync(1001, It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
-        var dto = new PropertyDto
-        {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "A"
-        };
-
         _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
-            .Returns(dto);
+            .Returns(new PropertyDto
+            {
+                PropertyId = 1,
+                TaxZoneId = 1,
+                WardId = 10,
+                PropertyNo = "PROP001",
+                PartitionNo = "A",
+                OwnerName = "John Doe"
+            });
 
-        var result = await _service.GetByIdAsync(1001);
+        var result = await _service.GetByIdAsync(1);
 
         Assert.NotNull(result);
-        Assert.Equal(1001, result.OwnerID);
-        Assert.Equal("01", result.WardNo);
-        Assert.Equal("100", result.PropertyNo);
-        Assert.Equal("A", result.PartitionNo);
+        Assert.Equal(1, result.PropertyId);
+        Assert.Equal(1, result.TaxZoneId);
+        Assert.Equal(10, result.WardId);
+        Assert.Equal("PROP001", result.PropertyNo);
+        Assert.Equal("John Doe", result.OwnerName);
     }
 
     [Fact]
@@ -676,17 +659,16 @@ public class PropertyServiceTests
     {
         var entities = new List<PropertyEntity>
         {
-            new() { OwnerID = 1, WardNo = "01", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-            new() { OwnerID = 2, WardNo = "01", PropertyNo = "101", PartitionNo = null, IsActive = true }
+            new() { PropertyId = 1, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP001", OwnerName = "John Doe", IsActive = true },
+            new() { PropertyId = 2, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP002", OwnerName = "Jane Doe", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        // Simple one-way mapping - DisplayProperty is computed automatically
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<PropertyEntity, PropertyDto>();
+            cfg.AddProfile<PropertyMappingProfile>();
         });
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -702,8 +684,8 @@ public class PropertyServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
-        Assert.Contains(result.Items, x => x.OwnerID == 1);
-        Assert.Contains(result.Items, x => x.OwnerID == 2);
+        Assert.Contains(result.Items, x => x.PropertyId == 1);
+        Assert.Contains(result.Items, x => x.PropertyId == 2);
     }
 
     [Fact]
@@ -711,18 +693,22 @@ public class PropertyServiceTests
     {
         var createDto = new CreatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "A"
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
+            PartitionNo = "A",
+            OwnerName = "John Doe"
         };
 
         _mockMapper
             .Setup(m => m.Map<PropertyEntity>(It.IsAny<CreatePropertyDto>()))
             .Returns((CreatePropertyDto dto) => new PropertyEntity
             {
-                WardNo = dto.WardNo,
+                TaxZoneId = dto.TaxZoneId,
+                WardId = dto.WardId,
                 PropertyNo = dto.PropertyNo,
                 PartitionNo = dto.PartitionNo,
+                OwnerName = dto.OwnerName,
                 CreatedBy = dto.CreatedBy,
                 CreatedDate = DateTime.Now,
                 IsActive = true
@@ -732,7 +718,7 @@ public class PropertyServiceTests
             .Setup(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyEntity e, CancellationToken _) =>
             {
-                e.OwnerID = 1001;
+                e.PropertyId = 1;
                 return e;
             });
 
@@ -740,19 +726,22 @@ public class PropertyServiceTests
             .Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
             .Returns((PropertyEntity e) => new PropertyDto
             {
-                OwnerID = e.OwnerID,
-                WardNo = e.WardNo,
+                PropertyId = e.PropertyId,
+                TaxZoneId = e.TaxZoneId,
+                WardId = e.WardId,
                 PropertyNo = e.PropertyNo,
-                PartitionNo = e.PartitionNo
+                PartitionNo = e.PartitionNo,
+                OwnerName = e.OwnerName
             });
 
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(1001, result.OwnerID);
-        Assert.Equal("01", result.WardNo);
-        Assert.Equal("100", result.PropertyNo);
-        Assert.Equal("A", result.PartitionNo);
+        Assert.Equal(1, result.PropertyId);
+        Assert.Equal(1, result.TaxZoneId);
+        Assert.Equal(10, result.WardId);
+        Assert.Equal("PROP001", result.PropertyNo);
+        Assert.Equal("John Doe", result.OwnerName);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -763,22 +752,24 @@ public class PropertyServiceTests
     {
         var updateDto = new UpdatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "B"
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
+            OwnerName = "John Doe Updated"
         };
 
         var existingEntity = new PropertyEntity
         {
-            OwnerID = 1001,
-            WardNo = "01",
-            PropertyNo = "100",
-            PartitionNo = "A",
+            PropertyId = 1,
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
+            OwnerName = "John Doe",
             IsActive = true
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync(1001, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -789,16 +780,16 @@ public class PropertyServiceTests
             .Setup(m => m.Map(It.IsAny<UpdatePropertyDto>(), It.IsAny<PropertyEntity>()))
             .Callback((UpdatePropertyDto src, PropertyEntity dest) =>
             {
-                dest.PartitionNo = src.PartitionNo;
+                dest.OwnerName = src.OwnerName;
             });
 
-        await _service.UpdateAsync(1001, updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
-        _mockRepository.Verify(r => r.GetByIdAsync(1001, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
-        Assert.Equal("B", existingEntity.PartitionNo);
+        Assert.Equal("John Doe Updated", existingEntity.OwnerName);
     }
 
     [Fact]
@@ -806,8 +797,9 @@ public class PropertyServiceTests
     {
         var updateDto = new UpdatePropertyDto
         {
-            WardNo = "01",
-            PropertyNo = "100"
+            TaxZoneId = 1,
+            WardId = 10,
+            OwnerName = "John Doe"
         };
 
         _mockRepository
@@ -842,13 +834,15 @@ public class PropertyServiceTests
     [Fact]
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
-        var idToDelete = 1001;
+        var idToDelete = 1;
 
         var existingEntity = new PropertyEntity
         {
-            OwnerID = idToDelete,
-            WardNo = "01",
-            PropertyNo = "100",
+            PropertyId = idToDelete,
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
+            OwnerName = "John Doe",
             IsActive = true
         };
 

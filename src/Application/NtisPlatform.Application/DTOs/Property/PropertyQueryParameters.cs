@@ -11,13 +11,32 @@ namespace NtisPlatform.Application.DTOs.Property;
 public class PropertyQueryParameters : BaseQueryParameters
 {
     /// <summary>
-    /// Filter by multiple wards (SQL IN clause).
-    /// Example: ?WardNos=WKD1&WardNos=MSH1
-    /// Recommended maximum: 500 items for optimal SQL Server performance.
-    /// For larger datasets, consider using range filters or multiple API calls.
+    /// Filter by PropertyId
     /// </summary>
-    [Filterable(FilterOperator.In, EntityProperty = "WardNo")]
-    public List<string>? WardNos { get; set; }
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? PropertyId { get; set; }
+
+    /// <summary>
+    /// Filter by TaxZoneId
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? TaxZoneId { get; set; }
+
+    /// <summary>
+    /// Filter by multiple WardIds (SQL IN clause).
+    /// Example: ?WardIds=1&WardIds=2
+    /// </summary>
+    [Filterable(FilterOperator.In, EntityProperty = "WardId")]
+    public List<int>? WardIds { get; set; }
+
+    /// <summary>
+    /// Filter by single WardId
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? WardId { get; set; }
 
     /// <summary>
     /// Search property number (case-insensitive contains).
@@ -38,18 +57,34 @@ public class PropertyQueryParameters : BaseQueryParameters
     public string? PartitionNo { get; set; }
 
     /// <summary>
-    /// Minimum property number for range filtering (numeric-aware comparison).
-    /// Example: ?MinPropertyNo=100 matches "100", "150", "200" but not "50"
-    /// Note: Uses length-based comparison for numeric strings: "2" &lt; "10" &lt; "100"
+    /// Filter by PropertyTypeId
     /// </summary>
-    [Filterable(FilterOperator.GreaterThanOrEqual, EntityProperty = "PropertyNo")]
-    public string? MinPropertyNo { get; set; }
+    [Filterable(FilterOperator.Equals)]
+    public int? PropertyTypeId { get; set; }
 
     /// <summary>
-    /// Maximum property number for range filtering (numeric-aware comparison).
-    /// Example: ?MaxPropertyNo=200 matches "100", "150", "200" but not "250"
-    /// Note: Uses length-based comparison for numeric strings: "2" &lt; "10" &lt; "100"
+    /// Filter by CategoryId
     /// </summary>
-    [Filterable(FilterOperator.LessThanOrEqual, EntityProperty = "PropertyNo")]
-    public string? MaxPropertyNo { get; set; }
+    [Filterable(FilterOperator.Equals)]
+    public int? CategoryId { get; set; }
+
+    /// <summary>
+    /// Search by owner name
+    /// </summary>
+    [Filterable(FilterOperator.Contains)]
+    [Searchable]
+    public string? OwnerName { get; set; }
+
+    /// <summary>
+    /// Filter by MarkedForDeletion status
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    public bool? MarkedForDeletion { get; set; }
+
+    /// <summary>
+    /// Filter by IsActive status
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? IsActive { get; set; }
 }

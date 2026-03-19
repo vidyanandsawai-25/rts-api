@@ -4,26 +4,16 @@ using NtisPlatform.Application.DTOs.Queries;
 
 namespace NtisPlatform.Application.DTOs;
 
-public class TaxZoneQueryParameters : BaseQueryParameters
+public class PropertyCategoryQueryParameters : BaseQueryParameters
 {
     [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public int? TaxZoneId { get; set; }
-
-    [Filterable]
-    [Searchable]
-    [Sortable]
-    public string? TaxZoneNo { get; set; }
+    public int? PropertyCategoryId { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
-    public string? TaxZoneType { get; set; }
-
-    [Filterable(FilterOperator.Contains)]
-    [Searchable]
-    [Sortable]
-    public string? Remark { get; set; }
+    public string? PropertyCategoryName { get; set; }
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]

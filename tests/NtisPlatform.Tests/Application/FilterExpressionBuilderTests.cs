@@ -625,20 +625,20 @@ namespace NtisPlatform.Tests.Application
         // =======================
 
         [Fact]
-        public void BuildFilterExpression_PropertyEntity_WardNosInOperator_WorksCorrectly()
+        public void BuildFilterExpression_PropertyEntity_WardIdsInOperator_WorksCorrectly()
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "WKD1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "WKD1", PropertyNo = "150", PartitionNo = "B", IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "MSH1", PropertyNo = "200", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 4, WardNo = "MSH1", PropertyNo = "250", PartitionNo = "C", IsActive = true },
-                new PropertyEntity { OwnerID = 5, WardNo = "TRG1", PropertyNo = "300", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 1, PropertyNo = "150", PartitionNo = "B", IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 2, PropertyNo = "200", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 4, TaxZoneId = 1, WardId = 2, PropertyNo = "250", PartitionNo = "C", IsActive = true },
+                new PropertyEntity { PropertyId = 5, TaxZoneId = 1, WardId = 3, PropertyNo = "300", PartitionNo = "A", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
             {
-                WardNos = new List<string> { "WKD1", "MSH1" }
+                WardIds = new List<int> { 1, 2 }
             };
 
             var expr = FilterExpressionBuilder.BuildFilterExpression<PropertyEntity, PropertyQueryParameters>(query);
@@ -647,27 +647,26 @@ namespace NtisPlatform.Tests.Application
             var result = data.Where(expr!.Compile()).ToList();
 
             Assert.Equal(4, result.Count);
-            Assert.Contains(result, x => x.WardNo == "WKD1");
-            Assert.Contains(result, x => x.WardNo == "MSH1");
-            Assert.DoesNotContain(result, x => x.WardNo == "TRG1");
+            Assert.Contains(result, x => x.WardId == 1);
+            Assert.Contains(result, x => x.WardId == 2);
+            Assert.DoesNotContain(result, x => x.WardId == 3);
         }
 
         [Fact]
-        public void BuildFilterExpression_PropertyEntity_PropertyNoRange_NumericOrdering()
+        public void BuildFilterExpression_PropertyEntity_PropertyNoContainsFilter()
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "W1", PropertyNo = "1", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "W1", PropertyNo = "2", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "W1", PropertyNo = "10", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 4, WardNo = "W1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 5, WardNo = "W1", PropertyNo = "200", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 1, PropertyNo = "2", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 1, PropertyNo = "10", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 4, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 5, TaxZoneId = 1, WardId = 1, PropertyNo = "200", PartitionNo = "A", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
             {
-                MinPropertyNo = "2",
-                MaxPropertyNo = "100"
+                PropertyNo = "10"
             };
 
             var expr = FilterExpressionBuilder.BuildFilterExpression<PropertyEntity, PropertyQueryParameters>(query);
@@ -675,32 +674,28 @@ namespace NtisPlatform.Tests.Application
 
             var result = data.Where(expr!.Compile()).ToList();
 
-            Assert.Equal(3, result.Count);
-            Assert.Contains(result, x => x.PropertyNo == "2");
+            Assert.Equal(2, result.Count);
             Assert.Contains(result, x => x.PropertyNo == "10");
             Assert.Contains(result, x => x.PropertyNo == "100");
-            Assert.DoesNotContain(result, x => x.PropertyNo == "1");
-            Assert.DoesNotContain(result, x => x.PropertyNo == "200");
         }
 
         [Fact]
-        public void BuildFilterExpression_PropertyEntity_CombinedInAndRangeFilters()
+        public void BuildFilterExpression_PropertyEntity_CombinedWardIdsAndPropertyNoFilters()
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "Mm13", PropertyNo = "1", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "Mm13", PropertyNo = "50", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "MM11", PropertyNo = "10", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 4, WardNo = "MM11", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 5, WardNo = "MM11", PropertyNo = "200", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 6, WardNo = "Other", PropertyNo = "75", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 13, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 13, PropertyNo = "50", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 11, PropertyNo = "10", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 4, TaxZoneId = 1, WardId = 11, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 5, TaxZoneId = 1, WardId = 11, PropertyNo = "200", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 6, TaxZoneId = 1, WardId = 99, PropertyNo = "75", PartitionNo = "A", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
             {
-                WardNos = new List<string> { "Mm13", "MM11" },
-                MinPropertyNo = "1",
-                MaxPropertyNo = "100"
+                WardIds = new List<int> { 13, 11 },
+                PropertyNo = "10"
             };
 
             var expr = FilterExpressionBuilder.BuildFilterExpression<PropertyEntity, PropertyQueryParameters>(query);
@@ -708,13 +703,9 @@ namespace NtisPlatform.Tests.Application
 
             var result = data.Where(expr!.Compile()).ToList();
 
-            Assert.Equal(4, result.Count);
-            Assert.Contains(result, x => x.WardNo == "Mm13" && x.PropertyNo == "1");
-            Assert.Contains(result, x => x.WardNo == "Mm13" && x.PropertyNo == "50");
-            Assert.Contains(result, x => x.WardNo == "MM11" && x.PropertyNo == "10");
-            Assert.Contains(result, x => x.WardNo == "MM11" && x.PropertyNo == "100");
-            Assert.DoesNotContain(result, x => x.PropertyNo == "200");
-            Assert.DoesNotContain(result, x => x.WardNo == "Other");
+            Assert.Equal(2, result.Count);
+            Assert.Contains(result, x => x.WardId == 11 && x.PropertyNo == "10");
+            Assert.Contains(result, x => x.WardId == 11 && x.PropertyNo == "100");
         }
 
         [Fact]
@@ -722,10 +713,10 @@ namespace NtisPlatform.Tests.Application
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "W1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "W1", PropertyNo = "150", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "W1", PropertyNo = "250", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 4, WardNo = "W1", PropertyNo = "350", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 1, PropertyNo = "150", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 1, PropertyNo = "250", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 4, TaxZoneId = 1, WardId = 1, PropertyNo = "350", PartitionNo = "A", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
@@ -749,10 +740,10 @@ namespace NtisPlatform.Tests.Application
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "W1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "W1", PropertyNo = "150", PartitionNo = "AB", IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "W1", PropertyNo = "200", PartitionNo = "B", IsActive = true },
-                new PropertyEntity { OwnerID = 4, WardNo = "W1", PropertyNo = "250", PartitionNo = "C", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 1, PropertyNo = "150", PartitionNo = "AB", IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 1, PropertyNo = "200", PartitionNo = "B", IsActive = true },
+                new PropertyEntity { PropertyId = 4, TaxZoneId = 1, WardId = 1, PropertyNo = "250", PartitionNo = "C", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
@@ -770,16 +761,16 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public void BuildFilterExpression_PropertyEntity_EmptyWardNosList_ReturnsNull()
+        public void BuildFilterExpression_PropertyEntity_EmptyWardIdsList_ReturnsNull()
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "W1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
             {
-                WardNos = new List<string>() // Empty list
+                WardIds = new List<int>() // Empty list
             };
 
             var expr = FilterExpressionBuilder.BuildFilterExpression<PropertyEntity, PropertyQueryParameters>(query);
@@ -967,9 +958,9 @@ namespace NtisPlatform.Tests.Application
         {
             var data = new List<PropertyEntity>
             {
-                new PropertyEntity { OwnerID = 1, WardNo = "W1", PropertyNo = "100", PartitionNo = "A", IsActive = true },
-                new PropertyEntity { OwnerID = 2, WardNo = "W1", PropertyNo = "101", PartitionNo = null, IsActive = true },
-                new PropertyEntity { OwnerID = 3, WardNo = "W1", PropertyNo = "102", PartitionNo = "AB", IsActive = true },
+                new PropertyEntity { PropertyId = 1, TaxZoneId = 1, WardId = 1, PropertyNo = "100", PartitionNo = "A", IsActive = true },
+                new PropertyEntity { PropertyId = 2, TaxZoneId = 1, WardId = 1, PropertyNo = "101", PartitionNo = null, IsActive = true },
+                new PropertyEntity { PropertyId = 3, TaxZoneId = 1, WardId = 1, PropertyNo = "102", PartitionNo = "AB", IsActive = true },
             };
 
             var query = new PropertyQueryParameters
@@ -986,9 +977,9 @@ namespace NtisPlatform.Tests.Application
             var result = data.Where(predicate).ToList();
 
             Assert.Equal(2, result.Count);
-            Assert.Contains(result, x => x.OwnerID == 1);
-            Assert.Contains(result, x => x.OwnerID == 3);
-            Assert.DoesNotContain(result, x => x.OwnerID == 2); // Null PartitionNo filtered out
+            Assert.Contains(result, x => x.PropertyId == 1);
+            Assert.Contains(result, x => x.PropertyId == 3);
+            Assert.DoesNotContain(result, x => x.PropertyId == 2); // Null PartitionNo filtered out
         }
 
         // =======================

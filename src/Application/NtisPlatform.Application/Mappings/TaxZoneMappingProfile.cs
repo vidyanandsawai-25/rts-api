@@ -11,11 +11,13 @@ public class TaxZoneMappingProfile : Profile
         CreateMap<TaxZoneEntity, TaxZoneDto>();
 
         CreateMap<CreateTaxZoneDto, TaxZoneEntity>()
+            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdateTaxZoneDto, TaxZoneEntity>()
+            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));

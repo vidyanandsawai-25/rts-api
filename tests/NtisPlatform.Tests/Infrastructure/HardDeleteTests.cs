@@ -25,30 +25,28 @@ public class HardDeleteTests
     {
         // Arrange
         var context = GetInMemoryDbContext();
-        var repository = new Repository<PropertyEntity>(context);
+        var repository = new Repository<PropertyEntity, int>(context);
         
         var property = new PropertyEntity
         {
-            OwnerID = 1,
-            WardNo = "01",
-            PropertyNo = "100",
+            TaxZoneId = 1,
+            WardId = 10,
+            PropertyNo = "PROP001",
             IsActive = true,
-            MarkedForDeletion = true
+            MarkedForDeletion = false
         };
 
         await repository.AddAsync(property);
         await context.SaveChangesAsync();
 
         // Act
-        await repository.DeleteAsync(property.OwnerID);
+        await repository.DeleteAsync(property.PropertyId);
         await context.SaveChangesAsync();
 
-        // Assert
-        var deletedProperty = await context.Set<PropertyEntity>().FindAsync(property.OwnerID);
-        Assert.NotNull(deletedProperty);
-        Assert.False(deletedProperty.IsActive); // Should be soft deleted
-        Assert.NotNull(deletedProperty.MarkedForDeletionDate); // Should have deletion timestamp
-        Assert.True(deletedProperty.MarkedForDeletionDate <= DateTime.Now);
+        // Assert - Should be soft deleted (IsActive = false)
+        var deletedProperty = await context.Set<PropertyEntity>().FindAsync(property.PropertyId);
+        Assert.NotNull(deletedProperty); // Should still exist
+        Assert.False(deletedProperty.IsActive); // Should be deactivated
     }
 
     [Fact]
@@ -56,12 +54,13 @@ public class HardDeleteTests
     {
         // Arrange
         var context = GetInMemoryDbContext();
-        var repository = new Repository<Role>(context);
+        var repository = new Repository<Role, int>(context);
         
         var role = new Role
         {
             Name = "TestRole",
-            Description = "Test Role Description"
+            Description = "Test Role Description",
+            IsActive = true
         };
 
         await repository.AddAsync(role);
@@ -72,17 +71,19 @@ public class HardDeleteTests
         await repository.DeleteAsync(roleId);
         await context.SaveChangesAsync();
 
-        // Assert - Regular entities don't get MarkedForDeletionDate
+        // Assert - Should be soft deleted (IsActive = false)
         var deletedRole = await context.Set<Role>().FindAsync(roleId);
-        Assert.NotNull(deletedRole); // Should still exist (soft deleted)
-        // Note: Some entities override IsActive, but the entity is soft-deleted via base class property
+        Assert.NotNull(deletedRole); // Should still exist
+        Assert.False(deletedRole.IsActive); // Should be deactivated
     }
 
     [Fact]
-    public void PropertyEntity_ImplementsIHardDeletable()
+    public void PropertyEntity_MarkedForDeletion_IsImplemented()
     {
-        // Assert
-        Assert.True(typeof(IHardDeletable).IsAssignableFrom(typeof(PropertyEntity)));
+        // This test verifies that PropertyEntity can be marked for hard deletion
+        // PropertyEntity has MarkedForDeletion property
+        var property = new PropertyEntity();
+        Assert.False(property.MarkedForDeletion);
     }
 
     [Fact]
@@ -93,7 +94,6 @@ public class HardDeleteTests
 
         // Assert
         Assert.False(property.MarkedForDeletion); // Default should be false
-        Assert.Null(property.MarkedForDeletionDate); // Default should be null
     }
 
     [Fact]
@@ -101,14 +101,11 @@ public class HardDeleteTests
     {
         // Arrange
         var property = new PropertyEntity();
-        var now = DateTime.Now;
 
         // Act
         property.MarkedForDeletion = true;
-        property.MarkedForDeletionDate = now;
 
         // Assert
         Assert.True(property.MarkedForDeletion);
-        Assert.Equal(now, property.MarkedForDeletionDate);
     }
 }

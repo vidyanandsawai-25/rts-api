@@ -4,6 +4,8 @@
 /// </summary>
 public class TaxZoneEntity : BaseEntity
 {
+    public int TaxZoneId { get; set; }
+
     public string TaxZoneNo { get; set; } = null!;
 
     public string? TaxZoneType { get; set; }

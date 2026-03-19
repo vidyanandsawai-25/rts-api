@@ -5,27 +5,21 @@ using NtisPlatform.Core.Interfaces;
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
-/// DESIGN NOTE:
-/// WardNo and PropertyNo are nullable in the database to support legacy records.
-/// The API layer enforces these fields as required for all new records via DTO validation.
-/// This ensures backward compatibility with migrated data while preventing new NULL inserts.
-/// Consumers should handle potential NULL values when querying legacy records.
+/// Represents a property in the PTIS system.
 /// </summary>
 [Table("PropertyMast", Schema = "PTIS")]
 public class PropertyEntity : BaseEntity, IHardDeletable
 {
     /// <summary>
-    /// Primary key - Unique identifier for the property owner.
+    /// Primary key - Unique identifier for the property.
     /// </summary>
     [Key]
-    public int OwnerID { get; set; }
+    public int PropertyId { get; set; }
 
-    // Location Information
-    [Column(TypeName = "nvarchar(10)")]
-    public string? TaxZone { get; set; }
+    // Location Information (Foreign Keys)
+    public int TaxZoneId { get; set; }
 
-    [Column(TypeName = "nvarchar(10)")]
-    public string? WardNo { get; set; }
+    public int WardId { get; set; }
 
     [Column(TypeName = "nvarchar(10)")]
     public string? PropertyNo { get; set; }
@@ -34,10 +28,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public string? PartitionNo { get; set; }
 
     // Property Classification
-    public int? PropertyTypeID { get; set; }
+    public int? PropertyTypeId { get; set; }
 
     [Column(TypeName = "nvarchar(30)")]
-    public string? UPICID { get; set; }
+    public string? UPICId { get; set; }
 
     public bool? OpenPlot { get; set; }
 
@@ -50,7 +44,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     [Column(TypeName = "nvarchar(20)")]
     public string? PlotNo { get; set; }
 
-    public int? CategoryID { get; set; }
+    public int? CategoryId { get; set; }
 
     [Column(TypeName = "varchar(5)")]
     public string? Type { get; set; }
@@ -59,26 +53,26 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public string? PartType { get; set; }
 
     // Owner Information
-    [Column(TypeName = "nvarchar(10)")]
+    [Column(TypeName = "nvarchar(20)")]
     public string? OwnerTitle { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
     public string? OwnerName { get; set; }
 
-    [Column(TypeName = "nvarchar(10)")]
+    [Column(TypeName = "nvarchar(20)")]
     public string? OwnerTitleEnglish { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
     public string? OwnerNameEnglish { get; set; }
 
     // Occupier Information
-    [Column(TypeName = "nvarchar(10)")]
+    [Column(TypeName = "nvarchar(20)")]
     public string? OccupierTitle { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
     public string? OccupierName { get; set; }
 
-    [Column(TypeName = "varchar(10)")]
+    [Column(TypeName = "nvarchar(20)")]
     public string? OccupierTitleEnglish { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
@@ -118,7 +112,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public string? EmailId { get; set; }
 
     // Society Information
-    public int? SocietyID { get; set; }
+    public int? SocietyDetailId { get; set; }
 
     // Hard Deletion Support (IHardDeletable)
     /// <summary>

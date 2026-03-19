@@ -6,7 +6,11 @@ namespace NtisPlatform.Application.DTOs;
 
 public class ActiveTaxesQueryParameters : BaseQueryParameters
 {
-    [Filterable]
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? ActiveTaxesId { get; set; }
+
+    [Filterable(FilterOperator.Contains)]
     [Sortable]
     [Searchable]
     public string? TaxName { get; set; }
@@ -16,10 +20,15 @@ public class ActiveTaxesQueryParameters : BaseQueryParameters
     [Searchable]
     public string? TaxNameAlias { get; set; }
 
-    [Filterable]
+    [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public int? TaxNameOrder { get; set; }
-
-    [Filterable]
     public int? DisplayOrder { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? TaxOnUnit { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? IsActive { get; set; }
 }

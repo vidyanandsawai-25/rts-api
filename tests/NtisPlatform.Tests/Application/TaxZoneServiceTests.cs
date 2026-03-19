@@ -27,6 +27,7 @@ public class TaxZoneEntityTests
         // Arrange & Act
         var entity = new TaxZoneEntity
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = "Urban",
             Remark = "Test Zone",
@@ -38,6 +39,7 @@ public class TaxZoneEntityTests
         };
 
         // Assert
+        Assert.Equal(1, entity.TaxZoneId);
         Assert.Equal("TZ001", entity.TaxZoneNo);
         Assert.Equal("Urban", entity.TaxZoneType);
         Assert.Equal("Test Zone", entity.Remark);
@@ -54,6 +56,7 @@ public class TaxZoneEntityTests
         // Arrange & Act
         var entity = new TaxZoneEntity
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = null,
             Remark = "Test"
@@ -86,6 +89,7 @@ public class TaxZoneDtoTests
         // Arrange & Act
         var dto = new TaxZoneDto
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = "Urban",
             Remark = "Test Zone",
@@ -95,6 +99,7 @@ public class TaxZoneDtoTests
         };
 
         // Assert
+        Assert.Equal(1, dto.TaxZoneId);
         Assert.Equal("TZ001", dto.TaxZoneNo);
         Assert.Equal("Urban", dto.TaxZoneType);
         Assert.Equal("Test Zone", dto.Remark);
@@ -119,6 +124,7 @@ public class TaxZoneDtoTests
         // Arrange & Act
         var dto = new TaxZoneDto
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = null,
             Remark = "Test"
@@ -756,14 +762,14 @@ public class TaxZoneQueryParametersTests
 
 public class TaxZoneServiceTests
 {
-    private readonly Mock<IRepository<TaxZoneEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<TaxZoneEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly TaxZoneService _service;
 
     public TaxZoneServiceTests()
     {
-        _mockRepository = new Mock<IRepository<TaxZoneEntity, string>>();
+        _mockRepository = new Mock<IRepository<TaxZoneEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -780,6 +786,7 @@ public class TaxZoneServiceTests
         // Arrange
         var entity = new TaxZoneEntity
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Zone 1",
@@ -787,22 +794,24 @@ public class TaxZoneServiceTests
             IsActive = true
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("TZ1", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
             .Returns(new TaxZoneDto
             {
+                TaxZoneId = 1,
                 TaxZoneNo = "TZ1",
                 TaxZoneType = "Urban",
                 Remark = "Zone 1"
             });
 
         // Act
-        var result = await _service.GetByIdAsync("TZ1");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.TaxZoneId);
         Assert.Equal("TZ1", result.TaxZoneNo);
         Assert.Equal("Urban", result.TaxZoneType);
         Assert.Equal("Zone 1", result.Remark);
@@ -812,11 +821,11 @@ public class TaxZoneServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((TaxZoneEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZ");
+        var result = await _service.GetByIdAsync(999);
 
         // Assert
         Assert.Null(result);
@@ -828,8 +837,8 @@ public class TaxZoneServiceTests
         // Arrange
         var entities = new List<TaxZoneEntity>
         {
-            new() { TaxZoneNo = "TZ1", TaxZoneType = "Urban", Remark = "Zone 1", IsActive = true },
-            new() { TaxZoneNo = "TZ2", TaxZoneType = "Rural", Remark = "Zone 2", IsActive = true }
+            new() { TaxZoneId = 1, TaxZoneNo = "TZ1", TaxZoneType = "Urban", Remark = "Zone 1", IsActive = true },
+            new() { TaxZoneId = 2, TaxZoneNo = "TZ2", TaxZoneType = "Rural", Remark = "Zone 2", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -884,12 +893,17 @@ public class TaxZoneServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TaxZoneEntity e, CancellationToken _) => e);
+            .ReturnsAsync((TaxZoneEntity e, CancellationToken _) =>
+            {
+                e.TaxZoneId = 1;
+                return e;
+            });
 
         _mockMapper
             .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
             .Returns((TaxZoneEntity e) => new TaxZoneDto
             {
+                TaxZoneId = e.TaxZoneId,
                 TaxZoneNo = e.TaxZoneNo,
                 TaxZoneType = e.TaxZoneType,
                 Remark = e.Remark
@@ -900,6 +914,7 @@ public class TaxZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.TaxZoneId);
         Assert.Equal("TZ1", result.TaxZoneNo);
         Assert.Equal("Urban", result.TaxZoneType);
         Assert.Equal("Zone 1", result.Remark);
@@ -921,6 +936,7 @@ public class TaxZoneServiceTests
 
         var existingEntity = new TaxZoneEntity
         {
+            TaxZoneId = 1,
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Old Remark",
@@ -928,7 +944,7 @@ public class TaxZoneServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("TZ1", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -944,10 +960,10 @@ public class TaxZoneServiceTests
             });
 
         // Act
-        await _service.UpdateAsync("TZ1", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("TZ1", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
@@ -967,11 +983,11 @@ public class TaxZoneServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((TaxZoneEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -982,7 +998,7 @@ public class TaxZoneServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        var idToDelete = 999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -995,7 +1011,7 @@ public class TaxZoneServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -1003,11 +1019,12 @@ public class TaxZoneServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "TZ1";
+        var idToDelete = 1;
 
         var existingEntity = new TaxZoneEntity
         {
-            TaxZoneNo = idToDelete,
+            TaxZoneId = idToDelete,
+            TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Zone 1",
             IsActive = true

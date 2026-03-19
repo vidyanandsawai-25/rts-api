@@ -62,8 +62,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
     public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
+    public DbSet<PropertyCategoryEntity> PropertyCategory { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -399,14 +401,17 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TaxZoneEntity>(entity =>
         {
             entity.ToTable("TaxZoneMaster", "PTIS");
-            entity.HasKey(e => e.TaxZoneNo);
-            entity.Property(e => e.TaxZoneType);
-            entity.Property(e => e.Remark);
+            entity.HasKey(e => e.TaxZoneId);
+            entity.Property(e => e.TaxZoneId).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxZoneNo).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.TaxZoneType).HasMaxLength(50);
+            entity.Property(e => e.Remark).IsRequired().HasMaxLength(50);
             entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.TaxZoneNo).IsUnique().HasDatabaseName("UQ_TaxZoneMaster_TaxZoneNo");
         });
         // UserRoleMaster configuration
         modelBuilder.Entity<UserRoleMasterEntity>(entity =>
@@ -665,13 +670,17 @@ public class ApplicationDbContext : DbContext
 		modelBuilder.Entity<ActiveTaxesEntity>(entity =>
 		{
 			entity.ToTable("ActiveTaxesMaster", "PTIS");
-			entity.HasKey(x => x.TaxNameID);
-			entity.Property(x => x.TaxNameID);
-			entity.Property(x => x.TaxName);
-			entity.Property(x => x.TaxNameAlias);
-			entity.Property(x => x.TaxNameOrder);
-			entity.Property(x => x.ActiveTaxHeadsOnly);
+			entity.HasKey(x => x.ActiveTaxesId);
+			entity.Property(x => x.ActiveTaxesId).ValueGeneratedOnAdd();
+			entity.Property(x => x.TaxName).HasMaxLength(200);
+			entity.Property(x => x.TaxNameAlias).HasMaxLength(200);
 			entity.Property(x => x.DisplayOrder);
+			entity.Property(x => x.TaxOnUnit).IsRequired().HasDefaultValue(false);
+			entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+			entity.Property(x => x.CreatedBy);
+			entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()");
+			entity.Property(x => x.UpdatedBy);
+			entity.Property(x => x.UpdatedDate);
 		});
 
 		// GrievanceCategoryMaster configuration
@@ -740,6 +749,76 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.UlbTypeId);
             entity.HasIndex(e => e.IsActive);
         });
+
+        modelBuilder.Entity<PropertyCategoryEntity>(entity =>
+        {
+            entity.ToTable("PropertyCategory", "PTIS");
+            entity.HasKey(e => e.PropertyCategoryId);
+            entity.Property(e => e.PropertyCategoryId)
+                  .HasColumnName("PropertyCategoryId")
+                  .ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyCategoryName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyCategoryName).IsUnique().HasDatabaseName("UQ_PropertyCategory_Name");
+        });
+
+        // Property configuration
+        modelBuilder.Entity<PropertyEntity>(entity =>
+        {
+            entity.ToTable("PropertyMast", "PTIS");
+            entity.HasKey(e => e.PropertyId);
+            entity.Property(e => e.PropertyId).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxZoneId).IsRequired();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.PropertyNo).HasMaxLength(10);
+            entity.Property(e => e.PartitionNo).HasMaxLength(10);
+            entity.Property(e => e.PropertyTypeId);
+            entity.Property(e => e.UPICId).HasMaxLength(30);
+            entity.Property(e => e.OpenPlot);
+            entity.Property(e => e.CSN).HasMaxLength(30);
+            entity.Property(e => e.SubZoneNo).HasMaxLength(20);
+            entity.Property(e => e.PlotNo).HasMaxLength(20);
+            entity.Property(e => e.CategoryId);
+            entity.Property(e => e.Type).HasMaxLength(5);
+            entity.Property(e => e.PartType).HasMaxLength(20);
+            entity.Property(e => e.OwnerTitle).HasMaxLength(20);
+            entity.Property(e => e.OwnerName).HasMaxLength(1000);
+            entity.Property(e => e.OccupierTitle).HasMaxLength(20);
+            entity.Property(e => e.OccupierName).HasMaxLength(1000);
+            entity.Property(e => e.FlatOrShopNo).HasMaxLength(100);
+            entity.Property(e => e.FlatOrShopName).HasMaxLength(200);
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.Location).HasMaxLength(200);
+            entity.Property(e => e.MobileNo).HasMaxLength(13);
+            entity.Property(e => e.EmailId).HasMaxLength(100);
+            entity.Property(e => e.SocietyDetailId);
+            entity.Property(e => e.OwnerTitleEnglish).HasMaxLength(20);
+            entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000);
+            entity.Property(e => e.OccupierTitleEnglish).HasMaxLength(20);
+            entity.Property(e => e.OccupierNameEnglish).HasMaxLength(1000);
+            entity.Property(e => e.FlatOrShopNoEnglish).HasMaxLength(100);
+            entity.Property(e => e.FlatOrShopNameEnglish).HasMaxLength(200);
+            entity.Property(e => e.AddressEnglish).HasMaxLength(500);
+            entity.Property(e => e.LocationEnglish).HasMaxLength(200);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Unique index on WardId, PropertyNo, PartitionNo
+            entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })
+                .IsUnique()
+                .HasFilter("[PropertyNo] IS NOT NULL AND [PartitionNo] IS NOT NULL")
+                .HasDatabaseName("UQ_Property_Ward_Property_Partition");
+        });
+
+
 		  modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
         {
             entity.ToTable("ConfigCategoryMaster", "Core");
@@ -777,5 +856,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.CategoryId);
             entity.HasIndex(e => e.IsActive);
         });
+
     }
 }

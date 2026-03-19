@@ -6,12 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class TaxZoneService
-    : BaseCommonCrudService<TaxZoneEntity, TaxZoneDto, CreateTaxZoneDto, UpdateTaxZoneDto, TaxZoneQueryParameters, int>,
-      ITaxZoneService
+public class PropertyCategoryService : BaseCommonCrudService<PropertyCategoryEntity, PropertyCategoryDto, PropertyCategoryCreateDto, PropertyCategoryUpdateDto, PropertyCategoryQueryParameters, int>, IPropertyCategoryService
 {
-    public TaxZoneService(
-        IRepository<TaxZoneEntity, int> repository,
+    public PropertyCategoryService(
+        IRepository<PropertyCategoryEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
