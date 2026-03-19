@@ -65,7 +65,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyCategoryEntity> PropertyCategory { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
-
+	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -857,5 +857,37 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
+		modelBuilder.Entity<ConfigValueMasterEntity>(entity =>
+        {
+            entity.ToTable("ConfigValueMaster", "Core");
+            entity.HasKey(e => e.ConfigValueId);
+            entity.Property(e => e.Value).HasMaxLength(500);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedBy);
+            
+            // Foreign Key Relationships
+            entity.HasOne(e => e.ConfigKey)
+                .WithMany()
+                .HasForeignKey(e => e.ConfigKeyId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            entity.HasOne(e => e.Module)
+                .WithMany()
+                .HasForeignKey(e => e.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            // Indexes
+            entity.HasIndex(e => e.ConfigKeyId);
+            entity.HasIndex(e => e.DepartmentId);
+            entity.HasIndex(e => e.ModuleId);
+            entity.HasIndex(e => e.IsActive);
+        });
     }
 }

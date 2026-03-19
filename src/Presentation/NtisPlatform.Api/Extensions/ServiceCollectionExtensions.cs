@@ -101,6 +101,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
+        services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
         // API Layer - Controllers, Swagger, CORS
@@ -139,9 +140,49 @@ public static class ServiceCollectionExtensions
             });
         });
 
-        // JWT Authentication
-        var jwtKey = configuration.GetValue<string>("Jwt:Key")
-            ?? throw new InvalidOperationException("JWT key not configured");
+        // JWT Authentication - Validate JWT Key
+        var jwtKey = configuration.GetValue<string>("Jwt:Key");
+        
+        if (string.IsNullOrWhiteSpace(jwtKey))
+        {
+            throw new InvalidOperationException(
+                "JWT Key is not configured or is empty. " +
+                "Please configure Jwt:Key in user-secrets (development), " +
+                "environment variables (production), or Azure Key Vault. " +
+                "Example: dotnet user-secrets set 'Jwt:Key' 'your-secret-key-min-32-bytes'");
+        }
+
+        // Reject known insecure placeholder values
+        var insecurePlaceholders = new[]
+        {
+            "MUST_BE_SET_IN_SECURE_CONFIG_SOURCE",
+            "YourSuperSecretKeyHere_ChangeThisInProduction_MustBeAtLeast32Characters",
+            "your-secret-key-here",
+            "change-me-in-production",
+            "placeholder",
+            "secret",
+            "supersecret"
+        };
+
+        var jwtKeyNormalized = jwtKey.Trim();
+        if (insecurePlaceholders.Any(p => string.Equals(jwtKeyNormalized, p, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                "JWT Key appears to be a placeholder value and is not secure. " +
+                "Do not use placeholder or example keys in any environment. " +
+                "Generate a cryptographically secure random key using: " +
+                "dotnet user-secrets set 'Jwt:Key' '$(openssl rand -base64 32)' or similar.");
+        }
+
+        // Enforce minimum key length for security (32 bytes = 256 bits) using the normalized key
+        var keyBytes = Encoding.UTF8.GetBytes(jwtKeyNormalized);
+        if (keyBytes.Length < 32)
+        {
+            throw new InvalidOperationException(
+                $"JWT Key is too short ({keyBytes.Length} bytes). " +
+                "Minimum 32 bytes (256 bits) required for secure HMAC-SHA256 signing. " +
+                "Current key length is insufficient to prevent brute-force attacks.");
+        }
 
         services.AddAuthentication(options =>
         {
@@ -153,7 +194,7 @@ public static class ServiceCollectionExtensions
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
                 ValidateIssuer = true,
                 ValidIssuer = configuration.GetValue<string>("Jwt:Issuer"),
                 ValidateAudience = true,
