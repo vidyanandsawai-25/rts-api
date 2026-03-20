@@ -28,8 +28,5 @@ public class OfficeQueryParameters : BaseQueryParameters
     
     [Filterable(FilterOperator.Equals)]
     public bool? IsActive { get; set; }
-    
-    [Filterable(FilterOperator.Equals)]
-    [Sortable]
-    public bool? Status { get; set; }
+
 }

@@ -12,11 +12,10 @@ public class OfficeDto : BaseDtos
     public string? City { get; set; }
     public string? Pincode { get; set; }
     public string? Phone { get; set; }
-    public string? Email { get; set; }
+    public string? EmailId { get; set; }
     public int? OfficeIncharge { get; set; }
-    public int? Designation { get; set; }
+    public int? DesignationMasterId { get; set; }
     public DateTime? EstablishedDate { get; set; }
-    public bool? Status { get; set; }
 }
 
 public class CreateOfficeDto : CreateBaseDtos
@@ -51,12 +50,11 @@ public class CreateOfficeDto : CreateBaseDtos
     
     [EmailAddress(ErrorMessage = "Email_Invalid")]
     [StringLength(200, ErrorMessage = "Email_MaxLen_200")]
-    public string? Email { get; set; }
+    public string? EmailId { get; set; }
     
     public int? OfficeIncharge { get; set; }
-    public int? Designation { get; set; }
+    public int? DesignationMasterId { get; set; }
     public DateTime? EstablishedDate { get; set; }
-    public bool? Status { get; set; }
 }
 
 public class UpdateOfficeDto : UpdateBaseDtos
@@ -91,10 +89,9 @@ public class UpdateOfficeDto : UpdateBaseDtos
     
     [EmailAddress(ErrorMessage = "Email_Invalid")]
     [StringLength(200, ErrorMessage = "Email_MaxLen_200")]
-    public string? Email { get; set; }
+    public string? EmailId { get; set; }
     
     public int? OfficeIncharge { get; set; }
-    public int? Designation { get; set; }
+    public int? DesignationMasterId { get; set; }
     public DateTime? EstablishedDate { get; set; }
-    public bool? Status { get; set; }
 }

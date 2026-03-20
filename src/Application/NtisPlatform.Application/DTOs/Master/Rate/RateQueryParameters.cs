@@ -8,28 +8,25 @@ public class RateQueryParameters : BaseQueryParameters
 {
     [Filterable]
     [Sortable]
-    public int? ID { get; set; }
+    public int? RateId { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
+    [Filterable]
     [Searchable]
     [Sortable]
-    public string? ConstructionID { get; set; }
+    public int? ConstructionTypeId { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
+    [Filterable]
     [Searchable]
     [Sortable]
-    public string? RateSectionNo { get; set; }
+    public int? RateSectionId { get; set; }
 
     [Filterable(FilterOperator.Equals)]
     [Searchable]
-    public string? TypeOfUseGroupID { get; set; }
+    public int? TypeOfUseGroupId { get; set; }
 
     [Filterable]
     public int? Year { get; set; }
 
     [Filterable]
-    public int? MinYear { get; set; }
-
-    [Filterable]
-    public int? MaxYear { get; set; }
+    public int? YearRangeRVId { get; set; }
 }

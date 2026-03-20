@@ -10,18 +10,17 @@ namespace NtisPlatform.Tests.Application;
 
 public class ZoneServiceTests
 {
-    private readonly Mock<IRepository<ZoneEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<ZoneEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly ZoneService _service;
 
     public ZoneServiceTests()
     {
-        _mockRepository = new Mock<IRepository<ZoneEntity, string>>();
+        _mockRepository = new Mock<IRepository<ZoneEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
-        // NOT calling SaveChangesAsync directly.
         _mockUnitOfWork
             .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -43,9 +42,9 @@ public class ZoneServiceTests
         // Arrange
         var entity = new ZoneEntity
         {
+            ZoneId = 1,
             ZoneNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -54,29 +53,29 @@ public class ZoneServiceTests
             UpdatedBy = 31
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("A", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
-            .Returns(new ZoneDto
+            .Returns((ZoneEntity e) => new ZoneDto
             {
-                ZoneNo = "WKD",
-                Description = "वाकड",
-                DescriptionEnglish = "Wakad",
-                SequenceNo = 1,
-                IsActive = true,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
+                ZoneId = e.ZoneId,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate,
+                UpdatedDate = e.UpdatedDate
             });
 
         // Act
-        var result = await _service.GetByIdAsync("A");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.ZoneId);
         Assert.Equal("WKD", result.ZoneNo);
         Assert.Equal("वाकड", result.Description);
-        Assert.Equal("Wakad", result.DescriptionEnglish);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
     }
@@ -85,11 +84,11 @@ public class ZoneServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZZ", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ZoneEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZZ");
+        var result = await _service.GetByIdAsync(999);
 
         // Assert
         Assert.Null(result);
@@ -101,11 +100,11 @@ public class ZoneServiceTests
         // Arrange
         var entities = new List<ZoneEntity>
         {
-            new() { ZoneNo = "MSH", Description = "मोशी", DescriptionEnglish = "Moshi", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
-            new() { ZoneNo = "TRG", Description = "थेरगाव", DescriptionEnglish = "Thergav", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
+            new() { ZoneId = 1, ZoneNo = "MSH", Description = "मोशी", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { ZoneId = 2, ZoneNo = "TRG", Description = "थेरगाव", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
-        var mockQuery = entities.BuildMock(); // async IQueryable
+        var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -139,8 +138,8 @@ public class ZoneServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.ZoneNo == "MSH");
-        Assert.Contains(items, x => x.ZoneNo == "TRG");
+        Assert.Contains(items, x => x.ZoneId == 1);
+        Assert.Contains(items, x => x.ZoneId == 2);
     }
 
     [Fact]
@@ -151,9 +150,7 @@ public class ZoneServiceTests
         {
             ZoneNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             SequenceNo = 1,
-            IsActive = true,
             CreatedBy = 31
         };
 
@@ -161,15 +158,13 @@ public class ZoneServiceTests
             .Setup(m => m.Map<ZoneEntity>(It.IsAny<CreateZoneDto>()))
             .Returns((CreateZoneDto dto) => new ZoneEntity
             {
+                ZoneId = 1,
                 ZoneNo = dto.ZoneNo,
                 Description = dto.Description,
-                DescriptionEnglish = dto.DescriptionEnglish,
                 SequenceNo = dto.SequenceNo,
-                IsActive = dto.IsActive,
+                IsActive = true,
                 CreatedDate = DateTime.Now,
-                CreatedBy = 31,
-                UpdatedDate = DateTime.Now,
-                UpdatedBy = 31
+                CreatedBy = dto.CreatedBy
             });
 
         _mockRepository
@@ -180,13 +175,12 @@ public class ZoneServiceTests
             .Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
             .Returns((ZoneEntity e) => new ZoneDto
             {
+                ZoneId = e.ZoneId,
                 ZoneNo = e.ZoneNo,
                 Description = e.Description,
-                DescriptionEnglish = e.DescriptionEnglish,
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive,
-                CreatedDate = e.CreatedDate,
-                UpdatedDate = e.UpdatedDate
+                CreatedDate = e.CreatedDate
             });
 
         // Act
@@ -194,18 +188,14 @@ public class ZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
+        Assert.Equal(1, result.ZoneId);
         Assert.Equal("WKD", result.ZoneNo);
         Assert.Equal("वाकड", result.Description);
-        Assert.Equal("Wakad", result.DescriptionEnglish);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        // Service calls SaveChangesAsync (based on your test output)
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
-        // Not called by service (based on your test output)
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -216,17 +206,18 @@ public class ZoneServiceTests
         // Arrange
         var updateDto = new UpdateZoneDto
         {
+            ZoneNo = "MSH",
             Description = "मोशी",
-            DescriptionEnglish = "Moshi",
-            SequenceNo = 1,
+            SequenceNo = 2,
             IsActive = true,
             UpdatedBy = 31
         };
 
         var existingEntity = new ZoneEntity
         {
+            ZoneId = 1,
+            ZoneNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -236,7 +227,7 @@ public class ZoneServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("WKD", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -247,54 +238,64 @@ public class ZoneServiceTests
             .Setup(m => m.Map(It.IsAny<UpdateZoneDto>(), It.IsAny<ZoneEntity>()))
             .Callback((UpdateZoneDto src, ZoneEntity dest) =>
             {
+                dest.ZoneNo = src.ZoneNo;
                 dest.Description = src.Description;
-                dest.DescriptionEnglish = src.DescriptionEnglish;
                 dest.SequenceNo = src.SequenceNo;
                 dest.IsActive = src.IsActive;
+                dest.UpdatedBy = src.UpdatedBy;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
+            .Returns((ZoneEntity e) => new ZoneDto
+            {
+                ZoneId = e.ZoneId,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
             });
 
         // Act
-        await _service.UpdateAsync("WKD", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("WKD", It.IsAny<CancellationToken>()), Times.Once);
+        Assert.NotNull(result);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
+        Assert.Equal("MSH", existingEntity.ZoneNo);
         Assert.Equal("मोशी", existingEntity.Description);
-        Assert.Equal("Moshi", existingEntity.DescriptionEnglish);
-        Assert.Equal(1, existingEntity.SequenceNo);
+        Assert.Equal(2, existingEntity.SequenceNo);
         Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
-    public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
+    public async Task UpdateAsync_NonExistingEntity_ReturnsNull()
     {
         // Arrange
         var updateDto = new UpdateZoneDto
         {
+            ZoneNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             SequenceNo = 1,
             IsActive = true,
             UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ZoneEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
+        Assert.Null(result);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Never);
-
-        // No commit / save if entity doesn't exist
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -303,7 +304,7 @@ public class ZoneServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        var idToDelete = 999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -314,10 +315,8 @@ public class ZoneServiceTests
 
         // Assert
         Assert.False(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -326,13 +325,13 @@ public class ZoneServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "WKD";
+        var idToDelete = 1;
 
         var existingEntity = new ZoneEntity
         {
-            ZoneNo = idToDelete,
+            ZoneId = idToDelete,
+            ZoneNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -354,12 +353,9 @@ public class ZoneServiceTests
 
         // Assert
         Assert.True(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }

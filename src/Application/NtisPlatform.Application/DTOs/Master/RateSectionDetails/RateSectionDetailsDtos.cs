@@ -4,32 +4,32 @@ namespace NtisPlatform.Application.DTOs;
 
 public class RateSectionDetailsDto : BaseDtos
 {
-    public int RateSectionDetailsID { get; set; } 
-    public string RateSectionNo { get; set; } = string.Empty;
-    public string WardNo { get; set; } = string.Empty;
+    public int RateSectionDetailsId { get; set; } 
+    public int RateSectionId { get; set; } 
+    public int WardId { get; set; }
+    public string? WardNo { get; set; }
 }
 
 public class CreateRateSectionDetailsDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "RateSectionDetails_RateSectionNo_Required")]
-    [StringLength(20, ErrorMessage = "RateSectionDetails_RateSectionNo_MaxLen_20")]
-    public string RateSectionNo { get; set; } = string.Empty;
+    [Range(1, 9999, ErrorMessage = "RateSectionDetails_RateSectionId_1_9999")]
+    public int RateSectionId { get; set; } 
 
     [Required(ErrorMessage = "RateSectionDetails_WardNo_Required")]
-    [StringLength(10, ErrorMessage = "RateSectionDetails_WardNo_MaxLen_10")]
-    public string WardNo { get; set; } = string.Empty;
+    [Range(1, 9999, ErrorMessage = "RateSectionDetails_WardId_1_9999")]
+    public int WardId { get; set; } 
 }
 
 
 public class UpdateRateSectionDetailsDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "RateSectionDetails_RateSectionNo_Required")]
-    [StringLength(20, ErrorMessage = "RateSectionDetails_RateSectionNo_MaxLen_20")]
-    public string RateSectionNo { get; set; } = string.Empty;
+    [Range(1, 9999, ErrorMessage = "RateSectionDetails_RateSectionId_1_9999")]
+    public int RateSectionId { get; set; } 
 
-    [Required(ErrorMessage = "RateSectionDetails_WardNo_Required")]
-    [StringLength(10, ErrorMessage = "RateSectionDetails_WardNo_MaxLen_10")]
-    public string WardNo { get; set; } = string.Empty;
+    [Required(ErrorMessage = "RateSectionDetails_WardId_Required")]
+    public int WardId { get; set; } 
 }
 
 

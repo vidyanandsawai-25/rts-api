@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class MoujaDto : BaseDtos
 {
-    public int Id { get; set; } = 0;
+    public int MoujaId { get; set; } = 0;
 
     public int Year { get; set; } = 0;
 
@@ -15,7 +15,6 @@ public class MoujaDto : BaseDtos
 
 public class CreateMoujaDto : CreateBaseDtos
 {
-    public int Id { get; set; } = 0;
     [Range(1, 9999, ErrorMessage = "Mouja_Year_Range_1900_9999")]
     [Required(ErrorMessage = "Mouja_Year_Required")]
     public int Year { get; set; } = 0;
@@ -26,7 +25,6 @@ public class CreateMoujaDto : CreateBaseDtos
 
 public class UpdateMoujaDto : UpdateBaseDtos
 {
-    public int Id { get; set; } = 0;
     [Range(1, 9999, ErrorMessage = "Mouja_Year_Range_1900_9999")]
     [Required(ErrorMessage = "Mouja_Year_Required")]
     public int Year { get; set; } = 0;

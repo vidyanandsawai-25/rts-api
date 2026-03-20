@@ -7,8 +7,9 @@ using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;
-    public class SubTypeOfUseServiceTests
-    {
+
+public class SubTypeOfUseServiceTests
+{
     private readonly Mock<IRepository<SubTypeOfUseEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
@@ -20,13 +21,10 @@ namespace NtisPlatform.Tests.Application;
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
-        // Service is calling SaveChangesAsync (NOT transactions), so setup SaveChangesAsync.
-        // If your SaveChangesAsync returns Task (not Task<int>), change ReturnsAsync(1) to Returns(Task.CompletedTask).
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        // Optional: keep these setups if your interface has them (harmless even if not called)
         _mockUnitOfWork
             .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -44,11 +42,10 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId=1,
-            TypeOfUseID = "R",
+            SubTypeOfUseId = 1,
+            TypeOfUseId = 1,
             Description = "Residential",
-            DescriptionEnglish = "Residential",
-            SearchKey  = "Alt+D",
+            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -61,17 +58,16 @@ namespace NtisPlatform.Tests.Application;
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
-            .Returns(new SubTypeOfUseDto
+            .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
-                SubTypeOfUseId = 1,
-                TypeOfUseID = "R",
-                IsActive = true,
-                Description = "Residential",
-                DescriptionEnglish = "Residential",
-                SearchKey  = "Alt+D",
-                SearchSequence = 1,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now,
+                SubTypeOfUseId = e.SubTypeOfUseId,
+                TypeOfUseId = e.TypeOfUseId,
+                Description = e.Description,
+                SearchKey = e.SearchKey,
+                SearchSequence = e.SearchSequence,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate,
+                UpdatedDate = e.UpdatedDate
             });
 
         // Act
@@ -80,10 +76,9 @@ namespace NtisPlatform.Tests.Application;
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.SubTypeOfUseId);
-        Assert.Equal("R", result.TypeOfUseID);
+        Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
-        Assert.Equal("Residential", result.DescriptionEnglish);
-        Assert.Equal("Alt+D", result.SearchKey );
+        Assert.Equal("Alt+D", result.SearchKey);
         Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
     }
@@ -92,11 +87,11 @@ namespace NtisPlatform.Tests.Application;
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SubTypeOfUseEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync(9999);
+        var result = await _service.GetByIdAsync(999);
 
         // Assert
         Assert.Null(result);
@@ -108,11 +103,11 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entities = new List<SubTypeOfUseEntity>
         {
-            new() { SubTypeOfUseId=1, TypeOfUseID = "R", Description = "R", DescriptionEnglish = "R", SearchKey ="Alt+D",SearchSequence=1,IsActive=true, CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
-            new() { SubTypeOfUseId=2, TypeOfUseID = "C", Description = "C", DescriptionEnglish = "R", SearchKey ="Alt+C",SearchSequence=2,IsActive=true,CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now }
+            new() { SubTypeOfUseId = 1, TypeOfUseId = 1, Description = "Residential", SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { SubTypeOfUseId = 2, TypeOfUseId = 2, Description = "Commercial", SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
-        var mockQuery = entities.BuildMock(); // async IQueryable
+        var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -146,8 +141,8 @@ namespace NtisPlatform.Tests.Application;
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.Description == "R");
-        Assert.Contains(items, x => x.Description == "C");
+        Assert.Contains(items, x => x.Description == "Residential");
+        Assert.Contains(items, x => x.Description == "Commercial");
     }
 
     [Fact]
@@ -156,30 +151,25 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var createDto = new CreateSubTypeOfUseDto
         {
-            TypeOfUseID = "R",
+            TypeOfUseId = 1,
             Description = "Residential",
-            DescriptionEnglish = "Residential",
-            SearchKey  = "Alt+D",
+            SearchKey = "Alt+D",
             SearchSequence = 1,
-            IsActive = true,
-            CreatedBy=31
+            CreatedBy = 31
         };
 
         _mockMapper
             .Setup(m => m.Map<SubTypeOfUseEntity>(It.IsAny<CreateSubTypeOfUseDto>()))
             .Returns((CreateSubTypeOfUseDto dto) => new SubTypeOfUseEntity
             {
-                SubTypeOfUseId=1,
-                TypeOfUseID = "R",
-                Description = "Residential",
-                DescriptionEnglish = "Residential",
-                SearchKey  = "Alt+D",
-                SearchSequence = 1,
+                SubTypeOfUseId = 1,
+                TypeOfUseId = dto.TypeOfUseId,
+                Description = dto.Description,
+                SearchKey = dto.SearchKey,
+                SearchSequence = dto.SearchSequence,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
-                CreatedBy = 31,
-                UpdatedDate = DateTime.Now,
-                UpdatedBy = 31
+                CreatedBy = dto.CreatedBy
             });
 
         _mockRepository
@@ -190,15 +180,13 @@ namespace NtisPlatform.Tests.Application;
             .Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
             .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
-                SubTypeOfUseId = 1,
-                TypeOfUseID = "R",
-                Description = "Residential",
-                DescriptionEnglish = "Residential",
-                SearchKey  = "Alt+D",
-                SearchSequence = 1,
-                IsActive = true,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now,
+                SubTypeOfUseId = e.SubTypeOfUseId,
+                TypeOfUseId = e.TypeOfUseId,
+                Description = e.Description,
+                SearchKey = e.SearchKey,
+                SearchSequence = e.SearchSequence,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate
             });
 
         // Act
@@ -207,19 +195,14 @@ namespace NtisPlatform.Tests.Application;
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.SubTypeOfUseId);
-        Assert.Equal("R", result.TypeOfUseID);
+        Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
-        Assert.Equal("Residential", result.DescriptionEnglish);
-        Assert.Equal("Alt+D", result.SearchKey );
+        Assert.Equal("Alt+D", result.SearchKey);
         Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        // Service calls SaveChangesAsync (based on your test output)
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
-        // Not called by service (based on your test output)
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -230,22 +213,20 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var updateDto = new UpdateSubTypeOfUseDto
         {
-            TypeOfUseID = "R",
-            Description = "Residential",
-            DescriptionEnglish = "Residential",
-            SearchKey  = "Alt+D",
-            SearchSequence = 1,
+            TypeOfUseId =1,
+            Description = "Residential Updated",
+            SearchKey = "Alt+R",
+            SearchSequence = 2,
             IsActive = true,
-            UpdatedBy= 31
+            UpdatedBy = 31
         };
 
         var existingEntity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId=1,
-            TypeOfUseID = "R",
-            Description = "Old Residential",
-            DescriptionEnglish = "Old Residential",
-            SearchKey  = "Alt+D",
+            SubTypeOfUseId = 1,
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -266,53 +247,67 @@ namespace NtisPlatform.Tests.Application;
             .Setup(m => m.Map(It.IsAny<UpdateSubTypeOfUseDto>(), It.IsAny<SubTypeOfUseEntity>()))
             .Callback((UpdateSubTypeOfUseDto src, SubTypeOfUseEntity dest) =>
             {
+                dest.TypeOfUseId = src.TypeOfUseId;
                 dest.Description = src.Description;
-                dest.DescriptionEnglish = src.DescriptionEnglish;
-                dest.SearchKey  = src.SearchKey ;
+                dest.SearchKey = src.SearchKey;
                 dest.SearchSequence = src.SearchSequence;
+                dest.IsActive = src.IsActive;
+                dest.UpdatedBy = src.UpdatedBy;
+                dest.UpdatedDate = DateTime.Now;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
+            .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
+            {
+                SubTypeOfUseId = e.SubTypeOfUseId,
+                TypeOfUseId = e.TypeOfUseId,
+                Description = e.Description,
+                SearchKey = e.SearchKey,
+                SearchSequence = e.SearchSequence,
+                IsActive = e.IsActive
             });
 
         // Act
-        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
+        Assert.NotNull(result);
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("Residential", existingEntity.Description);
-        Assert.Equal("Residential", existingEntity.DescriptionEnglish);
-        Assert.Equal("Alt+D", existingEntity.SearchKey );
-        Assert.Equal(1, existingEntity.SearchSequence);
+        Assert.Equal("Residential Updated", existingEntity.Description);
+        Assert.Equal("Alt+R", existingEntity.SearchKey);
+        Assert.Equal(2, existingEntity.SearchSequence);
         Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
-    public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
+    public async Task UpdateAsync_NonExistingEntity_ReturnsNull()
     {
         // Arrange
         var updateDto = new UpdateSubTypeOfUseDto
         {
+            TypeOfUseId = 1,
             Description = "Residential",
-            DescriptionEnglish = "Residential",
-            SearchKey  = "Alt+D",
+            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SubTypeOfUseEntity?)null);
 
         // Act
-        await _service.UpdateAsync(9999, updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
+        Assert.Null(result);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -333,10 +328,8 @@ namespace NtisPlatform.Tests.Application;
 
         // Assert
         Assert.False(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -349,11 +342,10 @@ namespace NtisPlatform.Tests.Application;
 
         var existingEntity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId = 1,
-            TypeOfUseID = "R",
+            SubTypeOfUseId = idToDelete,
+            TypeOfUseId = 1,
             Description = "Residential",
-            DescriptionEnglish = "Residential",
-            SearchKey  = "Alt+D",
+            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -375,15 +367,10 @@ namespace NtisPlatform.Tests.Application;
 
         // Assert
         Assert.True(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
-
 }
-

@@ -13,14 +13,14 @@ namespace NtisPlatform.Tests.Application;
 
 public class FloorServiceTests
 {
-    private readonly Mock<IRepository<FloorEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<FloorEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly FloorService _service;
 
     public FloorServiceTests()
     {
-        _mockRepository = new Mock<IRepository<FloorEntity, string>>();
+        _mockRepository = new Mock<IRepository<FloorEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -48,9 +48,9 @@ public class FloorServiceTests
         // Arrange
         var entity = new FloorEntity
         {
-            FloorID = "1",
+            FloorId = 1,
+            FloorCode = "1",
             Description = "1 st",
-            DescriptionEnglish = "1 st",
             MaxFloorNo = 2,
             SequenceNo = 1,
             CreatedDate = DateTime.Now,
@@ -60,28 +60,27 @@ public class FloorServiceTests
             IsActive = true
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<FloorDto>(It.IsAny<FloorEntity>()))
             .Returns(new FloorDto
             {
-                FloorID = "1",
+                FloorId = 1,
+                FloorCode = "1",
                 Description = "1 st",
-                DescriptionEnglish = "1 st",
                 MaxFloorNo = 2,
                 SequenceNo = 1,
                 IsActive = true
             });
 
         // Act
-        var result = await _service.GetByIdAsync("1");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("1", result.FloorID);
+        Assert.Equal("1", result.FloorCode);
         Assert.Equal("1 st", result.Description);
-        Assert.Equal("1 st", result.DescriptionEnglish);
         Assert.Equal(2, result.MaxFloorNo);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
@@ -91,11 +90,11 @@ public class FloorServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((FloorEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("9999");
+        var result = await _service.GetByIdAsync(9999);
 
         // Assert
         Assert.Null(result);
@@ -107,8 +106,8 @@ public class FloorServiceTests
         // Arrange
         var entities = new List<FloorEntity>
         {
-            new() { FloorID = "1", Description = "Test1", DescriptionEnglish = "Desc1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
-            new() { FloorID = "2", Description = "Test2", DescriptionEnglish = "Desc2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() { FloorId = 1,  FloorCode = "1",Description = "Test1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
+            new() { FloorId = 2,  FloorCode = "2",Description = "Test2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -145,8 +144,8 @@ public class FloorServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.FloorID == "1");
-        Assert.Contains(items, x => x.FloorID == "2");
+        Assert.Contains(items, x => x.FloorCode == "1");
+        Assert.Contains(items, x => x.FloorCode == "2");
     }
 
     [Fact]
@@ -155,9 +154,8 @@ public class FloorServiceTests
         // Arrange
         var createDto = new CreateFloorDto
         {
-            FloorID = "1",
+            FloorCode = "1",
             Description = "New Description",
-            DescriptionEnglish = "New English Description",
             MaxFloorNo = 1,
             SequenceNo = 1,
             IsActive = true,
@@ -167,9 +165,8 @@ public class FloorServiceTests
             .Setup(m => m.Map<FloorEntity>(It.IsAny<CreateFloorDto>()))
             .Returns((CreateFloorDto dto) => new FloorEntity
             {
-                FloorID = dto.FloorID,
+                FloorCode = dto.FloorCode,
                 Description = dto.Description,
-                DescriptionEnglish = dto.DescriptionEnglish,
                 MaxFloorNo = dto.MaxFloorNo,
                 SequenceNo = dto.SequenceNo,
                 CreatedBy = 31,
@@ -185,9 +182,8 @@ public class FloorServiceTests
             .Setup(m => m.Map<FloorDto>(It.IsAny<FloorEntity>()))
             .Returns((FloorEntity e) => new FloorDto
             {
-                FloorID = e.FloorID,
+                FloorCode = e.FloorCode,
                 Description = e.Description,
-                DescriptionEnglish = e.DescriptionEnglish,
                 MaxFloorNo = e.MaxFloorNo,
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive,
@@ -198,9 +194,8 @@ public class FloorServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("1", result.FloorID);
+        Assert.Equal("1", result.FloorCode);
         Assert.Equal("New Description", result.Description);
-        Assert.Equal("New English Description", result.DescriptionEnglish);
         Assert.Equal(1, result.MaxFloorNo);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
@@ -221,9 +216,8 @@ public class FloorServiceTests
         // Arrange
         var updateDto = new UpdateFloorDto
         {
-            FloorID = "1",
+            FloorCode = "1",
             Description = "New Description",
-            DescriptionEnglish = "New English Description",
             MaxFloorNo = 1,
             SequenceNo = 1,
             IsActive = true,
@@ -231,16 +225,16 @@ public class FloorServiceTests
 
         var existingEntity = new FloorEntity
         {
-            FloorID = "1",
+            FloorId=1,
+            FloorCode = "1",
             Description = "Old Description",
-            DescriptionEnglish = "Old English Description",
             MaxFloorNo = 1,
             SequenceNo = 1,
             IsActive = true,
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -252,14 +246,13 @@ public class FloorServiceTests
             .Callback((UpdateFloorDto src, FloorEntity dest) =>
             {
                 dest.Description = src.Description;
-                dest.DescriptionEnglish = src.DescriptionEnglish;
             });
 
         // Act
-        await _service.UpdateAsync("1", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -268,8 +261,7 @@ public class FloorServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("New Description", existingEntity.Description);
-        Assert.Equal("New English Description", existingEntity.DescriptionEnglish);
-        Assert.Equal("1", existingEntity.FloorID);
+        Assert.Equal("1", existingEntity.FloorCode);
         Assert.Equal(1, existingEntity.MaxFloorNo);
         Assert.Equal(1, existingEntity.SequenceNo);
     }
@@ -280,19 +272,19 @@ public class FloorServiceTests
         // Arrange
         var updateDto = new UpdateFloorDto
         {
-            FloorID = "1",
+            FloorCode = "1",
             Description = "Description",
-            DescriptionEnglish = "English Description",
             MaxFloorNo = 1,
-            SequenceNo = 1
+            SequenceNo = 1,
+            IsActive = true,
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((FloorEntity?)null);
 
         // Act
-        await _service.UpdateAsync("9999", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(9999, updateDto, CancellationToken.None);
 
         // Assert
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -304,7 +296,7 @@ public class FloorServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "9999";
+        int idToDelete = 9999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -317,7 +309,7 @@ public class FloorServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -327,13 +319,13 @@ public class FloorServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "A";
+        int idToDelete = 1;
 
         var existingEntity = new FloorEntity
         {
-            FloorID = idToDelete,
+            FloorId = idToDelete,
+            FloorCode = "1", 
             Description = "Old Description",
-            DescriptionEnglish = "Old English Description",
             MaxFloorNo = 1,
             SequenceNo = 1
         };

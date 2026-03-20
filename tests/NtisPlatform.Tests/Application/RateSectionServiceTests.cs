@@ -10,14 +10,14 @@ namespace NtisPlatform.Tests.Application;
 
 public class RateSectionServiceTests
 {
-    private readonly Mock<IRepository<RateSectionEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<RateSectionEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly RateSectionService _service;
 
     public RateSectionServiceTests()
     {
-        _mockRepository = new Mock<IRepository<RateSectionEntity, string>>();
+        _mockRepository = new Mock<IRepository<RateSectionEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -43,9 +43,9 @@ public class RateSectionServiceTests
         // Arrange
         var entity = new RateSectionEntity
         {
+            RateSectionId=1,
             RateSectionNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -53,7 +53,7 @@ public class RateSectionServiceTests
             UpdatedBy = 31
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("A", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<RateSectionDto>(It.IsAny<RateSectionEntity>()))
@@ -61,18 +61,16 @@ public class RateSectionServiceTests
             {
                 RateSectionNo = "WKD",
                 Description = "वाकड",
-                DescriptionEnglish = "Wakad",
                 IsActive = true
             });
 
         // Act
-        var result = await _service.GetByIdAsync("A");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
         Assert.Equal("WKD", result.RateSectionNo);
         Assert.Equal("वाकड", result.Description);
-        Assert.Equal("Wakad", result.DescriptionEnglish);
         Assert.True(result.IsActive);
     }
 
@@ -80,11 +78,11 @@ public class RateSectionServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZZ", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((RateSectionEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZZ");
+        var result = await _service.GetByIdAsync(9999);
 
         // Assert
         Assert.Null(result);
@@ -96,8 +94,8 @@ public class RateSectionServiceTests
         // Arrange
         var entities = new List<RateSectionEntity>
         {
-            new() { RateSectionNo = "MSH", Description = "मोशी", DescriptionEnglish = "Moshi",  IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
-            new() { RateSectionNo = "TRG", Description = "थेरगाव", DescriptionEnglish = "Thergav",  IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { RateSectionId=1,RateSectionNo = "MSH", Description = "मोशी", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { RateSectionId=1,RateSectionNo = "TRG", Description = "थेरगाव",   IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -146,7 +144,6 @@ public class RateSectionServiceTests
         {
             RateSectionNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             IsActive = true,
             CreatedBy = 31
         };
@@ -157,7 +154,6 @@ public class RateSectionServiceTests
             {
                 RateSectionNo = dto.RateSectionNo,
                 Description = dto.Description,
-                DescriptionEnglish = dto.DescriptionEnglish,
                 IsActive = dto.IsActive,
                 CreatedBy = 31,
                 CreatedDate = DateTime.Now
@@ -173,7 +169,6 @@ public class RateSectionServiceTests
             {
                 RateSectionNo = e.RateSectionNo,
                 Description = e.Description,
-                DescriptionEnglish = e.DescriptionEnglish,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
             });
@@ -185,7 +180,6 @@ public class RateSectionServiceTests
         Assert.NotNull(result);
         Assert.Equal("WKD", result.RateSectionNo);
         Assert.Equal("वाकड", result.Description);
-        Assert.Equal("Wakad", result.DescriptionEnglish);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -205,15 +199,14 @@ public class RateSectionServiceTests
         var updateDto = new UpdateRateSectionDto
         {
             Description = "मोशी",
-            DescriptionEnglish = "Moshi",
             IsActive = true,
             UpdatedBy = 31
         };
 
         var existingEntity = new RateSectionEntity
         {
+            RateSectionId = 1,
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.Now,
@@ -222,7 +215,7 @@ public class RateSectionServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("WKD", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -234,7 +227,6 @@ public class RateSectionServiceTests
             .Callback((UpdateRateSectionDto src, RateSectionEntity dest) =>
             {
                 dest.Description = src.Description;
-                dest.DescriptionEnglish = src.DescriptionEnglish;
                 dest.IsActive = src.IsActive;
                 dest.UpdatedBy = src.UpdatedBy;
                 dest.UpdatedDate = DateTime.Now;
@@ -242,10 +234,10 @@ public class RateSectionServiceTests
             });
 
         // Act
-        await _service.UpdateAsync("WKD", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("WKD", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -254,7 +246,6 @@ public class RateSectionServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("मोशी", existingEntity.Description);
-        Assert.Equal("Moshi", existingEntity.DescriptionEnglish);
         Assert.True(existingEntity.IsActive);
     }
 
@@ -265,17 +256,16 @@ public class RateSectionServiceTests
         var updateDto = new UpdateRateSectionDto
         {
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             IsActive = true,
             UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((RateSectionEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(9999, updateDto, CancellationToken.None);
 
         // Assert
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -289,7 +279,7 @@ public class RateSectionServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        int idToDelete = 9999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -302,7 +292,7 @@ public class RateSectionServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
 
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -312,13 +302,13 @@ public class RateSectionServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "WKD";
+        int idToDelete = 1;
 
         var existingEntity = new RateSectionEntity
         {
-            RateSectionNo = idToDelete,
+            RateSectionId = idToDelete,
+            RateSectionNo = "WKD",
             Description = "वाकड",
-            DescriptionEnglish = "Wakad",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.Now,

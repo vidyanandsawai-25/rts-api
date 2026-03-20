@@ -8,6 +8,10 @@ public class ZoneQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
+    public int? ZoneId { get; set; } = null!;
+    [Filterable]
+    [Sortable]
+    [Searchable]
     public string? ZoneNo { get; set; } = null!;
 
     [Filterable]

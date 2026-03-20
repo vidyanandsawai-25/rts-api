@@ -58,12 +58,11 @@ public class OfficeServiceTests
             City = "Mumbai",
             Pincode = "400001",
             Phone = "022-12345678",
-            Email = "hq@company.com",
+            EmailId = "hq@company.com",
             OfficeIncharge = 101,
-            Designation = 1,
+            DesignationMasterId = 1,
             EstablishedDate = new DateTime(2020, 1, 1),
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -80,12 +79,11 @@ public class OfficeServiceTests
                 City = "Mumbai",
                 Pincode = "400001",
                 Phone = "022-12345678",
-                Email = "hq@company.com",
+                EmailId = "hq@company.com",
                 OfficeIncharge = 101,
-                Designation = 1,
+                DesignationMasterId = 1,
                 EstablishedDate = new DateTime(2020, 1, 1),
-                IsActive = true,
-                Status = true
+                IsActive = true
             });
 
         // Act
@@ -98,7 +96,7 @@ public class OfficeServiceTests
         Assert.Equal("Head Office", result.OfficeName);
         Assert.Equal("Headquarters", result.Type);
         Assert.Equal("Mumbai", result.City);
-        Assert.Equal("hq@company.com", result.Email);
+        Assert.Equal("hq@company.com", result.EmailId);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
@@ -155,8 +153,7 @@ public class OfficeServiceTests
                 OfficeName = "Head Office",
                 Type = "Headquarters",
                 City = "Mumbai",
-                IsActive = true,
-                Status = true
+                IsActive = true
             },
             new() 
             {
@@ -165,8 +162,7 @@ public class OfficeServiceTests
                 OfficeName = "Branch Office 1",
                 Type = "Branch",
                 City = "Delhi",
-                IsActive = true,
-                Status = true
+                IsActive = true
             },
             new() 
             {
@@ -175,8 +171,7 @@ public class OfficeServiceTests
                 OfficeName = "Branch Office 2",
                 Type = "Branch",
                 City = "Bangalore",
-                IsActive = false,
-                Status = false
+                IsActive = false
             }
         };
 
@@ -346,12 +341,11 @@ public class OfficeServiceTests
             City = "Mumbai",
             Pincode = "400001",
             Phone = "022-12345678",
-            Email = "hq@company.com",
+            EmailId = "hq@company.com",
             OfficeIncharge = 101,
-            Designation = 1,
+            DesignationMasterId = 1,
             EstablishedDate = new DateTime(2020, 1, 1),
             IsActive = true,
-            Status = true,
             CreatedBy = 1
         };
 
@@ -366,12 +360,11 @@ public class OfficeServiceTests
                 City = dto.City,
                 Pincode = dto.Pincode,
                 Phone = dto.Phone,
-                Email = dto.Email,
+                EmailId = dto.EmailId,
                 OfficeIncharge = dto.OfficeIncharge,
-                Designation = dto.Designation,
+                DesignationMasterId = dto.DesignationMasterId,
                 EstablishedDate = dto.EstablishedDate,
                 IsActive = dto.IsActive,
-                Status = dto.Status,
                 CreatedBy = dto.CreatedBy
             });
 
@@ -395,12 +388,11 @@ public class OfficeServiceTests
                 City = e.City,
                 Pincode = e.Pincode,
                 Phone = e.Phone,
-                Email = e.Email,
+                EmailId = e.EmailId,
                 OfficeIncharge = e.OfficeIncharge,
-                Designation = e.Designation,
+                DesignationMasterId = e.DesignationMasterId,
                 EstablishedDate = e.EstablishedDate,
-                IsActive = e.IsActive,
-                Status = e.Status
+                IsActive = e.IsActive
             });
 
         // Act
@@ -413,7 +405,7 @@ public class OfficeServiceTests
         Assert.Equal("Head Office", result.OfficeName);
         Assert.Equal("Headquarters", result.Type);
         Assert.Equal("Mumbai", result.City);
-        Assert.Equal("hq@company.com", result.Email);
+        Assert.Equal("hq@company.com", result.EmailId);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(
@@ -433,8 +425,7 @@ public class OfficeServiceTests
             Type = "Closed",
             City = "Chennai",
             Pincode = "600001",
-            IsActive = false,
-            Status = false
+            IsActive = false
         };
 
         _mockMapper
@@ -447,8 +438,7 @@ public class OfficeServiceTests
                 Type = "Closed",
                 City = "Chennai",
                 Pincode = "600001",
-                IsActive = false,
-                Status = false
+                IsActive = false
             });
 
         _mockRepository
@@ -469,8 +459,7 @@ public class OfficeServiceTests
                 Type = "Closed",
                 City = "Chennai",
                 Pincode = "600001",
-                IsActive = false,
-                Status = false
+                IsActive = false
             });
 
         // Act
@@ -527,12 +516,11 @@ public class OfficeServiceTests
             City = "Pune",
             Pincode = "411001",
             Phone = "020-87654321",
-            Email = "pune.branch@company.com",
+            EmailId = "pune.branch@company.com",
             OfficeIncharge = 102,
-            Designation = 2,
+            DesignationMasterId = 2,
             EstablishedDate = new DateTime(2021, 6, 15),
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockMapper
@@ -544,7 +532,7 @@ public class OfficeServiceTests
                 Address = dto.Address,
                 City = dto.City,
                 Phone = dto.Phone,
-                Email = dto.Email,
+                EmailId = dto.EmailId,
                 EstablishedDate = dto.EstablishedDate
             });
 
@@ -564,7 +552,7 @@ public class OfficeServiceTests
                 OfficeCode = e.OfficeCode,
                 Address = e.Address,
                 Phone = e.Phone,
-                Email = e.Email,
+                EmailId = e.EmailId,
                 EstablishedDate = e.EstablishedDate
             });
 
@@ -575,7 +563,7 @@ public class OfficeServiceTests
         Assert.NotNull(result);
         Assert.Equal("456 Park Avenue, Sector 5", result.Address);
         Assert.Equal("020-87654321", result.Phone);
-        Assert.Equal("pune.branch@company.com", result.Email);
+        Assert.Equal("pune.branch@company.com", result.EmailId);
         Assert.Equal(new DateTime(2021, 6, 15), result.EstablishedDate);
     }
 
@@ -596,12 +584,11 @@ public class OfficeServiceTests
             City = "Mumbai",
             Pincode = "400002",
             Phone = "022-99999999",
-            Email = "updated@company.com",
+            EmailId = "updated@company.com",
             OfficeIncharge = 105,
-            Designation = 1,
+            DesignationMasterId = 1,
             EstablishedDate = new DateTime(2020, 1, 1),
             IsActive = true,
-            Status = true,
             UpdatedBy = 1
         };
 
@@ -615,12 +602,11 @@ public class OfficeServiceTests
             City = "Mumbai",
             Pincode = "400001",
             Phone = "022-12345678",
-            Email = "old@company.com",
+            EmailId = "old@company.com",
             OfficeIncharge = 101,
-            Designation = 1,
+            DesignationMasterId = 1,
             EstablishedDate = new DateTime(2020, 1, 1),
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockRepository
@@ -639,7 +625,7 @@ public class OfficeServiceTests
                 dest.Address = src.Address;
                 dest.Pincode = src.Pincode;
                 dest.Phone = src.Phone;
-                dest.Email = src.Email;
+                dest.EmailId = src.EmailId;
                 dest.OfficeIncharge = src.OfficeIncharge;
             });
 
@@ -654,7 +640,7 @@ public class OfficeServiceTests
                 Address = e.Address,
                 Pincode = e.Pincode,
                 Phone = e.Phone,
-                Email = e.Email,
+                EmailId = e.EmailId,
                 OfficeIncharge = e.OfficeIncharge,
                 IsActive = e.IsActive
             });
@@ -668,7 +654,7 @@ public class OfficeServiceTests
         Assert.Equal("789 New Address", result.Address);
         Assert.Equal("400002", result.Pincode);
         Assert.Equal("022-99999999", result.Phone);
-        Assert.Equal("updated@company.com", result.Email);
+        Assert.Equal("updated@company.com", result.EmailId);
 
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(existingEntity, It.IsAny<CancellationToken>()), Times.Once);
@@ -686,7 +672,7 @@ public class OfficeServiceTests
             Type = "Branch",
             City = "Mumbai",
             Pincode = "400001",
-            Email = "test@company.com",
+            EmailId = "test@company.com",
             IsActive = true
         };
 
@@ -715,7 +701,7 @@ public class OfficeServiceTests
             Type = "Regional",
             City = "Pune",
             Pincode = "411001",
-            Email = "regional@company.com",
+            EmailId = "regional@company.com",
             IsActive = true
         };
 
@@ -776,9 +762,8 @@ public class OfficeServiceTests
             Type = "Branch",
             City = "Delhi",
             Pincode = "110001",
-            Email = "closed@company.com",
-            IsActive = false,
-            Status = false
+            EmailId = "closed@company.com",
+            IsActive = false
         };
 
         var existingEntity = new OfficeEntity
@@ -787,8 +772,7 @@ public class OfficeServiceTests
             OfficeCode = "BR002",
             OfficeName = "Active Branch",
             Type = "Branch",
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockRepository
@@ -804,7 +788,6 @@ public class OfficeServiceTests
             .Callback((UpdateOfficeDto src, OfficeEntity dest) =>
             {
                 dest.IsActive = src.IsActive;
-                dest.Status = src.Status;
                 dest.OfficeName = src.OfficeName;
             });
 
@@ -814,7 +797,6 @@ public class OfficeServiceTests
             {
                 OfficeId = e.OfficeId,
                 IsActive = e.IsActive,
-                Status = e.Status,
                 OfficeName = e.OfficeName
             });
 
@@ -824,7 +806,6 @@ public class OfficeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.False(result.IsActive);
-        Assert.False(result.Status);
         Assert.Equal("Closed Branch", result.OfficeName);
     }
 
@@ -843,8 +824,7 @@ public class OfficeServiceTests
             OfficeId = idToDelete,
             OfficeCode = "OLD001",
             OfficeName = "Old Office",
-            IsActive = false,
-            Status = false
+            IsActive = false
         };
 
         _mockRepository
@@ -876,8 +856,7 @@ public class OfficeServiceTests
             OfficeId = idToDelete,
             OfficeCode = "HQ001",
             OfficeName = "Head Office",
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockRepository
@@ -1002,7 +981,7 @@ public class OfficeServiceTests
             Type = "Headquarters",
             City = "Mumbai",
             Pincode = "400001",
-            Email = "hq@company.com"
+            EmailId = "hq@company.com"
         };
 
         // Act
@@ -1109,7 +1088,7 @@ public class OfficeServiceTests
             Type = "Headquarters",
             City = "Mumbai",
             Pincode = "400001",
-            Email = "updated@company.com"
+            EmailId = "updated@company.com"
         };
 
         var existingEntity = new OfficeEntity { OfficeId = 1 };
@@ -1187,12 +1166,11 @@ public class OfficeServiceTests
             City = "Mumbai",
             Pincode = "400001",
             Phone = "022-12345678",
-            Email = "headquarters@company.com",
+            EmailId = "headquarters@company.com",
             OfficeIncharge = 1,
-            Designation = 1,
+            DesignationMasterId = 1,
             EstablishedDate = new DateTime(2015, 1, 1),
-            IsActive = true,
-            Status = true
+            IsActive = true
         };
 
         _mockMapper

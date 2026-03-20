@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class RetentionFactWiseDto : BaseDtos
 {
-    public int ID { get; set; } 
+    public int RetentionPolicyFactorId { get; set; } 
     public double? FromFactor { get; set; }
     public double? ToFactor { get; set; }
     public double? FactorValue { get; set; }

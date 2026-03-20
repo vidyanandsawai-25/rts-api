@@ -5,10 +5,10 @@ using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 namespace NtisPlatform.Application.Services;
 
-public class ZoneService : BaseCommonCrudService<ZoneEntity, ZoneDto, CreateZoneDto, UpdateZoneDto, ZoneQueryParameters, string>, IZoneService
+public class ZoneService : BaseCommonCrudService<ZoneEntity, ZoneDto, CreateZoneDto, UpdateZoneDto, ZoneQueryParameters, int>, IZoneService
 {
     public ZoneService(
-        IRepository<ZoneEntity, string> repository,
+        IRepository<ZoneEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

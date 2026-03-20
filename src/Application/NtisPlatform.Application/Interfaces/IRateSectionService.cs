@@ -3,6 +3,6 @@ using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Interfaces;
 
-public interface IRateSectionService : ICommonCrudService<RateSectionEntity, RateSectionDto, CreateRateSectionDto, UpdateRateSectionDto, RateSectionQueryParameters, string>
+public interface IRateSectionService : ICommonCrudService<RateSectionEntity, RateSectionDto, CreateRateSectionDto, UpdateRateSectionDto, RateSectionQueryParameters, int>
 {
 }

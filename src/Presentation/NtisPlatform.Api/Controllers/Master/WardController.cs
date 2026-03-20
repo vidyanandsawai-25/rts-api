@@ -23,7 +23,7 @@ public class WardController : ControllerBase
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
     [HttpGet("{id}")]
-    public Task<IActionResult> GetById(string id, CancellationToken ct)
+    public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
     [HttpPost]
@@ -31,11 +31,11 @@ public class WardController : ControllerBase
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
     [HttpPut("{id}")]
-    public Task<IActionResult> Update(string id, [FromBody] UpdateWardDto updateDto, CancellationToken ct)
+    public Task<IActionResult> Update(int id, [FromBody] UpdateWardDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
     [HttpDelete("{id}")]
-    public Task<IActionResult> Delete(string id, CancellationToken ct)
+    public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
 }

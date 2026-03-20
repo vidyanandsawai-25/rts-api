@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class FloorService : BaseCommonCrudService<FloorEntity, FloorDto, CreateFloorDto, UpdateFloorDto, FloorQueryParameters, string>, IFloorService
+public class FloorService : BaseCommonCrudService<FloorEntity, FloorDto, CreateFloorDto, UpdateFloorDto, FloorQueryParameters, int>, IFloorService
 {
     public FloorService(
-        IRepository<FloorEntity, string> repository,
+        IRepository<FloorEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

@@ -10,14 +10,14 @@ namespace NtisPlatform.Tests.Application;
 
 public class ConstructionTypeServiceTests
 {
-    private readonly Mock<IRepository<ConstructionTypeEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<ConstructionTypeEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly ConstructionTypeService _service;
 
     public ConstructionTypeServiceTests()
     {
-        _mockRepository = new Mock<IRepository<ConstructionTypeEntity, string>>();
+        _mockRepository = new Mock<IRepository<ConstructionTypeEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -45,11 +45,11 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entity = new ConstructionTypeEntity
         {
-            ConstructionId = "A",
+            ConstructionTypeId = 1,
+            ConstructionCode = "A",
             Description = "RCC",
-            DescriptionEnglish = "RCC",
-            KeyboardShortCutKey = "Alt+D",
-            KeyWiseSequence = 1,
+            SearchKey = "Alt+D",
+            SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -57,31 +57,28 @@ public class ConstructionTypeServiceTests
             UpdatedBy = 31
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("A", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<ConstructionTypeDto>(It.IsAny<ConstructionTypeEntity>()))
             .Returns(new ConstructionTypeDto
             {
-                ConstructionId = "A",
+                ConstructionCode = "A",
                 Description = "RCC",
-                DescriptionEnglish = "RCC",
-
-                KeyboardShortCutKey = "Alt+D",
-                KeyWiseSequence = 1,
+                SearchKey = "Alt+D",
+                SearchSequence = 1,
                 IsActive = true,
             });
 
         // Act
-        var result = await _service.GetByIdAsync("A");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("A", result.ConstructionId);
+        Assert.Equal("A", result.ConstructionCode);
         Assert.Equal("RCC", result.Description);
-        Assert.Equal("RCC", result.DescriptionEnglish);
-        Assert.Equal("Alt+D", result.KeyboardShortCutKey);
-        Assert.Equal(1, result.KeyWiseSequence);
+        Assert.Equal("Alt+D", result.SearchKey);
+        Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
 
     }
@@ -90,11 +87,11 @@ public class ConstructionTypeServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZZ", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ConstructionTypeEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZZ");
+        var result = await _service.GetByIdAsync(9999);
 
         // Assert
         Assert.Null(result);
@@ -106,8 +103,8 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entities = new List<ConstructionTypeEntity>
         {
-            new() { ConstructionId = "A", Description = "Test1", DescriptionEnglish = "Desc1",  KeyboardShortCutKey="Alt+D", KeyWiseSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
-            new() { ConstructionId = "B", Description = "Test2", DescriptionEnglish = "Desc2", KeyboardShortCutKey="Alt+L", KeyWiseSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
+            new() {ConstructionTypeId=1,ConstructionCode = "A", Description = "Test1",  SearchKey="Alt+D", SearchSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() {ConstructionTypeId=2, ConstructionCode = "B", Description = "Test2",  SearchKey="Alt+L", SearchSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -144,8 +141,8 @@ public class ConstructionTypeServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.ConstructionId == "A");
-        Assert.Contains(items, x => x.ConstructionId == "B");
+        Assert.Contains(items, x => x.ConstructionCode == "A");
+        Assert.Contains(items, x => x.ConstructionCode == "B");
     }
 
     [Fact]
@@ -154,11 +151,10 @@ public class ConstructionTypeServiceTests
         // Arrange
         var createDto = new CreateConstructionTypeDto
         {
-            ConstructionId = "A",
+            ConstructionCode = "A",
             Description = "New Description",
-            DescriptionEnglish = "New English Description",
-            KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3,
+            SearchKey = "Alt+A",
+            SearchSequence = 3,
             IsActive = true,
         };
 
@@ -166,11 +162,10 @@ public class ConstructionTypeServiceTests
             .Setup(m => m.Map<ConstructionTypeEntity>(It.IsAny<CreateConstructionTypeDto>()))
             .Returns((CreateConstructionTypeDto dto) => new ConstructionTypeEntity
             {
-                ConstructionId = dto.ConstructionId,
+                ConstructionCode = dto.ConstructionCode,
                 Description = dto.Description,
-                DescriptionEnglish = dto.DescriptionEnglish,
-                KeyboardShortCutKey = dto.KeyboardShortCutKey,
-                KeyWiseSequence = dto.KeyWiseSequence,
+                SearchKey = dto.SearchKey,
+                SearchSequence = dto.SearchSequence,
                 CreatedBy = 31,
                 CreatedDate = DateTime.Now,
                 IsActive = true
@@ -184,11 +179,10 @@ public class ConstructionTypeServiceTests
             .Setup(m => m.Map<ConstructionTypeDto>(It.IsAny<ConstructionTypeEntity>()))
             .Returns((ConstructionTypeEntity e) => new ConstructionTypeDto
             {
-                ConstructionId = e.ConstructionId,
+                ConstructionCode = e.ConstructionCode,
                 Description = e.Description,
-                DescriptionEnglish = e.DescriptionEnglish,
-                KeyboardShortCutKey = e.KeyboardShortCutKey,
-                KeyWiseSequence = e.KeyWiseSequence,
+                SearchKey = e.SearchKey,
+                SearchSequence = e.SearchSequence,
                 IsActive = true,
             });
 
@@ -197,11 +191,10 @@ public class ConstructionTypeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("A", result.ConstructionId);
+        Assert.Equal("A", result.ConstructionCode);
         Assert.Equal("New Description", result.Description);
-        Assert.Equal("New English Description", result.DescriptionEnglish);
-        Assert.Equal("Alt+A", result.KeyboardShortCutKey);
-        Assert.Equal(3, result.KeyWiseSequence); 
+        Assert.Equal("Alt+A", result.SearchKey);
+        Assert.Equal(3, result.SearchSequence); 
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<ConstructionTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -221,24 +214,22 @@ public class ConstructionTypeServiceTests
         var updateDto = new UpdateConstructionTypeDto
         {
             Description = "New Description",
-            DescriptionEnglish = "New English Description",
-            KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3,
+            SearchKey = "Alt+A",
+            SearchSequence = 3,
             IsActive = true,
         };
 
         var existingEntity = new ConstructionTypeEntity
         {
-            ConstructionId = "A",
+            ConstructionTypeId = 1,
             Description = "Old Description",
-            DescriptionEnglish = "Old English Description",
-            KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3,
+            SearchKey = "Alt+A",
+            SearchSequence = 3,
             IsActive = true,
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("A", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -250,14 +241,13 @@ public class ConstructionTypeServiceTests
             .Callback((UpdateConstructionTypeDto src, ConstructionTypeEntity dest) =>
             {
                 dest.Description = src.Description;
-                dest.DescriptionEnglish = src.DescriptionEnglish;
             });
 
         // Act
-        await _service.UpdateAsync("A", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("A", It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ConstructionTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -266,9 +256,8 @@ public class ConstructionTypeServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("New Description", existingEntity.Description);
-        Assert.Equal("New English Description", existingEntity.DescriptionEnglish);
-        Assert.Equal("Alt+A", existingEntity.KeyboardShortCutKey);
-        Assert.Equal(3, existingEntity.KeyWiseSequence);
+        Assert.Equal("Alt+A", existingEntity.SearchKey);
+        Assert.Equal(3, existingEntity.SearchSequence);
         Assert.True(existingEntity.IsActive);
     }
 
@@ -279,18 +268,17 @@ public class ConstructionTypeServiceTests
         var updateDto = new UpdateConstructionTypeDto
         {
             Description = "New Description",
-            DescriptionEnglish = "New English Description",
-            KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3,
+            SearchKey = "Alt+A",
+            SearchSequence = 3,
             IsActive = true
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(9999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((ConstructionTypeEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        await _service.UpdateAsync(9999, updateDto, CancellationToken.None);
 
         // Assert
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ConstructionTypeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -302,7 +290,7 @@ public class ConstructionTypeServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        int idToDelete = 9999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -315,7 +303,7 @@ public class ConstructionTypeServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -325,15 +313,15 @@ public class ConstructionTypeServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "A";
+        int idToDelete = 1;
 
         var existingEntity = new ConstructionTypeEntity
         {
-            ConstructionId = idToDelete,
+            ConstructionTypeId = idToDelete,
+            ConstructionCode = "RCC",
             Description = "RCC",
-            DescriptionEnglish = "RCC",
-            KeyboardShortCutKey = "Alt+A",
-            KeyWiseSequence = 3,
+            SearchKey = "Alt+A",
+            SearchSequence = 3,
             IsActive = true
         };
 

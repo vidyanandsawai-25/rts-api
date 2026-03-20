@@ -4,9 +4,9 @@
 /// </summary>
 public class ZoneEntity : BaseEntity
 {
+    public int ZoneId { get; set; }
     public string ZoneNo { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string? DescriptionEnglish { get; set; }
     public int? SequenceNo { get; set; }
 }
 

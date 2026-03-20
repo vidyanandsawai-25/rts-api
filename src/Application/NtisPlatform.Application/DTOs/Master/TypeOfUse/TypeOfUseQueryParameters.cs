@@ -9,7 +9,12 @@ public class TypeOfUseQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? TypeOfUseID { get; set; }
+    public int? TypeOfUseId { get; set; }
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public string? TypeOfUseCode { get; set; }
 
     [Filterable]
     [Sortable]
@@ -19,6 +24,11 @@ public class TypeOfUseQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? GroupID { get; set; }
+    public string? Description { get; set; }
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public int? TypeOfUseGroupId { get; set; }
 }
 

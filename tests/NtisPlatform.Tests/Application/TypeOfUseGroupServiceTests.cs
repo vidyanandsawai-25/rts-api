@@ -13,24 +13,21 @@ namespace NtisPlatform.Tests.Application;
 
 public class TypeOfUseGroupServiceTests
 {
-    private readonly Mock<IRepository<TypeOfUseGroupEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<TypeOfUseGroupEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly TypeOfUseGroupService _service;
 
     public TypeOfUseGroupServiceTests()
     {
-        _mockRepository = new Mock<IRepository<TypeOfUseGroupEntity, string>>();
+        _mockRepository = new Mock<IRepository<TypeOfUseGroupEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
-        // Service is calling SaveChangesAsync (NOT transactions), so setup SaveChangesAsync.
-        // If your SaveChangesAsync returns Task (not Task<int>), change ReturnsAsync(1) to Returns(Task.CompletedTask).
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        // Optional: keep these setups if your interface has them (harmless even if not called)
         _mockUnitOfWork
             .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -48,8 +45,8 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var entity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupID = "R",
-            GroupNameEnglish = "R",
+            TypeOfUseGroupId = 1,
+            TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
             IsActive = true,
@@ -59,28 +56,28 @@ public class TypeOfUseGroupServiceTests
             UpdatedBy = 31
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
-            .Returns(new TypeOfUseGroupDto
+            .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
             {
-                TypeOfUseGroupID = "R",
-                GroupNameEnglish = "R",
-                GroupName = "Residential",
-                GroupIcon = "Home",
-                IsActive = true,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
+                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                TypeOfUseGroupCode = e.TypeOfUseGroupCode,
+                GroupName = e.GroupName,
+                GroupIcon = e.GroupIcon,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate,
+                UpdatedDate = e.UpdatedDate
             });
 
         // Act
-        var result = await _service.GetByIdAsync("R");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("R", result.TypeOfUseGroupID);
-        Assert.Equal("R", result.GroupNameEnglish);
+        Assert.Equal(1, result.TypeOfUseGroupId);
+        Assert.Equal("R", result.TypeOfUseGroupCode);
         Assert.Equal("Residential", result.GroupName);
         Assert.Equal("Home", result.GroupIcon);
         Assert.True(result.IsActive);
@@ -90,11 +87,11 @@ public class TypeOfUseGroupServiceTests
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("ZZZZ", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((TypeOfUseGroupEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("ZZZZ");
+        var result = await _service.GetByIdAsync(999);
 
         // Assert
         Assert.Null(result);
@@ -106,11 +103,11 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var entities = new List<TypeOfUseGroupEntity>
         {
-            new() { TypeOfUseGroupID = "R", GroupNameEnglish = "R", GroupName = "Residential", GroupIcon="Home",IsActive=true, CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now },
-            new() { TypeOfUseGroupID = "C", GroupNameEnglish = "C", GroupName = "Commercial", GroupIcon="Building",IsActive=true, CreatedBy=31, CreatedDate = DateTime.Now, UpdatedBy=31, UpdatedDate=DateTime.Now }
+            new() { TypeOfUseGroupId = 1, TypeOfUseGroupCode = "R", GroupName = "Residential", GroupIcon = "Home", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { TypeOfUseGroupId = 2, TypeOfUseGroupCode = "C", GroupName = "Commercial", GroupIcon = "Building", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
-        var mockQuery = entities.BuildMock(); // async IQueryable
+        var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -144,8 +141,8 @@ public class TypeOfUseGroupServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.TypeOfUseGroupID == "R");
-        Assert.Contains(items, x => x.TypeOfUseGroupID == "C");
+        Assert.Contains(items, x => x.TypeOfUseGroupId == 1);
+        Assert.Contains(items, x => x.TypeOfUseGroupId == 2);
     }
 
     [Fact]
@@ -154,11 +151,9 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var createDto = new CreateTypeOfUseGroupDto
         {
-            TypeOfUseGroupID = "R",
-            GroupNameEnglish = "R",
+            TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
-            IsActive = true,
             CreatedBy = 31
         };
 
@@ -166,15 +161,13 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map<TypeOfUseGroupEntity>(It.IsAny<CreateTypeOfUseGroupDto>()))
             .Returns((CreateTypeOfUseGroupDto dto) => new TypeOfUseGroupEntity
             {
-                TypeOfUseGroupID = dto.TypeOfUseGroupID,
-                GroupNameEnglish = dto.GroupNameEnglish,
+                TypeOfUseGroupId = 1,
+                TypeOfUseGroupCode = dto.TypeOfUseGroupCode,
                 GroupName = dto.GroupName,
                 GroupIcon = dto.GroupIcon,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
-                CreatedBy = 31,
-                UpdatedDate = DateTime.Now,
-                UpdatedBy = 31
+                CreatedBy = dto.CreatedBy
             });
 
         _mockRepository
@@ -185,13 +178,12 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
             .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
             {
-                TypeOfUseGroupID = e.TypeOfUseGroupID,
-                GroupNameEnglish = e.GroupNameEnglish,
+                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                TypeOfUseGroupCode = e.TypeOfUseGroupCode,
                 GroupName = e.GroupName,
                 GroupIcon = e.GroupIcon,
-                IsActive = true,
-                CreatedDate = DateTime.Now,
-                UpdatedDate = DateTime.Now
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate
             });
 
         // Act
@@ -199,18 +191,14 @@ public class TypeOfUseGroupServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("R", result.TypeOfUseGroupID);
-        Assert.Equal("R", result.GroupNameEnglish);
+        Assert.Equal(1, result.TypeOfUseGroupId);
+        Assert.Equal("R", result.TypeOfUseGroupCode);
         Assert.Equal("Residential", result.GroupName);
         Assert.Equal("Home", result.GroupIcon);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        // Service calls SaveChangesAsync (based on your test output)
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
-        // Not called by service (based on your test output)
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -221,18 +209,18 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var updateDto = new UpdateTypeOfUseGroupDto
         {
-            GroupNameEnglish = "R",
-            GroupName = "Residential",
-            GroupIcon = "Home",
+            TypeOfUseGroupCode = "R-UPD",
+            GroupName = "Residential Updated",
+            GroupIcon = "HomeNew",
             IsActive = true,
             UpdatedBy = 31
         };
 
         var existingEntity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupID = "R",
-            GroupNameEnglish = "RR",
-            GroupName = "Old Residential",
+            TypeOfUseGroupId = 1,
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
             GroupIcon = "Home",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -242,7 +230,7 @@ public class TypeOfUseGroupServiceTests
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -253,7 +241,7 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map(It.IsAny<UpdateTypeOfUseGroupDto>(), It.IsAny<TypeOfUseGroupEntity>()))
             .Callback((UpdateTypeOfUseGroupDto src, TypeOfUseGroupEntity dest) =>
             {
-                dest.GroupNameEnglish = src.GroupNameEnglish;
+                dest.TypeOfUseGroupCode = src.TypeOfUseGroupCode;
                 dest.GroupName = src.GroupName;
                 dest.GroupIcon = src.GroupIcon;
                 dest.IsActive = src.IsActive;
@@ -261,46 +249,56 @@ public class TypeOfUseGroupServiceTests
                 dest.UpdatedDate = DateTime.Now;
             });
 
+        _mockMapper
+            .Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
+            .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
+            {
+                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                TypeOfUseGroupCode = e.TypeOfUseGroupCode,
+                GroupName = e.GroupName,
+                GroupIcon = e.GroupIcon,
+                IsActive = e.IsActive
+            });
+
         // Act
-        await _service.UpdateAsync("R", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("R", It.IsAny<CancellationToken>()), Times.Once);
+        Assert.NotNull(result);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("R", existingEntity.TypeOfUseGroupID);
-        Assert.Equal("R", existingEntity.GroupNameEnglish);
-        Assert.Equal("Residential", existingEntity.GroupName);
-        Assert.Equal("Home", existingEntity.GroupIcon);
+        Assert.Equal("R-UPD", existingEntity.TypeOfUseGroupCode);
+        Assert.Equal("Residential Updated", existingEntity.GroupName);
+        Assert.Equal("HomeNew", existingEntity.GroupIcon);
         Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
-    public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
+    public async Task UpdateAsync_NonExistingEntity_ReturnsNull()
     {
         // Arrange
         var updateDto = new UpdateTypeOfUseGroupDto
         {
-            GroupNameEnglish = "R",
+            TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
             IsActive = true,
-            UpdatedBy = 32
+            UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("ZZZ", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((TypeOfUseGroupEntity?)null);
 
         // Act
-        await _service.UpdateAsync("ZZZ", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
+        Assert.Null(result);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -310,7 +308,7 @@ public class TypeOfUseGroupServiceTests
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "ZZZ";
+        var idToDelete = 999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -321,10 +319,8 @@ public class TypeOfUseGroupServiceTests
 
         // Assert
         Assert.False(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -333,12 +329,12 @@ public class TypeOfUseGroupServiceTests
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "R";
+        var idToDelete = 1;
 
         var existingEntity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupID = idToDelete,
-            GroupNameEnglish = "R",
+            TypeOfUseGroupId = idToDelete,
+            TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
             IsActive = true,
@@ -361,16 +357,10 @@ public class TypeOfUseGroupServiceTests
 
         // Assert
         Assert.True(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
-
-
 }
-

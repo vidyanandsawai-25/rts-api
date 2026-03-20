@@ -42,21 +42,21 @@ public class ModuleMasterServiceTests
         // Arrange
         var entity = new ModuleMasterEntity
         {
-            ModuleId = 1,
+            ModuleMasterId = 1,
             ModuleCode = "MOD001",
             ModuleName = "Taxation",
-            ModuleNameLocal = "कराधान", 
-            DepartmentId = 1,
+            ModuleNameLocal = "कराधान",
+            DepartmentMasterId = 1,
             IsActive = true
         };
 
         var dto = new ModuleMasterDto
         {
-            ModuleId = 1,
+            ModuleMasterId = 1,
             ModuleCode = "MOD001",
             ModuleName = "Taxation",
             ModuleNameLocal = "कराधान",
-            DepartmentId = 1,
+            DepartmentMasterId = 1,
             DepartmentName = "Finance",
             IsActive = true
         };
@@ -69,7 +69,7 @@ public class ModuleMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ModuleId);
+        Assert.Equal(1, result.ModuleMasterId);
         Assert.Equal("MOD001", result.ModuleCode);
         Assert.Equal("Taxation", result.ModuleName);
         Assert.Equal("Finance", result.DepartmentName);
@@ -102,25 +102,25 @@ public class ModuleMasterServiceTests
             ModuleCode = "MOD001",
             ModuleName = "Taxation",
             ModuleNameLocal = "कराधान",
-            DepartmentId = 1,
+            DepartmentMasterId = 1,
             IsActive = true
         };
 
         var entity = new ModuleMasterEntity
         {
-            ModuleId = 1,
+            ModuleMasterId = 1,
             ModuleCode = "MOD001",
             ModuleName = "Taxation",
-            DepartmentId = 1,
+            DepartmentMasterId = 1,
             IsActive = true
         };
 
         var returnDto = new ModuleMasterDto
         {
-            ModuleId = 1,
+            ModuleMasterId = 1,
             ModuleCode = "MOD001",
             ModuleName = "Taxation",
-            DepartmentId = 1,
+            DepartmentMasterId = 1,
             IsActive = true
         };
 
@@ -150,7 +150,7 @@ public class ModuleMasterServiceTests
         // Arrange
         var entity = new ModuleMasterEntity
         {
-            ModuleId = 1,
+            ModuleMasterId = 1,
             ModuleCode = "MOD001",
             ModuleName = "Taxation"
         };
@@ -195,28 +195,28 @@ public async Task UpdateAsync_WithValidData_UpdatesAndReturnsDto()
     // Arrange
     var updateDto = new UpdateModuleMasterDto
     {
-        ModuleId = 1,
+        ModuleMasterId = 1,
         ModuleCode = "MOD001",
         ModuleName = "Taxation Updated",
-        DepartmentId = 1,
+        DepartmentMasterId = 1,
         IsActive = true
     };
 
     var entity = new ModuleMasterEntity
     {
-        ModuleId = 1,
+        ModuleMasterId = 1,
         ModuleCode = "MOD001",
         ModuleName = "Taxation",
-        DepartmentId = 1,
+        DepartmentMasterId = 1,
         IsActive = true
     };
 
     var returnDto = new ModuleMasterDto
     {
-        ModuleId = 1,
+        ModuleMasterId = 1,
         ModuleCode = "MOD001",
         ModuleName = "Taxation Updated",
-        DepartmentId = 1,
+        DepartmentMasterId = 1,
         IsActive = true
     };
 

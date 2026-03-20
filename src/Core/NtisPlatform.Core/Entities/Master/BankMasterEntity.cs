@@ -11,6 +11,5 @@
         public string City { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
         public string Pincode { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
     }
 }

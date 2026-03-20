@@ -8,7 +8,8 @@ public class RateSectionDetailsMappingProfile : Profile
 {
     public RateSectionDetailsMappingProfile()
     {
-        CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>();
+        CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()
+     .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
 
         CreateMap<CreateRateSectionDetailsDto, RateSectionDetailsEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

@@ -3,7 +3,7 @@ using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Interfaces;
 
-public interface IWardService : ICommonCrudService<WardEntity, WardDto, CreateWardDto, UpdateWardDto, WardQueryParameters, string>
+public interface IWardService : ICommonCrudService<WardEntity, WardDto, CreateWardDto, UpdateWardDto, WardQueryParameters, int>
 {
 }
 

@@ -8,11 +8,11 @@ namespace NtisPlatform.Core.Entities;
 public class DepreciationMasterEntity : BaseEntity
 {
     [Required]
-    public int ID { get; set; }
+    public int DepreciationId { get; set; }
 
     [Required]
     [StringLength(7)]
-    public string ConstructionId { get; set; }=string.Empty;
+    public string ConstructionTypeId { get; set; }=string.Empty;
 
     public int MinYear { get; set; }
     public int MaxYear { get; set; }

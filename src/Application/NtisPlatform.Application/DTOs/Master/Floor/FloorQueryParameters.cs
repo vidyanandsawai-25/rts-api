@@ -9,23 +9,14 @@ public class FloorQueryParameters : BaseQueryParameters
     [Filterable]
     [Searchable]
     [Sortable]
-    public string? FloorID { get; set; }
+    public string? FloorCode { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
     public string? Description { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
-    [Searchable]
-    public string? DescriptionEnglish { get; set; }
-
     [Filterable]
     public int? SequenceNo { get; set; }
 
-    [Filterable(FilterOperator.GreaterThanOrEqual)]
-    public int? MinSequenceNo { get; set; }
-
-    [Filterable(FilterOperator.LessThanOrEqual)]
-    public int? MaxSequenceNo { get; set; }
 }

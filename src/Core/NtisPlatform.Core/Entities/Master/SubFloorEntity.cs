@@ -5,9 +5,9 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class SubFloorEntity :BaseEntity
 {
-    public string SubFloorId { get; set; } = string.Empty;
-    public string? SubFloorDescription { get; set; }
-    public string? SubFloorDescriptionEnglish { get; set; }
+    public int SubFloorId { get; set; } 
+    public string? SubFloorCode { get; set; }
+    public string? Description { get; set; }
     public decimal? SubFloorPercentage { get; set; }
 
 }

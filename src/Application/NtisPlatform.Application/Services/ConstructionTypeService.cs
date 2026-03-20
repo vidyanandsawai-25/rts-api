@@ -10,10 +10,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class ConstructionTypeService : BaseCommonCrudService<ConstructionTypeEntity, ConstructionTypeDto, CreateConstructionTypeDto, UpdateConstructionTypeDto, ConstructionTypeQueryParameters, string>, IConstructionTypeService
+public class ConstructionTypeService : BaseCommonCrudService<ConstructionTypeEntity, ConstructionTypeDto, CreateConstructionTypeDto, UpdateConstructionTypeDto, ConstructionTypeQueryParameters, int>, IConstructionTypeService
 {
     public ConstructionTypeService(
-        IRepository<ConstructionTypeEntity, string> repository,
+        IRepository<ConstructionTypeEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

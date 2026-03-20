@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.BankMaster
 {
-    public class BankMasterDTO
+    public class BankMasterDTO : BaseDtos
     {
         public int BankId { get; set; }
         public string BankCode { get; set; } = string.Empty;
@@ -14,8 +14,7 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
         public string City { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
         public string Pincode { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        public string Status { get; set; } = string.Empty;
+
     }
 
     public class CreateBankMasterDto : CreateBaseDtos
@@ -45,8 +44,6 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
         [StringLength(6, MinimumLength = 6, ErrorMessage = "Pincode_Length_6")]
         [RegularExpression(@"^\d{6}$", ErrorMessage = "Pincode_Invalid_Format")]
         public string Pincode { get; set; } = string.Empty;
-        [StringLength(50, ErrorMessage = "Status_MaxLen_50")]
-        public string Status { get; set; } = string.Empty;
     }
 
     public class UpdateBankMasterDto : UpdateBaseDtos
@@ -76,7 +73,5 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
         [StringLength(6, MinimumLength = 6, ErrorMessage = "Pincode_Length_6")]
         [RegularExpression(@"^\d{6}$", ErrorMessage = "Pincode_Invalid_Format")]
         public string Pincode { get; set; } = string.Empty;
-        [StringLength(50, ErrorMessage = "Status_MaxLen_50")]
-        public string Status { get; set; } = string.Empty;
     }
 }

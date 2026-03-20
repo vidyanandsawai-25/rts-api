@@ -151,7 +151,7 @@ public class ConfigValueMasterEntityTests
         var configValue = new ConfigValueMasterEntity();
         var configKey = new ConfigKeyMasterEntity { ConfigKeyId = 5, ConfigCode = "TEST_KEY" };
         var department = new DepartmentMasterEntity { DepartmentId = 10, DepartmentCode = "DEPT001" };
-        var module = new ModuleMasterEntity { ModuleId = 15, ModuleName = "Test Module" };
+        var module = new ModuleMasterEntity { ModuleMasterId = 15, ModuleName = "Test Module" };
 
         // Act
         configValue.ConfigKey = configKey;
@@ -164,7 +164,7 @@ public class ConfigValueMasterEntityTests
         configValue.Department.Should().NotBeNull();
         configValue.Department.DepartmentId.Should().Be(10);
         configValue.Module.Should().NotBeNull();
-        configValue.Module.ModuleId.Should().Be(15);
+        configValue.Module.ModuleMasterId.Should().Be(15);
     }
 
     [Fact]

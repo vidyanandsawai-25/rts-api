@@ -4,8 +4,8 @@ namespace NtisPlatform.Application.DTOs;
 
 public class DepreciationDtos : BaseDtos
 {
-    public int ID { get; set; }
-    public string ConstructionId { get; set; } = string.Empty;
+    public int DepreciationId { get; set; }
+    public string ConstructionTypeId { get; set; } = string.Empty;
     public int MinYear { get; set; }
     public int MaxYear { get; set; }
     public decimal Rate { get; set; }
@@ -15,11 +15,11 @@ public class DepreciationDtos : BaseDtos
 public class CreateDepreciationDto : CreateBaseDtos
 {
     [Range(0, int.MaxValue, ErrorMessage = "ID_Min_0")]
-    public int ID { get; set; }
+    public int DepreciationId { get; set; }
 
     [Required(ErrorMessage = "ConstructionId_Required")]
     [StringLength(7, ErrorMessage = "ConstructionId_MaxLen_7")]
-    public string ConstructionId { get; set; } = string.Empty;
+    public string ConstructionTypeId { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "MinYear_Required")]
     [Range(0, 100, ErrorMessage = "MinYear_Range_0_9999")]
@@ -41,11 +41,11 @@ public class UpdateDepreciationDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ID_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "ID_Min_1")]
-    public int ID { get; set; }
+    public int DepreciationId { get; set; }
 
     [Required(ErrorMessage = "ConstructionId_Required")]
     [StringLength(7, ErrorMessage = "ConstructionId_MaxLen_7")]
-    public string ConstructionId { get; set; } = string.Empty;
+    public string ConstructionTypeId { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "MinYear_Required")]
     [Range(0, 100, ErrorMessage = "MinYear_Range_0_9999")]

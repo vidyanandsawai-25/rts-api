@@ -6,8 +6,8 @@ namespace NtisPlatform.Core.Entities;
 
 public class TypeOfUseGroupEntity : BaseEntity
 {
-    public string TypeOfUseGroupID { get; set; } = "";
-    public string? GroupNameEnglish { get; set; }
+    public int TypeOfUseGroupId { get; set; }
+    public string TypeOfUseGroupCode { get; set; } = "";
     public string GroupName { get; set; } = "";
     public string? GroupIcon { get; set; }
 

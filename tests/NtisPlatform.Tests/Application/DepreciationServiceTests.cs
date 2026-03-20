@@ -34,8 +34,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new DepreciationMasterEntity
             {
-                ID = 1,
-                ConstructionId = "A",
+                DepreciationId = 1,
+                ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 2.5m,
@@ -48,8 +48,8 @@ namespace NtisPlatform.Tests.Application
             _mockMapper.Setup(m => m.Map<DepreciationDtos>(It.IsAny<DepreciationMasterEntity>()))
                 .Returns((DepreciationMasterEntity e) => new DepreciationDtos
                 {
-                    ID = e.ID,
-                    ConstructionId = e.ConstructionId,
+                    DepreciationId = e.DepreciationId,
+                    ConstructionTypeId = e.ConstructionTypeId,
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
@@ -60,8 +60,8 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.GetByIdAsync(1, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(1, result.ID);
-            Assert.Equal("A", result.ConstructionId);
+            Assert.Equal(1, result.DepreciationId);
+            Assert.Equal("A", result.ConstructionTypeId);
             Assert.Equal(2.5m, result.Rate);
         }
 
@@ -80,8 +80,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<DepreciationMasterEntity>
             {
-                new() { ID = 1, ConstructionId = "A", Rate = 1.1m,MinYear=2020,MaxYear=2025,Year=2026 },
-                new() { ID = 2, ConstructionId = "B", Rate = 2.2m,MinYear=2020,MaxYear=2025,Year=2026 }
+                new() { DepreciationId = 1, ConstructionTypeId = "A", Rate = 1.1m,MinYear=2020,MaxYear=2025,Year=2026 },
+                new() { DepreciationId = 2, ConstructionTypeId = "B", Rate = 2.2m,MinYear=2020,MaxYear=2025,Year=2026 }
             };
 
             var mockQuery = entities.BuildMock(); // async IQueryable
@@ -118,8 +118,8 @@ namespace NtisPlatform.Tests.Application
 
             var items = result.Items.ToList();
             Assert.Equal(2, items.Count);
-            Assert.Contains(items, x => x.ConstructionId == "A");
-            Assert.Contains(items, x => x.ConstructionId == "B");
+            Assert.Contains(items, x => x.ConstructionTypeId == "A");
+            Assert.Contains(items, x => x.ConstructionTypeId == "B");
         }
 
 
@@ -128,8 +128,8 @@ namespace NtisPlatform.Tests.Application
         {
             var createDto = new CreateDepreciationDto
             {
-                ID = 1,
-                ConstructionId = "A",
+                DepreciationId = 1,
+                ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 3.3m,
@@ -142,8 +142,8 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<DepreciationMasterEntity>(It.IsAny<CreateDepreciationDto>()))
                 .Returns((CreateDepreciationDto dto) => new DepreciationMasterEntity
                 {
-                    ID = dto.ID,
-                    ConstructionId = dto.ConstructionId,
+                    DepreciationId = dto.DepreciationId,
+                    ConstructionTypeId = dto.ConstructionTypeId,
                     MinYear = dto.MinYear,
                     MaxYear = dto.MaxYear,
                     Rate = dto.Rate,
@@ -158,8 +158,8 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<DepreciationDtos>(It.IsAny<DepreciationMasterEntity>()))
                 .Returns((DepreciationMasterEntity e) => new DepreciationDtos
                 {
-                    ID = e.ID,
-                    ConstructionId = e.ConstructionId,
+                    DepreciationId = e.DepreciationId,
+                    ConstructionTypeId = e.ConstructionTypeId,
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
@@ -169,8 +169,8 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(createDto.ID, result.ID);
-            Assert.Equal(createDto.ConstructionId, result.ConstructionId);
+            Assert.Equal(createDto.DepreciationId, result.DepreciationId);
+            Assert.Equal(createDto.ConstructionTypeId, result.ConstructionTypeId);
             Assert.Equal(createDto.Rate, result.Rate);
 
             _mockRepository.Verify(r => r.AddAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -182,8 +182,8 @@ namespace NtisPlatform.Tests.Application
         {
             var updateDto = new UpdateDepreciationDto
             {
-                ID = 1,
-                ConstructionId = "A",
+                DepreciationId = 1,
+                ConstructionTypeId = "A",
                 MinYear = 2,
                 MaxYear = 6,
                 Rate = 4.4m,
@@ -194,8 +194,8 @@ namespace NtisPlatform.Tests.Application
 
             var existing = new DepreciationMasterEntity
             {
-                ID = 1,
-                ConstructionId = "A",
+                DepreciationId = 1,
+                ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 3.3m,
@@ -229,7 +229,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
         {
-            var updateDto = new UpdateDepreciationDto { ID = 99, ConstructionId = "X" };
+            var updateDto = new UpdateDepreciationDto { DepreciationId = 99, ConstructionTypeId = "X" };
             _mockRepository.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((DepreciationMasterEntity?)null);
 
             await _service.UpdateAsync(99, updateDto, CancellationToken.None);
@@ -253,7 +253,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
         {
-            var existing = new DepreciationMasterEntity { ID = 1 };
+            var existing = new DepreciationMasterEntity { DepreciationId = 1 };
             _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
             _mockRepository.Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 

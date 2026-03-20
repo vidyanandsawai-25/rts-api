@@ -5,32 +5,26 @@ using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace NtisPlatform.Tests.Application;
 
-    public class SubFloorServiceTests
+public class SubFloorServiceTests
 {
-    private readonly Mock<IRepository<SubFloorEntity, string>> _mockRepository;
+    private readonly Mock<IRepository<SubFloorEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly SubFloorService _service;
 
     public SubFloorServiceTests()
     {
-        _mockRepository = new Mock<IRepository<SubFloorEntity, string>>();
+        _mockRepository = new Mock<IRepository<SubFloorEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
-        // Service is calling SaveChangesAsync (NOT transactions), so setup SaveChangesAsync.
-        // If your SaveChangesAsync returns Task (not Task<int>), change ReturnsAsync(1) to Returns(Task.CompletedTask).
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        // Optional: keep these setups if your interface has them (harmless even if not called)
         _mockUnitOfWork
             .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -48,10 +42,10 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entity = new SubFloorEntity
         {
-            SubFloorId = "1",
-            SubFloorDescription = "1 st",
-            SubFloorDescriptionEnglish = "1 st",
-            SubFloorPercentage = 2,
+            SubFloorId = 1,
+            SubFloorCode = "SF01",
+            Description = "First Sub Floor",
+            SubFloorPercentage = 2.5m,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
             UpdatedDate = DateTime.Now,
@@ -59,28 +53,30 @@ namespace NtisPlatform.Tests.Application;
             IsActive = true
         };
 
-        _mockRepository.Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
         _mockMapper.Setup(m => m.Map<SubFloorDto>(It.IsAny<SubFloorEntity>()))
-            .Returns(new SubFloorDto
+            .Returns((SubFloorEntity e) => new SubFloorDto
             {
-                SubFloorId = "1",
-                SubFloorDescription = "1 st",
-                SubFloorDescriptionEnglish = "1 st",
-                SubFloorPercentage = 2,
-                IsActive = true
+                SubFloorId = e.SubFloorId,
+                SubFloorCode = e.SubFloorCode,
+                Description = e.Description,
+                SubFloorPercentage = e.SubFloorPercentage,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate,
+                UpdatedDate = e.UpdatedDate
             });
 
         // Act
-        var result = await _service.GetByIdAsync("1");
+        var result = await _service.GetByIdAsync(1);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("1", result.SubFloorId);
-        Assert.Equal("1 st", result.SubFloorDescription);
-        Assert.Equal("1 st", result.SubFloorDescriptionEnglish);
-        Assert.Equal(2, result.SubFloorPercentage);
+        Assert.Equal(1, result.SubFloorId);
+        Assert.Equal("SF01", result.SubFloorCode);
+        Assert.Equal("First Sub Floor", result.Description);
+        Assert.Equal(2.5m, result.SubFloorPercentage);
         Assert.True(result.IsActive);
     }
 
@@ -88,11 +84,11 @@ namespace NtisPlatform.Tests.Application;
     public async Task GetByIdAsync_NonExistingId_ReturnsNull()
     {
         // Arrange
-        _mockRepository.Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SubFloorEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync("9999");
+        var result = await _service.GetByIdAsync(999);
 
         // Assert
         Assert.Null(result);
@@ -104,11 +100,11 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var entities = new List<SubFloorEntity>
         {
-            new() { SubFloorId = "1", SubFloorDescription = "Test1", SubFloorDescriptionEnglish = "Desc1", SubFloorPercentage=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
-            new() { SubFloorId = "2", SubFloorDescription = "Test2", SubFloorDescriptionEnglish = "Desc2", SubFloorPercentage=2, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
+            new() { SubFloorId = 1, SubFloorCode = "SF01", Description = "First Floor", SubFloorPercentage = 1.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true },
+            new() { SubFloorId = 2, SubFloorCode = "SF02", Description = "Second Floor", SubFloorPercentage = 2.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true }
         };
 
-        var mockQuery = entities.BuildMock(); // async IQueryable
+        var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
         var mapperConfig = new MapperConfiguration(cfg =>
@@ -142,8 +138,8 @@ namespace NtisPlatform.Tests.Application;
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.SubFloorId == "1");
-        Assert.Contains(items, x => x.SubFloorId == "2");
+        Assert.Contains(items, x => x.SubFloorId == 1);
+        Assert.Contains(items, x => x.SubFloorId == 2);
     }
 
     [Fact]
@@ -152,21 +148,23 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var createDto = new CreateSubFloorDto
         {
-            SubFloorId = "1",
-            SubFloorDescription = "New Description",
-            SubFloorDescriptionEnglish = "New English Description",
-            SubFloorPercentage = 1
+            SubFloorCode = "SF01",
+            Description = "New Sub Floor",
+            SubFloorPercentage = 1.5m,
+            IsActive = true,
+            CreatedBy = 31
         };
 
         _mockMapper
             .Setup(m => m.Map<SubFloorEntity>(It.IsAny<CreateSubFloorDto>()))
             .Returns((CreateSubFloorDto dto) => new SubFloorEntity
             {
-                SubFloorId = dto.SubFloorId,
-                SubFloorDescription = dto.SubFloorDescription,
-                SubFloorDescriptionEnglish = dto.SubFloorDescriptionEnglish,
+                SubFloorId = 1,
+                SubFloorCode = dto.SubFloorCode,
+                Description = dto.Description,
                 SubFloorPercentage = dto.SubFloorPercentage,
-                CreatedBy = 31,
+                IsActive = dto.IsActive,
+                CreatedBy = dto.CreatedBy,
                 CreatedDate = DateTime.Now
             });
 
@@ -179,9 +177,11 @@ namespace NtisPlatform.Tests.Application;
             .Returns((SubFloorEntity e) => new SubFloorDto
             {
                 SubFloorId = e.SubFloorId,
-                SubFloorDescription = e.SubFloorDescription,
-                SubFloorDescriptionEnglish = e.SubFloorDescriptionEnglish,
-                SubFloorPercentage = e.SubFloorPercentage
+                SubFloorCode = e.SubFloorCode,
+                Description = e.Description,
+                SubFloorPercentage = e.SubFloorPercentage,
+                IsActive = e.IsActive,
+                CreatedDate = e.CreatedDate
             });
 
         // Act
@@ -189,17 +189,14 @@ namespace NtisPlatform.Tests.Application;
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("1", result.SubFloorId);
-        Assert.Equal("New Description", result.SubFloorDescription);
-        Assert.Equal("New English Description", result.SubFloorDescriptionEnglish);
-        Assert.Equal(1, result.SubFloorPercentage);
+        Assert.Equal(1, result.SubFloorId);
+        Assert.Equal("SF01", result.SubFloorCode);
+        Assert.Equal("New Sub Floor", result.Description);
+        Assert.Equal(1.5m, result.SubFloorPercentage);
+        Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<SubFloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
-        // Service calls SaveChangesAsync (based on your test output)
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
-        // Not called by service (based on your test output)
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -210,24 +207,26 @@ namespace NtisPlatform.Tests.Application;
         // Arrange
         var updateDto = new UpdateSubFloorDto
         {
-            SubFloorId = "1",
-            SubFloorDescription = "New Description",
-            SubFloorDescriptionEnglish = "New English Description",
-            SubFloorPercentage = 1,
-            IsActive = true
+            SubFloorCode = "SF01-UPD",
+            Description = "Updated Description",
+            SubFloorPercentage = 3.0m,
+            IsActive = true,
+            UpdatedBy = 31
         };
 
         var existingEntity = new SubFloorEntity
         {
-            SubFloorId = "1",
-            SubFloorDescription = "Old Description",
-            SubFloorDescriptionEnglish = "Old English Description",
-            SubFloorPercentage = 1,
-            IsActive = true
+            SubFloorId = 1,
+            SubFloorCode = "SF01",
+            Description = "Old Description",
+            SubFloorPercentage = 1.5m,
+            IsActive = true,
+            CreatedDate = DateTime.Now,
+            CreatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
         _mockRepository
@@ -238,50 +237,64 @@ namespace NtisPlatform.Tests.Application;
             .Setup(m => m.Map(It.IsAny<UpdateSubFloorDto>(), It.IsAny<SubFloorEntity>()))
             .Callback((UpdateSubFloorDto src, SubFloorEntity dest) =>
             {
-                dest.SubFloorDescription = src.SubFloorDescription;
-                dest.SubFloorDescriptionEnglish = src.SubFloorDescriptionEnglish;
+                dest.SubFloorCode = src.SubFloorCode;
+                dest.Description = src.Description;
+                dest.SubFloorPercentage = src.SubFloorPercentage;
+                dest.IsActive = src.IsActive;
+                dest.UpdatedBy = src.UpdatedBy;
+                dest.UpdatedDate = DateTime.Now;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<SubFloorDto>(It.IsAny<SubFloorEntity>()))
+            .Returns((SubFloorEntity e) => new SubFloorDto
+            {
+                SubFloorId = e.SubFloorId,
+                SubFloorCode = e.SubFloorCode,
+                Description = e.Description,
+                SubFloorPercentage = e.SubFloorPercentage,
+                IsActive = e.IsActive
             });
 
         // Act
-        await _service.UpdateAsync("1", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        _mockRepository.Verify(r => r.GetByIdAsync("1", It.IsAny<CancellationToken>()), Times.Once);
+        Assert.NotNull(result);
+        _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubFloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("New Description", existingEntity.SubFloorDescription);
-        Assert.Equal("New English Description", existingEntity.SubFloorDescriptionEnglish);
-        Assert.Equal("1", existingEntity.SubFloorId);
-        Assert.Equal(1, existingEntity.SubFloorPercentage);
+        Assert.Equal("SF01-UPD", existingEntity.SubFloorCode);
+        Assert.Equal("Updated Description", existingEntity.Description);
+        Assert.Equal(3.0m, existingEntity.SubFloorPercentage);
         Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
-    public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
+    public async Task UpdateAsync_NonExistingEntity_ReturnsNull()
     {
         // Arrange
         var updateDto = new UpdateSubFloorDto
         {
-            SubFloorId = "1",
-            SubFloorDescription = "Description",
-            SubFloorDescriptionEnglish = "English Description",
-            SubFloorPercentage = 1,
+            SubFloorCode = "SF01",
+            Description = "Description",
+            SubFloorPercentage = 1.5m,
             IsActive = true,
+            UpdatedBy = 31
         };
 
         _mockRepository
-            .Setup(r => r.GetByIdAsync("9999", It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((SubFloorEntity?)null);
 
         // Act
-        await _service.UpdateAsync("9999", updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
+        Assert.Null(result);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubFloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -291,7 +304,7 @@ namespace NtisPlatform.Tests.Application;
     public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
     {
         // Arrange
-        var idToDelete = "9999";
+        var idToDelete = 999;
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -302,10 +315,8 @@ namespace NtisPlatform.Tests.Application;
 
         // Assert
         Assert.False(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -314,15 +325,17 @@ namespace NtisPlatform.Tests.Application;
     public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
     {
         // Arrange
-        var idToDelete = "A";
+        var idToDelete = 1;
 
         var existingEntity = new SubFloorEntity
         {
-            SubFloorId = "1",
-            SubFloorDescription = "Old Description",
-            SubFloorDescriptionEnglish = "Old English Description",
-            SubFloorPercentage = 1,
+            SubFloorId = idToDelete,
+            SubFloorCode = "SF01",
+            Description = "Sub Floor",
+            SubFloorPercentage = 1.5m,
             IsActive = true,
+            CreatedDate = DateTime.Now,
+            CreatedBy = 31
         };
 
         _mockRepository
@@ -338,12 +351,9 @@ namespace NtisPlatform.Tests.Application;
 
         // Assert
         Assert.True(result);
-
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
-
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }

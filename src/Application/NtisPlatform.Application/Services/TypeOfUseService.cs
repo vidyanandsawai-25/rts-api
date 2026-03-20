@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class TypeOfUseService : BaseCommonCrudService<TypeOfUseEntity, TypeOfUseDto, CreateTypeOfUseDto, UpdateTypeOfUseDto, TypeOfUseQueryParameters, string>, ITypeOfUseService
+public class TypeOfUseService : BaseCommonCrudService<TypeOfUseEntity, TypeOfUseDto, CreateTypeOfUseDto, UpdateTypeOfUseDto, TypeOfUseQueryParameters, int>, ITypeOfUseService
 {
     public TypeOfUseService(
-        IRepository<TypeOfUseEntity, string> repository,
+        IRepository<TypeOfUseEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

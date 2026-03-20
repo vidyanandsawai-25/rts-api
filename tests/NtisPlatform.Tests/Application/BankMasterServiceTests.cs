@@ -56,8 +56,7 @@ public class BankMasterServiceTests
             City = "Mumbai",
             State = "Maharashtra",
             Pincode = "400001",
-            IsActive = true,
-            Status = "Active"
+            IsActive = true
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -75,8 +74,7 @@ public class BankMasterServiceTests
                 City = "Mumbai",
                 State = "Maharashtra",
                 Pincode = "400001",
-                IsActive = true,
-                Status = "Active"
+                IsActive = true
             });
 
         // Act
@@ -149,8 +147,7 @@ public class BankMasterServiceTests
                 IFSCCode = "SBIN0001234",
                 City = "Mumbai",
                 State = "Maharashtra",
-                IsActive = true,
-                Status = "Active"
+                IsActive = true
             },
             new() 
             { 
@@ -161,8 +158,7 @@ public class BankMasterServiceTests
                 IFSCCode = "HDFC0001234",
                 City = "Delhi",
                 State = "Delhi",
-                IsActive = true,
-                Status = "Active"
+                IsActive = true
             },
             new() 
             { 
@@ -173,8 +169,7 @@ public class BankMasterServiceTests
                 IFSCCode = "ICIC0001234",
                 City = "Bangalore",
                 State = "Karnataka",
-                IsActive = false,
-                Status = "Inactive"
+                IsActive = false
             }
         };
 
@@ -423,7 +418,6 @@ public class BankMasterServiceTests
             State = "Maharashtra",
             Pincode = "400001",
             IsActive = true,
-            Status = "Active",
             CreatedBy = 1
         };
 
@@ -440,7 +434,6 @@ public class BankMasterServiceTests
                 State = dto.State,
                 Pincode = dto.Pincode,
                 IsActive = dto.IsActive,
-                Status = dto.Status,
                 CreatedBy = dto.CreatedBy
             });
 
@@ -465,8 +458,7 @@ public class BankMasterServiceTests
                 City = e.City,
                 State = e.State,
                 Pincode = e.Pincode,
-                IsActive = e.IsActive,
-                Status = e.Status
+                IsActive = e.IsActive
             });
 
         // Act
@@ -501,8 +493,7 @@ public class BankMasterServiceTests
             City = "Mumbai",
             State = "Maharashtra",
             Pincode = "400001",
-            IsActive = false,
-            Status = "Inactive"
+            IsActive = false
         };
 
         _mockMapper
@@ -514,8 +505,7 @@ public class BankMasterServiceTests
                 BankName = "Old Bank",
                 BranchName = "Closed Branch",
                 IFSCCode = "OLD00001234",
-                IsActive = false,
-                Status = "Inactive"
+                IsActive = false
             });
 
         _mockRepository
@@ -533,8 +523,7 @@ public class BankMasterServiceTests
                 BankId = 2,
                 BankCode = "OLD001",
                 BankName = "Old Bank",
-                IsActive = false,
-                Status = "Inactive"
+                IsActive = false
             });
 
         // Act
@@ -543,7 +532,6 @@ public class BankMasterServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.False(result.IsActive);
-        Assert.Equal("Inactive", result.Status);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -628,7 +616,6 @@ public class BankMasterServiceTests
             State = "Maharashtra",
             Pincode = "400002",
             IsActive = true,
-            Status = "Active",
             UpdatedBy = 1
         };
 
@@ -643,8 +630,7 @@ public class BankMasterServiceTests
             City = "Mumbai",
             State = "Maharashtra",
             Pincode = "400001",
-            IsActive = true,
-            Status = "Active"
+            IsActive = true
         };
 
         _mockRepository
@@ -737,8 +723,7 @@ public class BankMasterServiceTests
             BankId = idToDelete,
             BankCode = "OLD001",
             BankName = "Old Bank",
-            IsActive = false,
-            Status = "Closed"
+            IsActive = false
         };
 
         _mockRepository
@@ -771,8 +756,7 @@ public class BankMasterServiceTests
             BankId = idToDelete,
             BankCode = "SBI001",
             BankName = "State Bank",
-            IsActive = true,
-            Status = "Active"
+            IsActive = true
         };
 
         _mockRepository
@@ -1010,8 +994,7 @@ public class BankMasterServiceTests
             City = "Mumbai",
             State = "Maharashtra",
             Pincode = "400001",
-            IsActive = true,
-            Status = "Active"
+            IsActive = true
         };
 
         _mockMapper

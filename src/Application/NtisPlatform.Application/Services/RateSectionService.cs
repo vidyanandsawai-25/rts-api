@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class RateSectionService : BaseCommonCrudService<RateSectionEntity, RateSectionDto, CreateRateSectionDto, UpdateRateSectionDto, RateSectionQueryParameters, string>, IRateSectionService
+public class RateSectionService : BaseCommonCrudService<RateSectionEntity, RateSectionDto, CreateRateSectionDto, UpdateRateSectionDto, RateSectionQueryParameters, int>, IRateSectionService
 {
     public RateSectionService(
-        IRepository<RateSectionEntity, string> repository,
+        IRepository<RateSectionEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

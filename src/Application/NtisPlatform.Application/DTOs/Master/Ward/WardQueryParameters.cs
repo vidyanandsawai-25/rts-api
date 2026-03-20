@@ -8,6 +8,11 @@ public class WardQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
+    public int? ZoneId { get; set; } = null!;
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
     public string? WardNo { get; set; }
 
     [Filterable]

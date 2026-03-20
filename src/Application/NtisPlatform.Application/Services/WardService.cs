@@ -6,10 +6,10 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class WardService : BaseCommonCrudService<WardEntity, WardDto, CreateWardDto, UpdateWardDto, WardQueryParameters, string>, IWardService
+public class WardService : BaseCommonCrudService<WardEntity, WardDto, CreateWardDto, UpdateWardDto, WardQueryParameters, int>, IWardService
 {
     public WardService(
-        IRepository<WardEntity, string> repository,
+        IRepository<WardEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)

@@ -5,10 +5,10 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class WardEntity : BaseEntity
 {
+    public int WardId { get; set; }
     public string WardNo { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
+    public int ZoneId { get; set; }  
     public string? Description { get; set; }
-    public string? DescriptionEnglish { get; set; } 
-    public int? SequenceNo { get; set; } 
+    public int? SequenceNo { get; set; }
 }
 

@@ -8,7 +8,7 @@ public class SubTypeOfUseQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? TypeOfUseID { get; set; }
+    public int? TypeOfUseId { get; set; }
 
     [Filterable]
     [Sortable]

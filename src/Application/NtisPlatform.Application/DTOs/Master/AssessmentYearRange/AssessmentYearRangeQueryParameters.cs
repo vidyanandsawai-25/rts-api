@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.AssessmentYearRange
     {
         [Filterable]
         [Sortable]
-        public int? YearRangeId { get; set; }
+        public int? YearRangeRVId { get; set; }
 
         [Filterable]
         [Sortable]

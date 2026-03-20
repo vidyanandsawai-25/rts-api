@@ -8,11 +8,11 @@ public class RateSectionDetailsQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? RateSectionNo { get; set; }
+    public int? RateSectionId { get; set; }
 
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? WardNo { get; set; }
+    public int? WardId { get; set; }
 }
 

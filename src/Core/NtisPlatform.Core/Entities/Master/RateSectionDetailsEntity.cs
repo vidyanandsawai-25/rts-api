@@ -4,8 +4,11 @@
 /// </summary>
 public class RateSectionDetailsEntity : BaseEntity
 {
-    public int RateSectionDetailsID { get; set; }
-    public string RateSectionNo { get; set; } = string.Empty;
-    public string WardNo { get; set; } = string.Empty;
+    public int RateSectionDetailsId { get; set; }
+    public int RateSectionId { get; set; }
+    public int WardId { get; set; }
+
+    // Navigation properties
+    public virtual WardEntity? Ward { get; set; }
 }
 

@@ -9,14 +9,10 @@ public class ConstructionTypeQueryParameters : BaseQueryParameters
     [Filterable]
     [Searchable]
     [Sortable]
-    public string? ConstructionId { get; set; }
+    public string? ConstructionCode { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
     public string? Description { get; set; }
-
-    [Filterable(FilterOperator.Contains)]
-    [Searchable]
-    public string? DescriptionEnglish { get; set; }
 }
