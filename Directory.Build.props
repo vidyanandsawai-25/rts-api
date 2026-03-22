@@ -15,11 +15,12 @@
     <!-- Assembly information -->
     <Company>NTIS Platform</Company>
     <Product>NTIS Platform</Product>
-    <Copyright>Copyright © 2025</Copyright>
+    <Copyright>Copyright © 2026</Copyright>
     <Authors>NTIS Platform Team</Authors>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup>
