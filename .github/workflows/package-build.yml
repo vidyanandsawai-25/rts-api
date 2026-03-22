@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.2.3)'
+        description: 'Release version (e.g., 1.2.3.0)'
         required: true
         type: string
       branch:
@@ -73,8 +73,8 @@ jobs:
           }
           
           # Validate semantic version
-          if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            Write-Error "Invalid version format: $version. Expected: x.y.z"
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+            Write-Error "Invalid version format: $version. Expected: x.y.z.w"
             exit 1
           }
           
@@ -119,8 +119,8 @@ jobs:
             --configuration Release `
             --no-restore `
             -p:Version=$version `
-            -p:AssemblyVersion=$version.0 `
-            -p:FileVersion=$version.0 `
+            -p:AssemblyVersion=$version `
+            -p:FileVersion=$version `
             -p:InformationalVersion=$version
           
           Write-Output "✅ Build completed successfully"
@@ -136,10 +136,9 @@ jobs:
             --output publish/api `
             --no-build `
             --self-contained false `
-            --runtime win-x64 `
             -p:Version=$version `
-            -p:AssemblyVersion=$version.0 `
-            -p:FileVersion=$version.0 `
+            -p:AssemblyVersion=$version `
+            -p:FileVersion=$version `
             --verbosity normal
           
           Write-Output "✅ API published successfully"
@@ -155,10 +154,9 @@ jobs:
             --output publish/worker `
             --no-build `
             --self-contained false `
-            --runtime win-x64 `
             -p:Version=$version `
-            -p:AssemblyVersion=$version.0 `
-            -p:FileVersion=$version.0 `
+            -p:AssemblyVersion=$version `
+            -p:FileVersion=$version `
             --verbosity normal
           
           Write-Output "✅ Worker published successfully"
@@ -197,6 +195,26 @@ jobs:
           }
         shell: pwsh
         
+      - name: Create zip archives
+        run: |
+          $version = '${{ needs.validate-environment.outputs.version }}'
+          $environment = '${{ needs.validate-environment.outputs.environment }}'
+          
+          Write-Output "📦 Creating zip archives..."
+          
+          # Create API zip
+          $apiZip = "ntis-platform-api-$environment-v$version.zip"
+          Compress-Archive -Path 'publish/api/*' -DestinationPath $apiZip -Force
+          $apiZipSize = [math]::Round((Get-Item $apiZip).Length / 1MB, 2)
+          Write-Output "✅ Created $apiZip ($apiZipSize MB)"
+          
+          # Create Worker zip
+          $workerZip = "ntis-platform-worker-$environment-v$version.zip"
+          Compress-Archive -Path 'publish/worker/*' -DestinationPath $workerZip -Force
+          $workerZipSize = [math]::Round((Get-Item $workerZip).Length / 1MB, 2)
+          Write-Output "✅ Created $workerZip ($workerZipSize MB)"
+        shell: pwsh
+        
       - name: Upload to Azure Blob Storage
         run: |
           $version = '${{ needs.validate-environment.outputs.version }}'
@@ -211,33 +229,27 @@ jobs:
           Write-Output "   Container: $containerName"
           Write-Output "   Path: $basePath"
           
-          # Upload API files
-          Write-Output "📦 Uploading API files..."
-          Get-ChildItem -Path 'publish/api' -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Replace((Resolve-Path 'publish/api').Path, '').TrimStart('\', '/')
-            $blobName = "$basePath/api/$relativePath".Replace('\', '/')
-            az storage blob upload `
-              --connection-string "$connectionString" `
-              --container-name "$containerName" `
-              --file $_.FullName `
-              --name $blobName `
-              --overwrite
-            Write-Output "   ✅ Uploaded: $blobName"
-          }
+          # Upload API zip
+          $apiZip = "ntis-platform-api-$environment-v$version.zip"
+          $apiZipBlob = "$basePath/$apiZip".Replace('\', '/')
+          az storage blob upload `
+            --connection-string "$connectionString" `
+            --container-name "$containerName" `
+            --file $apiZip `
+            --name $apiZipBlob `
+            --overwrite
+          Write-Output "   ✅ Uploaded: $apiZipBlob"
           
-          # Upload Worker files
-          Write-Output "📦 Uploading Worker files..."
-          Get-ChildItem -Path 'publish/worker' -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Replace((Resolve-Path 'publish/worker').Path, '').TrimStart('\', '/')
-            $blobName = "$basePath/worker/$relativePath".Replace('\', '/')
-            az storage blob upload `
-              --connection-string "$connectionString" `
-              --container-name "$containerName" `
-              --file $_.FullName `
-              --name $blobName `
-              --overwrite
-            Write-Output "   ✅ Uploaded: $blobName"
-          }
+          # Upload Worker zip
+          $workerZip = "ntis-platform-worker-$environment-v$version.zip"
+          $workerZipBlob = "$basePath/$workerZip".Replace('\', '/')
+          az storage blob upload `
+            --connection-string "$connectionString" `
+            --container-name "$containerName" `
+            --file $workerZip `
+            --name $workerZipBlob `
+            --overwrite
+          Write-Output "   ✅ Uploaded: $workerZipBlob"
           
           Write-Output ""
           Write-Output "🎉 Upload complete!"
