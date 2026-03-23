@@ -43,7 +43,9 @@ public class ZoneServiceTests
         var entity = new ZoneEntity
         {
             ZoneId = 1,
+
             ZoneNo = "WKD",
+
             Description = "वाकड",
             SequenceNo = 1,
             IsActive = true,
@@ -109,7 +111,8 @@ public class ZoneServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<ZoneEntity, ZoneDto>();
+            cfg.CreateMap<ZoneEntity, ZoneDto>()
+                .ForMember(dest => dest.ZoneNo, opt => opt.MapFrom(src => src.ZoneNo));
         });
 
         mapperConfig.AssertConfigurationIsValid();
@@ -138,8 +141,15 @@ public class ZoneServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
+
+        Assert.Contains(items, x => x.Description == "मोशी");
+        Assert.Contains(items, x => x.Description == "थेरगाव");
+
         Assert.Contains(items, x => x.ZoneId == 1);
         Assert.Contains(items, x => x.ZoneId == 2);
+        
+        Assert.Contains(items, x => x.ZoneNo == "MSH");
+        Assert.Contains(items, x => x.ZoneNo == "TRG");
     }
 
     [Fact]
@@ -159,7 +169,9 @@ public class ZoneServiceTests
             .Returns((CreateZoneDto dto) => new ZoneEntity
             {
                 ZoneId = 1,
+
                 ZoneNo = dto.ZoneNo,
+
                 Description = dto.Description,
                 SequenceNo = dto.SequenceNo,
                 IsActive = true,
@@ -175,9 +187,12 @@ public class ZoneServiceTests
             .Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
             .Returns((ZoneEntity e) => new ZoneDto
             {
-                ZoneId = e.ZoneId,
+
                 ZoneNo = e.ZoneNo,
                 Description = e.Description,
+
+                ZoneId = e.ZoneId,
+
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
@@ -329,7 +344,8 @@ public class ZoneServiceTests
 
         var existingEntity = new ZoneEntity
         {
-            ZoneId = idToDelete,
+
+            ZoneId = 1,
             ZoneNo = "WKD",
             Description = "वाकड",
             SequenceNo = 1,

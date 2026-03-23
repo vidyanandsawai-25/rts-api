@@ -3,6 +3,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.Services;
 
@@ -14,11 +15,26 @@ public class PropertyService
     : BaseCommonCrudService<PropertyEntity, PropertyDto, CreatePropertyDto, UpdatePropertyDto, PropertyQueryParameters, int>,
       IPropertyService
 {
+    private readonly IPropertyRepository _propertyRepository;
+
     public PropertyService(
         IRepository<PropertyEntity, int> repository,
         IUnitOfWork unitOfWork,
-        IMapper mapper)
+        IMapper mapper,
+        IPropertyRepository propertyRepository)
         : base(repository, unitOfWork, mapper)
     {
+        _propertyRepository = propertyRepository;
+    }
+
+    public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetBasicDetailsAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<bool> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.UpdateBasicDetailsAsync(propertyId, dto, cancellationToken);
     }
 }
+

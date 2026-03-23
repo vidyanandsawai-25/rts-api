@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+        
+        // Specialized Repositories
+        services.AddScoped<IPropertyRepository, PropertyRepository>();
 
         // Authentication Services
         services.AddScoped<IPasswordHasher, Infrastructure.Services.Auth.PasswordHasher>();

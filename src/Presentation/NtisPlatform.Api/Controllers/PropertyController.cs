@@ -18,7 +18,7 @@ namespace NtisPlatform.Api.Controllers;
 /// </remarks>
 [ApiController]
 [Route("api/[controller]")]
-public class PropertyController : ControllerBase
+public partial class PropertyController : ControllerBase
 {
     private readonly IPropertyService _propertyService;
     private readonly ILogger<PropertyController> _logger;

@@ -8,6 +8,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Attributes;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 
@@ -589,6 +590,7 @@ public class PropertyServiceTests
     private readonly Mock<IRepository<PropertyEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IPropertyRepository> _mockPropertyRepository;
     private readonly PropertyService _service;
 
     public PropertyServiceTests()
@@ -596,12 +598,13 @@ public class PropertyServiceTests
         _mockRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockPropertyRepository = new Mock<IPropertyRepository>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockPropertyRepository.Object);
     }
 
     [Fact]
@@ -671,8 +674,9 @@ public class PropertyServiceTests
             cfg.AddProfile<PropertyMappingProfile>();
         });
         IMapper mapper = mapperConfig.CreateMapper();
+        var mockPropertyRepo = new Mock<IPropertyRepository>();
 
-        var service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, mockPropertyRepo.Object);
 
         var qp = new PropertyQueryParameters
         {
@@ -861,6 +865,207 @@ public class PropertyServiceTests
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBasicDetailsAsync_ExistingProperty_ReturnsBasicDetailsDto()
+    {
+        var propertyId = 1;
+        var expectedDto = new PropertyBasicDetailsDto
+        {
+            PropertyId = propertyId,
+            WardId = 10,
+            WardNo = "W001",
+            ZoneId = 5,
+            Division = "North Zone",
+            PropertyNo = "PROP001",
+            PartitionNo = "A",
+            FlatOrShopNo = "101",
+            PlotNo = "P123",
+            SurveyNo = "S456",
+            TaxZoneId = 1,
+            TaxZoneNo = "TZ001",
+            CategoryId = 2,
+            CategoryName = "Residential",
+            PropertyTypeId = 3,
+            PropertyDescription = "Apartment",
+            WingNo = "B",
+            NoOfResidentialToilets = 2,
+            NoOfCommercialToilets = 0,
+            TotalCarpetAreaSqMeter = 1000.50,
+            TotalBuiltupAreaSqMeter = 1200.75,
+            PlotArea = 1500.25
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        var result = await _service.GetBasicDetailsAsync(propertyId, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(10, result.WardId);
+        Assert.Equal("W001", result.WardNo);
+        Assert.Equal(5, result.ZoneId);
+        Assert.Equal("North Zone", result.Division);
+        Assert.Equal("PROP001", result.PropertyNo);
+        Assert.Equal("A", result.PartitionNo);
+        Assert.Equal("101", result.FlatOrShopNo);
+        Assert.Equal("P123", result.PlotNo);
+        Assert.Equal("S456", result.SurveyNo);
+        Assert.Equal(1, result.TaxZoneId);
+        Assert.Equal("TZ001", result.TaxZoneNo);
+        Assert.Equal(2, result.CategoryId);
+        Assert.Equal("Residential", result.CategoryName);
+        Assert.Equal(3, result.PropertyTypeId);
+        Assert.Equal("Apartment", result.PropertyDescription);
+        Assert.Equal("B", result.WingNo);
+        Assert.Equal(2, result.NoOfResidentialToilets);
+        Assert.Equal(0, result.NoOfCommercialToilets);
+        Assert.Equal(1000.50, result.TotalCarpetAreaSqMeter);
+        Assert.Equal(1200.75, result.TotalBuiltupAreaSqMeter);
+        Assert.Equal(1500.25, result.PlotArea);
+
+        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBasicDetailsAsync_NonExistingProperty_ReturnsNull()
+    {
+        var propertyId = 999;
+
+        _mockPropertyRepository
+            .Setup(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyBasicDetailsDto?)null);
+
+        var result = await _service.GetBasicDetailsAsync(propertyId, CancellationToken.None);
+
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+}
+
+#endregion
+
+#region PropertyBasicDetailsDto Tests
+
+public class PropertyBasicDetailsDtoTests
+{
+    [Fact]
+    public void PropertyBasicDetailsDto_AllProperties_GetSet_WorksCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            WardNo = "W001",
+            ZoneId = 5,
+            Division = "North Zone",
+            PropertyNo = "PROP001",
+            PartitionNo = "A",
+            FlatOrShopNo = "101",
+            PlotNo = "P123",
+            SurveyNo = "S456",
+            TaxZoneId = 1,
+            TaxZoneNo = "TZ001",
+            CategoryId = 2,
+            CategoryName = "Residential",
+            PropertyTypeId = 3,
+            PropertyDescription = "Apartment",
+            WingNo = "B",
+            NoOfResidentialToilets = 2,
+            NoOfCommercialToilets = 1,
+            TotalCarpetAreaSqMeter = 1000.50,
+            TotalBuiltupAreaSqMeter = 1200.75,
+            PlotArea = 1500.25
+        };
+
+        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal(10, dto.WardId);
+        Assert.Equal("W001", dto.WardNo);
+        Assert.Equal(5, dto.ZoneId);
+        Assert.Equal("North Zone", dto.Division);
+        Assert.Equal("PROP001", dto.PropertyNo);
+        Assert.Equal("A", dto.PartitionNo);
+        Assert.Equal("101", dto.FlatOrShopNo);
+        Assert.Equal("P123", dto.PlotNo);
+        Assert.Equal("S456", dto.SurveyNo);
+        Assert.Equal(1, dto.TaxZoneId);
+        Assert.Equal("TZ001", dto.TaxZoneNo);
+        Assert.Equal(2, dto.CategoryId);
+        Assert.Equal("Residential", dto.CategoryName);
+        Assert.Equal(3, dto.PropertyTypeId);
+        Assert.Equal("Apartment", dto.PropertyDescription);
+        Assert.Equal("B", dto.WingNo);
+        Assert.Equal(2, dto.NoOfResidentialToilets);
+        Assert.Equal(1, dto.NoOfCommercialToilets);
+        Assert.Equal(1000.50, dto.TotalCarpetAreaSqMeter);
+        Assert.Equal(1200.75, dto.TotalBuiltupAreaSqMeter);
+        Assert.Equal(1500.25, dto.PlotArea);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_NullableProperties_CanBeNull()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            TaxZoneId = 1,
+            TotalCarpetAreaSqMeter = 0,
+            TotalBuiltupAreaSqMeter = 0
+        };
+
+        Assert.Null(dto.WardNo);
+        Assert.Null(dto.ZoneId);
+        Assert.Null(dto.Division);
+        Assert.Null(dto.PropertyNo);
+        Assert.Null(dto.PartitionNo);
+        Assert.Null(dto.FlatOrShopNo);
+        Assert.Null(dto.PlotNo);
+        Assert.Null(dto.SurveyNo);
+        Assert.Null(dto.TaxZoneNo);
+        Assert.Null(dto.CategoryId);
+        Assert.Null(dto.CategoryName);
+        Assert.Null(dto.PropertyTypeId);
+        Assert.Null(dto.PropertyDescription);
+        Assert.Null(dto.WingNo);
+        Assert.Null(dto.NoOfResidentialToilets);
+        Assert.Null(dto.NoOfCommercialToilets);
+        Assert.Null(dto.PlotArea);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_DefaultConstructor_InitializesCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto();
+
+        Assert.Equal(0, dto.PropertyId);
+        Assert.Equal(0, dto.WardId);
+        Assert.Equal(0, dto.TaxZoneId);
+        Assert.Equal(0, dto.TotalCarpetAreaSqMeter);
+        Assert.Equal(0, dto.TotalBuiltupAreaSqMeter);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_WithPartialData_WorksCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            TaxZoneId = 1,
+            PropertyNo = "PROP001",
+            TotalCarpetAreaSqMeter = 500.0,
+            TotalBuiltupAreaSqMeter = 600.0
+        };
+
+        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal("PROP001", dto.PropertyNo);
+        Assert.Null(dto.PartitionNo);
+        Assert.Null(dto.CategoryName);
+        Assert.Equal(500.0, dto.TotalCarpetAreaSqMeter);
     }
 }
 

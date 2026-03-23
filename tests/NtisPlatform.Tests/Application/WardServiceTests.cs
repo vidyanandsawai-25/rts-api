@@ -165,6 +165,7 @@ public class WardServiceTests
                 WardId = 1,
                 WardNo = dto.WardNo,
                 ZoneId = dto.ZoneId,
+
                 Description = dto.Description,
                 SequenceNo = dto.SequenceNo,
                 IsActive = true,
@@ -182,8 +183,10 @@ public class WardServiceTests
             {
                 WardId = e.WardId,
                 WardNo = e.WardNo,
-                ZoneId = e.ZoneId,
                 Description = e.Description,
+
+                ZoneId = e.ZoneId,
+
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
@@ -343,8 +346,10 @@ public class WardServiceTests
 
         var existingEntity = new WardEntity
         {
-            WardId = idToDelete,
+
+            WardId = 1,
             WardNo = "WKD1",
+
             ZoneId = 1,
             Description = "वाकड",
             SequenceNo = 1,

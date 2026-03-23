@@ -1,5 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk"><!-- All common properties are inherited from Directory.Build.props -->
 
-  <!-- All common properties are inherited from Directory.Build.props -->
 
+
+
+
+
+  <ItemGroup>
+    <Folder Include="Models\" />
+  </ItemGroup>
 </Project>

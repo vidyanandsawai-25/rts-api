@@ -28,4 +28,9 @@
 		<ProjectReference Include="..\..\src\Infrastructure\NtisPlatform.Infrastructure\NtisPlatform.Infrastructure.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Api\" />
+	  <Folder Include="Integration\" />
+	</ItemGroup>
+
 </Project>

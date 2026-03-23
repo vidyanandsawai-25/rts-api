@@ -31,7 +31,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
-    public DbSet<TaxZoneEntity> TaxZoneEntity { get; set; } = null!;
+    public DbSet<TaxZoneEntity> TaxZoneMaster { get; set; } = null!;
     public DbSet<AssessmentYearRangeEntity> AssessmentYearRangeEntities { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
     public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
@@ -43,8 +43,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
-    public DbSet<ZoneEntity> Zones { get; set; } = null!;
-    public DbSet<WardEntity> WardEntity { get; set; } = null!;
+    public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
+    public DbSet<WardEntity> WardMaster { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<ScreenMasterEntity> ScreenMaster { get; set; } = null!;
@@ -63,9 +63,18 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
     public DbSet<PropertyCategoryEntity> PropertyCategory { get; set; } = null!;
+    public DbSet<PropertyTypeEntity> PropertyTypeMaster { get; set; } = null!;
+    public DbSet<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = null!;
+    public DbSet<PropertyDetailsEntity> PropertyDetails { get; set; } = null!;
+    public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
+
+    public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
+
+
 	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -162,11 +171,13 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("WardMaster", "PTIS");
             entity.HasKey(x => x.WardId);
-            entity.Property(x => x.WardNo);
-            entity.Property(x => x.ZoneId);  // Now maps to INT column correctly
-            entity.Property(x => x.Description);
+            entity.Property(x => x.WardId).ValueGeneratedOnAdd();
+            entity.Property(x => x.WardNo).IsRequired().HasMaxLength(10);
+            entity.Property(x => x.ZoneId).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(50);
             entity.Property(x => x.SequenceNo);
-            entity.Property(x => x.IsActive);
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(x => x.WardNo).IsUnique();
         });
 
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
@@ -217,10 +228,11 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ZoneMaster", "PTIS");
             entity.HasKey(x => x.ZoneId);
+            entity.Property(x => x.ZoneId).ValueGeneratedOnAdd();
+            entity.Property(x => x.Description).IsRequired().HasMaxLength(50);
             entity.Property(x => x.ZoneNo);
-            entity.Property(x => x.Description);
             entity.Property(x => x.SequenceNo);
-            entity.Property(x => x.IsActive);
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
         });
         // User configuration
         modelBuilder.Entity<User>(entity =>
@@ -757,6 +769,93 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyCategoryName).IsUnique().HasDatabaseName("UQ_PropertyCategory_Name");
         });
 
+        // PropertyType configuration
+        modelBuilder.Entity<PropertyTypeEntity>(entity =>
+        {
+            entity.ToTable("PropertyTypeMaster", "PTIS");
+            entity.HasKey(e => e.PropertyTypeId);
+            entity.Property(e => e.PropertyTypeId).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyDescription).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+        });
+
+        // PropertyAssessment configuration (PropertyMastDetails table)
+        modelBuilder.Entity<PropertyAssessmentEntity>(entity =>
+        {
+            entity.ToTable("PropertyMastDetails", "PTIS");
+            entity.HasKey(e => e.PropertyDetailsId);
+            entity.Property(e => e.PropertyDetailsId).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.WingId);
+            entity.Property(e => e.WingNo).HasMaxLength(50);
+            entity.Property(e => e.NoOfResidentialToilets);
+            entity.Property(e => e.NoOfCommercialToilets);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PropertyDetails configuration
+        modelBuilder.Entity<PropertyDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertyDetails", "PTIS");
+            entity.HasKey(e => e.PropertyDetailsId);
+            entity.Property(e => e.PropertyDetailsId).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.CarpetAreaSqMeter).HasColumnType("float");
+            entity.Property(e => e.BuiltupAreaSqMeter).HasColumnType("float");
+            entity.Property(e => e.CarpetAreaSqFeet).HasColumnType("float");
+            entity.Property(e => e.BuiltupAreaSqFeet).HasColumnType("float");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PlotDetails configuration
+        modelBuilder.Entity<PlotDetailsEntity>(entity =>
+        {
+            entity.ToTable("PlotDetails", "PTIS");
+            entity.HasKey(e => e.PlotId);
+            entity.Property(e => e.PlotId).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PlotArea).HasColumnType("float");
+            entity.Property(e => e.PlotAreaFtLength).HasColumnType("float");
+            entity.Property(e => e.PlotAreaFtWidth).HasColumnType("float");
+            entity.Property(e => e.PlotAreaMtrLength).HasColumnType("float");
+            entity.Property(e => e.PlotAreaMtrWidth).HasColumnType("float");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // SocietyDetails configuration
+        modelBuilder.Entity<SocietyDetailsEntity>(entity =>
+        {
+            entity.ToTable("SocietyDetailsMast", "PTIS");
+            entity.HasKey(e => e.SocietyDetailId);
+            entity.Property(e => e.SocietyDetailId).ValueGeneratedOnAdd();
+            entity.Property(e => e.WingId);
+            entity.Property(e => e.WingName).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+        });
+
         // Property configuration
         modelBuilder.Entity<PropertyEntity>(entity =>
         {
@@ -801,8 +900,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
-            // Unique index on WardId, PropertyNo, PartitionNo
             entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })
                 .IsUnique()
                 .HasFilter("[PropertyNo] IS NOT NULL AND [PartitionNo] IS NOT NULL")
