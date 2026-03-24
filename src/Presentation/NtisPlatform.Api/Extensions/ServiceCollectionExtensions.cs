@@ -95,6 +95,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleWiseScreenAccessMasterService, RoleWiseScreenAccessMasterService>();
         services.AddScoped<IDesignationMasterService, DesignationMasterService>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         // Localization (DB-backed)
         services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();       
         services.AddScoped<IModuleMasterService, ModuleMasterService>();

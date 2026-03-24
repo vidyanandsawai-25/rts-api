@@ -72,8 +72,8 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
 
-
-	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
+    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -920,9 +920,19 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.CategoryCode).IsUnique();
        
-        }); 
-		
-		modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
+        });
+        modelBuilder.Entity<OwnerTypeEntity>(entity =>
+        {
+            entity.ToTable("OwnerTypeMaster", "PTIS");
+            entity.HasKey(e => e.OwnerTypeId);
+            entity.Property(e => e.OwnerType).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.IsActive);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+        });
+        modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
         {
             entity.ToTable("ConfigKeyMaster", "Core");
             entity.HasKey(e => e.ConfigKeyId);
