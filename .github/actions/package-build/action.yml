@@ -167,6 +167,24 @@ runs:
 
         Write-Output "Platform assemblies generated successfully"
 
+    - name: Create zip archives
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+        $environment = '${{ steps.version_setup.outputs.environment }}'
+        $apiZip = "ntis-platform-api-$environment-v$version.zip"
+        $workerZip = "ntis-platform-worker-$environment-v$version.zip"
+
+        Write-Output "Creating API zip archive..."
+        Compress-Archive -Path "publish/api/*" -DestinationPath $apiZip -Force
+        $apiZipSize = [math]::Round((Get-Item $apiZip).Length / 1MB, 2)
+        Write-Output "Created $apiZip ($apiZipSize MB)"
+
+        Write-Output "Creating Worker zip archive..."
+        Compress-Archive -Path "publish/worker/*" -DestinationPath $workerZip -Force
+        $workerZipSize = [math]::Round((Get-Item $workerZip).Length / 1MB, 2)
+        Write-Output "Created $workerZip ($workerZipSize MB)"
+
     - name: Upload to Azure Blob Storage
       shell: pwsh
       run: |
@@ -175,35 +193,36 @@ runs:
         $containerName = '${{ inputs.package-container-name }}'
         $connectionString = '${{ inputs.package-connection-string }}'
         $basePath = "$environment/$version/platform"
+        $apiZip = "ntis-platform-api-$environment-v$version.zip"
+        $workerZip = "ntis-platform-worker-$environment-v$version.zip"
 
         Write-Output "Uploading to Azure Blob Storage..."
         Write-Output "Container: $containerName"
         Write-Output "Path: $basePath"
 
-        Write-Output "Uploading API files..."
-        $apiRoot = (Resolve-Path 'publish/api').Path
-        Get-ChildItem -Path $apiRoot -Recurse -File | ForEach-Object {
-          $relativePath = [System.IO.Path]::GetRelativePath($apiRoot, $_.FullName)
-          $blobName = "$basePath/api/$relativePath".Replace('\\', '/')
-          az storage blob upload `
-            --connection-string "$connectionString" `
-            --container-name "$containerName" `
-            --file $_.FullName `
-            --name $blobName `
-            --overwrite
-          Write-Output "Uploaded: $blobName"
-        }
+        Write-Output "Uploading API zip..."
+        az storage blob upload `
+          --connection-string "$connectionString" `
+          --container-name "$containerName" `
+          --file $apiZip `
+          --name "$basePath/$apiZip" `
+          --overwrite
+        Write-Output "Uploaded: $basePath/$apiZip"
 
-        Write-Output "Uploading Worker files..."
-        $workerRoot = (Resolve-Path 'publish/worker').Path
-        Get-ChildItem -Path $workerRoot -Recurse -File | ForEach-Object {
-          $relativePath = [System.IO.Path]::GetRelativePath($workerRoot, $_.FullName)
-          $blobName = "$basePath/worker/$relativePath".Replace('\\', '/')
-          az storage blob upload `
-            --connection-string "$connectionString" `
-            --container-name "$containerName" `
-            --file $_.FullName `
-            --name $blobName `
-            --overwrite
-          Write-Output "Uploaded: $blobName"
-        }
+        Write-Output "Uploading Worker zip..."
+        az storage blob upload `
+          --connection-string "$connectionString" `
+          --container-name "$containerName" `
+          --file $workerZip `
+          --name "$basePath/$workerZip" `
+          --overwrite
+        Write-Output "Uploaded: $basePath/$workerZip"
+
+    - name: Cleanup zip files
+      if: ${{ always() }}
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+        $environment = '${{ steps.version_setup.outputs.environment }}'
+        Remove-Item -Path "ntis-platform-api-$environment-v$version.zip" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "ntis-platform-worker-$environment-v$version.zip" -Force -ErrorAction SilentlyContinue
