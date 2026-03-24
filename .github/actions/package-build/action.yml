@@ -76,8 +76,8 @@ runs:
     - name: Restore dependencies
       shell: pwsh
       run: |
-        Write-Output "Restoring NuGet packages..."
-        dotnet restore
+        Write-Output "Restoring NuGet packages for win-x64..."
+        dotnet restore --runtime win-x64
         Write-Output "Dependencies restored successfully"
 
     - name: Build solution with version
@@ -85,11 +85,12 @@ runs:
       run: |
         $version = '${{ steps.version_setup.outputs.version }}'
 
-        Write-Output "Building NTIS-Platform v$version in Release configuration..."
+        Write-Output "Building NTIS-Platform v$version in Release configuration for win-x64..."
 
         dotnet build `
           --configuration Release `
           --no-restore `
+          --runtime win-x64 `
           -p:Version=$version `
           -p:AssemblyVersion=$version `
           -p:FileVersion=$version `
@@ -205,4 +206,3 @@ runs:
             --overwrite
           Write-Output "Uploaded: $blobName"
         }
-
