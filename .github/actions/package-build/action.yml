@@ -76,8 +76,8 @@ runs:
     - name: Restore dependencies
       shell: pwsh
       run: |
-        Write-Output "Restoring NuGet packages for win-x64..."
-        dotnet restore --runtime win-x64
+        Write-Output "Restoring NuGet packages..."
+        dotnet restore
         Write-Output "Dependencies restored successfully"
 
     - name: Build solution with version
@@ -85,12 +85,11 @@ runs:
       run: |
         $version = '${{ steps.version_setup.outputs.version }}'
 
-        Write-Output "Building NTIS-Platform v$version in Release configuration for win-x64..."
+        Write-Output "Building NTIS-Platform v$version in Release configuration..."
 
         dotnet build `
           --configuration Release `
           --no-restore `
-          --runtime win-x64 `
           -p:Version=$version `
           -p:AssemblyVersion=$version `
           -p:FileVersion=$version `
@@ -108,12 +107,12 @@ runs:
         dotnet publish src/Presentation/NtisPlatform.Api/NtisPlatform.Api.csproj `
           --configuration Release `
           --output publish/api `
-          --no-build `
-          --self-contained false `
           --runtime win-x64 `
+          --self-contained false `
           -p:Version=$version `
           -p:AssemblyVersion=$version `
           -p:FileVersion=$version `
+          -p:InformationalVersion=$version `
           --verbosity normal
 
         Write-Output "API published successfully"
@@ -128,12 +127,12 @@ runs:
         dotnet publish src/Presentation/NtisPlatform.Worker/NtisPlatform.Worker.csproj `
           --configuration Release `
           --output publish/worker `
-          --no-build `
-          --self-contained false `
           --runtime win-x64 `
+          --self-contained false `
           -p:Version=$version `
           -p:AssemblyVersion=$version `
           -p:FileVersion=$version `
+          -p:InformationalVersion=$version `
           --verbosity normal
 
         Write-Output "Worker published successfully"
