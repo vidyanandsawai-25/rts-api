@@ -32,7 +32,7 @@ jobs:
       branch: ${{ steps.package-build.outputs.branch }}
     steps:
       - name: Checkout NTIS-Platform
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ env.TARGET_BRANCH }}
 
@@ -76,4 +76,5 @@ jobs:
             Write-Warning "NTIS Platform build encountered issues"
             Write-Output "Please check the build logs for details"
           }
+
 

@@ -1,4 +1,4 @@
-name: CI Build and Test
+﻿name: CI Build and Test
 
 on:
   pull_request:
@@ -16,12 +16,12 @@ jobs:
         shell: powershell -ExecutionPolicy Bypass -Command "& '{0}'"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           clean: true
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '10.0.x'
 
@@ -69,3 +69,4 @@ jobs:
 
       - name: Write to Job Summary
         run: Get-Content code-coverage-results.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+
