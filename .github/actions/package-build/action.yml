@@ -181,8 +181,9 @@ runs:
         Write-Output "Path: $basePath"
 
         Write-Output "Uploading API files..."
-        Get-ChildItem -Path 'publish/api' -Recurse -File | ForEach-Object {
-          $relativePath = $_.FullName.Replace((Resolve-Path 'publish/api').Path, '').TrimStart([char[]]@('\\', '/'))
+        $apiRoot = (Resolve-Path 'publish/api').Path
+        Get-ChildItem -Path $apiRoot -Recurse -File | ForEach-Object {
+          $relativePath = [System.IO.Path]::GetRelativePath($apiRoot, $_.FullName)
           $blobName = "$basePath/api/$relativePath".Replace('\\', '/')
           az storage blob upload `
             --connection-string "$connectionString" `
@@ -194,8 +195,9 @@ runs:
         }
 
         Write-Output "Uploading Worker files..."
-        Get-ChildItem -Path 'publish/worker' -Recurse -File | ForEach-Object {
-          $relativePath = $_.FullName.Replace((Resolve-Path 'publish/worker').Path, '').TrimStart([char[]]@('\\', '/'))
+        $workerRoot = (Resolve-Path 'publish/worker').Path
+        Get-ChildItem -Path $workerRoot -Recurse -File | ForEach-Object {
+          $relativePath = [System.IO.Path]::GetRelativePath($workerRoot, $_.FullName)
           $blobName = "$basePath/worker/$relativePath".Replace('\\', '/')
           az storage blob upload `
             --connection-string "$connectionString" `
@@ -205,5 +207,3 @@ runs:
             --overwrite
           Write-Output "Uploaded: $blobName"
         }
-
-
