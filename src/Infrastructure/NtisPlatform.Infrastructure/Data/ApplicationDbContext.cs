@@ -69,11 +69,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
-
-    public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
-
-    public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<WingEntity> WingEntity { get; set; } = null!;
+    public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
+    public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
+
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -482,7 +483,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            
+
             // Foreign key relationships
             entity.HasOne(e => e.UserRole)
                   .WithMany()
@@ -493,19 +494,19 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.ScreenId)
                   .OnDelete(DeleteBehavior.Restrict); // Prevent cascade delete
-            
+
             // Unique constraint on UserRoleId + ScreenId combination (filtered for active records only)
             // This allows re-creating a role-screen access after it was soft-deleted
             entity.HasIndex(e => new { e.UserRoleId, e.ScreenId })
                   .IsUnique()
                   .HasFilter("[IsActive] = 1")
                   .HasDatabaseName("UX_RoleWiseScreenAccess_UserRole_Screen_Active");
-            
+
             // Optimized filtered indexes for query performance
             entity.HasIndex(e => new { e.UserRoleId, e.IsActive })
                   .HasFilter("[IsActive] = 1")
                   .HasDatabaseName("IX_RoleWiseScreenAccess_UserRole_Active");
-            
+
             entity.HasIndex(e => new { e.ScreenId, e.IsActive })
                   .HasFilter("[IsActive] = 1")
                   .HasDatabaseName("IX_RoleWiseScreenAccess_Screen_Active");
@@ -561,7 +562,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(x => x.RateSectionId);
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
-           
+
         });
         modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
@@ -603,7 +604,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
-              entity.HasKey(e => e.ModuleMasterId);
+            entity.HasKey(e => e.ModuleMasterId);
             entity.Property(e => e.DepartmentMasterId)
                 .IsRequired();
             entity.Property(e => e.ModuleCode)
@@ -619,7 +620,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
-          
+
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
                 .WithMany()
@@ -667,50 +668,50 @@ public class ApplicationDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.DesignationId);
             entity.HasIndex(e => e.DesignationCode).IsUnique();
-		});
+        });
 
-		// ActiveTaxes configuration
-		modelBuilder.Entity<ActiveTaxesEntity>(entity =>
-		{
-			entity.ToTable("ActiveTaxesMaster", "PTIS");
-			entity.HasKey(x => x.ActiveTaxesId);
-			entity.Property(x => x.ActiveTaxesId).ValueGeneratedOnAdd();
-			entity.Property(x => x.TaxName).HasMaxLength(200);
-			entity.Property(x => x.TaxNameAlias).HasMaxLength(200);
-			entity.Property(x => x.DisplayOrder);
-			entity.Property(x => x.TaxOnUnit).IsRequired().HasDefaultValue(false);
-			entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
-			entity.Property(x => x.CreatedBy);
-			entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()");
-			entity.Property(x => x.UpdatedBy);
-			entity.Property(x => x.UpdatedDate);
-		});
+        // ActiveTaxes configuration
+        modelBuilder.Entity<ActiveTaxesEntity>(entity =>
+        {
+            entity.ToTable("ActiveTaxesMaster", "PTIS");
+            entity.HasKey(x => x.ActiveTaxesId);
+            entity.Property(x => x.ActiveTaxesId).ValueGeneratedOnAdd();
+            entity.Property(x => x.TaxName).HasMaxLength(200);
+            entity.Property(x => x.TaxNameAlias).HasMaxLength(200);
+            entity.Property(x => x.DisplayOrder);
+            entity.Property(x => x.TaxOnUnit).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
+        });
 
-		// GrievanceCategoryMaster configuration
-		modelBuilder.Entity<GrievanceCategoryEntity>(entity =>
-		{
-			entity.ToTable("GrievanceCategoryMaster", "Core");
-			entity.HasKey(e => e.GrievanceCategoryId);
-			entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
-			entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
-			entity.Property(e => e.DepartmentId);
-			entity.Property(e => e.Priority).IsRequired().HasMaxLength(50);
-			entity.Property(e => e.ResolutionSla).HasMaxLength(100);
-			entity.Property(e => e.EscalationLevel).HasMaxLength(100);
-			entity.Property(e => e.Description).HasMaxLength(1000);
-			entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-			entity.Property(e => e.CreatedBy);
-			entity.Property(e => e.CreatedDate);
-			entity.Property(e => e.UpdatedBy);
-			entity.Property(e => e.UpdatedDate);
-			entity.HasOne(e => e.Department).WithMany().HasForeignKey(e => e.DepartmentId).OnDelete(DeleteBehavior.Restrict);
-			entity.HasIndex(e => e.CategoryCode).IsUnique();
-			entity.HasIndex(e => e.CategoryName);
-			entity.HasIndex(e => e.DepartmentId);
-			entity.HasIndex(e => e.Priority);
-			entity.HasIndex(e => e.IsActive);
-		});
- 
+        // GrievanceCategoryMaster configuration
+        modelBuilder.Entity<GrievanceCategoryEntity>(entity =>
+        {
+            entity.ToTable("GrievanceCategoryMaster", "Core");
+            entity.HasKey(e => e.GrievanceCategoryId);
+            entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DepartmentId);
+            entity.Property(e => e.Priority).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ResolutionSla).HasMaxLength(100);
+            entity.Property(e => e.EscalationLevel).HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasOne(e => e.Department).WithMany().HasForeignKey(e => e.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.CategoryCode).IsUnique();
+            entity.HasIndex(e => e.CategoryName);
+            entity.HasIndex(e => e.DepartmentId);
+            entity.HasIndex(e => e.Priority);
+            entity.HasIndex(e => e.IsActive);
+        });
+
         modelBuilder.Entity<ULBMasterEntity>(entity =>
         {
             entity.ToTable("ULBMaster", "Core");
@@ -741,7 +742,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired();
 
             // Ignore BaseEntity properties that don't exist in database
-            
+
             entity.Ignore(e => e.CreatedDate);
             entity.Ignore(e => e.UpdatedDate);
             entity.Ignore(e => e.CreatedBy);
@@ -900,6 +901,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+
+            // Unique index on WardId, PropertyNo, PartitionNo
             entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })
                 .IsUnique()
                 .HasFilter("[PropertyNo] IS NOT NULL AND [PartitionNo] IS NOT NULL")
@@ -907,20 +910,19 @@ public class ApplicationDbContext : DbContext
         });
 
 
-		  modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
-        {
-            entity.ToTable("ConfigCategoryMaster", "Core");
-            entity.HasKey(e => e.CategoryId);
-            entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
-            entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.CreatedDate);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.UpdatedBy);
+        modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
+      {
+          entity.ToTable("ConfigCategoryMaster", "Core");
+          entity.HasKey(e => e.CategoryId);
+          entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
+          entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
+          entity.Property(e => e.CreatedDate);
+          entity.Property(e => e.CreatedBy);
+          entity.Property(e => e.UpdatedDate);
+          entity.Property(e => e.UpdatedBy);
+          entity.HasIndex(e => e.CategoryCode).IsUnique();
 
-            entity.HasIndex(e => e.CategoryCode).IsUnique();
-       
-        });
+      });
         modelBuilder.Entity<OwnerTypeEntity>(entity =>
         {
             entity.ToTable("OwnerTypeMaster", "PTIS");
@@ -942,20 +944,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DataType).HasMaxLength(20);
             entity.Property(e => e.ControlType).HasMaxLength(30);
             entity.Property(e => e.DefaultValue).HasMaxLength(500);
-            
+
             // Foreign Key Relationship
             entity.HasOne(e => e.Category)
                 .WithMany(c => c.ConfigKeys)
                 .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             // Indexes
             entity.HasIndex(e => e.ConfigCode).IsUnique();
             entity.HasIndex(e => e.CategoryId);
             entity.HasIndex(e => e.IsActive);
         });
 
-		modelBuilder.Entity<ConfigValueMasterEntity>(entity =>
+        modelBuilder.Entity<ConfigValueMasterEntity>(entity =>
         {
             entity.ToTable("ConfigValueMaster", "Core");
             entity.HasKey(e => e.ConfigValueId);
@@ -964,28 +966,41 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.UpdatedBy);
-            
+
             // Foreign Key Relationships
             entity.HasOne(e => e.ConfigKey)
                 .WithMany()
                 .HasForeignKey(e => e.ConfigKeyId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             entity.HasOne(e => e.Department)
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             entity.HasOne(e => e.Module)
                 .WithMany()
                 .HasForeignKey(e => e.ModuleId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             // Indexes
             entity.HasIndex(e => e.ConfigKeyId);
             entity.HasIndex(e => e.DepartmentId);
             entity.HasIndex(e => e.ModuleId);
             entity.HasIndex(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<WingEntity>(entity =>
+        {
+            entity.ToTable("WingMaster", "PTIS");
+            entity.HasKey(x => x.WingId);
+            entity.Property(x => x.WingNo).IsRequired().HasMaxLength(10);
+            entity.Property(x => x.SequenceNo);
+            entity.Property(x => x.IsActive);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedDate);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.UpdatedBy);
         });
     }
 }

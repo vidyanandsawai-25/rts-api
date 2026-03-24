@@ -106,6 +106,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
+        services.AddScoped<IWingService, WingService>();
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
         // API Layer - Controllers, Swagger, CORS
@@ -146,7 +147,7 @@ public static class ServiceCollectionExtensions
 
         // JWT Authentication - Validate JWT Key
         var jwtKey = configuration.GetValue<string>("Jwt:Key");
-        
+
         if (string.IsNullOrWhiteSpace(jwtKey))
         {
             throw new InvalidOperationException(
