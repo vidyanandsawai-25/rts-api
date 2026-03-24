@@ -1,0 +1,208 @@
+﻿name: NTIS Platform Package Build
+description: Build, publish, and upload the NTIS Platform artifacts.
+
+inputs:
+  version:
+    description: Release version in x.y.z.w format.
+    required: true
+  branch:
+    description: Branch being built.
+    required: false
+    default: main
+  branch-env-map:
+    description: JSON mapping of branch names to environment names.
+    required: true
+  package-container-name:
+    description: Azure Blob container name for package uploads.
+    required: true
+  package-connection-string:
+    description: Azure Storage connection string.
+    required: true
+  dotnet-version:
+    description: .NET SDK version to use.
+    required: false
+    default: 10.x
+
+outputs:
+  version:
+    description: Validated version.
+    value: ${{ steps.version_setup.outputs.version }}
+  artifact-name:
+    description: Generated artifact name.
+    value: ${{ steps.version_setup.outputs.artifact-name }}
+  environment:
+    description: Target environment derived from branch.
+    value: ${{ steps.version_setup.outputs.environment }}
+  branch:
+    description: Branch used for the build.
+    value: ${{ steps.version_setup.outputs.branch }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup version and validation
+      id: version_setup
+      shell: pwsh
+      run: |
+        $version = '${{ inputs.version }}'
+        $branch = '${{ inputs.branch }}'
+        $branchEnvMap = '${{ inputs.branch-env-map }}' | ConvertFrom-Json
+        $environment = if ($branchEnvMap.PSObject.Properties[$branch]) {
+          $branchEnvMap.$branch
+        } else {
+          'production'
+        }
+
+        if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+          Write-Error "Invalid version format: $version. Expected: x.y.z.w"
+          exit 1
+        }
+
+        $artifactName = "ntis-platform-$environment-v$version"
+
+        "version=$version" >> $env:GITHUB_OUTPUT
+        "artifact-name=$artifactName" >> $env:GITHUB_OUTPUT
+        "environment=$environment" >> $env:GITHUB_OUTPUT
+        "branch=$branch" >> $env:GITHUB_OUTPUT
+
+        Write-Output "Building NTIS-Platform v$version for $environment"
+        Write-Output "Artifact name: $artifactName"
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Restore dependencies
+      shell: pwsh
+      run: |
+        Write-Output "Restoring NuGet packages..."
+        dotnet restore
+        Write-Output "Dependencies restored successfully"
+
+    - name: Build solution with version
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+
+        Write-Output "Building NTIS-Platform v$version in Release configuration..."
+
+        dotnet build `
+          --configuration Release `
+          --no-restore `
+          -p:Version=$version `
+          -p:AssemblyVersion=$version `
+          -p:FileVersion=$version `
+          -p:InformationalVersion=$version
+
+        Write-Output "Build completed successfully"
+
+    - name: Publish API
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+
+        Write-Output "Publishing NTIS Platform API v$version..."
+
+        dotnet publish src/Presentation/NtisPlatform.Api/NtisPlatform.Api.csproj `
+          --configuration Release `
+          --output publish/api `
+          --no-build `
+          --self-contained false `
+          --runtime win-x64 `
+          -p:Version=$version `
+          -p:AssemblyVersion=$version `
+          -p:FileVersion=$version `
+          --verbosity normal
+
+        Write-Output "API published successfully"
+
+    - name: Publish Worker
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+
+        Write-Output "Publishing NTIS Platform Worker v$version..."
+
+        dotnet publish src/Presentation/NtisPlatform.Worker/NtisPlatform.Worker.csproj `
+          --configuration Release `
+          --output publish/worker `
+          --no-build `
+          --self-contained false `
+          --runtime win-x64 `
+          -p:Version=$version `
+          -p:AssemblyVersion=$version `
+          -p:FileVersion=$version `
+          --verbosity normal
+
+        Write-Output "Worker published successfully"
+
+    - name: Analyze build output
+      shell: pwsh
+      run: |
+        if (Test-Path 'publish/api') {
+          $apiSize = (Get-ChildItem -Path 'publish/api' -Recurse | Measure-Object -Property Length -Sum).Sum
+          $apiSizeMB = [math]::Round($apiSize / 1MB, 2)
+          Write-Output "API build size: $apiSizeMB MB"
+        }
+
+        if (Test-Path 'publish/worker') {
+          $workerSize = (Get-ChildItem -Path 'publish/worker' -Recurse | Measure-Object -Property Length -Sum).Sum
+          $workerSizeMB = [math]::Round($workerSize / 1MB, 2)
+          Write-Output "Worker build size: $workerSizeMB MB"
+        }
+
+        $apiDll = 'publish/api/NtisPlatform.Api.dll'
+        $workerDll = 'publish/worker/NtisPlatform.Worker.dll'
+
+        if (-not (Test-Path $apiDll)) {
+          Write-Error "API assembly not found"
+          exit 1
+        }
+
+        if (-not (Test-Path $workerDll)) {
+          Write-Error "Worker assembly not found"
+          exit 1
+        }
+
+        Write-Output "Platform assemblies generated successfully"
+
+    - name: Upload to Azure Blob Storage
+      shell: pwsh
+      run: |
+        $version = '${{ steps.version_setup.outputs.version }}'
+        $environment = '${{ steps.version_setup.outputs.environment }}'
+        $containerName = '${{ inputs.package-container-name }}'
+        $connectionString = '${{ inputs.package-connection-string }}'
+        $basePath = "$environment/$version/platform"
+
+        Write-Output "Uploading to Azure Blob Storage..."
+        Write-Output "Container: $containerName"
+        Write-Output "Path: $basePath"
+
+        Write-Output "Uploading API files..."
+        Get-ChildItem -Path 'publish/api' -Recurse -File | ForEach-Object {
+          $relativePath = $_.FullName.Replace((Resolve-Path 'publish/api').Path, '').TrimStart('\\', '/')
+          $blobName = "$basePath/api/$relativePath".Replace('\\', '/')
+          az storage blob upload `
+            --connection-string "$connectionString" `
+            --container-name "$containerName" `
+            --file $_.FullName `
+            --name $blobName `
+            --overwrite
+          Write-Output "Uploaded: $blobName"
+        }
+
+        Write-Output "Uploading Worker files..."
+        Get-ChildItem -Path 'publish/worker' -Recurse -File | ForEach-Object {
+          $relativePath = $_.FullName.Replace((Resolve-Path 'publish/worker').Path, '').TrimStart('\\', '/')
+          $blobName = "$basePath/worker/$relativePath".Replace('\\', '/')
+          az storage blob upload `
+            --connection-string "$connectionString" `
+            --container-name "$containerName" `
+            --file $_.FullName `
+            --name $blobName `
+            --overwrite
+          Write-Output "Uploaded: $blobName"
+        }
+

@@ -1,28 +1,14 @@
-name: Package Build - NTIS Platform (.NET)
+﻿name: Package Build - NTIS Platform (.NET)
 
 on:
-  # Composite workflow trigger from ntis-devops
-  workflow_call:
-    inputs:
-      version:
-        description: 'Release version'
-        required: true
-        type: string
-      branch:
-        description: 'Branch to build from'
-        required: false
-        type: string
-        default: 'main'
-        
-  # Independent manual trigger
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.2.3.0)'
+        description: Release version (e.g., 1.2.3.4)
         required: true
         type: string
       branch:
-        description: 'Branch to build from'
+        description: Branch to build from
         required: false
         type: choice
         options:
@@ -32,257 +18,62 @@ on:
         default: main
 
 env:
-  DOTNET_VERSION: '10.x'
-  RELEASE_VERSION: ${{ github.event.inputs.version || github.ref_name }}
+  RELEASE_VERSION: ${{ github.event.inputs.version }}
   TARGET_BRANCH: ${{ github.event.inputs.branch || 'main' }}
 
 jobs:
-  validate-environment:
-    name: Validate Build Environment
+  build-platform:
+    name: Build .NET Platform
     runs-on: [self-hosted, package]
     outputs:
-      version: ${{ steps.version-setup.outputs.version }}
-      artifact-name: ${{ steps.version-setup.outputs.artifact-name }}
-      environment: ${{ steps.version-setup.outputs.environment }}
-      branch: ${{ steps.version-setup.outputs.branch }}
+      version: ${{ steps.package-build.outputs.version }}
+      artifact-name: ${{ steps.package-build.outputs.artifact-name }}
+      environment: ${{ steps.package-build.outputs.environment }}
+      branch: ${{ steps.package-build.outputs.branch }}
     steps:
       - name: Checkout NTIS-Platform
         uses: actions/checkout@v4
         with:
           ref: ${{ env.TARGET_BRANCH }}
-      
-      - name: Setup version and validation
-        id: version-setup
-        run: |
-          # Extract version from tag if triggered by push
-          if ('${{ github.event_name }}' -eq 'push' -and '${{ github.ref }}' -match 'refs/tags/v(.*)') {
-            $version = $matches[1]
-            Write-Output "Detected version from tag: $version"
-          } else {
-            $version = '${{ env.RELEASE_VERSION }}'
-            Write-Output "Using input version: $version"
-          }
-          
-          # Determine branch and environment from repository variable
-          $branch = '${{ env.TARGET_BRANCH }}'
-          $branchEnvMap = '${{ vars.BRANCH_ENV_MAP }}' | ConvertFrom-Json
-          $environment = if ($branchEnvMap.PSObject.Properties[$branch]) { 
-            $branchEnvMap.$branch 
-          } else { 
-            'production' 
-          }
-          
-          # Validate semantic version
-          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
-            Write-Error "Invalid version format: $version. Expected: x.y.z.w"
-            exit 1
-          }
-          
-          $artifactName = "ntis-platform-$environment-v$version"
-          
-          Write-Output "version=$version" >> $env:GITHUB_OUTPUT
-          Write-Output "artifact-name=$artifactName" >> $env:GITHUB_OUTPUT
-          Write-Output "environment=$environment" >> $env:GITHUB_OUTPUT
-          Write-Output "branch=$branch" >> $env:GITHUB_OUTPUT
-          Write-Output "artifact-name=$artifactName" >> $env:GITHUB_OUTPUT
-          
-          Write-Output "🏗️ Building NTIS-Platform v$version for production"
-          Write-Output "📦 Artifact name: $artifactName"
-        shell: pwsh
 
-  build-platform:
-    name: Build .NET Platform
-    runs-on: [self-hosted, package]
-    needs: validate-environment
-    steps:
-      - name: Checkout NTIS-Platform
-        uses: actions/checkout@v4
-        
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Run package build action
+        id: package-build
+        uses: ./.github/actions/package-build
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-          
-      - name: Restore dependencies
-        run: |
-          Write-Output "📥 Restoring NuGet packages..."
-          dotnet restore
-          Write-Output "✅ Dependencies restored successfully"
-        shell: pwsh
-        
-      - name: Build solution with version
-        run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
-          Write-Output "🔨 Building NTIS-Platform v$version in Release configuration..."
-          
-          dotnet build `
-            --configuration Release `
-            --no-restore `
-            -p:Version=$version `
-            -p:AssemblyVersion=$version `
-            -p:FileVersion=$version `
-            -p:InformationalVersion=$version
-          
-          Write-Output "✅ Build completed successfully"
-        shell: pwsh
-        
-      - name: Publish API
-        run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
-          Write-Output "📦 Publishing NTIS Platform API v$version..."
-          
-          dotnet publish src/Presentation/NtisPlatform.Api/NtisPlatform.Api.csproj `
-            --configuration Release `
-            --output publish/api `
-            --no-build `
-            --self-contained false `
-            -p:Version=$version `
-            -p:AssemblyVersion=$version `
-            -p:FileVersion=$version `
-            --verbosity normal
-          
-          Write-Output "✅ API published successfully"
-        shell: pwsh
-        
-      - name: Publish Worker
-        run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
-          Write-Output "📦 Publishing NTIS Platform Worker v$version..."
-          
-          dotnet publish src/Presentation/NtisPlatform.Worker/NtisPlatform.Worker.csproj `
-            --configuration Release `
-            --output publish/worker `
-            --no-build `
-            --self-contained false `
-            -p:Version=$version `
-            -p:AssemblyVersion=$version `
-            -p:FileVersion=$version `
-            --verbosity normal
-          
-          Write-Output "✅ Worker published successfully"
-        shell: pwsh
-        
-      - name: Analyze build output
-        run: |
-          if (Test-Path 'publish/api') {
-            $apiSize = (Get-ChildItem -Path 'publish/api' -Recurse | Measure-Object -Property Length -Sum).Sum
-            $apiSizeMB = [math]::Round($apiSize / 1MB, 2)
-            Write-Output "📊 API build size: $apiSizeMB MB"
-          }
-          
-          if (Test-Path 'publish/worker') {
-            $workerSize = (Get-ChildItem -Path 'publish/worker' -Recurse | Measure-Object -Property Length -Sum).Sum
-            $workerSizeMB = [math]::Round($workerSize / 1MB, 2)
-            Write-Output "📊 Worker build size: $workerSizeMB MB"
-          }
-          
-          # Check for critical assemblies
-          $apiDll = 'publish/api/NtisPlatform.Api.dll'
-          $workerDll = 'publish/worker/NtisPlatform.Worker.dll'
-          
-          if (Test-Path $apiDll) {
-            Write-Output "✅ API assembly generated successfully"
-          } else {
-            Write-Error "❌ API assembly not found"
-            exit 1
-          }
-          
-          if (Test-Path $workerDll) {
-            Write-Output "✅ Worker assembly generated successfully"
-          } else {
-            Write-Error "❌ Worker assembly not found"
-            exit 1
-          }
-        shell: pwsh
-        
-      - name: Create zip archives
-        run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
-          $environment = '${{ needs.validate-environment.outputs.environment }}'
-          
-          Write-Output "📦 Creating zip archives..."
-          
-          # Create API zip
-          $apiZip = "ntis-platform-api-$environment-v$version.zip"
-          Compress-Archive -Path 'publish/api/*' -DestinationPath $apiZip -Force
-          $apiZipSize = [math]::Round((Get-Item $apiZip).Length / 1MB, 2)
-          Write-Output "✅ Created $apiZip ($apiZipSize MB)"
-          
-          # Create Worker zip
-          $workerZip = "ntis-platform-worker-$environment-v$version.zip"
-          Compress-Archive -Path 'publish/worker/*' -DestinationPath $workerZip -Force
-          $workerZipSize = [math]::Round((Get-Item $workerZip).Length / 1MB, 2)
-          Write-Output "✅ Created $workerZip ($workerZipSize MB)"
-        shell: pwsh
-        
-      - name: Upload to Azure Blob Storage
-        run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
-          $environment = '${{ needs.validate-environment.outputs.environment }}'
-          $containerName = '${{ vars.PACKAGE_CONTAINER_NAME }}'
-          $connectionString = '${{ secrets.PACKAGE_CONNECTION_STRING }}'
-          
-          # Target path: {env}/{version}/platform/
-          $basePath = "$environment/$version/platform"
-          
-          Write-Output "📤 Uploading to Azure Blob Storage..."
-          Write-Output "   Container: $containerName"
-          Write-Output "   Path: $basePath"
-          
-          # Upload API zip
-          $apiZip = "ntis-platform-api-$environment-v$version.zip"
-          $apiZipBlob = "$basePath/$apiZip".Replace('\', '/')
-          az storage blob upload `
-            --connection-string "$connectionString" `
-            --container-name "$containerName" `
-            --file $apiZip `
-            --name $apiZipBlob `
-            --overwrite
-          Write-Output "   ✅ Uploaded: $apiZipBlob"
-          
-          # Upload Worker zip
-          $workerZip = "ntis-platform-worker-$environment-v$version.zip"
-          $workerZipBlob = "$basePath/$workerZip".Replace('\', '/')
-          az storage blob upload `
-            --connection-string "$connectionString" `
-            --container-name "$containerName" `
-            --file $workerZip `
-            --name $workerZipBlob `
-            --overwrite
-          Write-Output "   ✅ Uploaded: $workerZipBlob"
-          
-          Write-Output ""
-          Write-Output "🎉 Upload complete!"
-          Write-Output "   Location: $containerName/$basePath"
-        shell: pwsh
-          
+          version: ${{ env.RELEASE_VERSION }}
+          branch: ${{ env.TARGET_BRANCH }}
+          branch-env-map: ${{ vars.BRANCH_ENV_MAP }}
+          package-container-name: ${{ vars.PACKAGE_CONTAINER_NAME }}
+          package-connection-string: ${{ secrets.PACKAGE_CONNECTION_STRING }}
+
   build-summary:
     name: Build Summary
     runs-on: [self-hosted, package]
-    needs: [validate-environment, build-platform]
+    needs: build-platform
     if: always()
     steps:
       - name: Summarize build results
+        shell: pwsh
         run: |
-          $version = '${{ needs.validate-environment.outputs.version }}'
+          $version = '${{ needs.build-platform.outputs.version }}'
           $buildStatus = '${{ needs.build-platform.result }}'
-          
-          Write-Output "📋 NTIS Platform Build Summary"
-          Write-Output "============================="
+
+          Write-Output "NTIS Platform Build Summary"
+          Write-Output "==========================="
           Write-Output "Version: v$version"
-          Write-Output "Environment: production"
+          Write-Output "Environment: ${{ needs.build-platform.outputs.environment }}"
           Write-Output "Build Tool: .NET 10 SDK"
           Write-Output "Build Status: $buildStatus"
-          Write-Output "Artifact: ${{ needs.validate-environment.outputs.artifact-name }}"
+          Write-Output "Artifact: ${{ needs.build-platform.outputs.artifact-name }}"
           Write-Output ""
-          
+
           if ($buildStatus -eq 'success') {
-            Write-Output "🎉 NTIS Platform build completed successfully!"
-            Write-Output "📦 Production artifacts are ready for deployment"
-            Write-Output "🔧 Both API and Worker services built"
-            Write-Output "📝 Production configuration templates included"
+            Write-Output "NTIS Platform build completed successfully"
+            Write-Output "Production artifacts are ready for deployment"
+            Write-Output "Both API and Worker services built"
+            Write-Output "Production configuration templates included"
           } else {
-            Write-Warning "⚠️ NTIS Platform build encountered issues"
+            Write-Warning "NTIS Platform build encountered issues"
             Write-Output "Please check the build logs for details"
           }
-        shell: pwsh
+
