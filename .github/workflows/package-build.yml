@@ -42,6 +42,7 @@ jobs:
         with:
           version: ${{ env.RELEASE_VERSION }}
           branch: ${{ env.TARGET_BRANCH }}
+          path-mode: standalone
           branch-env-map: ${{ vars.BRANCH_ENV_MAP }}
           package-container-name: ${{ vars.PACKAGE_CONTAINER_NAME }}
           package-connection-string: ${{ secrets.PACKAGE_CONNECTION_STRING }}
@@ -76,5 +77,3 @@ jobs:
             Write-Warning "NTIS Platform build encountered issues"
             Write-Output "Please check the build logs for details"
           }
-
-

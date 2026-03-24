@@ -9,6 +9,10 @@ inputs:
     description: Branch being built.
     required: false
     default: main
+  path-mode:
+    description: Upload path mode. Use standalone for repo-local runs and orchestrated for ntis-devops runs.
+    required: false
+    default: standalone
   branch-env-map:
     description: JSON mapping of branch names to environment names.
     required: true
@@ -190,9 +194,10 @@ runs:
       run: |
         $version = '${{ steps.version_setup.outputs.version }}'
         $environment = '${{ steps.version_setup.outputs.environment }}'
+        $pathMode = '${{ inputs.path-mode }}'
         $containerName = '${{ inputs.package-container-name }}'
         $connectionString = '${{ inputs.package-connection-string }}'
-        $basePath = "$environment/$version/platform"
+        $basePath = if ($pathMode -eq 'orchestrated') { "$environment/$version/platform" } else { "platform/$version" }
         $apiZip = "ntis-platform-api-$environment-v$version.zip"
         $workerZip = "ntis-platform-worker-$environment-v$version.zip"
 
@@ -226,4 +231,3 @@ runs:
         $environment = '${{ steps.version_setup.outputs.environment }}'
         Remove-Item -Path "ntis-platform-api-$environment-v$version.zip" -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "ntis-platform-worker-$environment-v$version.zip" -Force -ErrorAction SilentlyContinue
-
