@@ -64,6 +64,8 @@ public static class ServiceCollectionExtensions
 
         // CRUD Services
         services.AddScoped<IULBMasterService, ULBMasterService>();
+        services.AddScoped<IPaymentModeService, PaymentModeService>();
+
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();

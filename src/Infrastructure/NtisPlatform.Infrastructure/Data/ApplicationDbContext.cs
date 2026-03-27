@@ -69,6 +69,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
+    public DbSet<PaymentModeEntity> PaymentModeEntity { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
@@ -957,6 +958,24 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
+        modelBuilder.Entity<PaymentModeEntity>(entity =>
+        {
+            entity.ToTable("PaymentMode", "CORE");
+            entity.HasKey(e => e.PaymentModeId);
+            entity.Property(e => e.Code);
+            entity.Property(e => e.PaymentModeName);
+            entity.Property(e => e.Type);
+            entity.Property(e => e.Category);
+            entity.Property(e => e.Description);
+            entity.Property(e => e.ChargeType);
+            entity.Property(e => e.TransactionCharge);
+            entity.Property(x => x.IsActive);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
+
+        });
         modelBuilder.Entity<ConfigValueMasterEntity>(entity =>
         {
             entity.ToTable("ConfigValueMaster", "Core");
