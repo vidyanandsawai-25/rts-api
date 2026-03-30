@@ -73,6 +73,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
+    public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
 
 
@@ -793,15 +794,21 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyDetailsId).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.WingId);
-            entity.Property(e => e.WingNo).HasMaxLength(50);
+            entity.Property(e => e.WingNo).HasMaxLength(20);
             entity.Property(e => e.NoOfResidentialToilets);
             entity.Property(e => e.NoOfCommercialToilets);
+            entity.Property(e => e.OwnerTypeId);
+            entity.Property(e => e.AdharCardNo).HasMaxLength(12);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyId);
+            
+            // Note: PropertyMastDetails has MarkedForDeletion but not MarkedForDeletionDate
+            // Only PropertyMast table (via IHardDeletable) has both columns
         });
 
         // PropertyDetails configuration
@@ -902,6 +909,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+
+            // PropertyMast table schema:
+            // ? MarkedForDeletion column EXISTS (mapped above)
+            // ? MarkedForDeletionDate column DOES NOT EXIST in database yet
+            // Entity has MarkedForDeletionDate property for IHardDeletable support,
+            // but we ignore it in EF Core to prevent SQL errors until column is added to database
+            entity.Ignore(e => e.MarkedForDeletionDate);
 
             // Unique index on WardId, PropertyNo, PartitionNo
             entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })

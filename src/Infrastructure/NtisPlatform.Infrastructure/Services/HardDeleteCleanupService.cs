@@ -27,12 +27,15 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
         var cutoffDate = DateTime.Now.AddDays(-retentionDays);
         var totalDeleted = 0;
 
-        _logger.LogInformation("Starting hard delete cleanup task. Retention days: {RetentionDays}, Cutoff date: {CutoffDate}", 
+        _logger.LogInformation("Starting hard delete cleanup task. Retention days: {RetentionDays}, Cutoff date: {CutoffDate}",
             retentionDays, cutoffDate);
 
         try
         {
             // Process each entity type that implements IHardDeletable
+            // Note: PropertyEntity implements IHardDeletable but MarkedForDeletionDate column 
+            // doesn't exist in database yet (EF Core ignores it), so this won't find any records 
+            // to delete until column is added to database
             totalDeleted += await CleanupEntityType<Core.Entities.PropertyEntity>(cutoffDate, cancellationToken);
 
             // Add more entity types here as they implement IHardDeletable
@@ -50,24 +53,24 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
         }
     }
 
-    private async Task<int> CleanupEntityType<TEntity>(DateTime cutoffDate, CancellationToken cancellationToken) 
+    private async Task<int> CleanupEntityType<TEntity>(DateTime cutoffDate, CancellationToken cancellationToken)
         where TEntity : class, IHardDeletable
     {
         try
         {
             var entitiesToDelete = await _context.Set<TEntity>()
-                .Where(e => e.MarkedForDeletion && 
-                           e.MarkedForDeletionDate.HasValue && 
+                .Where(e => e.MarkedForDeletion &&
+                           e.MarkedForDeletionDate.HasValue &&
                            e.MarkedForDeletionDate.Value <= cutoffDate)
                 .ToListAsync(cancellationToken);
 
             if (entitiesToDelete.Any())
             {
                 _context.Set<TEntity>().RemoveRange(entitiesToDelete);
-                
-                _logger.LogInformation("Marked {Count} {EntityType} entities for permanent deletion", 
+
+                _logger.LogInformation("Marked {Count} {EntityType} entities for permanent deletion",
                     entitiesToDelete.Count, typeof(TEntity).Name);
-                
+
                 return entitiesToDelete.Count;
             }
 
@@ -80,21 +83,21 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
         }
     }
 
-    public async Task MarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default) 
+    public async Task MarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
         // TODO: Implement mark for hard delete logic
         await Task.CompletedTask;
     }
 
-    public async Task UnmarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default) 
+    public async Task UnmarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
         // TODO: Implement unmark for hard delete logic
         await Task.CompletedTask;
     }
 
-    public async Task ForceHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default) 
+    public async Task ForceHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
         // TODO: Implement force hard delete logic

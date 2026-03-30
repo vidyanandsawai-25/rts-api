@@ -10,13 +10,10 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMast", Schema = "PTIS")]
 public class PropertyEntity : BaseEntity, IHardDeletable
 {
-    /// <summary>
-    /// Primary key - Unique identifier for the property.
-    /// </summary>
     [Key]
     public int PropertyId { get; set; }
 
-    // Location Information (Foreign Keys)
+    // Location Information
     public int TaxZoneId { get; set; }
 
     public int WardId { get; set; }
@@ -114,16 +111,14 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     // Society Information
     public int? SocietyDetailId { get; set; }
 
-    // Hard Deletion Support (IHardDeletable)
     /// <summary>
-    /// Indicates whether the entity is marked for permanent deletion.
-    /// When set to true, entity will be soft-deleted and removed by the nightly cleanup task.
+    /// Indicates whether the entity is marked for deletion.
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
-    
+
     /// <summary>
-    /// Date and time when the entity was marked for deletion.
-    /// Used by the cleanup task to determine when to perform hard deletion.
+    /// Not mapped in DB - used for business logic (hard delete tracking)
     /// </summary>
+    [NotMapped]
     public DateTime? MarkedForDeletionDate { get; set; }
 }

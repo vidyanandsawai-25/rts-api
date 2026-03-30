@@ -53,6 +53,126 @@ public class PropertyEntityTests
     }
 
     [Fact]
+    public void PropertyEntity_AllProperties_GetSet_ComprehensiveCoverage()
+    {
+        var now = DateTime.Now;
+        var entity = new PropertyEntity
+        {
+            PropertyId = 549357,
+            TaxZoneId = 10,
+            WardId = 79,
+            PropertyNo = "22",
+            PartitionNo = "1",
+            PropertyTypeId = 2,
+            UPICId = "UPIC123",
+            OpenPlot = true,
+            CSN = "CSN456",
+            SubZoneNo = "SZ01",
+            PlotNo = "P123",
+            CategoryId = 1,
+            Type = "RES",
+            PartType = "FULL",
+            OwnerTitle = "Mr",
+            OwnerName = "John Doe",
+            OwnerTitleEnglish = "Mr",
+            OwnerNameEnglish = "John English",
+            OccupierTitle = "Ms",
+            OccupierName = "Jane Doe",
+            OccupierTitleEnglish = "Ms",
+            OccupierNameEnglish = "Jane English",
+            FlatOrShopNo = "101",
+            FlatOrShopName = "Flat 101",
+            FlatOrShopNoEnglish = "101",
+            FlatOrShopNameEnglish = "Flat English",
+            Address = "123 Main St",
+            Location = "Downtown",
+            AddressEnglish = "123 Main Street",
+            LocationEnglish = "Downtown Area",
+            MobileNo = "9921759522",
+            EmailId = "test@example.com",
+            SocietyDetailId = 5,
+            MarkedForDeletion = false,
+            MarkedForDeletionDate = now,
+            IsActive = true,
+            CreatedBy = 100,
+            CreatedDate = now,
+            UpdatedBy = 200,
+            UpdatedDate = now
+        };
+
+        Assert.Equal(549357, entity.PropertyId);
+        Assert.Equal(10, entity.TaxZoneId);
+        Assert.Equal(79, entity.WardId);
+        Assert.Equal("22", entity.PropertyNo);
+        Assert.Equal("1", entity.PartitionNo);
+        Assert.Equal(2, entity.PropertyTypeId);
+        Assert.Equal("UPIC123", entity.UPICId);
+        Assert.True(entity.OpenPlot);
+        Assert.Equal("CSN456", entity.CSN);
+        Assert.Equal("SZ01", entity.SubZoneNo);
+        Assert.Equal("P123", entity.PlotNo);
+        Assert.Equal(1, entity.CategoryId);
+        Assert.Equal("RES", entity.Type);
+        Assert.Equal("FULL", entity.PartType);
+        Assert.Equal("Mr", entity.OwnerTitle);
+        Assert.Equal("John Doe", entity.OwnerName);
+        Assert.Equal("Mr", entity.OwnerTitleEnglish);
+        Assert.Equal("John English", entity.OwnerNameEnglish);
+        Assert.Equal("Ms", entity.OccupierTitle);
+        Assert.Equal("Jane Doe", entity.OccupierName);
+        Assert.Equal("Ms", entity.OccupierTitleEnglish);
+        Assert.Equal("Jane English", entity.OccupierNameEnglish);
+        Assert.Equal("101", entity.FlatOrShopNo);
+        Assert.Equal("Flat 101", entity.FlatOrShopName);
+        Assert.Equal("101", entity.FlatOrShopNoEnglish);
+        Assert.Equal("Flat English", entity.FlatOrShopNameEnglish);
+        Assert.Equal("123 Main St", entity.Address);
+        Assert.Equal("Downtown", entity.Location);
+        Assert.Equal("123 Main Street", entity.AddressEnglish);
+        Assert.Equal("Downtown Area", entity.LocationEnglish);
+        Assert.Equal("9921759522", entity.MobileNo);
+        Assert.Equal("test@example.com", entity.EmailId);
+        Assert.Equal(5, entity.SocietyDetailId);
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Equal(now, entity.MarkedForDeletionDate);
+        Assert.True(entity.IsActive);
+        Assert.Equal(100, entity.CreatedBy);
+        Assert.Equal(now, entity.CreatedDate);
+        Assert.Equal(200, entity.UpdatedBy);
+        Assert.Equal(now, entity.UpdatedDate);
+    }
+
+    [Fact]
+    public void PropertyEntity_ImplementsIHardDeletable()
+    {
+        var entity = new PropertyEntity();
+        Assert.IsAssignableFrom<NtisPlatform.Core.Interfaces.IHardDeletable>(entity);
+    }
+
+    [Fact]
+    public void PropertyEntity_MarkedForDeletionDate_CanBeNull()
+    {
+        var entity = new PropertyEntity
+        {
+            MarkedForDeletion = false,
+            MarkedForDeletionDate = null
+        };
+
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Null(entity.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public void PropertyEntity_DefaultValues_SetCorrectly()
+    {
+        var entity = new PropertyEntity();
+
+        Assert.Equal(0, entity.PropertyId);
+        Assert.False(entity.MarkedForDeletion);
+        Assert.True(entity.IsActive);
+    }
+
+    [Fact]
     public void PropertyEntity_InheritsFromBaseEntity()
     {
         var entity = new PropertyEntity();
@@ -944,6 +1064,179 @@ public class PropertyServiceTests
         Assert.Null(result);
         _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task UpdateBasicDetailsAsync_ExistingProperty_ReturnsUpdatedDto()
+    {
+        var propertyId = 549357;
+        var dto = new UpdatePropertyBasicDetailsDto
+        {
+            WardId = 79,
+            TaxZoneId = 10,
+            WingNo = "A",
+            PlotArea = 2000.0
+        };
+
+        var expectedDto = new PropertyBasicDetailsDto
+        {
+            PropertyId = propertyId,
+            WardId = 79,
+            TaxZoneId = 10,
+            WingNo = "A",
+            PlotArea = 2000.0
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        var result = await _service.UpdateBasicDetailsAsync(propertyId, dto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(79, result.WardId);
+        Assert.Equal("A", result.WingNo);
+        Assert.Equal(2000.0, result.PlotArea);
+        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateBasicDetailsAsync_NonExistingProperty_ReturnsNull()
+    {
+        var propertyId = 999;
+        var dto = new UpdatePropertyBasicDetailsDto
+        {
+            WardId = 79,
+            TaxZoneId = 10
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyBasicDetailsDto?)null);
+
+        var result = await _service.UpdateBasicDetailsAsync(propertyId, dto, CancellationToken.None);
+
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetKycDetailsAsync_ExistingProperty_ReturnsKycDetailsDto()
+    {
+        var propertyId = 549357;
+        var expectedDto = new PropertyKycDetailsDto
+        {
+            PropertyId = propertyId,
+            OwnerTypeId = 1,
+            OwnerType = "Individual",
+            AdharCardNo = "321131311616",
+            OwnerName = "LODHA AMARA BUILDING",
+            OwnerNameEnglish = "Dharak",
+            OccupierName = "Nilesh",
+            OccupierNameEnglish = "shubhan",
+            Address = "Lodha Amara Kolshet Road",
+            FlatOrShopName = "PARKING 13 FLOOR",
+            FlatOrShopNo = "1203",
+            MobileNo = "9921759522",
+            EmailId = "user@example.com"
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        var result = await _service.GetKycDetailsAsync(propertyId, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(1, result.OwnerTypeId);
+        Assert.Equal("Individual", result.OwnerType);
+        Assert.Equal("321131311616", result.AdharCardNo);
+        Assert.Equal("LODHA AMARA BUILDING", result.OwnerName);
+        Assert.Equal("Dharak", result.OwnerNameEnglish);
+        Assert.Equal("Nilesh", result.OccupierName);
+        Assert.Equal("shubhan", result.OccupierNameEnglish);
+        Assert.Equal("Lodha Amara Kolshet Road", result.Address);
+        Assert.Equal("PARKING 13 FLOOR", result.FlatOrShopName);
+        Assert.Equal("1203", result.FlatOrShopNo);
+        Assert.Equal("9921759522", result.MobileNo);
+        Assert.Equal("user@example.com", result.EmailId);
+
+        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetKycDetailsAsync_NonExistingProperty_ReturnsNull()
+    {
+        var propertyId = 999;
+
+        _mockPropertyRepository
+            .Setup(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyKycDetailsDto?)null);
+
+        var result = await _service.GetKycDetailsAsync(propertyId, CancellationToken.None);
+
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateKycDetailsAsync_ExistingProperty_ReturnsUpdatedDto()
+    {
+        var propertyId = 549357;
+        var dto = new UpdatePropertyKycDetailsDto
+        {
+            OwnerTypeId = 1,
+            AdharCardNo = "321131311616",
+            OwnerName = "Updated Name",
+            MobileNo = "9921759522",
+            EmailId = "updated@example.com"
+        };
+
+        var expectedDto = new PropertyKycDetailsDto
+        {
+            PropertyId = propertyId,
+            OwnerTypeId = 1,
+            AdharCardNo = "321131311616",
+            OwnerName = "Updated Name",
+            MobileNo = "9921759522",
+            EmailId = "updated@example.com"
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedDto);
+
+        var result = await _service.UpdateKycDetailsAsync(propertyId, dto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(1, result.OwnerTypeId);
+        Assert.Equal("321131311616", result.AdharCardNo);
+        Assert.Equal("Updated Name", result.OwnerName);
+        Assert.Equal("9921759522", result.MobileNo);
+        Assert.Equal("updated@example.com", result.EmailId);
+        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateKycDetailsAsync_NonExistingProperty_ReturnsNull()
+    {
+        var propertyId = 999;
+        var dto = new UpdatePropertyKycDetailsDto
+        {
+            OwnerName = "Test"
+        };
+
+        _mockPropertyRepository
+            .Setup(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyKycDetailsDto?)null);
+
+        var result = await _service.UpdateKycDetailsAsync(propertyId, dto, CancellationToken.None);
+
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
 
 #endregion
@@ -1003,6 +1296,74 @@ public class PropertyBasicDetailsDtoTests
         Assert.Equal(1000.50, dto.TotalCarpetAreaSqMeter);
         Assert.Equal(1200.75, dto.TotalBuiltupAreaSqMeter);
         Assert.Equal(1500.25, dto.PlotArea);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_AllDoubleProperties_GetSet_WorksCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            TaxZoneId = 1,
+            TotalCarpetAreaSqMeter = 1000.50,
+            TotalBuiltupAreaSqMeter = 1200.75,
+            TotalCarpetAreaSqFeet = 10764.50,
+            TotalBuiltupAreaSqFeet = 12917.25,
+            PlotArea = 1500.25,
+            PlotAreaFtLength = 50.5,
+            PlotAreaFtWidth = 30.25,
+            PlotAreaMtrLength = 15.4,
+            PlotAreaMtrWidth = 9.2
+        };
+
+        Assert.Equal(1000.50, dto.TotalCarpetAreaSqMeter);
+        Assert.Equal(1200.75, dto.TotalBuiltupAreaSqMeter);
+        Assert.Equal(10764.50, dto.TotalCarpetAreaSqFeet);
+        Assert.Equal(12917.25, dto.TotalBuiltupAreaSqFeet);
+        Assert.Equal(1500.25, dto.PlotArea);
+        Assert.Equal(50.5, dto.PlotAreaFtLength);
+        Assert.Equal(30.25, dto.PlotAreaFtWidth);
+        Assert.Equal(15.4, dto.PlotAreaMtrLength);
+        Assert.Equal(9.2, dto.PlotAreaMtrWidth);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_WingProperties_GetSet_WorksCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            TaxZoneId = 1,
+            TotalCarpetAreaSqMeter = 0,
+            TotalBuiltupAreaSqMeter = 0,
+            WingId = 5,
+            WingName = "West Wing",
+            WingNo = "A"
+        };
+
+        Assert.Equal(5, dto.WingId);
+        Assert.Equal("West Wing", dto.WingName);
+        Assert.Equal("A", dto.WingNo);
+    }
+
+    [Fact]
+    public void PropertyBasicDetailsDto_UPICIdAndSubZoneNo_GetSet_WorksCorrectly()
+    {
+        var dto = new PropertyBasicDetailsDto
+        {
+            PropertyId = 1,
+            WardId = 10,
+            TaxZoneId = 1,
+            TotalCarpetAreaSqMeter = 0,
+            TotalBuiltupAreaSqMeter = 0,
+            UPICId = "UPIC123456",
+            SubZoneNo = "SZ001"
+        };
+
+        Assert.Equal("UPIC123456", dto.UPICId);
+        Assert.Equal("SZ001", dto.SubZoneNo);
     }
 
     [Fact]

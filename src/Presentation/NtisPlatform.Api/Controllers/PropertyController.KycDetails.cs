@@ -5,40 +5,40 @@ using NtisPlatform.Core.Models;
 namespace NtisPlatform.Api.Controllers;
 
 /// <summary>
-/// Property Basic Details Tab API - Partial controller for segregated property endpoints
-/// Handles the `{propertyId}/basic-details` API endpoint which loads tab-specific data
+/// Property KYC Details Tab API - Partial controller for segregated property endpoints
+/// Handles the `{propertyId}/kyc-details` API endpoint which loads tab-specific data
 /// </summary>
 public partial class PropertyController
 {
     /// <summary>
-    /// Retrieves basic details for a specific property including joined data from related tables.
-    /// This endpoint is used to populate the Basic Details tab in the property form.
+    /// Retrieves KYC details for a specific property including joined data from related tables.
+    /// This endpoint is used to populate the KYC Details tab in the property form.
     /// </summary>
     /// <param name="propertyId">The unique identifier of the property</param>
     /// <param name="ct">Cancellation token</param>
-    /// <returns>Property basic details including ward, zone, tax zone, category, and assessment information</returns>
-    /// <response code="200">Returns the property basic details</response>
+    /// <returns>Property KYC details including owner type, aadhar, owner/occupier, address, and contact information</returns>
+    /// <response code="200">Returns the property KYC details</response>
     /// <response code="404">Property not found</response>
-    [HttpGet("{propertyId}/basic-details")]
-    [ProducesResponseType(typeof(ApiResponse<PropertyBasicDetailsDto>), StatusCodes.Status200OK)]
+    [HttpGet("{propertyId}/kyc-details")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyKycDetailsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetBasicDetails(int propertyId, CancellationToken ct)
+    public async Task<IActionResult> GetKycDetails(int propertyId, CancellationToken ct)
     {
         try
         {
-            var result = await _propertyService.GetBasicDetailsAsync(propertyId, ct);
+            var result = await _propertyService.GetKycDetailsAsync(propertyId, ct);
 
             if (result == null)
             {
                 _logger.LogWarning("Property with ID {PropertyId} not found", propertyId);
-                return NotFound(new ApiResponse<PropertyBasicDetailsDto>
+                return NotFound(new ApiResponse<PropertyKycDetailsDto>
                 {
                     Success = false,
                     Message = $"Property with ID {propertyId} not found"
                 });
             }
 
-            return Ok(new ApiResponse<PropertyBasicDetailsDto>
+            return Ok(new ApiResponse<PropertyKycDetailsDto>
             {
                 Success = true,
                 Message = "Record fetched successfully",
@@ -47,48 +47,48 @@ public partial class PropertyController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error retrieving basic details for property {PropertyId}", propertyId);
+            _logger.LogError(ex, "Error retrieving KYC details for property {PropertyId}", propertyId);
             return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiResponse<PropertyBasicDetailsDto>
+                new ApiResponse<PropertyKycDetailsDto>
                 {
                     Success = false,
-                    Message = "An error occurred while retrieving property basic details"
+                    Message = "An error occurred while retrieving property KYC details"
                 });
         }
     }
 
     /// <summary>
-    /// Updates basic details for a specific property across multiple tables.
-    /// This endpoint is used to save the Basic Details tab in the property form.
+    /// Updates KYC details for a specific property across multiple tables.
+    /// This endpoint is used to save the KYC Details tab in the property form.
     /// </summary>
     /// <param name="propertyId">The unique identifier of the property</param>
     /// <param name="dto">The update data</param>
     /// <param name="ct">Cancellation token</param>
     /// <returns>Success response with updated data</returns>
-    /// <response code="200">Property basic details updated successfully</response>
+    /// <response code="200">Property KYC details updated successfully</response>
     /// <response code="404">Property not found</response>
     /// <response code="400">Invalid data - Foreign key constraint violation</response>
-    [HttpPut("{propertyId}/basic-details")]
-    [ProducesResponseType(typeof(ApiResponse<PropertyBasicDetailsDto>), StatusCodes.Status200OK)]
+    [HttpPut("{propertyId}/kyc-details")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyKycDetailsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpdateBasicDetails(int propertyId, [FromBody] UpdatePropertyBasicDetailsDto dto, CancellationToken ct)
+    public async Task<IActionResult> UpdateKycDetails(int propertyId, [FromBody] UpdatePropertyKycDetailsDto dto, CancellationToken ct)
     {
         try
         {
-            var result = await _propertyService.UpdateBasicDetailsAsync(propertyId, dto, ct);
+            var result = await _propertyService.UpdateKycDetailsAsync(propertyId, dto, ct);
 
             if (result == null)
             {
                 _logger.LogWarning("Property with ID {PropertyId} not found for update", propertyId);
-                return NotFound(new ApiResponse<PropertyBasicDetailsDto>
+                return NotFound(new ApiResponse<PropertyKycDetailsDto>
                 {
                     Success = false,
                     Message = $"Property with ID {propertyId} not found"
                 });
             }
 
-            return Ok(new ApiResponse<PropertyBasicDetailsDto>
+            return Ok(new ApiResponse<PropertyKycDetailsDto>
             {
                 Success = true,
                 Message = "Record updated successfully",
@@ -97,8 +97,8 @@ public partial class PropertyController
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogWarning(ex, "Validation error updating basic details for property {PropertyId}", propertyId);
-            return BadRequest(new ApiResponse<PropertyBasicDetailsDto>
+            _logger.LogWarning(ex, "Validation error updating KYC details for property {PropertyId}", propertyId);
+            return BadRequest(new ApiResponse<PropertyKycDetailsDto>
             {
                 Success = false,
                 Message = ex.Message
@@ -106,12 +106,12 @@ public partial class PropertyController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating basic details for property {PropertyId}", propertyId);
+            _logger.LogError(ex, "Error updating KYC details for property {PropertyId}", propertyId);
             return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiResponse<PropertyBasicDetailsDto>
+                new ApiResponse<PropertyKycDetailsDto>
                 {
                     Success = false,
-                    Message = "An error occurred while updating property basic details"
+                    Message = "An error occurred while updating property KYC details"
                 });
         }
     }
