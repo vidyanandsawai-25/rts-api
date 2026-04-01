@@ -13,18 +13,7 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-    // Authentication entities
-    public DbSet<User> Users { get; set; } = null!;
-    public DbSet<Role> Roles { get; set; } = null!;
-    public DbSet<UserRole> UserRoles { get; set; } = null!;
-    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
-    public DbSet<LoginAttempt> LoginAttempts { get; set; } = null!;
-
-    // Organization configuration
-    public DbSet<Organization> Organizations { get; set; } = null!;
-    public DbSet<OrganizationSetting> OrganizationSettings { get; set; } = null!;
-    public DbSet<AuthProvider> AuthProviders { get; set; } = null!;
-    public DbSet<FeatureFlag> FeatureFlags { get; set; } = null!;
+     
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
@@ -69,15 +58,17 @@ public class ApplicationDbContext : DbContext
     public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
 	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
 	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
-    public DbSet<PaymentModeEntity> PaymentModeEntity { get; set; } = null!;
-    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<PaymentModeEntity> PaymentModeEntity { get; set; } = null!;    
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
 
 
-
+	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
+    public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -237,145 +228,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
         });
-        // User configuration
-        modelBuilder.Entity<User>(entity =>
-        {
-            entity.ToTable("Users");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(500);
-            entity.Property(e => e.FirstName).HasMaxLength(100);
-            entity.Property(e => e.LastName).HasMaxLength(100);
-            entity.Property(e => e.PhoneNumber).HasMaxLength(20);
-            entity.Property(e => e.TwoFactorSecret).HasMaxLength(200);
-            entity.HasIndex(e => e.Username).IsUnique();
-            entity.HasIndex(e => e.Email).IsUnique();
-            // Removed incorrect query filter - users should be queried with explicit IsActive checks
-        });
-
-        // Role configuration
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.ToTable("Roles");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.HasIndex(e => e.Name).IsUnique();
-            entity.HasQueryFilter(e => e.IsActive);
-        });
-
-        // UserRole configuration
-        modelBuilder.Entity<UserRole>(entity =>
-        {
-            entity.ToTable("UserRoles");
-            entity.HasKey(e => e.Id);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.UserRoles)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity.HasOne(e => e.Role)
-          .WithMany(r => r.UserRoles)
-          .HasForeignKey(e => e.RoleId)
-          .OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
-            entity.HasQueryFilter(e => e.IsActive);
-        });
-
-        // RefreshToken configuration
-        modelBuilder.Entity<RefreshToken>(entity =>
-        {
-            entity.ToTable("RefreshTokens");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.TokenHash).IsRequired().HasMaxLength(500);
-            entity.Property(e => e.ClientType).HasMaxLength(50);
-            entity.Property(e => e.DeviceInfo).HasMaxLength(1000);
-            entity.Property(e => e.IpAddress).HasMaxLength(45);
-            entity.Property(e => e.UserAgent).HasMaxLength(500);
-            entity.Property(e => e.RevokedByIp).HasMaxLength(45);
-            entity.Property(e => e.ReplacedByToken).HasMaxLength(500);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.RefreshTokens)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(e => e.TokenHash);
-            // Ignore computed properties
-            entity.Ignore(e => e.IsActive);
-            entity.Ignore(e => e.IsExpired);
-            // Note: RefreshToken.IsActive is a computed property (!IsRevoked && !IsExpired)
-            // Cannot use as query filter since it's not a database column
-            // Use explicit filtering in queries: .Where(rt => !rt.IsRevoked && rt.ExpiresAt > DateTime.Now)
-        });
-
-        // LoginAttempt configuration
-        modelBuilder.Entity<LoginAttempt>(entity =>
-        {
-            entity.ToTable("LoginAttempts");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Username).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.IpAddress).IsRequired().HasMaxLength(45);
-            entity.Property(e => e.UserAgent).HasMaxLength(500);
-            entity.Property(e => e.FailureReason).HasMaxLength(500);
-            entity.Property(e => e.AuthProvider).HasMaxLength(50);
-            entity.Property(e => e.ClientType).HasMaxLength(50);
-            entity.HasOne(e => e.User)
-                .WithMany(u => u.LoginAttempts)
-                .HasForeignKey(e => e.UserId)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity.HasIndex(e => e.AttemptedAt);
-            entity.HasIndex(e => e.IpAddress);
-            // Removed incorrect query filter - should query with explicit IsActive checks if needed
-        });
-
-        // Organization configuration (minimal entity)
-        modelBuilder.Entity<Organization>(entity =>
-        {
-            entity.ToTable("Organizations");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.IsActive).IsRequired();
-            entity.Property(e => e.IsSetupComplete).IsRequired();
-            // Removed incorrect query filter - should query with explicit IsActive checks if needed
-        });
-
-        // OrganizationSetting configuration (key-value store)
-        modelBuilder.Entity<OrganizationSetting>(entity =>
-        {
-            entity.ToTable("OrganizationSettings");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Key).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Value).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.HasIndex(e => e.Key).IsUnique();
-            entity.HasIndex(e => e.Category);
-            // Removed incorrect query filter - should query with explicit IsActive checks if needed
-        });
-
-        // AuthProvider configuration
-        modelBuilder.Entity<AuthProvider>(entity =>
-        {
-            entity.ToTable("AuthProviders");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.ProviderType).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.ConfigJson).HasColumnType("nvarchar(max)");
-            entity.HasIndex(e => e.ProviderType);
-            entity.HasQueryFilter(e => e.IsActive);
-        });
-
-        // FeatureFlag configuration
-        modelBuilder.Entity<FeatureFlag>(entity =>
-        {
-            entity.ToTable("FeatureFlags");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.ModuleName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
-            entity.HasIndex(e => e.ModuleName).IsUnique();
-            entity.HasQueryFilter(e => e.IsActive);
-        });
+        
 
         // MultilingualDetail configuration
         modelBuilder.Entity<MultilingualDetailsEntity>(entity =>
@@ -606,8 +459,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
-            entity.HasKey(e => e.ModuleMasterId);
-            entity.Property(e => e.DepartmentMasterId)
+              entity.HasKey(e => e.ModuleId);
+            entity.Property(e => e.DepartmentId)
                 .IsRequired();
             entity.Property(e => e.ModuleCode)
                 .HasMaxLength(50).IsRequired()
@@ -626,7 +479,7 @@ public class ApplicationDbContext : DbContext
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
                 .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
+                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -644,8 +497,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.DepartmentId);
-            entity.Property(e => e.DepartmentId).HasColumnName("DepartmentMasterId");
+            entity.HasKey(e => e.DepartmentId);             
             entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
@@ -1023,6 +875,41 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
+        // UserMaster configuration
+        modelBuilder.Entity<UserMasterEntity>(entity =>
+        {
+            entity.ToTable("UserMaster", "CORE");
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserNameNormalized).HasMaxLength(100);
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.UserCode).HasMaxLength(50);
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.MobileNo).HasMaxLength(15);
+            entity.Property(e => e.AlternateMobileNo).HasMaxLength(15);
+            entity.Property(e => e.Mail).HasMaxLength(100);
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+            entity.Property(e => e.MustChangePassword).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UserRoleID);
+            entity.Property(e => e.Language).HasMaxLength(10);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.LockedUntilAt);
+            entity.Property(e => e.FailedLoginCount).HasDefaultValue(0);
+            entity.Property(e => e.LastLoginAt);
+            entity.Property(e => e.EmployeeTypeID);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Indexes
+            entity.HasIndex(e => e.UserName).IsUnique();
+            entity.HasIndex(e => e.UserNameNormalized);
+            entity.HasIndex(e => e.Mail);
+            entity.HasIndex(e => e.IsActive);
+			});
         modelBuilder.Entity<WingEntity>(entity =>
         {
             entity.ToTable("WingMaster", "PTIS");

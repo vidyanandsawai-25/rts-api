@@ -5,7 +5,6 @@ using Microsoft.IdentityModel.Tokens;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.Auth;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Resources;
 using NtisPlatform.Application.Services;
@@ -13,7 +12,6 @@ using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Services;
-using NtisPlatform.Infrastructure.Services.Auth;
 using System.Text;
 
 namespace NtisPlatform.Api.Extensions;
@@ -43,24 +41,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        
-        // Specialized Repositories
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
 
-        // Authentication Services
-        services.AddScoped<IPasswordHasher, Infrastructure.Services.Auth.PasswordHasher>();
-        services.AddScoped<IJwtTokenService, JwtTokenService>();
-        services.AddScoped<IAuthService, AuthService>();
+        // Infrastructure Layer - Services
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
+        services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
 
-        // Authentication Providers
-        services.AddScoped<IAuthenticationProvider, BasicAuthProvider>();
+        // Application Layer - Services
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUlbConfigService, UlbConfigService>();
+ 
+ 
         // TODO: Add other providers when implemented
         // services.AddScoped<IAuthenticationProvider, AzureAdAuthProvider>();
         // services.AddScoped<IAuthenticationProvider, GoogleAuthProvider>();
-
-        // Application Layer - Services
-        services.AddScoped<IOrganizationService, OrganizationService>();
-        services.AddScoped<IOrganizationSettingsService, OrganizationSettingsService>();
+ 
 
         // CRUD Services
         services.AddScoped<IULBMasterService, ULBMasterService>();
@@ -142,8 +140,8 @@ public static class ServiceCollectionExtensions
             {
                 policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                       .AllowAnyMethod()
-                      .AllowAnyHeader()
-                      .AllowCredentials(); // Required for cookies
+                      .AllowAnyHeader();
+                      // Note: AllowCredentials removed - tokens are sent in Authorization header only
             });
         });
 
@@ -210,22 +208,17 @@ public static class ServiceCollectionExtensions
                 ClockSkew = TimeSpan.Zero
             };
 
-            // Support reading token from cookie for web clients
-            options.Events = new JwtBearerEvents
-            {
-                OnMessageReceived = context =>
-                {
-                    var token = context.Request.Cookies["session_token"];
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        context.Token = token;
-                    }
-                    return Task.CompletedTask;
-                }
-            };
+            // Token must be provided in Authorization header only
+            // Cookie-based authentication removed - incomplete security model
         });
 
-        services.AddAuthorization();
+        // Authorization with fallback policy - all endpoints require authentication by default
+        services.AddAuthorization(options =>
+        {
+            options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+                .RequireAuthenticatedUser()
+                .Build();
+        });
 
         // Rate Limiting (ASP.NET Core 7+)
         services.AddRateLimiter(options =>

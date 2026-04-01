@@ -7,8 +7,8 @@ namespace NtisPlatform.Application.DTOs.Master.ModuleMaster;
 /// </summary>
 public class ModuleMasterDto :BaseDtos
 {
-    public int ModuleMasterId { get; set; }
-    public int DepartmentMasterId { get; set; }
+    public int ModuleId { get; set; }
+    public int DepartmentId { get; set; }
     public string? ModuleCode { get; set; }
     public string? ModuleName { get; set; }
     public string? ModuleNameLocal { get; set; }
@@ -23,8 +23,8 @@ public class ModuleMasterDto :BaseDtos
 /// </summary>
 public class CreateModuleMasterDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "DepartmentMasterId_Required")]
-    public int DepartmentMasterId { get; set; }
+    [Required(ErrorMessage = "DepartmentId_Required")]
+    public int DepartmentId { get; set; }
 
     [Required(ErrorMessage = "ModuleCode_Required")]
     [StringLength(50, ErrorMessage = "ModuleCode_MaxLen_50")]
@@ -52,11 +52,11 @@ public class CreateModuleMasterDto : CreateBaseDtos
 /// </summary>
 public class UpdateModuleMasterDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "DepartmentMasterId_Required")]
-    public int DepartmentMasterId { get; set; }
+    [Required(ErrorMessage = "DepartmentId_Required")]
+    public int DepartmentId { get; set; }
 
-    [Required(ErrorMessage = "ModuleMasterId_Required")]
-    public int ModuleMasterId { get; set; }
+    [Required(ErrorMessage = "ModuleId_Required")]
+    public int ModuleId { get; set; }
 
     [Required(ErrorMessage = "ModuleCode_Required")]
     [StringLength(50, ErrorMessage = "ModuleCode_MaxLen_50")]

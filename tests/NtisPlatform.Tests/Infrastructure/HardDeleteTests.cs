@@ -54,25 +54,24 @@ public class HardDeleteTests
     {
         // Arrange
         var context = GetInMemoryDbContext();
-        var repository = new Repository<Role, int>(context);
+        var repository = new Repository<UserRoleMasterEntity, int>(context);
         
-        var role = new Role
+        var role = new UserRoleMasterEntity
         {
-            Name = "TestRole",
-            Description = "Test Role Description",
+            UserRoleName = "TestRole",
             IsActive = true
         };
 
         await repository.AddAsync(role);
         await context.SaveChangesAsync();
-        var roleId = role.Id;
+        var roleId = role.UserRoleId;
 
         // Act
         await repository.DeleteAsync(roleId);
         await context.SaveChangesAsync();
 
         // Assert - Should be soft deleted (IsActive = false)
-        var deletedRole = await context.Set<Role>().FindAsync(roleId);
+        var deletedRole = await context.Set<UserRoleMasterEntity>().FindAsync(roleId);
         Assert.NotNull(deletedRole); // Should still exist
         Assert.False(deletedRole.IsActive); // Should be deactivated
     }

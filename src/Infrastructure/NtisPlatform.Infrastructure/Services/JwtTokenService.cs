@@ -1,65 +1,59 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using NtisPlatform.Application.Interfaces.Auth;
+using NtisPlatform.Core.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace NtisPlatform.Infrastructure.Services.Auth;
+namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
-/// JWT token generation and validation service
+/// JWT token service implementation
 /// </summary>
-public class JwtTokenService : IJwtTokenService
+public class JwtTokenService : ITokenService
 {
     private readonly IConfiguration _configuration;
-    private readonly int _accessTokenExpirationMinutes;
-    private readonly string _issuer;
-    private readonly string _audience;
 
     public JwtTokenService(IConfiguration configuration)
     {
         _configuration = configuration;
-        _accessTokenExpirationMinutes = configuration.GetValue<int>("Jwt:ExpiresInMinutes", 15);
-        _issuer = configuration.GetValue<string>("Jwt:Issuer") ?? "NtisPlatform";
-        _audience = configuration.GetValue<string>("Jwt:Audience") ?? "NtisPlatformUsers";
     }
 
-    public string GenerateAccessToken(int userId, string organizationId, List<string> roles, Dictionary<string, string>? additionalClaims = null)
+    public string GenerateToken(int userId, string username, int? userRoleId)
     {
+        var jwtKey = _configuration["Jwt:Key"];
+        var jwtIssuer = _configuration["Jwt:Issuer"];
+        var jwtAudience = _configuration["Jwt:Audience"];
+        var expiresInMinutes = int.TryParse(_configuration["Jwt:ExpiresInMinutes"], out var minutes) ? minutes : 60;
+
+        if (string.IsNullOrEmpty(jwtKey))
+        {
+            throw new InvalidOperationException("JWT Key is not configured");
+        }
+
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()),
-            new("organization_id", organizationId),
-            new("user_id", userId.ToString())
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Name, username),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // Add roles
-        foreach (var role in roles)
+        // Add role claim if user has a role
+        if (userRoleId.HasValue)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim(ClaimTypes.Role, userRoleId.Value.ToString()));
         }
-
-        // Add additional claims
-        if (additionalClaims != null)
-        {
-            foreach (var claim in additionalClaims)
-            {
-                claims.Add(new Claim(claim.Key, claim.Value));
-            }
-        }
-
-        var key = GetSigningKey();
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
-            issuer: _issuer,
-            audience: _audience,
+            issuer: jwtIssuer,
+            audience: jwtAudience,
             claims: claims,
-            expires: DateTime.Now.AddMinutes(_accessTokenExpirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
             signingCredentials: credentials
         );
 
@@ -68,75 +62,86 @@ public class JwtTokenService : IJwtTokenService
 
     public string GenerateRefreshToken()
     {
-        var randomNumber = new byte[64];
+        // Generate a cryptographically secure random token
+        var randomBytes = new byte[64];
         using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
+        rng.GetBytes(randomBytes);
+        return Convert.ToBase64String(randomBytes);
     }
 
-    public ClaimsPrincipal? ValidateToken(string token)
+    public JwtValidationResult ValidateToken(string token)
     {
+        var jwtKey = _configuration["Jwt:Key"];
+        var jwtIssuer = _configuration["Jwt:Issuer"];
+        var jwtAudience = _configuration["Jwt:Audience"];
+
+        if (string.IsNullOrEmpty(jwtKey))
+        {
+            return new JwtValidationResult
+            {
+                IsValid = false,
+                ErrorMessage = "JWT Key is not configured"
+            };
+        }
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.UTF8.GetBytes(jwtKey);
+
         try
         {
-            var tokenHandler = new JwtSecurityTokenHandler();
-            var key = GetSigningKey();
-
             var validationParameters = new TokenValidationParameters
             {
                 ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
                 ValidateIssuer = true,
-                ValidIssuer = _issuer,
+                ValidIssuer = jwtIssuer,
                 ValidateAudience = true,
-                ValidAudience = _audience,
+                ValidAudience = jwtAudience,
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero // No tolerance for expiration
+                ClockSkew = TimeSpan.Zero
             };
 
             var principal = tokenHandler.ValidateToken(token, validationParameters, out var validatedToken);
-            return principal;
+
+            // Extract claims
+            var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var usernameClaim = principal.FindFirst(ClaimTypes.Name)?.Value;
+            var roleClaim = principal.FindFirst(ClaimTypes.Role)?.Value;
+
+            var jwtToken = validatedToken as JwtSecurityToken;
+
+            return new JwtValidationResult
+            {
+                IsValid = true,
+                UserId = int.TryParse(userIdClaim, out var userId) ? userId : null,
+                Username = usernameClaim,
+                UserRoleId = int.TryParse(roleClaim, out var roleId) ? roleId : null,
+                ExpiresAt = jwtToken?.ValidTo
+            };
         }
-        catch
+        catch (SecurityTokenExpiredException)
         {
-            return null;
+            return new JwtValidationResult
+            {
+                IsValid = false,
+                ErrorMessage = "Token has expired"
+            };
         }
-    }
-
-    public int GetAccessTokenExpirationSeconds()
-    {
-        return _accessTokenExpirationMinutes * 60;
-    }
-
-    public string GenerateCsrfToken()
-    {
-        var randomNumber = new byte[32];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
-    }
-
-    public bool ValidateCsrfToken(string token, string storedToken)
-    {
-        if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(storedToken))
-            return false;
-
-        try
+        catch (SecurityTokenException ex)
         {
-            var tokenBytes = Convert.FromBase64String(token);
-            var storedBytes = Convert.FromBase64String(storedToken);
-            return CryptographicOperations.FixedTimeEquals(tokenBytes, storedBytes);
+            return new JwtValidationResult
+            {
+                IsValid = false,
+                ErrorMessage = $"Token validation failed: {ex.Message}"
+            };
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return new JwtValidationResult
+            {
+                IsValid = false,
+                ErrorMessage = $"Unexpected error during token validation: {ex.Message}"
+            };
         }
-    }
-
-    private SymmetricSecurityKey GetSigningKey()
-    {
-        // Load JWT signing key from configuration
-        var key = _configuration.GetValue<string>("Jwt:Key") ?? throw new InvalidOperationException("JWT key not configured");
-        
-        return new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
     }
 }

@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Application.DTOs.Auth;
-using NtisPlatform.Application.Interfaces.Auth;
+using NtisPlatform.Application.Interfaces;
 
 namespace NtisPlatform.Api.Controllers;
 
 /// <summary>
-/// Authentication controller handling login, token refresh, and logout
+/// Authentication controller
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -22,190 +23,174 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
-    /// Authenticate user and generate tokens
-    /// Rate limited: 5 attempts per 15 minutes per IP
+    /// Login endpoint - authenticate user and return JWT token
     /// </summary>
+    /// <param name="request">Login credentials</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Login response with JWT token if successful</returns>
     [HttpPost("login")]
+    [AllowAnonymous]
     [EnableRateLimiting("login")]
-    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto request, CancellationToken cancellationToken)
     {
-        // Add device info from request context
-        if (request.Device == null)
+        if (!ModelState.IsValid)
         {
-            request.Device = new DeviceInfo();
+            return BadRequest(ModelState);
         }
 
-        request.Device.IpAddress ??= HttpContext.Connection.RemoteIpAddress?.ToString();
-        request.Device.UserAgent ??= Request.Headers.UserAgent.ToString();
-
-        var response = await _authService.LoginAsync(request, cancellationToken);
-
-        // For web clients, set httpOnly cookies
-        if (request.ClientType == ClientType.Web && !response.RequiresTwoFactor)
+        try
         {
-            SetAuthCookies(response);
-        }
+            var response = await _authService.LoginAsync(request, cancellationToken);
 
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Refresh access token using refresh token
-    /// </summary>
-    [HttpPost("refresh")]
-    [ProducesResponseType(typeof(RefreshTokenResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<RefreshTokenResponse>> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
-    {
-        // For web clients, read refresh token from cookie
-        if (string.IsNullOrEmpty(request.RefreshToken))
-        {
-            request.RefreshToken = Request.Cookies["refresh_token"] ?? string.Empty;
-        }
-
-        if (string.IsNullOrEmpty(request.RefreshToken))
-        {
-            return Unauthorized(new { error = "Refresh token required" });
-        }
-
-        // Add device info
-        if (request.Device == null)
-        {
-            request.Device = new DeviceInfo
+            if (!response.Success)
             {
-                IpAddress = HttpContext.Connection.RemoteIpAddress?.ToString(),
-                UserAgent = Request.Headers.UserAgent.ToString()
-            };
-        }
-
-        var response = await _authService.RefreshTokenAsync(request, cancellationToken);
-
-        // Update cookies for web clients
-        if (Request.Cookies.ContainsKey("session_token"))
-        {
-            Response.Cookies.Append("session_token", response.AccessToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                MaxAge = TimeSpan.FromSeconds(response.ExpiresIn),
-                Path = "/"
-            });
-
-            if (!string.IsNullOrEmpty(response.RefreshToken))
-            {
-                Response.Cookies.Append("refresh_token", response.RefreshToken, new CookieOptions
-                {
-                    HttpOnly = true,
-                    Secure = true,
-                    SameSite = SameSiteMode.Strict,
-                    MaxAge = TimeSpan.FromDays(30),
-                    Path = "/"
-                });
+                _logger.LogWarning("Failed login attempt for username: {Username}", request.Username);
+                return Unauthorized(new { message = response.Message });
             }
+
+            _logger.LogInformation("Successful login for user: {Username}", request.Username);
+            return Ok(response);
         }
-
-        return Ok(response);
-    }
-
-    /// <summary>
-    /// Logout user and revoke refresh token
-    /// </summary>
-    [HttpPost("logout")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request, CancellationToken cancellationToken)
-    {
-        var refreshToken = request?.RefreshToken ?? Request.Cookies["refresh_token"] ?? string.Empty;
-
-        if (!string.IsNullOrEmpty(refreshToken))
+        catch (OperationCanceledException)
         {
-            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            await _authService.LogoutAsync(refreshToken, ipAddress, cancellationToken);
+            // Client disconnected or request timed out - let it propagate
+            // ASP.NET Core will handle this appropriately (no 500 error logged)
+            throw;
         }
-
-        // Clear cookies
-        Response.Cookies.Delete("session_token");
-        Response.Cookies.Delete("refresh_token");
-        Response.Cookies.Delete("csrf_token");
-
-        return Ok(new { message = "Logged out successfully" });
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for username: {Username}", request.Username);
+            return StatusCode(500, new { message = "An error occurred during login" });
+        }
     }
 
     /// <summary>
-    /// Validate current session token
+    /// Refresh access token using a refresh token
     /// </summary>
-    [HttpPost("validate-session")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    /// <param name="request">Refresh token request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>New access and refresh tokens</returns>
+    [HttpPost("refresh")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(RefreshTokenResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> ValidateSession([FromBody] ValidateSessionRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDto request, CancellationToken cancellationToken)
     {
-        var token = request.AccessToken ?? Request.Cookies["session_token"] ?? string.Empty;
-
-        if (string.IsNullOrEmpty(token))
+        if (!ModelState.IsValid)
         {
-            return Unauthorized(new { error = "No session token provided" });
+            return BadRequest(ModelState);
         }
 
-        var isValid = await _authService.ValidateSessionAsync(token, cancellationToken);
-
-        if (isValid)
+        try
         {
-            return Ok(new { valid = true });
-        }
+            var response = await _authService.RefreshTokenAsync(request, cancellationToken);
 
-        return Unauthorized(new { valid = false, error = "Invalid session" });
+            if (!response.Success)
+            {
+                return Unauthorized(new { message = response.Message });
+            }
+
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during token refresh");
+            return StatusCode(500, new { message = "An error occurred during token refresh" });
+        }
     }
 
-    private void SetAuthCookies(LoginResponse response)
+    /// <summary>
+    /// Validate if an access token is still valid
+    /// </summary>
+    /// <param name="request">Session validation request</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Validation result with user information</returns>
+    [HttpPost("validate-session")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(ValidateSessionResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ValidateSession([FromBody] ValidateSessionRequestDto request, CancellationToken cancellationToken)
     {
-        // Set session token cookie
-        Response.Cookies.Append("session_token", response.AccessToken, new CookieOptions
+        if (!ModelState.IsValid)
         {
-            HttpOnly = true,
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            MaxAge = TimeSpan.FromSeconds(response.ExpiresIn),
-            Path = "/"
-        });
-
-        // Set refresh token cookie
-        if (!string.IsNullOrEmpty(response.RefreshToken))
-        {
-            Response.Cookies.Append("refresh_token", response.RefreshToken, new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                MaxAge = TimeSpan.FromDays(30),
-                Path = "/"
-            });
+            return BadRequest(ModelState);
         }
 
-        // Set CSRF token cookie (readable by JavaScript)
-        if (!string.IsNullOrEmpty(response.CsrfToken))
+        try
         {
-            Response.Cookies.Append("csrf_token", response.CsrfToken, new CookieOptions
-            {
-                HttpOnly = false, // Readable by JavaScript
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                MaxAge = TimeSpan.FromSeconds(response.ExpiresIn),
-                Path = "/"
-            });
+            var response = await _authService.ValidateSessionAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during session validation");
+            return StatusCode(500, new { message = "An error occurred during session validation" });
         }
     }
-}
 
-public class LogoutRequest
-{
-    public string? RefreshToken { get; set; }
-}
+    /// <summary>
+    /// Logout and revoke refresh token
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Important limitation:</b> This endpoint only revokes the refresh token.
+    /// The access token (JWT) remains valid until its natural expiration.
+    /// </para>
+    /// <para>
+    /// This is an intentional design decision based on stateless JWT architecture.
+    /// For short-lived access tokens (recommended: 15-60 minutes), this provides
+    /// an acceptable security posture while maintaining scalability.
+    /// </para>
+    /// <para>
+    /// If immediate session invalidation is required, consider implementing
+    /// access token revocation via a token blocklist or distributed cache.
+    /// </para>
+    /// </remarks>
+    /// <param name="request">Logout request with refresh token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Logout result</returns>
+    [HttpPost("logout")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(LogoutResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
 
-public class ValidateSessionRequest
-{
-    public string? AccessToken { get; set; }
+        try
+        {
+            var response = await _authService.LogoutAsync(request, cancellationToken);
+
+            if (!response.Success)
+            {
+                return BadRequest(new { message = response.Message });
+            }
+
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during logout");
+            return StatusCode(500, new { message = "An error occurred during logout" });
+        }
+    }
 }

@@ -23,7 +23,7 @@ public class DepartmentMasterEntity : BaseEntity
     /// <summary>
     /// Name of the department in local language
     /// </summary>
-    public string? DepartmentNameLocal { get; set; }
+    public string? DepartmentNameLocal { get; set; } 
 
     /// <summary>
     /// Icon for the department

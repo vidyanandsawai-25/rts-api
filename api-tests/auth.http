@@ -25,7 +25,7 @@ Content-Type: application/json
 }
 
 ### Extract tokens from login response
-@accessToken = {{login.response.body.accessToken}}
+@accessToken = {{login.response.body.token}}
 @refreshToken = {{login.response.body.refreshToken}}
 
 ### 2. Refresh Token
@@ -43,7 +43,7 @@ Content-Type: application/json
 }
 
 ### Update tokens from refresh response
-@accessToken = {{refresh.response.body.accessToken}}
+@accessToken = {{refresh.response.body.token}}
 @refreshToken = {{refresh.response.body.refreshToken}}
 
 ### 3. Validate Session

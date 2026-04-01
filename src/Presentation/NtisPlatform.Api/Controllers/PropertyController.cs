@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Property;
@@ -18,6 +19,7 @@ namespace NtisPlatform.Api.Controllers;
 /// </remarks>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public partial class PropertyController : ControllerBase
 {
     private readonly IPropertyService _propertyService;

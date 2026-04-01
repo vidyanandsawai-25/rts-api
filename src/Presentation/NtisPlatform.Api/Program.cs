@@ -69,8 +69,8 @@ app.UseHttpsRedirection();
 // CORS must come before authentication
 app.UseCors("AllowAll");
 
-// Rate limiting - TEMPORARILY DISABLED FOR DEVELOPMENT
-// app.UseRateLimiter();
+// Rate limiting - protects against brute force attacks
+app.UseRateLimiter();
 
 // Authentication & Authorization
 app.UseAuthentication();
