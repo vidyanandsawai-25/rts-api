@@ -72,16 +72,37 @@ runs:
         Write-Output "Building NTIS-Platform v$version for $environment"
         Write-Output "Artifact name: $artifactName"
 
+    - name: Verify repository structure
+      shell: pwsh
+      run: |
+        Write-Output "Current directory: $(Get-Location)"
+        Write-Output "Solution file exists: $(Test-Path 'NtisPlatform.sln')"
+        Write-Output "Core project exists: $(Test-Path 'src/Core/NtisPlatform.Core/NtisPlatform.Core.csproj')"
+        if (-not (Test-Path 'NtisPlatform.sln')) {
+          Write-Error "Solution file not found in current directory"
+          Get-ChildItem -Path . | Format-Table Name
+          exit 1
+        }
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
+    - name: Clean build artifacts (self-hosted safety)
+      shell: pwsh
+      run: |
+        Write-Output "Cleaning previous build artifacts..."
+        dotnet clean NtisPlatform.sln --configuration Release -v:minimal
+        Get-ChildItem -Path . -Include bin,obj -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path publish -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Output "Clean completed successfully"
+
     - name: Restore dependencies
       shell: pwsh
       run: |
         Write-Output "Restoring NuGet packages..."
-        dotnet restore
+        dotnet restore NtisPlatform.sln
         Write-Output "Dependencies restored successfully"
 
     - name: Build solution with version
@@ -91,7 +112,7 @@ runs:
 
         Write-Output "Building NTIS-Platform v$version in Release configuration..."
 
-        dotnet build `
+        dotnet build NtisPlatform.sln `
           --configuration Release `
           --no-restore `
           -p:Version=$version `

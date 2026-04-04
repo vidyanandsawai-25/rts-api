@@ -20,6 +20,17 @@ jobs:
         with:
           clean: true
 
+      - name: Verify repository structure
+        run: |
+          Write-Output "Current directory: $(Get-Location)"
+          Write-Output "Solution file exists: $(Test-Path 'NtisPlatform.sln')"
+          Write-Output "Core project exists: $(Test-Path 'src/Core/NtisPlatform.Core/NtisPlatform.Core.csproj')"
+          if (-not (Test-Path 'NtisPlatform.sln')) {
+            Write-Error "Solution file not found in current directory"
+            Get-ChildItem -Path . | Format-Table Name
+            exit 1
+          }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -28,6 +39,11 @@ jobs:
       - name: Clean coverage artifacts (self-hosted safety)
         run: |
           Remove-Item -Recurse -Force ./coverage, ./coveragereport, ./code-coverage-results.md -ErrorAction SilentlyContinue
+
+      - name: Clean build artifacts (self-hosted safety)
+        run: |
+          dotnet clean NtisPlatform.sln --configuration Release -v:minimal
+          Get-ChildItem -Path . -Include bin,obj -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
       - name: Restore dependencies
         run: dotnet restore NtisPlatform.sln

@@ -708,13 +708,45 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("SocietyDetailsMast", "PTIS");
             entity.HasKey(e => e.SocietyDetailId);
             entity.Property(e => e.SocietyDetailId).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId);
             entity.Property(e => e.WingId);
             entity.Property(e => e.WingName).HasMaxLength(100);
+
+            entity.HasOne<WingEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.WingId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.SocietyName).HasMaxLength(500);
+            entity.Property(e => e.SocietyAddress).HasMaxLength(200);
+            entity.Property(e => e.SecretaryName).HasMaxLength(200);
+            entity.Property(e => e.ManagerName).HasMaxLength(200);
+            entity.Property(e => e.LandOwnerName).HasMaxLength(200);
+            entity.Property(e => e.BuilderName).HasMaxLength(200);
+            entity.Property(e => e.SocietyNameEnglish).HasMaxLength(500);
+            entity.Property(e => e.SocietyAddressEnglish).HasMaxLength(200);
+            entity.Property(e => e.SecretaryNameEnglish).HasMaxLength(200);
+            entity.Property(e => e.ManagerNameEnglish).HasMaxLength(200);
+            entity.Property(e => e.LandOwnerNameEnglish).HasMaxLength(200);
+            entity.Property(e => e.BuilderNameEnglish).HasMaxLength(200);
+            entity.Property(e => e.ManagerMobileNo).HasMaxLength(13);
+            entity.Property(e => e.SecretaryMobileNo).HasMaxLength(13);
+            entity.Property(e => e.SocietyEmailId).HasMaxLength(100);
+            entity.Property(e => e.SecretaryEmailId).HasMaxLength(100);
+            entity.Property(e => e.ManagerEmailId).HasMaxLength(100);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+            //entity.Ignore(e => e.BHKType);
+            // SocietyDetailsMast table schema:
+            // ? MarkedForDeletion column EXISTS (mapped above)
+            // ? MarkedForDeletionDate column DOES NOT EXIST in database yet
+            // Entity has MarkedForDeletionDate property for IHardDeletable support,
+            // but we ignore it in EF Core to prevent SQL errors until column is added to database
+            entity.Ignore(e => e.MarkedForDeletionDate);
         });
 
         // Property configuration
@@ -762,6 +794,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
 
+            // Ignore MarkedForDeletionDate as column doesn't exist in database yet
             // PropertyMast table schema:
             // ? MarkedForDeletion column EXISTS (mapped above)
             // ? MarkedForDeletionDate column DOES NOT EXIST in database yet

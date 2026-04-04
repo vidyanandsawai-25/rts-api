@@ -36,6 +36,15 @@ public class PropertyService
     {
         return await _propertyRepository.UpdateBasicDetailsAsync(propertyId, dto, cancellationToken);
     }
+    public async Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetSocietyDetailsAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.UpdateSocietyDetailsAsync(propertyId, dto, cancellationToken);
+    }
 
     public async Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {

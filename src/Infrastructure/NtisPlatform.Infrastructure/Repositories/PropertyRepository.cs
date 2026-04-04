@@ -92,7 +92,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 5: Get SocietyDetails WingId
         var society = mainResult.Property.SocietyDetailId.HasValue
             ? await _context.SocietyDetailsMast
-                .Where(x => x.SocietyDetailId == mainResult.Property.SocietyDetailId.Value && x.IsActive)
+                .Where(x => x.SocietyDetailId == mainResult.Property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
                 .FirstOrDefaultAsync(cancellationToken)
             : null;
 
@@ -296,7 +296,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if ((dto.WingId.HasValue || dto.WingName != null) && property.SocietyDetailId.HasValue)
         {
             var society = await _context.SocietyDetailsMast
-                .Where(x => x.SocietyDetailId == property.SocietyDetailId.Value && x.IsActive)
+                .Where(x => x.SocietyDetailId == property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
                 .FirstOrDefaultAsync(cancellationToken);
             
             if (society != null)
@@ -507,5 +507,186 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         
         // Step 5: Return updated data
         return await GetKycDetailsAsync(propertyId, cancellationToken);
+    }
+    public async Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get property with SocietyDetailId
+        var property = await _context.PropertyMast
+            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        // Step 2: Get society details with wing master join
+        if (!property.SocietyDetailId.HasValue)
+        {
+            // Return empty DTO if no society details exist
+            return new PropertySocietyDetailsDto
+            {
+                PropertyId = property.PropertyId,
+                SocietyDetailId = null
+            };
+        }
+
+        var societyQuery = from s in _context.SocietyDetailsMast
+                           where s.SocietyDetailId == property.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion
+                           join w in _context.Set<WingEntity>() on s.WingId equals w.WingId into wingJoin
+                           from w in wingJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                           select new PropertySocietyDetailsDto
+                           {
+                               PropertyId = property.PropertyId,
+                               SocietyDetailId = s.SocietyDetailId,
+                               WingId = s.WingId,
+                               WingNo = w != null ? w.WingNo : null,
+                               WingName = s.WingName,
+                               SocietyName = s.SocietyName,
+                               SocietyAddress = s.SocietyAddress,
+                               SecretaryName = s.SecretaryName,
+                               ManagerName = s.ManagerName,
+                               LandOwnerName = s.LandOwnerName,
+                               BuilderName = s.BuilderName,
+                               SocietyNameEnglish = s.SocietyNameEnglish,
+                               SocietyAddressEnglish = s.SocietyAddressEnglish,
+                               SecretaryNameEnglish = s.SecretaryNameEnglish,
+                               ManagerNameEnglish = s.ManagerNameEnglish,
+                               LandOwnerNameEnglish = s.LandOwnerNameEnglish,
+                               BuilderNameEnglish = s.BuilderNameEnglish,
+                               ManagerMobileNo = s.ManagerMobileNo,
+                               SecretaryMobileNo = s.SecretaryMobileNo,
+                               SocietyEmailId = s.SocietyEmailId,
+                               SecretaryEmailId = s.SecretaryEmailId,
+                               ManagerEmailId = s.ManagerEmailId
+                           };
+
+        var result = await societyQuery.FirstOrDefaultAsync(cancellationToken);
+
+        if (result == null)
+        {
+            // Return empty DTO if society details not found
+            return new PropertySocietyDetailsDto
+            {
+                PropertyId = property.PropertyId,
+                SocietyDetailId = null
+            };
+        }
+
+        return result;
+    }
+    public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Check if PropertyMast exists
+        var property = await _context.PropertyMast
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (property == null) return null;
+
+        // Step 2: Validate WingId if provided
+        if (dto.WingId.HasValue)
+        {
+            var wingExists = await _context.Set<WingEntity>()
+                .AnyAsync(w => w.WingId == dto.WingId.Value && w.IsActive, cancellationToken);
+
+            if (!wingExists)
+            {
+                throw new InvalidOperationException($"Wing with ID {dto.WingId.Value} does not exist or is inactive.");
+            }
+        }
+
+        // Step 3: Get or create society details
+        SocietyDetailsEntity? society = null;
+        bool needsPropertyUpdate = false;
+
+        if (property.SocietyDetailId.HasValue)
+        {
+            society = await _context.SocietyDetailsMast
+                .FirstOrDefaultAsync(s => s.SocietyDetailId == property.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion, cancellationToken);
+        }
+
+        if (society == null)
+        {
+            // Create new society details if none exist or if the referenced one was invalid
+            society = new SocietyDetailsEntity
+            {
+                PropertyId = propertyId,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            };
+            _context.SocietyDetailsMast.Add(society);
+            needsPropertyUpdate = true;
+        }
+
+        // Step 4: Update society details fields
+        if (dto.WingId.HasValue)
+            society.WingId = dto.WingId;
+
+        if (dto.WingName != null)
+            society.WingName = dto.WingName;
+
+        if (dto.SocietyName != null)
+            society.SocietyName = dto.SocietyName;
+
+        if (dto.SocietyAddress != null)
+            society.SocietyAddress = dto.SocietyAddress;
+
+        if (dto.SecretaryName != null)
+            society.SecretaryName = dto.SecretaryName;
+
+        if (dto.ManagerName != null)
+            society.ManagerName = dto.ManagerName;
+
+        if (dto.LandOwnerName != null)
+            society.LandOwnerName = dto.LandOwnerName;
+
+        if (dto.BuilderName != null)
+            society.BuilderName = dto.BuilderName;
+
+        if (dto.SocietyNameEnglish != null)
+            society.SocietyNameEnglish = dto.SocietyNameEnglish;
+
+        if (dto.SocietyAddressEnglish != null)
+            society.SocietyAddressEnglish = dto.SocietyAddressEnglish;
+
+        if (dto.SecretaryNameEnglish != null)
+            society.SecretaryNameEnglish = dto.SecretaryNameEnglish;
+
+        if (dto.ManagerNameEnglish != null)
+            society.ManagerNameEnglish = dto.ManagerNameEnglish;
+
+        if (dto.LandOwnerNameEnglish != null)
+            society.LandOwnerNameEnglish = dto.LandOwnerNameEnglish;
+
+        if (dto.BuilderNameEnglish != null)
+            society.BuilderNameEnglish = dto.BuilderNameEnglish;
+
+        if (dto.ManagerMobileNo != null)
+            society.ManagerMobileNo = dto.ManagerMobileNo;
+
+        if (dto.SecretaryMobileNo != null)
+            society.SecretaryMobileNo = dto.SecretaryMobileNo;
+
+        if (dto.SocietyEmailId != null)
+            society.SocietyEmailId = dto.SocietyEmailId;
+
+        if (dto.SecretaryEmailId != null)
+            society.SecretaryEmailId = dto.SecretaryEmailId;
+
+        if (dto.ManagerEmailId != null)
+            society.ManagerEmailId = dto.ManagerEmailId;
+
+        society.UpdatedDate = DateTime.Now;
+
+        // Step 5: Save all changes
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Update property's SocietyDetailId if a new society was created or the reference was invalid
+        if (needsPropertyUpdate)
+        {
+            property.SocietyDetailId = society.SocietyDetailId;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        // Step 6: Return updated data
+        return await GetSocietyDetailsAsync(propertyId, cancellationToken);
     }
 }
