@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
 using NtisPlatform.Application.DTOs;
-using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Application.Mappings;
 
@@ -8,15 +8,15 @@ public class OwnerTypeMappingProfile : Profile
 {
     public OwnerTypeMappingProfile()
     {
-        CreateMap<OwnerTypeEntity, OwnerTypeDto>();
+        CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
 
-        CreateMap<CreateOwnerTypeDto, OwnerTypeEntity>()
+        CreateMap<CreateOwnerTypeDto, OwnerTypeMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore());
 
-        CreateMap<UpdateOwnerTypeDto, OwnerTypeEntity>()
+        CreateMap<UpdateOwnerTypeDto, OwnerTypeMasterEntity>()
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

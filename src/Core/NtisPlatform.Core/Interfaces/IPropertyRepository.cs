@@ -18,26 +18,9 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates society details for a property
+    /// Updates old property details across PropertyMastOld and PropertyDetailsOld tables
     /// <returns>Updated PropertyBasicDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertyBasicDetailsDto?> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default);
-    /// <summary>
-    /// Retrieves society details for a property including joined data from related tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property society details DTO or null if not found</returns>
-    Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    
-    /// <summary>
-    /// Updates society details for a property across multiple tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update DTO</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default);
-
 
     /// <summary>
     /// Retrieves KYC details for a property including joined data from related tables
@@ -50,4 +33,21 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <returns>Updated PropertyKycDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default);
 
+    /// Updates society details for a property
+    /// <returns>Updated PropertyBasicDetailsDto if property was found and updated, null otherwise</returns>
+    Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+        
+    /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
+    Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves old property details including joined data from PropertyMastOld and PropertyDetailsOld tables
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Property old details DTO or null if not found</returns>
+    Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+
+
+    Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default);
 }

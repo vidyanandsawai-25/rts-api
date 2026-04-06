@@ -3,21 +3,21 @@ using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Services;
-using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;
 
 public class OwnerTypeServiceTests
 {
-    private readonly Mock<IRepository<OwnerTypeEntity, int>> _mockRepository;
+    private readonly Mock<IRepository<OwnerTypeMasterEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly OwnerTypeService _service;
 
     public OwnerTypeServiceTests()
     {
-        _mockRepository = new Mock<IRepository<OwnerTypeEntity, int>>();
+        _mockRepository = new Mock<IRepository<OwnerTypeMasterEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -40,7 +40,7 @@ public class OwnerTypeServiceTests
     public async Task GetByIdAsync_ExistingId_ReturnsDto()
     {
         // Arrange
-        var entity = new OwnerTypeEntity
+        var entity = new OwnerTypeMasterEntity
         {
             OwnerTypeId = 1,
             OwnerType = "Self",
@@ -54,8 +54,8 @@ public class OwnerTypeServiceTests
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
-        _mockMapper.Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeEntity>()))
-            .Returns((OwnerTypeEntity e) => new OwnerTypeDto
+        _mockMapper.Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
+            .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
                 OwnerTypeId = e.OwnerTypeId,
                 OwnerType = e.OwnerType,
@@ -79,7 +79,7 @@ public class OwnerTypeServiceTests
     {
         // Arrange
         _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OwnerTypeEntity?)null);
+            .ReturnsAsync((OwnerTypeMasterEntity?)null);
 
         // Act
         var result = await _service.GetByIdAsync(999);
@@ -92,7 +92,7 @@ public class OwnerTypeServiceTests
     public async Task GetAllAsync_ReturnsAllEntities()
     {
         // Arrange
-        var entities = new List<OwnerTypeEntity>
+        var entities = new List<OwnerTypeMasterEntity>
         {
             new() { OwnerTypeId = 1, OwnerType = "Self", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
             new() { OwnerTypeId = 2, OwnerType = "Women", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
@@ -104,7 +104,7 @@ public class OwnerTypeServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<OwnerTypeEntity, OwnerTypeDto>();
+            cfg.CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
         });
 
         mapperConfig.AssertConfigurationIsValid();
@@ -150,8 +150,8 @@ public class OwnerTypeServiceTests
         };
 
         _mockMapper
-            .Setup(m => m.Map<OwnerTypeEntity>(It.IsAny<CreateOwnerTypeDto>()))
-            .Returns((CreateOwnerTypeDto dto) => new OwnerTypeEntity
+            .Setup(m => m.Map<OwnerTypeMasterEntity>(It.IsAny<CreateOwnerTypeDto>()))
+            .Returns((CreateOwnerTypeDto dto) => new OwnerTypeMasterEntity
             {
                 OwnerTypeId = 4,
                 OwnerType = dto.OwnerType,
@@ -161,12 +161,12 @@ public class OwnerTypeServiceTests
             });
 
         _mockRepository
-            .Setup(r => r.AddAsync(It.IsAny<OwnerTypeEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OwnerTypeEntity e, CancellationToken _) => e);
+            .Setup(r => r.AddAsync(It.IsAny<OwnerTypeMasterEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OwnerTypeMasterEntity e, CancellationToken _) => e);
 
         _mockMapper
-            .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeEntity>()))
-            .Returns((OwnerTypeEntity e) => new OwnerTypeDto
+            .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
+            .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
                 OwnerTypeId = e.OwnerTypeId,
                 OwnerType = e.OwnerType,
@@ -183,7 +183,7 @@ public class OwnerTypeServiceTests
         Assert.Equal("Ex. Military Soldier", result.OwnerType);
         Assert.True(result.IsActive);
 
-        _mockRepository.Verify(r => r.AddAsync(It.IsAny<OwnerTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<OwnerTypeMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -200,7 +200,7 @@ public class OwnerTypeServiceTests
             UpdatedBy = 1
         };
 
-        var existingEntity = new OwnerTypeEntity
+        var existingEntity = new OwnerTypeMasterEntity
         {
             OwnerTypeId = 1,
             OwnerType = "Self",
@@ -216,12 +216,12 @@ public class OwnerTypeServiceTests
             .ReturnsAsync(existingEntity);
 
         _mockRepository
-            .Setup(r => r.UpdateAsync(It.IsAny<OwnerTypeEntity>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateAsync(It.IsAny<OwnerTypeMasterEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockMapper
-            .Setup(m => m.Map(It.IsAny<UpdateOwnerTypeDto>(), It.IsAny<OwnerTypeEntity>()))
-            .Callback((UpdateOwnerTypeDto src, OwnerTypeEntity dest) =>
+            .Setup(m => m.Map(It.IsAny<UpdateOwnerTypeDto>(), It.IsAny<OwnerTypeMasterEntity>()))
+            .Callback((UpdateOwnerTypeDto src, OwnerTypeMasterEntity dest) =>
             {
                 dest.OwnerType = src.OwnerType;
                 dest.IsActive = src.IsActive;
@@ -230,8 +230,8 @@ public class OwnerTypeServiceTests
             });
 
         _mockMapper
-            .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeEntity>()))
-            .Returns((OwnerTypeEntity e) => new OwnerTypeDto
+            .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
+            .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
                 OwnerTypeId = e.OwnerTypeId,
                 OwnerType = e.OwnerType,
@@ -244,7 +244,7 @@ public class OwnerTypeServiceTests
         // Assert
         Assert.NotNull(result);
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OwnerTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OwnerTypeMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -266,14 +266,14 @@ public class OwnerTypeServiceTests
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OwnerTypeEntity?)null);
+            .ReturnsAsync((OwnerTypeMasterEntity?)null);
 
         // Act
         var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
 
         // Assert
         Assert.Null(result);
-        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OwnerTypeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OwnerTypeMasterEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -286,7 +286,7 @@ public class OwnerTypeServiceTests
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((OwnerTypeEntity?)null);
+            .ReturnsAsync((OwnerTypeMasterEntity?)null);
 
         // Act
         var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
@@ -305,7 +305,7 @@ public class OwnerTypeServiceTests
         // Arrange
         var idToDelete = 1;
 
-        var existingEntity = new OwnerTypeEntity
+        var existingEntity = new OwnerTypeMasterEntity
         {
             OwnerTypeId = 1,
             OwnerType = "Self",
@@ -340,7 +340,7 @@ public class OwnerTypeServiceTests
     public async Task GetAllAsync_WithSearchTerm_ReturnsFilteredResults()
     {
         // Arrange
-        var entities = new List<OwnerTypeEntity>
+        var entities = new List<OwnerTypeMasterEntity>
         {
             new() { OwnerTypeId = 1, OwnerType = "Self", IsActive = true },
             new() { OwnerTypeId = 2, OwnerType = "Women", IsActive = true },
@@ -352,7 +352,7 @@ public class OwnerTypeServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<OwnerTypeEntity, OwnerTypeDto>();
+            cfg.CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
         });
 
         IMapper mapper = mapperConfig.CreateMapper();

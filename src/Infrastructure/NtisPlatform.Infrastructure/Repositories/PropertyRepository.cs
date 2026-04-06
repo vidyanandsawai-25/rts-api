@@ -23,22 +23,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 1: Get main property with master data joins
         var mainQuery = from p in _context.PropertyMast
                         where p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion
-                        
+
                         join w in _context.WardMaster on p.WardId equals w.WardId into wardJoin
                         from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
-                        
+
                         join z in _context.ZoneMaster on (w != null ? w.ZoneId : (int?)null) equals z.ZoneId into zoneJoin
                         from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
-                        
+
                         join tz in _context.TaxZoneMaster on p.TaxZoneId equals tz.TaxZoneId into taxZoneJoin
                         from tz in taxZoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
-                        
+
                         join pc in _context.PropertyCategory on p.CategoryId equals pc.PropertyCategoryId into categoryJoin
                         from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
-                        
+
                         join pt in _context.PropertyTypeMaster on p.PropertyTypeId equals pt.PropertyTypeId into typeJoin
                         from pt in typeJoin.Where(x => x.IsActive).DefaultIfEmpty()
-                        
+
                         select new
                         {
                             Property = p,
@@ -50,7 +50,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                         };
 
         var mainResult = await mainQuery.FirstOrDefaultAsync(cancellationToken);
-        
+
         if (mainResult == null)
             return null;
 
@@ -145,7 +145,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 2: Validate foreign keys
         var taxZoneExists = await _context.TaxZoneMaster
             .AnyAsync(tz => tz.TaxZoneId == dto.TaxZoneId && tz.IsActive, cancellationToken);
-        
+
         if (!taxZoneExists)
         {
             throw new InvalidOperationException($"TaxZone with ID {dto.TaxZoneId} does not exist or is inactive.");
@@ -153,7 +153,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         var wardExists = await _context.WardMaster
             .AnyAsync(w => w.WardId == dto.WardId && w.IsActive, cancellationToken);
-        
+
         if (!wardExists)
         {
             throw new InvalidOperationException($"Ward with ID {dto.WardId} does not exist or is inactive.");
@@ -195,28 +195,28 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .Select(x => x.PropertyDetailsId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasAssessmentData = dto.WingId.HasValue || dto.WingNo != null || 
+        bool hasAssessmentData = dto.WingId.HasValue || dto.WingNo != null ||
                                   dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue;
 
         if (assessmentId > 0)
         {
             // UPDATE existing record
             var assessment = await _context.PropertyMastDetails.FindAsync(new object[] { assessmentId }, cancellationToken);
-            
+
             if (assessment != null)
             {
                 if (dto.WingId.HasValue)
                     assessment.WingId = dto.WingId;
-                
+
                 if (dto.WingNo != null)
                     assessment.WingNo = dto.WingNo;
-                
+
                 if (dto.NoOfResidentialToilets.HasValue)
                     assessment.NoOfResidentialToilets = dto.NoOfResidentialToilets;
-                
+
                 if (dto.NoOfCommercialToilets.HasValue)
                     assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
-                
+
                 assessment.UpdatedDate = DateTime.Now;
             }
         }
@@ -234,7 +234,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 MarkedForDeletion = false,
                 CreatedDate = DateTime.Now
             };
-            
+
             await _context.PropertyMastDetails.AddAsync(newAssessment, cancellationToken);
         }
 
@@ -245,32 +245,32 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .Select(x => x.PlotId)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasPlotData = dto.PlotArea.HasValue || dto.PlotAreaFtLength.HasValue || 
-                           dto.PlotAreaFtWidth.HasValue || dto.PlotAreaMtrLength.HasValue || 
+        bool hasPlotData = dto.PlotArea.HasValue || dto.PlotAreaFtLength.HasValue ||
+                           dto.PlotAreaFtWidth.HasValue || dto.PlotAreaMtrLength.HasValue ||
                            dto.PlotAreaMtrWidth.HasValue;
 
         if (plotId > 0)
         {
             // UPDATE existing record
             var plot = await _context.PlotDetails.FindAsync(new object[] { plotId }, cancellationToken);
-            
+
             if (plot != null)
             {
                 if (dto.PlotArea.HasValue)
                     plot.PlotArea = dto.PlotArea;
-                
+
                 if (dto.PlotAreaFtLength.HasValue)
                     plot.PlotAreaFtLength = dto.PlotAreaFtLength;
-                
+
                 if (dto.PlotAreaFtWidth.HasValue)
                     plot.PlotAreaFtWidth = dto.PlotAreaFtWidth;
-                
+
                 if (dto.PlotAreaMtrLength.HasValue)
                     plot.PlotAreaMtrLength = dto.PlotAreaMtrLength;
-                
+
                 if (dto.PlotAreaMtrWidth.HasValue)
                     plot.PlotAreaMtrWidth = dto.PlotAreaMtrWidth;
-                
+
                 plot.UpdatedDate = DateTime.Now;
             }
         }
@@ -288,7 +288,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 IsActive = true,
                 CreatedDate = DateTime.Now
             };
-            
+
             await _context.PlotDetails.AddAsync(newPlot, cancellationToken);
         }
 
@@ -298,216 +298,26 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             var society = await _context.SocietyDetailsMast
                 .Where(x => x.SocietyDetailId == property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
                 .FirstOrDefaultAsync(cancellationToken);
-            
+
             if (society != null)
             {
                 if (dto.WingId.HasValue)
                     society.WingId = dto.WingId;
-                
+
                 if (dto.WingName != null)
                     society.WingName = dto.WingName;
-                
+
                 society.UpdatedDate = DateTime.Now;
             }
         }
 
         // Step 7: Save all changes
         await _context.SaveChangesAsync(cancellationToken);
-        
+
         // Step 8: Return updated data
         return await GetBasicDetailsAsync(propertyId, cancellationToken);
     }
 
-    public async Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        // DTO-only flow: Repository returns DTO directly
-        // Step 1: Get main property from PropertyMast
-        var property = await _context.PropertyMast
-            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (property == null)
-            return null;
-
-        // Step 2: Get PropertyMastDetails (assessment) with OwnerTypeId and AdharCardNo
-        // Note: PropertyMastDetails has MarkedForDeletion but not MarkedForDeletionDate
-        // Project to anonymous type to avoid querying MarkedForDeletionDate column
-        var assessment = await _context.PropertyMastDetails
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.PropertyDetailsId)
-            .Select(x => new
-            {
-                x.PropertyDetailsId,
-                x.PropertyId,
-                x.OwnerTypeId,
-                x.AdharCardNo
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        // Step 3: Get OwnerType from OwnerTypeMaster if OwnerTypeId exists
-        string? ownerType = null;
-        if (assessment?.OwnerTypeId.HasValue == true)
-        {
-            var ownerTypeMaster = await _context.OwnerTypeMaster
-                .Where(x => x.OwnerTypeId == assessment.OwnerTypeId.Value && x.IsActive)
-                .FirstOrDefaultAsync(cancellationToken);
-            ownerType = ownerTypeMaster?.OwnerType;
-        }
-
-        // Build and return DTO
-        return new PropertyKycDetailsDto
-        {
-            PropertyId = property.PropertyId,
-            
-            // From PropertyMastDetails
-            OwnerTypeId = assessment?.OwnerTypeId,
-            AdharCardNo = assessment?.AdharCardNo,
-            
-            // From OwnerTypeMaster
-            OwnerType = ownerType,
-            
-            // From PropertyMast - Owner Information
-            OwnerTitle = property.OwnerTitle,
-            OwnerName = property.OwnerName,
-            OwnerTitleEnglish = property.OwnerTitleEnglish,
-            OwnerNameEnglish = property.OwnerNameEnglish,
-            
-            // From PropertyMast - Occupier Information
-            OccupierTitle = property.OccupierTitle,
-            OccupierName = property.OccupierName,
-            OccupierTitleEnglish = property.OccupierTitleEnglish,
-            OccupierNameEnglish = property.OccupierNameEnglish,
-            
-            // From PropertyMast - Address Information
-            Address = property.Address,
-            Location = property.Location,
-            AddressEnglish = property.AddressEnglish,
-            LocationEnglish = property.LocationEnglish,
-            
-            // From PropertyMast - Flat/Shop Information
-            FlatOrShopName = property.FlatOrShopName,
-            FlatOrShopNameEnglish = property.FlatOrShopNameEnglish,
-            FlatOrShopNo = property.FlatOrShopNo,
-            FlatOrShopNoEnglish = property.FlatOrShopNoEnglish,
-            
-            // From PropertyMast - Contact Information
-            MobileNo = property.MobileNo,
-            EmailId = property.EmailId
-        };
-    }
-
-    public async Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        // Step 1: Check if PropertyMast exists
-        var property = await _context.PropertyMast
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
-
-        if (property == null) return null;
-
-        // Step 2: Update PropertyMast fields
-        if (dto.OwnerTitle != null)
-            property.OwnerTitle = dto.OwnerTitle;
-
-        if (dto.OwnerName != null)
-            property.OwnerName = dto.OwnerName;
-
-        if (dto.OwnerTitleEnglish != null)
-            property.OwnerTitleEnglish = dto.OwnerTitleEnglish;
-
-        if (dto.OwnerNameEnglish != null)
-            property.OwnerNameEnglish = dto.OwnerNameEnglish;
-
-        if (dto.OccupierTitle != null)
-            property.OccupierTitle = dto.OccupierTitle;
-
-        if (dto.OccupierName != null)
-            property.OccupierName = dto.OccupierName;
-
-        if (dto.OccupierTitleEnglish != null)
-            property.OccupierTitleEnglish = dto.OccupierTitleEnglish;
-
-        if (dto.OccupierNameEnglish != null)
-            property.OccupierNameEnglish = dto.OccupierNameEnglish;
-
-        if (dto.Address != null)
-            property.Address = dto.Address;
-
-        if (dto.Location != null)
-            property.Location = dto.Location;
-
-        if (dto.AddressEnglish != null)
-            property.AddressEnglish = dto.AddressEnglish;
-
-        if (dto.LocationEnglish != null)
-            property.LocationEnglish = dto.LocationEnglish;
-
-        if (dto.FlatOrShopName != null)
-            property.FlatOrShopName = dto.FlatOrShopName;
-
-        if (dto.FlatOrShopNameEnglish != null)
-            property.FlatOrShopNameEnglish = dto.FlatOrShopNameEnglish;
-
-        if (dto.FlatOrShopNo != null)
-            property.FlatOrShopNo = dto.FlatOrShopNo;
-
-        if (dto.FlatOrShopNoEnglish != null)
-            property.FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish;
-
-        if (dto.MobileNo != null)
-            property.MobileNo = dto.MobileNo;
-
-        if (dto.EmailId != null)
-            property.EmailId = dto.EmailId;
-
-        property.UpdatedDate = DateTime.Now;
-
-        // Step 3: Upsert PropertyMastDetails (assessment) - OwnerTypeId and AdharCardNo
-        var assessmentId = await _context.PropertyMastDetails
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.PropertyDetailsId)
-            .Select(x => x.PropertyDetailsId)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        bool hasAssessmentData = dto.OwnerTypeId.HasValue || dto.AdharCardNo != null;
-
-        if (assessmentId > 0)
-        {
-            // UPDATE existing record
-            var assessment = await _context.PropertyMastDetails.FindAsync(new object[] { assessmentId }, cancellationToken);
-            
-            if (assessment != null)
-            {
-                if (dto.OwnerTypeId.HasValue)
-                    assessment.OwnerTypeId = dto.OwnerTypeId;
-
-                if (dto.AdharCardNo != null)
-                    assessment.AdharCardNo = dto.AdharCardNo;
-                
-                assessment.UpdatedDate = DateTime.Now;
-            }
-        }
-        else if (hasAssessmentData)
-        {
-            // INSERT new record only if data is provided
-            var newAssessment = new PropertyAssessmentEntity
-            {
-                PropertyId = propertyId,
-                OwnerTypeId = dto.OwnerTypeId,
-                AdharCardNo = dto.AdharCardNo,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.Now
-            };
-            
-            await _context.PropertyMastDetails.AddAsync(newAssessment, cancellationToken);
-        }
-
-        // Step 4: Save all changes
-        await _context.SaveChangesAsync(cancellationToken);
-        
-        // Step 5: Return updated data
-        return await GetKycDetailsAsync(propertyId, cancellationToken);
-    }
     public async Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // Step 1: Get property with SocietyDetailId
@@ -573,6 +383,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         return result;
     }
+
     public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
     {
         // Step 1: Check if PropertyMast exists
@@ -688,5 +499,392 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         // Step 6: Return updated data
         return await GetSocietyDetailsAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // DTO-only flow: Repository returns DTO directly
+        // Step 1: Get main property from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        // Step 2: Get PropertyMastDetails (assessment) with OwnerTypeId and AdharCardNo
+        // Note: PropertyMastDetails has MarkedForDeletion but not MarkedForDeletionDate
+        // Project to anonymous type to avoid querying MarkedForDeletionDate column
+        var assessment = await _context.PropertyMastDetails
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyDetailsId)
+            .Select(x => new
+            {
+                x.PropertyDetailsId,
+                x.PropertyId,
+                x.OwnerTypeId,
+                x.AdharCardNo
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Step 3: Get OwnerType from OwnerTypeMaster if OwnerTypeId exists
+        string? ownerType = null;
+        if (assessment?.OwnerTypeId.HasValue == true)
+        {
+            var ownerTypeMaster = await _context.OwnerTypeMaster
+                .Where(x => x.OwnerTypeId == assessment.OwnerTypeId.Value && x.IsActive)
+                .FirstOrDefaultAsync(cancellationToken);
+            ownerType = ownerTypeMaster?.OwnerType;
+        }
+
+        // Build and return DTO
+        return new PropertyKycDetailsDto
+        {
+            PropertyId = property.PropertyId,
+
+            // From PropertyMastDetails
+            OwnerTypeId = assessment?.OwnerTypeId,
+            AdharCardNo = assessment?.AdharCardNo,
+
+            // From OwnerTypeMaster
+            OwnerType = ownerType,
+
+            // From PropertyMast - Owner Information
+            OwnerTitle = property.OwnerTitle,
+            OwnerName = property.OwnerName,
+            OwnerTitleEnglish = property.OwnerTitleEnglish,
+            OwnerNameEnglish = property.OwnerNameEnglish,
+
+            // From PropertyMast - Occupier Information
+            OccupierTitle = property.OccupierTitle,
+            OccupierName = property.OccupierName,
+            OccupierTitleEnglish = property.OccupierTitleEnglish,
+            OccupierNameEnglish = property.OccupierNameEnglish,
+
+            // From PropertyMast - Address Information
+            Address = property.Address,
+            Location = property.Location,
+            AddressEnglish = property.AddressEnglish,
+            LocationEnglish = property.LocationEnglish,
+
+            // From PropertyMast - Flat/Shop Information
+            FlatOrShopName = property.FlatOrShopName,
+            FlatOrShopNameEnglish = property.FlatOrShopNameEnglish,
+            FlatOrShopNo = property.FlatOrShopNo,
+            FlatOrShopNoEnglish = property.FlatOrShopNoEnglish,
+
+            // From PropertyMast - Contact Information
+            MobileNo = property.MobileNo,
+            EmailId = property.EmailId
+        };
+    }
+
+    public async Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Check if PropertyMast exists
+        var property = await _context.PropertyMast
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (property == null) return null;
+
+        // Step 2: Update PropertyMast fields
+        if (dto.OwnerTitle != null)
+            property.OwnerTitle = dto.OwnerTitle;
+
+        if (dto.OwnerName != null)
+            property.OwnerName = dto.OwnerName;
+
+        if (dto.OwnerTitleEnglish != null)
+            property.OwnerTitleEnglish = dto.OwnerTitleEnglish;
+
+        if (dto.OwnerNameEnglish != null)
+            property.OwnerNameEnglish = dto.OwnerNameEnglish;
+
+        if (dto.OccupierTitle != null)
+            property.OccupierTitle = dto.OccupierTitle;
+
+        if (dto.OccupierName != null)
+            property.OccupierName = dto.OccupierName;
+
+        if (dto.OccupierTitleEnglish != null)
+            property.OccupierTitleEnglish = dto.OccupierTitleEnglish;
+
+        if (dto.OccupierNameEnglish != null)
+            property.OccupierNameEnglish = dto.OccupierNameEnglish;
+
+        if (dto.Address != null)
+            property.Address = dto.Address;
+
+        if (dto.Location != null)
+            property.Location = dto.Location;
+
+        if (dto.AddressEnglish != null)
+            property.AddressEnglish = dto.AddressEnglish;
+
+        if (dto.LocationEnglish != null)
+            property.LocationEnglish = dto.LocationEnglish;
+
+        if (dto.FlatOrShopName != null)
+            property.FlatOrShopName = dto.FlatOrShopName;
+
+        if (dto.FlatOrShopNameEnglish != null)
+            property.FlatOrShopNameEnglish = dto.FlatOrShopNameEnglish;
+
+        if (dto.FlatOrShopNo != null)
+            property.FlatOrShopNo = dto.FlatOrShopNo;
+
+        if (dto.FlatOrShopNoEnglish != null)
+            property.FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish;
+
+        if (dto.MobileNo != null)
+            property.MobileNo = dto.MobileNo;
+
+        if (dto.EmailId != null)
+            property.EmailId = dto.EmailId;
+
+        property.UpdatedDate = DateTime.Now;
+
+        // Step 3: Upsert PropertyMastDetails (assessment) - OwnerTypeId and AdharCardNo
+        var assessmentId = await _context.PropertyMastDetails
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyDetailsId)
+            .Select(x => x.PropertyDetailsId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        bool hasAssessmentData = dto.OwnerTypeId.HasValue || dto.AdharCardNo != null;
+
+        if (assessmentId > 0)
+        {
+            // UPDATE existing record
+            var assessment = await _context.PropertyMastDetails.FindAsync(new object[] { assessmentId }, cancellationToken);
+
+            if (assessment != null)
+            {
+                if (dto.OwnerTypeId.HasValue)
+                    assessment.OwnerTypeId = dto.OwnerTypeId;
+
+                if (dto.AdharCardNo != null)
+                    assessment.AdharCardNo = dto.AdharCardNo;
+
+                assessment.UpdatedDate = DateTime.Now;
+            }
+        }
+        else if (hasAssessmentData)
+        {
+            // INSERT new record only if data is provided
+            var newAssessment = new PropertyAssessmentEntity
+            {
+                PropertyId = propertyId,
+                OwnerTypeId = dto.OwnerTypeId,
+                AdharCardNo = dto.AdharCardNo,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = DateTime.Now
+            };
+
+            await _context.PropertyMastDetails.AddAsync(newAssessment, cancellationToken);
+        }
+
+        // Step 4: Save all changes
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Step 5: Return updated data
+        return await GetKycDetailsAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // Check if property exists
+        var propertyExists = await _context.PropertyMast
+            .AnyAsync(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (!propertyExists)
+            return null;
+
+        // Step 1: Get PropertyMastOld data
+        var oldMastData = await _context.PropertyMastOld
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyOldId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Step 2: Get first PropertyDetailsOld data (or aggregate if needed)
+        var oldDetailsData = await _context.PropertyDetailsOld
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyDetailsOldId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Build and return DTO
+        return new PropertyOldDetailsDto
+        {
+            PropertyId = propertyId,
+            // From PropertyMastOld
+            OldWardNo = oldMastData?.OldWardNo,
+            OldPropertyNo = oldMastData?.OldPropertyNo,
+            OldPartitionNo = oldMastData?.OldPartitionNo,
+            OldEgovNo = oldMastData?.OldEgovNo,
+            OldPlotArea = oldMastData?.OldPlotArea,
+            OldPlotNo = oldMastData?.OldPlotNo,
+            OldRV = oldMastData?.OldRV,
+            OldALV = oldMastData?.OldALV,
+            OldTotalTax = oldMastData?.OldTotalTax,
+            OldZoneNo = oldMastData?.OldZoneNo,
+            // From PropertyDetailsOld
+            OldConstructionYear = oldDetailsData?.OldConstructionYear,
+            OldCarpetAreaSqFeet = oldDetailsData?.OldCarpetAreaSqfeet,
+            OldCarpetAreaSqMeter = oldDetailsData?.OldCarpetAreaSqMeter,
+            OldRegistration = oldDetailsData?.OldRegistration,
+            OldConstructionTypeId = oldDetailsData?.OldConstructionTypeId,
+            OldTypeOfUseId = oldDetailsData?.OldTypeOfUseId
+        };
+    }
+
+    public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Check if PropertyMast exists
+        var propertyExists = await _context.PropertyMast
+            .AnyAsync(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (!propertyExists)
+            return null;
+
+        // Step 2: Upsert PropertyMastOld
+        var oldMastId = await _context.PropertyMastOld
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyOldId)
+            .Select(x => x.PropertyOldId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        bool hasOldMastData = dto.OldWardNo != null || dto.OldPropertyNo != null ||
+                              dto.OldPartitionNo != null || dto.OldEgovNo != null ||
+                              dto.OldPlotArea.HasValue || dto.OldPlotNo != null ||
+                              dto.OldRV.HasValue || dto.OldALV.HasValue ||
+                              dto.OldTotalTax.HasValue || dto.OldZoneNo != null;
+
+        if (oldMastId > 0)
+        {
+            // UPDATE existing record
+            var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { oldMastId }, cancellationToken);
+
+            if (oldMastData != null)
+            {
+                if (dto.OldWardNo != null)
+                    oldMastData.OldWardNo = dto.OldWardNo;
+
+                if (dto.OldPropertyNo != null)
+                    oldMastData.OldPropertyNo = dto.OldPropertyNo;
+
+                if (dto.OldPartitionNo != null)
+                    oldMastData.OldPartitionNo = dto.OldPartitionNo;
+
+                if (dto.OldEgovNo != null)
+                    oldMastData.OldEgovNo = dto.OldEgovNo;
+
+                if (dto.OldPlotArea.HasValue)
+                    oldMastData.OldPlotArea = dto.OldPlotArea;
+
+                if (dto.OldPlotNo != null)
+                    oldMastData.OldPlotNo = dto.OldPlotNo;
+
+                if (dto.OldRV.HasValue)
+                    oldMastData.OldRV = dto.OldRV;
+
+                if (dto.OldALV.HasValue)
+                    oldMastData.OldALV = dto.OldALV;
+
+                if (dto.OldTotalTax.HasValue)
+                    oldMastData.OldTotalTax = dto.OldTotalTax;
+
+                if (dto.OldZoneNo != null)
+                    oldMastData.OldZoneNo = dto.OldZoneNo;
+
+                oldMastData.UpdatedDate = DateTime.Now;
+            }
+        }
+        else if (hasOldMastData)
+        {
+            // INSERT new record only if data is provided
+            var newOldMastData = new PropertyMastOldEntity
+            {
+                PropertyId = propertyId,
+                OldWardNo = dto.OldWardNo,
+                OldPropertyNo = dto.OldPropertyNo,
+                OldPartitionNo = dto.OldPartitionNo,
+                OldEgovNo = dto.OldEgovNo,
+                OldPlotArea = dto.OldPlotArea,
+                OldPlotNo = dto.OldPlotNo,
+                OldRV = dto.OldRV,
+                OldALV = dto.OldALV,
+                OldTotalTax = dto.OldTotalTax,
+                OldZoneNo = dto.OldZoneNo,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = DateTime.Now
+            };
+            await _context.PropertyMastOld.AddAsync(newOldMastData, cancellationToken);
+        }
+
+        // Step 3: Upsert PropertyDetailsOld
+        var oldDetailsId = await _context.PropertyDetailsOld
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .OrderBy(x => x.PropertyDetailsOldId)
+            .Select(x => x.PropertyDetailsOldId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        bool hasOldDetailsData = dto.OldConstructionYear != null || dto.OldCarpetAreaSqFeet.HasValue ||
+                                 dto.OldCarpetAreaSqMeter.HasValue || dto.OldRegistration.HasValue ||
+                                 dto.OldConstructionTypeId != null || dto.OldTypeOfUseId != null;
+
+        if (oldDetailsId > 0)
+        {
+            // UPDATE existing record
+            var oldDetailsData = await _context.PropertyDetailsOld.FindAsync(new object[] { oldDetailsId }, cancellationToken);
+
+            if (oldDetailsData != null)
+            {
+                if (dto.OldConstructionYear != null)
+                    oldDetailsData.OldConstructionYear = dto.OldConstructionYear;
+
+                if (dto.OldCarpetAreaSqFeet.HasValue)
+                    oldDetailsData.OldCarpetAreaSqfeet = dto.OldCarpetAreaSqFeet;
+
+                if (dto.OldCarpetAreaSqMeter.HasValue)
+                    oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
+
+                if (dto.OldRegistration.HasValue)
+                    oldDetailsData.OldRegistration = dto.OldRegistration;
+
+                if (dto.OldConstructionTypeId != null)
+                    oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
+
+                if (dto.OldTypeOfUseId != null)
+                    oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
+
+                oldDetailsData.UpdatedDate = DateTime.Now;
+            }
+        }
+        else if (hasOldDetailsData)
+        {
+            // INSERT new record only if data is provided
+            var newOldDetailsData = new PropertyDetailsOldEntity
+            {
+                PropertyId = propertyId,
+                OldConstructionYear = dto.OldConstructionYear,
+                OldCarpetAreaSqfeet = dto.OldCarpetAreaSqFeet,
+                OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
+                OldRegistration = dto.OldRegistration,
+                OldConstructionTypeId = dto.OldConstructionTypeId,
+                OldTypeOfUseId = dto.OldTypeOfUseId,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = DateTime.Now
+            };
+            await _context.PropertyDetailsOld.AddAsync(newOldDetailsData, cancellationToken);
+        }
+
+        // Step 4: Save all changes
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Step 5: Return updated data
+        return await GetOldDetailsAsync(propertyId, cancellationToken);
     }
 }

@@ -10,6 +10,7 @@ using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using Xunit;
 
 namespace NtisPlatform.Tests.Application;
 

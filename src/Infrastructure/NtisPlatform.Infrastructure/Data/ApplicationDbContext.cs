@@ -62,7 +62,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
-    public DbSet<OwnerTypeEntity> OwnerTypes { get; set; } = null!;
+    public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
+    public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
 
 
 	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
@@ -823,17 +824,6 @@ public class ApplicationDbContext : DbContext
           entity.HasIndex(e => e.CategoryCode).IsUnique();
 
       });
-        modelBuilder.Entity<OwnerTypeEntity>(entity =>
-        {
-            entity.ToTable("OwnerTypeMaster", "PTIS");
-            entity.HasKey(e => e.OwnerTypeId);
-            entity.Property(e => e.OwnerType).HasMaxLength(100).IsRequired();
-            entity.Property(e => e.IsActive);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate);
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-        });
         modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
         {
             entity.ToTable("ConfigKeyMaster", "Core");
@@ -954,6 +944,86 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.UpdatedBy);
+        });
+
+        // PropertyMastOld configuration
+        modelBuilder.Entity<PropertyMastOldEntity>(entity =>
+        {
+            entity.ToTable("PropertyMastOld", "PTIS");
+            entity.HasKey(e => e.PropertyOldId);
+            entity.Property(e => e.PropertyOldId)
+                .HasColumnName("PropertyOldId")
+                .ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId)
+                .HasColumnName("PropertyId").IsRequired(false);
+            entity.Property(e => e.OldWardNo).HasMaxLength(10);
+            entity.Property(e => e.OldPropertyNo).HasMaxLength(10);
+            entity.Property(e => e.OldPartitionNo).HasMaxLength(10);
+            entity.Property(e => e.OldEgovNo).HasMaxLength(10);
+            entity.Property(e => e.OldPropertyTypeId);
+            entity.Property(e => e.OldALV).HasColumnType("float");
+            entity.Property(e => e.OldRV).HasColumnType("float");
+            entity.Property(e => e.OldGeneralTax).HasColumnType("float");
+            entity.Property(e => e.OldTotalTax).HasColumnType("float");
+            entity.Property(e => e.OldZoneNo).HasMaxLength(20);
+            entity.Property(e => e.OldPlotNo).HasMaxLength(20);
+            entity.Property(e => e.OldCSN).HasMaxLength(30);
+            entity.Property(e => e.OldPlotArea).HasColumnType("float");
+            entity.Property(e => e.OldAssessmentYear);
+            entity.Property(e => e.OldFloor).HasMaxLength(10);
+            entity.Property(e => e.OldConstructionTypeOfUseId).HasMaxLength(7);
+            entity.Property(e => e.OldUseType).HasMaxLength(100);
+            entity.Property(e => e.OldConstArea).HasColumnType("float");
+            entity.Property(e => e.OldOwnerName).HasMaxLength(1000);
+            entity.Property(e => e.OldOccupierName).HasMaxLength(1000);
+            entity.Property(e => e.OldAddress).HasMaxLength(500);
+            entity.Property(e => e.OldOwnerNameEnglish).HasMaxLength(1000);
+            entity.Property(e => e.OldOccupierNameEnglish).HasMaxLength(1000);
+            entity.Property(e => e.OldAddressEnglish).HasMaxLength(500);
+            entity.Property(e => e.NoOfOldToilets);
+            entity.Property(e => e.OldTotalRooms);
+            entity.Property(e => e.OldSocietyName).HasMaxLength(300);
+            entity.Property(e => e.OldEmailId).HasMaxLength(100);
+            entity.Property(e => e.OldParkingAreaSqFt).HasColumnType("float");
+            entity.Property(e => e.OldParkingAreaSqMtr).HasColumnType("float");
+            entity.Property(e => e.OldAssessmentDate);
+            entity.Property(e => e.OldFlatOrShopNumber).HasMaxLength(50);
+            entity.Property(e => e.OldWing).HasMaxLength(20);
+            entity.Property(e => e.OldMobileNo).HasMaxLength(13);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PropertyDetailsOld configuration
+        modelBuilder.Entity<PropertyDetailsOldEntity>(entity =>
+        {
+            entity.ToTable("PropertyDetailsOld", "PTIS");
+            entity.HasKey(e => e.PropertyDetailsOldId);
+            entity.Property(e => e.PropertyDetailsOldId)
+                .HasColumnName("PropertyDetailsOldId")
+                .ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId)
+                .HasColumnName("PropertyId")
+                .IsRequired();
+            entity.Property(e => e.OldFloorId).HasMaxLength(10);
+            entity.Property(e => e.OldConstructionYear).HasMaxLength(4);
+            entity.Property(e => e.OldConstructionTypeId).HasMaxLength(7);
+            entity.Property(e => e.OldTypeOfUseId).HasMaxLength(20);
+            entity.Property(e => e.OldCarpetAreaSqfeet).HasColumnType("float");
+            entity.Property(e => e.OldCarpetAreaSqMeter).HasColumnType("float");
+            entity.Property(e => e.OldRegistration);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
         });
     }
 }
