@@ -1,4 +1,4 @@
-using NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
+﻿using NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Xunit;
@@ -18,7 +18,7 @@ public class ConfigValueMasterDtoValidationTests
         // Arrange & Act
         var dto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -29,7 +29,7 @@ public class ConfigValueMasterDtoValidationTests
         };
 
         // Assert
-        Assert.Equal(1, dto.ConfigValueId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal(10, dto.ConfigKeyId);
         Assert.Equal(5, dto.DepartmentId);
         Assert.Equal(3, dto.ModuleId);
@@ -44,7 +44,7 @@ public class ConfigValueMasterDtoValidationTests
         var dto = new ConfigValueMasterDto();
 
         // Assert
-        Assert.Equal(0, dto.ConfigValueId);
+        Assert.Equal(0, dto.Id);
         Assert.Equal(0, dto.ConfigKeyId);
         Assert.Null(dto.DepartmentId);
         Assert.Null(dto.ModuleId);
@@ -58,7 +58,7 @@ public class ConfigValueMasterDtoValidationTests
         // Arrange & Act
         var dto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = null,
             ModuleId = null,

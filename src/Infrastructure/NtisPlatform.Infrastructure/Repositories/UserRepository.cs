@@ -34,7 +34,7 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
     public async Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _context.UserMasters
-            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         
         if (user != null)
         {
@@ -51,7 +51,7 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
         
         // Fetch user to update
         var user = await _context.UserMasters
-            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         
         if (user == null) return;
         
@@ -66,7 +66,7 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
     public async Task ResetFailedLoginCountAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _context.UserMasters
-            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         
         if (user != null)
         {

@@ -1,10 +1,10 @@
-﻿namespace NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities;
 /// <summary>
 /// Represents the details of a rate section, including its section number and associated ward.
 /// </summary>
 public class RateSectionDetailsEntity : BaseEntity
 {
-    public int RateSectionDetailsId { get; set; }
+    public int Id { get; set; }
     public int RateSectionId { get; set; }
     public int WardId { get; set; }
 

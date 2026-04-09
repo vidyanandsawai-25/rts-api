@@ -38,7 +38,7 @@ public class RetentionYearWiseServiceTests
         // Arrange
         var entity = new RetentionYearWiseEntity
         {
-            RetentionPolicyYearId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             FactorValue = 1.5,
@@ -55,7 +55,7 @@ public class RetentionYearWiseServiceTests
         _mockMapper.Setup(m => m.Map<RetentionYearWiseDto>(It.IsAny<RetentionYearWiseEntity>()))
             .Returns(new RetentionYearWiseDto
             {
-                RetentionPolicyYearId = 1,
+                Id = 1,
                 FromYear = 2000,
                 ToYear = 2020,
                 FactorValue = 1.5,
@@ -69,7 +69,7 @@ public class RetentionYearWiseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RetentionPolicyYearId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.Equal(1.5, result.FactorValue);
@@ -153,8 +153,8 @@ public class RetentionYearWiseServiceTests
         // Arrange
         var entities = new List<RetentionYearWiseEntity>
         {
-            new() { RetentionPolicyYearId = 1, FromYear = 2000, ToYear = 2020, FactorValue = 1.5, IsActive = true, CreatedDate = DateTime.Now },
-            new() { RetentionPolicyYearId = 2, FromYear = 2021, ToYear = 2030, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
+            new() { Id = 1, FromYear = 2000, ToYear = 2020, FactorValue = 1.5, IsActive = true, CreatedDate = DateTime.Now },
+            new() { Id = 2, FromYear = 2021, ToYear = 2030, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -189,8 +189,8 @@ public class RetentionYearWiseServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.RetentionPolicyYearId == 1);
-        Assert.Contains(items, x => x.RetentionPolicyYearId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public class RetentionYearWiseServiceTests
             .Setup(m => m.Map<RetentionYearWiseEntity>(It.IsAny<CreateRetentionYearWiseDto>()))
             .Returns((CreateRetentionYearWiseDto dto) => new RetentionYearWiseEntity
             {
-                RetentionPolicyYearId = 1,
+                Id = 1,
                 FromYear = dto.FromYear,
                 ToYear = dto.ToYear,
                 FactorValue = dto.FactorValue,
@@ -227,7 +227,7 @@ public class RetentionYearWiseServiceTests
             .Setup(m => m.Map<RetentionYearWiseDto>(It.IsAny<RetentionYearWiseEntity>()))
             .Returns((RetentionYearWiseEntity e) => new RetentionYearWiseDto
             {
-                RetentionPolicyYearId = e.RetentionPolicyYearId,
+                Id = e.Id,
                 FromYear = e.FromYear,
                 ToYear = e.ToYear,
                 FactorValue = e.FactorValue,
@@ -241,7 +241,7 @@ public class RetentionYearWiseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RetentionPolicyYearId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.Equal(1.5, result.FactorValue);
@@ -266,7 +266,7 @@ public class RetentionYearWiseServiceTests
 
         var existingEntity = new RetentionYearWiseEntity
         {
-            RetentionPolicyYearId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             FactorValue = 1.5,
@@ -366,7 +366,7 @@ public class RetentionYearWiseServiceTests
 
         var existingEntity = new RetentionYearWiseEntity
         {
-            RetentionPolicyYearId = idToDelete,
+            Id = idToDelete,
             FromYear = 2000,
             ToYear = 2020,
             FactorValue = 1.5,

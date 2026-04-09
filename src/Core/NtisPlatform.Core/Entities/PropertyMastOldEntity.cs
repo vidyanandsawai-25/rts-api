@@ -11,7 +11,7 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyMastOldEntity : BaseEntity
 {
     [Key]
-    public int PropertyOldId { get; set; }
+    public int Id { get; set; }
 
     public int? PropertyId { get; set; }
 

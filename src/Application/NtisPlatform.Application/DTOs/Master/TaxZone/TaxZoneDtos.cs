@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class TaxZoneDto : BaseDtos
 {
-    public int TaxZoneId { get; set; }
+    public int Id { get; set; }
     public string TaxZoneNo { get; set; } = null!;
     public string? TaxZoneType { get; set; }
     public string Remark { get; set; } = null!;

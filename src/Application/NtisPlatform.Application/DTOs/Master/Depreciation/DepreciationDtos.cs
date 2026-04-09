@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class DepreciationDtos : BaseDtos
 {
-    public int DepreciationId { get; set; }
+    public int Id { get; set; }
     public string ConstructionTypeId { get; set; } = string.Empty;
     public int MinYear { get; set; }
     public int MaxYear { get; set; }
@@ -15,7 +15,7 @@ public class DepreciationDtos : BaseDtos
 public class CreateDepreciationDto : CreateBaseDtos
 {
     [Range(0, int.MaxValue, ErrorMessage = "ID_Min_0")]
-    public int DepreciationId { get; set; }
+    public int Id { get; set; }
 
     [Required(ErrorMessage = "ConstructionId_Required")]
     [StringLength(7, ErrorMessage = "ConstructionId_MaxLen_7")]
@@ -41,7 +41,7 @@ public class UpdateDepreciationDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ID_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "ID_Min_1")]
-    public int DepreciationId { get; set; }
+    public int Id { get; set; }
 
     [Required(ErrorMessage = "ConstructionId_Required")]
     [StringLength(7, ErrorMessage = "ConstructionId_MaxLen_7")]

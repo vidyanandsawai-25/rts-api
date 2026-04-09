@@ -12,8 +12,9 @@ public class ScreenGroupMasterProfile : Profile
     public ScreenGroupMasterProfile()
     {
         // Entity to DTO
-        CreateMap<ScreenGroupMasterEntity, ScreenGroupMasterDto>();
-        
+        CreateMap<ScreenGroupMasterEntity, ScreenGroupMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateScreenGroupMasterDto, ScreenGroupMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

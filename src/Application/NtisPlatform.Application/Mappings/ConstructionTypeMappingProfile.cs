@@ -8,8 +8,8 @@ public class ConstructionTypeMappingProfile : Profile
 {
     public ConstructionTypeMappingProfile()
     {
-        CreateMap<ConstructionTypeEntity, ConstructionTypeDto>();
-
+        CreateMap<ConstructionTypeEntity, ConstructionTypeDto>()
+            ;
 
         CreateMap<CreateConstructionTypeDto, ConstructionTypeEntity>()
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

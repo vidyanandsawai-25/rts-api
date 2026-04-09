@@ -12,7 +12,9 @@ public class ULBMasterMappingProfile : Profile
     public ULBMasterMappingProfile()
     {
         // Entity to DTO
-        CreateMap<ULBMasterEntity, ULBMasterDto>();
+        CreateMap<ULBMasterEntity, ULBMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateULBMasterDto, ULBMasterEntity>()
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())

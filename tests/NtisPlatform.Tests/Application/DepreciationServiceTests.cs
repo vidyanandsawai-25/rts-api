@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -34,7 +34,7 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new DepreciationMasterEntity
             {
-                DepreciationId = 1,
+                Id = 1,
                 ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
@@ -48,7 +48,7 @@ namespace NtisPlatform.Tests.Application
             _mockMapper.Setup(m => m.Map<DepreciationDtos>(It.IsAny<DepreciationMasterEntity>()))
                 .Returns((DepreciationMasterEntity e) => new DepreciationDtos
                 {
-                    DepreciationId = e.DepreciationId,
+                    Id = e.Id,
                     ConstructionTypeId = e.ConstructionTypeId,
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
@@ -60,7 +60,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.GetByIdAsync(1, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(1, result.DepreciationId);
+            Assert.Equal(1, result.Id);
             Assert.Equal("A", result.ConstructionTypeId);
             Assert.Equal(2.5m, result.Rate);
         }
@@ -80,8 +80,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<DepreciationMasterEntity>
             {
-                new() { DepreciationId = 1, ConstructionTypeId = "A", Rate = 1.1m,MinYear=2020,MaxYear=2025,Year=2026 },
-                new() { DepreciationId = 2, ConstructionTypeId = "B", Rate = 2.2m,MinYear=2020,MaxYear=2025,Year=2026 }
+                new() { Id = 1, ConstructionTypeId = "A", Rate = 1.1m,MinYear=2020,MaxYear=2025,Year=2026 },
+                new() { Id = 2, ConstructionTypeId = "B", Rate = 2.2m,MinYear=2020,MaxYear=2025,Year=2026 }
             };
 
             var mockQuery = entities.BuildMock(); // async IQueryable
@@ -128,7 +128,7 @@ namespace NtisPlatform.Tests.Application
         {
             var createDto = new CreateDepreciationDto
             {
-                DepreciationId = 1,
+                Id = 1,
                 ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
@@ -142,7 +142,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<DepreciationMasterEntity>(It.IsAny<CreateDepreciationDto>()))
                 .Returns((CreateDepreciationDto dto) => new DepreciationMasterEntity
                 {
-                    DepreciationId = dto.DepreciationId,
+                    Id = dto.Id,
                     ConstructionTypeId = dto.ConstructionTypeId,
                     MinYear = dto.MinYear,
                     MaxYear = dto.MaxYear,
@@ -158,7 +158,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<DepreciationDtos>(It.IsAny<DepreciationMasterEntity>()))
                 .Returns((DepreciationMasterEntity e) => new DepreciationDtos
                 {
-                    DepreciationId = e.DepreciationId,
+                    Id = e.Id,
                     ConstructionTypeId = e.ConstructionTypeId,
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
@@ -169,7 +169,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(createDto.DepreciationId, result.DepreciationId);
+            Assert.Equal(createDto.Id, result.Id);
             Assert.Equal(createDto.ConstructionTypeId, result.ConstructionTypeId);
             Assert.Equal(createDto.Rate, result.Rate);
 
@@ -182,7 +182,7 @@ namespace NtisPlatform.Tests.Application
         {
             var updateDto = new UpdateDepreciationDto
             {
-                DepreciationId = 1,
+                Id = 1,
                 ConstructionTypeId = "A",
                 MinYear = 2,
                 MaxYear = 6,
@@ -194,7 +194,7 @@ namespace NtisPlatform.Tests.Application
 
             var existing = new DepreciationMasterEntity
             {
-                DepreciationId = 1,
+                Id = 1,
                 ConstructionTypeId = "A",
                 MinYear = 1,
                 MaxYear = 5,
@@ -229,7 +229,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
         {
-            var updateDto = new UpdateDepreciationDto { DepreciationId = 99, ConstructionTypeId = "X" };
+            var updateDto = new UpdateDepreciationDto { Id = 99, ConstructionTypeId = "X" };
             _mockRepository.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((DepreciationMasterEntity?)null);
 
             await _service.UpdateAsync(99, updateDto, CancellationToken.None);
@@ -253,7 +253,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
         {
-            var existing = new DepreciationMasterEntity { DepreciationId = 1 };
+            var existing = new DepreciationMasterEntity { Id = 1 };
             _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
             _mockRepository.Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 

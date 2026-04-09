@@ -42,7 +42,7 @@ public class SubTypeOfUseServiceTests
         // Arrange
         var entity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId = 1,
+            Id = 1,
             TypeOfUseId = 1,
             Description = "Residential",
             SearchKey = "Alt+D",
@@ -60,7 +60,7 @@ public class SubTypeOfUseServiceTests
         _mockMapper.Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
             .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
-                SubTypeOfUseId = e.SubTypeOfUseId,
+                Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
                 SearchKey = e.SearchKey,
@@ -75,7 +75,7 @@ public class SubTypeOfUseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.SubTypeOfUseId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("Alt+D", result.SearchKey);
@@ -103,8 +103,8 @@ public class SubTypeOfUseServiceTests
         // Arrange
         var entities = new List<SubTypeOfUseEntity>
         {
-            new() { SubTypeOfUseId = 1, TypeOfUseId = 1, Description = "Residential", SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { SubTypeOfUseId = 2, TypeOfUseId = 2, Description = "Commercial", SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, TypeOfUseId = 1, Description = "Residential", SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, TypeOfUseId = 2, Description = "Commercial", SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -162,7 +162,7 @@ public class SubTypeOfUseServiceTests
             .Setup(m => m.Map<SubTypeOfUseEntity>(It.IsAny<CreateSubTypeOfUseDto>()))
             .Returns((CreateSubTypeOfUseDto dto) => new SubTypeOfUseEntity
             {
-                SubTypeOfUseId = 1,
+                Id = 1,
                 TypeOfUseId = dto.TypeOfUseId,
                 Description = dto.Description,
                 SearchKey = dto.SearchKey,
@@ -180,7 +180,7 @@ public class SubTypeOfUseServiceTests
             .Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
             .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
-                SubTypeOfUseId = e.SubTypeOfUseId,
+                Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
                 SearchKey = e.SearchKey,
@@ -194,7 +194,7 @@ public class SubTypeOfUseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.SubTypeOfUseId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("Alt+D", result.SearchKey);
@@ -223,7 +223,7 @@ public class SubTypeOfUseServiceTests
 
         var existingEntity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId = 1,
+            Id = 1,
             TypeOfUseId = 1,
             Description = "Residential",
             SearchKey = "Alt+D",
@@ -260,7 +260,7 @@ public class SubTypeOfUseServiceTests
             .Setup(m => m.Map<SubTypeOfUseDto>(It.IsAny<SubTypeOfUseEntity>()))
             .Returns((SubTypeOfUseEntity e) => new SubTypeOfUseDto
             {
-                SubTypeOfUseId = e.SubTypeOfUseId,
+                Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
                 SearchKey = e.SearchKey,
@@ -342,7 +342,7 @@ public class SubTypeOfUseServiceTests
 
         var existingEntity = new SubTypeOfUseEntity
         {
-            SubTypeOfUseId = idToDelete,
+            Id = idToDelete,
             TypeOfUseId = 1,
             Description = "Residential",
             SearchKey = "Alt+D",

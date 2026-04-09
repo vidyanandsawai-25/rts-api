@@ -19,7 +19,7 @@ public class ActiveTaxesEntityTests
     {
         var entity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = "GeneralTax",
             TaxNameAlias = "General Tax",
             DisplayOrder = 1,
@@ -31,7 +31,7 @@ public class ActiveTaxesEntityTests
             UpdatedDate = DateTime.Now
         };
 
-        Assert.Equal(1, entity.ActiveTaxesId);
+        Assert.Equal(1, entity.Id);
         Assert.Equal("GeneralTax", entity.TaxName);
         Assert.Equal("General Tax", entity.TaxNameAlias);
         Assert.Equal(1, entity.DisplayOrder);
@@ -48,7 +48,7 @@ public class ActiveTaxesEntityTests
     {
         var entity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = "GeneralTax",
             TaxNameAlias = null
         };
@@ -61,7 +61,7 @@ public class ActiveTaxesEntityTests
     {
         var entity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = null
         };
 
@@ -87,7 +87,7 @@ public class ActiveTaxesDtoTests
     {
         var dto = new ActiveTaxesDto
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = "GeneralTax",
             TaxNameAlias = "General Tax",
             DisplayOrder = 1,
@@ -97,7 +97,7 @@ public class ActiveTaxesDtoTests
             UpdatedDate = DateTime.Now
         };
 
-        Assert.Equal(1, dto.ActiveTaxesId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal("GeneralTax", dto.TaxName);
         Assert.Equal("General Tax", dto.TaxNameAlias);
         Assert.Equal(1, dto.DisplayOrder);
@@ -276,7 +276,7 @@ public class ActiveTaxesServiceTests
     {
         var entity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = "GeneralTax",
             TaxNameAlias = "General Tax",
             DisplayOrder = 1,
@@ -291,7 +291,7 @@ public class ActiveTaxesServiceTests
         _mockMapper.Setup(m => m.Map<ActiveTaxesDto>(It.IsAny<ActiveTaxesEntity>()))
             .Returns(new ActiveTaxesDto
             {
-                ActiveTaxesId = 1,
+                Id = 1,
                 TaxName = "GeneralTax",
                 TaxNameAlias = "General Tax",
                 DisplayOrder = 1,
@@ -301,7 +301,7 @@ public class ActiveTaxesServiceTests
         var result = await _service.GetByIdAsync(1);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.ActiveTaxesId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("GeneralTax", result.TaxName);
         Assert.Equal("General Tax", result.TaxNameAlias);
     }
@@ -322,8 +322,8 @@ public class ActiveTaxesServiceTests
     {
         var entities = new List<ActiveTaxesEntity>
         {
-            new() { ActiveTaxesId = 1, TaxName = "GeneralTax", TaxNameAlias = "General", DisplayOrder = 1, TaxOnUnit = false, IsActive = true },
-            new() { ActiveTaxesId = 2, TaxName = "RoadCess", TaxNameAlias = "Road", DisplayOrder = 2, TaxOnUnit = true, IsActive = true }
+            new() { Id = 1, TaxName = "GeneralTax", TaxNameAlias = "General", DisplayOrder = 1, TaxOnUnit = false, IsActive = true },
+            new() { Id = 2, TaxName = "RoadCess", TaxNameAlias = "Road", DisplayOrder = 2, TaxOnUnit = true, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -347,8 +347,8 @@ public class ActiveTaxesServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
-        Assert.Contains(result.Items, x => x.ActiveTaxesId == 1);
-        Assert.Contains(result.Items, x => x.ActiveTaxesId == 2);
+        Assert.Contains(result.Items, x => x.Id == 1);
+        Assert.Contains(result.Items, x => x.Id == 2);
     }
 
     [Fact]
@@ -379,7 +379,7 @@ public class ActiveTaxesServiceTests
             .Setup(r => r.AddAsync(It.IsAny<ActiveTaxesEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ActiveTaxesEntity e, CancellationToken _) =>
             {
-                e.ActiveTaxesId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -387,7 +387,7 @@ public class ActiveTaxesServiceTests
             .Setup(m => m.Map<ActiveTaxesDto>(It.IsAny<ActiveTaxesEntity>()))
             .Returns((ActiveTaxesEntity e) => new ActiveTaxesDto
             {
-                ActiveTaxesId = e.ActiveTaxesId,
+                Id = e.Id,
                 TaxName = e.TaxName,
                 TaxNameAlias = e.TaxNameAlias,
                 DisplayOrder = e.DisplayOrder,
@@ -397,7 +397,7 @@ public class ActiveTaxesServiceTests
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.ActiveTaxesId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("GeneralTax", result.TaxName);
         Assert.Equal("General Tax", result.TaxNameAlias);
 
@@ -418,7 +418,7 @@ public class ActiveTaxesServiceTests
 
         var existingEntity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = 1,
+            Id = 1,
             TaxName = "GeneralTax",
             TaxNameAlias = "General Tax",
             DisplayOrder = 1,
@@ -498,7 +498,7 @@ public class ActiveTaxesServiceTests
 
         var existingEntity = new ActiveTaxesEntity
         {
-            ActiveTaxesId = idToDelete,
+            Id = idToDelete,
             TaxName = "GeneralTax",
             TaxNameAlias = "General Tax",
             IsActive = true

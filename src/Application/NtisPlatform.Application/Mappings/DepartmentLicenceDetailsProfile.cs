@@ -12,7 +12,9 @@ public class DepartmentLicenceDetailsProfile : Profile
     public DepartmentLicenceDetailsProfile()
     {
         // Entity to DTO
-       CreateMap<DepartmentLicenceDetailsEntity, DepartmentLicenceDetailsDto>(); 
+       CreateMap<DepartmentLicenceDetailsEntity, DepartmentLicenceDetailsDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateDepartmentLicenceDetailsDto, DepartmentLicenceDetailsEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

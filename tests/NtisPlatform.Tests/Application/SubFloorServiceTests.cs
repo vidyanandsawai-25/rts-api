@@ -42,7 +42,7 @@ public class SubFloorServiceTests
         // Arrange
         var entity = new SubFloorEntity
         {
-            SubFloorId = 1,
+            Id = 1,
             SubFloorCode = "SF01",
             Description = "First Sub Floor",
             SubFloorPercentage = 2.5m,
@@ -59,7 +59,7 @@ public class SubFloorServiceTests
         _mockMapper.Setup(m => m.Map<SubFloorDto>(It.IsAny<SubFloorEntity>()))
             .Returns((SubFloorEntity e) => new SubFloorDto
             {
-                SubFloorId = e.SubFloorId,
+                Id = e.Id,
                 SubFloorCode = e.SubFloorCode,
                 Description = e.Description,
                 SubFloorPercentage = e.SubFloorPercentage,
@@ -73,7 +73,7 @@ public class SubFloorServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.SubFloorId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("SF01", result.SubFloorCode);
         Assert.Equal("First Sub Floor", result.Description);
         Assert.Equal(2.5m, result.SubFloorPercentage);
@@ -100,8 +100,8 @@ public class SubFloorServiceTests
         // Arrange
         var entities = new List<SubFloorEntity>
         {
-            new() { SubFloorId = 1, SubFloorCode = "SF01", Description = "First Floor", SubFloorPercentage = 1.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true },
-            new() { SubFloorId = 2, SubFloorCode = "SF02", Description = "Second Floor", SubFloorPercentage = 2.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, SubFloorCode = "SF01", Description = "First Floor", SubFloorPercentage = 1.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, SubFloorCode = "SF02", Description = "Second Floor", SubFloorPercentage = 2.5m, CreatedBy = 31, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -138,8 +138,8 @@ public class SubFloorServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.SubFloorId == 1);
-        Assert.Contains(items, x => x.SubFloorId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class SubFloorServiceTests
             .Setup(m => m.Map<SubFloorEntity>(It.IsAny<CreateSubFloorDto>()))
             .Returns((CreateSubFloorDto dto) => new SubFloorEntity
             {
-                SubFloorId = 1,
+                Id = 1,
                 SubFloorCode = dto.SubFloorCode,
                 Description = dto.Description,
                 SubFloorPercentage = dto.SubFloorPercentage,
@@ -176,7 +176,7 @@ public class SubFloorServiceTests
             .Setup(m => m.Map<SubFloorDto>(It.IsAny<SubFloorEntity>()))
             .Returns((SubFloorEntity e) => new SubFloorDto
             {
-                SubFloorId = e.SubFloorId,
+                Id = e.Id,
                 SubFloorCode = e.SubFloorCode,
                 Description = e.Description,
                 SubFloorPercentage = e.SubFloorPercentage,
@@ -189,7 +189,7 @@ public class SubFloorServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.SubFloorId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("SF01", result.SubFloorCode);
         Assert.Equal("New Sub Floor", result.Description);
         Assert.Equal(1.5m, result.SubFloorPercentage);
@@ -216,7 +216,7 @@ public class SubFloorServiceTests
 
         var existingEntity = new SubFloorEntity
         {
-            SubFloorId = 1,
+            Id = 1,
             SubFloorCode = "SF01",
             Description = "Old Description",
             SubFloorPercentage = 1.5m,
@@ -249,7 +249,7 @@ public class SubFloorServiceTests
             .Setup(m => m.Map<SubFloorDto>(It.IsAny<SubFloorEntity>()))
             .Returns((SubFloorEntity e) => new SubFloorDto
             {
-                SubFloorId = e.SubFloorId,
+                Id = e.Id,
                 SubFloorCode = e.SubFloorCode,
                 Description = e.Description,
                 SubFloorPercentage = e.SubFloorPercentage,
@@ -329,7 +329,7 @@ public class SubFloorServiceTests
 
         var existingEntity = new SubFloorEntity
         {
-            SubFloorId = idToDelete,
+            Id = idToDelete,
             SubFloorCode = "SF01",
             Description = "Sub Floor",
             SubFloorPercentage = 1.5m,

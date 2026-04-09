@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities.Master;
 
@@ -8,7 +8,8 @@ public class OwnerTypeMappingProfile : Profile
 {
     public OwnerTypeMappingProfile()
     {
-        CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
+        CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>()
+            ;
 
         CreateMap<CreateOwnerTypeDto, OwnerTypeMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

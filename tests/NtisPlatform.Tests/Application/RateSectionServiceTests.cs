@@ -43,7 +43,7 @@ public class RateSectionServiceTests
         // Arrange
         var entity = new RateSectionEntity
         {
-            RateSectionId=1,
+            Id=1,
             RateSectionNo = "WKD",
             Description = "वाकड",
             IsActive = true,
@@ -94,8 +94,8 @@ public class RateSectionServiceTests
         // Arrange
         var entities = new List<RateSectionEntity>
         {
-            new() { RateSectionId=1,RateSectionNo = "MSH", Description = "मोशी", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
-            new() { RateSectionId=1,RateSectionNo = "TRG", Description = "थेरगाव",   IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id=1,RateSectionNo = "MSH", Description = "मोशी", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id=1,RateSectionNo = "TRG", Description = "थेरगाव",   IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -205,7 +205,7 @@ public class RateSectionServiceTests
 
         var existingEntity = new RateSectionEntity
         {
-            RateSectionId = 1,
+            Id = 1,
             Description = "वाकड",
             IsActive = true,
             CreatedBy = 31,
@@ -306,7 +306,7 @@ public class RateSectionServiceTests
 
         var existingEntity = new RateSectionEntity
         {
-            RateSectionId = idToDelete,
+            Id = idToDelete,
             RateSectionNo = "WKD",
             Description = "वाकड",
             IsActive = true,

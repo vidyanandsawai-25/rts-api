@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyTypeEntity : BaseEntity
 {
     [Key]
-    public int PropertyTypeId { get; set; }
+    public int Id { get; set; }
 
     [Column(TypeName = "nvarchar(100)")]
     public string? PropertyDescription { get; set; }

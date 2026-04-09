@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ModuleMaster;
 /// </summary>
 public class ModuleMasterDto :BaseDtos
 {
-    public int ModuleId { get; set; }
+    public int Id { get; set; }
     public int DepartmentId { get; set; }
     public string? ModuleCode { get; set; }
     public string? ModuleName { get; set; }
@@ -55,8 +55,8 @@ public class UpdateModuleMasterDto : UpdateBaseDtos
     [Required(ErrorMessage = "DepartmentId_Required")]
     public int DepartmentId { get; set; }
 
-    [Required(ErrorMessage = "ModuleId_Required")]
-    public int ModuleId { get; set; }
+    [Required(ErrorMessage = "Id_Required")]
+    public int Id { get; set; }
 
     [Required(ErrorMessage = "ModuleCode_Required")]
     [StringLength(50, ErrorMessage = "ModuleCode_MaxLen_50")]

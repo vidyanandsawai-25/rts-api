@@ -1,4 +1,4 @@
-﻿
+
 
 
 namespace NtisPlatform.Core.Entities;
@@ -7,7 +7,7 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class WardEntity : BaseEntity
 {
-    public int WardId { get; set; }
+    public int Id { get; set; }
     public string WardNo { get; set; } = string.Empty;
     public int ZoneId { get; set; }
     public string? Description { get; set; }

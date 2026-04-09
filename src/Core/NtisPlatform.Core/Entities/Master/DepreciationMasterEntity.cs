@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -8,7 +8,7 @@ namespace NtisPlatform.Core.Entities;
 public class DepreciationMasterEntity : BaseEntity
 {
     [Required]
-    public int DepreciationId { get; set; }
+    public int Id { get; set; }
 
     [Required]
     [StringLength(7)]

@@ -53,7 +53,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var entity = new RoleWiseScreenAccessMasterEntity
             {
-                RoleWiseScreenAccessId = 1,
+                Id = 1,
                 UserRoleId = 10,
                 ScreenId = 5,
                 CanView = true,
@@ -72,7 +72,7 @@ namespace NtisPlatform.Tests.Application
             _mockMapper.Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -90,7 +90,7 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(1, result.RoleWiseScreenAccessId);
+            Assert.Equal(1, result.Id);
             Assert.Equal(10, result.UserRoleId);
             Assert.Equal(5, result.ScreenId);
             Assert.True(result.CanView);
@@ -127,7 +127,7 @@ namespace NtisPlatform.Tests.Application
             {
                 new()
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = 10,
                     ScreenId = 5,
                     CanView = true,
@@ -139,7 +139,7 @@ namespace NtisPlatform.Tests.Application
                 },
                 new()
                 {
-                    RoleWiseScreenAccessId = 2,
+                    Id = 2,
                     UserRoleId = 11,
                     ScreenId = 6,
                     CanView = true,
@@ -185,8 +185,8 @@ namespace NtisPlatform.Tests.Application
 
             var items = result.Items.ToList();
             Assert.Equal(2, items.Count);
-            Assert.Contains(items, x => x.RoleWiseScreenAccessId == 1);
-            Assert.Contains(items, x => x.RoleWiseScreenAccessId == 2);
+            Assert.Contains(items, x => x.Id == 1);
+            Assert.Contains(items, x => x.Id == 2);
         }
 
         [Fact]
@@ -197,7 +197,7 @@ namespace NtisPlatform.Tests.Application
             {
                 new()
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = 10,
                     ScreenId = 5,
                     CanView = true,
@@ -205,7 +205,7 @@ namespace NtisPlatform.Tests.Application
                 },
                 new()
                 {
-                    RoleWiseScreenAccessId = 2,
+                    Id = 2,
                     UserRoleId = 11,
                     ScreenId = 5,
                     CanView = false,
@@ -274,7 +274,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterEntity>(It.IsAny<CreateRoleWiseScreenAccessMasterDto>()))
                 .Returns((CreateRoleWiseScreenAccessMasterDto dto) => new RoleWiseScreenAccessMasterEntity
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = dto.UserRoleId,
                     ScreenId = dto.ScreenId,
                     CanView = dto.CanView,
@@ -295,7 +295,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -352,7 +352,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterEntity>(It.IsAny<CreateRoleWiseScreenAccessMasterDto>()))
                 .Returns((CreateRoleWiseScreenAccessMasterDto dto) => new RoleWiseScreenAccessMasterEntity
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = dto.UserRoleId,
                     ScreenId = dto.ScreenId,
                     CanView = dto.CanView,
@@ -372,7 +372,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -420,7 +420,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterEntity>(It.IsAny<CreateRoleWiseScreenAccessMasterDto>()))
                 .Returns((CreateRoleWiseScreenAccessMasterDto dto) => new RoleWiseScreenAccessMasterEntity
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = dto.UserRoleId,
                     ScreenId = dto.ScreenId,
                     CanView = dto.CanView,
@@ -439,7 +439,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -481,7 +481,7 @@ namespace NtisPlatform.Tests.Application
             {
                 new()
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = 10,
                     ScreenId = 5,
                     CanView = true,
@@ -523,7 +523,7 @@ namespace NtisPlatform.Tests.Application
             {
                 new()
                 {
-                    RoleWiseScreenAccessId = 1,
+                    Id = 1,
                     UserRoleId = 10,
                     ScreenId = 5,
                     CanView = true,
@@ -538,7 +538,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterEntity>(It.IsAny<CreateRoleWiseScreenAccessMasterDto>()))
                 .Returns((CreateRoleWiseScreenAccessMasterDto dto) => new RoleWiseScreenAccessMasterEntity
                 {
-                    RoleWiseScreenAccessId = 2,
+                    Id = 2,
                     UserRoleId = dto.UserRoleId,
                     ScreenId = dto.ScreenId,
                     CanView = dto.CanView,
@@ -554,7 +554,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(r => r.AddAsync(It.IsAny<RoleWiseScreenAccessMasterEntity>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((RoleWiseScreenAccessMasterEntity e, CancellationToken _) =>
                 {
-                    e.RoleWiseScreenAccessId = 2;
+                    e.Id = 2;
                     return e;
                 });
 
@@ -562,7 +562,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -578,7 +578,7 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(2, result.RoleWiseScreenAccessId);
+            Assert.Equal(2, result.Id);
             Assert.Equal(10, result.UserRoleId);
             Assert.Equal(5, result.ScreenId);
             Assert.True(result.IsActive);
@@ -610,7 +610,7 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntity = new RoleWiseScreenAccessMasterEntity
             {
-                RoleWiseScreenAccessId = 1,
+                Id = 1,
                 UserRoleId = 10,
                 ScreenId = 5,
                 CanView = true,
@@ -654,7 +654,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -672,7 +672,7 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(1, result.RoleWiseScreenAccessId);
+            Assert.Equal(1, result.Id);
             Assert.Equal(10, result.UserRoleId);
             Assert.Equal(5, result.ScreenId);
             Assert.True(result.CanView);
@@ -727,7 +727,7 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntity = new RoleWiseScreenAccessMasterEntity
             {
-                RoleWiseScreenAccessId = 1,
+                Id = 1,
                 UserRoleId = 10,
                 ScreenId = 5,
                 CanView = true,
@@ -738,7 +738,7 @@ namespace NtisPlatform.Tests.Application
             {
                 new()
                 {
-                    RoleWiseScreenAccessId = 2,
+                    Id = 2,
                     UserRoleId = 11,
                     ScreenId = 6,
                     CanView = true,
@@ -782,7 +782,7 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntity = new RoleWiseScreenAccessMasterEntity
             {
-                RoleWiseScreenAccessId = 1,
+                Id = 1,
                 UserRoleId = 10,
                 ScreenId = 5,
                 CanView = true,
@@ -819,7 +819,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RoleWiseScreenAccessMasterDTO>(It.IsAny<RoleWiseScreenAccessMasterEntity>()))
                 .Returns((RoleWiseScreenAccessMasterEntity e) => new RoleWiseScreenAccessMasterDTO
                 {
-                    RoleWiseScreenAccessId = e.RoleWiseScreenAccessId,
+                    Id = e.Id,
                     UserRoleId = e.UserRoleId,
                     ScreenId = e.ScreenId,
                     CanView = e.CanView,
@@ -852,7 +852,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var existingEntity = new RoleWiseScreenAccessMasterEntity
             {
-                RoleWiseScreenAccessId = 1,
+                Id = 1,
                 UserRoleId = 10,
                 ScreenId = 5,
                 IsActive = true

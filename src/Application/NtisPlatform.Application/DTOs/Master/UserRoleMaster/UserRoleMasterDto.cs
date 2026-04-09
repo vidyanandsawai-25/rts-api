@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
 {
     public class UserRoleMasterDto : BaseDtos
     {
-        public int UserRoleId { get; set; } = 0;
+        public int Id { get; set; } = 0;
         public string UserRoleName { get; set; } = string.Empty;
     }
 

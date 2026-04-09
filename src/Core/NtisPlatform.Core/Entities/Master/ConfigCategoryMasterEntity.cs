@@ -8,7 +8,7 @@ public class ConfigCategoryMasterEntity :BaseEntity
     /// <summary>
     /// Unique identifier for the configuration category
     /// </summary>
-    public int CategoryId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Unique code for the category

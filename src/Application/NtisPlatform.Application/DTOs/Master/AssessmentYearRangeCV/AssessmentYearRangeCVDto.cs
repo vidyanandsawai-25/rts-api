@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
     public class AssessmentYearRangeCVDto : BaseDtos
     {
-        public int YearRangeId { get; set; }
+        public int Id { get; set; }
         public int FromYear { get; set; }
         public int ToYear { get; set; }
     }

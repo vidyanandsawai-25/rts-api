@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -8,7 +8,8 @@ namespace NtisPlatform.Application.Mappings
     {
         public TypeOfUseGroupMappingProfile()
         {
-            CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>();
+            CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>()
+                ;
 
             CreateMap<CreateTypeOfUseGroupDto, TypeOfUseGroupEntity>()
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

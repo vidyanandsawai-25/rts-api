@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
 /// </summary>
 public class ConfigValueMasterDto : BaseDtos
 {
-    public int ConfigValueId { get; set; }
+    public int Id { get; set; }
     public int ConfigKeyId { get; set; }
     public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }

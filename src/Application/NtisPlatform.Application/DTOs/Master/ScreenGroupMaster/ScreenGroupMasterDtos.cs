@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
 /// </summary>
 public class ScreenGroupMasterDto : BaseDtos
 {
-    public int ScreenGroupId { get; set; }
+    public int Id { get; set; }
     public string? ScreenGroupCode { get; set; }
     public string? ScreenGroupName { get; set; }
     public string? ScreenGroupNameLocal { get; set; }

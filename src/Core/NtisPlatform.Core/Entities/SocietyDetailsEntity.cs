@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities;
 public class SocietyDetailsEntity : BaseEntity
 {
     [Key]
-    public int SocietyDetailId { get; set; }
+    public int Id { get; set; }
 
     public int? PropertyId { get; set; }
 

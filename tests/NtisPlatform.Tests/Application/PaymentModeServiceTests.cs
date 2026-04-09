@@ -43,7 +43,7 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new PaymentModeEntity
             {
-                PaymentModeId = 1,
+                Id = 1,
                 Code = "UPI",
                 PaymentModeName = "UPI Payment",
                 Type = "Online",
@@ -56,7 +56,7 @@ namespace NtisPlatform.Tests.Application
 
             var expectedDto = new PaymentModeDto
             {
-                PaymentModeId = 1,
+                Id = 1,
                 Code = "UPI",
                 PaymentModeName = "UPI Payment",
                 Type = "Online",
@@ -78,7 +78,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.GetByIdAsync(1, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(expectedDto.PaymentModeId, result!.PaymentModeId);
+            Assert.Equal(expectedDto.Id, result!.Id);
             Assert.Equal(expectedDto.Code, result.Code);
             Assert.Equal(expectedDto.PaymentModeName, result.PaymentModeName);
             _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
@@ -121,7 +121,7 @@ namespace NtisPlatform.Tests.Application
 
             var returnedDto = new PaymentModeDto
             {
-                PaymentModeId = 0,
+                Id = 0,
                 Code = createDto.Code,
                 PaymentModeName = createDto.PaymentModeName,
                 Type = createDto.Type,
@@ -156,7 +156,7 @@ namespace NtisPlatform.Tests.Application
         {
             var existing = new PaymentModeEntity
             {
-                PaymentModeId = 2,
+                Id = 2,
                 Code = "CASH",
                 PaymentModeName = "Cash Payment",
                 Type = "Offline",
@@ -206,7 +206,7 @@ namespace NtisPlatform.Tests.Application
 
             var expectedDto = new PaymentModeDto
             {
-                PaymentModeId = 2,
+                Id = 2,
                 Code = updateDto.Code,
                 PaymentModeName = updateDto.PaymentModeName,
                 Type = updateDto.Type,
@@ -242,7 +242,7 @@ namespace NtisPlatform.Tests.Application
         {
             var existing = new PaymentModeEntity
             {
-                PaymentModeId = 3,
+                Id = 3,
                 Code = "DELETE",
                 PaymentModeName = "To Delete"
             };

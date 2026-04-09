@@ -231,7 +231,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 OwnerName = "John Doe",
@@ -265,13 +265,13 @@ public class PropertyKycDetailsTests
             
             var ownerType = new OwnerTypeMasterEntity
             {
-                OwnerTypeId = 1,
+                Id = 1,
                 OwnerType = "Individual",
                 IsActive = true
             };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -279,7 +279,7 @@ public class PropertyKycDetailsTests
             };
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OwnerTypeId = 1,
                 AdharCardNo = "123456789012",
@@ -332,7 +332,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 OwnerName = "OLD NAME",
@@ -373,7 +373,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -419,7 +419,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -427,7 +427,7 @@ public class PropertyKycDetailsTests
             };
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OwnerTypeId = 2,
                 AdharCardNo = "OLD_ADHAR",
@@ -472,7 +472,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -512,7 +512,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -671,7 +671,7 @@ public class PropertyKycDetailsTests
         {
             var entity = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 WingId = 5,
                 WingNo = "A",
@@ -685,13 +685,13 @@ public class PropertyKycDetailsTests
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.PropertyDetailsId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(5, entity.WingId);
             Assert.Equal("A", entity.WingNo);
             Assert.Equal(2, entity.NoOfResidentialToilets);
             Assert.Equal(1, entity.NoOfCommercialToilets);
-            Assert.Equal(1, entity.OwnerTypeId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal("123456789012", entity.AdharCardNo);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
@@ -702,7 +702,7 @@ public class PropertyKycDetailsTests
         {
             var entity = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 PlotArea = 1500.50,
                 PlotAreaFtLength = 50.0,
@@ -714,7 +714,7 @@ public class PropertyKycDetailsTests
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.PlotId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(1500.50, entity.PlotArea);
             Assert.Equal(50.0, entity.PlotAreaFtLength);
@@ -729,7 +729,7 @@ public class PropertyKycDetailsTests
         {
             var entity = new SocietyDetailsEntity
             {
-                SocietyDetailId = 1,
+                Id = 1,
                 WingId = 5,
                 WingName = "West Wing",
                 IsActive = true,
@@ -737,7 +737,7 @@ public class PropertyKycDetailsTests
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.SocietyDetailId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(5, entity.WingId);
             Assert.Equal("West Wing", entity.WingName);
             Assert.True(entity.IsActive);
@@ -748,14 +748,14 @@ public class PropertyKycDetailsTests
         {
             var entity = new OwnerTypeMasterEntity
             {
-                OwnerTypeId = 1,
+                Id = 1,
                 OwnerType = "Individual",
                 IsActive = true,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.OwnerTypeId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal("Individual", entity.OwnerType);
             Assert.True(entity.IsActive);
         }
@@ -765,14 +765,14 @@ public class PropertyKycDetailsTests
         {
             var entity = new PropertyTypeEntity
             {
-                PropertyTypeId = 1,
+                Id = 1,
                 PropertyDescription = "Apartment",
                 IsActive = true,
                 CreatedDate = DateTime.Now,
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.PropertyTypeId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal("Apartment", entity.PropertyDescription);
             Assert.True(entity.IsActive);
         }
@@ -782,7 +782,7 @@ public class PropertyKycDetailsTests
         {
             var entity = new PropertyDetailsEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 CarpetAreaSqMeter = 1000.0,
                 BuiltupAreaSqMeter = 1200.0,
@@ -793,7 +793,7 @@ public class PropertyKycDetailsTests
                 UpdatedDate = DateTime.Now
             };
 
-            Assert.Equal(1, entity.PropertyDetailsId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(1000.0, entity.CarpetAreaSqMeter);
             Assert.Equal(1200.0, entity.BuiltupAreaSqMeter);
@@ -820,7 +820,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -853,7 +853,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = false, // Inactive
@@ -885,7 +885,7 @@ public class PropertyKycDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -893,7 +893,7 @@ public class PropertyKycDetailsTests
             };
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 WingNo = "A",
                 IsActive = false, // Inactive
@@ -922,13 +922,13 @@ public class PropertyKycDetailsTests
             
             var ownerType = new OwnerTypeMasterEntity
             {
-                OwnerTypeId = 1,
+                Id = 1,
                 OwnerType = "Individual",
                 IsActive = false // Inactive
             };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -936,7 +936,7 @@ public class PropertyKycDetailsTests
             };
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OwnerTypeId = 1,
                 IsActive = true,

@@ -34,8 +34,8 @@ namespace NtisPlatform.Tests.Application
         public async Task GetByIdAsync_ReturnsDto_WhenEntityExists()
         {
             // Arrange
-            var entity = new ConfigCategoryMasterEntity { CategoryId = 1 };
-            var dto = new ConfigCategoryMasterDto { CategoryId = 1 };
+            var entity = new ConfigCategoryMasterEntity { Id = 1 };
+            var dto = new ConfigCategoryMasterDto { Id = 1 };
             _repositoryMock.Setup(r => r.GetByIdAsync(1, default)).ReturnsAsync(entity);
             _mapperMock.Setup(m => m.Map<ConfigCategoryMasterDto>(entity)).Returns(dto);
 
@@ -44,7 +44,7 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(1, result.CategoryId);
+            Assert.Equal(1, result.Id);
         }
 
         [Fact]
@@ -80,8 +80,8 @@ namespace NtisPlatform.Tests.Application
         public async Task UpdateAsync_UpdatesEntity_WhenExists()
         {
             var updateDto = new UpdateConfigCategoryMasterDto();
-            var entity = new ConfigCategoryMasterEntity { CategoryId = 1 };
-            var dto = new ConfigCategoryMasterDto { CategoryId = 1 };
+            var entity = new ConfigCategoryMasterEntity { Id = 1 };
+            var dto = new ConfigCategoryMasterDto { Id = 1 };
             _repositoryMock.Setup(r => r.GetByIdAsync(1, default)).ReturnsAsync(entity);
             _repositoryMock.Setup(r => r.UpdateAsync(entity, default)).Returns(Task.CompletedTask);
             _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
@@ -110,7 +110,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task DeleteAsync_DeletesEntity_WhenExists()
         {
-            var entity = new ConfigCategoryMasterEntity { CategoryId = 1 };
+            var entity = new ConfigCategoryMasterEntity { Id = 1 };
             _repositoryMock.Setup(r => r.GetByIdAsync(1, default)).ReturnsAsync(entity);
             _repositoryMock.Setup(r => r.DeleteAsync(1, default)).Returns(Task.CompletedTask);
             _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);

@@ -33,7 +33,7 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 OldPropertyNo = "22",
@@ -77,7 +77,7 @@ public class PropertyOldDetailsTests
                 UpdatedDate = now
             };
 
-            Assert.Equal(1, entity.PropertyOldId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal("W79", entity.OldWardNo);
             Assert.Equal("22", entity.OldPropertyNo);
@@ -124,7 +124,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -164,7 +164,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyMastOldEntity();
 
-            Assert.Equal(0, entity.PropertyOldId);
+            Assert.Equal(0, entity.Id);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
         }
@@ -182,7 +182,7 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldFloorId = "F1",
                 OldConstructionYear = "2015",
@@ -199,7 +199,7 @@ public class PropertyOldDetailsTests
                 UpdatedDate = now
             };
 
-            Assert.Equal(1, entity.PropertyDetailsOldId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal("F1", entity.OldFloorId);
             Assert.Equal("2015", entity.OldConstructionYear);
@@ -217,7 +217,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 IsActive = true,
                 MarkedForDeletion = false
@@ -244,7 +244,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyDetailsOldEntity();
 
-            Assert.Equal(0, entity.PropertyDetailsOldId);
+            Assert.Equal(0, entity.Id);
             Assert.Equal(0, entity.PropertyId);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
@@ -760,7 +760,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -791,7 +791,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -800,7 +800,7 @@ public class PropertyOldDetailsTests
 
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 OldPropertyNo = "22",
@@ -848,7 +848,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -857,7 +857,7 @@ public class PropertyOldDetailsTests
 
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqfeet = 1200.50,
@@ -897,7 +897,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -906,7 +906,7 @@ public class PropertyOldDetailsTests
 
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 OldPropertyNo = "22",
@@ -918,7 +918,7 @@ public class PropertyOldDetailsTests
 
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqMeter = 111.48,
@@ -956,7 +956,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = false, // Inactive
@@ -983,7 +983,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1031,7 +1031,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1080,7 +1080,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1089,7 +1089,7 @@ public class PropertyOldDetailsTests
 
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "OLD",
                 OldPropertyNo = "OLD",
@@ -1101,7 +1101,7 @@ public class PropertyOldDetailsTests
 
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "OLD",
                 OldCarpetAreaSqMeter = 100.0,
@@ -1153,7 +1153,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1162,7 +1162,7 @@ public class PropertyOldDetailsTests
 
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 OldPropertyNo = "22",
@@ -1202,7 +1202,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1238,7 +1238,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1282,7 +1282,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1326,7 +1326,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1377,7 +1377,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1654,7 +1654,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1686,7 +1686,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = false, // Inactive
@@ -1718,7 +1718,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1726,7 +1726,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 IsActive = false, // Inactive
@@ -1755,7 +1755,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1763,7 +1763,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 IsActive = false, // Inactive
@@ -1792,7 +1792,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1800,7 +1800,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "W79",
                 IsActive = true,
@@ -1829,7 +1829,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1837,7 +1837,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 IsActive = true,
@@ -1866,7 +1866,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1874,7 +1874,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast1 = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "FIRST",
                 IsActive = true,
@@ -1882,7 +1882,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast2 = new PropertyMastOldEntity
             {
-                PropertyOldId = 2,
+                Id = 2,
                 PropertyId = 549357,
                 OldWardNo = "SECOND",
                 IsActive = true,
@@ -1905,8 +1905,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("UPDATED", result.OldWardNo);
 
             // Verify the first record was updated, second unchanged
-            var firstRecord = await context.PropertyMastOld.FirstAsync(x => x.PropertyOldId == 1);
-            var secondRecord = await context.PropertyMastOld.FirstAsync(x => x.PropertyOldId == 2);
+            var firstRecord = await context.PropertyMastOld.FirstAsync(x => x.Id == 1);
+            var secondRecord = await context.PropertyMastOld.FirstAsync(x => x.Id == 2);
             Assert.Equal("UPDATED", firstRecord.OldWardNo);
             Assert.Equal("SECOND", secondRecord.OldWardNo);
         }
@@ -1922,7 +1922,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1930,7 +1930,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails1 = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
                 IsActive = true,
@@ -1938,7 +1938,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails2 = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 2,
+                Id = 2,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 IsActive = true,
@@ -1961,8 +1961,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2023", result.OldConstructionYear);
 
             // Verify the first record was updated, second unchanged
-            var firstRecord = await context.PropertyDetailsOld.FirstAsync(x => x.PropertyDetailsOldId == 1);
-            var secondRecord = await context.PropertyDetailsOld.FirstAsync(x => x.PropertyDetailsOldId == 2);
+            var firstRecord = await context.PropertyDetailsOld.FirstAsync(x => x.Id == 1);
+            var secondRecord = await context.PropertyDetailsOld.FirstAsync(x => x.Id == 2);
             Assert.Equal("2023", firstRecord.OldConstructionYear);
             Assert.Equal("2015", secondRecord.OldConstructionYear);
         }
@@ -1978,7 +1978,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -1986,7 +1986,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "OLD_WARD",
                 OldPropertyNo = "OLD_PROP",
@@ -2051,7 +2051,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2059,7 +2059,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
                 OldCarpetAreaSqfeet = 500.0,
@@ -2112,7 +2112,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2146,7 +2146,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2176,7 +2176,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2184,7 +2184,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "OLD",
                 OldRV = 1000.0,
@@ -2193,7 +2193,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
                 OldRegistration = false,
@@ -2241,7 +2241,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2249,7 +2249,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqfeet = 1000.0,
@@ -2293,7 +2293,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2359,7 +2359,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2417,7 +2417,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2476,7 +2476,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2484,7 +2484,7 @@ public class PropertyOldDetailsTests
             };
             var oldMast = new PropertyMastOldEntity
             {
-                PropertyOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldWardNo = "OLD",
                 IsActive = true,
@@ -2528,7 +2528,7 @@ public class PropertyOldDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -2536,7 +2536,7 @@ public class PropertyOldDetailsTests
             };
             var oldDetails = new PropertyDetailsOldEntity
             {
-                PropertyDetailsOldId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
                 IsActive = true,
@@ -3442,7 +3442,7 @@ public class PropertyOldDetailsTests
         {
             var dto = new PropertyDto
             {
-                PropertyId = 549357,
+                Id = 549357,
                 TaxZoneId = 10,
                 WardId = 79,
                 PropertyNo = "22",
@@ -3478,7 +3478,7 @@ public class PropertyOldDetailsTests
                 MarkedForDeletion = false
             };
 
-            Assert.Equal(549357, dto.PropertyId);
+            Assert.Equal(549357, dto.Id);
             Assert.Equal(10, dto.TaxZoneId);
             Assert.Equal(79, dto.WardId);
             Assert.Equal("22", dto.PropertyNo);
@@ -3593,7 +3593,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 PlotArea = 1500.25,
                 PlotTaxableAreaSqFt = 1200.0,
@@ -3612,7 +3612,7 @@ public class PropertyOldDetailsTests
                 IsActive = true
             };
 
-            Assert.Equal(1, entity.PlotId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(1500.25, entity.PlotArea);
             Assert.Equal(1200.0, entity.PlotTaxableAreaSqFt);
@@ -3636,7 +3636,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -3669,7 +3669,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PlotDetailsEntity();
 
-            Assert.Equal(0, entity.PlotId);
+            Assert.Equal(0, entity.Id);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
         }
@@ -3687,7 +3687,7 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 OwnerTypeId = 2,
                 WingName = "West Wing",
@@ -3725,7 +3725,7 @@ public class PropertyOldDetailsTests
                 UpdatedDate = now
             };
 
-            Assert.Equal(1, entity.PropertyDetailsId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(2, entity.OwnerTypeId);
             Assert.Equal("West Wing", entity.WingName);
@@ -3766,7 +3766,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 IsActive = true,
                 MarkedForDeletion = false
@@ -3814,7 +3814,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyAssessmentEntity();
 
-            Assert.Equal(0, entity.PropertyDetailsId);
+            Assert.Equal(0, entity.Id);
             Assert.Equal(0, entity.PropertyId);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
@@ -3833,7 +3833,7 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new PropertyDetailsEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 FloorId = 2,
                 SubFloorId = 1,
@@ -3869,7 +3869,7 @@ public class PropertyOldDetailsTests
                 UpdatedDate = now
             };
 
-            Assert.Equal(1, entity.PropertyDetailsId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(2, entity.FloorId);
             Assert.Equal(1, entity.SubFloorId);
@@ -3906,7 +3906,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyDetailsEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 FloorId = 2,
                 ConstructionTypeId = 3,
@@ -3952,7 +3952,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyDetailsEntity();
 
-            Assert.Equal(0, entity.PropertyDetailsId);
+            Assert.Equal(0, entity.Id);
             Assert.Equal(0, entity.PropertyId);
             Assert.Equal(0, entity.FloorId);
             Assert.Equal(0, entity.ConstructionTypeId);
@@ -3974,7 +3974,7 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new SocietyDetailsEntity
             {
-                SocietyDetailId = 1,
+                Id = 1,
                 WingName = "West Wing",
                 WingId = 5,
                 BHKType = "3BHK",
@@ -3995,7 +3995,7 @@ public class PropertyOldDetailsTests
                 UpdatedDate = now
             };
 
-            Assert.Equal(1, entity.SocietyDetailId);
+            Assert.Equal(1, entity.Id);
             Assert.Equal("West Wing", entity.WingName);
             Assert.Equal(5, entity.WingId);
             Assert.Equal("3BHK", entity.BHKType);
@@ -4019,7 +4019,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new SocietyDetailsEntity
             {
-                SocietyDetailId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 IsActive = true,
                 MarkedForDeletion = false
@@ -4050,7 +4050,7 @@ public class PropertyOldDetailsTests
         {
             var entity = new SocietyDetailsEntity();
 
-            Assert.Equal(0, entity.SocietyDetailId);
+            Assert.Equal(0, entity.Id);
             Assert.Null(entity.PropertyId);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
@@ -4175,14 +4175,14 @@ public class PropertyOldDetailsTests
             using var context = new ApplicationDbContext(options);
 
             // Setup master data
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
 
             // Setup society details
             var society = new SocietyDetailsEntity
             {
-                SocietyDetailId = 100,
+                Id = 100,
                 WingId = 5,
                 WingName = "West Wing",
                 IsActive = true
@@ -4191,7 +4191,7 @@ public class PropertyOldDetailsTests
             // Property with SocietyDetailId
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = 100,
@@ -4223,12 +4223,12 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4238,7 +4238,7 @@ public class PropertyOldDetailsTests
             // Add multiple PropertyDetails records to test aggregation
             var detail1 = new PropertyDetailsEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 CarpetAreaSqMeter = 100.0,
                 BuiltupAreaSqMeter = 120.0,
@@ -4249,7 +4249,7 @@ public class PropertyOldDetailsTests
 
             var detail2 = new PropertyDetailsEntity
             {
-                PropertyDetailsId = 2,
+                Id = 2,
                 PropertyId = 549357,
                 CarpetAreaSqMeter = 50.0,
                 BuiltupAreaSqMeter = 60.0,
@@ -4286,12 +4286,12 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4300,7 +4300,7 @@ public class PropertyOldDetailsTests
 
             var plot = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 PlotArea = 2500.50,
                 PlotAreaFtLength = 50.0,
@@ -4336,13 +4336,13 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var society = new SocietyDetailsEntity
             {
-                SocietyDetailId = 100,
+                Id = 100,
                 WingId = 1,
                 WingName = "Old Wing",
                 IsActive = true
@@ -4350,7 +4350,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = 100,
@@ -4396,15 +4396,15 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var category = new PropertyCategoryEntity { PropertyCategoryId = 1, PropertyCategoryName = "Residential", IsActive = true };
-            var propertyType = new PropertyTypeEntity { PropertyTypeId = 2, PropertyDescription = "Apartment", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
+            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4473,12 +4473,12 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4516,13 +4516,13 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4531,7 +4531,7 @@ public class PropertyOldDetailsTests
 
             var plot = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 PlotArea = 1000.0,
                 PlotAreaFtLength = 30.0,
@@ -4583,13 +4583,13 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var society = new SocietyDetailsEntity
             {
-                SocietyDetailId = 100,
+                Id = 100,
                 WingId = 1,
                 WingName = null,
                 IsActive = true
@@ -4597,7 +4597,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = 100,
@@ -4640,13 +4640,13 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var society = new SocietyDetailsEntity
             {
-                SocietyDetailId = 100,
+                Id = 100,
                 WingId = 1,
                 WingName = "Old Wing",
                 IsActive = true
@@ -4654,7 +4654,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = 100,
@@ -4697,12 +4697,12 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = null, // No society linked
@@ -4712,7 +4712,7 @@ public class PropertyOldDetailsTests
 
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 WingId = 7,
                 WingNo = "Assessment Wing",
@@ -4743,12 +4743,12 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var society = new SocietyDetailsEntity
             {
-                SocietyDetailId = 100,
+                Id = 100,
                 WingId = 5,
                 WingName = "Inactive Wing",
                 IsActive = false // Inactive
@@ -4756,7 +4756,7 @@ public class PropertyOldDetailsTests
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 SocietyDetailId = 100,
@@ -4787,13 +4787,13 @@ public class PropertyOldDetailsTests
 
             using var context = new ApplicationDbContext(options);
 
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
 
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -4802,7 +4802,7 @@ public class PropertyOldDetailsTests
 
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 WingId = 1,
                 WingNo = "OLD",

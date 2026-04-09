@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -8,7 +8,8 @@ public class WingMappingProfile : Profile
 {
     public WingMappingProfile()
     {
-        CreateMap<WingEntity, WingDto>();
+        CreateMap<WingEntity, WingDto>()
+            ;
 
         CreateMap<CreateWingDto, WingEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

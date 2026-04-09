@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class PropertyCategoryDto : BaseDtos
 {
-    public int PropertyCategoryId { get; set; }
+    public int Id { get; set; }
     public string PropertyCategoryName { get; set; } = string.Empty;
 }
 

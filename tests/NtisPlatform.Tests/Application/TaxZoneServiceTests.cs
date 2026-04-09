@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.Attributes;
@@ -27,7 +27,7 @@ public class TaxZoneEntityTests
         // Arrange & Act
         var entity = new TaxZoneEntity
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = "Urban",
             Remark = "Test Zone",
@@ -39,7 +39,7 @@ public class TaxZoneEntityTests
         };
 
         // Assert
-        Assert.Equal(1, entity.TaxZoneId);
+        Assert.Equal(1, entity.Id);
         Assert.Equal("TZ001", entity.TaxZoneNo);
         Assert.Equal("Urban", entity.TaxZoneType);
         Assert.Equal("Test Zone", entity.Remark);
@@ -56,7 +56,7 @@ public class TaxZoneEntityTests
         // Arrange & Act
         var entity = new TaxZoneEntity
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = null,
             Remark = "Test"
@@ -89,7 +89,7 @@ public class TaxZoneDtoTests
         // Arrange & Act
         var dto = new TaxZoneDto
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = "Urban",
             Remark = "Test Zone",
@@ -99,7 +99,7 @@ public class TaxZoneDtoTests
         };
 
         // Assert
-        Assert.Equal(1, dto.TaxZoneId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal("TZ001", dto.TaxZoneNo);
         Assert.Equal("Urban", dto.TaxZoneType);
         Assert.Equal("Test Zone", dto.Remark);
@@ -124,7 +124,7 @@ public class TaxZoneDtoTests
         // Arrange & Act
         var dto = new TaxZoneDto
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ001",
             TaxZoneType = null,
             Remark = "Test"
@@ -786,7 +786,7 @@ public class TaxZoneServiceTests
         // Arrange
         var entity = new TaxZoneEntity
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Zone 1",
@@ -800,7 +800,7 @@ public class TaxZoneServiceTests
         _mockMapper.Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
             .Returns(new TaxZoneDto
             {
-                TaxZoneId = 1,
+                Id = 1,
                 TaxZoneNo = "TZ1",
                 TaxZoneType = "Urban",
                 Remark = "Zone 1"
@@ -811,7 +811,7 @@ public class TaxZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TaxZoneId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("TZ1", result.TaxZoneNo);
         Assert.Equal("Urban", result.TaxZoneType);
         Assert.Equal("Zone 1", result.Remark);
@@ -837,8 +837,8 @@ public class TaxZoneServiceTests
         // Arrange
         var entities = new List<TaxZoneEntity>
         {
-            new() { TaxZoneId = 1, TaxZoneNo = "TZ1", TaxZoneType = "Urban", Remark = "Zone 1", IsActive = true },
-            new() { TaxZoneId = 2, TaxZoneNo = "TZ2", TaxZoneType = "Rural", Remark = "Zone 2", IsActive = true }
+            new() { Id = 1, TaxZoneNo = "TZ1", TaxZoneType = "Urban", Remark = "Zone 1", IsActive = true },
+            new() { Id = 2, TaxZoneNo = "TZ2", TaxZoneType = "Rural", Remark = "Zone 2", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -895,7 +895,7 @@ public class TaxZoneServiceTests
             .Setup(r => r.AddAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((TaxZoneEntity e, CancellationToken _) =>
             {
-                e.TaxZoneId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -903,7 +903,7 @@ public class TaxZoneServiceTests
             .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
             .Returns((TaxZoneEntity e) => new TaxZoneDto
             {
-                TaxZoneId = e.TaxZoneId,
+                Id = e.Id,
                 TaxZoneNo = e.TaxZoneNo,
                 TaxZoneType = e.TaxZoneType,
                 Remark = e.Remark
@@ -914,7 +914,7 @@ public class TaxZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TaxZoneId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("TZ1", result.TaxZoneNo);
         Assert.Equal("Urban", result.TaxZoneType);
         Assert.Equal("Zone 1", result.Remark);
@@ -936,7 +936,7 @@ public class TaxZoneServiceTests
 
         var existingEntity = new TaxZoneEntity
         {
-            TaxZoneId = 1,
+            Id = 1,
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Old Remark",
@@ -1023,7 +1023,7 @@ public class TaxZoneServiceTests
 
         var existingEntity = new TaxZoneEntity
         {
-            TaxZoneId = idToDelete,
+            Id = idToDelete,
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
             Remark = "Zone 1",

@@ -1,8 +1,8 @@
-﻿namespace NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities;
 
 public class TypeOfUseEntity : BaseEntity
 {
-    public int TypeOfUseId { get; set; }
+    public int Id { get; set; }
     public string TypeOfUseCode { get; set; }
     public string Description { get; set; }
     public string Type { get; set; }

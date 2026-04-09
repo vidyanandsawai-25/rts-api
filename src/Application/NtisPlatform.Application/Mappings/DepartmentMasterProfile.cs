@@ -12,8 +12,9 @@ public class DepartmentMasterProfile : Profile
     public DepartmentMasterProfile()
     {
         // Entity to DTO - AutoMapper will map by convention, ignored properties won't cause issues
-        CreateMap<DepartmentMasterEntity, DepartmentMasterDto>();
-        
+        CreateMap<DepartmentMasterEntity, DepartmentMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateDepartmentMasterDto, DepartmentMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

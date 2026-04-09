@@ -9,7 +9,7 @@ public class ULBMasterEntity : BaseEntity
     /// <summary>
     /// Primary key - ULB ID
     /// </summary>
-    public int UlbId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Unique ULB code

@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyDetailsEntity : BaseEntity
 {
     [Key]
-    public int PropertyDetailsId { get; set; }
+    public int Id { get; set; }
 
     public int PropertyId { get; set; }
 

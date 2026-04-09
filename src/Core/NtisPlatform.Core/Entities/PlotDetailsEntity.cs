@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities;
 public class PlotDetailsEntity : BaseEntity
 {
     [Key]
-    public int PlotId { get; set; }
+    public int Id { get; set; }
 
     public int? PropertyId { get; set; }
 

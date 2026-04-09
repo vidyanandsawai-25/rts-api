@@ -29,7 +29,7 @@ public class UlbConfigService : IUlbConfigService
         // Explicit ordering ensures deterministic results when multiple active ULBs exist
         var ulb = await _ulbRepository.GetQueryable()
             .Where(u => u.IsActive)
-            .OrderBy(u => u.UlbId)
+            .OrderBy(u => u.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (ulb == null)
@@ -39,7 +39,7 @@ public class UlbConfigService : IUlbConfigService
 
         return new UlbConfigDto
         {
-            UlbId = ulb.UlbId,
+            UlbId = ulb.Id,
             UlbCode = ulb.UlbCode,
             UlbName = ulb.UlbName,
             UlbNameLocal = ulb.UlbNameLocal,

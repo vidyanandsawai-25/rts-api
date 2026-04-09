@@ -7,7 +7,7 @@ namespace NtisPlatform.Core.Entities.Master
     public class RoleWiseScreenAccessMasterEntity : BaseEntity
     {
         /// <summary>Primary key for role-wise screen access</summary>
-        public int RoleWiseScreenAccessId { get; set; }
+        public int Id { get; set; }
         
         /// <summary>Foreign key to UserRoleMaster</summary>
         public int UserRoleId { get; set; }

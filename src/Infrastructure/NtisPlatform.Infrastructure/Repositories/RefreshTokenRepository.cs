@@ -48,7 +48,7 @@ public class RefreshTokenRepository : Repository<RefreshTokenEntity, int>, IRefr
         {
             // Revoke the specific token by its ID
             await _context.Set<RefreshTokenEntity>()
-                .Where(rt => rt.RefreshTokenId == tokenEntity.RefreshTokenId && !rt.IsRevoked)
+                .Where(rt => rt.Id == tokenEntity.Id && !rt.IsRevoked)
                 .ExecuteUpdateAsync(setter => setter
                     .SetProperty(rt => rt.IsRevoked, true)
                     .SetProperty(rt => rt.RevokedAt, DateTime.Now),
@@ -61,7 +61,7 @@ public class RefreshTokenRepository : Repository<RefreshTokenEntity, int>, IRefr
         // Atomically consume the token only if it's still active (not revoked and not expired)
         // This prevents concurrent replay attacks - only one request will successfully consume the token
         var rowsAffected = await _context.Set<RefreshTokenEntity>()
-            .Where(rt => rt.RefreshTokenId == tokenId 
+            .Where(rt => rt.Id == tokenId 
                 && !rt.IsRevoked 
                 && rt.ExpiresAt > DateTime.Now)
             .ExecuteUpdateAsync(setter => setter
@@ -76,7 +76,7 @@ public class RefreshTokenRepository : Repository<RefreshTokenEntity, int>, IRefr
     public async Task RevokeAllUserTokensAsync(int userId, CancellationToken cancellationToken = default)
     {
         await _context.Set<RefreshTokenEntity>()
-            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
+            .Where(rt => rt.Id == userId && !rt.IsRevoked)
             .ExecuteUpdateAsync(setter => setter
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, DateTime.Now),

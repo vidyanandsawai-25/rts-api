@@ -55,7 +55,7 @@ public class AuthService : IAuthService
         // Check if user is active
         if (!user.IsActive)
         {
-            _logger.LogWarning("Login attempt for inactive user: {UserId}", user.UserId);
+            _logger.LogWarning("Login attempt for inactive user: {UserId}", user.Id);
             return new LoginResponseDto { Success = false, Message = "User account is inactive. Please contact administrator." };
         }
 
@@ -63,14 +63,14 @@ public class AuthService : IAuthService
         if (user.LockedUntilAt.HasValue && user.LockedUntilAt.Value > DateTime.Now)
         {
             _logger.LogWarning("Login attempt for locked account: {UserId}, locked until {LockedUntil}", 
-                user.UserId, user.LockedUntilAt.Value);
+                user.Id, user.LockedUntilAt.Value);
             return new LoginResponseDto { Success = false, Message = $"Account is locked until {user.LockedUntilAt.Value:u}. Please try again later." };
         }
 
         // Verify password (if PasswordHash is null, fail authentication)
         if (string.IsNullOrEmpty(user.PasswordHash))
         {
-            _logger.LogWarning("Login attempt for user with no password set: {UserId}", user.UserId);
+            _logger.LogWarning("Login attempt for user with no password set: {UserId}", user.Id);
             return new LoginResponseDto { Success = false, Message = "Password not set for this user. Please contact administrator." };
         }
 
@@ -79,15 +79,15 @@ public class AuthService : IAuthService
         if (!isPasswordValid)
         {
             // Increment failed login count
-            await _userRepository.IncrementFailedLoginCountAsync(user.UserId, cancellationToken);
-            _logger.LogWarning("Failed login attempt for user: {UserId}", user.UserId);
+            await _userRepository.IncrementFailedLoginCountAsync(user.Id, cancellationToken);
+            _logger.LogWarning("Failed login attempt for user: {UserId}", user.Id);
             return new LoginResponseDto { Success = false, Message = "Invalid username or password" };
         }
 
         // Check if user must change password
         if (user.MustChangePassword)
         {
-            _logger.LogInformation("User {UserId} must change password before proceeding", user.UserId);
+            _logger.LogInformation("User {UserId} must change password before proceeding", user.Id);
             return new LoginResponseDto 
             { 
                 Success = false, 
@@ -97,8 +97,8 @@ public class AuthService : IAuthService
         }
 
         // Password valid - reset failed login count and update last login
-        await _userRepository.ResetFailedLoginCountAsync(user.UserId, cancellationToken);
-        await _userRepository.UpdateLastLoginAsync(user.UserId, cancellationToken);
+        await _userRepository.ResetFailedLoginCountAsync(user.Id, cancellationToken);
+        await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
 
         // Fetch user role name
         string? userRoleName = null;
@@ -109,7 +109,7 @@ public class AuthService : IAuthService
         }
 
         // Generate JWT access token
-        var token = _tokenService.GenerateToken(user.UserId, user.UserName, user.UserRoleID);
+        var token = _tokenService.GenerateToken(user.Id, user.UserName, user.UserRoleID);
 
         // Generate refresh token
         var refreshToken = _tokenService.GenerateRefreshToken();
@@ -122,10 +122,10 @@ public class AuthService : IAuthService
         var refreshTokenEntity = new RefreshTokenEntity
         {
             Token = refreshTokenHash, // Store hash, not plaintext
-            UserId = user.UserId,
+            UserId = user.Id,
             ExpiresAt = DateTime.Now.AddDays(refreshTokenExpiryDays),
             IsRevoked = false,
-            CreatedBy = user.UserId,
+            CreatedBy = user.Id,
             CreatedDate = DateTime.Now
         };
 
@@ -136,14 +136,14 @@ public class AuthService : IAuthService
         var expiresInMinutes = int.TryParse(_configuration["Jwt:ExpiresInMinutes"], out var minutes) ? minutes : 60;
         var expiresAt = DateTime.Now.AddMinutes(expiresInMinutes);
 
-        _logger.LogInformation("Successful login for user: {UserId}", user.UserId);
+        _logger.LogInformation("Successful login for user: {UserId}", user.Id);
 
         return new LoginResponseDto
         {
             Success = true,
             Token = token,
             RefreshToken = refreshToken,
-            UserId = user.UserId,
+            UserId = user.Id,
             Username = user.UserName,
             Name = user.Name,
             UserRoleId = user.UserRoleID,
@@ -171,7 +171,7 @@ public class AuthService : IAuthService
         // Check if token is active (not revoked and not expired)
         if (!refreshTokenEntity.IsActive)
         {
-            _logger.LogWarning("Attempted to use inactive refresh token for user: {UserId}", refreshTokenEntity.UserId);
+            _logger.LogWarning("Attempted to use inactive refresh token for user: {UserId}", refreshTokenEntity.Id);
             return new RefreshTokenResponseDto
             {
                 Success = false,
@@ -180,11 +180,11 @@ public class AuthService : IAuthService
         }
 
         // Get the user
-        var user = await _userRepository.GetByIdAsync(refreshTokenEntity.UserId, cancellationToken);
+        var user = await _userRepository.GetByIdAsync(refreshTokenEntity.Id, cancellationToken);
 
         if (user == null || !user.IsActive)
         {
-            _logger.LogWarning("User not found or inactive for refresh token: {UserId}", refreshTokenEntity.UserId);
+            _logger.LogWarning("User not found or inactive for refresh token: {UserId}", refreshTokenEntity.Id);
             return new RefreshTokenResponseDto
             {
                 Success = false,
@@ -194,11 +194,11 @@ public class AuthService : IAuthService
 
         // Atomically consume the refresh token
         // This prevents concurrent replay attacks - only one request will successfully consume the token
-        var consumed = await _refreshTokenRepository.ConsumeTokenAsync(refreshTokenEntity.RefreshTokenId, cancellationToken);
+        var consumed = await _refreshTokenRepository.ConsumeTokenAsync(refreshTokenEntity.Id, cancellationToken);
 
         if (!consumed)
         {
-            _logger.LogWarning("Failed to consume refresh token for user: {UserId} - possible concurrent use detected", refreshTokenEntity.UserId);
+            _logger.LogWarning("Failed to consume refresh token for user: {UserId} - possible concurrent use detected", refreshTokenEntity.Id);
             return new RefreshTokenResponseDto
             {
                 Success = false,
@@ -208,7 +208,7 @@ public class AuthService : IAuthService
 
         // Token successfully consumed - now generate new tokens
         // Generate new access token
-        var newAccessToken = _tokenService.GenerateToken(user.UserId, user.UserName, user.UserRoleID);
+        var newAccessToken = _tokenService.GenerateToken(user.Id, user.UserName, user.UserRoleID);
 
         // Generate new refresh token (rotating refresh tokens for security)
         var newRefreshToken = _tokenService.GenerateRefreshToken();
@@ -221,10 +221,10 @@ public class AuthService : IAuthService
         var newRefreshTokenEntity = new RefreshTokenEntity
         {
             Token = newRefreshTokenHash, // Store hash, not plaintext
-            UserId = user.UserId,
+            UserId = user.Id,
             ExpiresAt = DateTime.Now.AddDays(refreshTokenExpiryDays),
             IsRevoked = false,
-            CreatedBy = user.UserId,
+            CreatedBy = user.Id,
             CreatedDate = DateTime.Now
         };
 
@@ -237,7 +237,7 @@ public class AuthService : IAuthService
         var expiresInMinutes = int.TryParse(_configuration["Jwt:ExpiresInMinutes"], out var minutes) ? minutes : 60;
         var expiresAt = DateTime.Now.AddMinutes(expiresInMinutes);
 
-        _logger.LogInformation("Token refreshed for user: {UserId}", user.UserId);
+        _logger.LogInformation("Token refreshed for user: {UserId}", user.Id);
 
         return new RefreshTokenResponseDto
         {
@@ -319,7 +319,7 @@ public class AuthService : IAuthService
         // Revoke the token
         await _refreshTokenRepository.RevokeTokenAsync(request.RefreshToken, cancellationToken);
 
-        _logger.LogInformation("User logged out: {UserId}", refreshTokenEntity.UserId);
+        _logger.LogInformation("User logged out: {UserId}", refreshTokenEntity.Id);
 
         return new LogoutResponseDto
         {

@@ -16,7 +16,7 @@ public class ConfigValueMasterEntityTests
         var configValue = new ConfigValueMasterEntity();
 
         // Assert
-        Assert.Equal(0, configValue.ConfigValueId);
+        Assert.Equal(0, configValue.Id);
         Assert.Equal(0, configValue.ConfigKeyId);
         Assert.Null(configValue.DepartmentId);
         Assert.Null(configValue.ModuleId);
@@ -31,10 +31,10 @@ public class ConfigValueMasterEntityTests
         var configValue = new ConfigValueMasterEntity();
 
         // Act
-        configValue.ConfigValueId = 100;
+        configValue.Id = 100;
 
         // Assert
-        Assert.Equal(100, configValue.ConfigValueId);
+        Assert.Equal(100, configValue.Id);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class ConfigValueMasterEntityTests
         var now = DateTime.UtcNow;
 
         // Act
-        configValue.ConfigValueId = 1;
+        configValue.Id = 1;
         configValue.ConfigKeyId = 5;
         configValue.DepartmentId = 10;
         configValue.ModuleId = 15;
@@ -132,7 +132,7 @@ public class ConfigValueMasterEntityTests
         configValue.UpdatedDate = now.AddDays(1);
 
         // Assert
-        configValue.ConfigValueId.Should().Be(1);
+        configValue.Id.Should().Be(1);
         configValue.ConfigKeyId.Should().Be(5);
         configValue.DepartmentId.Should().Be(10);
         configValue.ModuleId.Should().Be(15);
@@ -149,9 +149,9 @@ public class ConfigValueMasterEntityTests
     {
         // Arrange
         var configValue = new ConfigValueMasterEntity();
-        var configKey = new ConfigKeyMasterEntity { ConfigKeyId = 5, ConfigCode = "TEST_KEY" };
-        var department = new DepartmentMasterEntity { DepartmentId = 10, DepartmentCode = "DEPT001" };
-        var module = new ModuleMasterEntity { ModuleId = 15, ModuleName = "Test Module" };
+        var configKey = new ConfigKeyMasterEntity { Id = 5, ConfigCode = "TEST_KEY" };
+        var department = new DepartmentMasterEntity { Id = 10, DepartmentCode = "DEPT001" };
+        var module = new ModuleMasterEntity { Id = 15, ModuleName = "Test Module" };
 
         // Act
         configValue.ConfigKey = configKey;
@@ -160,11 +160,11 @@ public class ConfigValueMasterEntityTests
 
         // Assert
         configValue.ConfigKey.Should().NotBeNull();
-        configValue.ConfigKey.ConfigKeyId.Should().Be(5);
+        configValue.ConfigKey.Id.Should().Be(5);
         configValue.Department.Should().NotBeNull();
-        configValue.Department.DepartmentId.Should().Be(10);
+        configValue.Department.Id.Should().Be(10);
         configValue.Module.Should().NotBeNull();
-        configValue.Module.ModuleId.Should().Be(15);
+        configValue.Module.Id.Should().Be(15);
     }
 
     [Fact]

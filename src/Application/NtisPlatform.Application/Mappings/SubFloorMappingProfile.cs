@@ -8,8 +8,8 @@ public class SubFloorMappingProfile : Profile
 {
     public SubFloorMappingProfile()
     {
-        CreateMap<SubFloorEntity, SubFloorDto>();
-
+        CreateMap<SubFloorEntity, SubFloorDto>()
+            ;
 
         CreateMap<CreateSubFloorDto, SubFloorEntity>()
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

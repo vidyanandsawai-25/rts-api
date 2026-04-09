@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class TypeOfUseDto : BaseDtos
 {
-    public int TypeOfUseId { get; set; } 
+    public int Id { get; set; } 
     public string TypeOfUseCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;

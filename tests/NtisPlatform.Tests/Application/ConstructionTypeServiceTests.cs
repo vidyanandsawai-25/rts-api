@@ -45,7 +45,7 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entity = new ConstructionTypeEntity
         {
-            ConstructionTypeId = 1,
+            Id = 1,
             ConstructionCode = "A",
             Description = "RCC",
             SearchKey = "Alt+D",
@@ -103,8 +103,8 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entities = new List<ConstructionTypeEntity>
         {
-            new() {ConstructionTypeId=1,ConstructionCode = "A", Description = "Test1",  SearchKey="Alt+D", SearchSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
-            new() {ConstructionTypeId=2, ConstructionCode = "B", Description = "Test2",  SearchKey="Alt+L", SearchSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
+            new() {Id=1,ConstructionCode = "A", Description = "Test1",  SearchKey="Alt+D", SearchSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() {Id=2, ConstructionCode = "B", Description = "Test2",  SearchKey="Alt+L", SearchSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -221,7 +221,7 @@ public class ConstructionTypeServiceTests
 
         var existingEntity = new ConstructionTypeEntity
         {
-            ConstructionTypeId = 1,
+            Id = 1,
             Description = "Old Description",
             SearchKey = "Alt+A",
             SearchSequence = 3,
@@ -317,7 +317,7 @@ public class ConstructionTypeServiceTests
 
         var existingEntity = new ConstructionTypeEntity
         {
-            ConstructionTypeId = idToDelete,
+            Id = idToDelete,
             ConstructionCode = "RCC",
             Description = "RCC",
             SearchKey = "Alt+A",

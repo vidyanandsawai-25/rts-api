@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities.Master;
 public class OwnerTypeMasterEntity : BaseEntity
 {
     [Key]
-    public int OwnerTypeId { get; set; }
+    public int Id { get; set; }
 
     [Column(TypeName = "nvarchar(100)")]
     public string? OwnerType { get; set; }

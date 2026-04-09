@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Property;
 /// </summary>
 public class PropertyDto : BaseDtos
 {
-    public int PropertyId { get; set; }
+    public int Id { get; set; }
     
     // Location Information (Foreign Keys)
     public int TaxZoneId { get; set; }

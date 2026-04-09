@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Moq;
@@ -65,7 +65,7 @@ public class ULBMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.UlbId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("ULB001", result.UlbCode);
         Assert.Equal("Test ULB", result.UlbName);
     }
@@ -305,7 +305,7 @@ public class ULBMasterServiceTests
     {
         return new ULBMasterEntity
         {
-            UlbId = id,
+            Id = id,
             UlbCode = ulbCode,
             UlbName = ulbName,
             UlbNameLocal = $"{ulbName} Local",
@@ -322,7 +322,7 @@ public class ULBMasterServiceTests
     {
         return new ULBMasterDto
         {
-            UlbId = id,
+            Id = id,
             UlbCode = ulbCode,
             UlbName = ulbName,
             UlbNameLocal = $"{ulbName} Local",

@@ -30,10 +30,10 @@ public class WingServiceTests
     public async Task GetByIdAsync_WithValidId_ReturnsWingDto()
     {
         // Arrange
-        var wingId = 1;
+        var Id = 1;
         var entity = new WingEntity
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A",
             SequenceNo = 1,
             IsActive = true,
@@ -41,39 +41,39 @@ public class WingServiceTests
         };
         var expectedDto = new WingDto
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A",
             SequenceNo = 1
         };
 
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
         _mapperMock.Setup(m => m.Map<WingDto>(entity))
             .Returns(expectedDto);
 
         // Act
-        var result = await _service.GetByIdAsync(wingId, CancellationToken.None);
+        var result = await _service.GetByIdAsync(Id, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().BeEquivalentTo(expectedDto);
-        _repositoryMock.Verify(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetByIdAsync_WithInvalidId_ReturnsNull()
     {
         // Arrange
-        var wingId = 999;
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        var Id = 999;
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((WingEntity?)null);
 
         // Act
-        var result = await _service.GetByIdAsync(wingId, CancellationToken.None);
+        var result = await _service.GetByIdAsync(Id, CancellationToken.None);
 
         // Assert
         result.Should().BeNull();
-        _repositoryMock.Verify(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
@@ -92,14 +92,14 @@ public class WingServiceTests
         };
         var entity = new WingEntity
         {
-            WingId = 0,
+            Id = 0,
             WingNo = "F",
             SequenceNo = 6,
             CreatedBy = 1
         };
         var savedEntity = new WingEntity
         {
-            WingId = 6,
+            Id = 6,
             WingNo = "F",
             SequenceNo = 6,
             IsActive = true,
@@ -108,7 +108,7 @@ public class WingServiceTests
         };
         var expectedDto = new WingDto
         {
-            WingId = 6,
+            Id = 6,
             WingNo = "F",
             SequenceNo = 6
         };
@@ -127,7 +127,7 @@ public class WingServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.WingId.Should().Be(6);
+        result.Id.Should().Be(6);
         result.WingNo.Should().Be("F");
         _repositoryMock.Verify(r => r.AddAsync(It.IsAny<WingEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -163,7 +163,7 @@ public class WingServiceTests
     public async Task UpdateAsync_WithValidIdAndDto_ReturnsUpdatedWingDto()
     {
         // Arrange
-        var wingId = 1;
+        var Id = 1;
         var updateDto = new UpdateWingDto
         {
             WingNo = "A-Updated",
@@ -172,14 +172,14 @@ public class WingServiceTests
         };
         var existingEntity = new WingEntity
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A",
             SequenceNo = 1,
             IsActive = true
         };
         var updatedEntity = new WingEntity
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A-Updated",
             SequenceNo = 10,
             IsActive = true,
@@ -188,12 +188,12 @@ public class WingServiceTests
         };
         var expectedDto = new WingDto
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A-Updated",
             SequenceNo = 10
         };
 
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
         _mapperMock.Setup(m => m.Map(updateDto, existingEntity))
             .Returns(updatedEntity);
@@ -205,7 +205,7 @@ public class WingServiceTests
             .Returns(expectedDto);
 
         // Act
-        var result = await _service.UpdateAsync(wingId, updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(Id, updateDto, CancellationToken.None);
 
         // Assert
         result.Should().NotBeNull();
@@ -219,14 +219,14 @@ public class WingServiceTests
     public async Task UpdateAsync_WithInvalidId_ReturnsNull()
     {
         // Arrange
-        var wingId = 999;
+        var Id = 999;
         var updateDto = new UpdateWingDto { WingNo = "X", UpdatedBy = 1 };
 
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((WingEntity?)null);
 
         // Act
-        var result = await _service.UpdateAsync(wingId, updateDto, CancellationToken.None);
+        var result = await _service.UpdateAsync(Id, updateDto, CancellationToken.None);
 
         // Assert
         result.Should().BeNull();
@@ -241,27 +241,27 @@ public class WingServiceTests
     public async Task DeleteAsync_WithValidId_ReturnsTrueAndSoftDeletes()
     {
         // Arrange
-        var wingId = 1;
+        var Id = 1;
         var entity = new WingEntity
         {
-            WingId = wingId,
+            Id = Id,
             WingNo = "A",
             IsActive = true
         };
 
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _repositoryMock.Setup(r => r.DeleteAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.DeleteAsync(Id, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
         // Act
-        var result = await _service.DeleteAsync(wingId, CancellationToken.None);
+        var result = await _service.DeleteAsync(Id, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
-        _repositoryMock.Verify(r => r.DeleteAsync(wingId, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.DeleteAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -269,13 +269,13 @@ public class WingServiceTests
     public async Task DeleteAsync_WithInvalidId_ReturnsFalse()
     {
         // Arrange
-        var wingId = 999;
+        var Id = 999;
 
-        _repositoryMock.Setup(r => r.GetByIdAsync(wingId, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((WingEntity?)null);
 
         // Act
-        var result = await _service.DeleteAsync(wingId, CancellationToken.None);
+        var result = await _service.DeleteAsync(Id, CancellationToken.None);
 
         // Assert
         result.Should().BeFalse();

@@ -8,7 +8,7 @@ public class ConfigValueMasterEntity : BaseEntity
     /// <summary>
     /// Unique identifier for the configuration value
     /// </summary>
-    public int ConfigValueId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Foreign key to the configuration key

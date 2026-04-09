@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -7,7 +7,7 @@ namespace NtisPlatform.Core.Entities.Master;
 
 public class PaymentModeEntity : BaseEntity
 {
-    public int PaymentModeId { get; set; }
+    public int Id { get; set; }
     public string? Code { get; set; } 
     public string? PaymentModeName { get; set; }
     public string? Type { get; set; }

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Master.PaymentMode;
 using NtisPlatform.Core.Entities;
@@ -13,7 +13,8 @@ public class PaymentModeMappingProfile : Profile
 {
     public PaymentModeMappingProfile()
     {
-        CreateMap<PaymentModeEntity, PaymentModeDto>();
+        CreateMap<PaymentModeEntity, PaymentModeDto>()
+            ;
 
         CreateMap<CreatePaymentModeDto, PaymentModeEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

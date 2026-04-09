@@ -38,7 +38,7 @@ public class AssessmentYearRangeServiceTests
         // Arrange
         var entity = new AssessmentYearRangeEntity
         {
-            YearRangeRVId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,
@@ -54,7 +54,7 @@ public class AssessmentYearRangeServiceTests
         _mockMapper.Setup(m => m.Map<AssessmentYearRangeDto>(It.IsAny<AssessmentYearRangeEntity>()))
             .Returns(new AssessmentYearRangeDto
             {
-                YearRangeRVId = 1,
+                Id = 1,
                 FromYear = entity.FromYear,
                 ToYear = entity.ToYear,
                 IsActive = true,
@@ -67,7 +67,7 @@ public class AssessmentYearRangeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.YearRangeRVId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.True(result.IsActive);
@@ -93,8 +93,8 @@ public class AssessmentYearRangeServiceTests
         // Arrange
         var entities = new List<AssessmentYearRangeEntity>
         {
-            new() { YearRangeRVId = 1, FromYear = 2000, ToYear = 2020, IsActive = true, CreatedDate = DateTime.Now },
-            new() { YearRangeRVId = 2, FromYear = 2021, ToYear = 2030, IsActive = false, CreatedDate = DateTime.Now }
+            new() { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true, CreatedDate = DateTime.Now },
+            new() { Id = 2, FromYear = 2021, ToYear = 2030, IsActive = false, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -128,8 +128,8 @@ public class AssessmentYearRangeServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.YearRangeRVId == 1);
-        Assert.Contains(items, x => x.YearRangeRVId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class AssessmentYearRangeServiceTests
             .Setup(m => m.Map<AssessmentYearRangeEntity>(It.IsAny<CreateAssessmentYearRangeDto>()))
             .Returns((CreateAssessmentYearRangeDto dto) => new AssessmentYearRangeEntity
             {
-                YearRangeRVId = 1,
+                Id = 1,
                 FromYear = dto.FromYear,
                 ToYear = dto.ToYear,
                 IsActive = dto.IsActive,
@@ -164,7 +164,7 @@ public class AssessmentYearRangeServiceTests
             .Setup(m => m.Map<AssessmentYearRangeDto>(It.IsAny<AssessmentYearRangeEntity>()))
             .Returns((AssessmentYearRangeEntity e) => new AssessmentYearRangeDto
             {
-                YearRangeRVId = e.YearRangeRVId,
+                Id = e.Id,
                 FromYear = e.FromYear,
                 ToYear = e.ToYear,
                 IsActive = e.IsActive,
@@ -177,7 +177,7 @@ public class AssessmentYearRangeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.YearRangeRVId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.True(result.IsActive);
@@ -200,7 +200,7 @@ public class AssessmentYearRangeServiceTests
 
         var existingEntity = new AssessmentYearRangeEntity
         {
-            YearRangeRVId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,
@@ -296,7 +296,7 @@ public class AssessmentYearRangeServiceTests
 
         var existingEntity = new AssessmentYearRangeEntity
         {
-            YearRangeRVId = idToDelete,
+            Id = idToDelete,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,

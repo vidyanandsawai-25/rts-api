@@ -8,7 +8,7 @@ public class PropertyCategoryQueryParameters : BaseQueryParameters
 {
     [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public int? PropertyCategoryId { get; set; }
+    public int? Id { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]

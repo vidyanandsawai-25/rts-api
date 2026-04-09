@@ -127,19 +127,19 @@ public class SecuritySettingsService : ISecuritySettingsService
         var rows = await (
             from cc in _context.ConfigCategoryMasters.AsNoTracking()
             join ck in _context.ConfigKeyMasters.AsNoTracking()
-                on cc.CategoryId equals ck.CategoryId
+                on cc.Id equals ck.CategoryId
             where cc.CategoryCode == SecurityCategoryCode
                   && cc.IsActive
                   && ck.IsActive
             join cv in configValues
-                on ck.ConfigKeyId equals cv.ConfigKeyId into cvJoin
+                on ck.Id equals cv.ConfigKeyId into cvJoin
             from cv in cvJoin.DefaultIfEmpty()
             select new
             {
                 Key = ck.ConfigCode,
                 Value = cv != null ? cv.Value : null,
                 DefaultValue = ck.DefaultValue,
-                ConfigKeyId = ck.ConfigKeyId,
+                ConfigKeyId = ck.Id,
                 UpdatedDate = ck.UpdatedDate,
                 CreatedDate = ck.CreatedDate
             }

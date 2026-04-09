@@ -12,8 +12,9 @@ public class ConfigCategoryMasterMappingProfile : Profile
     public ConfigCategoryMasterMappingProfile()
     {
         // Entity to DTO
-        CreateMap<ConfigCategoryMasterEntity, ConfigCategoryMasterDto>();
-        
+        CreateMap<ConfigCategoryMasterEntity, ConfigCategoryMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateConfigCategoryMasterDto, ConfigCategoryMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

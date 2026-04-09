@@ -8,10 +8,11 @@ namespace NtisPlatform.Application.Mappings
     {
         public RoleWiseScreenAccessMasterMappingProfile()
         {
-            CreateMap<RoleWiseScreenAccessMasterEntity, RoleWiseScreenAccessMasterDTO>();
+            CreateMap<RoleWiseScreenAccessMasterEntity, RoleWiseScreenAccessMasterDTO>()
+                ;
 
             CreateMap<CreateRoleWiseScreenAccessMasterDto, RoleWiseScreenAccessMasterEntity>()
-                .ForMember(dest => dest.RoleWiseScreenAccessId, opt => opt.Ignore())
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
@@ -20,7 +21,7 @@ namespace NtisPlatform.Application.Mappings
                 .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
             CreateMap<UpdateRoleWiseScreenAccessMasterDto, RoleWiseScreenAccessMasterEntity>()
-                .ForMember(dest => dest.RoleWiseScreenAccessId, opt => opt.Ignore())
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())

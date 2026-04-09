@@ -9,9 +9,9 @@ public class FloorMappingProfile : Profile
     public FloorMappingProfile()
     {
         CreateMap<FloorEntity, FloorDto>()
+            
             .ForMember(dest => dest.MaxFloorNo, opt => opt.MapFrom(src => src.MaxFloorNo));
-        
-      
+
         CreateMap<CreateFloorDto, FloorEntity>()
           .ForMember(dest => dest.MaxFloorNo, opt => opt.MapFrom(src => src.MaxFloorNo))
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

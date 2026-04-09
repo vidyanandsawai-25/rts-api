@@ -42,7 +42,7 @@ public class TypeOfUseServiceTests
         // Arrange
         var entity = new TypeOfUseEntity
         {
-            TypeOfUseId = 1,
+            Id = 1,
             TypeOfUseCode = "R",
             Description = "Residential",
             Type = "R",
@@ -62,7 +62,7 @@ public class TypeOfUseServiceTests
         _mockMapper.Setup(m => m.Map<TypeOfUseDto>(It.IsAny<TypeOfUseEntity>()))
             .Returns((TypeOfUseEntity e) => new TypeOfUseDto
             {
-                TypeOfUseId = e.TypeOfUseId,
+                Id = e.Id,
                 TypeOfUseCode = e.TypeOfUseCode,
                 Description = e.Description,
                 Type = e.Type,
@@ -79,7 +79,7 @@ public class TypeOfUseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TypeOfUseId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("R", result.TypeOfUseCode);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("R", result.Type);
@@ -109,8 +109,8 @@ public class TypeOfUseServiceTests
         // Arrange
         var entities = new List<TypeOfUseEntity>
         {
-            new() { TypeOfUseId = 1, TypeOfUseCode = "R", Description = "Residential", Type = "R", TypeOfUseGroupId = 1, SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { TypeOfUseId = 2, TypeOfUseCode = "C", Description = "Commercial", Type = "C", TypeOfUseGroupId = 2, SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, TypeOfUseCode = "R", Description = "Residential", Type = "R", TypeOfUseGroupId = 1, SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, TypeOfUseCode = "C", Description = "Commercial", Type = "C", TypeOfUseGroupId = 2, SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -147,8 +147,8 @@ public class TypeOfUseServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.TypeOfUseId == 1);
-        Assert.Contains(items, x => x.TypeOfUseId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public class TypeOfUseServiceTests
             .Setup(m => m.Map<TypeOfUseEntity>(It.IsAny<CreateTypeOfUseDto>()))
             .Returns((CreateTypeOfUseDto dto) => new TypeOfUseEntity
             {
-                TypeOfUseId = 1,
+                Id = 1,
                 TypeOfUseCode = dto.TypeOfUseCode,
                 Description = dto.Description,
                 Type = dto.Type,
@@ -190,7 +190,7 @@ public class TypeOfUseServiceTests
             .Setup(m => m.Map<TypeOfUseDto>(It.IsAny<TypeOfUseEntity>()))
             .Returns((TypeOfUseEntity e) => new TypeOfUseDto
             {
-                TypeOfUseId = e.TypeOfUseId,
+                Id = e.Id,
                 TypeOfUseCode = e.TypeOfUseCode,
                 Description = e.Description,
                 Type = e.Type,
@@ -206,7 +206,7 @@ public class TypeOfUseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TypeOfUseId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("R", result.TypeOfUseCode);
         Assert.Equal("Residential", result.Description);
         Assert.Equal("R", result.Type);
@@ -239,7 +239,7 @@ public class TypeOfUseServiceTests
 
         var existingEntity = new TypeOfUseEntity
         {
-            TypeOfUseId = 1,
+            Id = 1,
             TypeOfUseCode = "R",
             Description = "Residential",
             Type = "R",
@@ -278,7 +278,7 @@ public class TypeOfUseServiceTests
             .Setup(m => m.Map<TypeOfUseDto>(It.IsAny<TypeOfUseEntity>()))
             .Returns((TypeOfUseEntity e) => new TypeOfUseDto
             {
-                TypeOfUseId = e.TypeOfUseId,
+                Id = e.Id,
                 TypeOfUseCode = e.TypeOfUseCode,
                 Description = e.Description,
                 Type = e.Type,
@@ -367,7 +367,7 @@ public class TypeOfUseServiceTests
 
         var existingEntity = new TypeOfUseEntity
         {
-            TypeOfUseId = idToDelete,
+            Id = idToDelete,
             TypeOfUseCode = "R",
             Description = "Residential",
             Type = "R",

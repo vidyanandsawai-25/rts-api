@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities.Master;
 
@@ -18,7 +18,8 @@ namespace NtisPlatform.Application.Mappings
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
 
-            CreateMap<AssessmentYearRangeCVEntity, AssessmentYearRangeCVDto>();
+            CreateMap<AssessmentYearRangeCVEntity, AssessmentYearRangeCVDto>()
+                ;
         }
     }
 }

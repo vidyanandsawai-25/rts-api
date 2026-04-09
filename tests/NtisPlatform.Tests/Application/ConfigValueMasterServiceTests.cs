@@ -43,7 +43,7 @@ public class ConfigValueMasterServiceTests
         // Arrange
         var entity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -53,7 +53,7 @@ public class ConfigValueMasterServiceTests
 
         var dto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -71,7 +71,7 @@ public class ConfigValueMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ConfigValueId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(10, result.ConfigKeyId);
         Assert.Equal(5, result.DepartmentId);
         Assert.Equal(3, result.ModuleId);
@@ -113,7 +113,7 @@ public class ConfigValueMasterServiceTests
 
         var entity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -124,7 +124,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -168,7 +168,7 @@ public class ConfigValueMasterServiceTests
 
         var entity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = null,
             ModuleId = null,
@@ -179,7 +179,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = null,
             ModuleId = null,
@@ -226,7 +226,7 @@ public class ConfigValueMasterServiceTests
 
         var existingEntity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -236,7 +236,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -303,7 +303,7 @@ public class ConfigValueMasterServiceTests
 
         var existingEntity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -313,7 +313,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 20,
             DepartmentId = 5,
             ModuleId = 3,
@@ -350,7 +350,7 @@ public class ConfigValueMasterServiceTests
         // Arrange
         var entity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             Value = "Test Value",
             IsActive = true
@@ -405,7 +405,7 @@ public class ConfigValueMasterServiceTests
 
         var entity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             Value = maxLengthValue,
             IsActive = true
@@ -413,7 +413,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             Value = maxLengthValue,
             IsActive = true
@@ -451,7 +451,7 @@ public class ConfigValueMasterServiceTests
 
         var existingEntity = new ConfigValueMasterEntity
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = 5,
             ModuleId = 3,
@@ -461,7 +461,7 @@ public class ConfigValueMasterServiceTests
 
         var returnDto = new ConfigValueMasterDto
         {
-            ConfigValueId = 1,
+            Id = 1,
             ConfigKeyId = 10,
             DepartmentId = null,
             ModuleId = null,

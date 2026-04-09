@@ -36,7 +36,7 @@ public class AssessmentYearRangeCVServiceTests
     {
         var entity = new AssessmentYearRangeCVEntity
         {
-            YearRangeId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,
@@ -44,7 +44,7 @@ public class AssessmentYearRangeCVServiceTests
             CreatedBy = 1,
             UpdatedDate = DateTime.Now,
             UpdatedBy = 1
-        };
+        }; 
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
@@ -52,7 +52,7 @@ public class AssessmentYearRangeCVServiceTests
         _mockMapper.Setup(m => m.Map<AssessmentYearRangeCVDto>(It.IsAny<AssessmentYearRangeCVEntity>()))
             .Returns(new AssessmentYearRangeCVDto
             {
-                YearRangeId = 1,
+                Id = 1,
                 FromYear = entity.FromYear,
                 ToYear = entity.ToYear,
                 IsActive = true,
@@ -63,7 +63,7 @@ public class AssessmentYearRangeCVServiceTests
         var result = await _service.GetByIdAsync(1);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.YearRangeId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.True(result.IsActive);
@@ -85,8 +85,8 @@ public class AssessmentYearRangeCVServiceTests
     {
         var entities = new List<AssessmentYearRangeCVEntity>
         {
-            new() { YearRangeId = 1, FromYear = 2000, ToYear = 2020, IsActive = true, CreatedDate = DateTime.Now },
-            new() { YearRangeId = 2, FromYear = 2021, ToYear = 2030, IsActive = false, CreatedDate = DateTime.Now }
+            new() { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true, CreatedDate = DateTime.Now },
+            new() { Id = 2, FromYear = 2021, ToYear = 2030, IsActive = false, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -118,8 +118,8 @@ public class AssessmentYearRangeCVServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.YearRangeId == 1);
-        Assert.Contains(items, x => x.YearRangeId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class AssessmentYearRangeCVServiceTests
             .Setup(m => m.Map<AssessmentYearRangeCVEntity>(It.IsAny<CreateAssessmentYearRangeCVDto>()))
             .Returns((CreateAssessmentYearRangeCVDto dto) => new AssessmentYearRangeCVEntity
             {
-                YearRangeId = 1,
+                Id = 1,
                 FromYear = dto.FromYear,
                 ToYear = dto.ToYear,
                 IsActive = dto.IsActive,
@@ -153,7 +153,7 @@ public class AssessmentYearRangeCVServiceTests
             .Setup(m => m.Map<AssessmentYearRangeCVDto>(It.IsAny<AssessmentYearRangeCVEntity>()))
             .Returns((AssessmentYearRangeCVEntity e) => new AssessmentYearRangeCVDto
             {
-                YearRangeId = e.YearRangeId,
+                Id = e.Id,
                 FromYear = e.FromYear,
                 ToYear = e.ToYear,
                 IsActive = e.IsActive,
@@ -164,7 +164,7 @@ public class AssessmentYearRangeCVServiceTests
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.YearRangeId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
         Assert.True(result.IsActive);
@@ -186,7 +186,7 @@ public class AssessmentYearRangeCVServiceTests
 
         var existingEntity = new AssessmentYearRangeCVEntity
         {
-            YearRangeId = 1,
+            Id = 1,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,
@@ -273,7 +273,7 @@ public class AssessmentYearRangeCVServiceTests
 
         var existingEntity = new AssessmentYearRangeCVEntity
         {
-            YearRangeId = idToDelete,
+            Id = idToDelete,
             FromYear = 2000,
             ToYear = 2020,
             IsActive = true,

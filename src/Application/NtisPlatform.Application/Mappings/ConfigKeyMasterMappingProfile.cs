@@ -12,7 +12,9 @@ public class ConfigKeyMasterMappingProfile : Profile
     public ConfigKeyMasterMappingProfile()
     {
         // Entity to DTO
-        CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();        
+        CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateConfigKeyMasterDto, ConfigKeyMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

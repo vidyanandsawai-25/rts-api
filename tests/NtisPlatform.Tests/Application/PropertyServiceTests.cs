@@ -23,7 +23,7 @@ public class PropertyEntityTests
     {
         var entity = new PropertyEntity
         {
-            PropertyId = 1,
+            Id = 1,
             TaxZoneId = 1,
             WardId = 10,
             PropertyNo = "PROP001",
@@ -42,7 +42,7 @@ public class PropertyEntityTests
             UpdatedDate = DateTime.Now
         };
 
-        Assert.Equal(1, entity.PropertyId);
+        Assert.Equal(1, entity.Id);
         Assert.Equal(1, entity.TaxZoneId);
         Assert.Equal(10, entity.WardId);
         Assert.Equal("PROP001", entity.PropertyNo);
@@ -58,7 +58,7 @@ public class PropertyEntityTests
         var now = DateTime.Now;
         var entity = new PropertyEntity
         {
-            PropertyId = 549357,
+            Id = 549357,
             TaxZoneId = 10,
             WardId = 79,
             PropertyNo = "22",
@@ -100,7 +100,7 @@ public class PropertyEntityTests
             UpdatedDate = now
         };
 
-        Assert.Equal(549357, entity.PropertyId);
+        Assert.Equal(549357, entity.Id);
         Assert.Equal(10, entity.TaxZoneId);
         Assert.Equal(79, entity.WardId);
         Assert.Equal("22", entity.PropertyNo);
@@ -167,7 +167,7 @@ public class PropertyEntityTests
     {
         var entity = new PropertyEntity();
 
-        Assert.Equal(0, entity.PropertyId);
+        Assert.Equal(0, entity.Id);
         Assert.False(entity.MarkedForDeletion);
         Assert.True(entity.IsActive);
     }
@@ -191,7 +191,7 @@ public class PropertyDtoTests
     {
         var dto = new PropertyDto
         {
-            PropertyId = 1,
+            Id = 1,
             TaxZoneId = 1,
             WardId = 10,
             PropertyNo = "PROP001",
@@ -202,7 +202,7 @@ public class PropertyDtoTests
             IsActive = true
         };
 
-        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal(1, dto.TaxZoneId);
         Assert.Equal(10, dto.WardId);
         Assert.Equal("PROP001", dto.PropertyNo);
@@ -732,7 +732,7 @@ public class PropertyServiceTests
     {
         var entity = new PropertyEntity
         {
-            PropertyId = 1,
+            Id = 1,
             TaxZoneId = 1,
             WardId = 10,
             PropertyNo = "PROP001",
@@ -748,7 +748,7 @@ public class PropertyServiceTests
         _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
             .Returns(new PropertyDto
             {
-                PropertyId = 1,
+                Id = 1,
                 TaxZoneId = 1,
                 WardId = 10,
                 PropertyNo = "PROP001",
@@ -759,7 +759,7 @@ public class PropertyServiceTests
         var result = await _service.GetByIdAsync(1);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.PropertyId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TaxZoneId);
         Assert.Equal(10, result.WardId);
         Assert.Equal("PROP001", result.PropertyNo);
@@ -782,8 +782,8 @@ public class PropertyServiceTests
     {
         var entities = new List<PropertyEntity>
         {
-            new() { PropertyId = 1, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP001", OwnerName = "John Doe", IsActive = true },
-            new() { PropertyId = 2, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP002", OwnerName = "Jane Doe", IsActive = true }
+            new() { Id = 1, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP001", OwnerName = "John Doe", IsActive = true },
+            new() { Id = 2, TaxZoneId = 1, WardId = 10, PropertyNo = "PROP002", OwnerName = "Jane Doe", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -808,8 +808,8 @@ public class PropertyServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
-        Assert.Contains(result.Items, x => x.PropertyId == 1);
-        Assert.Contains(result.Items, x => x.PropertyId == 2);
+        Assert.Contains(result.Items, x => x.Id == 1);
+        Assert.Contains(result.Items, x => x.Id == 2);
     }
 
     [Fact]
@@ -842,7 +842,7 @@ public class PropertyServiceTests
             .Setup(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyEntity e, CancellationToken _) =>
             {
-                e.PropertyId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -850,7 +850,7 @@ public class PropertyServiceTests
             .Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
             .Returns((PropertyEntity e) => new PropertyDto
             {
-                PropertyId = e.PropertyId,
+                Id = e.Id,
                 TaxZoneId = e.TaxZoneId,
                 WardId = e.WardId,
                 PropertyNo = e.PropertyNo,
@@ -861,7 +861,7 @@ public class PropertyServiceTests
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(1, result.PropertyId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TaxZoneId);
         Assert.Equal(10, result.WardId);
         Assert.Equal("PROP001", result.PropertyNo);
@@ -884,7 +884,7 @@ public class PropertyServiceTests
 
         var existingEntity = new PropertyEntity
         {
-            PropertyId = 1,
+            Id = 1,
             TaxZoneId = 1,
             WardId = 10,
             PropertyNo = "PROP001",
@@ -962,7 +962,7 @@ public class PropertyServiceTests
 
         var existingEntity = new PropertyEntity
         {
-            PropertyId = idToDelete,
+            Id = idToDelete,
             TaxZoneId = 1,
             WardId = 10,
             PropertyNo = "PROP001",
@@ -990,10 +990,10 @@ public class PropertyServiceTests
     [Fact]
     public async Task GetBasicDetailsAsync_ExistingProperty_ReturnsBasicDetailsDto()
     {
-        var propertyId = 1;
+        var Id = 1;
         var expectedDto = new PropertyBasicDetailsDto
         {
-            PropertyId = propertyId,
+            Id = Id,
             WardId = 10,
             WardNo = "W001",
             ZoneId = 5,
@@ -1018,13 +1018,13 @@ public class PropertyServiceTests
         };
 
         _mockPropertyRepository
-            .Setup(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetBasicDetailsAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
-        var result = await _service.GetBasicDetailsAsync(propertyId, CancellationToken.None);
+        var result = await _service.GetBasicDetailsAsync(Id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(Id, result.Id);
         Assert.Equal(10, result.WardId);
         Assert.Equal("W001", result.WardNo);
         Assert.Equal(5, result.ZoneId);
@@ -1047,28 +1047,28 @@ public class PropertyServiceTests
         Assert.Equal(1200.75, result.TotalBuiltupAreaSqMeter);
         Assert.Equal(1500.25, result.PlotArea);
 
-        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetBasicDetailsAsync_NonExistingProperty_ReturnsNull()
     {
-        var propertyId = 999;
+        var Id = 999;
 
         _mockPropertyRepository
-            .Setup(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetBasicDetailsAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyBasicDetailsDto?)null);
 
-        var result = await _service.GetBasicDetailsAsync(propertyId, CancellationToken.None);
+        var result = await _service.GetBasicDetailsAsync(Id, CancellationToken.None);
 
         Assert.Null(result);
-        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.GetBasicDetailsAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task UpdateBasicDetailsAsync_ExistingProperty_ReturnsUpdatedDto()
     {
-        var propertyId = 549357;
+        var Id = 549357;
         var dto = new UpdatePropertyBasicDetailsDto
         {
             WardId = 79,
@@ -1079,7 +1079,7 @@ public class PropertyServiceTests
 
         var expectedDto = new PropertyBasicDetailsDto
         {
-            PropertyId = propertyId,
+            Id = Id,
             WardId = 79,
             TaxZoneId = 10,
             WingNo = "A",
@@ -1087,23 +1087,23 @@ public class PropertyServiceTests
         };
 
         _mockPropertyRepository
-            .Setup(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateBasicDetailsAsync(Id, dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
-        var result = await _service.UpdateBasicDetailsAsync(propertyId, dto, CancellationToken.None);
+        var result = await _service.UpdateBasicDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(Id, result.Id);
         Assert.Equal(79, result.WardId);
         Assert.Equal("A", result.WingNo);
         Assert.Equal(2000.0, result.PlotArea);
-        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(Id, dto, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task UpdateBasicDetailsAsync_NonExistingProperty_ReturnsNull()
     {
-        var propertyId = 999;
+        var Id = 999;
         var dto = new UpdatePropertyBasicDetailsDto
         {
             WardId = 79,
@@ -1111,22 +1111,22 @@ public class PropertyServiceTests
         };
 
         _mockPropertyRepository
-            .Setup(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateBasicDetailsAsync(Id, dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyBasicDetailsDto?)null);
 
-        var result = await _service.UpdateBasicDetailsAsync(propertyId, dto, CancellationToken.None);
+        var result = await _service.UpdateBasicDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.Null(result);
-        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.UpdateBasicDetailsAsync(Id, dto, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetKycDetailsAsync_ExistingProperty_ReturnsKycDetailsDto()
     {
-        var propertyId = 549357;
+        var Id = 549357;
         var expectedDto = new PropertyKycDetailsDto
         {
-            PropertyId = propertyId,
+            Id = Id,
             OwnerTypeId = 1,
             OwnerType = "Individual",
             AdharCardNo = "321131311616",
@@ -1142,13 +1142,13 @@ public class PropertyServiceTests
         };
 
         _mockPropertyRepository
-            .Setup(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetKycDetailsAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
-        var result = await _service.GetKycDetailsAsync(propertyId, CancellationToken.None);
+        var result = await _service.GetKycDetailsAsync(Id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(Id, result.Id);
         Assert.Equal(1, result.OwnerTypeId);
         Assert.Equal("Individual", result.OwnerType);
         Assert.Equal("321131311616", result.AdharCardNo);
@@ -1162,28 +1162,28 @@ public class PropertyServiceTests
         Assert.Equal("9921759522", result.MobileNo);
         Assert.Equal("user@example.com", result.EmailId);
 
-        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task GetKycDetailsAsync_NonExistingProperty_ReturnsNull()
     {
-        var propertyId = 999;
+        var Id = 999;
 
         _mockPropertyRepository
-            .Setup(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetKycDetailsAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyKycDetailsDto?)null);
 
-        var result = await _service.GetKycDetailsAsync(propertyId, CancellationToken.None);
+        var result = await _service.GetKycDetailsAsync(Id, CancellationToken.None);
 
         Assert.Null(result);
-        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.GetKycDetailsAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task UpdateKycDetailsAsync_ExistingProperty_ReturnsUpdatedDto()
     {
-        var propertyId = 549357;
+        var Id = 549357;
         var dto = new UpdatePropertyKycDetailsDto
         {
             OwnerTypeId = 1,
@@ -1195,7 +1195,7 @@ public class PropertyServiceTests
 
         var expectedDto = new PropertyKycDetailsDto
         {
-            PropertyId = propertyId,
+            Id = Id,
             OwnerTypeId = 1,
             AdharCardNo = "321131311616",
             OwnerName = "Updated Name",
@@ -1204,38 +1204,38 @@ public class PropertyServiceTests
         };
 
         _mockPropertyRepository
-            .Setup(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateKycDetailsAsync(Id, dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
-        var result = await _service.UpdateKycDetailsAsync(propertyId, dto, CancellationToken.None);
+        var result = await _service.UpdateKycDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(propertyId, result.PropertyId);
+        Assert.Equal(Id, result.Id);
         Assert.Equal(1, result.OwnerTypeId);
         Assert.Equal("321131311616", result.AdharCardNo);
         Assert.Equal("Updated Name", result.OwnerName);
         Assert.Equal("9921759522", result.MobileNo);
         Assert.Equal("updated@example.com", result.EmailId);
-        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(Id, dto, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task UpdateKycDetailsAsync_NonExistingProperty_ReturnsNull()
     {
-        var propertyId = 999;
+        var Id = 999;
         var dto = new UpdatePropertyKycDetailsDto
         {
             OwnerName = "Test"
         };
 
         _mockPropertyRepository
-            .Setup(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()))
+            .Setup(r => r.UpdateKycDetailsAsync(Id, dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyKycDetailsDto?)null);
 
-        var result = await _service.UpdateKycDetailsAsync(propertyId, dto, CancellationToken.None);
+        var result = await _service.UpdateKycDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.Null(result);
-        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(propertyId, dto, It.IsAny<CancellationToken>()), Times.Once);
+        _mockPropertyRepository.Verify(r => r.UpdateKycDetailsAsync(Id, dto, It.IsAny<CancellationToken>()), Times.Once);
     }
 }
 
@@ -1250,7 +1250,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             WardNo = "W001",
             ZoneId = 5,
@@ -1274,7 +1274,7 @@ public class PropertyBasicDetailsDtoTests
             PlotArea = 1500.25
         };
 
-        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal(10, dto.WardId);
         Assert.Equal("W001", dto.WardNo);
         Assert.Equal(5, dto.ZoneId);
@@ -1303,7 +1303,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 1000.50,
@@ -1333,7 +1333,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1353,7 +1353,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1371,7 +1371,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1402,7 +1402,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto();
 
-        Assert.Equal(0, dto.PropertyId);
+        Assert.Equal(0, dto.Id);
         Assert.Equal(0, dto.WardId);
         Assert.Equal(0, dto.TaxZoneId);
         Assert.Equal(0, dto.TotalCarpetAreaSqMeter);
@@ -1414,7 +1414,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            PropertyId = 1,
+            Id = 1,
             WardId = 10,
             TaxZoneId = 1,
             PropertyNo = "PROP001",
@@ -1422,7 +1422,7 @@ public class PropertyBasicDetailsDtoTests
             TotalBuiltupAreaSqMeter = 600.0
         };
 
-        Assert.Equal(1, dto.PropertyId);
+        Assert.Equal(1, dto.Id);
         Assert.Equal("PROP001", dto.PropertyNo);
         Assert.Null(dto.PartitionNo);
         Assert.Null(dto.CategoryName);

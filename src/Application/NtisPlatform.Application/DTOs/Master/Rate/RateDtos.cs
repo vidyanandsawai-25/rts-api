@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 //main dto
 public class RateDto: BaseDtos
 {
-    public int RateId { get; set; } = 0;
+    public int Id { get; set; } = 0;
 
     public int FloorId { get; set; }
 

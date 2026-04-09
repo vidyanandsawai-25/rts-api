@@ -76,7 +76,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
         {
             entity.ToTable("ConstructionTypeMaster", "PTIS");
-            entity.HasKey(e => e.ConstructionTypeId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.ConstructionCode);
             entity.Property(e => e.Description);
             entity.Property(e => e.SearchKey);
@@ -90,7 +90,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<FloorEntity>(entity =>
         {
             entity.ToTable("FloorMaster", "PTIS");
-            entity.HasKey(e => e.FloorId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.FloorCode);
             entity.Property(e => e.Description);
             entity.Property(e => e.SequenceNo);
@@ -100,16 +100,16 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RateEntity>(entity =>
         {
             entity.ToTable("RateMaster", "PTIS");
-            entity.HasKey(e => e.RateId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Year);
-            entity.Property(e => e.TaxZoneId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.FloorId);
-            entity.Property(e => e.TypeOfUseGroupId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.ConstructionTypeId);
             entity.Property(e => e.YearRangeRVId);
             entity.Property(e => e.RateSquareMeter);
             entity.Property(e => e.RateSquareFeet);
-            entity.Property(e => e.RateSectionId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.RateRemark);
             entity.Property(e => e.IsActive);
         });
@@ -117,7 +117,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
         {
             entity.ToTable("RetentionPolicyFactWiseMaster", "PTIS");
-            entity.HasKey(e => e.RetentionPolicyFactorId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.FromFactor);
             entity.Property(e => e.ToFactor);
             entity.Property(e => e.FactorValue);
@@ -127,7 +127,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RetentionYearWiseEntity>(entity =>
         {
             entity.ToTable("RetentionPolicyYearWiseMaster", "PTIS");
-            entity.HasKey(e => e.RetentionPolicyYearId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.FromYear);
             entity.Property(e => e.ToYear);
             entity.Property(e => e.FactorValue);
@@ -136,7 +136,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AssessmentYearRangeEntity>(entity =>
         {
             entity.ToTable("AssessmentYearRangeMaster", "PTIS");
-            entity.HasKey(e => e.YearRangeRVId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.FromYear);
             entity.Property(e => e.ToYear);
             entity.Property(e => e.IsActive);
@@ -146,7 +146,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AssessmentYearRangeCVEntity>(entity =>
         {
             entity.ToTable("AssessmentYearRangeMasterCV", "PTIS");
-            entity.HasKey(e => e.YearRangeId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.FromYear);
             entity.Property(e => e.ToYear);
             entity.Property(e => e.IsActive);
@@ -156,7 +156,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<SubFloorEntity>(entity =>
         {
             entity.ToTable("SubFloorMaster", "PTIS");
-            entity.HasKey(e => e.SubFloorId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.SubFloorCode);
             entity.Property(e => e.Description);
             entity.Property(e => e.SubFloorPercentage);
@@ -165,10 +165,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<WardEntity>(entity =>
         {
             entity.ToTable("WardMaster", "PTIS");
-            entity.HasKey(x => x.WardId);
-            entity.Property(x => x.WardId).ValueGeneratedOnAdd();
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
             entity.Property(x => x.WardNo).IsRequired().HasMaxLength(10);
-            entity.Property(x => x.ZoneId).IsRequired();
+            entity.Property(x => x.Id).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(50);
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
@@ -178,7 +178,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
         {
             entity.ToTable("SubTypeOfUseMaster", "PTIS");
-            entity.HasKey(x => x.SubTypeOfUseId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.Description);
             entity.Property(x => x.TypeOfUseId);
             entity.Property(x => x.SearchKey);
@@ -192,7 +192,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TypeOfUseEntity>(entity =>
         {
             entity.ToTable("TypeOfUseMaster", "PTIS");
-            entity.HasKey(x => x.TypeOfUseId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.TypeOfUseCode);
             entity.Property(x => x.Description);
             entity.Property(x => x.Type);
@@ -208,7 +208,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TypeOfUseGroupEntity>(entity =>
         {
             entity.ToTable("TypeOfUseGroupMaster", "PTIS");
-            entity.HasKey(x => x.TypeOfUseGroupId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.TypeOfUseGroupCode);
             entity.Property(x => x.GroupName);
             entity.Property(x => x.GroupIcon);
@@ -222,8 +222,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ZoneEntity>(entity =>
         {
             entity.ToTable("ZoneMaster", "PTIS");
-            entity.HasKey(x => x.ZoneId);
-            entity.Property(x => x.ZoneId).ValueGeneratedOnAdd();
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
             entity.Property(x => x.Description).IsRequired().HasMaxLength(50);
             entity.Property(x => x.ZoneNo);
             entity.Property(x => x.SequenceNo);
@@ -252,7 +252,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DepreciationMasterEntity>(entity =>
         {
             entity.ToTable("DepreciationMaster", "PTIS");
-            entity.HasKey(e => e.DepreciationId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.ConstructionTypeId).HasMaxLength(7);
             entity.Property(e => e.MinYear);
             entity.Property(e => e.MaxYear);
@@ -264,8 +264,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<TaxZoneEntity>(entity =>
         {
             entity.ToTable("TaxZoneMaster", "PTIS");
-            entity.HasKey(e => e.TaxZoneId);
-            entity.Property(e => e.TaxZoneId).ValueGeneratedOnAdd();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxZoneNo).IsRequired().HasMaxLength(10);
             entity.Property(e => e.TaxZoneType).HasMaxLength(50);
             entity.Property(e => e.Remark).IsRequired().HasMaxLength(50);
@@ -280,7 +280,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<UserRoleMasterEntity>(entity =>
         {
             entity.ToTable("UserRoleMaster", "Core");
-            entity.HasKey(e => e.UserRoleId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.UserRoleName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
@@ -295,7 +295,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<MoujaEntity>(entity =>
         {
             entity.ToTable("MoujaMaster", "PTIS");
-            entity.HasKey(e => e.MoujaId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Year);
             entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(50);
         });
@@ -303,7 +303,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<BankMasterEntity>(entity =>
         {
             entity.ToTable("BankMaster", "Core");
-            entity.HasKey(e => e.BankId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.BankCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.BankName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.BranchName).IsRequired().HasMaxLength(200);
@@ -326,7 +326,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RoleWiseScreenAccessMasterEntity>(entity =>
         {
             entity.ToTable("RoleWiseScreenAccessMaster", "Core");
-            entity.HasKey(e => e.RoleWiseScreenAccessId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.UserRoleId).IsRequired();
             entity.Property(e => e.ScreenId).IsRequired();
             entity.Property(e => e.CanView).IsRequired();
@@ -371,7 +371,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<YearMasterEntity>(entity =>
         {
             entity.ToTable("YearMaster", "Core");
-            entity.HasKey(e => e.YearId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Year).IsRequired();
             entity.Property(e => e.YearCode).HasMaxLength(20);
             entity.Property(e => e.Status).HasMaxLength(50);
@@ -389,7 +389,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<OfficeEntity>(entity =>
         {
             entity.ToTable("OfficeMaster", "Core");
-            entity.HasKey(e => e.OfficeId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.OfficeCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.OfficeName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.Type).IsRequired().HasMaxLength(100);
@@ -415,7 +415,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RateSectionEntity>(entity =>
         {
             entity.ToTable("RateSectionMaster", "PTIS");
-            entity.HasKey(x => x.RateSectionId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
 
@@ -423,9 +423,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");
-            entity.HasKey(x => x.RateSectionDetailsId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.RateSectionId);
-            entity.Property(x => x.WardId);
+            entity.Property(x => x.Id);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.CreatedDate);
@@ -436,8 +436,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ScreenMasterEntity>(entity =>
         {
             entity.ToTable("ScreenMaster", "Core");
-            entity.HasKey(e => e.ScreenMasterId);
-            entity.Property(e => e.ScreenMasterId).HasColumnName("ScreenMasterId");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("ScreenMasterId");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupMasterId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleMasterId");
             entity.HasOne(e => e.ScreenGroup)
@@ -455,13 +455,13 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ScreenGroupMasterEntity>(entity =>
         {
             entity.ToTable("ScreenGroupMaster", "Core");
-            entity.HasKey(e => e.ScreenGroupId);
+            entity.HasKey(e => e.Id);
         });
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
-              entity.HasKey(e => e.ModuleId);
-            entity.Property(e => e.DepartmentId)
+              entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
                 .IsRequired();
             entity.Property(e => e.ModuleCode)
                 .HasMaxLength(50).IsRequired()
@@ -487,7 +487,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DepartmentLicenceDetailsEntity>(entity =>
         {
             entity.ToTable("DepartmentLicenceDetails", "Core");
-            entity.HasKey(e => e.DepartmentLicenceId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.LicenceDuration).HasMaxLength(50);
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
@@ -498,14 +498,14 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.DepartmentId);             
+            entity.HasKey(e => e.Id);             
             entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
             entity.Property(e => e.DepartmentIcon).HasMaxLength(100);
             entity.Property(e => e.DepartmentDescription).HasMaxLength(500);
             // Indexes
-            entity.HasIndex(e => e.DepartmentId);
+            entity.HasIndex(e => e.Id);
             entity.HasIndex(e => e.IsActive);
         });
 
@@ -513,15 +513,15 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DesignationMasterEntity>(entity =>
         {
             entity.ToTable("DesignationMaster", "Core");
-            entity.HasKey(e => e.DesignationId);
-            entity.Property(e => e.DesignationId)
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
                 .HasColumnName("DesignationId");
             entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DesignationLocal).HasMaxLength(200);
             entity.Property(e => e.DesignationDescription).HasMaxLength(500);
             // Indexes
-            entity.HasIndex(e => e.DesignationId);
+            entity.HasIndex(e => e.Id);
             entity.HasIndex(e => e.DesignationCode).IsUnique();
         });
 
@@ -529,8 +529,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ActiveTaxesEntity>(entity =>
         {
             entity.ToTable("ActiveTaxesMaster", "PTIS");
-            entity.HasKey(x => x.ActiveTaxesId);
-            entity.Property(x => x.ActiveTaxesId).ValueGeneratedOnAdd();
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
             entity.Property(x => x.TaxName).HasMaxLength(200);
             entity.Property(x => x.TaxNameAlias).HasMaxLength(200);
             entity.Property(x => x.DisplayOrder);
@@ -546,10 +546,10 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<GrievanceCategoryEntity>(entity =>
         {
             entity.ToTable("GrievanceCategoryMaster", "Core");
-            entity.HasKey(e => e.GrievanceCategoryId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.DepartmentId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.Priority).IsRequired().HasMaxLength(50);
             entity.Property(e => e.ResolutionSla).HasMaxLength(100);
             entity.Property(e => e.EscalationLevel).HasMaxLength(100);
@@ -570,7 +570,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ULBMasterEntity>(entity =>
         {
             entity.ToTable("ULBMaster", "Core");
-            entity.HasKey(e => e.UlbId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.UlbCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.UlbName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.UlbNameLocal).HasMaxLength(200);
@@ -612,8 +612,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyCategoryEntity>(entity =>
         {
             entity.ToTable("PropertyCategory", "PTIS");
-            entity.HasKey(e => e.PropertyCategoryId);
-            entity.Property(e => e.PropertyCategoryId)
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
                   .HasColumnName("PropertyCategoryId")
                   .ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyCategoryName).IsRequired().HasMaxLength(100);
@@ -629,8 +629,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyTypeEntity>(entity =>
         {
             entity.ToTable("PropertyTypeMaster", "PTIS");
-            entity.HasKey(e => e.PropertyTypeId);
-            entity.Property(e => e.PropertyTypeId).ValueGeneratedOnAdd();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyDescription).HasMaxLength(100);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
@@ -643,9 +643,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyAssessmentEntity>(entity =>
         {
             entity.ToTable("PropertyMastDetails", "PTIS");
-            entity.HasKey(e => e.PropertyDetailsId);
-            entity.Property(e => e.PropertyDetailsId).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.WingId);
             entity.Property(e => e.WingNo).HasMaxLength(20);
             entity.Property(e => e.NoOfResidentialToilets);
@@ -658,7 +658,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.Id);
             
             // Note: PropertyMastDetails has MarkedForDeletion but not MarkedForDeletionDate
             // Only PropertyMast table (via IHardDeletable) has both columns
@@ -668,9 +668,9 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyDetailsEntity>(entity =>
         {
             entity.ToTable("PropertyDetails", "PTIS");
-            entity.HasKey(e => e.PropertyDetailsId);
-            entity.Property(e => e.PropertyDetailsId).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.CarpetAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.BuiltupAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.CarpetAreaSqFeet).HasColumnType("float");
@@ -680,16 +680,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.Id);
         });
 
         // PlotDetails configuration
         modelBuilder.Entity<PlotDetailsEntity>(entity =>
         {
             entity.ToTable("PlotDetails", "PTIS");
-            entity.HasKey(e => e.PlotId);
-            entity.Property(e => e.PlotId).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.PlotArea).HasColumnType("float");
             entity.Property(e => e.PlotAreaFtLength).HasColumnType("float");
             entity.Property(e => e.PlotAreaFtWidth).HasColumnType("float");
@@ -700,16 +700,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.Id);
         });
 
         // SocietyDetails configuration
         modelBuilder.Entity<SocietyDetailsEntity>(entity =>
         {
             entity.ToTable("SocietyDetailsMast", "PTIS");
-            entity.HasKey(e => e.SocietyDetailId);
-            entity.Property(e => e.SocietyDetailId).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId);
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id);
             entity.Property(e => e.WingId);
             entity.Property(e => e.WingName).HasMaxLength(100);
 
@@ -754,19 +754,19 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyEntity>(entity =>
         {
             entity.ToTable("PropertyMast", "PTIS");
-            entity.HasKey(e => e.PropertyId);
-            entity.Property(e => e.PropertyId).ValueGeneratedOnAdd();
-            entity.Property(e => e.TaxZoneId).IsRequired();
-            entity.Property(e => e.WardId).IsRequired();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.PartitionNo).HasMaxLength(10);
-            entity.Property(e => e.PropertyTypeId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.UPICId).HasMaxLength(30);
             entity.Property(e => e.OpenPlot);
             entity.Property(e => e.CSN).HasMaxLength(30);
             entity.Property(e => e.SubZoneNo).HasMaxLength(20);
             entity.Property(e => e.PlotNo).HasMaxLength(20);
-            entity.Property(e => e.CategoryId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.Type).HasMaxLength(5);
             entity.Property(e => e.PartType).HasMaxLength(20);
             entity.Property(e => e.OwnerTitle).HasMaxLength(20);
@@ -779,7 +779,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Location).HasMaxLength(200);
             entity.Property(e => e.MobileNo).HasMaxLength(13);
             entity.Property(e => e.EmailId).HasMaxLength(100);
-            entity.Property(e => e.SocietyDetailId);
+            entity.Property(e => e.Id);
             entity.Property(e => e.OwnerTitleEnglish).HasMaxLength(20);
             entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitleEnglish).HasMaxLength(20);
@@ -804,7 +804,7 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.MarkedForDeletionDate);
 
             // Unique index on WardId, PropertyNo, PartitionNo
-            entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })
+            entity.HasIndex(e => new { e.Id, e.PropertyNo, e.PartitionNo })
                 .IsUnique()
                 .HasFilter("[PropertyNo] IS NOT NULL AND [PartitionNo] IS NOT NULL")
                 .HasDatabaseName("UQ_Property_Ward_Property_Partition");
@@ -814,7 +814,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
       {
           entity.ToTable("ConfigCategoryMaster", "Core");
-          entity.HasKey(e => e.CategoryId);
+          entity.HasKey(e => e.Id);
           entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
           entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
           entity.Property(e => e.CreatedDate);
@@ -827,7 +827,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
         {
             entity.ToTable("ConfigKeyMaster", "Core");
-            entity.HasKey(e => e.ConfigKeyId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.ConfigCode).IsRequired().HasMaxLength(60);
             entity.Property(e => e.ConfigName).IsRequired().HasMaxLength(150);
             entity.Property(e => e.Description).HasMaxLength(400);
@@ -838,19 +838,19 @@ public class ApplicationDbContext : DbContext
             // Foreign Key Relationship
             entity.HasOne(e => e.Category)
                 .WithMany(c => c.ConfigKeys)
-                .HasForeignKey(e => e.CategoryId)
+                .HasForeignKey(e => e.Id)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Indexes
             entity.HasIndex(e => e.ConfigCode).IsUnique();
-            entity.HasIndex(e => e.CategoryId);
+            entity.HasIndex(e => e.Id);
             entity.HasIndex(e => e.IsActive);
         });
 
         modelBuilder.Entity<PaymentModeEntity>(entity =>
         {
             entity.ToTable("PaymentMode", "CORE");
-            entity.HasKey(e => e.PaymentModeId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Code);
             entity.Property(e => e.PaymentModeName);
             entity.Property(e => e.Type);
@@ -868,7 +868,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ConfigValueMasterEntity>(entity =>
         {
             entity.ToTable("ConfigValueMaster", "Core");
-            entity.HasKey(e => e.ConfigValueId);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Value).HasMaxLength(500);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.CreatedBy);
@@ -902,8 +902,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<UserMasterEntity>(entity =>
         {
             entity.ToTable("UserMaster", "CORE");
-            entity.HasKey(e => e.UserId);
-            entity.Property(e => e.UserId).ValueGeneratedOnAdd();
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.UserNameNormalized).HasMaxLength(100);
             entity.Property(e => e.Name).HasMaxLength(200);
@@ -936,7 +936,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<WingEntity>(entity =>
         {
             entity.ToTable("WingMaster", "PTIS");
-            entity.HasKey(x => x.WingId);
+            entity.HasKey(x => x.Id);
             entity.Property(x => x.WingNo).IsRequired().HasMaxLength(10);
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive);
@@ -950,8 +950,8 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyMastOldEntity>(entity =>
         {
             entity.ToTable("PropertyMastOld", "PTIS");
-            entity.HasKey(e => e.PropertyOldId);
-            entity.Property(e => e.PropertyOldId)
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
                 .HasColumnName("PropertyOldId")
                 .ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId)
@@ -996,15 +996,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.Id);
         });
 
         // PropertyDetailsOld configuration
         modelBuilder.Entity<PropertyDetailsOldEntity>(entity =>
         {
             entity.ToTable("PropertyDetailsOld", "PTIS");
-            entity.HasKey(e => e.PropertyDetailsOldId);
-            entity.Property(e => e.PropertyDetailsOldId)
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
                 .HasColumnName("PropertyDetailsOldId")
                 .ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId)

@@ -12,8 +12,9 @@ public class ConfigValueMasterMappingProfile : Profile
     public ConfigValueMasterMappingProfile()
     {
         // Entity to DTO
-        CreateMap<ConfigValueMasterEntity, ConfigValueMasterDto>();
-        
+        CreateMap<ConfigValueMasterEntity, ConfigValueMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateConfigValueMasterDto, ConfigValueMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

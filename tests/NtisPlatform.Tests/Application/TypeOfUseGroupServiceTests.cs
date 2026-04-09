@@ -45,7 +45,7 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var entity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupId = 1,
+            Id = 1,
             TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
@@ -62,7 +62,7 @@ public class TypeOfUseGroupServiceTests
         _mockMapper.Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
             .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
             {
-                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                Id = e.Id,
                 TypeOfUseGroupCode = e.TypeOfUseGroupCode,
                 GroupName = e.GroupName,
                 GroupIcon = e.GroupIcon,
@@ -76,7 +76,7 @@ public class TypeOfUseGroupServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TypeOfUseGroupId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("R", result.TypeOfUseGroupCode);
         Assert.Equal("Residential", result.GroupName);
         Assert.Equal("Home", result.GroupIcon);
@@ -103,8 +103,8 @@ public class TypeOfUseGroupServiceTests
         // Arrange
         var entities = new List<TypeOfUseGroupEntity>
         {
-            new() { TypeOfUseGroupId = 1, TypeOfUseGroupCode = "R", GroupName = "Residential", GroupIcon = "Home", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { TypeOfUseGroupId = 2, TypeOfUseGroupCode = "C", GroupName = "Commercial", GroupIcon = "Building", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, TypeOfUseGroupCode = "R", GroupName = "Residential", GroupIcon = "Home", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, TypeOfUseGroupCode = "C", GroupName = "Commercial", GroupIcon = "Building", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -141,8 +141,8 @@ public class TypeOfUseGroupServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.TypeOfUseGroupId == 1);
-        Assert.Contains(items, x => x.TypeOfUseGroupId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map<TypeOfUseGroupEntity>(It.IsAny<CreateTypeOfUseGroupDto>()))
             .Returns((CreateTypeOfUseGroupDto dto) => new TypeOfUseGroupEntity
             {
-                TypeOfUseGroupId = 1,
+                Id = 1,
                 TypeOfUseGroupCode = dto.TypeOfUseGroupCode,
                 GroupName = dto.GroupName,
                 GroupIcon = dto.GroupIcon,
@@ -178,7 +178,7 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
             .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
             {
-                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                Id = e.Id,
                 TypeOfUseGroupCode = e.TypeOfUseGroupCode,
                 GroupName = e.GroupName,
                 GroupIcon = e.GroupIcon,
@@ -191,7 +191,7 @@ public class TypeOfUseGroupServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.TypeOfUseGroupId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("R", result.TypeOfUseGroupCode);
         Assert.Equal("Residential", result.GroupName);
         Assert.Equal("Home", result.GroupIcon);
@@ -218,7 +218,7 @@ public class TypeOfUseGroupServiceTests
 
         var existingEntity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupId = 1,
+            Id = 1,
             TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",
@@ -253,7 +253,7 @@ public class TypeOfUseGroupServiceTests
             .Setup(m => m.Map<TypeOfUseGroupDto>(It.IsAny<TypeOfUseGroupEntity>()))
             .Returns((TypeOfUseGroupEntity e) => new TypeOfUseGroupDto
             {
-                TypeOfUseGroupId = e.TypeOfUseGroupId,
+                Id = e.Id,
                 TypeOfUseGroupCode = e.TypeOfUseGroupCode,
                 GroupName = e.GroupName,
                 GroupIcon = e.GroupIcon,
@@ -333,7 +333,7 @@ public class TypeOfUseGroupServiceTests
 
         var existingEntity = new TypeOfUseGroupEntity
         {
-            TypeOfUseGroupId = idToDelete,
+            Id = idToDelete,
             TypeOfUseGroupCode = "R",
             GroupName = "Residential",
             GroupIcon = "Home",

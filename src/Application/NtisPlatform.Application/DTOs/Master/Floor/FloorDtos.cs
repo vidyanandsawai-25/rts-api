@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class FloorDto : BaseDtos
 {
-    public int FloorId { get; set; } 
+    public int Id { get; set; } 
     public string FloorCode { get; set; } = string.Empty;
     public string Description { get; set; }
     public int? SequenceNo { get; set; }

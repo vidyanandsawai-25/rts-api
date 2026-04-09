@@ -40,11 +40,11 @@ public class HardDeleteTests
         await context.SaveChangesAsync();
 
         // Act
-        await repository.DeleteAsync(property.PropertyId);
+        await repository.DeleteAsync(property.Id);
         await context.SaveChangesAsync();
 
         // Assert - Should be soft deleted (IsActive = false)
-        var deletedProperty = await context.Set<PropertyEntity>().FindAsync(property.PropertyId);
+        var deletedProperty = await context.Set<PropertyEntity>().FindAsync(property.Id);
         Assert.NotNull(deletedProperty); // Should still exist
         Assert.False(deletedProperty.IsActive); // Should be deactivated
     }
@@ -64,7 +64,7 @@ public class HardDeleteTests
 
         await repository.AddAsync(role);
         await context.SaveChangesAsync();
-        var roleId = role.UserRoleId;
+        var roleId = role.Id;
 
         // Act
         await repository.DeleteAsync(roleId);

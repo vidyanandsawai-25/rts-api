@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Core.Entities.Master
+namespace NtisPlatform.Core.Entities.Master
 {
     /// <summary>
     /// Entity representing a grievance category for complaint management
@@ -8,7 +8,7 @@
         /// <summary>
         /// Unique identifier for the grievance category
         /// </summary>
-        public int GrievanceCategoryId { get; set; }
+        public int Id { get; set; }
 
         /// <summary>
         /// Unique code identifying the grievance category

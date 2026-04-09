@@ -49,7 +49,7 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entity = new ConfigKeyMasterEntity
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "APP_TIMEOUT",
             ConfigName = "Application Timeout",
@@ -68,7 +68,7 @@ public class ConfigKeyMasterServiceTests
         _mockMapper.Setup(m => m.Map<ConfigKeyMasterDto>(It.IsAny<ConfigKeyMasterEntity>()))
             .Returns(new ConfigKeyMasterDto
             {
-                ConfigKeyId = 1,
+                Id = 1,
                 CategoryId = 1,
                 ConfigCode = "APP_TIMEOUT",
                 ConfigName = "Application Timeout",
@@ -84,7 +84,7 @@ public class ConfigKeyMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ConfigKeyId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("APP_TIMEOUT", result.ConfigCode);
         Assert.Equal("Application Timeout", result.ConfigName);
         Assert.Equal("Integer", result.DataType);
@@ -141,7 +141,7 @@ public class ConfigKeyMasterServiceTests
         {
             new()
             {
-                ConfigKeyId = 1,
+                Id = 1,
                 CategoryId = 1,
                 ConfigCode = "APP_TIMEOUT",
                 ConfigName = "Application Timeout",
@@ -153,7 +153,7 @@ public class ConfigKeyMasterServiceTests
             },
             new()
             {
-                ConfigKeyId = 2,
+                Id = 2,
                 CategoryId = 1,
                 ConfigCode = "MAX_LOGIN_ATTEMPTS",
                 ConfigName = "Maximum Login Attempts",
@@ -165,7 +165,7 @@ public class ConfigKeyMasterServiceTests
             },
             new()
             {
-                ConfigKeyId = 3,
+                Id = 3,
                 CategoryId = 2,
                 ConfigCode = "ENABLE_NOTIFICATIONS",
                 ConfigName = "Enable Notifications",
@@ -219,9 +219,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "MAX_LOGIN_ATTEMPTS", ConfigName = "Max Login Attempts", DataType = "Integer", IsActive = true }
+            new() { Id = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
+            new() { Id = 2, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true },
+            new() { Id = 3, ConfigCode = "MAX_LOGIN_ATTEMPTS", ConfigName = "Max Login Attempts", DataType = "Integer", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -264,9 +264,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, CategoryId = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", IsActive = true },
-            new() { ConfigKeyId = 2, CategoryId = 2, ConfigCode = "DB_CONNECTION", ConfigName = "Database Connection", IsActive = true },
-            new() { ConfigKeyId = 3, CategoryId = 1, ConfigCode = "APP_THEME", ConfigName = "Application Theme", IsActive = true }
+            new() { Id = 1, CategoryId = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", IsActive = true },
+            new() { Id = 2, CategoryId = 2, ConfigCode = "DB_CONNECTION", ConfigName = "Database Connection", IsActive = true },
+            new() { Id = 3, CategoryId = 1, ConfigCode = "APP_THEME", ConfigName = "Application Theme", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -302,9 +302,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "ENABLE_FEATURE", ConfigName = "Enable Feature", DataType = "Boolean", IsActive = true }
+            new() { Id = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
+            new() { Id = 2, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true },
+            new() { Id = 3, ConfigCode = "ENABLE_FEATURE", ConfigName = "Enable Feature", DataType = "Boolean", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -373,7 +373,7 @@ public class ConfigKeyMasterServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new ConfigKeyMasterEntity
             {
-                ConfigKeyId = i,
+                Id = i,
                 ConfigCode = $"CONFIG{i:000}",
                 ConfigName = $"Configuration {i}",
                 Description = $"Description {i}",
@@ -417,9 +417,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "DB_CONNECTION", ConfigName = "Database Connection", DataType = "String", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true }
+            new() { Id = 1, ConfigCode = "APP_TIMEOUT", ConfigName = "Application Timeout", DataType = "Integer", IsActive = true },
+            new() { Id = 2, ConfigCode = "DB_CONNECTION", ConfigName = "Database Connection", DataType = "String", IsActive = true },
+            new() { Id = 3, ConfigCode = "APP_THEME", ConfigName = "Application Theme", DataType = "String", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -458,9 +458,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "ACTIVE_CONFIG", ConfigName = "Active Config", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "INACTIVE_CONFIG", ConfigName = "Inactive Config", IsActive = false },
-            new() { ConfigKeyId = 3, ConfigCode = "ANOTHER_ACTIVE", ConfigName = "Another Active", IsActive = true }
+            new() { Id = 1, ConfigCode = "ACTIVE_CONFIG", ConfigName = "Active Config", IsActive = true },
+            new() { Id = 2, ConfigCode = "INACTIVE_CONFIG", ConfigName = "Inactive Config", IsActive = false },
+            new() { Id = 3, ConfigCode = "ANOTHER_ACTIVE", ConfigName = "Another Active", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -512,7 +512,7 @@ public class ConfigKeyMasterServiceTests
 
         var entity = new ConfigKeyMasterEntity
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "NEW_CONFIG",
             ConfigName = "New Configuration",
@@ -527,7 +527,7 @@ public class ConfigKeyMasterServiceTests
 
         var resultDto = new ConfigKeyMasterDto
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "NEW_CONFIG",
             ConfigName = "New Configuration",
@@ -583,7 +583,7 @@ public class ConfigKeyMasterServiceTests
 
         var existingEntity = new ConfigKeyMasterEntity
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "OLD_CONFIG",
             ConfigName = "Old Configuration",
@@ -592,7 +592,7 @@ public class ConfigKeyMasterServiceTests
 
         var updatedEntity = new ConfigKeyMasterEntity
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "UPDATED_CONFIG",
             ConfigName = "Updated Configuration",
@@ -607,7 +607,7 @@ public class ConfigKeyMasterServiceTests
 
         var resultDto = new ConfigKeyMasterDto
         {
-            ConfigKeyId = 1,
+            Id = 1,
             CategoryId = 1,
             ConfigCode = "UPDATED_CONFIG",
             ConfigName = "Updated Configuration",
@@ -677,7 +677,7 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entity = new ConfigKeyMasterEntity
         {
-            ConfigKeyId = 1,
+            Id = 1,
             ConfigCode = "TO_DELETE",
             ConfigName = "To Delete",
             IsActive = true
@@ -741,9 +741,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "ZEBRA_CONFIG", ConfigName = "Zebra Config", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "ALPHA_CONFIG", ConfigName = "Alpha Config", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "BETA_CONFIG", ConfigName = "Beta Config", IsActive = true }
+            new() { Id = 1, ConfigCode = "ZEBRA_CONFIG", ConfigName = "Zebra Config", IsActive = true },
+            new() { Id = 2, ConfigCode = "ALPHA_CONFIG", ConfigName = "Alpha Config", IsActive = true },
+            new() { Id = 3, ConfigCode = "BETA_CONFIG", ConfigName = "Beta Config", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -783,9 +783,9 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "CONFIG1", ConfigName = "Apple Config", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "CONFIG2", ConfigName = "Banana Config", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "CONFIG3", ConfigName = "Cherry Config", IsActive = true }
+            new() { Id = 1, ConfigCode = "CONFIG1", ConfigName = "Apple Config", IsActive = true },
+            new() { Id = 2, ConfigCode = "CONFIG2", ConfigName = "Banana Config", IsActive = true },
+            new() { Id = 3, ConfigCode = "CONFIG3", ConfigName = "Cherry Config", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -832,10 +832,10 @@ public class ConfigKeyMasterServiceTests
         // Arrange
         var entities = new List<ConfigKeyMasterEntity>
         {
-            new() { ConfigKeyId = 1, ConfigCode = "STRING_CONFIG", DataType = "String", ControlType = "TextBox", IsActive = true },
-            new() { ConfigKeyId = 2, ConfigCode = "INT_CONFIG", DataType = "Integer", ControlType = "NumericUpDown", IsActive = true },
-            new() { ConfigKeyId = 3, ConfigCode = "BOOL_CONFIG", DataType = "Boolean", ControlType = "CheckBox", IsActive = true },
-            new() { ConfigKeyId = 4, ConfigCode = "DATE_CONFIG", DataType = "Date", ControlType = "DatePicker", IsActive = true }
+            new() { Id = 1, ConfigCode = "STRING_CONFIG", DataType = "String", ControlType = "TextBox", IsActive = true },
+            new() { Id = 2, ConfigCode = "INT_CONFIG", DataType = "Integer", ControlType = "NumericUpDown", IsActive = true },
+            new() { Id = 3, ConfigCode = "BOOL_CONFIG", DataType = "Boolean", ControlType = "CheckBox", IsActive = true },
+            new() { Id = 4, ConfigCode = "DATE_CONFIG", DataType = "Date", ControlType = "DatePicker", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();

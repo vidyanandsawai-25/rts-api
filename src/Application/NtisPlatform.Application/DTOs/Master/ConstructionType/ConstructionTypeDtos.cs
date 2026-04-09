@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class ConstructionTypeDto : BaseDtos
 {
-    public int ConstructionTypeId { get; set; }
+    public int Id { get; set; }
     public string ConstructionCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string? SearchKey { get; set; } = string.Empty;

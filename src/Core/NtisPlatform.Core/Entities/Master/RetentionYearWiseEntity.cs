@@ -1,4 +1,4 @@
-﻿
+
 namespace NtisPlatform.Core.Entities;
 
     /// <summary>
@@ -6,7 +6,7 @@ namespace NtisPlatform.Core.Entities;
     /// </summary>
     public class RetentionYearWiseEntity : BaseEntity
     {
-        public int RetentionPolicyYearId { get; set; }
+        public int Id { get; set; }
         public int? FromYear { get; set; }
         public int? ToYear { get; set; }
         public double? FactorValue { get; set; }    

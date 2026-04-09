@@ -47,7 +47,7 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new RateEntity
             {
-                RateId = 1,
+                Id = 1,
                 Year = 2023,
                 TaxZoneId = 1,
                 RateSquareMeter = 100m
@@ -59,7 +59,7 @@ namespace NtisPlatform.Tests.Application
             _mockMapper.Setup(m => m.Map<RateDto>(It.IsAny<RateEntity>()))
                 .Returns((RateEntity e) => new RateDto
                 {
-                    RateId = e.RateId,
+                    Id = e.Id,
                     Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     RateSquareMeter = e.RateSquareMeter
@@ -68,7 +68,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.GetByIdAsync(1);
 
             Assert.NotNull(result);
-            Assert.Equal(1, result.RateId);
+            Assert.Equal(1, result.Id);
             Assert.Equal(2023, result.Year);
             Assert.Equal(1, result.TaxZoneId);
             Assert.Equal(100m, result.RateSquareMeter);
@@ -90,8 +90,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<RateEntity>
             {
-                new() { RateId = 1, Year = 2020, TaxZoneId = 1 },
-                new() { RateId = 2, Year = 2021, TaxZoneId = 2 }
+                new() { Id = 1, Year = 2020, TaxZoneId = 1 },
+                new() { Id = 2, Year = 2021, TaxZoneId = 2 }
             };
 
             var mockQuery = entities.BuildMock();
@@ -123,8 +123,8 @@ namespace NtisPlatform.Tests.Application
 
             var items = result.Items.ToList();
             Assert.Equal(2, items.Count);
-            Assert.Contains(items, x => x.RateId == 1);
-            Assert.Contains(items, x => x.RateId == 2);
+            Assert.Contains(items, x => x.Id == 1);
+            Assert.Contains(items, x => x.Id == 2);
         }
 
         [Fact]
@@ -149,7 +149,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RateEntity>(It.IsAny<CreateRateDto>()))
                 .Returns((CreateRateDto dto) => new RateEntity
                 {
-                    RateId = 0,
+                    Id = 0,
                     Year = dto.Year,
                     TaxZoneId = dto.TaxZoneId,
                     RateSquareMeter = dto.RateSquareMeter,
@@ -169,7 +169,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(r => r.AddAsync(It.IsAny<RateEntity>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync((RateEntity e, CancellationToken _) =>
                 {
-                    e.RateId = 1;
+                    e.Id = 1;
                     return e;
                 });
 
@@ -177,7 +177,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<RateDto>(It.IsAny<RateEntity>()))
                 .Returns((RateEntity e) => new RateDto
                 {
-                    RateId = e.RateId,
+                    Id = e.Id,
                     Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     RateSquareMeter = e.RateSquareMeter,
@@ -224,7 +224,7 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntity = new RateEntity
             {
-                RateId = 1,
+                Id = 1,
                 Year = 2020,
                 RateSquareMeter = 100m,
                 TaxZoneId = 1,
@@ -301,7 +301,7 @@ namespace NtisPlatform.Tests.Application
         public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
         {
             var idToDelete = 1;
-            var existingEntity = new RateEntity { RateId = idToDelete, Year = 2020 };
+            var existingEntity = new RateEntity { Id = idToDelete, Year = 2020 };
 
             _mockRepository
                 .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))

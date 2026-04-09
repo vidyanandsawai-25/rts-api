@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ULBMaster;
 /// </summary>
 public class ULBMasterDto : BaseDtos
 {
-    public int UlbId { get; set; }
+    public int Id { get; set; }
     public string UlbCode { get; set; } = string.Empty;
     public string UlbName { get; set; } = string.Empty;
     public string? UlbNameLocal { get; set; }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using NtisPlatform.Core.Interfaces;
 
@@ -11,7 +11,7 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyEntity : BaseEntity, IHardDeletable
 {
     [Key]
-    public int PropertyId { get; set; }
+    public int Id { get; set; }
 
     // Location Information
     public int TaxZoneId { get; set; }

@@ -184,17 +184,17 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         var beforeUpdate = DateTime.Now.AddSeconds(-1);
 
         // Act
-        await repository.UpdateLastLoginAsync(userId);
+        await repository.UpdateLastLoginAsync(Id);
 
         var afterUpdate = DateTime.Now.AddSeconds(1);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.NotNull(updatedUser.LastLoginAt);
         Assert.True(updatedUser.LastLoginAt >= beforeUpdate);
@@ -235,13 +235,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.UpdateLastLoginAsync(userId);
+        await repository.UpdateLastLoginAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.NotNull(updatedUser.LastLoginAt);
         Assert.True(updatedUser.LastLoginAt > oldTimestamp);
@@ -270,13 +270,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.IncrementFailedLoginCountAsync(userId);
+        await repository.IncrementFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(3, updatedUser.FailedLoginCount);
         Assert.Null(updatedUser.LockedUntilAt); // Not locked yet
@@ -301,13 +301,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.IncrementFailedLoginCountAsync(userId);
+        await repository.IncrementFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(1, updatedUser.FailedLoginCount);
     }
@@ -331,17 +331,17 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         var beforeLock = DateTime.Now;
 
         // Act
-        await repository.IncrementFailedLoginCountAsync(userId);
+        await repository.IncrementFailedLoginCountAsync(Id);
 
         var afterLock = DateTime.Now;
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(5, updatedUser.FailedLoginCount);
         Assert.NotNull(updatedUser.LockedUntilAt);
@@ -373,13 +373,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.IncrementFailedLoginCountAsync(userId);
+        await repository.IncrementFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(7, updatedUser.FailedLoginCount);
         Assert.NotNull(updatedUser.LockedUntilAt);
@@ -424,13 +424,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.ResetFailedLoginCountAsync(userId);
+        await repository.ResetFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(0, updatedUser.FailedLoginCount);
         Assert.Null(updatedUser.LockedUntilAt);
@@ -456,13 +456,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.ResetFailedLoginCountAsync(userId);
+        await repository.ResetFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(0, updatedUser.FailedLoginCount);
         Assert.Null(updatedUser.LockedUntilAt); // Lockout cleared
@@ -487,13 +487,13 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Act
-        await repository.ResetFailedLoginCountAsync(userId);
+        await repository.ResetFailedLoginCountAsync(Id);
 
         // Assert
-        var updatedUser = await context.UserMasters.FindAsync(userId);
+        var updatedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(updatedUser);
         Assert.Equal(0, updatedUser.FailedLoginCount);
     }
@@ -535,22 +535,22 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Simulate 3 failed login attempts
-        await repository.IncrementFailedLoginCountAsync(userId);
-        await repository.IncrementFailedLoginCountAsync(userId);
-        await repository.IncrementFailedLoginCountAsync(userId);
+        await repository.IncrementFailedLoginCountAsync(Id);
+        await repository.IncrementFailedLoginCountAsync(Id);
+        await repository.IncrementFailedLoginCountAsync(Id);
 
-        var userAfterFails = await context.UserMasters.FindAsync(userId);
+        var userAfterFails = await context.UserMasters.FindAsync(Id);
         Assert.Equal(3, userAfterFails!.FailedLoginCount);
 
         // Successful login - reset count and update last login
-        await repository.ResetFailedLoginCountAsync(userId);
-        await repository.UpdateLastLoginAsync(userId);
+        await repository.ResetFailedLoginCountAsync(Id);
+        await repository.UpdateLastLoginAsync(Id);
 
         // Assert
-        var finalUser = await context.UserMasters.FindAsync(userId);
+        var finalUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(finalUser);
         Assert.Equal(0, finalUser.FailedLoginCount);
         Assert.NotNull(finalUser.LastLoginAt);
@@ -576,16 +576,16 @@ public class UserRepositoryTests
 
         context.UserMasters.Add(user);
         await context.SaveChangesAsync();
-        var userId = user.UserId;
+        var Id = user.Id;
 
         // Simulate 5 failed login attempts
         for (int i = 0; i < 5; i++)
         {
-            await repository.IncrementFailedLoginCountAsync(userId);
+            await repository.IncrementFailedLoginCountAsync(Id);
         }
 
         // Assert
-        var lockedUser = await context.UserMasters.FindAsync(userId);
+        var lockedUser = await context.UserMasters.FindAsync(Id);
         Assert.NotNull(lockedUser);
         Assert.Equal(5, lockedUser.FailedLoginCount);
         Assert.NotNull(lockedUser.LockedUntilAt);

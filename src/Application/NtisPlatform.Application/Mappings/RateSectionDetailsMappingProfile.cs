@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -9,7 +9,8 @@ public class RateSectionDetailsMappingProfile : Profile
     public RateSectionDetailsMappingProfile()
     {
         CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()
-     .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
+            
+            .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
 
         CreateMap<CreateRateSectionDetailsDto, RateSectionDetailsEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

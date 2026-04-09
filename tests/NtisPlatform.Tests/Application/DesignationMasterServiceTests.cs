@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.DesignationMaster;
 using NtisPlatform.Application.Services;
@@ -43,7 +43,7 @@ public class DesignationMasterServiceTests
         // Arrange
         var entity = new DesignationMasterEntity
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
             DesignationLocal = "प्रबंधक",
@@ -52,7 +52,7 @@ public class DesignationMasterServiceTests
 
         var dto = new DesignationMasterDto
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
             DesignationLocal = "प्रबंधक",
@@ -69,7 +69,7 @@ public class DesignationMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.DesignationId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("DES001", result.DesignationCode);
         Assert.Equal("Manager", result.DesignationName);
     }
@@ -106,7 +106,7 @@ public class DesignationMasterServiceTests
 
         var entity = new DesignationMasterEntity
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
             IsActive = true
@@ -114,7 +114,7 @@ public class DesignationMasterServiceTests
 
         var returnDto = new DesignationMasterDto
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
             IsActive = true
@@ -156,14 +156,14 @@ public class DesignationMasterServiceTests
 
         var existingEntity = new DesignationMasterEntity
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager"
         };
 
         var returnDto = new DesignationMasterDto
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Senior Manager",
             IsActive = true
@@ -198,7 +198,7 @@ public class DesignationMasterServiceTests
         // Arrange
         var entity = new DesignationMasterEntity
         {
-            DesignationId = 1,
+            Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager"
         };

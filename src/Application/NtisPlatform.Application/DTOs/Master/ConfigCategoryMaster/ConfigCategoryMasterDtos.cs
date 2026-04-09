@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ConfigCategoryMaster;
 /// </summary>
 public class ConfigCategoryMasterDto : BaseDtos
 {
-    public int CategoryId { get; set; }
+    public int Id { get; set; }
     public string? CategoryCode { get; set; }
     public string? CategoryName { get; set; }
     public int? DisplayOrder { get; set; }     

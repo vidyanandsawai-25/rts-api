@@ -47,7 +47,7 @@ public class BankMasterServiceTests
         // Arrange
         var entity = new BankMasterEntity
         {
-            BankId = 1,
+            Id = 1,
             BankCode = "SBI001",
             BankName = "State Bank of India",
             BranchName = "Main Branch",
@@ -65,7 +65,7 @@ public class BankMasterServiceTests
         _mockMapper.Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns(new BankMasterDTO
             {
-                BankId = 1,
+                Id = 1,
                 BankCode = "SBI001",
                 BankName = "State Bank of India",
                 BranchName = "Main Branch",
@@ -82,7 +82,7 @@ public class BankMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.BankId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("SBI001", result.BankCode);
         Assert.Equal("State Bank of India", result.BankName);
         Assert.Equal("Main Branch", result.BranchName);
@@ -140,7 +140,7 @@ public class BankMasterServiceTests
         {
             new() 
             { 
-                BankId = 1, 
+                Id = 1, 
                 BankCode = "SBI001",
                 BankName = "State Bank of India",
                 BranchName = "Main Branch",
@@ -151,7 +151,7 @@ public class BankMasterServiceTests
             },
             new() 
             { 
-                BankId = 2, 
+                Id = 2, 
                 BankCode = "HDFC001",
                 BankName = "HDFC Bank",
                 BranchName = "Commercial Branch",
@@ -162,7 +162,7 @@ public class BankMasterServiceTests
             },
             new() 
             { 
-                BankId = 3, 
+                Id = 3, 
                 BankCode = "ICICI001",
                 BankName = "ICICI Bank",
                 BranchName = "Corporate Branch",
@@ -215,9 +215,9 @@ public class BankMasterServiceTests
         // Arrange
         var entities = new List<BankMasterEntity>
         {
-            new() { BankId = 1, BankCode = "SBI001", BankName = "State Bank of India", State = "Maharashtra", IsActive = true },
-            new() { BankId = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
-            new() { BankId = 3, BankCode = "SBI002", BankName = "SBI Regional", State = "Karnataka", IsActive = true }
+            new() { Id = 1, BankCode = "SBI001", BankName = "State Bank of India", State = "Maharashtra", IsActive = true },
+            new() { Id = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
+            new() { Id = 3, BankCode = "SBI002", BankName = "SBI Regional", State = "Karnataka", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -254,9 +254,9 @@ public class BankMasterServiceTests
         // Arrange
         var entities = new List<BankMasterEntity>
         {
-            new() { BankId = 1, BankCode = "SBI001", BankName = "State Bank", State = "Maharashtra", IsActive = true },
-            new() { BankId = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
-            new() { BankId = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Maharashtra", IsActive = true }
+            new() { Id = 1, BankCode = "SBI001", BankName = "State Bank", State = "Maharashtra", IsActive = true },
+            new() { Id = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
+            new() { Id = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Maharashtra", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -325,7 +325,7 @@ public class BankMasterServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new BankMasterEntity
             {
-                BankId = i,
+                Id = i,
                 BankCode = $"BANK{i:000}",
                 BankName = $"Bank {i}",
                 BranchName = $"Branch {i}",
@@ -368,9 +368,9 @@ public class BankMasterServiceTests
         // Arrange
         var entities = new List<BankMasterEntity>
         {
-            new() { BankId = 1, BankCode = "SBI001", BankName = "State Bank of India", State = "Maharashtra", IsActive = true },
-            new() { BankId = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
-            new() { BankId = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Karnataka", IsActive = true }
+            new() { Id = 1, BankCode = "SBI001", BankName = "State Bank of India", State = "Maharashtra", IsActive = true },
+            new() { Id = 2, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
+            new() { Id = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Karnataka", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -441,7 +441,7 @@ public class BankMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<BankMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((BankMasterEntity e, CancellationToken _) =>
             {
-                e.BankId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -449,7 +449,7 @@ public class BankMasterServiceTests
             .Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns((BankMasterEntity e) => new BankMasterDTO
             {
-                BankId = e.BankId,
+                Id = e.Id,
                 BankCode = e.BankCode,
                 BankName = e.BankName,
                 BranchName = e.BranchName,
@@ -466,7 +466,7 @@ public class BankMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.BankId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("SBI001", result.BankCode);
         Assert.Equal("State Bank of India", result.BankName);
         Assert.Equal("SBIN0001234", result.IFSCCode);
@@ -500,7 +500,7 @@ public class BankMasterServiceTests
             .Setup(m => m.Map<BankMasterEntity>(It.IsAny<CreateBankMasterDto>()))
             .Returns(new BankMasterEntity
             {
-                BankId = 0,
+                Id = 0,
                 BankCode = "OLD001",
                 BankName = "Old Bank",
                 BranchName = "Closed Branch",
@@ -512,7 +512,7 @@ public class BankMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<BankMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((BankMasterEntity e, CancellationToken _) =>
             {
-                e.BankId = 2;
+                e.Id = 2;
                 return e;
             });
 
@@ -520,7 +520,7 @@ public class BankMasterServiceTests
             .Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns(new BankMasterDTO
             {
-                BankId = 2,
+                Id = 2,
                 BankCode = "OLD001",
                 BankName = "Old Bank",
                 IsActive = false
@@ -621,7 +621,7 @@ public class BankMasterServiceTests
 
         var existingEntity = new BankMasterEntity
         {
-            BankId = 1,
+            Id = 1,
             BankCode = "SBI001",
             BankName = "State Bank of India",
             BranchName = "Main Branch",
@@ -655,7 +655,7 @@ public class BankMasterServiceTests
             .Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns((BankMasterEntity e) => new BankMasterDTO
             {
-                BankId = e.BankId,
+                Id = e.Id,
                 BankCode = e.BankCode,
                 BankName = e.BankName,
                 BranchName = e.BranchName,
@@ -720,7 +720,7 @@ public class BankMasterServiceTests
 
         var existingEntity = new BankMasterEntity
         {
-            BankId = idToDelete,
+            Id = idToDelete,
             BankCode = "OLD001",
             BankName = "Old Bank",
             IsActive = false
@@ -753,7 +753,7 @@ public class BankMasterServiceTests
 
         var existingEntity = new BankMasterEntity
         {
-            BankId = idToDelete,
+            Id = idToDelete,
             BankCode = "SBI001",
             BankName = "State Bank",
             IsActive = true
@@ -822,7 +822,7 @@ public class BankMasterServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<BankMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new BankMasterEntity { BankId = 1 });
+            .ReturnsAsync(new BankMasterEntity { Id = 1 });
 
         _mockMapper
             .Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
@@ -843,7 +843,7 @@ public class BankMasterServiceTests
         // Arrange
         var existingEntity = new BankMasterEntity
         {
-            BankId = 1,
+            Id = 1,
             BankCode = "SBI001",
             BankName = "SBI"
         };
@@ -887,7 +887,7 @@ public class BankMasterServiceTests
         // Arrange
         var entity = new BankMasterEntity
         {
-            BankId = 1,
+            Id = 1,
             BankCode = "SBI001",
             BankName = "State Bank"
         };
@@ -924,7 +924,7 @@ public class BankMasterServiceTests
             .Returns(new BankMasterEntity());
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<BankMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new BankMasterEntity { BankId = 1 });
+            .ReturnsAsync(new BankMasterEntity { Id = 1 });
 
         _mockMapper.Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns(new BankMasterDTO());
@@ -947,9 +947,9 @@ public class BankMasterServiceTests
         // Arrange
         var entities = new List<BankMasterEntity>
         {
-            new() { BankId = 1, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
-            new() { BankId = 2, BankCode = "AXIS001", BankName = "Axis Bank", State = "Mumbai", IsActive = true },
-            new() { BankId = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Bangalore", IsActive = true }
+            new() { Id = 1, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Delhi", IsActive = true },
+            new() { Id = 2, BankCode = "AXIS001", BankName = "Axis Bank", State = "Mumbai", IsActive = true },
+            new() { Id = 3, BankCode = "ICICI001", BankName = "ICICI Bank", State = "Bangalore", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -1014,7 +1014,7 @@ public class BankMasterServiceTests
             .Setup(r => r.AddAsync(It.IsAny<BankMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((BankMasterEntity e, CancellationToken _) =>
             {
-                e.BankId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -1022,7 +1022,7 @@ public class BankMasterServiceTests
             .Setup(m => m.Map<BankMasterDTO>(It.IsAny<BankMasterEntity>()))
             .Returns((BankMasterEntity e) => new BankMasterDTO
             {
-                BankId = e.BankId,
+                Id = e.Id,
                 BankCode = e.BankCode,
                 Address = e.Address,
                 City = e.City,
@@ -1047,9 +1047,9 @@ public class BankMasterServiceTests
         // Arrange
         var entities = new List<BankMasterEntity>
         {
-            new() { BankId = 1, BankCode = "SBI001", BankName = "State Bank", State = "Maharashtra", IsActive = true },
-            new() { BankId = 2, BankCode = "SBI002", BankName = "State Bank", State = "Maharashtra", IsActive = false },
-            new() { BankId = 3, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Maharashtra", IsActive = true }
+            new() { Id = 1, BankCode = "SBI001", BankName = "State Bank", State = "Maharashtra", IsActive = true },
+            new() { Id = 2, BankCode = "SBI002", BankName = "State Bank", State = "Maharashtra", IsActive = false },
+            new() { Id = 3, BankCode = "HDFC001", BankName = "HDFC Bank", State = "Maharashtra", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -42,10 +42,10 @@ public class WardServiceTests
         // Arrange
         var entity = new WardEntity
         {
-            WardId = 1,
+            Id = 1,
             WardNo = "WKD1",
             ZoneId = 1,
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -60,7 +60,7 @@ public class WardServiceTests
         _mockMapper.Setup(m => m.Map<WardDto>(It.IsAny<WardEntity>()))
             .Returns((WardEntity e) => new WardDto
             {
-                WardId = e.WardId,
+                Id = e.Id,
                 WardNo = e.WardNo,
                 ZoneId = e.ZoneId,
                 Description = e.Description,
@@ -75,10 +75,10 @@ public class WardServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.WardId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("WKD1", result.WardNo);
         Assert.Equal(1, result.ZoneId);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
     }
@@ -103,8 +103,8 @@ public class WardServiceTests
         // Arrange
         var entities = new List<WardEntity>
         {
-            new() { WardId = 1, WardNo = "MSH", ZoneId = 1, Description = "मोशी", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { WardId = 2, WardNo = "TRG", ZoneId = 1, Description = "थेरगाव", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, WardNo = "MSH", ZoneId = 1, Description = "????", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, WardNo = "TRG", ZoneId = 1, Description = "??????", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -153,7 +153,7 @@ public class WardServiceTests
         {
             WardNo = "WKD1",
             ZoneId = 1,
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             CreatedBy = 31
         };
@@ -162,7 +162,7 @@ public class WardServiceTests
             .Setup(m => m.Map<WardEntity>(It.IsAny<CreateWardDto>()))
             .Returns((CreateWardDto dto) => new WardEntity
             {
-                WardId = 1,
+                Id = 1,
                 WardNo = dto.WardNo,
                 ZoneId = dto.ZoneId,
 
@@ -181,7 +181,7 @@ public class WardServiceTests
             .Setup(m => m.Map<WardDto>(It.IsAny<WardEntity>()))
             .Returns((WardEntity e) => new WardDto
             {
-                WardId = e.WardId,
+                Id = e.Id,
                 WardNo = e.WardNo,
                 Description = e.Description,
 
@@ -197,10 +197,10 @@ public class WardServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.WardId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("WKD1", result.WardNo);
         Assert.Equal(1, result.ZoneId);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
 
@@ -218,7 +218,7 @@ public class WardServiceTests
         {
             WardNo = "MSH1",
             ZoneId = 2,
-            Description = "मोशी",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             UpdatedBy = 31
@@ -226,10 +226,10 @@ public class WardServiceTests
 
         var existingEntity = new WardEntity
         {
-            WardId = 1,
+            Id = 1,
             WardNo = "WKD1",
             ZoneId = 1,
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -263,7 +263,7 @@ public class WardServiceTests
             .Setup(m => m.Map<WardDto>(It.IsAny<WardEntity>()))
             .Returns((WardEntity e) => new WardDto
             {
-                WardId = e.WardId,
+                Id = e.Id,
                 WardNo = e.WardNo,
                 ZoneId = e.ZoneId,
                 Description = e.Description,
@@ -284,7 +284,7 @@ public class WardServiceTests
 
         Assert.Equal("MSH1", existingEntity.WardNo);
         Assert.Equal(2, existingEntity.ZoneId);
-        Assert.Equal("मोशी", existingEntity.Description);
+        Assert.Equal("????", existingEntity.Description);
         Assert.Equal(1, existingEntity.SequenceNo);
         Assert.True(existingEntity.IsActive);
     }
@@ -297,7 +297,7 @@ public class WardServiceTests
         {
             WardNo = "WKD1",
             ZoneId = 1,
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             UpdatedBy = 31
@@ -347,11 +347,11 @@ public class WardServiceTests
         var existingEntity = new WardEntity
         {
 
-            WardId = 1,
+            Id = 1,
             WardNo = "WKD1",
 
             ZoneId = 1,
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,

@@ -11,7 +11,7 @@ public class DepartmentLicenceDetailsEntity : BaseEntity
     /// <summary>
     /// Primary key - Licence Details ID
     /// </summary>
-    public int DepartmentLicenceId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Foreign key to Department Master

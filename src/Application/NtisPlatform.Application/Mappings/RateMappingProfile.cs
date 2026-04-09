@@ -8,7 +8,8 @@ public class RateMappingProfile : Profile
 {
     public RateMappingProfile()
     {
-        CreateMap<RateEntity, RateDto>();
+        CreateMap<RateEntity, RateDto>()
+            ;
 
         CreateMap<CreateRateDto, RateEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

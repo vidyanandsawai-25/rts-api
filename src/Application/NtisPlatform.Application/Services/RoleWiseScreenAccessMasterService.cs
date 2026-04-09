@@ -50,7 +50,7 @@ namespace NtisPlatform.Application.Services
         {
             // Check for duplicate with different id
             var exists = await _repository.GetQueryable()
-                .AnyAsync(x => x.RoleWiseScreenAccessId != id
+                .AnyAsync(x => x.Id != id
                             && x.UserRoleId == updateDto.UserRoleId
                             && x.ScreenId == updateDto.ScreenId
                             && x.IsActive,

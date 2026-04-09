@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class ActiveTaxesDto : BaseDtos
 {
-    public int ActiveTaxesId { get; set; }
+    public int Id { get; set; }
     public string? TaxName { get; set; }
     public string? TaxNameAlias { get; set; }
     public int? DisplayOrder { get; set; }

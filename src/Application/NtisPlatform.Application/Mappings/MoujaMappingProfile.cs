@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -8,7 +8,8 @@ public class MoujaMappingProfile : Profile
 {
     public MoujaMappingProfile()
     {
-        CreateMap<MoujaEntity, MoujaDto>();
+        CreateMap<MoujaEntity, MoujaDto>()
+            ;
 
         CreateMap<CreateMoujaDto, MoujaEntity>()
            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

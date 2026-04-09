@@ -12,8 +12,9 @@ public class DesignationMasterProfile : Profile
     public DesignationMasterProfile()
     {
         // Entity to DTO - AutoMapper will map by convention, ignored properties won't cause issues
-        CreateMap<DesignationMasterEntity, DesignationMasterDto>();
-        
+        CreateMap<DesignationMasterEntity, DesignationMasterDto>()
+            ;
+
         // Create DTO to Entity
         CreateMap<CreateDesignationMasterDto, DesignationMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

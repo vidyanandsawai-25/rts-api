@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs.Master.RoleWiseScreenAccessMaster
 {
     public class RoleWiseScreenAccessMasterDTO
     {
-        public int RoleWiseScreenAccessId { get; set; }
+        public int Id { get; set; }
         public int UserRoleId { get; set; }
         public int ScreenId { get; set; }
         public bool CanView { get; set; }

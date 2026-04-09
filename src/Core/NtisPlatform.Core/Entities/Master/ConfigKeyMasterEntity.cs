@@ -8,7 +8,7 @@ public class ConfigKeyMasterEntity : BaseEntity
     /// <summary>
     /// Unique identifier for the configuration key
     /// </summary>
-    public int ConfigKeyId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Foreign key to the category this config key belongs to

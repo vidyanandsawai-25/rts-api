@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class ZoneDto : BaseDtos
 {
-    public int ZoneId { get; set; }
+    public int Id { get; set; }
     public string ZoneNo { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int? SequenceNo { get; set; }

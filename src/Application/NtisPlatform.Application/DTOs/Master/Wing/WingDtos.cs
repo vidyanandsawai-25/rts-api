@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class WingDto : BaseDtos
 {
-    public int WingId { get; set; }
+    public int Id { get; set; }
     public string WingNo { get; set; } = string.Empty;
 
     public int? SequenceNo { get; set; }

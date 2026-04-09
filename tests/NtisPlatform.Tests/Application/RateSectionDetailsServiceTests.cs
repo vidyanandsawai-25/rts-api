@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -42,10 +42,10 @@ public class RateSectionDetailsServiceTests
         // Arrange
         var entity = new RateSectionDetailsEntity
         {
-            RateSectionDetailsId = 1,
+            Id = 1,
             RateSectionId = 10,
             WardId = 5,
-            Ward = new WardEntity { WardId = 5, WardNo = "W001" },
+            Ward = new WardEntity { Id = 5, WardNo = "W001" },
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -60,7 +60,7 @@ public class RateSectionDetailsServiceTests
         _mockMapper.Setup(m => m.Map<RateSectionDetailsDto>(It.IsAny<RateSectionDetailsEntity>()))
             .Returns((RateSectionDetailsEntity e) => new RateSectionDetailsDto
             {
-                RateSectionDetailsId = e.RateSectionDetailsId,
+                Id = e.Id,
                 RateSectionId = e.RateSectionId,
                 WardId = e.WardId,
                 WardNo = e.Ward?.WardNo,
@@ -74,7 +74,7 @@ public class RateSectionDetailsServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RateSectionDetailsId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(10, result.RateSectionId);
         Assert.Equal(5, result.WardId);
         Assert.Equal("W001", result.WardNo);
@@ -104,10 +104,10 @@ public class RateSectionDetailsServiceTests
         {
             new()
             {
-                RateSectionDetailsId = 1,
+                Id = 1,
                 RateSectionId = 10,
                 WardId = 5,
-                Ward = new WardEntity { WardId = 5, WardNo = "W001" },
+                Ward = new WardEntity { Id = 5, WardNo = "W001" },
                 IsActive = true,
                 CreatedBy = 31,
                 CreatedDate = DateTime.Now,
@@ -116,10 +116,10 @@ public class RateSectionDetailsServiceTests
             },
             new()
             {
-                RateSectionDetailsId = 2,
+                Id = 2,
                 RateSectionId = 20,
                 WardId = 6,
-                Ward = new WardEntity { WardId = 6, WardNo = "W002" },
+                Ward = new WardEntity { Id = 6, WardNo = "W002" },
                 IsActive = true,
                 CreatedBy = 31,
                 CreatedDate = DateTime.Now,
@@ -184,7 +184,7 @@ public class RateSectionDetailsServiceTests
             .Setup(m => m.Map<RateSectionDetailsEntity>(It.IsAny<CreateRateSectionDetailsDto>()))
             .Returns((CreateRateSectionDetailsDto dto) => new RateSectionDetailsEntity
             {
-                RateSectionDetailsId = 1,
+                Id = 1,
                 RateSectionId = dto.RateSectionId,
                 WardId = dto.WardId,
                 IsActive = true,
@@ -200,7 +200,7 @@ public class RateSectionDetailsServiceTests
             .Setup(m => m.Map<RateSectionDetailsDto>(It.IsAny<RateSectionDetailsEntity>()))
             .Returns((RateSectionDetailsEntity e) => new RateSectionDetailsDto
             {
-                RateSectionDetailsId = e.RateSectionDetailsId,
+                Id = e.Id,
                 RateSectionId = e.RateSectionId,
                 WardId = e.WardId,
                 IsActive = e.IsActive,
@@ -212,7 +212,7 @@ public class RateSectionDetailsServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RateSectionDetailsId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(10, result.RateSectionId);
         Assert.Equal(5, result.WardId);
         Assert.True(result.IsActive);
@@ -237,7 +237,7 @@ public class RateSectionDetailsServiceTests
 
         var existingEntity = new RateSectionDetailsEntity
         {
-            RateSectionDetailsId = 1,
+            Id = 1,
             RateSectionId = 10,
             WardId = 5,
             IsActive = true,
@@ -269,7 +269,7 @@ public class RateSectionDetailsServiceTests
             .Setup(m => m.Map<RateSectionDetailsDto>(It.IsAny<RateSectionDetailsEntity>()))
             .Returns((RateSectionDetailsEntity e) => new RateSectionDetailsDto
             {
-                RateSectionDetailsId = e.RateSectionDetailsId,
+                Id = e.Id,
                 RateSectionId = e.RateSectionId,
                 WardId = e.WardId,
                 IsActive = e.IsActive
@@ -346,7 +346,7 @@ public class RateSectionDetailsServiceTests
 
         var existingEntity = new RateSectionDetailsEntity
         {
-            RateSectionDetailsId = idToDelete,
+            Id = idToDelete,
             RateSectionId = 10,
             WardId = 5,
             IsActive = true,

@@ -9,7 +9,7 @@ namespace NtisPlatform.Application.DTOs.Master.PaymentMode;
 
 public class PaymentModeDto : BaseDtos
 {
-    public int PaymentModeId { get; set; }
+    public int Id { get; set; }
 
     [Required(ErrorMessage = "PaymentMode_Code_Required")]
     [StringLength(50, MinimumLength = 2, ErrorMessage = "PaymentMode_Code_Length")]

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master.OfficeMaster;
 using NtisPlatform.Core.Entities.Master;
 
@@ -8,7 +8,8 @@ namespace NtisPlatform.Application.Mappings
     {
         public OfficeMappingProfile()
         {
-            CreateMap<OfficeEntity, OfficeDto>();
+            CreateMap<OfficeEntity, OfficeDto>()
+                ;
 
             CreateMap<CreateOfficeDto, OfficeEntity>()
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

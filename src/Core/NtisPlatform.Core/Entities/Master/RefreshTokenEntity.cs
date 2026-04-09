@@ -11,7 +11,7 @@ namespace NtisPlatform.Core.Entities.Master;
 public class RefreshTokenEntity : BaseEntity
 {
     [Key]
-    public int RefreshTokenId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// The hashed refresh token value (stored using bcrypt hash for security)

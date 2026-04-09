@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -9,7 +9,8 @@ public class DepreciationMappingProfile : Profile
 {
     public DepreciationMappingProfile()
     {
-        CreateMap<DepreciationMasterEntity, DepreciationDtos>();
+        CreateMap<DepreciationMasterEntity, DepreciationDtos>()
+            ;
 
         CreateMap<CreateDepreciationDto, DepreciationMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

@@ -42,19 +42,19 @@ public class DepartmentMasterServiceTests
         // Arrange
         var entity = new DepartmentMasterEntity
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
-            DepartmentNameLocal = "वित्त",
+            DepartmentNameLocal = "?????",
             IsActive = true 
         };
 
         var dto = new DepartmentMasterDto
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
-            DepartmentNameLocal = "वित्त",
+            DepartmentNameLocal = "?????",
             IsActive = true
         };
 
@@ -68,7 +68,7 @@ public class DepartmentMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.DepartmentId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("DEPT001", result.DepartmentCode);
         Assert.Equal("Finance", result.DepartmentName);
     }
@@ -99,25 +99,25 @@ public class DepartmentMasterServiceTests
         {
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
-            DepartmentNameLocal = "वित्त",
+            DepartmentNameLocal = "?????",
             IsActive = true
         };
 
         var entity = new DepartmentMasterEntity
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
-            DepartmentNameLocal = "वित्त",
+            DepartmentNameLocal = "?????",
             IsActive = true
         };
 
         var returnDto = new DepartmentMasterDto
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
-            DepartmentNameLocal = "वित्त",
+            DepartmentNameLocal = "?????",
             IsActive = true
         };
 
@@ -153,13 +153,13 @@ public class DepartmentMasterServiceTests
         {
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance Updated",
-            DepartmentNameLocal = "वित्त अद्यतन",
+            DepartmentNameLocal = "????? ??????",
             IsActive = true
         };
 
         var existingEntity = new DepartmentMasterEntity
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance",
             IsActive = true
@@ -167,10 +167,10 @@ public class DepartmentMasterServiceTests
 
         var returnDto = new DepartmentMasterDto
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance Updated",
-            DepartmentNameLocal = "वित्त अद्यतन",
+            DepartmentNameLocal = "????? ??????",
             IsActive = true
         };
 
@@ -226,7 +226,7 @@ public class DepartmentMasterServiceTests
         // Arrange
         var entity = new DepartmentMasterEntity
         {
-            DepartmentId = 1,
+            Id = 1,
             DepartmentCode = "DEPT001",
             DepartmentName = "Finance"
         };

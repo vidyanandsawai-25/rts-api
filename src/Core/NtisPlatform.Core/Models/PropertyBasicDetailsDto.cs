@@ -6,6 +6,7 @@ namespace NtisPlatform.Core.Models;
 /// </summary>
 public class PropertyBasicDetailsDto
 {
+    public int Id { get; set; }
     public int PropertyId { get; set; }
     public int WardId { get; set; }
     public string? WardNo { get; set; }

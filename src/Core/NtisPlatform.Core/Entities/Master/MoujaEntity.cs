@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Core.Entities;
 
 public class MoujaEntity : BaseEntity
 {
-    public int MoujaId { get; set; } = 0;
+    public int Id { get; set; } = 0;
 
     public int Year { get; set; } = 0;
 

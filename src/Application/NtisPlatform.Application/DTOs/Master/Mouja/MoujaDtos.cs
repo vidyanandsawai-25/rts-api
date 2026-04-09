@@ -5,7 +5,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class MoujaDto : BaseDtos
 {
-    public int MoujaId { get; set; } = 0;
+    public int Id { get; set; } = 0;
 
     public int Year { get; set; } = 0;
 

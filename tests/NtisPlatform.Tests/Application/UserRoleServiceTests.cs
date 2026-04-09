@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Moq;
 using MockQueryable;
 using NtisPlatform.Application.DTOs.Master.UserRoleMaster;
@@ -50,7 +50,7 @@ public class UserRoleServiceTests
         // Arrange
         var entity = new UserRoleMasterEntity
         {
-            UserRoleId = 1,
+            Id = 1,
             UserRoleName = "Administrator",
             IsActive = true,
            
@@ -62,7 +62,7 @@ public class UserRoleServiceTests
         _mockMapper.Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns(new UserRoleMasterDto
             {
-                UserRoleId = 1,
+                Id = 1,
                 UserRoleName = "Administrator",
                 IsActive = true
             });
@@ -72,7 +72,7 @@ public class UserRoleServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.UserRoleId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("Administrator", result.UserRoleName);
         Assert.True(result.IsActive);
 
@@ -125,20 +125,20 @@ public class UserRoleServiceTests
         {
             new() 
             { 
-                UserRoleId = 1, 
+                Id = 1, 
                 UserRoleName = "Admin", 
                 IsActive = true, 
             },
             new() 
             { 
-                UserRoleId = 2, 
+                Id = 2, 
                 UserRoleName = "User", 
                 IsActive = true, 
                
             },
             new() 
             { 
-                UserRoleId = 3, 
+                Id = 3, 
                 UserRoleName = "Manager", 
                 IsActive = false, 
                
@@ -176,9 +176,9 @@ public class UserRoleServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(3, items.Count);
-        Assert.Contains(items, x => x.UserRoleId == 1 && x.UserRoleName == "Admin");
-        Assert.Contains(items, x => x.UserRoleId == 2 && x.UserRoleName == "User");
-        Assert.Contains(items, x => x.UserRoleId == 3 && x.UserRoleName == "Manager");
+        Assert.Contains(items, x => x.Id == 1 && x.UserRoleName == "Admin");
+        Assert.Contains(items, x => x.Id == 2 && x.UserRoleName == "User");
+        Assert.Contains(items, x => x.Id == 3 && x.UserRoleName == "Manager");
     }
 
     [Fact]
@@ -187,9 +187,9 @@ public class UserRoleServiceTests
         // Arrange
         var entities = new List<UserRoleMasterEntity>
         {
-            new() { UserRoleId = 1, UserRoleName = "Admin", IsActive = true },
-            new() { UserRoleId = 2, UserRoleName = "User", IsActive = true },
-            new() { UserRoleId = 3, UserRoleName = "Manager", IsActive = false }
+            new() { Id = 1, UserRoleName = "Admin", IsActive = true },
+            new() { Id = 2, UserRoleName = "User", IsActive = true },
+            new() { Id = 3, UserRoleName = "Manager", IsActive = false }
         };
 
         var mockQuery = entities.BuildMock();
@@ -225,9 +225,9 @@ public class UserRoleServiceTests
         // Arrange
         var entities = new List<UserRoleMasterEntity>
         {
-            new() { UserRoleId = 1, UserRoleName = "Admin", IsActive = true },
-            new() { UserRoleId = 2, UserRoleName = "User", IsActive = true },
-            new() { UserRoleId = 3, UserRoleName = "Administrator", IsActive = true }
+            new() { Id = 1, UserRoleName = "Admin", IsActive = true },
+            new() { Id = 2, UserRoleName = "User", IsActive = true },
+            new() { Id = 3, UserRoleName = "Administrator", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -296,7 +296,7 @@ public class UserRoleServiceTests
         var entities = Enumerable.Range(1, 25)
             .Select(i => new UserRoleMasterEntity
             {
-                UserRoleId = i,
+                Id = i,
                 UserRoleName = $"Role{i}",
                 IsActive = true
             })
@@ -355,7 +355,7 @@ public class UserRoleServiceTests
             .Setup(r => r.AddAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserRoleMasterEntity e, CancellationToken _) =>
             {
-                e.UserRoleId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -363,7 +363,7 @@ public class UserRoleServiceTests
             .Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns((UserRoleMasterEntity e) => new UserRoleMasterDto
             {
-                UserRoleId = e.UserRoleId,
+                Id = e.Id,
                 UserRoleName = e.UserRoleName,
                 IsActive = e.IsActive
             });
@@ -373,7 +373,7 @@ public class UserRoleServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.UserRoleId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("New Role", result.UserRoleName);
         Assert.True(result.IsActive);
 
@@ -397,7 +397,7 @@ public class UserRoleServiceTests
             .Setup(m => m.Map<UserRoleMasterEntity>(It.IsAny<CreateUserRoleMasterDto>()))
             .Returns(new UserRoleMasterEntity
             {
-                UserRoleId = 0,
+                Id = 0,
                 UserRoleName = "Inactive Role",
                 IsActive = false
             });
@@ -406,7 +406,7 @@ public class UserRoleServiceTests
             .Setup(r => r.AddAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((UserRoleMasterEntity e, CancellationToken _) =>
             {
-                e.UserRoleId = 2;
+                e.Id = 2;
                 return e;
             });
 
@@ -414,7 +414,7 @@ public class UserRoleServiceTests
             .Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns(new UserRoleMasterDto
             {
-                UserRoleId = 2,
+                Id = 2,
                 UserRoleName = "Inactive Role",
                 IsActive = false
             });
@@ -469,7 +469,7 @@ public class UserRoleServiceTests
 
         var existingEntity = new UserRoleMasterEntity
         {
-            UserRoleId = 1,
+            Id = 1,
             UserRoleName = "Old Role Name",
             IsActive = true
         };
@@ -494,7 +494,7 @@ public class UserRoleServiceTests
             .Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns((UserRoleMasterEntity e) => new UserRoleMasterDto
             {
-                UserRoleId = e.UserRoleId,
+                Id = e.Id,
                 UserRoleName = e.UserRoleName,
                 IsActive = e.IsActive
             });
@@ -524,7 +524,7 @@ public class UserRoleServiceTests
 
         var existingEntity = new UserRoleMasterEntity
         {
-            UserRoleId = 1,
+            Id = 1,
             UserRoleName = "Test Role",
             IsActive = true
         };
@@ -548,7 +548,7 @@ public class UserRoleServiceTests
             .Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns(new UserRoleMasterDto
             {
-                UserRoleId = 1,
+                Id = 1,
                 UserRoleName = "Test Role",
                 IsActive = false
             });
@@ -594,7 +594,7 @@ public class UserRoleServiceTests
 
         var existingEntity = new UserRoleMasterEntity
         {
-            UserRoleId = idToDelete,
+            Id = idToDelete,
             UserRoleName = "Role To Delete",
             IsActive = true
         };
@@ -670,7 +670,7 @@ public class UserRoleServiceTests
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserRoleMasterEntity { UserRoleId = 1 });
+            .ReturnsAsync(new UserRoleMasterEntity { Id = 1 });
 
         _mockMapper
             .Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
@@ -691,7 +691,7 @@ public class UserRoleServiceTests
         // Arrange
         var existingEntity = new UserRoleMasterEntity
         {
-            UserRoleId = 1,
+            Id = 1,
             UserRoleName = "Old Name"
         };
 
@@ -725,7 +725,7 @@ public class UserRoleServiceTests
         // Arrange
         var entity = new UserRoleMasterEntity
         {
-            UserRoleId = 1,
+            Id = 1,
             UserRoleName = "Test"
         };
 
@@ -752,7 +752,7 @@ public class UserRoleServiceTests
             .Returns(new UserRoleMasterEntity());
 
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserRoleMasterEntity { UserRoleId = 1 });
+            .ReturnsAsync(new UserRoleMasterEntity { Id = 1 });
 
         _mockMapper.Setup(m => m.Map<UserRoleMasterDto>(It.IsAny<UserRoleMasterEntity>()))
             .Returns(new UserRoleMasterDto());

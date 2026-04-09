@@ -48,7 +48,7 @@ public class FloorServiceTests
         // Arrange
         var entity = new FloorEntity
         {
-            FloorId = 1,
+            Id = 1,
             FloorCode = "1",
             Description = "1 st",
             MaxFloorNo = 2,
@@ -66,7 +66,7 @@ public class FloorServiceTests
         _mockMapper.Setup(m => m.Map<FloorDto>(It.IsAny<FloorEntity>()))
             .Returns(new FloorDto
             {
-                FloorId = 1,
+                Id = 1,
                 FloorCode = "1",
                 Description = "1 st",
                 MaxFloorNo = 2,
@@ -106,8 +106,8 @@ public class FloorServiceTests
         // Arrange
         var entities = new List<FloorEntity>
         {
-            new() { FloorId = 1,  FloorCode = "1",Description = "Test1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
-            new() { FloorId = 2,  FloorCode = "2",Description = "Test2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() { Id = 1,  FloorCode = "1",Description = "Test1", MaxFloorNo=1,  SequenceNo=1, CreatedBy=31, CreatedDate = DateTime.Now,IsActive=true },
+            new() { Id = 2,  FloorCode = "2",Description = "Test2", MaxFloorNo=2,  SequenceNo=2, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -225,7 +225,7 @@ public class FloorServiceTests
 
         var existingEntity = new FloorEntity
         {
-            FloorId=1,
+            Id=1,
             FloorCode = "1",
             Description = "Old Description",
             MaxFloorNo = 1,
@@ -323,7 +323,7 @@ public class FloorServiceTests
 
         var existingEntity = new FloorEntity
         {
-            FloorId = idToDelete,
+            Id = idToDelete,
             FloorCode = "1", 
             Description = "Old Description",
             MaxFloorNo = 1,

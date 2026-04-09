@@ -1,8 +1,8 @@
-﻿namespace NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities;
 
 public class RateSectionEntity : BaseEntity
 {
-    public int RateSectionId { get; set; }
+    public int Id { get; set; }
     public string RateSectionNo { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
 

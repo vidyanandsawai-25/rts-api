@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -8,16 +8,17 @@ public class TaxZoneMappingProfile : Profile
 {
     public TaxZoneMappingProfile()
     {
-        CreateMap<TaxZoneEntity, TaxZoneDto>();
+        CreateMap<TaxZoneEntity, TaxZoneDto>()
+            ;
 
         CreateMap<CreateTaxZoneDto, TaxZoneEntity>()
-            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdateTaxZoneDto, TaxZoneEntity>()
-            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));

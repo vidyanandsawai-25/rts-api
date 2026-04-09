@@ -212,15 +212,15 @@ public class PropertyBasicDetailsTests
             using var context = new ApplicationDbContext(options);
             
             // Add test data
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
-            var category = new PropertyCategoryEntity { PropertyCategoryId = 1, PropertyCategoryName = "Residential", IsActive = true };
-            var propertyType = new PropertyTypeEntity { PropertyTypeId = 2, PropertyDescription = "Apartment", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
+            var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
+            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 CategoryId = 1,
@@ -284,7 +284,7 @@ public class PropertyBasicDetailsTests
             
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -316,10 +316,10 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -353,12 +353,12 @@ public class PropertyBasicDetailsTests
             using var context = new ApplicationDbContext(options);
             
             // Setup required master data
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -403,12 +403,12 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -416,7 +416,7 @@ public class PropertyBasicDetailsTests
             };
             var assessment = new PropertyAssessmentEntity
             {
-                PropertyDetailsId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 WingNo = "OLD",
                 NoOfResidentialToilets = 1,
@@ -460,12 +460,12 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -507,12 +507,12 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var zone = new ZoneEntity { ZoneId = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -520,7 +520,7 @@ public class PropertyBasicDetailsTests
             };
             var plot = new PlotDetailsEntity
             {
-                PlotId = 1,
+                Id = 1,
                 PropertyId = 549357,
                 PlotArea = 1000.0,
                 IsActive = true
@@ -562,11 +562,11 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
                 IsActive = true,
@@ -606,11 +606,11 @@ public class PropertyBasicDetailsTests
 
             using var context = new ApplicationDbContext(options);
             
-            var ward = new WardEntity { WardId = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
-            var taxZone = new TaxZoneEntity { TaxZoneId = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var property = new PropertyEntity
             {
-                PropertyId = 549357,
+                Id = 549357,
                 WardId = 50,
                 TaxZoneId = 5,
                 PartitionNo = "OLD",

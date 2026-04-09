@@ -44,7 +44,7 @@ public class RetentionFactWiseServiceTests
         // Arrange
         var entity = new RetentionFactWiseEntity
         {
-            RetentionPolicyFactorId = 1,
+            Id = 1,
             FromFactor = 10,
             ToFactor = 20,
             FactorValue = 1.5,
@@ -61,7 +61,7 @@ public class RetentionFactWiseServiceTests
         _mockMapper.Setup(m => m.Map<RetentionFactWiseDto>(It.IsAny<RetentionFactWiseEntity>()))
             .Returns(new RetentionFactWiseDto
             {
-                RetentionPolicyFactorId = 1,
+                Id = 1,
                 FromFactor = 10,
                 ToFactor = 20,
                 FactorValue = 1.5,
@@ -75,7 +75,7 @@ public class RetentionFactWiseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RetentionPolicyFactorId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(10, result.FromFactor);
         Assert.Equal(20, result.ToFactor);
         Assert.Equal(1.5, result.FactorValue);
@@ -102,8 +102,8 @@ public class RetentionFactWiseServiceTests
         // Arrange
         var entities = new List<RetentionFactWiseEntity>
         {
-            new() { RetentionPolicyFactorId = 1, FromFactor = 10, ToFactor = 20, FactorValue = 1.5, IsActive = true, CreatedDate = DateTime.Now },
-            new() { RetentionPolicyFactorId = 2, FromFactor = 21, ToFactor = 30, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
+            new() { Id = 1, FromFactor = 10, ToFactor = 20, FactorValue = 1.5, IsActive = true, CreatedDate = DateTime.Now },
+            new() { Id = 2, FromFactor = 21, ToFactor = 30, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -138,8 +138,8 @@ public class RetentionFactWiseServiceTests
 
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
-        Assert.Contains(items, x => x.RetentionPolicyFactorId == 1);
-        Assert.Contains(items, x => x.RetentionPolicyFactorId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class RetentionFactWiseServiceTests
             .Setup(m => m.Map<RetentionFactWiseEntity>(It.IsAny<CreateRetentionFactWiseDto>()))
             .Returns((CreateRetentionFactWiseDto dto) => new RetentionFactWiseEntity
             {
-                RetentionPolicyFactorId = 1,
+                Id = 1,
                 FromFactor = dto.FromFactor,
                 ToFactor = dto.ToFactor,
                 FactorValue = dto.FactorValue,
@@ -176,7 +176,7 @@ public class RetentionFactWiseServiceTests
             .Setup(m => m.Map<RetentionFactWiseDto>(It.IsAny<RetentionFactWiseEntity>()))
             .Returns((RetentionFactWiseEntity e) => new RetentionFactWiseDto
             {
-                RetentionPolicyFactorId = e.RetentionPolicyFactorId,
+                Id = e.Id,
                 FromFactor = e.FromFactor,
                 ToFactor = e.ToFactor,
                 FactorValue = e.FactorValue,
@@ -190,7 +190,7 @@ public class RetentionFactWiseServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.RetentionPolicyFactorId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(10, result.FromFactor);
         Assert.Equal(20, result.ToFactor);
         Assert.Equal(1.5, result.FactorValue);
@@ -215,7 +215,7 @@ public class RetentionFactWiseServiceTests
 
         var existingEntity = new RetentionFactWiseEntity
         {
-            RetentionPolicyFactorId = 1,
+            Id = 1,
             FromFactor = 10,
             ToFactor = 20,
             FactorValue = 1.5,
@@ -315,7 +315,7 @@ public class RetentionFactWiseServiceTests
 
         var existingEntity = new RetentionFactWiseEntity
         {
-            RetentionPolicyFactorId = idToDelete,
+            Id = idToDelete,
             FromFactor = 10,
             ToFactor = 20,
             FactorValue = 1.5,

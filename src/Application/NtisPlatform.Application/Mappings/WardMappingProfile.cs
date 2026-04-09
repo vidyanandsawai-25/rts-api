@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 
@@ -9,7 +9,8 @@ public class WardMappingProfile : Profile
 {
     public WardMappingProfile()
     {
-        CreateMap<WardEntity, WardDto>();
+        CreateMap<WardEntity, WardDto>()
+            ;
 
         CreateMap<CreateWardDto, WardEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Core.Entities
 {
     public class UserRoleMasterEntity : BaseEntity
     {
-        public int UserRoleId { get; set; } = 0;
+        public int Id { get; set; } = 0;
         
         [Required]
         [StringLength(100)]

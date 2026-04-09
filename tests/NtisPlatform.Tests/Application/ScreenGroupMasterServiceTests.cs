@@ -1,4 +1,4 @@
-using NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
+﻿using NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
 using AutoMapper;
 using Moq;
 using MockQueryable;
@@ -44,7 +44,7 @@ public class ScreenGroupMasterServiceTests
         // Arrange
         var entity = new ScreenGroupMasterEntity
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
             ScreenGroupNameLocal = "प्रशासन",
@@ -54,7 +54,7 @@ public class ScreenGroupMasterServiceTests
 
         var dto = new ScreenGroupMasterDto
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
             ScreenGroupNameLocal = "प्रशासन",
@@ -72,7 +72,7 @@ public class ScreenGroupMasterServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ScreenGroupId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("SG001", result.ScreenGroupCode);
         Assert.Equal("Administration", result.ScreenGroupName);
     }
@@ -110,7 +110,7 @@ public class ScreenGroupMasterServiceTests
 
         var entity = new ScreenGroupMasterEntity
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
             DisplayOrder = 1,
@@ -119,7 +119,7 @@ public class ScreenGroupMasterServiceTests
 
         var returnDto = new ScreenGroupMasterDto
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
             DisplayOrder = 1,
@@ -163,7 +163,7 @@ public class ScreenGroupMasterServiceTests
 
         var existingEntity = new ScreenGroupMasterEntity
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
             DisplayOrder = 1
@@ -171,7 +171,7 @@ public class ScreenGroupMasterServiceTests
 
         var returnDto = new ScreenGroupMasterDto
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration Updated",
             DisplayOrder = 2,
@@ -208,7 +208,7 @@ public class ScreenGroupMasterServiceTests
         // Arrange
         var entity = new ScreenGroupMasterEntity
         {
-            ScreenGroupId = 1,
+            Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration"
         };
@@ -236,9 +236,9 @@ public class ScreenGroupMasterServiceTests
         // Arrange
         var entities = new List<ScreenGroupMasterEntity>
         {
-            new() { ScreenGroupId = 1, ScreenGroupCode = "SG001", ScreenGroupName = "Admin", IsActive = true, DisplayOrder = 1 },
-            new() { ScreenGroupId = 2, ScreenGroupCode = "SG002", ScreenGroupName = "HR", IsActive = true, DisplayOrder = 2 },
-            new() { ScreenGroupId = 3, ScreenGroupCode = "SG003", ScreenGroupName = "Finance", IsActive = false, DisplayOrder = 3 }
+            new() { Id = 1, ScreenGroupCode = "SG001", ScreenGroupName = "Admin", IsActive = true, DisplayOrder = 1 },
+            new() { Id = 2, ScreenGroupCode = "SG002", ScreenGroupName = "HR", IsActive = true, DisplayOrder = 2 },
+            new() { Id = 3, ScreenGroupCode = "SG003", ScreenGroupName = "Finance", IsActive = false, DisplayOrder = 3 }
         };
 
         var mockQuery = entities.BuildMock();

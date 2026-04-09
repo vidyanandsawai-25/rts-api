@@ -4,7 +4,7 @@ namespace NtisPlatform.Application.DTOs;
 
 public class SubFloorDto
 {
-    public int SubFloorId { get; set; } 
+    public int Id { get; set; } 
     public string? SubFloorCode { get; set; }
     public string? Description { get; set; }
     public decimal? SubFloorPercentage { get; set; }

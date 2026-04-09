@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities.Master;
 public class UserMasterEntity : BaseEntity
 {
     [Key]
-    public int UserId { get; set; }
+    public int Id { get; set; }
 
     [Required]
     [MaxLength(100)]

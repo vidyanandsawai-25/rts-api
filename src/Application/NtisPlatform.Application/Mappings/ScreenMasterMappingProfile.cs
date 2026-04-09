@@ -11,7 +11,8 @@ public class ScreenMasterMappingProfile : Profile
 {
     public ScreenMasterMappingProfile()
     {
-        CreateMap<ScreenMasterEntity, ScreenMasterDto>();
+        CreateMap<ScreenMasterEntity, ScreenMasterDto>()
+            ;
 
         CreateMap<CreateScreenMasterDto, ScreenMasterEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

@@ -42,7 +42,7 @@ public class DepartmentLicenceDetailsServiceTests
         // Arrange
         var entity = new DepartmentLicenceDetailsEntity
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -52,7 +52,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         var dto = new DepartmentLicenceDetailsDto
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -70,7 +70,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.DepartmentLicenceId);
+        Assert.Equal(1, result.Id);
         Assert.Equal(1, result.DepartmentMasterId);
         Assert.Equal("1 Year", result.LicenceDuration);
     }
@@ -108,7 +108,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         var entity = new DepartmentLicenceDetailsEntity
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -118,7 +118,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         var returnDto = new DepartmentLicenceDetailsDto
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -164,7 +164,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         var existingEntity = new DepartmentLicenceDetailsEntity
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2026, 1, 1),
@@ -173,7 +173,7 @@ public class DepartmentLicenceDetailsServiceTests
 
         var returnDto = new DepartmentLicenceDetailsDto
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1,
             LicenceStartDate = new DateTime(2025, 1, 1),
             LicenceEndDate = new DateTime(2027, 1, 1),
@@ -211,7 +211,7 @@ public class DepartmentLicenceDetailsServiceTests
         // Arrange
         var entity = new DepartmentLicenceDetailsEntity
         {
-            DepartmentLicenceId = 1,
+            Id = 1,
             DepartmentMasterId = 1
         };
 

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Core.Entities;
 namespace NtisPlatform.Application.Mappings;
@@ -8,7 +8,8 @@ public class TypeOfUseMappingProfile : Profile
 
     public TypeOfUseMappingProfile()
     {
-        CreateMap<TypeOfUseEntity, TypeOfUseDto>();
+        CreateMap<TypeOfUseEntity, TypeOfUseDto>()
+            ;
 
         CreateMap<CreateTypeOfUseDto, TypeOfUseEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

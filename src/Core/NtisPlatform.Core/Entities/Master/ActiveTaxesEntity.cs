@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 
 public class ActiveTaxesEntity : BaseEntity
 {
-    public int ActiveTaxesId { get; set; }
+    public int Id { get; set; }
 
     [Column(TypeName = "nvarchar(200)")]
     public string? TaxName { get; set; }

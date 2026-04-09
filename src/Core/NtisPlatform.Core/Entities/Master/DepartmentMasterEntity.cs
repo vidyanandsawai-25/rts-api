@@ -8,7 +8,7 @@ public class DepartmentMasterEntity : BaseEntity
     /// <summary>
     /// Unique identifier for the department
     /// </summary>
-    public int DepartmentId { get; set; }
+    public int Id { get; set; }
 
     /// <summary>
     /// Unique code for the department

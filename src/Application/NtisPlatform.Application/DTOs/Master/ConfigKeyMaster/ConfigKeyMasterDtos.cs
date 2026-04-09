@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.DTOs.Master.ConfigKeyMaster;
 /// </summary>
 public class ConfigKeyMasterDto : BaseDtos
 {
-    public int ConfigKeyId { get; set; }
+    public int Id { get; set; }
     public int? CategoryId { get; set; }
     public string? ConfigCode { get; set; }
     public string? ConfigName { get; set; }

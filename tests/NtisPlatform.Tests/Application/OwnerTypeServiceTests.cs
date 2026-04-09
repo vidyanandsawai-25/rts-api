@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -42,7 +42,7 @@ public class OwnerTypeServiceTests
         // Arrange
         var entity = new OwnerTypeMasterEntity
         {
-            OwnerTypeId = 1,
+            Id = 1,
             OwnerType = "Self",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -57,7 +57,7 @@ public class OwnerTypeServiceTests
         _mockMapper.Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
             .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
-                OwnerTypeId = e.OwnerTypeId,
+                Id = e.Id,
                 OwnerType = e.OwnerType,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate,
@@ -69,7 +69,7 @@ public class OwnerTypeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.OwnerTypeId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("Self", result.OwnerType);
         Assert.True(result.IsActive);
     }
@@ -94,9 +94,9 @@ public class OwnerTypeServiceTests
         // Arrange
         var entities = new List<OwnerTypeMasterEntity>
         {
-            new() { OwnerTypeId = 1, OwnerType = "Self", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
-            new() { OwnerTypeId = 2, OwnerType = "Women", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
-            new() { OwnerTypeId = 3, OwnerType = "Soldier", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now }
+            new() { Id = 1, OwnerType = "Self", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
+            new() { Id = 2, OwnerType = "Women", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now },
+            new() { Id = 3, OwnerType = "Soldier", IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now, UpdatedBy = 1, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -153,7 +153,7 @@ public class OwnerTypeServiceTests
             .Setup(m => m.Map<OwnerTypeMasterEntity>(It.IsAny<CreateOwnerTypeDto>()))
             .Returns((CreateOwnerTypeDto dto) => new OwnerTypeMasterEntity
             {
-                OwnerTypeId = 4,
+                Id = 4,
                 OwnerType = dto.OwnerType,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
@@ -168,7 +168,7 @@ public class OwnerTypeServiceTests
             .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
             .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
-                OwnerTypeId = e.OwnerTypeId,
+                Id = e.Id,
                 OwnerType = e.OwnerType,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
@@ -179,7 +179,7 @@ public class OwnerTypeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(4, result.OwnerTypeId);
+        Assert.Equal(4, result.Id);
         Assert.Equal("Ex. Military Soldier", result.OwnerType);
         Assert.True(result.IsActive);
 
@@ -202,7 +202,7 @@ public class OwnerTypeServiceTests
 
         var existingEntity = new OwnerTypeMasterEntity
         {
-            OwnerTypeId = 1,
+            Id = 1,
             OwnerType = "Self",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -233,7 +233,7 @@ public class OwnerTypeServiceTests
             .Setup(m => m.Map<OwnerTypeDto>(It.IsAny<OwnerTypeMasterEntity>()))
             .Returns((OwnerTypeMasterEntity e) => new OwnerTypeDto
             {
-                OwnerTypeId = e.OwnerTypeId,
+                Id = e.Id,
                 OwnerType = e.OwnerType,
                 IsActive = e.IsActive
             });
@@ -307,7 +307,7 @@ public class OwnerTypeServiceTests
 
         var existingEntity = new OwnerTypeMasterEntity
         {
-            OwnerTypeId = 1,
+            Id = 1,
             OwnerType = "Self",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -342,9 +342,9 @@ public class OwnerTypeServiceTests
         // Arrange
         var entities = new List<OwnerTypeMasterEntity>
         {
-            new() { OwnerTypeId = 1, OwnerType = "Self", IsActive = true },
-            new() { OwnerTypeId = 2, OwnerType = "Women", IsActive = true },
-            new() { OwnerTypeId = 5, OwnerType = "Martyr Soldier", IsActive = true }
+            new() { Id = 1, OwnerType = "Self", IsActive = true },
+            new() { Id = 2, OwnerType = "Women", IsActive = true },
+            new() { Id = 5, OwnerType = "Martyr Soldier", IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();

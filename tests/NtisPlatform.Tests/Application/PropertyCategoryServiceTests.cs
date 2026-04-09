@@ -35,7 +35,7 @@ public class PropertyCategoryServiceTests
         // Arrange
         var entity = new PropertyCategoryEntity
         {
-            PropertyCategoryId = 1,
+            Id = 1,
             PropertyCategoryName = "Test Category",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -50,7 +50,7 @@ public class PropertyCategoryServiceTests
         _mockMapper.Setup(m => m.Map<PropertyCategoryDto>(It.IsAny<PropertyCategoryEntity>()))
             .Returns(new PropertyCategoryDto
             {
-                PropertyCategoryId = 1,
+                Id = 1,
                 PropertyCategoryName = "Test Category",
                 IsActive = true
             });
@@ -60,7 +60,7 @@ public class PropertyCategoryServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.PropertyCategoryId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("Test Category", result.PropertyCategoryName);
         Assert.True(result.IsActive);
     }
@@ -85,8 +85,8 @@ public class PropertyCategoryServiceTests
         // Arrange
         var entities = new List<PropertyCategoryEntity>
         {
-            new() { PropertyCategoryId = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -128,9 +128,9 @@ public class PropertyCategoryServiceTests
         // Arrange
         var entities = new List<PropertyCategoryEntity>
         {
-            new() { PropertyCategoryId = 1, PropertyCategoryName = "Active Category", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 2, PropertyCategoryName = "Inactive Category", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = false },
-            new() { PropertyCategoryId = 3, PropertyCategoryName = "Another Active", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, PropertyCategoryName = "Active Category", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, PropertyCategoryName = "Inactive Category", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = false },
+            new() { Id = 3, PropertyCategoryName = "Another Active", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -165,14 +165,14 @@ public class PropertyCategoryServiceTests
     }
 
     [Fact]
-    public async Task GetAllAsync_WithPropertyCategoryIdFilter_ReturnsSpecificCategory()
+    public async Task GetAllAsync_WithIdFilter_ReturnsSpecificCategory()
     {
         // Arrange
         var entities = new List<PropertyCategoryEntity>
         {
-            new() { PropertyCategoryId = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 3, PropertyCategoryName = "Category3", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 3, PropertyCategoryName = "Category3", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -194,7 +194,7 @@ public class PropertyCategoryServiceTests
         {
             PageNumber = 1,
             PageSize = 10,
-            PropertyCategoryId = 2
+            Id = 2
         };
 
         // Act
@@ -204,7 +204,7 @@ public class PropertyCategoryServiceTests
         Assert.NotNull(result);
         Assert.Equal(1, result.TotalCount);
         var item = result.Items.Single();
-        Assert.Equal(2, item.PropertyCategoryId);
+        Assert.Equal(2, item.Id);
         Assert.Equal("Category2", item.PropertyCategoryName);
     }
 
@@ -214,9 +214,9 @@ public class PropertyCategoryServiceTests
         // Arrange
         var entities = new List<PropertyCategoryEntity>
         {
-            new() { PropertyCategoryId = 1, PropertyCategoryName = "TestCategory", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 2, PropertyCategoryName = "OtherCategory", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 3, PropertyCategoryName = "TestAnother", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, PropertyCategoryName = "TestCategory", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, PropertyCategoryName = "OtherCategory", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 3, PropertyCategoryName = "TestAnother", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -256,11 +256,11 @@ public class PropertyCategoryServiceTests
         // Arrange
         var entities = new List<PropertyCategoryEntity>
         {
-            new() { PropertyCategoryId = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 3, PropertyCategoryName = "Category3", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 4, PropertyCategoryName = "Category4", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
-            new() { PropertyCategoryId = 5, PropertyCategoryName = "Category5", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
+            new() { Id = 1, PropertyCategoryName = "Category1", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 2, PropertyCategoryName = "Category2", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 3, PropertyCategoryName = "Category3", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 4, PropertyCategoryName = "Category4", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true },
+            new() { Id = 5, PropertyCategoryName = "Category5", CreatedBy = 1, CreatedDate = DateTime.Now, IsActive = true }
         };
 
         var mockQuery = entities.BuildMock();
@@ -321,7 +321,7 @@ public class PropertyCategoryServiceTests
             .Setup(r => r.AddAsync(It.IsAny<PropertyCategoryEntity>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyCategoryEntity e, CancellationToken _) =>
             {
-                e.PropertyCategoryId = 1;
+                e.Id = 1;
                 return e;
             });
 
@@ -346,7 +346,7 @@ public class PropertyCategoryServiceTests
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
             cfg.CreateMap<PropertyCategoryUpdateDto, PropertyCategoryEntity>()
-                .ForMember(dest => dest.PropertyCategoryId, opt => opt.Ignore())
+                .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
@@ -369,7 +369,7 @@ public class PropertyCategoryServiceTests
 
         var existingEntity = new PropertyCategoryEntity
         {
-            PropertyCategoryId = 1,
+            Id = 1,
             PropertyCategoryName = "Old",
             IsActive = false,
             CreatedBy = 1,
@@ -427,7 +427,7 @@ public class PropertyCategoryServiceTests
 
         var existingEntity = new PropertyCategoryEntity
         {
-            PropertyCategoryId = idToDelete,
+            Id = idToDelete,
             PropertyCategoryName = "Category to Delete",
             IsActive = true,
             CreatedBy = 1,

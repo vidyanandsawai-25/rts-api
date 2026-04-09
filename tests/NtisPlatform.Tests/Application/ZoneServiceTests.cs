@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -42,11 +42,11 @@ public class ZoneServiceTests
         // Arrange
         var entity = new ZoneEntity
         {
-            ZoneId = 1,
+            Id = 1,
 
             ZoneNo = "WKD",
 
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -61,7 +61,7 @@ public class ZoneServiceTests
         _mockMapper.Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
             .Returns((ZoneEntity e) => new ZoneDto
             {
-                ZoneId = e.ZoneId,
+                Id = e.Id,
                 ZoneNo = e.ZoneNo,
                 Description = e.Description,
                 SequenceNo = e.SequenceNo,
@@ -75,9 +75,9 @@ public class ZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ZoneId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("WKD", result.ZoneNo);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
     }
@@ -102,8 +102,8 @@ public class ZoneServiceTests
         // Arrange
         var entities = new List<ZoneEntity>
         {
-            new() { ZoneId = 1, ZoneNo = "MSH", Description = "मोशी", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { ZoneId = 2, ZoneNo = "TRG", Description = "थेरगाव", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, ZoneNo = "MSH", Description = "????", SequenceNo = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, ZoneNo = "TRG", Description = "??????", SequenceNo = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -142,11 +142,11 @@ public class ZoneServiceTests
         var items = result.Items.ToList();
         Assert.Equal(2, items.Count);
 
-        Assert.Contains(items, x => x.Description == "मोशी");
-        Assert.Contains(items, x => x.Description == "थेरगाव");
+        Assert.Contains(items, x => x.Description == "????");
+        Assert.Contains(items, x => x.Description == "??????");
 
-        Assert.Contains(items, x => x.ZoneId == 1);
-        Assert.Contains(items, x => x.ZoneId == 2);
+        Assert.Contains(items, x => x.Id == 1);
+        Assert.Contains(items, x => x.Id == 2);
         
         Assert.Contains(items, x => x.ZoneNo == "MSH");
         Assert.Contains(items, x => x.ZoneNo == "TRG");
@@ -159,7 +159,7 @@ public class ZoneServiceTests
         var createDto = new CreateZoneDto
         {
             ZoneNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             CreatedBy = 31
         };
@@ -168,7 +168,7 @@ public class ZoneServiceTests
             .Setup(m => m.Map<ZoneEntity>(It.IsAny<CreateZoneDto>()))
             .Returns((CreateZoneDto dto) => new ZoneEntity
             {
-                ZoneId = 1,
+                Id = 1,
 
                 ZoneNo = dto.ZoneNo,
 
@@ -191,7 +191,7 @@ public class ZoneServiceTests
                 ZoneNo = e.ZoneNo,
                 Description = e.Description,
 
-                ZoneId = e.ZoneId,
+                Id = e.Id,
 
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive,
@@ -203,9 +203,9 @@ public class ZoneServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(1, result.ZoneId);
+        Assert.Equal(1, result.Id);
         Assert.Equal("WKD", result.ZoneNo);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.Equal(1, result.SequenceNo);
         Assert.True(result.IsActive);
 
@@ -222,7 +222,7 @@ public class ZoneServiceTests
         var updateDto = new UpdateZoneDto
         {
             ZoneNo = "MSH",
-            Description = "मोशी",
+            Description = "????",
             SequenceNo = 2,
             IsActive = true,
             UpdatedBy = 31
@@ -230,9 +230,9 @@ public class ZoneServiceTests
 
         var existingEntity = new ZoneEntity
         {
-            ZoneId = 1,
+            Id = 1,
             ZoneNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -264,7 +264,7 @@ public class ZoneServiceTests
             .Setup(m => m.Map<ZoneDto>(It.IsAny<ZoneEntity>()))
             .Returns((ZoneEntity e) => new ZoneDto
             {
-                ZoneId = e.ZoneId,
+                Id = e.Id,
                 ZoneNo = e.ZoneNo,
                 Description = e.Description,
                 SequenceNo = e.SequenceNo,
@@ -283,7 +283,7 @@ public class ZoneServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("MSH", existingEntity.ZoneNo);
-        Assert.Equal("मोशी", existingEntity.Description);
+        Assert.Equal("????", existingEntity.Description);
         Assert.Equal(2, existingEntity.SequenceNo);
         Assert.True(existingEntity.IsActive);
     }
@@ -295,7 +295,7 @@ public class ZoneServiceTests
         var updateDto = new UpdateZoneDto
         {
             ZoneNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             UpdatedBy = 31
@@ -345,9 +345,9 @@ public class ZoneServiceTests
         var existingEntity = new ZoneEntity
         {
 
-            ZoneId = 1,
+            Id = 1,
             ZoneNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             SequenceNo = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
