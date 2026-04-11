@@ -7,10 +7,7 @@ public class ScreenMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the screen
-    /// </summary>
-    public int Id { get; set; }
-
-    /// <summary>
+    /// </summary>    /// <summary>
     /// Foreign key to screen group
     /// </summary>
     public int ScreenGroupId { get; set; }

@@ -5,7 +5,6 @@ namespace NtisPlatform.Core.Entities;
 // </summary>
 public class RetentionFactWiseEntity : BaseEntity
 {
-    public int Id { get; set; }
     public double? FromFactor { get; set; }
     public double? ToFactor { get; set; }
     public double? FactorValue { get; set; }

@@ -7,10 +7,7 @@ public class DesignationMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the designation
-    /// </summary>
-    public int Id { get; set; }
-
-    /// <summary>
+    /// </summary>    /// <summary>
     /// Unique code for the designation
     /// </summary>
     public string? DesignationCode { get; set; } 

@@ -8,10 +8,7 @@ public class ULBMasterEntity : BaseEntity
 {
     /// <summary>
     /// Primary key - ULB ID
-    /// </summary>
-    public int Id { get; set; }
-
-    /// <summary>
+    /// </summary>    /// <summary>
     /// Unique ULB code
     /// </summary>
     public string UlbCode { get; set; } = string.Empty;

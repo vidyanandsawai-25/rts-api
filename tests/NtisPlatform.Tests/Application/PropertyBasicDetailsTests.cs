@@ -234,7 +234,7 @@ public class PropertyBasicDetailsTests
             context.WardMaster.Add(ward);
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
-            context.PropertyCategory.Add(category);
+            context.PropertyCategoryMaster.Add(category);
             context.PropertyTypeMaster.Add(propertyType);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
@@ -418,7 +418,6 @@ public class PropertyBasicDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingNo = "OLD",
                 NoOfResidentialToilets = 1,
                 IsActive = true,
                 MarkedForDeletion = false
@@ -740,6 +739,359 @@ public class PropertyBasicDetailsTests
             var result = await service.UpdateBasicDetailsAsync(999, dto);
 
             Assert.Null(result);
+        }
+    }
+
+    #endregion
+
+    #region Mouja Integration Tests
+
+    public class MoujaIntegrationTests
+    {
+        [Fact]
+        public async Task GetBasicDetailsAsync_WithMoujaId_ReturnsMoujaName()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Test Mouja", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 1,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.MoujaEntity.Add(mouja);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var result = await repository.GetBasicDetailsAsync(549357);
+
+            Assert.NotNull(result);
+            Assert.Equal(549357, result.PropertyId);
+            Assert.Equal(1, result.MoujaId);
+            Assert.Equal("Test Mouja", result.MoujaName);
+        }
+
+        [Fact]
+        public async Task GetBasicDetailsAsync_WithoutMoujaId_ReturnsNullMouja()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = null,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var result = await repository.GetBasicDetailsAsync(549357);
+
+            Assert.NotNull(result);
+            Assert.Equal(549357, result.PropertyId);
+            Assert.Null(result.MoujaId);
+            Assert.Null(result.MoujaName);
+        }
+
+        [Fact]
+        public async Task GetBasicDetailsAsync_WithInactiveMouja_ReturnsNullMoujaName()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Inactive Mouja", IsActive = false };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 1,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.MoujaEntity.Add(mouja);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var result = await repository.GetBasicDetailsAsync(549357);
+
+            Assert.NotNull(result);
+            Assert.Equal(1, result.MoujaId);
+            Assert.Null(result.MoujaName);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithValidMoujaId_UpdatesPropertyMast()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var mouja = new MoujaEntity { Id = 2, Year = 2023, MoujaName = "New Mouja", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = null,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.MoujaEntity.Add(mouja);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var dto = new UpdatePropertyBasicDetailsDto
+            {
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 2
+            };
+
+            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+
+            Assert.NotNull(result);
+            Assert.Equal(2, result.MoujaId);
+            Assert.Equal("New Mouja", result.MoujaName);
+
+            var updatedProperty = await context.PropertyMast.FindAsync(549357);
+            Assert.Equal(2, updatedProperty!.MoujaId);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithInvalidMoujaId_ThrowsException()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var dto = new UpdatePropertyBasicDetailsDto
+            {
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 999
+            };
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => repository.UpdateBasicDetailsAsync(549357, dto));
+
+            Assert.Contains("Mouja with ID 999 does not exist or is inactive", exception.Message);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_ChangeMoujaId_UpdatesSuccessfully()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var mouja1 = new MoujaEntity { Id = 1, Year = 2022, MoujaName = "Old Mouja", IsActive = true };
+            var mouja2 = new MoujaEntity { Id = 2, Year = 2023, MoujaName = "New Mouja", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 1,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.MoujaEntity.AddRange(mouja1, mouja2);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var dto = new UpdatePropertyBasicDetailsDto
+            {
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 2
+            };
+
+            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+
+            Assert.NotNull(result);
+            Assert.Equal(2, result.MoujaId);
+            Assert.Equal("New Mouja", result.MoujaName);
+
+            var updatedProperty = await context.PropertyMast.FindAsync(549357);
+            Assert.Equal(2, updatedProperty!.MoujaId);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithInactiveMoujaId_ThrowsException()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Inactive Mouja", IsActive = false };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.MoujaEntity.Add(mouja);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var dto = new UpdatePropertyBasicDetailsDto
+            {
+                WardId = 79,
+                TaxZoneId = 10,
+                MoujaId = 1
+            };
+
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => repository.UpdateBasicDetailsAsync(549357, dto));
+
+            Assert.Contains("Mouja with ID 1 does not exist or is inactive", exception.Message);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithAllFieldsIncludingMoujaId_UpdatesAllFields()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
+            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var mouja = new MoujaEntity { Id = 3, Year = 2023, MoujaName = "Complete Test Mouja", IsActive = true };
+
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.ZoneMaster.Add(zone);
+            context.TaxZoneMaster.Add(taxZone);
+            context.PropertyCategoryMaster.Add(category);
+            context.PropertyTypeMaster.Add(propertyType);
+            context.MoujaEntity.Add(mouja);
+            context.PropertyMast.Add(property);
+            await context.SaveChangesAsync();
+
+            var repository = new PropertyRepository(context);
+            var dto = new UpdatePropertyBasicDetailsDto
+            {
+                WardId = 79,
+                TaxZoneId = 10,
+                CategoryId = 1,
+                PropertyTypeId = 2,
+                MoujaId = 3,
+                PartitionNo = "P1",
+                UPICId = "UPIC001"
+            };
+
+            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+
+            Assert.NotNull(result);
+            Assert.Equal(549357, result.PropertyId);
+            Assert.Equal(3, result.MoujaId);
+            Assert.Equal("Complete Test Mouja", result.MoujaName);
+            Assert.Equal(1, result.CategoryId);
+            Assert.Equal(2, result.PropertyTypeId);
+            Assert.Equal("P1", result.PartitionNo);
+            Assert.Equal("UPIC001", result.UPICId);
         }
     }
 

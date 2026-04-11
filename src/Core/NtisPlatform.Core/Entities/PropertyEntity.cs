@@ -10,9 +10,10 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMast", Schema = "PTIS")]
 public class PropertyEntity : BaseEntity, IHardDeletable
 {
-    [Key]
-    public int Id { get; set; }
+    public int? PropertySeqNo { get; set; }
 
+    public int? MoujaId { get; set; }
+	
     // Location Information
     public int TaxZoneId { get; set; }
 
@@ -117,8 +118,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public bool MarkedForDeletion { get; set; } = false;
 
     /// <summary>
-    /// Not mapped in DB - used for business logic (hard delete tracking)
+    /// Date when the entity was marked for deletion
     /// </summary>
-    [NotMapped]
     public DateTime? MarkedForDeletionDate { get; set; }
 }

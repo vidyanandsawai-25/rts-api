@@ -9,14 +9,12 @@ namespace NtisPlatform.Core.Entities;
 [Table("SocietyDetailsMast", Schema = "PTIS")]
 public class SocietyDetailsEntity : BaseEntity
 {
-    [Key]
-    public int Id { get; set; }
-
-    public int? PropertyId { get; set; }
+    [Key]    public int? PropertyId { get; set; }
 
     public int? WingId { get; set; }
 
-    [Column(TypeName = "nvarchar(100)")]
+    [Column(TypeName = "nvarchar(30)")]
+    [StringLength(30)]
     public string? WingName { get; set; }
 
     [Column(TypeName = "nvarchar(500)")]
@@ -24,9 +22,6 @@ public class SocietyDetailsEntity : BaseEntity
 
     [Column(TypeName = "nvarchar(200)")]
     public string? SocietyAddress { get; set; }
-
-    [Column(TypeName = "nvarchar(20)")]
-    public string? BHKType { get; set; }
 
     [Column(TypeName = "nvarchar(200)")]
     public string? SecretaryName { get; set; }
@@ -76,6 +71,8 @@ public class SocietyDetailsEntity : BaseEntity
 
     public bool MarkedForDeletion { get; set; } = false;
 
-    [NotMapped]
+    /// <summary>
+    /// Date when marked for deletion
+    /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
 }

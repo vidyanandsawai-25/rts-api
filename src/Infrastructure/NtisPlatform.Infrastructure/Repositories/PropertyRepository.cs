@@ -33,11 +33,14 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                         join tz in _context.TaxZoneMaster on p.TaxZoneId equals tz.Id into taxZoneJoin
                         from tz in taxZoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                        join pc in _context.PropertyCategory on p.CategoryId equals pc.Id into categoryJoin
+                        join pc in _context.PropertyCategoryMaster on p.CategoryId equals pc.Id into categoryJoin
                         from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
                         join pt in _context.PropertyTypeMaster on p.PropertyTypeId equals pt.Id into typeJoin
                         from pt in typeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                        join m in _context.MoujaEntity on p.MoujaId equals m.Id into moujaJoin
+                        from m in moujaJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
                         select new
                         {
@@ -46,7 +49,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                             Zone = z,
                             TaxZone = tz,
                             Category = pc,
-                            PropertyType = pt
+                            PropertyType = pt,
+                            Mouja = m
                         };
 
         var mainResult = await mainQuery.FirstOrDefaultAsync(cancellationToken);
@@ -55,18 +59,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             return null;
 
         // Step 2: Get first PropertyMastDetails (assessment)
-        // Note: Use projection to avoid querying MarkedForDeletionDate column which doesn't exist
         var assessment = await _context.PropertyMastDetails
             .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .Select(x => new
             {
+                PropertyDetailsId = x.Id,
                 x.Id,
                 x.PropertyId,
-                x.WingId,
-                x.WingNo,
                 x.NoOfResidentialToilets,
-                x.NoOfCommercialToilets
+                x.NoOfCommercialToilets,
+                x.WingNo
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -89,12 +92,27 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Step 5: Get SocietyDetails WingId
+        // Step 5: Get SocietyDetails WingId and resolve WingNo
         var society = mainResult.Property.SocietyDetailId.HasValue
             ? await _context.SocietyDetailsMast
                 .Where(x => x.Id == mainResult.Property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
                 .FirstOrDefaultAsync(cancellationToken)
             : null;
+
+        // Resolve WingNo: Priority is society.WingId lookup, then fallback to assessment.WingNo
+        string? wingNo = null;
+        if (society?.WingId.HasValue == true)
+        {
+            wingNo = await _context.Set<WingEntity>()
+                .Where(w => w.Id == society.WingId && w.IsActive)
+                .Select(w => w.WingNo)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+        // Fallback to assessment WingNo if not found via society
+        if (wingNo == null)
+        {
+            wingNo = assessment?.WingNo;
+        }
 
         // Build and return DTO
         return new PropertyBasicDetailsDto
@@ -117,7 +135,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             PropertyDescription = mainResult.PropertyType?.PropertyDescription,
             UPICId = mainResult.Property.UPICId,
             SubZoneNo = mainResult.Property.SubZoneNo,
-            WingNo = assessment?.WingNo,
+            MoujaId = mainResult.Property.MoujaId,
+            MoujaName = mainResult.Mouja?.MoujaName,
+            WingNo = wingNo,
             NoOfResidentialToilets = assessment?.NoOfResidentialToilets,
             NoOfCommercialToilets = assessment?.NoOfCommercialToilets,
             TotalCarpetAreaSqMeter = detailsSum?.TotalCarpetAreaSqMeter ?? 0,
@@ -129,7 +149,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             PlotAreaFtWidth = plot?.PlotAreaFtWidth,
             PlotAreaMtrLength = plot?.PlotAreaMtrLength,
             PlotAreaMtrWidth = plot?.PlotAreaMtrWidth,
-            WingId = society?.WingId ?? assessment?.WingId,
+            WingId = society?.WingId,
             WingName = society?.WingName
         };
     }
@@ -157,6 +177,18 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (!wardExists)
         {
             throw new InvalidOperationException($"Ward with ID {dto.WardId} does not exist or is inactive.");
+        }
+
+        // Validate MoujaId if provided
+        if (dto.MoujaId.HasValue)
+        {
+            var moujaExists = await _context.MoujaEntity
+                .AnyAsync(m => m.Id == dto.MoujaId.Value && m.IsActive, cancellationToken);
+
+            if (!moujaExists)
+            {
+                throw new InvalidOperationException($"Mouja with ID {dto.MoujaId.Value} does not exist or is inactive.");
+            }
         }
 
         // Step 3: Update PropertyMast fields
@@ -187,16 +219,19 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (dto.SubZoneNo != null)
             property.SubZoneNo = dto.SubZoneNo;
 
+        if (dto.MoujaId.HasValue)
+            property.MoujaId = dto.MoujaId.Value;
+
         property.UpdatedDate = DateTime.Now;
-        // Step 4: Upsert PropertyMastDetails (assessment)
+        
+        // Step 4: Upsert PropertyMastDetails (assessment) - includes NoOfToilets and WingNo fields
         var assessmentId = await _context.PropertyMastDetails
             .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .Select(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasAssessmentData = dto.WingId.HasValue || dto.WingNo != null ||
-                                  dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue;
+        bool hasAssessmentData = dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue || dto.WingNo != null;
 
         if (assessmentId > 0)
         {
@@ -205,17 +240,14 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             if (assessment != null)
             {
-                if (dto.WingId.HasValue)
-                    assessment.WingId = dto.WingId;
-
-                if (dto.WingNo != null)
-                    assessment.WingNo = dto.WingNo;
-
                 if (dto.NoOfResidentialToilets.HasValue)
                     assessment.NoOfResidentialToilets = dto.NoOfResidentialToilets;
 
                 if (dto.NoOfCommercialToilets.HasValue)
                     assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
+
+                if (dto.WingNo != null)
+                    assessment.WingNo = dto.WingNo;
 
                 assessment.UpdatedDate = DateTime.Now;
             }
@@ -226,10 +258,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             var newAssessment = new PropertyAssessmentEntity
             {
                 PropertyId = propertyId,
-                WingId = dto.WingId,
-                WingNo = dto.WingNo,
                 NoOfResidentialToilets = dto.NoOfResidentialToilets,
                 NoOfCommercialToilets = dto.NoOfCommercialToilets,
+                WingNo = dto.WingNo,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedDate = DateTime.Now
@@ -292,23 +323,64 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             await _context.PlotDetails.AddAsync(newPlot, cancellationToken);
         }
 
-        // Step 6: Update SocietyDetailsMast WingId and WingName if provided
-        if ((dto.WingId.HasValue || dto.WingName != null) && property.SocietyDetailId.HasValue)
+        // Step 6: Upsert SocietyDetailsMast for WingId, WingNo, and WingName if provided
+        if (dto.WingId.HasValue || dto.WingName != null || dto.WingNo != null)
         {
-            var society = await _context.SocietyDetailsMast
-                .Where(x => x.Id == property.SocietyDetailId.Value && x.IsActive && !x.MarkedForDeletion)
-                .FirstOrDefaultAsync(cancellationToken);
+            SocietyDetailsEntity? society = null;
 
-            if (society != null)
+            // First, try to find existing society by SocietyDetailId from property
+            if (property.SocietyDetailId.HasValue)
             {
-                if (dto.WingId.HasValue)
-                    society.WingId = dto.WingId;
-
-                if (dto.WingName != null)
-                    society.WingName = dto.WingName;
-
-                society.UpdatedDate = DateTime.Now;
+                society = await _context.SocietyDetailsMast
+                    .FirstOrDefaultAsync(s => s.Id == property.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion, cancellationToken);
             }
+
+            // If not found by SocietyDetailId, try to find by PropertyId
+            if (society == null)
+            {
+                society = await _context.SocietyDetailsMast
+                    .FirstOrDefaultAsync(s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion, cancellationToken);
+                
+                // Link the society to the property if found
+                if (society != null && !property.SocietyDetailId.HasValue)
+                {
+                    property.SocietyDetailId = society.Id;
+                }
+            }
+
+            // Create new society if still not found
+            if (society == null)
+            {
+                society = new SocietyDetailsEntity
+                {
+                    PropertyId = propertyId,
+                    IsActive = true,
+                    CreatedDate = DateTime.Now
+                };
+                _context.SocietyDetailsMast.Add(society);
+                
+                // Will need to link property after save
+                await _context.SaveChangesAsync(cancellationToken);
+                property.SocietyDetailId = society.Id;
+            }
+
+            if (dto.WingId.HasValue)
+                society.WingId = dto.WingId;
+
+            if (dto.WingName != null)
+                society.WingName = dto.WingName;
+
+            if (dto.WingNo != null)
+            {
+                // If you want to link to a WingEntity by number, set the reference
+                var wing = await _context.Set<WingEntity>().FirstOrDefaultAsync(w => w.WingNo == dto.WingNo && w.IsActive, cancellationToken);
+                if (wing != null)
+                {
+                    society.WingId = wing.Id;
+                }
+            }
+
+            society.UpdatedDate = DateTime.Now;
         }
 
         // Step 7: Save all changes
@@ -520,6 +592,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .OrderBy(x => x.Id)
             .Select(x => new
             {
+                PropertyDetailsId = x.Id,
                 x.Id,
                 x.PropertyId,
                 x.OwnerTypeId,

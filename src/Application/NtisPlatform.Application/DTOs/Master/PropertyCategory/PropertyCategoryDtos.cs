@@ -13,7 +13,7 @@ public class PropertyCategoryCreateDto : CreateBaseDtos
     private string _propertyCategoryName = string.Empty;
 
     [Required(ErrorMessage = "PropertyCategoryName_Required")]
-    [StringLength(100, ErrorMessage = "PropertyCategoryName_MaxLen_100")]
+    [StringLength(50, ErrorMessage = "PropertyCategoryName_MaxLen_50")]
     public string PropertyCategoryName
     {
         get => _propertyCategoryName;
@@ -28,7 +28,7 @@ public class PropertyCategoryUpdateDto : UpdateBaseDtos
     private string _propertyCategoryName = string.Empty;
 
     [Required(ErrorMessage = "PropertyCategoryName_Required")]
-    [StringLength(100, ErrorMessage = "PropertyCategoryName_MaxLen_100")]
+    [StringLength(50, ErrorMessage = "PropertyCategoryName_MaxLen_50")]
     public string PropertyCategoryName
     {
         get => _propertyCategoryName;

@@ -8,10 +8,16 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 [Table("PropertyTypeMaster", Schema = "PTIS")]
 public class PropertyTypeEntity : BaseEntity
-{
-    [Key]
-    public int Id { get; set; }
-
-    [Column(TypeName = "nvarchar(100)")]
+{    [Column(TypeName = "nvarchar(100)")]
     public string? PropertyDescription { get; set; }
+
+    [Column(TypeName = "varchar(5)")]
+    public string? Type { get; set; }
+
+    [Column(TypeName = "nvarchar(50)")]
+    public string? PropertyTypeGroup { get; set; }
+
+    public int? SearchSequence { get; set; }
+
+    public int? PropertyTypeCategoryId { get; set; }
 }

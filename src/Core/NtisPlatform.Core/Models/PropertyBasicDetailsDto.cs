@@ -6,7 +6,6 @@ namespace NtisPlatform.Core.Models;
 /// </summary>
 public class PropertyBasicDetailsDto
 {
-    public int Id { get; set; }
     public int PropertyId { get; set; }
     public int WardId { get; set; }
     public string? WardNo { get; set; }
@@ -27,6 +26,10 @@ public class PropertyBasicDetailsDto
     // From PropertyMast
     public string? UPICId { get; set; }
     public string? SubZoneNo { get; set; }
+    public int? MoujaId { get; set; }
+    
+    // From MoujaMaster
+    public string? MoujaName { get; set; }
     
     // From PropertyMastDetails (Assessment)
     public string? WingNo { get; set; }

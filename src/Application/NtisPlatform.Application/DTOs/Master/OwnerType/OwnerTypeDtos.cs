@@ -11,13 +11,13 @@ public class OwnerTypeDto : BaseDtos
 public class CreateOwnerTypeDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "OwnerType_Name_Required")]
-    [StringLength(100, ErrorMessage = "OwnerType_Name_MaxLen_100")]
+    [StringLength(30, ErrorMessage = "OwnerType_Name_MaxLen_30")]
     public string OwnerType { get; set; } = string.Empty;
 }
 
 public class UpdateOwnerTypeDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "OwnerType_Name_Required")]
-    [StringLength(100, ErrorMessage = "OwnerType_Name_MaxLen_100")]
+    [StringLength(30, ErrorMessage = "OwnerType_Name_MaxLen_30")]
     public string OwnerType { get; set; } = string.Empty;
 }

@@ -9,20 +9,9 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMastDetails", Schema = "PTIS")]
 public class PropertyAssessmentEntity : BaseEntity
 {
-    [Key]
-    public int Id { get; set; }
-
-    public int PropertyId { get; set; }
+    [Key]    public int PropertyId { get; set; }
 
     public int? OwnerTypeId { get; set; }
-
-    [Column(TypeName = "nvarchar(30)")]
-    public string? WingName { get; set; }
-
-    public int? WingId { get; set; }
-
-    [StringLength(20, ErrorMessage = "WingNo cannot exceed 20 characters.")]
-    public string? WingNo { get; set; }
 
     [Column(TypeName = "nvarchar(400)")]
     public string? AssessmentRemark { get; set; }
@@ -40,13 +29,7 @@ public class PropertyAssessmentEntity : BaseEntity
     public string? AdharCardNo { get; set; }
 
     [Column(TypeName = "varchar(13)")]
-    public string? ManagerMobileNo { get; set; }
-
-    [Column(TypeName = "varchar(13)")]
     public string? RenterMobileNo { get; set; }
-
-    [Column(TypeName = "varchar(13)")]
-    public string? SecretaryMobileNo { get; set; }
 
     [Column(TypeName = "nvarchar(10)")]
     public string? AssessmentNo { get; set; }
@@ -66,6 +49,9 @@ public class PropertyAssessmentEntity : BaseEntity
 
     [Column(TypeName = "nvarchar(20)")]
     public string? BlockNo { get; set; }
+
+    [Column(TypeName = "nvarchar(50)")]
+    public string? WingNo { get; set; }
 
     public int? UsageCategoryId { get; set; }
 
@@ -90,4 +76,9 @@ public class PropertyAssessmentEntity : BaseEntity
     /// Indicates whether the entity is marked for deletion
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
+
+    /// <summary>
+    /// Date when marked for deletion
+    /// </summary>
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

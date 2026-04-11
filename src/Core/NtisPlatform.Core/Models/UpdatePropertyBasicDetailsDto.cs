@@ -67,4 +67,7 @@ public class UpdatePropertyBasicDetailsDto
 
     [StringLength(100, ErrorMessage = "WingName cannot exceed 100 characters.")]
     public string? WingName { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "MoujaId must be greater than 0.")]
+    public int? MoujaId { get; set; }
 }

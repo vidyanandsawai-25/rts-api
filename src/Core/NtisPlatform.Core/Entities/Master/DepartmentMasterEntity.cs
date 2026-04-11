@@ -7,10 +7,7 @@ public class DepartmentMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the department
-    /// </summary>
-    public int Id { get; set; }
-
-    /// <summary>
+    /// </summary>    /// <summary>
     /// Unique code for the department
     /// </summary>
     public string? DepartmentCode { get; set; } 

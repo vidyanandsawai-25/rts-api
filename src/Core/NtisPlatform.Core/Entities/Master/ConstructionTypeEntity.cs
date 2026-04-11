@@ -5,11 +5,9 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class ConstructionTypeEntity :BaseEntity
 {
-    public int Id { get; set; } = 0;
     public string ConstructionCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string? SearchKey { get; set; } = string.Empty;
     public int? SearchSequence { get; set; } = 0;
-
 
 }

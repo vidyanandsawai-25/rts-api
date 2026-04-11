@@ -9,9 +9,6 @@ namespace NtisPlatform.Core.Entities.Master;
 [Table("OwnerTypeMaster", Schema = "PTIS")]
 public class OwnerTypeMasterEntity : BaseEntity
 {
-    [Key]
-    public int Id { get; set; }
-
-    [Column(TypeName = "nvarchar(100)")]
+    [Key]    [Column(TypeName = "nvarchar(100)")]
     public string? OwnerType { get; set; }
 }

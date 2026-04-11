@@ -993,7 +993,7 @@ public class PropertyServiceTests
         var Id = 1;
         var expectedDto = new PropertyBasicDetailsDto
         {
-            Id = Id,
+            PropertyId = Id,
             WardId = 10,
             WardNo = "W001",
             ZoneId = 5,
@@ -1024,7 +1024,7 @@ public class PropertyServiceTests
         var result = await _service.GetBasicDetailsAsync(Id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(Id, result.Id);
+        Assert.Equal(Id, result.PropertyId);
         Assert.Equal(10, result.WardId);
         Assert.Equal("W001", result.WardNo);
         Assert.Equal(5, result.ZoneId);
@@ -1079,7 +1079,7 @@ public class PropertyServiceTests
 
         var expectedDto = new PropertyBasicDetailsDto
         {
-            Id = Id,
+            PropertyId = Id,
             WardId = 79,
             TaxZoneId = 10,
             WingNo = "A",
@@ -1093,7 +1093,7 @@ public class PropertyServiceTests
         var result = await _service.UpdateBasicDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(Id, result.Id);
+        Assert.Equal(Id, result.PropertyId);
         Assert.Equal(79, result.WardId);
         Assert.Equal("A", result.WingNo);
         Assert.Equal(2000.0, result.PlotArea);
@@ -1126,7 +1126,7 @@ public class PropertyServiceTests
         var Id = 549357;
         var expectedDto = new PropertyKycDetailsDto
         {
-            Id = Id,
+            PropertyId = Id,
             OwnerTypeId = 1,
             OwnerType = "Individual",
             AdharCardNo = "321131311616",
@@ -1148,7 +1148,7 @@ public class PropertyServiceTests
         var result = await _service.GetKycDetailsAsync(Id, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(Id, result.Id);
+        Assert.Equal(Id, result.PropertyId);
         Assert.Equal(1, result.OwnerTypeId);
         Assert.Equal("Individual", result.OwnerType);
         Assert.Equal("321131311616", result.AdharCardNo);
@@ -1195,7 +1195,7 @@ public class PropertyServiceTests
 
         var expectedDto = new PropertyKycDetailsDto
         {
-            Id = Id,
+            PropertyId = Id,
             OwnerTypeId = 1,
             AdharCardNo = "321131311616",
             OwnerName = "Updated Name",
@@ -1210,7 +1210,7 @@ public class PropertyServiceTests
         var result = await _service.UpdateKycDetailsAsync(Id, dto, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(Id, result.Id);
+        Assert.Equal(Id, result.PropertyId);
         Assert.Equal(1, result.OwnerTypeId);
         Assert.Equal("321131311616", result.AdharCardNo);
         Assert.Equal("Updated Name", result.OwnerName);
@@ -1250,7 +1250,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             WardNo = "W001",
             ZoneId = 5,
@@ -1274,7 +1274,7 @@ public class PropertyBasicDetailsDtoTests
             PlotArea = 1500.25
         };
 
-        Assert.Equal(1, dto.Id);
+        Assert.Equal(1, dto.PropertyId);
         Assert.Equal(10, dto.WardId);
         Assert.Equal("W001", dto.WardNo);
         Assert.Equal(5, dto.ZoneId);
@@ -1303,7 +1303,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 1000.50,
@@ -1333,7 +1333,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1353,7 +1353,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1371,7 +1371,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             TaxZoneId = 1,
             TotalCarpetAreaSqMeter = 0,
@@ -1402,7 +1402,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto();
 
-        Assert.Equal(0, dto.Id);
+        Assert.Equal(0, dto.PropertyId);
         Assert.Equal(0, dto.WardId);
         Assert.Equal(0, dto.TaxZoneId);
         Assert.Equal(0, dto.TotalCarpetAreaSqMeter);
@@ -1414,7 +1414,7 @@ public class PropertyBasicDetailsDtoTests
     {
         var dto = new PropertyBasicDetailsDto
         {
-            Id = 1,
+            PropertyId = 1,
             WardId = 10,
             TaxZoneId = 1,
             PropertyNo = "PROP001",
@@ -1422,7 +1422,7 @@ public class PropertyBasicDetailsDtoTests
             TotalBuiltupAreaSqMeter = 600.0
         };
 
-        Assert.Equal(1, dto.Id);
+        Assert.Equal(1, dto.PropertyId);
         Assert.Equal("PROP001", dto.PropertyNo);
         Assert.Null(dto.PartitionNo);
         Assert.Null(dto.CategoryName);

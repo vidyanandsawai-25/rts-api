@@ -9,10 +9,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyDetails", Schema = "PTIS")]
 public class PropertyDetailsEntity : BaseEntity
 {
-    [Key]
-    public int Id { get; set; }
-
-    public int PropertyId { get; set; }
+    [Key]    public int PropertyId { get; set; }
 
     public int FloorId { get; set; }
 
@@ -83,4 +80,9 @@ public class PropertyDetailsEntity : BaseEntity
     /// Indicates whether the entity is marked for deletion
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
+
+    /// <summary>
+    /// Date when marked for deletion
+    /// </summary>
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

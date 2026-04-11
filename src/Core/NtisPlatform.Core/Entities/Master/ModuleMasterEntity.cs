@@ -7,10 +7,7 @@ public class ModuleMasterEntity : BaseEntity
 {
     /// <summary>
     /// Unique identifier for the module
-    /// </summary>
-    public int Id { get; set; }
-
-    /// <summary>
+    /// </summary>    /// <summary>
     /// Foreign key to the department this module belongs to
     /// </summary>
     public int DepartmentId { get; set; }

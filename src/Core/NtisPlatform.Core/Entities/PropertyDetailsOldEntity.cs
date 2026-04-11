@@ -11,9 +11,7 @@ namespace NtisPlatform.Core.Entities;
 public class PropertyDetailsOldEntity : BaseEntity
 {
     [Key]
-    public int Id { get; set; }
-
-    public int PropertyId { get; set; }
+    [Column("PropertyDetailsOldId")]    public int PropertyId { get; set; }
 
     [Column(TypeName = "nvarchar(10)")]
     public string? OldFloorId { get; set; }

@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace NtisPlatform.Core.Entities.Master
 {
     public class OfficeEntity : BaseEntity
-    {
-        public int Id { get; set; }
-        public string OfficeCode { get; set; } = string.Empty;
+    {        public string OfficeCode { get; set; } = string.Empty;
         public string OfficeName { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public string? Address { get; set; }

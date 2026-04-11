@@ -4,7 +4,6 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class RateSectionDetailsEntity : BaseEntity
 {
-    public int Id { get; set; }
     public int RateSectionId { get; set; }
     public int WardId { get; set; }
 

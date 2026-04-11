@@ -7,7 +7,6 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class FloorEntity :BaseEntity
 {
-    public int Id { get; set; }
     public string FloorCode { get; set; }
     public string Description { get; set; }
     public int? SequenceNo { get; set; }

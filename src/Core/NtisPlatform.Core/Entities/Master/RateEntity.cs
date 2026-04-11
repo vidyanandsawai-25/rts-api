@@ -5,8 +5,6 @@ namespace NtisPlatform.Core.Entities;
 
 public class RateEntity : BaseEntity
 {
-    public int Id { get; set; } = 0;
-
     public int FloorId { get; set; }
 
     public int ConstructionTypeId { get; set; }

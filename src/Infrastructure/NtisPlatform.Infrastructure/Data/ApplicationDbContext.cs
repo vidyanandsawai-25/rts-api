@@ -51,7 +51,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<GrievanceCategoryEntity> GrievanceCategory { get; set; } = null!;
     public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
-    public DbSet<PropertyCategoryEntity> PropertyCategory { get; set; } = null!;
+    public DbSet<PropertyCategoryEntity> PropertyCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeEntity> PropertyTypeMaster { get; set; } = null!;
     public DbSet<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = null!;
     public DbSet<PropertyDetailsEntity> PropertyDetails { get; set; } = null!;
@@ -611,18 +611,16 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<PropertyCategoryEntity>(entity =>
         {
-            entity.ToTable("PropertyCategory", "PTIS");
+            entity.ToTable("PropertyCategoryMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id)
-                  .HasColumnName("PropertyCategoryId")
-                  .ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyCategoryName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyCategoryName).IsRequired().HasMaxLength(50);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyCategoryName).IsUnique().HasDatabaseName("UQ_PropertyCategory_Name");
+            entity.HasIndex(e => e.PropertyCategoryName).IsUnique().HasDatabaseName("UQ_PropertyCategoryMaster_PropertyCategoryName");
         });
 
         // PropertyType configuration
@@ -646,8 +644,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.Id).IsRequired();
-            entity.Property(e => e.WingId);
-            entity.Property(e => e.WingNo).HasMaxLength(20);
             entity.Property(e => e.NoOfResidentialToilets);
             entity.Property(e => e.NoOfCommercialToilets);
             entity.Property(e => e.OwnerTypeId);

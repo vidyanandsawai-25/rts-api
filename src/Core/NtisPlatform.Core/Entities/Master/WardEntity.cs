@@ -1,5 +1,4 @@
-
-
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 /// <summary>
@@ -7,7 +6,6 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class WardEntity : BaseEntity
 {
-    public int Id { get; set; }
     public string WardNo { get; set; } = string.Empty;
     public int ZoneId { get; set; }
     public string? Description { get; set; }

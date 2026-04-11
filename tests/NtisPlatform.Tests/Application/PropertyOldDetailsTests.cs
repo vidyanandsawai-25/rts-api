@@ -3690,17 +3690,12 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 PropertyId = 549357,
                 OwnerTypeId = 2,
-                WingName = "West Wing",
-                WingId = 5,
-                WingNo = "W01",
                 AssessmentRemark = "Assessment remark",
                 SurveyRemark = "Survey remark",
                 FlatSystemRemark = "Flat system remark",
                 CombPropRemark = "Combined property remark",
                 AdharCardNo = "123456789012",
-                ManagerMobileNo = "9876543210",
                 RenterMobileNo = "8765432109",
-                SecretaryMobileNo = "7654321098",
                 AssessmentNo = "A001",
                 PrarupYadiPublishDate = now,
                 AntimYadiPublishDate = now.AddDays(30),
@@ -3728,17 +3723,12 @@ public class PropertyOldDetailsTests
             Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
             Assert.Equal(2, entity.OwnerTypeId);
-            Assert.Equal("West Wing", entity.WingName);
-            Assert.Equal(5, entity.WingId);
-            Assert.Equal("W01", entity.WingNo);
             Assert.Equal("Assessment remark", entity.AssessmentRemark);
             Assert.Equal("Survey remark", entity.SurveyRemark);
             Assert.Equal("Flat system remark", entity.FlatSystemRemark);
             Assert.Equal("Combined property remark", entity.CombPropRemark);
             Assert.Equal("123456789012", entity.AdharCardNo);
-            Assert.Equal("9876543210", entity.ManagerMobileNo);
             Assert.Equal("8765432109", entity.RenterMobileNo);
-            Assert.Equal("7654321098", entity.SecretaryMobileNo);
             Assert.Equal("A001", entity.AssessmentNo);
             Assert.Equal(now, entity.PrarupYadiPublishDate);
             Assert.Equal(now.AddDays(30), entity.AntimYadiPublishDate);
@@ -3773,17 +3763,12 @@ public class PropertyOldDetailsTests
             };
 
             Assert.Null(entity.OwnerTypeId);
-            Assert.Null(entity.WingName);
-            Assert.Null(entity.WingId);
-            Assert.Null(entity.WingNo);
             Assert.Null(entity.AssessmentRemark);
             Assert.Null(entity.SurveyRemark);
             Assert.Null(entity.FlatSystemRemark);
             Assert.Null(entity.CombPropRemark);
             Assert.Null(entity.AdharCardNo);
-            Assert.Null(entity.ManagerMobileNo);
             Assert.Null(entity.RenterMobileNo);
-            Assert.Null(entity.SecretaryMobileNo);
             Assert.Null(entity.AssessmentNo);
             Assert.Null(entity.PrarupYadiPublishDate);
             Assert.Null(entity.AntimYadiPublishDate);
@@ -3977,7 +3962,6 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 WingName = "West Wing",
                 WingId = 5,
-                BHKType = "3BHK",
                 SecretaryName = "Secretary Name",
                 SocietyName = "ABC Society",
                 ManagerName = "Manager Name",
@@ -3998,7 +3982,6 @@ public class PropertyOldDetailsTests
             Assert.Equal(1, entity.Id);
             Assert.Equal("West Wing", entity.WingName);
             Assert.Equal(5, entity.WingId);
-            Assert.Equal("3BHK", entity.BHKType);
             Assert.Equal("Secretary Name", entity.SecretaryName);
             Assert.Equal("ABC Society", entity.SocietyName);
             Assert.Equal("Manager Name", entity.ManagerName);
@@ -4027,7 +4010,6 @@ public class PropertyOldDetailsTests
 
             Assert.Null(entity.WingName);
             Assert.Null(entity.WingId);
-            Assert.Null(entity.BHKType);
             Assert.Null(entity.SecretaryName);
             Assert.Null(entity.SocietyName);
             Assert.Null(entity.ManagerName);
@@ -4414,7 +4396,7 @@ public class PropertyOldDetailsTests
             context.WardMaster.Add(ward);
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
-            context.PropertyCategory.Add(category);
+            context.PropertyCategoryMaster.Add(category);
             context.PropertyTypeMaster.Add(propertyType);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
@@ -4689,7 +4671,7 @@ public class PropertyOldDetailsTests
         }
 
         [Fact]
-        public async Task GetBasicDetailsAsync_WithAssessmentWingId_FallbackWhenNoSociety()
+        public async Task GetBasicDetailsAsync_WithAssessmentWingNo_ReturnsWingNoFromAssessment()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -4714,7 +4696,6 @@ public class PropertyOldDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingId = 7,
                 WingNo = "Assessment Wing",
                 IsActive = true,
                 MarkedForDeletion = false
@@ -4730,8 +4711,7 @@ public class PropertyOldDetailsTests
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
-            Assert.Equal(7, result.WingId); // Should fallback to assessment WingId
-            Assert.Equal("Assessment Wing", result.WingNo);
+            Assert.Equal("Assessment Wing", result.WingNo); // Should return WingNo from assessment
         }
 
         [Fact]
@@ -4804,8 +4784,6 @@ public class PropertyOldDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingId = 1,
-                WingNo = "OLD",
                 NoOfResidentialToilets = 1,
                 NoOfCommercialToilets = 0,
                 IsActive = true,

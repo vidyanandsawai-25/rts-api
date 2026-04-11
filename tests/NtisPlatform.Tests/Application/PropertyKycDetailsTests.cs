@@ -673,8 +673,6 @@ public class PropertyKycDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingId = 5,
-                WingNo = "A",
                 NoOfResidentialToilets = 2,
                 NoOfCommercialToilets = 1,
                 OwnerTypeId = 1,
@@ -687,8 +685,6 @@ public class PropertyKycDetailsTests
 
             Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
-            Assert.Equal(5, entity.WingId);
-            Assert.Equal("A", entity.WingNo);
             Assert.Equal(2, entity.NoOfResidentialToilets);
             Assert.Equal(1, entity.NoOfCommercialToilets);
             Assert.Equal(1, entity.Id);
@@ -895,7 +891,6 @@ public class PropertyKycDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingNo = "A",
                 IsActive = false, // Inactive
                 MarkedForDeletion = false
             };

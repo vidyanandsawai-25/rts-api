@@ -9,7 +9,6 @@ public class BaseEntityTests
 {
     private class TestEntity : BaseEntity
     {
-        public int Id { get; set; }
         public string TestProperty { get; set; } = string.Empty;
     }
 

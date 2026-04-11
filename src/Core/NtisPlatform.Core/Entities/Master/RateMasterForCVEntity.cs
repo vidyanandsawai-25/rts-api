@@ -4,10 +4,10 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace NtisPlatform.Core.Entities;
 
 
+
+
 public class RateMasterForCVEntity : BaseEntity
 {
-    public int Id { get; set; } = 0;
-
     public int MoujaId { get; set; } 
 
     [MaxLength(20)]

@@ -15,7 +15,7 @@ public class PropertyQueryParameters : BaseQueryParameters
     /// </summary>
     [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public int? PropertyId { get; set; }
+    public int? Id { get; set; }
 
     /// <summary>
     /// Filter by TaxZoneId

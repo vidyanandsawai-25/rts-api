@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
@@ -5,7 +7,6 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class WingEntity : BaseEntity
 {
-    public int Id { get; set; }
     public string WingNo { get; set; } = string.Empty;
     public int? SequenceNo { get; set; }
 }

@@ -30,7 +30,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Api\" />
+	  <Folder Include="Api\Extensions\" />
 	  <Folder Include="Integration\" />
 	</ItemGroup>
 

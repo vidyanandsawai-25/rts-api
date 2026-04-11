@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
@@ -53,12 +54,12 @@ public static class ServiceCollectionExtensions
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
- 
- 
+
+
         // TODO: Add other providers when implemented
         // services.AddScoped<IAuthenticationProvider, AzureAdAuthProvider>();
         // services.AddScoped<IAuthenticationProvider, GoogleAuthProvider>();
- 
+
 
         // CRUD Services
         services.AddScoped<IULBMasterService, ULBMasterService>();
@@ -97,9 +98,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         // Localization (DB-backed)
-        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();       
+        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
-        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();        
+        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
@@ -115,23 +116,45 @@ public static class ServiceCollectionExtensions
 
         services.AddSwaggerGen(options =>
         {
-            options.SwaggerDoc("v1", new()
+            options.SwaggerDoc("v1", new OpenApiInfo
             {
                 Title = "NTIS Platform API",
                 Version = "v1",
-                Description = "Enterprise-grade .NET API with clean architecture",
-                Contact = new() { Name = "NTIS Platform Team" }
+                Description = "Enterprise-grade .NET API with clean architecture\n\n" +
+                              "**To test authorized endpoints:**\n" +
+                              "1. Use /api/auth/login endpoint to get JWT token\n" +
+                              "2. Click the 'Authorize' button (??) at top right\n" +
+                              "3. Enter: Bearer YOUR_JWT_TOKEN\n" +
+                              "4. Click 'Authorize' then 'Close'\n" +
+                              "5. Test your protected endpoints",
+                Contact = new OpenApiContact { Name = "NTIS Platform Team" }
             });
 
-            // TODO: Add JWT authentication to Swagger
-            // options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-            // {
-            //     Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
-            //     Name = "Authorization",
-            //     In = ParameterLocation.Header,
-            //     Type = SecuritySchemeType.ApiKey,
-            //     Scheme = "Bearer"
-            // });
+            // Enable JWT Bearer authentication in Swagger UI - Adds "Authorize" button
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+            {
+                Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and your token. Example: \"Bearer eyJhbGc...\"",
+                Name = "Authorization",
+                In = ParameterLocation.Header,
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT"
+            });
+
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
+                {
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference
+                        {
+                            Type = ReferenceType.SecurityScheme,
+                            Id = "Bearer"
+                        }
+                    },
+                    Array.Empty<string>()
+                }
+            });
         });
 
         services.AddCors(options =>
@@ -141,7 +164,7 @@ public static class ServiceCollectionExtensions
                 policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
                       .AllowAnyMethod()
                       .AllowAnyHeader();
-                      // Note: AllowCredentials removed - tokens are sent in Authorization header only
+                // Note: AllowCredentials removed - tokens are sent in Authorization header only
             });
         });
 

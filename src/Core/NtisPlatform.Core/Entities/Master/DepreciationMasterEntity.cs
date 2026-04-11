@@ -8,9 +8,6 @@ namespace NtisPlatform.Core.Entities;
 public class DepreciationMasterEntity : BaseEntity
 {
     [Required]
-    public int Id { get; set; }
-
-    [Required]
     [StringLength(7)]
     public string ConstructionTypeId { get; set; }=string.Empty;
 

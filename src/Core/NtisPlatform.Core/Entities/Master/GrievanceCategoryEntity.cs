@@ -7,10 +7,7 @@ namespace NtisPlatform.Core.Entities.Master
     {
         /// <summary>
         /// Unique identifier for the grievance category
-        /// </summary>
-        public int Id { get; set; }
-
-        /// <summary>
+        /// </summary>        /// <summary>
         /// Unique code identifying the grievance category
         /// </summary>
         public string CategoryCode { get; set; } = null!;
