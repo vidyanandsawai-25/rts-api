@@ -757,9 +757,9 @@ public class PropertyKycDetailsTests
         }
 
         [Fact]
-        public void PropertyTypeEntity_Properties_GetSet_WorksCorrectly()
+        public void PropertyTypeMasterEntity_Properties_GetSet_WorksCorrectly()
         {
-            var entity = new PropertyTypeEntity
+            var entity = new PropertyTypeMasterEntity
             {
                 Id = 1,
                 PropertyDescription = "Apartment",

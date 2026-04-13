@@ -4,18 +4,22 @@ using NtisPlatform.Core.Entities.Master;
 namespace NtisPlatform.Tests.Core.Entities;
 
 /// <summary>
-/// Comprehensive tests for PropertyTypeEntity to achieve 100% code coverage
+/// Comprehensive tests for PropertyTypeMasterEntity to achieve 100% code coverage
 /// </summary>
-public class PropertyTypeEntityTests
+public class PropertyTypeMasterEntityTests
 {
     [Fact]
-    public void PropertyTypeEntity_AllProperties_GetSet_WorksCorrectly()
+    public void PropertyTypeMasterEntity_AllProperties_GetSet_WorksCorrectly()
     {
         var now = DateTime.Now;
-        var entity = new PropertyTypeEntity
+        var entity = new PropertyTypeMasterEntity
         {
             Id = 1,
             PropertyDescription = "Residential Apartment",
+            Type = "R",
+            PropertyTypeGroup = "Residential",
+            SearchSequence = 1,
+            PropertyTypeCategoryId = 1,
             IsActive = true,
             CreatedBy = 100,
             CreatedDate = now,
@@ -25,6 +29,10 @@ public class PropertyTypeEntityTests
 
         Assert.Equal(1, entity.Id);
         Assert.Equal("Residential Apartment", entity.PropertyDescription);
+        Assert.Equal("R", entity.Type);
+        Assert.Equal("Residential", entity.PropertyTypeGroup);
+        Assert.Equal(1, entity.SearchSequence);
+        Assert.Equal(1, entity.PropertyTypeCategoryId);
         Assert.True(entity.IsActive);
         Assert.Equal(100, entity.CreatedBy);
         Assert.Equal(now, entity.CreatedDate);
@@ -33,19 +41,23 @@ public class PropertyTypeEntityTests
     }
 
     [Fact]
-    public void PropertyTypeEntity_InheritsFromBaseEntity()
+    public void PropertyTypeMasterEntity_InheritsFromBaseEntity()
     {
-        var entity = new PropertyTypeEntity();
+        var entity = new PropertyTypeMasterEntity();
         Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 
     [Fact]
-    public void PropertyTypeEntity_DefaultValues_SetCorrectly()
+    public void PropertyTypeMasterEntity_DefaultValues_SetCorrectly()
     {
-        var entity = new PropertyTypeEntity();
+        var entity = new PropertyTypeMasterEntity();
 
         Assert.Equal(0, entity.Id);
-        Assert.Null(entity.PropertyDescription);
+        Assert.Equal(string.Empty, entity.PropertyDescription);
+        Assert.Equal(string.Empty, entity.Type);
+        Assert.Equal(string.Empty, entity.PropertyTypeGroup);
+        Assert.Equal(0, entity.SearchSequence);
+        Assert.Null(entity.PropertyTypeCategoryId);
         Assert.True(entity.IsActive);
         Assert.Null(entity.CreatedBy);
         Assert.Null(entity.CreatedDate);
@@ -54,22 +66,9 @@ public class PropertyTypeEntityTests
     }
 
     [Fact]
-    public void PropertyTypeEntity_PropertyDescription_CanBeNull()
+    public void PropertyTypeMasterEntity_PropertyDescription_CanBeEmptyString()
     {
-        var entity = new PropertyTypeEntity
-        {
-            Id = 1,
-            PropertyDescription = null,
-            IsActive = true
-        };
-
-        Assert.Null(entity.PropertyDescription);
-    }
-
-    [Fact]
-    public void PropertyTypeEntity_PropertyDescription_CanBeEmptyString()
-    {
-        var entity = new PropertyTypeEntity
+        var entity = new PropertyTypeMasterEntity
         {
             Id = 1,
             PropertyDescription = string.Empty,
@@ -80,20 +79,20 @@ public class PropertyTypeEntityTests
     }
 
     [Fact]
-    public void PropertyTypeEntity_IsActive_BothValues_WorkCorrectly()
+    public void PropertyTypeMasterEntity_IsActive_BothValues_WorkCorrectly()
     {
-        var entity1 = new PropertyTypeEntity { IsActive = true };
-        var entity2 = new PropertyTypeEntity { IsActive = false };
+        var entity1 = new PropertyTypeMasterEntity { IsActive = true };
+        var entity2 = new PropertyTypeMasterEntity { IsActive = false };
 
         Assert.True(entity1.IsActive);
         Assert.False(entity2.IsActive);
     }
 
     [Fact]
-    public void PropertyTypeEntity_BaseEntityProperties_WorkCorrectly()
+    public void PropertyTypeMasterEntity_BaseEntityProperties_WorkCorrectly()
     {
         var now = DateTime.Now;
-        var entity = new PropertyTypeEntity
+        var entity = new PropertyTypeMasterEntity
         {
             Id = 100,
             CreatedBy = 1,
@@ -110,10 +109,10 @@ public class PropertyTypeEntityTests
     }
 
     [Fact]
-    public void PropertyTypeEntity_LongDescription_WorksCorrectly()
+    public void PropertyTypeMasterEntity_LongDescription_WorksCorrectly()
     {
         var longDescription = new string('A', 100);
-        var entity = new PropertyTypeEntity
+        var entity = new PropertyTypeMasterEntity
         {
             PropertyDescription = longDescription
         };

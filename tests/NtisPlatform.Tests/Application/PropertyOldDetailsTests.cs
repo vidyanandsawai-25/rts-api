@@ -4382,7 +4382,7 @@ public class PropertyOldDetailsTests
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
-            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
             var wing = new WingEntity { Id = 5, WingNo = "A", IsActive = true }; // Add WingEntity for WingNo lookup
 
             var property = new PropertyEntity
@@ -4398,7 +4398,7 @@ public class PropertyOldDetailsTests
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyCategoryMaster.Add(category);
-            context.PropertyTypeMaster.Add(propertyType);
+            context.PropertyTypeMasters.Add(propertyType);
             context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();

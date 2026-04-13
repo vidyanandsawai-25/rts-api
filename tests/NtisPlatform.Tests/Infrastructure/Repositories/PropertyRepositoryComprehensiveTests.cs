@@ -26,7 +26,7 @@ public class PropertyRepositoryComprehensiveTests
         var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 1, Description = "Ward 79", IsActive = true };
         var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
         var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
-        var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+        var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
         var mouja = new MoujaEntity { Id = 3, MoujaName = "Mouja 1", IsActive = true };
 
         var property = new PropertyEntity
@@ -52,7 +52,7 @@ public class PropertyRepositoryComprehensiveTests
         context.WardMaster.Add(ward);
         context.TaxZoneMaster.Add(taxZone);
         context.PropertyCategoryMaster.Add(category);
-        context.PropertyTypeMaster.Add(propertyType);
+        context.PropertyTypeMasters.Add(propertyType);
         context.MoujaEntity.Add(mouja);
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();

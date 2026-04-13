@@ -36,7 +36,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                         join pc in _context.PropertyCategoryMaster on p.CategoryId equals pc.Id into categoryJoin
                         from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                        join pt in _context.PropertyTypeMaster on p.PropertyTypeId equals pt.Id into typeJoin
+                        join pt in _context.PropertyTypeMasters on p.PropertyTypeId equals pt.Id into typeJoin
                         from pt in typeJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
                         join m in _context.MoujaEntity on p.MoujaId equals m.Id into moujaJoin

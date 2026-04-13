@@ -52,7 +52,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyEntity> PropertyMast { get; set; } = null!;
     public DbSet<ULBMasterEntity> ULBMasters { get; set; } = null!;
     public DbSet<PropertyCategoryEntity> PropertyCategoryMaster { get; set; } = null!;
-    public DbSet<PropertyTypeEntity> PropertyTypeMaster { get; set; } = null!;
     public DbSet<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = null!;
     public DbSet<PropertyDetailsEntity> PropertyDetails { get; set; } = null!;
     public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
@@ -65,6 +64,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
+    public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
@@ -622,33 +622,38 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyCategoryName).IsUnique().HasDatabaseName("UQ_PropertyCategoryMaster_PropertyCategoryName");
         });
 
-        // PropertyType configuration
-        modelBuilder.Entity<PropertyTypeEntity>(entity =>
-        {
-            entity.ToTable("PropertyTypeMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyDescription).HasMaxLength(100);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-        });
-
         // PropertyTypeCategory configuration
         modelBuilder.Entity<PropertyTypeCategoryEntity>(entity =>
         {
             entity.ToTable("PropertyTypeCategoryMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyTypeCategory).HasMaxLength(100);
+            entity.Property(e => e.PropertyTypeCategory).IsRequired().HasMaxLength(100);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyTypeCategory).IsUnique().HasDatabaseName("UQ_PropertyTypeCategoryMaster_PropertyTypeCategory");
+        });
+
+        // PropertyTypeMaster configuration
+        modelBuilder.Entity<PropertyTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("PropertyTypeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyDescription).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Type).HasMaxLength(5);
+            entity.Property(e => e.PropertyTypeGroup).HasMaxLength(50);
+            entity.Property(e => e.SearchSequence);
+            entity.Property(e => e.PropertyTypeCategoryId);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyDescription).IsUnique().HasDatabaseName("UQ_PropertyTypeMaster_PropertyDescription");
         });
 
         // PropertyAssessment configuration (PropertyMastDetails table)

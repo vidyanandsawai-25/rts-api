@@ -216,7 +216,7 @@ public class PropertyBasicDetailsTests
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
-            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
             
             var property = new PropertyEntity
             {
@@ -235,7 +235,7 @@ public class PropertyBasicDetailsTests
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyCategoryMaster.Add(category);
-            context.PropertyTypeMaster.Add(propertyType);
+            context.PropertyTypeMasters.Add(propertyType);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
@@ -1058,7 +1058,7 @@ public class PropertyBasicDetailsTests
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
-            var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
             var mouja = new MoujaEntity { Id = 3, Year = 2023, MoujaName = "Complete Test Mouja", IsActive = true };
 
             var property = new PropertyEntity
@@ -1074,7 +1074,7 @@ public class PropertyBasicDetailsTests
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyCategoryMaster.Add(category);
-            context.PropertyTypeMaster.Add(propertyType);
+            context.PropertyTypeMasters.Add(propertyType);
             context.MoujaEntity.Add(mouja);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
