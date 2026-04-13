@@ -4383,6 +4383,7 @@ public class PropertyOldDetailsTests
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
             var propertyType = new PropertyTypeEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var wing = new WingEntity { Id = 5, WingNo = "A", IsActive = true }; // Add WingEntity for WingNo lookup
 
             var property = new PropertyEntity
             {
@@ -4398,6 +4399,7 @@ public class PropertyOldDetailsTests
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyCategoryMaster.Add(category);
             context.PropertyTypeMaster.Add(propertyType);
+            context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
@@ -4681,13 +4683,23 @@ public class PropertyOldDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var wing = new WingEntity { Id = 1, WingNo = "Assessment Wing", IsActive = true };
 
             var property = new PropertyEntity
             {
                 Id = 549357,
                 WardId = 79,
                 TaxZoneId = 10,
-                SocietyDetailId = null, // No society linked
+                SocietyDetailId = 1, // Linked to society
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            var society = new SocietyDetailsEntity
+            {
+                Id = 1,
+                PropertyId = 549357,
+                WingId = 1, // Linked to WingEntity
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -4696,14 +4708,15 @@ public class PropertyOldDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                WingNo = "Assessment Wing",
                 IsActive = true,
                 MarkedForDeletion = false
             };
 
             context.WardMaster.Add(ward);
             context.TaxZoneMaster.Add(taxZone);
+            context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
+            context.SocietyDetailsMast.Add(society);
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
@@ -4711,7 +4724,7 @@ public class PropertyOldDetailsTests
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
-            Assert.Equal("Assessment Wing", result.WingNo); // Should return WingNo from assessment
+            Assert.Equal("Assessment Wing", result.WingNo); // Should return WingNo from SocietyDetailsMast via WingEntity
         }
 
         [Fact]
@@ -4770,6 +4783,7 @@ public class PropertyOldDetailsTests
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var wing = new WingEntity { Id = 5, WingNo = "NEW", IsActive = true };
 
             var property = new PropertyEntity
             {
@@ -4793,6 +4807,7 @@ public class PropertyOldDetailsTests
             context.WardMaster.Add(ward);
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
+            context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
@@ -4818,6 +4833,11 @@ public class PropertyOldDetailsTests
             // Verify UPDATE happened (still 1 record)
             var assessmentCount = await context.PropertyMastDetails.CountAsync();
             Assert.Equal(1, assessmentCount);
+            
+            // Verify Society was created and linked to WingEntity
+            var society = await context.SocietyDetailsMast.FirstOrDefaultAsync(s => s.PropertyId == 549357);
+            Assert.NotNull(society);
+            Assert.Equal(5, society.WingId);
         }
     }
 

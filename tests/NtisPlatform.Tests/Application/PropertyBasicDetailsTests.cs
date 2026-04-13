@@ -356,6 +356,7 @@ public class PropertyBasicDetailsTests
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true }; // Add WingEntity for WingNo lookup
             var property = new PropertyEntity
             {
                 Id = 549357,
@@ -368,6 +369,7 @@ public class PropertyBasicDetailsTests
             context.WardMaster.Add(ward);
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
+            context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
@@ -392,6 +394,11 @@ public class PropertyBasicDetailsTests
             // Verify INSERT happened
             var assessmentCount = await context.PropertyMastDetails.CountAsync();
             Assert.Equal(1, assessmentCount);
+            
+            // Verify Society was created and linked to WingEntity
+            var society = await context.SocietyDetailsMast.FirstOrDefaultAsync(s => s.PropertyId == 549357);
+            Assert.NotNull(society);
+            Assert.Equal(1, society.WingId);
         }
 
         [Fact]
@@ -406,6 +413,7 @@ public class PropertyBasicDetailsTests
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var zone = new ZoneEntity { Id = 5, ZoneNo = "Z5", Description = "Zone 5", IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+            var wing = new WingEntity { Id = 1, WingNo = "NEW", IsActive = true }; // Add WingEntity for WingNo lookup
             var property = new PropertyEntity
             {
                 Id = 549357,
@@ -426,6 +434,7 @@ public class PropertyBasicDetailsTests
             context.WardMaster.Add(ward);
             context.ZoneMaster.Add(zone);
             context.TaxZoneMaster.Add(taxZone);
+            context.Set<WingEntity>().Add(wing);
             context.PropertyMast.Add(property);
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();

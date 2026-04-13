@@ -10,8 +10,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMastOld", Schema = "PTIS")]
 public class PropertyMastOldEntity : BaseEntity
 {
-    [Key]
-    [Column("PropertyOldId")]    public int? PropertyId { get; set; }
+    public int? PropertyId { get; set; }
 
     [Column(TypeName = "nvarchar(10)")]
     public string? OldWardNo { get; set; }
@@ -111,4 +110,6 @@ public class PropertyMastOldEntity : BaseEntity
     public string? OldMobileNo { get; set; }
 
     public bool MarkedForDeletion { get; set; } = false;
+
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

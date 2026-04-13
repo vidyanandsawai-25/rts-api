@@ -84,7 +84,7 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
-    public async Task GetBasicDetailsAsync_WithAssessmentAndNoSociety_ReturnsAssessmentWingNo()
+    public async Task GetBasicDetailsAsync_WithSocietyAndWing_ReturnsWingNoFromWingMaster()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -94,13 +94,23 @@ public class PropertyRepositoryComprehensiveTests
 
         var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 1, IsActive = true };
         var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+        var wing = new WingEntity { Id = 1, WingNo = "AssessmentWing", IsActive = true };
 
         var property = new PropertyEntity
         {
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
-            SocietyDetailId = null,
+            SocietyDetailId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var society = new SocietyDetailsEntity
+        {
+            Id = 1,
+            PropertyId = 549357,
+            WingId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -109,7 +119,6 @@ public class PropertyRepositoryComprehensiveTests
         {
             Id = 1,
             PropertyId = 549357,
-            WingNo = "AssessmentWing",
             NoOfResidentialToilets = 2,
             NoOfCommercialToilets = 1,
             IsActive = true,
@@ -118,7 +127,9 @@ public class PropertyRepositoryComprehensiveTests
 
         context.WardMaster.Add(ward);
         context.TaxZoneMaster.Add(taxZone);
+        context.Set<WingEntity>().Add(wing);
         context.PropertyMast.Add(property);
+        context.SocietyDetailsMast.Add(society);
         context.PropertyMastDetails.Add(assessment);
         await context.SaveChangesAsync();
 
@@ -132,7 +143,7 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
-    public async Task UpdateBasicDetailsAsync_WithWingNo_UpdatesAssessmentWingNo()
+    public async Task UpdateBasicDetailsAsync_WithWingNo_CreatesSocietyAndLinksWingNo()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -142,6 +153,7 @@ public class PropertyRepositoryComprehensiveTests
 
         var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 1, IsActive = true };
         var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+        var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true };
 
         var property = new PropertyEntity
         {
@@ -154,6 +166,7 @@ public class PropertyRepositoryComprehensiveTests
 
         context.WardMaster.Add(ward);
         context.TaxZoneMaster.Add(taxZone);
+        context.Set<WingEntity>().Add(wing);
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
@@ -162,21 +175,21 @@ public class PropertyRepositoryComprehensiveTests
         {
             WardId = 79,
             TaxZoneId = 10,
-            WingNo = "NewWing"
+            WingNo = "A"
         };
 
         var result = await repository.UpdateBasicDetailsAsync(549357, dto);
 
         Assert.NotNull(result);
-        Assert.Equal("NewWing", result.WingNo);
+        Assert.Equal("A", result.WingNo);
 
-        var assessment = await context.PropertyMastDetails.FirstOrDefaultAsync(a => a.PropertyId == 549357);
-        Assert.NotNull(assessment);
-        Assert.Equal("NewWing", assessment.WingNo);
+        var society = await context.SocietyDetailsMast.FirstOrDefaultAsync(s => s.PropertyId == 549357);
+        Assert.NotNull(society);
+        Assert.Equal(1, society.WingId);
     }
 
     [Fact]
-    public async Task UpdateBasicDetailsAsync_ExistingAssessment_UpdatesWingNo()
+    public async Task UpdateBasicDetailsAsync_ExistingSociety_UpdatesWingNoViaSociety()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -186,29 +199,34 @@ public class PropertyRepositoryComprehensiveTests
 
         var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 1, IsActive = true };
         var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
+        var oldWing = new WingEntity { Id = 1, WingNo = "OldWing", IsActive = true };
+        var newWing = new WingEntity { Id = 2, WingNo = "UpdatedWing", IsActive = true };
 
         var property = new PropertyEntity
         {
             Id = 549357,
             WardId = 79,
             TaxZoneId = 10,
+            SocietyDetailId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
 
-        var assessment = new PropertyAssessmentEntity
+        var society = new SocietyDetailsEntity
         {
             Id = 1,
             PropertyId = 549357,
-            WingNo = "OldWing",
+            WingId = 1,
             IsActive = true,
             MarkedForDeletion = false
         };
 
         context.WardMaster.Add(ward);
         context.TaxZoneMaster.Add(taxZone);
+        context.Set<WingEntity>().Add(oldWing);
+        context.Set<WingEntity>().Add(newWing);
         context.PropertyMast.Add(property);
-        context.PropertyMastDetails.Add(assessment);
+        context.SocietyDetailsMast.Add(society);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -224,9 +242,9 @@ public class PropertyRepositoryComprehensiveTests
         Assert.NotNull(result);
         Assert.Equal("UpdatedWing", result.WingNo);
 
-        var updatedAssessment = await context.PropertyMastDetails.FindAsync(1);
-        Assert.NotNull(updatedAssessment);
-        Assert.Equal("UpdatedWing", updatedAssessment.WingNo);
+        var updatedSociety = await context.SocietyDetailsMast.FindAsync(1);
+        Assert.NotNull(updatedSociety);
+        Assert.Equal(2, updatedSociety.WingId);
     }
 
     [Fact]

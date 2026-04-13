@@ -302,6 +302,171 @@ public class ComprehensiveControllerTests
 
     #endregion
 
+    #region PropertyTypeCategoryController Tests
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_GetAll_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var query = new PropertyTypeCategoryQueryParameters();
+        var pagedResult = new PagedResult<PropertyTypeCategoryDto>(new List<PropertyTypeCategoryDto>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_GetById_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var dto = new PropertyTypeCategoryDto { Id = 1, PropertyTypeCategory = "Residential" };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_GetById_NotFound_ReturnsNotFound()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyTypeCategoryDto?)null);
+
+        var result = await controller.GetById(999, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Create_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreatePropertyTypeCategoryDto { PropertyTypeCategory = "Commercial" };
+        var resultDto = new PropertyTypeCategoryDto { Id = 1, PropertyTypeCategory = "Commercial" };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Create_DuplicateEntry_ReturnsConflict()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreatePropertyTypeCategoryDto { PropertyTypeCategory = "Duplicate" };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Duplicate key violation"));
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        Assert.NotNull(conflictResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Update_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdatePropertyTypeCategoryDto { PropertyTypeCategory = "Updated" };
+        var resultDto = new PropertyTypeCategoryDto { Id = 1, PropertyTypeCategory = "Updated" };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Update_NotFound_ReturnsOkWithFailure()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdatePropertyTypeCategoryDto { PropertyTypeCategory = "Test" };
+
+        mockService.Setup(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyTypeCategoryDto?)null);
+
+        var result = await controller.Update(999, updateDto, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTypeCategoryDto>>(okResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("not found", response.Message);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Delete_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public async Task PropertyTypeCategoryController_Delete_NotFound_ReturnsOkWithFailure()
+    {
+        var mockService = new Mock<IPropertyTypeCategoryService>();
+        var mockLogger = new Mock<ILogger<PropertyTypeCategoryController>>();
+        var controller = new PropertyTypeCategoryController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.Delete(999, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTypeCategoryDto>>(okResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("not found", response.Message);
+    }
+
+    #endregion
+
     #region CrudControllerExtensions Tests
 
     private class TestController : ControllerBase

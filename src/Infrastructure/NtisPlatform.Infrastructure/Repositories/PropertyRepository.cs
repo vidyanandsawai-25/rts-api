@@ -65,11 +65,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .Select(x => new
             {
                 PropertyDetailsId = x.Id,
-                x.Id,
                 x.PropertyId,
                 x.NoOfResidentialToilets,
-                x.NoOfCommercialToilets,
-                x.WingNo
+                x.NoOfCommercialToilets
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -99,7 +97,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 .FirstOrDefaultAsync(cancellationToken)
             : null;
 
-        // Resolve WingNo: Priority is society.WingId lookup, then fallback to assessment.WingNo
+        // Resolve WingNo from society.WingId lookup
         string? wingNo = null;
         if (society?.WingId.HasValue == true)
         {
@@ -107,11 +105,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 .Where(w => w.Id == society.WingId && w.IsActive)
                 .Select(w => w.WingNo)
                 .FirstOrDefaultAsync(cancellationToken);
-        }
-        // Fallback to assessment WingNo if not found via society
-        if (wingNo == null)
-        {
-            wingNo = assessment?.WingNo;
         }
 
         // Build and return DTO
@@ -224,14 +217,15 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         property.UpdatedDate = DateTime.Now;
         
-        // Step 4: Upsert PropertyMastDetails (assessment) - includes NoOfToilets and WingNo fields
+        // Step 4: Upsert PropertyMastDetails (assessment) - includes NoOfToilets fields only
+        // Note: WingNo is NOT stored in PropertyMastDetails, it's stored in SocietyDetailsMast
         var assessmentId = await _context.PropertyMastDetails
             .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .Select(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasAssessmentData = dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue || dto.WingNo != null;
+        bool hasAssessmentData = dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue;
 
         if (assessmentId > 0)
         {
@@ -246,9 +240,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 if (dto.NoOfCommercialToilets.HasValue)
                     assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
 
-                if (dto.WingNo != null)
-                    assessment.WingNo = dto.WingNo;
-
                 assessment.UpdatedDate = DateTime.Now;
             }
         }
@@ -260,7 +251,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 PropertyId = propertyId,
                 NoOfResidentialToilets = dto.NoOfResidentialToilets,
                 NoOfCommercialToilets = dto.NoOfCommercialToilets,
-                WingNo = dto.WingNo,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedDate = DateTime.Now

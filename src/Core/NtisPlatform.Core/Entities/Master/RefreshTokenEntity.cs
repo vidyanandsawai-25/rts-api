@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Entities.Master;
 [Table("RefreshToken", Schema = "CORE")]
 public class RefreshTokenEntity : BaseEntity
 {
-    [Key]    /// <summary>
+    /// <summary>
     /// The hashed refresh token value (stored using bcrypt hash for security)
     /// Never stores the plaintext token - only the hash for verification
     /// </summary>

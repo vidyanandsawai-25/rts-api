@@ -105,6 +105,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
+        services.AddScoped<IPropertyTypeCategoryService, PropertyTypeCategoryService>();
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();

@@ -64,9 +64,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
-
-
-	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
+    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     
@@ -637,27 +636,70 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
         });
 
+        // PropertyTypeCategory configuration
+        modelBuilder.Entity<PropertyTypeCategoryEntity>(entity =>
+        {
+            entity.ToTable("PropertyTypeCategoryMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyTypeCategory).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyTypeCategory).IsUnique().HasDatabaseName("UQ_PropertyTypeCategoryMaster_PropertyTypeCategory");
+        });
+
         // PropertyAssessment configuration (PropertyMastDetails table)
         modelBuilder.Entity<PropertyAssessmentEntity>(entity =>
         {
             entity.ToTable("PropertyMastDetails", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.OwnerTypeId);
+            entity.Property(e => e.AssessmentRemark).HasMaxLength(400);
+            entity.Property(e => e.SurveyRemark).HasMaxLength(400);
+            entity.Property(e => e.FlatSystemRemark).HasMaxLength(400);
+            entity.Property(e => e.CombPropRemark).HasMaxLength(400);
+            entity.Property(e => e.AdharCardNo).HasMaxLength(12);
+            entity.Property(e => e.RenterMobileNo).HasMaxLength(13);
+            entity.Property(e => e.AssessmentNo).HasMaxLength(10);
+            entity.Property(e => e.PrarupYadiPublishDate);
+            entity.Property(e => e.AntimYadiPublishDate);
+            entity.Property(e => e.PropertyRegDate);
+            entity.Property(e => e.ApplyTaxesFrom);
+            entity.Property(e => e.PartOCDate);
+            entity.Property(e => e.BHK).HasMaxLength(50);
+            entity.Property(e => e.BlockNo).HasMaxLength(20);
+            entity.Property(e => e.UsageCategoryId);
+            entity.Property(e => e.AlternativeEmailId).HasColumnName("AlternetivEmailId").HasMaxLength(100);
+            entity.Property(e => e.TotalBuiltupAreaSqFeet);
+            entity.Property(e => e.TotalBuiltupAreaSqMeter);
+            entity.Property(e => e.Latitude).HasMaxLength(20);
+            entity.Property(e => e.Longitude).HasMaxLength(20);
             entity.Property(e => e.NoOfResidentialToilets);
             entity.Property(e => e.NoOfCommercialToilets);
-            entity.Property(e => e.OwnerTypeId);
-            entity.Property(e => e.AdharCardNo).HasMaxLength(12);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.Id);
+            entity.HasIndex(e => e.PropertyId);
             
-            // Note: PropertyMastDetails has MarkedForDeletion but not MarkedForDeletionDate
-            // Only PropertyMast table (via IHardDeletable) has both columns
+            // Ignore columns that don't exist in database
+            // PropertyMastDetails table schema:
+            // ? MarkedForDeletion column EXISTS (mapped above)
+            // ? MarkedForDeletionDate column DOES NOT EXIST in database yet
+            // Entity has MarkedForDeletionDate property for IHardDeletable support,
+            // but we ignore it in EF Core to prevent SQL errors until column is added to database
+            entity.Ignore(e => e.MarkedForDeletionDate);
+            
+            // According to the actual database schema, WingNo does NOT exist in PropertyMastDetails table
+            // WingNo is stored in SocietyDetailsMast table instead
+            entity.Ignore(e => e.WingNo);
         });
 
         // PropertyDetails configuration
@@ -928,7 +970,37 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.UserNameNormalized);
             entity.HasIndex(e => e.Mail);
             entity.HasIndex(e => e.IsActive);
-			});
+		});
+
+        // RefreshToken configuration
+        modelBuilder.Entity<RefreshTokenEntity>(entity =>
+        {
+            entity.ToTable("RefreshToken", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.IsRevoked).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.ReplacedByTokenId);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Foreign key relationship
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.IsRevoked, e.ExpiresAt });
+        });
         modelBuilder.Entity<WingEntity>(entity =>
         {
             entity.ToTable("WingMaster", "PTIS");
@@ -947,11 +1019,8 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyMastOld", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id)
-                .HasColumnName("PropertyOldId")
-                .ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId)
-                .HasColumnName("PropertyId").IsRequired(false);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired(false);
             entity.Property(e => e.OldWardNo).HasMaxLength(10);
             entity.Property(e => e.OldPropertyNo).HasMaxLength(10);
             entity.Property(e => e.OldPartitionNo).HasMaxLength(10);
@@ -987,12 +1056,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OldWing).HasMaxLength(20);
             entity.Property(e => e.OldMobileNo).HasMaxLength(13);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.Id);
+            entity.HasIndex(e => e.PropertyId);
         });
 
         // PropertyDetailsOld configuration
@@ -1000,12 +1070,8 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyDetailsOld", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id)
-                .HasColumnName("PropertyDetailsOldId")
-                .ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId)
-                .HasColumnName("PropertyId")
-                .IsRequired();
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.OldFloorId).HasMaxLength(10);
             entity.Property(e => e.OldConstructionYear).HasMaxLength(4);
             entity.Property(e => e.OldConstructionTypeId).HasMaxLength(7);
@@ -1014,6 +1080,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OldCarpetAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.OldRegistration);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
