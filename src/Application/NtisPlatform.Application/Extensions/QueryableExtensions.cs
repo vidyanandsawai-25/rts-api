@@ -44,8 +44,26 @@ public static class QueryableExtensions
         TQuery queryParameters)
         where TQuery : BaseQueryParameters
     {
+        var entityType = typeof(TEntity);
+        
+        // If no SortBy specified, apply default sort by Id to avoid EF Core warning
         if (string.IsNullOrWhiteSpace(queryParameters.SortBy))
+        {
+            var idProperty = entityType.GetProperty("Id");
+            if (idProperty != null)
+            {
+                var parameter = Expression.Parameter(entityType, "x");
+                var propertyAccess = Expression.Property(parameter, idProperty);
+                var lambda = Expression.Lambda(propertyAccess, parameter);
+                
+                var defaultOrderByMethod = typeof(Queryable).GetMethods()
+                    .First(m => m.Name == "OrderBy" && m.GetParameters().Length == 2)
+                    .MakeGenericMethod(entityType, idProperty.PropertyType);
+                
+                return (IQueryable<TEntity>)defaultOrderByMethod.Invoke(null, new object[] { query, lambda })!;
+            }
             return query;
+        }
 
         var sortableFields = FilterExpressionBuilder.GetSortableFields<TQuery>();
         
@@ -54,7 +72,6 @@ public static class QueryableExtensions
             throw new FilterValidationException("SortBy", $"Field '{queryParameters.SortBy}' is not sortable. Allowed fields: {string.Join(", ", sortableFields)}");
         }
 
-        var entityType = typeof(TEntity);
         var property = entityType.GetProperty(queryParameters.SortBy, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
         
         if (property == null)
@@ -62,16 +79,16 @@ public static class QueryableExtensions
             throw new FilterValidationException("SortBy", $"Property '{queryParameters.SortBy}' not found on entity type '{entityType.Name}'");
         }
 
-        var parameter = Expression.Parameter(entityType, "x");
-        var propertyAccess = Expression.Property(parameter, property);
-        var lambda = Expression.Lambda(propertyAccess, parameter);
+        var param = Expression.Parameter(entityType, "x");
+        var propAccess = Expression.Property(param, property);
+        var lambdaExpr = Expression.Lambda(propAccess, param);
 
         var methodName = queryParameters.SortOrder?.ToLower() == "desc" ? "OrderByDescending" : "OrderBy";
         var orderByMethod = typeof(Queryable).GetMethods()
             .First(m => m.Name == methodName && m.GetParameters().Length == 2)
             .MakeGenericMethod(entityType, property.PropertyType);
 
-        return (IQueryable<TEntity>)orderByMethod.Invoke(null, new object[] { query, lambda })!;
+        return (IQueryable<TEntity>)orderByMethod.Invoke(null, new object[] { query, lambdaExpr })!;
     }
 
     public static async Task<PagedResult<TEntity>> ToPagedResultAsync<TEntity>(

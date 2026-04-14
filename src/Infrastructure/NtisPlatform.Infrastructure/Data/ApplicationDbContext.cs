@@ -68,6 +68,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    public DbSet<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidations { get; set; } = null!;
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1092,6 +1093,26 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PropertyDescriptionAndTypeOfUseValidation configuration
+        modelBuilder.Entity<PropertyDescriptionAndTypeOfUseValidationEntity>(entity =>
+        {
+            entity.ToTable("PropertyDescriptionAndTypeOfUseValidation", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyTypeId).IsRequired();
+            entity.Property(e => e.TypeOfUseId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Unique constraint on PropertyTypeId and TypeOfUseId combination
+            entity.HasIndex(e => new { e.PropertyTypeId, e.TypeOfUseId })
+                .IsUnique()
+                .HasDatabaseName("UQ_PropertyDescriptionAndTypeOfUseValidation");
         });
     }
 }

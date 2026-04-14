@@ -1,0 +1,8 @@
+using NtisPlatform.Application.DTOs.Master.PropertyDescriptionAndTypeOfUseValidation;
+using NtisPlatform.Core.Entities.Master;
+
+namespace NtisPlatform.Application.Interfaces.Master;
+
+public interface IPropertyDescriptionAndTypeOfUseValidationService : ICommonCrudService<PropertyDescriptionAndTypeOfUseValidationEntity, PropertyDescriptionAndTypeOfUseValidationDto, CreatePropertyDescriptionAndTypeOfUseValidationDto, UpdatePropertyDescriptionAndTypeOfUseValidationDto, PropertyDescriptionAndTypeOfUseValidationQueryParameters, int>
+{
+}

@@ -282,7 +282,7 @@ public class QueryableExtensionsTests
     }
 
     [Fact]
-    public void ApplySort_NoSortBy_ReturnsUnsorted()
+    public async Task ApplySort_NoSortBy_DefaultsSortById()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -290,14 +290,25 @@ public class QueryableExtensionsTests
 
         using var context = new ApplicationDbContext(options);
 
+        // Add entities with Ids in non-sequential order
+        context.PropertyMast.Add(new PropertyEntity { Id = 3, PropertyNo = "C", WardId = 1, TaxZoneId = 1, IsActive = true });
+        context.PropertyMast.Add(new PropertyEntity { Id = 1, PropertyNo = "A", WardId = 1, TaxZoneId = 1, IsActive = true });
+        context.PropertyMast.Add(new PropertyEntity { Id = 2, PropertyNo = "B", WardId = 1, TaxZoneId = 1, IsActive = true });
+        await context.SaveChangesAsync();
+
         var queryParams = new TestQueryParameters
         {
             SortBy = null
         };
 
-        var result = context.PropertyMast.AsQueryable().ApplySort(queryParams);
+        var result = context.PropertyMast.AsQueryable().ApplySort(queryParams).ToList();
 
         Assert.NotNull(result);
+        Assert.Equal(3, result.Count);
+        // Verify default sort by Id (ascending)
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal(2, result[1].Id);
+        Assert.Equal(3, result[2].Id);
     }
 
     [Fact]
