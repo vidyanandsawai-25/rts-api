@@ -1,0 +1,18 @@
+using AutoMapper;
+using NtisPlatform.Application.DTOs.Master.PropertyCertificateType;
+using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Interfaces;
+
+namespace NtisPlatform.Application.Services;
+
+public class PropertyCertificateTypeService : BaseCommonCrudService<PropertyCertificateTypeMasterEntity, PropertyCertificateTypeDto, CreatePropertyCertificateTypeDto, UpdatePropertyCertificateTypeDto, PropertyCertificateTypeQueryParameters, int>, IPropertyCertificateTypeService
+{
+    public PropertyCertificateTypeService(
+        IRepository<PropertyCertificateTypeMasterEntity, int> repository,
+        IUnitOfWork unitOfWork,
+        IMapper mapper)
+        : base(repository, unitOfWork, mapper)
+    {
+    }
+}

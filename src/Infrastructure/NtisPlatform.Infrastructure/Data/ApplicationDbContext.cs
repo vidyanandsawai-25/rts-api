@@ -69,6 +69,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidations { get; set; } = null!;
+    public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1113,6 +1114,27 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.PropertyTypeId, e.TypeOfUseId })
                 .IsUnique()
                 .HasDatabaseName("UQ_PropertyDescriptionAndTypeOfUseValidation");
+        });
+
+        // PropertyCertificateTypeMaster configuration
+        modelBuilder.Entity<PropertyCertificateTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("PropertyCertificateTypeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SectionCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DisplayLabel).HasMaxLength(200);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsMandatory).HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
         });
     }
 }

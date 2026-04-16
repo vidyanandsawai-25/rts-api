@@ -107,6 +107,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
         services.AddScoped<IPropertyTypeCategoryService, PropertyTypeCategoryService>();
         services.AddScoped<IPropertyTypeMasterService, PropertyTypeMasterService>();
+        services.AddScoped<IPropertyCertificateTypeService, PropertyCertificateTypeService>();
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
