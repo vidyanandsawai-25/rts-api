@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.GrievanceCategoryMaster;
 using NtisPlatform.Application.Interfaces.Master;
@@ -10,6 +11,7 @@ namespace NtisPlatform.Api.Controllers.Master
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
+    
     public class GrievanceCategoryController : ControllerBase
     {
         private readonly IGrievanceCategoryService _service;

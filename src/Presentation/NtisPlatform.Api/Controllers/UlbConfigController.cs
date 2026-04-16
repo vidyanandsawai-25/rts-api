@@ -11,6 +11,7 @@ namespace NtisPlatform.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+
 public class UlbConfigController : ControllerBase
 {
     private readonly IUlbConfigService _ulbConfigService;

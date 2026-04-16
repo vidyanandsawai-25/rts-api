@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
@@ -8,6 +9,7 @@ namespace NtisPlatform.Api.Controllers.Master
 {
     [ApiController]
     [Route("api/[controller]")]
+    
     public class MultilingualDetailsController : ControllerBase
     {
         private readonly IMultilingualDetailsService _service;

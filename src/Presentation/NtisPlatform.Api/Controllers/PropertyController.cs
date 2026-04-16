@@ -19,7 +19,7 @@ namespace NtisPlatform.Api.Controllers;
 /// </remarks>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+
 public partial class PropertyController : ControllerBase
 {
     private readonly IPropertyService _propertyService;

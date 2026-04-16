@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
@@ -7,6 +8,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
+ 
 public class TypeOfUseGroupController : ControllerBase
 {
     private readonly ITypeOfUseGroupService _service;

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.DepartmentLicenceDetails;
@@ -10,6 +11,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+ 
 public class DepartmentLicenceDetailsController : ControllerBase
 {
     private readonly IDepartmentLicenceDetailsService _service;

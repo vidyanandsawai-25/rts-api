@@ -8,7 +8,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+ 
 public class OwnerTypeController : ControllerBase
 {
     private readonly IOwnerTypeService _service;

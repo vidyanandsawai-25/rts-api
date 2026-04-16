@@ -12,7 +12,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+ 
 public class PropertyCategoryController : ControllerBase
 {
     private readonly IPropertyCategoryService _service;

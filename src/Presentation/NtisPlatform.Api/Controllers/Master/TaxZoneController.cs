@@ -8,7 +8,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+ 
 public class TaxZoneController : ControllerBase
 {
     private readonly ITaxZoneService _service;

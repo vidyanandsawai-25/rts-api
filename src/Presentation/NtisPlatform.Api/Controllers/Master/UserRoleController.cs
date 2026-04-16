@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.UserRoleMaster;
 using NtisPlatform.Application.Interfaces.Master;
@@ -7,6 +8,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [Route("api/[controller]")]
 [ApiController]
+ 
 public class UserRoleController : ControllerBase
 {
     private readonly IUserRoleService _service;

@@ -11,7 +11,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+ 
 public class RoleWiseScreenAccessMasterController : ControllerBase
 {
     private readonly IRoleWiseScreenAccessMasterService _service;

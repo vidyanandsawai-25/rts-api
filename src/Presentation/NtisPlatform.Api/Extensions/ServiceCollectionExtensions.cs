@@ -243,7 +243,7 @@ public static class ServiceCollectionExtensions
         {
             options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
-                .Build();
+                .Build(); 
         });
 
         // Rate Limiting (ASP.NET Core 7+)

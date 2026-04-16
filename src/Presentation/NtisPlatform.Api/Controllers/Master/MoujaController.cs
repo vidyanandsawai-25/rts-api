@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
@@ -6,6 +7,7 @@ using NtisPlatform.Application.Interfaces;
 namespace NtisPlatform.Api.Controllers.Master;
 [ApiController]
 [Route("api/[controller]")]
+ 
 
 public class MoujaController : ControllerBase
 {
