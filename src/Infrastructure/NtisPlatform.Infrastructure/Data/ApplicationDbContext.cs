@@ -117,7 +117,7 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
         {
-            entity.ToTable("RetentionPolicyFactWiseMaster", "PTIS");
+            entity.ToTable("RetentionPolicyFactorWiseMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.FromFactor);
             entity.Property(e => e.ToFactor);
@@ -136,7 +136,7 @@ public class ApplicationDbContext : DbContext
         });
         modelBuilder.Entity<AssessmentYearRangeEntity>(entity =>
         {
-            entity.ToTable("AssessmentYearRangeMaster", "PTIS");
+            entity.ToTable("AssessmentYearRangeMasterRV", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.FromYear);
             entity.Property(e => e.ToYear);

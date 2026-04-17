@@ -58,6 +58,5 @@ public class RateSectionDetailsService : BaseCommonCrudService<RateSectionDetail
 
         return entity == null ? null : _mapper.Map<RateSectionDetailsDto>(entity);
     }
-
 }
 

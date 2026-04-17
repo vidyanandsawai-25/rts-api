@@ -83,24 +83,47 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
         }
     }
 
-    public async Task MarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
+    public async Task MarkForHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
         // TODO: Implement mark for hard delete logic
         await Task.CompletedTask;
     }
 
-    public async Task UnmarkForHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
+    public async Task UnmarkForHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
         // TODO: Implement unmark for hard delete logic
         await Task.CompletedTask;
     }
 
-    public async Task ForceHardDeleteAsync<TEntity>(int id, CancellationToken cancellationToken = default)
+    public async Task<bool> ForceHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
-        // TODO: Implement force hard delete logic
-        await Task.CompletedTask;
+        try
+        {
+            var entity = await _context.Set<TEntity>().FindAsync(new object[] { id }, cancellationToken);
+
+            if (entity == null)
+            {
+                _logger.LogWarning("Force hard delete failed - {EntityType} with ID {Id} not found",
+                    typeof(TEntity).Name, id);
+                return false;
+            }
+
+            _context.Set<TEntity>().Remove(entity);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Force hard delete completed for {EntityType} with ID {Id}",
+                typeof(TEntity).Name, id);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during force hard delete of {EntityType} with ID {Id}",
+                typeof(TEntity).Name, id);
+            throw;
+        }
     }
 }

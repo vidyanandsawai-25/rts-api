@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Exceptions;
@@ -173,7 +175,8 @@ public static class CrudControllerExtensions
 
         }
     }
-
+    // This method performs a soft-delete operation through the service layer.
+    // For entities supporting hard deletion, it may also set MarkedForDeletion.
     public static async Task<IActionResult> ExecuteDelete<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
         this ControllerBase controller,
         ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
@@ -188,12 +191,12 @@ public static class CrudControllerExtensions
             return result ? controller.Ok(new ApiResponse<TDto>
             {
                 Success = true,
-                Message = "Record deleted"
+                Message = "Record marked for deletion"
             }) :
             controller.Ok(new ApiResponse<TDto>
             {
                 Success = false,
-                Message = "Record not found to delete"
+                Message = "Record not found"
             });
 
 
@@ -207,5 +210,101 @@ public static class CrudControllerExtensions
                 Message = "An error occurred while processing your request."
             });
         }
+    }
+
+    /// <summary>
+    /// Execute permanent delete operation through the centralized cleanup service.
+    /// This is an irreversible operation and should be used with extreme caution.
+    /// Routes through HardDeleteCleanupService to ensure consistent policy enforcement.
+    /// Logs actor identity for audit trail.
+    /// </summary>
+    public static async Task<IActionResult> ExecuteForceDelete<TEntity, TKey>(
+        this ControllerBase controller,
+        IHardDeleteCleanupService cleanupService,
+        TKey id,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TEntity : class
+    {
+        var userName = controller.User?.Identity?.Name ?? "Anonymous";
+        var userId = controller.User?.FindFirst("sub")?.Value ?? 
+                     controller.User?.FindFirst("userId")?.Value ?? 
+                     "Unknown";
+
+        // Audit log: Track who is attempting permanent deletion
+        logger.LogWarning("PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}", 
+            userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
+
+        try
+        {
+            var result = await cleanupService.ForceHardDeleteAsync<TEntity, TKey>(id, cancellationToken);
+
+            if (result)
+            {
+                // Audit log: Successful permanent deletion
+                logger.LogWarning("PURGE completed successfully by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}", 
+                    userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
+
+                return controller.Ok(new ApiResponse<object>
+                {
+                    Success = true,
+                    Message = "Record permanently deleted"
+                });
+            }
+            else
+            {
+                // Audit log: Entity not found
+                logger.LogWarning("PURGE failed - entity not found. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}", 
+                    userName, userId, typeof(TEntity).Name, id);
+
+                return controller.Ok(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Record not found"
+                });
+            }
+        }
+        catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
+        {
+            logger.LogWarning(ex, "PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}", 
+                userName, userId, typeof(TEntity).Name, id);
+
+            return controller.Conflict(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Cannot delete this record because it is still referenced by other entities. Please remove dependent records first."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId}", 
+                userName, userId, typeof(TEntity).Name, id);
+
+            return controller.StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+    /// <summary>
+    /// Determines if a DbUpdateException is caused by a foreign key constraint violation.
+    /// </summary>
+    private static bool IsForeignKeyViolation(DbUpdateException ex)
+    {
+        // Check for SQL Server foreign key violation
+        if (ex.InnerException is SqlException sqlException)
+        {
+            // SQL Server error codes:
+            // 547 = Foreign key constraint violation (DELETE/UPDATE)
+            return sqlException.Number == 547;
+        }
+
+        // Fallback: check error message for common foreign key constraint patterns
+        var errorMessage = ex.InnerException?.Message ?? ex.Message;
+        return errorMessage.Contains("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase) ||
+               errorMessage.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase) ||
+               errorMessage.Contains("conflicted with the FOREIGN KEY", StringComparison.OrdinalIgnoreCase);
     }
 }

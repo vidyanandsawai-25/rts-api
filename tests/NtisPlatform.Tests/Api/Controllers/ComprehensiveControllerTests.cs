@@ -746,7 +746,7 @@ public class ComprehensiveControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<ApiResponse<WingDto>>(okResult.Value);
         Assert.True(response.Success);
-        Assert.Equal("Record deleted", response.Message);
+        Assert.Equal("Record marked for deletion", response.Message);
     }
 
     [Fact]
@@ -781,6 +781,177 @@ public class ComprehensiveControllerTests
 
         var statusResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, statusResult.StatusCode);
+    }
+
+    #endregion
+
+    #region ExecuteForceDelete Extension Method Tests
+
+    [Fact]
+    public async Task ExecuteForceDelete_Success_ReturnsOkWithSuccess()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Record permanently deleted", response.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_NotFound_ReturnsOkWithFailure()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 999, mockLogger.Object);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("not found", response.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_Exception_ReturnsInternalServerError()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_LogsError_OnException()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("PURGE failed")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_ForeignKeyViolation_ReturnsConflict()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        // Simulate foreign key constraint violation with message pattern
+        var innerException = new Exception("The DELETE statement conflicted with the FOREIGN KEY constraint");
+        var dbUpdateException = new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "An error occurred while updating the entries.", innerException);
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(dbUpdateException);
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(conflictResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("referenced by other entities", response.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_ForeignKeyViolation_LogsWarning()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        var innerException = new Exception("The DELETE statement conflicted with the REFERENCE constraint");
+        var dbUpdateException = new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "An error occurred while updating the entries.", innerException);
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(dbUpdateException);
+
+        await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("PURGE blocked")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_NonForeignKeyDbException_ReturnsInternalServerError()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        // Different database exception (not FK violation)
+        var innerException = new Exception("Deadlock detected");
+        var dbUpdateException = new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "An error occurred while updating the entries.", innerException);
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(dbUpdateException);
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task ExecuteForceDelete_ForeignKeyConflict_ReturnsConflictWithSpecificMessage()
+    {
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger>();
+        var controller = new TestController();
+
+        var innerException = new Exception("conflicted with the FOREIGN KEY constraint");
+        var dbUpdateException = new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "An error occurred while updating the entries.", innerException);
+
+        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<WingEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(dbUpdateException);
+
+        var result = await controller.ExecuteForceDelete<WingEntity, int>(mockCleanupService.Object, 1, mockLogger.Object);
+
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(conflictResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("still referenced by other entities", response.Message);
+        Assert.Contains("remove dependent records first", response.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     #endregion

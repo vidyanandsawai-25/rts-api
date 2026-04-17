@@ -67,6 +67,7 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
             if (entity is IHardDeletable hardDeletable && entity is BaseEntity baseEntityForHardDelete)
             {
                 baseEntityForHardDelete.IsActive = false;
+                hardDeletable.MarkedForDeletion = true;
                 // Only set deletion date if not already set (preserves original deletion timestamp)
                 if (!hardDeletable.MarkedForDeletionDate.HasValue)
                 {

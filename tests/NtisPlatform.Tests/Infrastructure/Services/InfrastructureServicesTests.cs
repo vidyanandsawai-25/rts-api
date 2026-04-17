@@ -271,7 +271,7 @@ public class HardDeleteCleanupServiceTests
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
         var service = new HardDeleteCleanupService(context, mockLogger.Object);
-        await service.MarkForHardDeleteAsync<PropertyEntity>(1);
+        await service.MarkForHardDeleteAsync<PropertyEntity, int>(1);
 
         // Should complete without throwing
         Assert.True(true);
@@ -288,27 +288,40 @@ public class HardDeleteCleanupServiceTests
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
         var service = new HardDeleteCleanupService(context, mockLogger.Object);
-        await service.UnmarkForHardDeleteAsync<PropertyEntity>(1);
+        await service.UnmarkForHardDeleteAsync<PropertyEntity, int>(1);
 
         // Should complete without throwing
         Assert.True(true);
     }
 
     [Fact]
-    public async Task ForceHardDeleteAsync_NotImplemented_Completes()
+    public async Task ForceHardDeleteAsync_DeletesEntity_ReturnsTrue()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
 
         using var context = new ApplicationDbContext(options);
+
+        // Add a test entity
+        var property = new PropertyEntity
+        {
+            Id = 1,
+            IsActive = true,
+            CreatedDate = DateTime.Now,
+            CreatedBy = 1
+        };
+        context.Set<PropertyEntity>().Add(property);
+        await context.SaveChangesAsync();
+
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-
         var service = new HardDeleteCleanupService(context, mockLogger.Object);
-        await service.ForceHardDeleteAsync<PropertyEntity>(1);
 
-        // Should complete without throwing
-        Assert.True(true);
+        var result = await service.ForceHardDeleteAsync<PropertyEntity, int>(1);
+
+        Assert.True(result);
+        var deletedEntity = await context.Set<PropertyEntity>().FindAsync(1);
+        Assert.Null(deletedEntity);
     }
 }
 

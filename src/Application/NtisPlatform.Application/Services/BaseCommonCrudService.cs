@@ -94,8 +94,8 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
         await _repository.DeleteAsync(id, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        
+
         return true;
     }
-   
+
 }

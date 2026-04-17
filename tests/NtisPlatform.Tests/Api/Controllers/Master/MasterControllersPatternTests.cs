@@ -444,8 +444,9 @@ public class AllMasterControllersComprehensiveTests
     public async Task RateSectionDetailsController_GetAll_CallsExtensionMethod()
     {
         var mockService = new Mock<IRateSectionDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<RateSectionDetailsController>>();
-        var controller = new RateSectionDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new RateSectionDetailsController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
 
         var query = new RateSectionDetailsQueryParameters();
         var pagedResult = new PagedResult<RateSectionDetailsDto>(new List<RateSectionDetailsDto>(), 0, 1, 10);

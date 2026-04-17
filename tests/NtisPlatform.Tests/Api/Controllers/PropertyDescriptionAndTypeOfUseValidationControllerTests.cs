@@ -181,7 +181,7 @@ public class PropertyDescriptionAndTypeOfUseValidationControllerTests
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
         Assert.True(response.Success);
-        Assert.Equal("Record deleted", response.Message);
+        Assert.Equal("Record marked for deletion", response.Message);
     }
 
     [Fact]

@@ -50,6 +50,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
+        services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
 
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
@@ -160,7 +161,7 @@ public static class ServiceCollectionExtensions
                 }
             });
         });
-
+  
         services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>
