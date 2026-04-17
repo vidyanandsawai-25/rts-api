@@ -29,6 +29,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
+    public DbSet<RuleEntity> RuleMaster { get; set; } = null!;
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
@@ -322,6 +323,18 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IFSCCode).IsUnique();
             entity.HasIndex(e => e.BankName);
             entity.HasIndex(e => e.IsActive);
+        });
+        modelBuilder.Entity<RuleEntity>(entity =>
+        {
+            entity.ToTable("RuleMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.DefaultValue).HasMaxLength(50);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
         });
 
         modelBuilder.Entity<RoleWiseScreenAccessMasterEntity>(entity =>
