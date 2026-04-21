@@ -27,7 +27,7 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
         // - Gets translated to SQL UPPER() comparison
         return await _context.UserMasters
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.UserName.ToUpperInvariant() == username.ToUpperInvariant(), cancellationToken);
+            .FirstOrDefaultAsync(u => u.UserName.ToUpper() == username.ToUpper(), cancellationToken);
     }
 
     public async Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default)

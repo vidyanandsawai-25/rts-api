@@ -493,12 +493,12 @@ public class UserService : BaseCommonCrudService<
     {
         var depts = await _departmentMapRepository.GetQueryable()
             .Where(d => d.UserId == userId && d.IsActive).ToListAsync(cancellationToken);
-        foreach (var d in depts) 
-        { 
+        foreach (var d in depts)
+        {
             d.IsActive = false;
             d.UpdatedBy = deletedBy;
             d.UpdatedDate = DateTime.Now;
-            await _departmentMapRepository.UpdateAsync(d, cancellationToken); 
+            await _departmentMapRepository.UpdateAsync(d, cancellationToken);
         }
 
         var modules = await _moduleAccessRepository.GetQueryable()
@@ -567,7 +567,7 @@ public class UserService : BaseCommonCrudService<
             }
         }
 
-        var unQ = queryable.Where(u => u.UserName.ToUpperInvariant() == userName.ToUpperInvariant());
+        var unQ = queryable.Where(u => u.UserName.ToUpper() == userName.ToUpper());
         if (excludeUserId.HasValue) unQ = unQ.Where(u => u.Id != excludeUserId.Value);
         if (await unQ.AnyAsync(cancellationToken))
         {
