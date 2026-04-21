@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
+using NtisPlatform.Application.DTOs.Master.ScreenGroupMaster;
 using AutoMapper;
 using Moq;
 using MockQueryable;
@@ -47,7 +47,7 @@ public class ScreenGroupMasterServiceTests
             Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
-            ScreenGroupNameLocal = "प्रशासन",
+            ScreenGroupNameLocal = "???????",
             DisplayOrder = 1,
             IsActive = true
         };
@@ -57,7 +57,7 @@ public class ScreenGroupMasterServiceTests
             Id = 1,
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
-            ScreenGroupNameLocal = "प्रशासन",
+            ScreenGroupNameLocal = "???????",
             DisplayOrder = 1,
             IsActive = true
         };
@@ -103,7 +103,7 @@ public class ScreenGroupMasterServiceTests
         {
             ScreenGroupCode = "SG001",
             ScreenGroupName = "Administration",
-            ScreenGroupNameLocal = "प्रशासन",
+            ScreenGroupNameLocal = "???????",
             DisplayOrder = 1,
             IsActive = true
         };

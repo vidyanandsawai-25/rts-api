@@ -32,5 +32,4 @@ public class DepartmentMasterEntity : BaseEntity
     /// </summary>
     public string? DepartmentDescription { get; set; }
 
-    public DepartmentMasterEntity Department { get; set; }
 }

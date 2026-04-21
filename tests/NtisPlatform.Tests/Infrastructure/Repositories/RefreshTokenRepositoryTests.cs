@@ -29,7 +29,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -72,7 +72,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -113,7 +113,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -149,7 +149,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -185,7 +185,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -256,7 +256,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -299,7 +299,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -342,7 +342,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -378,7 +378,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
@@ -428,7 +428,7 @@ public class RefreshTokenRepositoryTests
 
         using var context = new ApplicationDbContext(options);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",

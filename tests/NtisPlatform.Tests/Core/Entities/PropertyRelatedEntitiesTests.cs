@@ -386,28 +386,27 @@ public class PlotDetailsEntityComprehensiveTests
 }
 
 /// <summary>
-/// Comprehensive tests for UserMasterEntity to achieve 100% code coverage
+/// Comprehensive tests for UserEntity to achieve 100% code coverage
 /// </summary>
-public class UserMasterEntityTests
+public class UserEntityTests
 {
     [Fact]
-    public void UserMasterEntity_AllProperties_GetSet_WorksCorrectly()
+    public void UserEntity_AllProperties_GetSet_WorksCorrectly()
     {
         var now = DateTime.Now;
-        var entity = new UserMasterEntity
+        var entity = new UserEntity
         {
             Id = 1,
             UserName = "john.doe",
-            UserNameNormalized = "JOHN.DOE",
-            Name = "John Doe",
+            FirstName = "John",
+            LastName = "Doe",
             UserCode = "USR001",
             Address = "123 Main Street",
             MobileNo = "9876543210",
             AlternateMobileNo = "8765432109",
-            Mail = "john.doe@example.com",
+            Email = "john.doe@example.com",
             PasswordHash = "hashedpassword123",
             MustChangePassword = true,
-            UserRoleID = 5,
             Language = "en",
             Remark = "Test user",
             LockedUntilAt = now.AddHours(2),
@@ -423,16 +422,15 @@ public class UserMasterEntityTests
 
         Assert.Equal(1, entity.Id);
         Assert.Equal("john.doe", entity.UserName);
-        Assert.Equal("JOHN.DOE", entity.UserNameNormalized);
-        Assert.Equal("John Doe", entity.Name);
+        Assert.Equal("John", entity.FirstName);
+        Assert.Equal("Doe", entity.LastName);
         Assert.Equal("USR001", entity.UserCode);
         Assert.Equal("123 Main Street", entity.Address);
         Assert.Equal("9876543210", entity.MobileNo);
         Assert.Equal("8765432109", entity.AlternateMobileNo);
-        Assert.Equal("john.doe@example.com", entity.Mail);
+        Assert.Equal("john.doe@example.com", entity.Email);
         Assert.Equal("hashedpassword123", entity.PasswordHash);
         Assert.True(entity.MustChangePassword);
-        Assert.Equal(5, entity.UserRoleID);
         Assert.Equal("en", entity.Language);
         Assert.Equal("Test user", entity.Remark);
         Assert.Equal(now.AddHours(2), entity.LockedUntilAt);
@@ -447,39 +445,39 @@ public class UserMasterEntityTests
     }
 
     [Fact]
-    public void UserMasterEntity_InheritsFromBaseEntity()
+    public void UserEntity_InheritsFromBaseEntity()
     {
-        var entity = new UserMasterEntity();
+        var entity = new UserEntity();
         Assert.IsAssignableFrom<BaseEntity>(entity);
     }
 
     [Fact]
-    public void UserMasterEntity_DefaultValues_SetCorrectly()
+    public void UserEntity_DefaultValues_SetCorrectly()
     {
-        var entity = new UserMasterEntity();
+        var entity = new UserEntity();
 
         Assert.Equal(0, entity.Id);
         Assert.Equal(string.Empty, entity.UserName);
-        Assert.Null(entity.Name);
+        Assert.Null(entity.FirstName);
+        Assert.Null(entity.LastName);
         Assert.False(entity.MustChangePassword);
         Assert.Null(entity.FailedLoginCount);
         Assert.True(entity.IsActive);
     }
 
     [Fact]
-    public void UserMasterEntity_OptionalFields_CanBeNull()
+    public void UserEntity_OptionalFields_CanBeNull()
     {
-        var entity = new UserMasterEntity
+        var entity = new UserEntity
         {
             Id = 1,
             IsActive = true
         };
 
-        Assert.Null(entity.UserNameNormalized);
         Assert.Null(entity.UserCode);
         Assert.Null(entity.Address);
         Assert.Null(entity.AlternateMobileNo);
-        Assert.Null(entity.Mail);
+        Assert.Null(entity.Email);
         Assert.Null(entity.PasswordHash);
         Assert.Null(entity.Language);
         Assert.Null(entity.Remark);
@@ -488,9 +486,9 @@ public class UserMasterEntityTests
     }
 
     [Fact]
-    public void UserMasterEntity_FailedLoginCount_GetSet_WorksCorrectly()
+    public void UserEntity_FailedLoginCount_GetSet_WorksCorrectly()
     {
-        var entity = new UserMasterEntity
+        var entity = new UserEntity
         {
             FailedLoginCount = 5
         };
@@ -499,20 +497,20 @@ public class UserMasterEntityTests
     }
 
     [Fact]
-    public void UserMasterEntity_MustChangePassword_GetSet_WorksCorrectly()
+    public void UserEntity_MustChangePassword_GetSet_WorksCorrectly()
     {
-        var entity1 = new UserMasterEntity { MustChangePassword = true };
-        var entity2 = new UserMasterEntity { MustChangePassword = false };
+        var entity1 = new UserEntity { MustChangePassword = true };
+        var entity2 = new UserEntity { MustChangePassword = false };
 
         Assert.True(entity1.MustChangePassword);
         Assert.False(entity2.MustChangePassword);
     }
 
     [Fact]
-    public void UserMasterEntity_LockoutFeature_WorksCorrectly()
+    public void UserEntity_LockoutFeature_WorksCorrectly()
     {
         var lockoutTime = DateTime.Now.AddHours(1);
-        var entity = new UserMasterEntity
+        var entity = new UserEntity
         {
             LockedUntilAt = lockoutTime,
             FailedLoginCount = 5

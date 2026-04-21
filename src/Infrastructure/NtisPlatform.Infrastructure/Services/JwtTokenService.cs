@@ -20,7 +20,7 @@ public class JwtTokenService : ITokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(int userId, string username, int? userRoleId)
+    public string GenerateToken(int userId, string username)
     {
         var jwtKey = _configuration["Jwt:Key"];
         var jwtIssuer = _configuration["Jwt:Issuer"];
@@ -43,11 +43,6 @@ public class JwtTokenService : ITokenService
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-        // Add role claim if user has a role
-        if (userRoleId.HasValue)
-        {
-            claims.Add(new Claim(ClaimTypes.Role, userRoleId.Value.ToString()));
-        }
 
         var token = new JwtSecurityToken(
             issuer: jwtIssuer,
@@ -106,7 +101,6 @@ public class JwtTokenService : ITokenService
             // Extract claims
             var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var usernameClaim = principal.FindFirst(ClaimTypes.Name)?.Value;
-            var roleClaim = principal.FindFirst(ClaimTypes.Role)?.Value;
 
             var jwtToken = validatedToken as JwtSecurityToken;
 
@@ -115,7 +109,6 @@ public class JwtTokenService : ITokenService
                 IsValid = true,
                 UserId = int.TryParse(userIdClaim, out var userId) ? userId : null,
                 Username = usernameClaim,
-                UserRoleId = int.TryParse(roleClaim, out var roleId) ? roleId : null,
                 ExpiresAt = jwtToken?.ValidTo
             };
         }

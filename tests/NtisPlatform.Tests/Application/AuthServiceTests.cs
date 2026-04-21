@@ -20,7 +20,6 @@ public class AuthServiceTests
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
     private readonly Mock<IConfiguration> _configurationMock;
-    private readonly Mock<IRepository<UserRoleMasterEntity>> _userRoleRepositoryMock;
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
     private readonly Mock<ILogger<AuthService>> _loggerMock;
     private readonly AuthService _authService;
@@ -31,7 +30,6 @@ public class AuthServiceTests
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenServiceMock = new Mock<ITokenService>();
         _configurationMock = new Mock<IConfiguration>();
-        _userRoleRepositoryMock = new Mock<IRepository<UserRoleMasterEntity>>();
         _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
         _loggerMock = new Mock<ILogger<AuthService>>();
 
@@ -44,7 +42,7 @@ public class AuthServiceTests
             _passwordHasherMock.Object,
             _tokenServiceMock.Object,
             _configurationMock.Object,
-            _userRoleRepositoryMock.Object,
+            new Mock<IRepository<UserRoleMasterEntity>>().Object,
             _refreshTokenRepositoryMock.Object,
             _loggerMock.Object 
         );
@@ -62,32 +60,25 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
-            UserRoleID = 1,
             FailedLoginCount = 0,
-            LockedUntilAt = null
+            LockedUntilAt = null,
+
         };
 
-        var userRole = new UserRoleMasterEntity
-        {
-            Id = 1,
-            UserRoleName = "Administrator"
-        };
-
+       
         _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _userRoleRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(userRole);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser", 1))
+        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
             .Returns("mock-jwt-token");
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -103,9 +94,6 @@ public class AuthServiceTests
         Assert.Equal("mock-jwt-token", result.Token);
         
         Assert.Equal("testuser", result.Username);
-        Assert.Equal("Test User", result.Name);
-        Assert.Equal(1, result.UserRoleId);
-        Assert.Equal("Administrator", result.UserRole);
         Assert.Equal("Login successful", result.Message);
         Assert.NotNull(result.ExpiresAt);
 
@@ -124,15 +112,14 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
-            UserRoleID = null,
             FailedLoginCount = 0
         };
 
@@ -140,7 +127,7 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser", null))
+        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
             .Returns("mock-jwt-token");
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -152,8 +139,6 @@ public class AuthServiceTests
 
         // Assert
         Assert.True(result.Success);
-        Assert.Null(result.UserRoleId);
-        Assert.Null(result.UserRole);
     }
 
     #endregion
@@ -171,7 +156,7 @@ public class AuthServiceTests
         };
 
         _userRepositoryMock.Setup(x => x.GetByUsernameAsync("nonexistent", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((UserMasterEntity?)null);
+            .ReturnsAsync((UserEntity?)null);
 
         // Act
         var result = await _authService.LoginAsync(request);
@@ -196,11 +181,10 @@ public class AuthServiceTests
             Password = "WrongPassword"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
             FailedLoginCount = 2
@@ -240,11 +224,10 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "inactiveuser",
-            UserNameNormalized = "INACTIVEUSER",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = false
         };
@@ -279,11 +262,10 @@ public class AuthServiceTests
         };
 
         var lockedUntil = DateTime.Now.AddMinutes(15);
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "lockeduser",
-            UserNameNormalized = "LOCKEDUSER",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
             LockedUntilAt = lockedUntil,
@@ -316,26 +298,24 @@ public class AuthServiceTests
         };
 
         var expiredLockout = DateTime.Now.AddMinutes(-5); // Lockout expired 5 minutes ago
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
             LockedUntilAt = expiredLockout,
             FailedLoginCount = 5,
-            UserRoleID = 1
+            MobileNo = "1234567890"
         };
 
         _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser", 1))
+        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
             .Returns("mock-jwt-token");
-        _userRoleRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserRoleMasterEntity { Id = 1, UserRoleName = "User" });
+
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
@@ -363,11 +343,10 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
             PasswordHash = null, // No password set
             IsActive = true
         };
@@ -397,11 +376,11 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
+            MobileNo = "1234567890",
             PasswordHash = "", // Empty password hash
             IsActive = true
         };
@@ -431,13 +410,13 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
-            UserRoleID = 1
+            MobileNo = "1234567890"
         };
 
         _configurationMock.Setup(c => c["Jwt:ExpiresInMinutes"]).Returns("60"); // 1 hour
@@ -445,10 +424,9 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser", 1))
+        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
             .Returns("mock-jwt-token");
-        _userRoleRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserRoleMasterEntity { Id = 1, UserRoleName = "User" });
+
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
@@ -481,14 +459,13 @@ public class AuthServiceTests
             Password = "ValidPassword123"
         };
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             Id = 1,
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
             PasswordHash = "$2a$12$hashedpassword",
             IsActive = true,
-            UserRoleID = 1
+            MobileNo = "1234567890"
         };
 
         _configurationMock.Setup(c => c["Jwt:ExpiresInMinutes"]).Returns("invalid"); // Invalid config
@@ -496,10 +473,9 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser", 1))
+        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
             .Returns("mock-jwt-token");
-        _userRoleRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserRoleMasterEntity { Id = 1, UserRoleName = "User" });
+
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))

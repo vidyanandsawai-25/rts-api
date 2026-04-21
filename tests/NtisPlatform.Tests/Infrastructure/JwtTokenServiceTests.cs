@@ -34,10 +34,9 @@ public class JwtTokenServiceTests
         // Arrange
         int userId = 1;
         string username = "testuser";
-        int? userRoleId = 5;
 
         // Act
-        var token = _tokenService.GenerateToken(userId, username, userRoleId);
+            var token = _tokenService.GenerateToken(userId, username);
 
         // Assert
         Assert.NotNull(token);
@@ -57,10 +56,9 @@ public class JwtTokenServiceTests
         // Arrange
         int userId = 123;
         string username = "adminuser";
-        int? userRoleId = 10;
 
         // Act
-        var token = _tokenService.GenerateToken(userId, username, userRoleId);
+            var token = _tokenService.GenerateToken(userId, username);
 
         // Assert
         var handler = new JwtSecurityTokenHandler();
@@ -70,28 +68,9 @@ public class JwtTokenServiceTests
         Assert.Contains(jwtToken.Claims, c => c.Type == ClaimTypes.NameIdentifier && c.Value == "123");
         Assert.Contains(jwtToken.Claims, c => c.Type == ClaimTypes.Name && c.Value == "adminuser");
         Assert.Contains(jwtToken.Claims, c => c.Type == JwtRegisteredClaimNames.Sub && c.Value == "123");
-        Assert.Contains(jwtToken.Claims, c => c.Type == ClaimTypes.Role && c.Value == "10");
         Assert.Contains(jwtToken.Claims, c => c.Type == JwtRegisteredClaimNames.Jti);
     }
 
-    [Fact]
-    public void GenerateToken_WithNullRole_DoesNotIncludeRoleClaim()
-    {
-        // Arrange
-        int userId = 1;
-        string username = "testuser";
-        int? userRoleId = null;
-
-        // Act
-        var token = _tokenService.GenerateToken(userId, username, userRoleId);
-
-        // Assert
-        var handler = new JwtSecurityTokenHandler();
-        var jwtToken = handler.ReadJwtToken(token);
-
-        // Verify role claim is not present
-        Assert.DoesNotContain(jwtToken.Claims, c => c.Type == ClaimTypes.Role);
-    }
 
     [Fact]
     public void GenerateToken_HasCorrectIssuerAndAudience()
@@ -101,7 +80,7 @@ public class JwtTokenServiceTests
         string username = "testuser";
 
         // Act
-        var token = _tokenService.GenerateToken(userId, username, null);
+            var token = _tokenService.GenerateToken(userId, username);
 
         // Assert
         var handler = new JwtSecurityTokenHandler();
@@ -120,7 +99,7 @@ public class JwtTokenServiceTests
         var beforeGeneration = DateTime.UtcNow;
 
         // Act
-        var token = _tokenService.GenerateToken(userId, username, null);
+            var token = _tokenService.GenerateToken(userId, username);
 
         var afterGeneration = DateTime.UtcNow;
 
@@ -145,7 +124,7 @@ public class JwtTokenServiceTests
         var beforeGeneration = DateTime.UtcNow;
 
         // Act
-        var token = customTokenService.GenerateToken(1, "testuser", null);
+            var token = customTokenService.GenerateToken(1, "testuser");
 
         var afterGeneration = DateTime.UtcNow;
 
@@ -169,7 +148,7 @@ public class JwtTokenServiceTests
         var beforeGeneration = DateTime.UtcNow;
 
         // Act
-        var token = customTokenService.GenerateToken(1, "testuser", null);
+            var token = customTokenService.GenerateToken(1, "testuser");
 
         var afterGeneration = DateTime.UtcNow;
 
@@ -193,7 +172,7 @@ public class JwtTokenServiceTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            invalidTokenService.GenerateToken(1, "testuser", null));
+              invalidTokenService.GenerateToken(1, "testuser"));
 
         Assert.Equal("JWT Key is not configured", exception.Message);
     }
@@ -207,7 +186,7 @@ public class JwtTokenServiceTests
 
         // Act & Assert
         var exception = Assert.Throws<InvalidOperationException>(() =>
-            invalidTokenService.GenerateToken(1, "testuser", null));
+              invalidTokenService.GenerateToken(1, "testuser"));
 
         Assert.Equal("JWT Key is not configured", exception.Message);
     }
@@ -216,8 +195,8 @@ public class JwtTokenServiceTests
     public void GenerateToken_GeneratesUniqueJtiForEachToken()
     {
         // Act
-        var token1 = _tokenService.GenerateToken(1, "testuser", null);
-        var token2 = _tokenService.GenerateToken(1, "testuser", null);
+            var token1 = _tokenService.GenerateToken(1, "testuser");
+            var token2 = _tokenService.GenerateToken(1, "testuser");
 
         // Assert
         var handler = new JwtSecurityTokenHandler();

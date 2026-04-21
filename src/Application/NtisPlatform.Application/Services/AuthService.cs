@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Auth;
@@ -62,7 +61,7 @@ public class AuthService : IAuthService
         // Check if account is locked
         if (user.LockedUntilAt.HasValue && user.LockedUntilAt.Value > DateTime.Now)
         {
-            _logger.LogWarning("Login attempt for locked account: {UserId}, locked until {LockedUntil}", 
+            _logger.LogWarning("Login attempt for locked account: {UserId}, locked until {LockedUntil}",
                 user.Id, user.LockedUntilAt.Value);
             return new LoginResponseDto { Success = false, Message = $"Account is locked until {user.LockedUntilAt.Value:u}. Please try again later." };
         }
@@ -88,9 +87,9 @@ public class AuthService : IAuthService
         if (user.MustChangePassword)
         {
             _logger.LogInformation("User {UserId} must change password before proceeding", user.Id);
-            return new LoginResponseDto 
-            { 
-                Success = false, 
+            return new LoginResponseDto
+            {
+                Success = false,
                 Message = "You must change your password before logging in. Please contact administrator.",
                 RequiresPasswordChange = true
             };
@@ -100,16 +99,10 @@ public class AuthService : IAuthService
         await _userRepository.ResetFailedLoginCountAsync(user.Id, cancellationToken);
         await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
 
-        // Fetch user role name
-        string? userRoleName = null;
-        if (user.UserRoleID.HasValue)
-        {
-            var userRole = await _userRoleRepository.GetByIdAsync(user.UserRoleID.Value, cancellationToken);
-            userRoleName = userRole?.UserRoleName;
-        }
-
         // Generate JWT access token
-        var token = _tokenService.GenerateToken(user.Id, user.UserName, user.UserRoleID);
+        var token = _tokenService.GenerateToken(user.Id, user.UserName);
+
+
 
         // Generate refresh token
         var refreshToken = _tokenService.GenerateRefreshToken();
@@ -145,9 +138,9 @@ public class AuthService : IAuthService
             RefreshToken = refreshToken,
             UserId = user.Id,
             Username = user.UserName,
-            Name = user.Name,
-            UserRoleId = user.UserRoleID,
-            UserRole = userRoleName,
+            FirstName = user.FirstName,
+            MiddleName = user.MiddleName,
+            LastName = user.LastName,
             Message = "Login successful",
             ExpiresAt = expiresAt
         };
@@ -208,7 +201,8 @@ public class AuthService : IAuthService
 
         // Token successfully consumed - now generate new tokens
         // Generate new access token
-        var newAccessToken = _tokenService.GenerateToken(user.Id, user.UserName, user.UserRoleID);
+
+        var newAccessToken = _tokenService.GenerateToken(user.Id, user.UserName);
 
         // Generate new refresh token (rotating refresh tokens for security)
         var newRefreshToken = _tokenService.GenerateRefreshToken();
@@ -229,7 +223,7 @@ public class AuthService : IAuthService
         };
 
         await _refreshTokenRepository.AddAsync(newRefreshTokenEntity, cancellationToken);
-        
+
         // Save all changes to database
         await _refreshTokenRepository.SaveChangesAsync(cancellationToken);
 
@@ -270,7 +264,6 @@ public class AuthService : IAuthService
             IsValid = true,
             UserId = validationResult.UserId,
             Username = validationResult.Username,
-            UserRoleId = validationResult.UserRoleId,
             ExpiresAt = validationResult.ExpiresAt,
             Message = "Token is valid"
         });

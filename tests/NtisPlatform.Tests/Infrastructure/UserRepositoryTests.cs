@@ -46,11 +46,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true
         };
@@ -64,7 +64,8 @@ public class UserRepositoryTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("testuser", result.UserName);
-        Assert.Equal("Test User", result.Name);
+        Assert.Equal("Test", result.FirstName);
+        Assert.Equal("User", result.LastName);
     }
 
     [Fact]
@@ -74,11 +75,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "TestUser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true
         };
@@ -123,27 +124,27 @@ public class UserRepositoryTests
 
         var users = new[]
         {
-            new UserMasterEntity
+            new UserEntity
             {
                 UserName = "user1",
-                UserNameNormalized = "USER1",
-                Name = "User One",
+                FirstName = "User",
+                LastName = "One",
                 PasswordHash = "$2a$12$hash1",
                 IsActive = true
             },
-            new UserMasterEntity
+            new UserEntity
             {
                 UserName = "user2",
-                UserNameNormalized = "USER2",
-                Name = "User Two",
+                FirstName = "User",
+                LastName = "Two",
                 PasswordHash = "$2a$12$hash2",
                 IsActive = true
             },
-            new UserMasterEntity
+            new UserEntity
             {
                 UserName = "user3",
-                UserNameNormalized = "USER3",
-                Name = "User Three",
+                FirstName = "User",
+                LastName = "Three",
                 PasswordHash = "$2a$12$hash3",
                 IsActive = true
             }
@@ -158,7 +159,8 @@ public class UserRepositoryTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("user2", result.UserName);
-        Assert.Equal("User Two", result.Name);
+        Assert.Equal("User", result.FirstName);
+        Assert.Equal("Two", result.LastName);
     }
 
     #endregion
@@ -172,11 +174,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             LastLoginAt = null
@@ -223,11 +225,11 @@ public class UserRepositoryTests
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
         var oldTimestamp = DateTime.Now.AddDays(-7);
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             LastLoginAt = oldTimestamp
@@ -258,11 +260,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 2
@@ -289,11 +291,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = null
@@ -319,11 +321,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 4 // 4 failed attempts already
@@ -360,11 +362,11 @@ public class UserRepositoryTests
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
         var existingLockout = DateTime.Now.AddMinutes(15);
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 6,
@@ -412,11 +414,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 3
@@ -443,11 +445,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 5,
@@ -475,11 +477,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 0
@@ -523,11 +525,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 0
@@ -564,11 +566,11 @@ public class UserRepositoryTests
         var context = GetInMemoryDbContext();
         var repository = new UserRepository(context, _securitySettingsMock.Object);
 
-        var user = new UserMasterEntity
+        var user = new UserEntity
         {
             UserName = "testuser",
-            UserNameNormalized = "TESTUSER",
-            Name = "Test User",
+            FirstName = "Test",
+            LastName = "User",
             PasswordHash = "$2a$12$hash",
             IsActive = true,
             FailedLoginCount = 0

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.PaymentMode;
 using NtisPlatform.Application.Services;

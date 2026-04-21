@@ -10,9 +10,8 @@ public interface ITokenService
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <param name="username">Username</param>
-    /// <param name="userRoleId">User role ID</param>
     /// <returns>JWT token string</returns>
-    string GenerateToken(int userId, string username, int? userRoleId);
+    string GenerateToken(int userId, string username);
 
     /// <summary>
     /// Generate a cryptographically secure refresh token
@@ -36,7 +35,6 @@ public class JwtValidationResult
     public bool IsValid { get; set; }
     public int? UserId { get; set; }
     public string? Username { get; set; }
-    public int? UserRoleId { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public string? ErrorMessage { get; set; }
 }

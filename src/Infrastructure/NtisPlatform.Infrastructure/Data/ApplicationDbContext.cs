@@ -13,7 +13,7 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-     
+
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
@@ -56,9 +56,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = null!;
     public DbSet<PropertyDetailsEntity> PropertyDetails { get; set; } = null!;
     public DbSet<PlotDetailsEntity> PlotDetails { get; set; } = null!;
-	public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!; 
-	public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
-    public DbSet<PaymentModeEntity> PaymentModeEntity { get; set; } = null!;    
+    public DbSet<ConfigCategoryMasterEntity> ConfigCategoryMasters { get; set; } = null!;
+    public DbSet<ConfigKeyMasterEntity> ConfigKeyMasters { get; set; } = null!;
+    public DbSet<PaymentModeEntity> PaymentModeEntity { get; set; } = null!;
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
@@ -67,13 +67,18 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
-    public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
+    public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    public DbSet<UserDepartmentAllocationEntity> UserDepartmentAllocation { get; set; } = null!;
+    public DbSet<UserModuleAllocationEntity> UserModuleAllocation { get; set; } = null!;
+    public DbSet<UserRoleAllocationEntity> UserRoleAllocation { get; set; } = null!;
+    public DbSet<EmployeeTypeEntity> EmployeeType { get; set; } = null!;
+
     public DbSet<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidations { get; set; } = null!;
     public DbSet<GenderMasterEntity> GenderMasters { get; set; } = null!;
 
     public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
-    
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -233,7 +238,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
         });
-        
+
 
         // MultilingualDetail configuration
         modelBuilder.Entity<MultilingualDetailsEntity>(entity =>
@@ -476,7 +481,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {
             entity.ToTable("ModuleMaster", "Core");
-              entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Id)
                 .IsRequired();
             entity.Property(e => e.ModuleCode)
@@ -514,7 +519,7 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
         {
             entity.ToTable("DepartmentMaster", "Core");
-            entity.HasKey(e => e.Id);             
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.DepartmentCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DepartmentName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DepartmentNameLocal).HasMaxLength(200);
@@ -710,7 +715,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyId);
-            
+
             // Ignore columns that don't exist in database
             // PropertyMastDetails table schema:
             // ? MarkedForDeletion column EXISTS (mapped above)
@@ -718,7 +723,7 @@ public class ApplicationDbContext : DbContext
             // Entity has MarkedForDeletionDate property for IHardDeletable support,
             // but we ignore it in EF Core to prevent SQL errors until column is added to database
             entity.Ignore(e => e.MarkedForDeletionDate);
-            
+
             // According to the actual database schema, WingNo does NOT exist in PropertyMastDetails table
             // WingNo is stored in SocietyDetailsMast table instead
             entity.Ignore(e => e.WingNo);
@@ -958,41 +963,58 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
-        // UserMaster configuration
-        modelBuilder.Entity<UserMasterEntity>(entity =>
+        // ── UserMaster ───────────────────────────────────────────────────────
+        modelBuilder.Entity<UserEntity>(entity =>
         {
             entity.ToTable("UserMaster", "CORE");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Identity
             entity.Property(e => e.UserName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.UserNameNormalized).HasMaxLength(100);
-            entity.Property(e => e.Name).HasMaxLength(200);
+
+            // Profile — Name split into parts
+            entity.Property(e => e.FirstName).HasMaxLength(100);
+            entity.Property(e => e.MiddleName).HasMaxLength(100);
+            entity.Property(e => e.LastName).HasMaxLength(100);
+
             entity.Property(e => e.UserCode).HasMaxLength(50);
-            entity.Property(e => e.Address).HasMaxLength(500);
-            entity.Property(e => e.MobileNo).HasMaxLength(15);
-            entity.Property(e => e.AlternateMobileNo).HasMaxLength(15);
-            entity.Property(e => e.Mail).HasMaxLength(100);
-            entity.Property(e => e.PasswordHash).HasMaxLength(255);
-            entity.Property(e => e.MustChangePassword).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.UserRoleID);
+            entity.Property(e => e.Address).HasMaxLength(400);
+            entity.Property(e => e.MobileNo).HasMaxLength(30);
+            entity.Property(e => e.AlternateMobileNo).HasMaxLength(30);
+            entity.Property(e => e.Email).HasMaxLength(100);
+            entity.Property(e => e.MustChangePassword).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.Language).HasMaxLength(10);
-            entity.Property(e => e.Remark).HasMaxLength(500);
-            entity.Property(e => e.LockedUntilAt);
-            entity.Property(e => e.FailedLoginCount).HasDefaultValue(0);
-            entity.Property(e => e.LastLoginAt);
+            entity.Property(e => e.Remark).HasMaxLength(400);
             entity.Property(e => e.EmployeeTypeID);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            // Auth tracking — owned by auth flow, never exposed in DTOs
+            // entity.Property(e => e.UserNameNormalized).HasMaxLength(100);
+            entity.Property(e => e.FailedLoginCount).HasDefaultValue(0);
+            entity.Property(e => e.LockedUntilAt);
+            entity.Property(e => e.LastLoginAt);
+
+            // Security
+            entity.Property(e => e.PasswordHash).HasMaxLength(255);
+
+            // Audit
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
+
             // Indexes
             entity.HasIndex(e => e.UserName).IsUnique();
-            entity.HasIndex(e => e.UserNameNormalized);
-            entity.HasIndex(e => e.Mail);
+            entity.HasIndex(e => e.UserCode);
+            //entity.HasIndex(e => e.UserNameNormalized).IsUnique();
+            entity.HasIndex(e => e.Email);
             entity.HasIndex(e => e.IsActive);
-		});
+        });
 
         // RefreshToken configuration
         modelBuilder.Entity<RefreshTokenEntity>(entity =>
@@ -1012,13 +1034,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
+
             // Foreign key relationship
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => new { e.IsRevoked, e.ExpiresAt });
@@ -1111,6 +1133,126 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId);
         });
 
+        // ── UserDepartmentAllocation ─────────────────────────────────────────
+        modelBuilder.Entity<UserDepartmentAllocationEntity>(entity =>
+        {
+            entity.ToTable("UserDepartmentAllocation", "CORE");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
+            entity.HasOne<UserEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .IsRequired();
+
+            entity.HasOne(e => e.Department)
+                  .WithMany()
+                  .HasForeignKey(e => e.DepartmentId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.DepartmentId }).IsUnique();
+        });
+
+        // ── UserModuleAllocation ─────────────────────────────────────────────
+        modelBuilder.Entity<UserModuleAllocationEntity>(entity =>
+        {
+            entity.ToTable("UserModuleAllocation", "CORE");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.ModuleId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
+            entity.HasOne<UserEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .IsRequired();
+
+            entity.HasOne(e => e.Department)
+                  .WithMany()
+                  .HasForeignKey(e => e.DepartmentId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasOne(e => e.Module)
+                  .WithMany()
+                  .HasForeignKey(e => e.ModuleId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.DepartmentId, e.ModuleId }).IsUnique();
+        });
+
+        // ── UserRoleAllocation ───────────────────────────────────────────────
+        modelBuilder.Entity<UserRoleAllocationEntity>(entity =>
+        {
+            entity.ToTable("UserRoleAllocation", "CORE");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.UserRoleId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
+            entity.HasOne<UserEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .IsRequired();
+
+            entity.HasOne(e => e.Department)
+                  .WithMany()
+                  .HasForeignKey(e => e.DepartmentId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasOne(e => e.UserRole)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserRoleId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .IsRequired();
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.UserId, e.DepartmentId, e.UserRoleId }).IsUnique();
+        });
+
+        // EmployeeTypeMaster configuration
+        modelBuilder.Entity<EmployeeTypeEntity>(entity =>
+        {
+            entity.ToTable("EmployeeTypeMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EmployeeType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
+        });
         // PropertyDescriptionAndTypeOfUseValidation configuration
         modelBuilder.Entity<PropertyDescriptionAndTypeOfUseValidationEntity>(entity =>
         {
@@ -1124,7 +1266,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
+
             // Unique constraint on PropertyTypeId and TypeOfUseId combination
             entity.HasIndex(e => new { e.PropertyTypeId, e.TypeOfUseId })
                 .IsUnique()

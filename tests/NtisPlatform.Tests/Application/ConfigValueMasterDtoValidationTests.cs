@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
+using NtisPlatform.Application.DTOs.Master.ConfigValueMaster;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using Xunit;

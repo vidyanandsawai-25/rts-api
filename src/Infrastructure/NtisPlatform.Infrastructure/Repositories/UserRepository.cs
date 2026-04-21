@@ -7,9 +7,9 @@ using NtisPlatform.Infrastructure.Data;
 namespace NtisPlatform.Infrastructure.Repositories;
 
 /// <summary>
-/// UserMaster repository implementation
+/// User repository implementation
 /// </summary>
-public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
+public class UserRepository : Repository<UserEntity, int>, IUserRepository
 {
     private readonly ISecuritySettingsService _securitySettings;
 
@@ -18,24 +18,23 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
         _securitySettings = securitySettings;
     }
 
-    public async Task<UserMasterEntity?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    public async Task<UserEntity?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
-        // Compare against normalized username field (uppercase, culture-invariant)
+        // Case-insensitive comparison using ToUpperInvariant() on both sides
         // This approach:
-        // - Avoids culture-sensitive ToLower() (e.g., Turkish-I problem)
-        // - Allows efficient index usage (querying indexed UserNameNormalized column)
+        // - Avoids culture-sensitive issues (e.g., Turkish-I problem)
         // - Works consistently across all database providers
-        var normalizedUsername = username.ToUpperInvariant();
+        // - Gets translated to SQL UPPER() comparison
         return await _context.UserMasters
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.UserNameNormalized == normalizedUsername, cancellationToken);
+            .FirstOrDefaultAsync(u => u.UserName.ToUpperInvariant() == username.ToUpperInvariant(), cancellationToken);
     }
 
     public async Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _context.UserMasters
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        
+
         if (user != null)
         {
             user.LastLoginAt = DateTime.Now;
@@ -48,18 +47,18 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
         // Get lockout policy from security settings 
         var maxAttempts = await _securitySettings.GetAsync<int>("MaxFailedAttempts", 5, cancellationToken);
         var lockoutMinutes = await _securitySettings.GetAsync<int>("LockoutDurationMinutes", 30, cancellationToken);
-        
+
         // Fetch user to update
         var user = await _context.UserMasters
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        
+
         if (user == null) return;
-        
+
         var newFailedCount = (user.FailedLoginCount ?? 0) + 1;
         var newLockedUntil = newFailedCount >= maxAttempts ? DateTime.Now.AddMinutes(lockoutMinutes) : (DateTime?)null;
-        
+
         user.FailedLoginCount = newFailedCount;
-        user.LockedUntilAt = newLockedUntil; 
+        user.LockedUntilAt = newLockedUntil;
         await _context.SaveChangesAsync(cancellationToken);
     }
 
@@ -67,7 +66,7 @@ public class UserRepository : Repository<UserMasterEntity, int>, IUserRepository
     {
         var user = await _context.UserMasters
             .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        
+
         if (user != null)
         {
             user.FailedLoginCount = 0;

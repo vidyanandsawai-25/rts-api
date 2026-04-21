@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Infrastructure;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
 using Xunit;
@@ -38,18 +39,18 @@ public class JwtTokenServiceTests
     {
         var service = new JwtTokenService(_configuration);
 
-        var token = service.GenerateToken(1, "testuser", 5);
+        var token = service.GenerateToken(1, "testuser");
 
         Assert.NotNull(token);
         Assert.NotEmpty(token);
     }
 
     [Fact]
-    public void GenerateToken_NoRoleId_ReturnsTokenWithoutRole()
+    public void GenerateToken_WithUsername_ReturnsTokenWithoutRole()
     {
         var service = new JwtTokenService(_configuration);
 
-        var token = service.GenerateToken(1, "testuser", null);
+        var token = service.GenerateToken(1, "testuser");
 
         Assert.NotNull(token);
         Assert.NotEmpty(token);
@@ -69,7 +70,7 @@ public class JwtTokenServiceTests
         var service = new JwtTokenService(config);
 
         Assert.Throws<InvalidOperationException>(() =>
-            service.GenerateToken(1, "testuser", 5));
+            service.GenerateToken(1, "testuser"));
     }
 
     [Fact]
@@ -90,13 +91,12 @@ public class JwtTokenServiceTests
     {
         var service = new JwtTokenService(_configuration);
 
-        var token = service.GenerateToken(1, "testuser", 5);
+        var token = service.GenerateToken(1, "testuser");
         var result = service.ValidateToken(token);
 
         Assert.True(result.IsValid);
         Assert.Equal(1, result.UserId);
         Assert.Equal("testuser", result.Username);
-        Assert.Equal(5, result.UserRoleId);
         Assert.NotNull(result.ExpiresAt);
     }
 
@@ -144,7 +144,7 @@ public class JwtTokenServiceTests
             .Build();
 
         var service = new JwtTokenService(config);
-        var token = service.GenerateToken(1, "testuser", 5);
+        var token = service.GenerateToken(1, "testuser");
 
         Assert.NotNull(token);
     }
@@ -163,7 +163,7 @@ public class JwtTokenServiceTests
             .Build();
 
         var service = new JwtTokenService(config);
-        var token = service.GenerateToken(1, "testuser", 5);
+        var token = service.GenerateToken(1, "testuser");
 
         Assert.NotNull(token);
     }

@@ -61,7 +61,7 @@ public class RefreshTokenEntity : BaseEntity
     /// Navigation property to user
     /// </summary>
     [ForeignKey(nameof(UserId))]
-    public virtual UserMasterEntity? User { get; set; }
+    public virtual UserEntity? User { get; set; }
 
     /// <summary>
     /// Check if token is active (not expired and not revoked)

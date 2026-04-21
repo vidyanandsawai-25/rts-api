@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.DesignationMaster;
 using NtisPlatform.Application.Services;
@@ -46,7 +46,7 @@ public class DesignationMasterServiceTests
             Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
-            DesignationLocal = "प्रबंधक",
+            DesignationLocal = "???????",
             IsActive = true
         }; 
 
@@ -55,7 +55,7 @@ public class DesignationMasterServiceTests
             Id = 1,
             DesignationCode = "DES001",
             DesignationName = "Manager",
-            DesignationLocal = "प्रबंधक",
+            DesignationLocal = "???????",
             IsActive = true
         };
 
@@ -100,7 +100,7 @@ public class DesignationMasterServiceTests
         {
             DesignationCode = "DES001",
             DesignationName = "Manager",
-            DesignationLocal = "प्रबंधक",
+            DesignationLocal = "???????",
             IsActive = true
         };
 

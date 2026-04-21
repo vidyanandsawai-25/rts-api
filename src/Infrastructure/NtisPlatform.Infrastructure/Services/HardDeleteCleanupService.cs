@@ -38,6 +38,9 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
             // to delete until column is added to database
             totalDeleted += await CleanupEntityType<Core.Entities.PropertyEntity>(cutoffDate, cancellationToken);
 
+            // UserEntity cleanup - removes users marked for deletion after retention period
+            totalDeleted += await CleanupEntityType<Core.Entities.Master.UserEntity>(cutoffDate, cancellationToken);
+
             // Add more entity types here as they implement IHardDeletable
             // totalDeleted += await CleanupEntityType<OtherEntity>(cutoffDate, cancellationToken);
 

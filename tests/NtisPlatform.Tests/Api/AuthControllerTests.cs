@@ -42,9 +42,6 @@ public class AuthControllerTests
             Token = "mock-jwt-token",
             UserId = 1,
             Username = "testuser",
-            Name = "Test User",
-            UserRoleId = 1,
-            UserRole = "Administrator",
             Message = "Login successful",
             ExpiresAt = DateTime.UtcNow.AddMinutes(60)
         };

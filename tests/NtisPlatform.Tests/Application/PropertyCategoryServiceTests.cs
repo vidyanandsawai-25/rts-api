@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Moq;
 using MockQueryable;
 using NtisPlatform.Application.DTOs;

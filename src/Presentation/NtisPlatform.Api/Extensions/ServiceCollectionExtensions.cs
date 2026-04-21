@@ -113,6 +113,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IEmployeeType, EmployeeTypeService>();
+        services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper
@@ -163,7 +166,7 @@ public static class ServiceCollectionExtensions
                 }
             });
         });
-  
+
         services.AddCors(options =>
         {
             options.AddPolicy("AllowAll", policy =>
@@ -247,7 +250,7 @@ public static class ServiceCollectionExtensions
         {
             options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
-                .Build(); 
+                .Build();
         });
 
         // Rate Limiting (ASP.NET Core 7+)

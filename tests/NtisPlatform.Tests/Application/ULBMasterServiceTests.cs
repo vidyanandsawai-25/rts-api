@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Moq;
@@ -96,7 +96,7 @@ public class ULBMasterServiceTests
         {
             UlbCode = "ULB001",
             UlbName = "New ULB",
-            UlbNameLocal = "नया यूएलबी",
+            UlbNameLocal = "??? ??????",
             UlbTypeId = 1,
             EmailId = "test@ulb.com",
             MobileNo = "1234567890",
@@ -171,7 +171,7 @@ public class ULBMasterServiceTests
         {
             UlbCode = "ULB001",
             UlbName = "Updated Name",
-            UlbNameLocal = "अपडेटेड नाम",
+            UlbNameLocal = "??????? ???",
             UlbTypeId = 1,
             IsActive = true
         };

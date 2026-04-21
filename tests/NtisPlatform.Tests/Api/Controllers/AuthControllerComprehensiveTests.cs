@@ -130,8 +130,7 @@ public class AuthControllerComprehensiveTests
         {
             IsValid = true,
             UserId = 1,
-            Username = "testuser",
-            UserRoleId = 5
+            Username = "testuser"
         };
 
         mockService.Setup(s => s.ValidateSessionAsync(request, It.IsAny<CancellationToken>()))

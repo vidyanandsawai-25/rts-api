@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -45,7 +45,7 @@ public class RateSectionServiceTests
         {
             Id=1,
             RateSectionNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 31,
@@ -60,7 +60,7 @@ public class RateSectionServiceTests
             .Returns(new RateSectionDto
             {
                 RateSectionNo = "WKD",
-                Description = "वाकड",
+                Description = "????",
                 IsActive = true
             });
 
@@ -70,7 +70,7 @@ public class RateSectionServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("WKD", result.RateSectionNo);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.True(result.IsActive);
     }
 
@@ -94,8 +94,8 @@ public class RateSectionServiceTests
         // Arrange
         var entities = new List<RateSectionEntity>
         {
-            new() { Id=1,RateSectionNo = "MSH", Description = "मोशी", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
-            new() { Id=1,RateSectionNo = "TRG", Description = "थेरगाव",   IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id=1,RateSectionNo = "MSH", Description = "????", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id=1,RateSectionNo = "TRG", Description = "??????",   IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -143,7 +143,7 @@ public class RateSectionServiceTests
         var createDto = new CreateRateSectionDto
         {
             RateSectionNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             IsActive = true,
             CreatedBy = 31
         };
@@ -179,7 +179,7 @@ public class RateSectionServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("WKD", result.RateSectionNo);
-        Assert.Equal("वाकड", result.Description);
+        Assert.Equal("????", result.Description);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -198,7 +198,7 @@ public class RateSectionServiceTests
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            Description = "मोशी",
+            Description = "????",
             IsActive = true,
             UpdatedBy = 31
         };
@@ -206,7 +206,7 @@ public class RateSectionServiceTests
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            Description = "वाकड",
+            Description = "????",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.Now,
@@ -245,7 +245,7 @@ public class RateSectionServiceTests
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
-        Assert.Equal("मोशी", existingEntity.Description);
+        Assert.Equal("????", existingEntity.Description);
         Assert.True(existingEntity.IsActive);
     }
 
@@ -255,7 +255,7 @@ public class RateSectionServiceTests
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            Description = "वाकड",
+            Description = "????",
             IsActive = true,
             UpdatedBy = 31
         };
@@ -308,7 +308,7 @@ public class RateSectionServiceTests
         {
             Id = idToDelete,
             RateSectionNo = "WKD",
-            Description = "वाकड",
+            Description = "????",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.Now,

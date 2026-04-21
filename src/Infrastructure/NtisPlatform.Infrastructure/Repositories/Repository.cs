@@ -62,7 +62,7 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         var entity = await GetByIdAsync(id, cancellationToken);
         if (entity != null)
         {
-            // For entities implementing IHardDeletable, perform soft delete and set deletion timestamp
+            // For entities implementing IHardDeletable, perform soft delete and mark for hard deletion
             // The entity will be permanently deleted by the nightly cleanup task
             if (entity is IHardDeletable hardDeletable && entity is BaseEntity baseEntityForHardDelete)
             {

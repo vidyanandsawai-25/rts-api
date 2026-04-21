@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Infrastructure;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Services;
