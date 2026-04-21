@@ -70,6 +70,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserMasterEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidations { get; set; } = null!;
+    public DbSet<GenderMasterEntity> GenderMasters { get; set; } = null!;
+
     public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1129,6 +1131,19 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_PropertyDescriptionAndTypeOfUseValidation");
         });
 
+        modelBuilder.Entity<GenderMasterEntity>(entity =>
+        {
+            entity.ToTable("GenderMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.GenderName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.GenderName).IsUnique().HasDatabaseName("UQ_GenderMaster_GenderName");
+            entity.HasIndex(e => e.IsActive);
+        });
         // PropertyCertificateTypeMaster configuration
         modelBuilder.Entity<PropertyCertificateTypeMasterEntity>(entity =>
         {

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Master.GenderMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
@@ -629,6 +630,100 @@ public class AllMasterControllersComprehensiveTests
         var result = await controller.Create(createDto, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    #endregion
+
+    #region Gender Master Tests
+
+    [Fact]
+    public async Task GenderController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IGenderMasterService>();
+        var mockLogger = new Mock<ILogger<GenderController>>();
+        var controller = new GenderController(mockService.Object, mockLogger.Object);
+
+        var query = new GenderQueryParameters();
+        var pagedResult = new PagedResult<GenderMasterDtos>(new List<GenderMasterDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenderController_GetById_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IGenderMasterService>();
+        var mockLogger = new Mock<ILogger<GenderController>>();
+        var controller = new GenderController(mockService.Object, mockLogger.Object);
+
+        var dto = new GenderMasterDtos { Id = 1 };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenderController_Create_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IGenderMasterService>();
+        var mockLogger = new Mock<ILogger<GenderController>>();
+        var controller = new GenderController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreateGenderMasterDto { GenderName = "Male"};
+        var resultDto = new GenderMasterDtos { Id = 1 };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenderController_Update_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IGenderMasterService>();
+        var mockLogger = new Mock<ILogger<GenderController>>();
+        var controller = new GenderController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateGenderMasterDto { GenderName = "Male" };
+        var resultDto = new GenderMasterDtos { Id = 1 };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenderController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IGenderMasterService>();
+        var mockLogger = new Mock<ILogger<GenderController>>();
+        var controller = new GenderController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

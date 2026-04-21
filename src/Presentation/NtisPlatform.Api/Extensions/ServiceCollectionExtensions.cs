@@ -114,6 +114,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
+        services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper
         services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
         // API Layer - Controllers, Swagger, CORS
