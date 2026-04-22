@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +14,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class AssessmentYearRangeCVController : ControllerBase
 {
     private readonly IAssessmentYearRangeCVService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<AssessmentYearRangeCVController> _logger;
 
-    public AssessmentYearRangeCVController(IAssessmentYearRangeCVService service, ILogger<AssessmentYearRangeCVController> logger)
+    public AssessmentYearRangeCVController(IAssessmentYearRangeCVService service, IHardDeleteCleanupService cleanupService, ILogger<AssessmentYearRangeCVController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -39,4 +43,9 @@ public class AssessmentYearRangeCVController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<AssessmentYearRangeCVEntity, int>(_cleanupService, id, _logger, ct);
 }

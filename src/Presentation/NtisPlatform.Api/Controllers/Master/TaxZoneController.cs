@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class TaxZoneController : ControllerBase
 {
     private readonly ITaxZoneService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<TaxZoneController> _logger;
 
-    public TaxZoneController(ITaxZoneService service, ILogger<TaxZoneController> logger)
+    public TaxZoneController(ITaxZoneService service, IHardDeleteCleanupService cleanupService, ILogger<TaxZoneController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -39,4 +42,9 @@ public class TaxZoneController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<TaxZoneEntity, int>(_cleanupService, id, _logger, ct);
 }

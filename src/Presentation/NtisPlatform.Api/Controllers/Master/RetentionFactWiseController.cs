@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class RetentionFactWiseController : ControllerBase
 {
     private readonly IRetentionFactWiseService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RetentionFactWiseController> _logger;
 
-    public RetentionFactWiseController(IRetentionFactWiseService service, ILogger<RetentionFactWiseController> logger)
+    public RetentionFactWiseController(IRetentionFactWiseService service, IHardDeleteCleanupService cleanupService, ILogger<RetentionFactWiseController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -39,4 +42,10 @@ public class RetentionFactWiseController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+       => this.ExecuteForceDelete<RetentionFactWiseEntity, int>(_cleanupService, id, _logger, ct);
 }
+ 

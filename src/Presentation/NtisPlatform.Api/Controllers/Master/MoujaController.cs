@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 [ApiController]
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class MoujaController : ControllerBase
 {
     private readonly IMoujaService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<MoujaController> _logger;
     
-    public MoujaController(IMoujaService service, ILogger<MoujaController> logger)
+    public MoujaController(IMoujaService service, IHardDeleteCleanupService cleanupService, ILogger<MoujaController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -35,4 +38,8 @@ public class MoujaController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<MoujaEntity, int>(_cleanupService, id, _logger, ct);
 }

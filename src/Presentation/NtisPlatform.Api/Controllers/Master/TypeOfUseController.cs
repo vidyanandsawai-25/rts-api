@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class TypeOfUseController : ControllerBase
 {
     private readonly ITypeOfUseService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<TypeOfUseController> _logger;
 
-    public TypeOfUseController(ITypeOfUseService service, ILogger<TypeOfUseController> logger)
+    public TypeOfUseController(ITypeOfUseService service, IHardDeleteCleanupService cleanupService, ILogger<TypeOfUseController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -40,5 +43,9 @@ public class TypeOfUseController : ControllerBase
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<TypeOfUseEntity, int>(_cleanupService, id, _logger, ct);
 }
 

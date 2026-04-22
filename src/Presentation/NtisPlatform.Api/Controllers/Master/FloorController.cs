@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class FloorController : ControllerBase
 {
     private readonly IFloorService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<FloorController> _logger;
 
-    public FloorController(IFloorService service, ILogger<FloorController> logger)
+    public FloorController(IFloorService service, IHardDeleteCleanupService cleanupService, ILogger<FloorController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -39,4 +42,9 @@ public class FloorController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<FloorEntity, int>(_cleanupService, id, _logger, ct);
 }

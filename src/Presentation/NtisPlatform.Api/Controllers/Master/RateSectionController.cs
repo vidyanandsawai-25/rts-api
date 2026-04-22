@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class RateSectionController : ControllerBase
 {
     private readonly IRateSectionService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RateSectionController> _logger;
 
-    public RateSectionController(IRateSectionService service, ILogger<RateSectionController> logger)
+    public RateSectionController(IRateSectionService service, IHardDeleteCleanupService cleanupService, ILogger<RateSectionController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -40,5 +43,9 @@ public class RateSectionController : ControllerBase
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<RateSectionEntity, int>(_cleanupService, id, _logger, ct);
 }
 
