@@ -64,6 +64,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
+    public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
+    public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
@@ -1305,6 +1307,63 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+        });
+
+        // TaxMaster configuration
+        modelBuilder.Entity<TaxMasterEntity>(entity =>
+        {
+            entity.ToTable("TaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.TaxName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.TaxNameAlias).HasMaxLength(200);
+            entity.Property(e => e.TaxCategoryId).IsRequired();
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.TaxOnUnit).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.AssessmentStatus).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.OldTaxStatus).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.TaxCode).IsUnique().HasDatabaseName("UQ_TaxMaster_TaxCode");
+            entity.HasIndex(e => e.TaxName).IsUnique().HasDatabaseName("UQ_TaxMaster_TaxName");
+        });
+
+        // TransMastOld configuration
+        modelBuilder.Entity<TransMastOldEntity>(entity =>
+        {
+            entity.ToTable("TransMastOld", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.FinanceYearId).IsRequired();
+            entity.Property(e => e.RVorCV).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
+            entity.Property(e => e.RVorCVValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Unique constraint on PropertyId, FinanceYearId, TaxId for active, non-deleted rows only
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
+                .HasDatabaseName("UQ_TransMastOld_Property_Year_Tax");
+            
+            // Performance indexes
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId })
+                .HasDatabaseName("IX_TransMastOld_PropertyYear")
+                .IncludeProperties(e => new { e.TaxId, e.TaxAmount });
+            
+            entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastOld_TaxId");
         });
     }
 }

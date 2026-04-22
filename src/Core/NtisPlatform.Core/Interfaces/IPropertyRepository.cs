@@ -50,4 +50,21 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 
 
     Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves old taxes details for a property including historical tax data across finance years
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Property old taxes details DTO or null if property not found</returns>
+    Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates old taxes details for a property across multiple finance years
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The update data containing tax information for multiple years</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated PropertyOldTaxesDetailsDto if property was found and updated, null otherwise</returns>
+    Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
 }
