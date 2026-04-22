@@ -181,7 +181,7 @@ public class OfficeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OfficeEntity, OfficeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -228,7 +228,7 @@ public class OfficeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OfficeEntity, OfficeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new OfficeService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -261,7 +261,7 @@ public class OfficeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OfficeEntity, OfficeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new OfficeService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -303,7 +303,7 @@ public class OfficeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OfficeEntity, OfficeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new OfficeService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -1131,7 +1131,7 @@ public class OfficeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OfficeEntity, OfficeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new OfficeService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

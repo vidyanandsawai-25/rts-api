@@ -99,7 +99,7 @@ public class BaseCrudServiceTests
         var mockMapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TestEntity, TestDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         _mapperMock.Setup(x => x.ConfigurationProvider)
             .Returns(mockMapperConfig);
 
@@ -134,7 +134,7 @@ public class BaseCrudServiceTests
         var mockMapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TestEntity, TestDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         _mapperMock.Setup(x => x.ConfigurationProvider)
             .Returns(mockMapperConfig);
@@ -171,7 +171,7 @@ public class BaseCrudServiceTests
         var mockMapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TestEntity, TestDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         _mapperMock.Setup(x => x.ConfigurationProvider)
             .Returns(mockMapperConfig);
@@ -208,7 +208,7 @@ public class BaseCrudServiceTests
         var mockMapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TestEntity, TestDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         _mapperMock.Setup(x => x.ConfigurationProvider)
             .Returns(mockMapperConfig);
 
@@ -731,7 +731,7 @@ public class BaseCrudServiceTests
         var mockMapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TestEntity, TestDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         _mapperMock.Setup(x => x.ConfigurationProvider)
             .Returns(mockMapperConfig);

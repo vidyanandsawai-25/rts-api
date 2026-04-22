@@ -35,7 +35,8 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<EmployeeTypeEntity, EmployeeTypeDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+
             var mapper = mapperConfig.CreateMapper();
             var service = new EmployeeTypeService(_repositoryMock.Object, _unitOfWorkMock.Object, mapper);
 

@@ -3,10 +3,10 @@
   <!-- All common properties are inherited from Directory.Build.props -->
 
   <ItemGroup>
+    <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.OpenApi" Version="1.6.23" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.0" />
-    <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
   </ItemGroup>
 
   <ItemGroup>

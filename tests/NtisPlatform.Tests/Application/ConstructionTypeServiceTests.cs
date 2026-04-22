@@ -113,7 +113,7 @@ public class ConstructionTypeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConstructionTypeEntity, ConstructionTypeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();

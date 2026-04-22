@@ -135,7 +135,7 @@ public class RateSectionDetailsServiceTests
         {
             cfg.CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()
                 .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();

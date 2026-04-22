@@ -105,7 +105,7 @@ public class OwnerTypeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -353,7 +353,7 @@ public class OwnerTypeServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<OwnerTypeMasterEntity, OwnerTypeDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
 

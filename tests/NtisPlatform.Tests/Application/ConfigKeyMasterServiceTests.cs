@@ -183,7 +183,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -230,7 +230,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -275,7 +275,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -313,7 +313,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -346,7 +346,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -390,7 +390,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -428,7 +428,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -469,7 +469,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -752,7 +752,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -794,7 +794,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -844,7 +844,7 @@ public class ConfigKeyMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ConfigKeyMasterEntity, ConfigKeyMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new ConfigKeyMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

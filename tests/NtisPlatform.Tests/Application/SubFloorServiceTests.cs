@@ -110,7 +110,7 @@ public class SubFloorServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<SubFloorEntity, SubFloorDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();

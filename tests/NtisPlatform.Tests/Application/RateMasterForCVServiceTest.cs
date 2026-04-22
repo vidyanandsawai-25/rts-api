@@ -118,7 +118,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RateMasterForCVEntity, RateMasterForCVDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();

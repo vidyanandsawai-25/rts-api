@@ -847,7 +847,7 @@ public class TaxZoneServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<TaxZoneEntity, TaxZoneDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
         var service = new TaxZoneService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

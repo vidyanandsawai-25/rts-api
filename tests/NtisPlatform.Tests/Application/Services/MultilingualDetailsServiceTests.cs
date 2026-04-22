@@ -83,7 +83,7 @@ public class MultilingualDetailsServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<MultilingualDetailsEntity, MultilingualDetailsDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var mapper = mapperConfig.CreateMapper();
 
         var service = new MultilingualDetailsService(repository, mockUnitOfWork.Object, mapper);
@@ -111,7 +111,7 @@ public class MultilingualDetailsServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<MultilingualDetailsEntity, MultilingualDetailsDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var mapper = mapperConfig.CreateMapper();
 
         var service = new MultilingualDetailsService(repository, mockUnitOfWork.Object, mapper);
@@ -171,7 +171,7 @@ public class MultilingualDetailsServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<MultilingualDetailsEntity, MultilingualDetailsDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var mapper = mapperConfig.CreateMapper();
 
         var service = new MultilingualDetailsService(repository, mockUnitOfWork.Object, mapper);
@@ -232,7 +232,7 @@ public class MultilingualDetailsServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<MultilingualDetailsEntity, MultilingualDetailsDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var mapper = mapperConfig.CreateMapper();
 
         var service = new MultilingualDetailsService(repository, mockUnitOfWork.Object, mapper);
@@ -258,7 +258,7 @@ public class MultilingualDetailsServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<MultilingualDetailsEntity, MultilingualDetailsDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         var mapper = mapperConfig.CreateMapper();
 
         var service = new MultilingualDetailsService(repository, mockUnitOfWork.Object, mapper);

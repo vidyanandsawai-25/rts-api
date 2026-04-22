@@ -95,7 +95,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
         var service = new PropertyCategoryService(
@@ -139,7 +139,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -181,7 +181,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -225,7 +225,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -269,7 +269,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -302,7 +302,7 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<PropertyCategoryMappingProfile>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
 
@@ -351,7 +351,7 @@ public class PropertyCategoryServiceTests
                 .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper realMapper = mapperConfig.CreateMapper();
 

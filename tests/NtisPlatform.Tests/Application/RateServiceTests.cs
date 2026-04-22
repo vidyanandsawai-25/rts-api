@@ -100,7 +100,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RateEntity, RateDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();

@@ -135,7 +135,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -182,7 +182,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -215,7 +215,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -254,7 +254,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -292,7 +292,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -749,7 +749,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -791,7 +791,7 @@ public class GenderMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GenderMasterEntity, GenderMasterDtos>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GenderMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

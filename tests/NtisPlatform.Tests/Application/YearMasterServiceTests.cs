@@ -173,7 +173,7 @@ public class YearMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<YearMasterEntity, YearMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -220,7 +220,7 @@ public class YearMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<YearMasterEntity, YearMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new YearMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -252,7 +252,7 @@ public class YearMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<YearMasterEntity, YearMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new YearMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -294,7 +294,7 @@ public class YearMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<YearMasterEntity, YearMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new YearMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -940,7 +940,7 @@ public class YearMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<YearMasterEntity, YearMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new YearMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

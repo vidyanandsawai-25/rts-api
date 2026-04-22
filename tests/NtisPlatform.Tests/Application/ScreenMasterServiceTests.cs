@@ -180,7 +180,7 @@ public class ScreenMasterServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<ScreenMasterEntity, ScreenMasterDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
         var service = new ScreenMasterService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

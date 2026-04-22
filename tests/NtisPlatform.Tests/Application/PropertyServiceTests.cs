@@ -792,7 +792,7 @@ public class PropertyServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<PropertyMappingProfile>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
         var mockPropertyRepo = new Mock<IPropertyRepository>();
 

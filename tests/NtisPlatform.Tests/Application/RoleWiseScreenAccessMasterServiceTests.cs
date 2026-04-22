@@ -157,7 +157,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RoleWiseScreenAccessMasterEntity, RoleWiseScreenAccessMasterDTO>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();
@@ -219,7 +219,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RoleWiseScreenAccessMasterEntity, RoleWiseScreenAccessMasterDTO>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
 

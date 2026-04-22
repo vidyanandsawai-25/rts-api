@@ -27,7 +27,7 @@ namespace NtisPlatform.Tests.Application
             {
                 foreach (var p in profiles)
                     cfg.AddProfile(p);
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             var mapper = config.CreateMapper();
             var provider = mapper.ConfigurationProvider;

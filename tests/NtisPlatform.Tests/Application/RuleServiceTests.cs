@@ -178,7 +178,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();
@@ -225,7 +225,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -264,7 +264,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -297,7 +297,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -341,7 +341,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -379,7 +379,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -429,7 +429,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -1028,7 +1028,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -1135,7 +1135,7 @@ namespace NtisPlatform.Tests.Application
             var mapperConfig = new MapperConfiguration(cfg =>
             {
                 cfg.CreateMap<RuleEntity, RuleDto>();
-            });
+            }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
             IMapper mapper = mapperConfig.CreateMapper();
             var service = new RuleService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

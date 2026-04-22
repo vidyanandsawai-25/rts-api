@@ -183,7 +183,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<GrievanceCategoryMappingProfile>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();
@@ -230,7 +230,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -271,7 +271,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -307,7 +307,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -350,7 +350,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -388,7 +388,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -1066,7 +1066,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<GrievanceCategoryEntity, GrievanceCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
@@ -1175,7 +1175,7 @@ public class GrievanceCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<GrievanceCategoryMappingProfile>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
         var service = new GrievanceCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

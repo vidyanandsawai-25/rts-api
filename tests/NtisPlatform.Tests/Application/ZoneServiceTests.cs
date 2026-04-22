@@ -113,7 +113,7 @@ public class ZoneServiceTests
         {
             cfg.CreateMap<ZoneEntity, ZoneDto>()
                 .ForMember(dest => dest.ZoneNo, opt => opt.MapFrom(src => src.ZoneNo));
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
         IMapper mapper = mapperConfig.CreateMapper();

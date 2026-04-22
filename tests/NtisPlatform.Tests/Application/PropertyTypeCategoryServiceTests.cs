@@ -536,7 +536,7 @@ public class PropertyTypeCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyTypeCategoryEntity, PropertyTypeCategoryDto>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
         var service = new PropertyTypeCategoryService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

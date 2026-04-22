@@ -332,7 +332,7 @@ public class ActiveTaxesServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<ActiveTaxesMappingProfile>();
-        });
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
         var service = new ActiveTaxesService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);

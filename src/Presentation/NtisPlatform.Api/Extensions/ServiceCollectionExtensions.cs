@@ -1,12 +1,15 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Resources;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Interfaces;
@@ -29,6 +32,13 @@ public static class ServiceCollectionExtensions
     {
         // Infrastructure Layer - Database (Single deployment per organization)
         services.AddHttpContextAccessor();
+
+        // AutoMapper - scan Application assembly for all mapping profiles in NtisPlatform.Application.Mappings
+        var mapperConfig = new MapperConfiguration(cfg =>
+        {
+            cfg.AddMaps(typeof(FloorMappingProfile).Assembly);
+        }, NullLoggerFactory.Instance);
+        services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
 
         // Register organization context (reads from config at deployment)
         // Register DbContext with single connection string
@@ -117,9 +127,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
+  
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper
-        services.AddAutoMapper(typeof(NtisPlatform.Application.Mappings.FloorMappingProfile).Assembly);
+        services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         // API Layer - Controllers, Swagger, CORS
         services.AddControllers();
         services.AddEndpointsApiExplorer();
