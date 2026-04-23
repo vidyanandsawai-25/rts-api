@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
@@ -12,6 +13,8 @@ namespace NtisPlatform.Api.Extensions;
 
 public static class CrudControllerExtensions
 {
+    #region Single CRUD Operations
+
     public static async Task<IActionResult> ExecuteGetAllPaged<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
         this ControllerBase controller,
         ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
@@ -19,6 +22,8 @@ public static class CrudControllerExtensions
         ILogger logger,
         CancellationToken cancellationToken = default)
         where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
     {
         try
         {
@@ -52,6 +57,8 @@ public static class CrudControllerExtensions
         ILogger logger,
         CancellationToken cancellationToken = default)
         where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
     {
         try
         {
@@ -76,11 +83,11 @@ public static class CrudControllerExtensions
         ILogger logger,
         CancellationToken cancellationToken = default)
         where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
     {
         try
         {
-
-
             var result = await service.CreateAsync(createDto, cancellationToken);
             return controller.Ok(new ApiResponse<TDto>
             {
@@ -88,7 +95,6 @@ public static class CrudControllerExtensions
                 Message = "Record inserted successfully",
                 Items = result
             });
-
         }
         catch (Exception ex)
         {
@@ -124,6 +130,8 @@ public static class CrudControllerExtensions
         ILogger logger,
         CancellationToken cancellationToken = default)
         where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
     {
         try
         {
@@ -184,6 +192,8 @@ public static class CrudControllerExtensions
         ILogger logger,
         CancellationToken cancellationToken = default)
         where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
     {
         try
         {
@@ -307,4 +317,159 @@ public static class CrudControllerExtensions
                errorMessage.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase) ||
                errorMessage.Contains("conflicted with the FOREIGN KEY", StringComparison.OrdinalIgnoreCase);
     }
+
+    #endregion
+
+    #region Bulk Operations
+
+    public static async Task<IActionResult> ExecuteBulkCreate<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
+        this ControllerBase controller,
+        ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
+        TCreateDto[] items,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
+    {
+        if (items == null || items.Length == 0)
+        {
+            return controller.BadRequest(new ApiResponse<BulkResult<TDto>>
+            {
+                Success = false,
+                Message = "No items provided for Bulk create."
+            });
+        }
+
+        try
+        {
+            var result = await service.BulkCreateAsync(items, cancellationToken);
+            return controller.Ok(new ApiResponse<BulkResult<TDto>>
+            {
+                Success = result.AllSucceeded,
+                Message = result.HasFailures 
+                    ? $"{result.SuccessCount} records created, {result.FailedCount} failed"
+                    : $"{result.SuccessCount} records created successfully",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Bulk create operation failed for {Count} items", items.Length);
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+
+            if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                return controller.Conflict(new ApiResponse<BulkResult<TDto>>
+                {
+                    Success = false,
+                    Message = "A record with the same details already exists."
+                });
+            }
+            return controller.StatusCode(500, new ApiResponse<BulkResult<TDto>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+    public static async Task<IActionResult> ExecuteBulkUpdate<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
+        this ControllerBase controller,
+        ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
+        BulkUpdateItem<TKey, TUpdateDto>[] items,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
+    {
+        if (items == null || items.Length == 0)
+        {
+            return controller.BadRequest(new ApiResponse<BulkResult<TDto>>
+            {
+                Success = false,
+                Message = "No items provided for Bulk update."
+            });
+        }
+
+        try
+        {
+            var result = await service.BulkUpdateAsync(items, cancellationToken);
+            return controller.Ok(new ApiResponse<BulkResult<TDto>>
+            {
+                Success = result.AllSucceeded,
+                Message = $"{result.SuccessCount} records updated, {result.FailedCount} failed",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Bulk update operation failed for {Count} items", items.Length);
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+
+            if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                return controller.Conflict(new ApiResponse<BulkResult<TDto>>
+                {
+                    Success = false,
+                    Message = "A record with the same details already exists."
+                });
+            }
+            return controller.StatusCode(500, new ApiResponse<BulkResult<TDto>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+    public static async Task<IActionResult> ExecuteBulkDelete<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
+        this ControllerBase controller,
+        ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
+        TKey[] ids,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
+    {
+        if (ids == null || ids.Length == 0)
+        {
+            return controller.BadRequest(new ApiResponse<BulkResult<TKey>>
+            {
+                Success = false,
+                Message = "No IDs provided for Bulk delete."
+            });
+        }
+
+        try
+        {
+            var result = await service.BulkDeleteAsync(ids, cancellationToken);
+            return controller.Ok(new ApiResponse<BulkResult<TKey>>
+            {
+                Success = result.AllSucceeded,
+                Message = $"{result.SuccessCount} records deleted, {result.FailedCount} not found",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Bulk delete operation failed for {Count} ids", ids.Length);
+            return controller.StatusCode(500, new ApiResponse<BulkResult<TKey>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+    #endregion
 }

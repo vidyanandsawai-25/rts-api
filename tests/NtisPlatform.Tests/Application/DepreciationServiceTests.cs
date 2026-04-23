@@ -246,7 +246,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.DeleteAsync(999, CancellationToken.None);
 
             Assert.False(result);
-            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Never);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
 
@@ -255,12 +255,12 @@ namespace NtisPlatform.Tests.Application
         {
             var existing = new DepreciationMasterEntity { Id = 1 };
             _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
-            _mockRepository.Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
             var result = await _service.DeleteAsync(1, CancellationToken.None);
 
             Assert.True(result);
-            _mockRepository.Verify(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
     }

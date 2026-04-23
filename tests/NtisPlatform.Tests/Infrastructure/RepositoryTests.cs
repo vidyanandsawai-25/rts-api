@@ -88,6 +88,21 @@ public class RepositoryTests : IDisposable
             await _dbSet.AddAsync(entity, cancellationToken);
             return entity;
         }
+        public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
+        {
+            var entityList = entities.ToList();
+            var now = DateTime.Now;
+
+            foreach (var entity in entityList)
+            {
+                if (entity is BaseEntity commonEntity)
+                {
+                    commonEntity.CreatedDate = now;
+                }
+            }
+
+            await _dbSet.AddRangeAsync(entityList, cancellationToken);
+        }
 
         public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
         {
@@ -105,16 +120,14 @@ public class RepositoryTests : IDisposable
             var entity = await GetByIdAsync(id, cancellationToken);
             if (entity != null)
             {
-                if (entity is BaseEntity baseEntity)
-                {
-                    baseEntity.IsActive = true;
-                    await UpdateAsync(entity, cancellationToken);
-                }
-                else
-                {
-                    _dbSet.Remove(entity);
-                }
+                await DeleteAsync(entity, cancellationToken);
             }
+        }
+
+        public virtual async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
+        {
+            entity.IsActive = false;
+            await UpdateAsync(entity, cancellationToken);
         }
 
         public virtual async Task<bool> ExistsAsync(int id, CancellationToken cancellationToken = default)
@@ -415,7 +428,7 @@ public class RepositoryTests : IDisposable
         // Assert
         var deleted = await _context.TestEntities.FindAsync(1);
         Assert.NotNull(deleted);
-        Assert.True(deleted.IsActive); // Note: The code sets IsActive to true for soft delete
+        Assert.False(deleted.IsActive); // Soft delete sets IsActive to false
     }
 
     [Fact]
@@ -447,7 +460,7 @@ public class RepositoryTests : IDisposable
         // Assert
         var deleted = await _context.TestEntities.FindAsync(1);
         Assert.NotNull(deleted);
-        Assert.True(deleted.IsActive);
+        Assert.False(deleted.IsActive);
     }
 
     #endregion
@@ -705,7 +718,7 @@ public class RepositoryTests : IDisposable
         await _context.SaveChangesAsync();
 
         var deleted = await _repository.GetByIdAsync(1);
-        Assert.True(deleted!.IsActive);
+        Assert.False(deleted!.IsActive);
     }
 
     [Fact]
@@ -743,7 +756,7 @@ public class RepositoryTests : IDisposable
         Assert.Equal("Updated Entity 2", entity2!.Name);
 
         var entity3 = await _repository.GetByIdAsync(3);
-        Assert.True(entity3!.IsActive);
+        Assert.False(entity3!.IsActive);
     }
 
     #endregion
@@ -803,7 +816,7 @@ public class RepositoryTests : IDisposable
         // Assert - Entity should still exist (soft deleted)
         var deleted = await _repository.GetByIdAsync(1);
         Assert.NotNull(deleted);
-        Assert.True(deleted.IsActive);
+        Assert.False(deleted.IsActive);
     }
 
     [Fact]

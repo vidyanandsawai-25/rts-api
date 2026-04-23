@@ -686,7 +686,7 @@ public class ConfigKeyMasterServiceTests
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
 
-        _mockRepository.Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<ConfigKeyMasterEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -695,7 +695,7 @@ public class ConfigKeyMasterServiceTests
         // Assert
         Assert.True(result);
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ConfigKeyMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -711,7 +711,7 @@ public class ConfigKeyMasterServiceTests
 
         // Assert
         Assert.False(result);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ConfigKeyMasterEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

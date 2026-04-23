@@ -604,7 +604,7 @@ public class UserRoleServiceTests
             .ReturnsAsync(existingEntity);
 
         _mockRepository
-            .Setup(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .Setup(r => r.DeleteAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -612,7 +612,7 @@ public class UserRoleServiceTests
 
         // Assert
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

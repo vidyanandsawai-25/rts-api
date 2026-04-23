@@ -862,7 +862,7 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(existingEntity);
 
             _mockRepository
-                .Setup(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()))
+                .Setup(r => r.DeleteAsync(It.IsAny<RoleWiseScreenAccessMasterEntity>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -870,7 +870,7 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.True(result);
-            _mockRepository.Verify(r => r.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RoleWiseScreenAccessMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 

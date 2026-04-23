@@ -365,7 +365,7 @@ public class WardServiceTests
             .ReturnsAsync(existingEntity);
 
         _mockRepository
-            .Setup(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .Setup(r => r.DeleteAsync(It.IsAny<WardEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -374,7 +374,7 @@ public class WardServiceTests
         // Assert
         Assert.True(result);
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<WardEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);

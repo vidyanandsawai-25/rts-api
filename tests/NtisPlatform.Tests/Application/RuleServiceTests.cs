@@ -1,10 +1,10 @@
 ﻿using AutoMapper;
-using Moq;
 using MockQueryable;
+using Moq;
+using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
-using NtisPlatform.Application.DTOs;
 
 namespace NtisPlatform.Tests.Application
 {
@@ -835,7 +835,7 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(existingEntity);
 
             _mockRepository
-                .Setup(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()))
+                .Setup(r => r.DeleteAsync(It.IsAny<RuleEntity>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             // Act
@@ -844,7 +844,7 @@ namespace NtisPlatform.Tests.Application
             // Assert
             Assert.True(result);
             _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-            _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RuleEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 

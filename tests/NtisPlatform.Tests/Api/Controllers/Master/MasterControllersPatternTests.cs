@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Master.GenderMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
@@ -113,6 +114,226 @@ public class AllMasterControllersComprehensiveTests
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    #region FloorController Bulk Operations Tests
+
+    [Fact]
+    public async Task FloorController_BulkCreate_CallsServiceMethod()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var createDtos = new[]
+        {
+            new CreateFloorDto { FloorCode = "F001", Description = "Floor 1" },
+            new CreateFloorDto { FloorCode = "F002", Description = "Floor 2" }
+        };
+
+        var bulkResult = new BulkResult<FloorDto>(
+            SuccessCount: 2,
+            FailedCount: 0,
+            Results: new List<FloorDto>
+            {
+                new() { Id = 1, FloorCode = "F001", Description = "Floor 1" },
+                new() { Id = 2, FloorCode = "F002", Description = "Floor 2" }
+            });
+
+        mockService.Setup(s => s.BulkCreateAsync(createDtos, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkCreate(createDtos, CancellationToken.None);
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.BulkCreateAsync(createDtos, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkCreate_EmptyArray_ReturnsBadRequest()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var emptyArray = Array.Empty<CreateFloorDto>();
+
+        // Act
+        var result = await controller.BulkCreate(emptyArray, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+        mockService.Verify(s => s.BulkCreateAsync(It.IsAny<CreateFloorDto[]>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkUpdate_CallsServiceMethod()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorDto>(1, new UpdateFloorDto { FloorCode = "F001", Description = "Updated 1" }),
+            new BulkUpdateItem<int, UpdateFloorDto>(2, new UpdateFloorDto { FloorCode = "F002", Description = "Updated 2" })
+        };
+
+        var bulkResult = new BulkResult<FloorDto>(
+            SuccessCount: 2,
+            FailedCount: 0,
+            Results: new List<FloorDto>
+            {
+                new() { Id = 1, FloorCode = "F001", Description = "Updated 1" },
+                new() { Id = 2, FloorCode = "F002", Description = "Updated 2" }
+            });
+
+        mockService.Setup(s => s.BulkUpdateAsync(updateItems, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkUpdate(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.BulkUpdateAsync(updateItems, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkUpdate_EmptyArray_ReturnsBadRequest()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object ,mockLogger.Object);
+
+        var emptyArray = Array.Empty<BulkUpdateItem<int, UpdateFloorDto>>();
+
+        // Act
+        var result = await controller.BulkUpdate(emptyArray, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+        mockService.Verify(s => s.BulkUpdateAsync(It.IsAny<BulkUpdateItem<int, UpdateFloorDto>[]>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkUpdate_PartialSuccess_ReturnsOkWithErrors()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
+
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorDto>(1, new UpdateFloorDto { FloorCode = "F001", Description = "Updated 1" }),
+            new BulkUpdateItem<int, UpdateFloorDto>(9999, new UpdateFloorDto { FloorCode = "FX", Description = "Not Found" })
+        };
+
+        var BulkResult = new BulkResult<FloorDto>(
+            SuccessCount: 1,
+            FailedCount: 1,
+            Results: new List<FloorDto>
+            {
+                new() { Id = 1, FloorCode = "F001", Description = "Updated 1" }
+            },
+            Errors: new List<string> { "Record with Id '9999' not found." });
+
+        mockService.Setup(s => s.BulkUpdateAsync(updateItems, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(BulkResult);
+
+        // Act
+        var result = await controller.BulkUpdate(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.BulkUpdateAsync(updateItems, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkDelete_CallsServiceMethod()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
+
+        var idsToDelete = new[] { 1, 2, 3 };
+
+        var bulkResult = new BulkResult<int>(
+            SuccessCount: 3,
+            FailedCount: 0,
+            Results: new List<int> { 1, 2, 3 });
+
+        mockService.Setup(s => s.BulkDeleteAsync(idsToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkDelete(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.BulkDeleteAsync(idsToDelete, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkDelete_EmptyArray_ReturnsBadRequest()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var emptyArray = Array.Empty<int>();
+
+        // Act
+        var result = await controller.BulkDelete(emptyArray, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+        mockService.Verify(s => s.BulkDeleteAsync(It.IsAny<int[]>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FloorController_BulkDelete_PartialSuccess_ReturnsOkWithErrors()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var idsToDelete = new[] { 1, 9999, 2 };
+
+        var bulkResult = new BulkResult<int>(
+            SuccessCount: 2,
+            FailedCount: 1,
+            Results: new List<int> { 1, 2 },
+            Errors: new List<string> { "Record with Id '9999' not found." });
+
+        mockService.Setup(s => s.BulkDeleteAsync(idsToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkDelete(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.BulkDeleteAsync(idsToDelete, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
 
     #endregion
 

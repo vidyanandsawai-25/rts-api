@@ -44,6 +44,22 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         await _dbSet.AddAsync(entity, cancellationToken);
         return entity;
     }
+ 
+    public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
+    {
+        var entityList = entities as IList<T> ?? entities.ToList();
+        var now = DateTime.Now;
+
+        foreach (var entity in entityList)
+        {
+            if (entity is BaseEntity commonEntity)
+            {
+                commonEntity.CreatedDate = now;
+            }
+        }
+
+        await _dbSet.AddRangeAsync(entityList, cancellationToken);
+    }
 
     public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
@@ -62,30 +78,35 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         var entity = await GetByIdAsync(id, cancellationToken);
         if (entity != null)
         {
-            // For entities implementing IHardDeletable, perform soft delete and mark for hard deletion
-            // The entity will be permanently deleted by the nightly cleanup task
-            if (entity is IHardDeletable hardDeletable && entity is BaseEntity baseEntityForHardDelete)
+            await DeleteAsync(entity, cancellationToken);
+        }
+    }
+
+    public virtual async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
+    {
+        // For entities implementing IHardDeletable, perform soft delete and set deletion timestamp
+        // The entity will be permanently deleted by the nightly cleanup task
+        if (entity is IHardDeletable hardDeletable && entity is BaseEntity baseEntityForHardDelete)
+        {
+            baseEntityForHardDelete.IsActive = false;
+            hardDeletable.MarkedForDeletion = true;
+            // Only set deletion date if not already set (preserves original deletion timestamp)
+            if (!hardDeletable.MarkedForDeletionDate.HasValue)
             {
-                baseEntityForHardDelete.IsActive = false;
-                hardDeletable.MarkedForDeletion = true;
-                // Only set deletion date if not already set (preserves original deletion timestamp)
-                if (!hardDeletable.MarkedForDeletionDate.HasValue)
-                {
-                    hardDeletable.MarkedForDeletionDate = DateTime.Now;
-                }
-                await UpdateAsync(entity, cancellationToken);
+                hardDeletable.MarkedForDeletionDate = DateTime.Now;
             }
-            // Soft delete for regular BaseEntity
-            else if (entity is BaseEntity baseEntity)
-            {
-                baseEntity.IsActive = false;
-                await UpdateAsync(entity, cancellationToken);
-            }
-            // Hard delete for entities that don't inherit from BaseEntity
-            else
-            {
-                _dbSet.Remove(entity);
-            }
+            await UpdateAsync(entity, cancellationToken);
+        }
+        // Soft delete for regular BaseEntity
+        else if (entity is BaseEntity baseEntity)
+        {
+            baseEntity.IsActive = false;
+            await UpdateAsync(entity, cancellationToken);
+        }
+        // Hard delete for entities that don't inherit from BaseEntity
+        else
+        {
+            _dbSet.Remove(entity);
         }
     }
 
@@ -94,8 +115,6 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         var entity = await GetByIdAsync(id, cancellationToken);
         return entity != null;
     }
-
-   
 
     public virtual IQueryable<T> GetQueryable()
     {

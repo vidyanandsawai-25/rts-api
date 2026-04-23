@@ -358,7 +358,7 @@ public class ConfigValueMasterServiceTests
 
         _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _repositoryMock.Setup(x => x.DeleteAsync(1, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(x => x.DeleteAsync(It.IsAny<ConfigValueMasterEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -368,7 +368,7 @@ public class ConfigValueMasterServiceTests
 
         // Assert
         Assert.True(result);
-        _repositoryMock.Verify(x => x.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(x => x.DeleteAsync(It.IsAny<ConfigValueMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -384,7 +384,7 @@ public class ConfigValueMasterServiceTests
 
         // Assert
         Assert.False(result);
-        _repositoryMock.Verify(x => x.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repositoryMock.Verify(x => x.DeleteAsync(It.IsAny<ConfigValueMasterEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

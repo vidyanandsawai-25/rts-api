@@ -233,7 +233,7 @@ public class DepartmentMasterServiceTests
 
         _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _repositoryMock.Setup(x => x.DeleteAsync(1, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(x => x.DeleteAsync(It.IsAny<DepartmentMasterEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -243,7 +243,7 @@ public class DepartmentMasterServiceTests
 
         // Assert
         Assert.True(result);
-        _repositoryMock.Verify(x => x.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(x => x.DeleteAsync(It.IsAny<DepartmentMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -251,7 +251,7 @@ public class WingServiceTests
 
         _repositoryMock.Setup(r => r.GetByIdAsync(Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _repositoryMock.Setup(r => r.DeleteAsync(Id, It.IsAny<CancellationToken>()))
+        _repositoryMock.Setup(r => r.DeleteAsync(It.IsAny<WingEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -261,7 +261,7 @@ public class WingServiceTests
 
         // Assert
         result.Should().BeTrue();
-        _repositoryMock.Verify(r => r.DeleteAsync(Id, It.IsAny<CancellationToken>()), Times.Once);
+        _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<WingEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -279,7 +279,7 @@ public class WingServiceTests
 
         // Assert
         result.Should().BeFalse();
-        _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<WingEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

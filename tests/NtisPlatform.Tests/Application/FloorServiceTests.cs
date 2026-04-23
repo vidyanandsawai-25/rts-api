@@ -2,6 +2,7 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -225,7 +226,7 @@ public class FloorServiceTests
 
         var existingEntity = new FloorEntity
         {
-            Id=1,
+            Id = 1,
             FloorCode = "1",
             Description = "Old Description",
             MaxFloorNo = 1,
@@ -309,7 +310,7 @@ public class FloorServiceTests
         Assert.False(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
@@ -324,7 +325,7 @@ public class FloorServiceTests
         var existingEntity = new FloorEntity
         {
             Id = idToDelete,
-            FloorCode = "1", 
+            FloorCode = "1",
             Description = "Old Description",
             MaxFloorNo = 1,
             SequenceNo = 1
@@ -335,7 +336,7 @@ public class FloorServiceTests
             .ReturnsAsync(existingEntity);
 
         _mockRepository
-            .Setup(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -345,12 +346,413 @@ public class FloorServiceTests
         Assert.True(result);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
-        _mockRepository.Verify(r => r.DeleteAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
-}
 
+    #region Bulk Operations Tests
+
+    [Fact]
+    public async Task BulkCreateAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var items = Array.Empty<CreateFloorDto>();
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<FloorEntity>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAllAndReturnsSuccessResult()
+    {
+        // Arrange
+        var createDtos = new[]
+        {
+            new CreateFloorDto { FloorCode = "F1", Description = "Floor 1", MaxFloorNo = 1, SequenceNo = 1, IsActive = true },
+            new CreateFloorDto { FloorCode = "F2", Description = "Floor 2", MaxFloorNo = 2, SequenceNo = 2, IsActive = true },
+            new CreateFloorDto { FloorCode = "F3", Description = "Floor 3", MaxFloorNo = 3, SequenceNo = 3, IsActive = true }
+        };
+
+        _mockMapper
+            .Setup(m => m.Map<FloorEntity[]>(It.IsAny<CreateFloorDto[]>()))
+            .Returns((CreateFloorDto[] dtos) => dtos.Select((dto, idx) => new FloorEntity
+            {
+                Id = idx + 1,
+                FloorCode = dto.FloorCode,
+                Description = dto.Description,
+                MaxFloorNo = dto.MaxFloorNo,
+                SequenceNo = dto.SequenceNo,
+                IsActive = dto.IsActive
+            }).ToArray());
+
+        _mockRepository
+            .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<FloorEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map<FloorDto[]>(It.IsAny<FloorEntity[]>()))
+            .Returns((FloorEntity[] entities) => entities.Select(e => new FloorDto
+            {
+                Id = e.Id,
+                FloorCode = e.FloorCode,
+                Description = e.Description,
+                MaxFloorNo = e.MaxFloorNo,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToArray());
+
+        // Act
+        var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(3, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(result.Results, r => r.FloorCode == "F1");
+        Assert.Contains(result.Results, r => r.FloorCode == "F2");
+        Assert.Contains(result.Results, r => r.FloorCode == "F3");
+
+        _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<FloorEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var items = Array.Empty<BulkUpdateItem<int, UpdateFloorDto>>();
+
+        // Act
+        var result = await _service.BulkUpdateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_AllExistingEntities_UpdatesAllSuccessfully()
+    {
+        // Arrange
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorDto>(1, new UpdateFloorDto { FloorCode = "F1", Description = "Updated 1", MaxFloorNo = 10, SequenceNo = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateFloorDto>(2, new UpdateFloorDto { FloorCode = "F2", Description = "Updated 2", MaxFloorNo = 20, SequenceNo = 2, IsActive = true })
+        };
+
+        var existingEntities = new Dictionary<int, FloorEntity>
+        {
+            { 1, new FloorEntity { Id = 1, FloorCode = "F1", Description = "Old 1", MaxFloorNo = 1, SequenceNo = 1, IsActive = true } },
+            { 2, new FloorEntity { Id = 2, FloorCode = "F2", Description = "Old 2", MaxFloorNo = 2, SequenceNo = 2, IsActive = true } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateFloorDto>(), It.IsAny<FloorEntity>()))
+            .Callback((UpdateFloorDto src, FloorEntity dest) =>
+            {
+                dest.FloorCode = src.FloorCode;
+                dest.Description = src.Description;
+                dest.MaxFloorNo = src.MaxFloorNo;
+                dest.SequenceNo = src.SequenceNo;
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<List<FloorDto>>(It.IsAny<List<FloorEntity>>()))
+            .Returns((List<FloorEntity> entities) => entities.Select(e => new FloorDto
+            {
+                Id = e.Id,
+                FloorCode = e.FloorCode,
+                Description = e.Description,
+                MaxFloorNo = e.MaxFloorNo,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(result.Results, r => r.Description == "Updated 1");
+        Assert.Contains(result.Results, r => r.Description == "Updated 2");
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+    {
+        // Arrange
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorDto>(1, new UpdateFloorDto { FloorCode = "F1", Description = "Updated 1", MaxFloorNo = 10, SequenceNo = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateFloorDto>(9999, new UpdateFloorDto { FloorCode = "FX", Description = "Not Found", MaxFloorNo = 99, SequenceNo = 99, IsActive = true }),
+            new BulkUpdateItem<int, UpdateFloorDto>(2, new UpdateFloorDto { FloorCode = "F2", Description = "Updated 2", MaxFloorNo = 20, SequenceNo = 2, IsActive = true })
+        };
+
+        var existingEntities = new Dictionary<int, FloorEntity>
+        {
+            { 1, new FloorEntity { Id = 1, FloorCode = "F1", Description = "Old 1", MaxFloorNo = 1, SequenceNo = 1, IsActive = true } },
+            { 2, new FloorEntity { Id = 2, FloorCode = "F2", Description = "Old 2", MaxFloorNo = 2, SequenceNo = 2, IsActive = true } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateFloorDto>(), It.IsAny<FloorEntity>()))
+            .Callback((UpdateFloorDto src, FloorEntity dest) =>
+            {
+                dest.Description = src.Description;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<List<FloorDto>>(It.IsAny<List<FloorEntity>>()))
+            .Returns((List<FloorEntity> entities) => entities.Select(e => new FloorDto
+            {
+                Id = e.Id,
+                FloorCode = e.FloorCode,
+                Description = e.Description,
+                MaxFloorNo = e.MaxFloorNo,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        Assert.Contains("9999", result.Errors[0]);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_AllNonExisting_ReturnsAllFailures()
+    {
+        // Arrange
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorDto>(9998, new UpdateFloorDto { FloorCode = "FX", Description = "Not Found 1", MaxFloorNo = 1, SequenceNo = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateFloorDto>(9999, new UpdateFloorDto { FloorCode = "FY", Description = "Not Found 2", MaxFloorNo = 2, SequenceNo = 2, IsActive = true })
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity?)null);
+
+        _mockMapper
+            .Setup(m => m.Map<List<FloorDto>>(It.IsAny<List<FloorEntity>>()))
+            .Returns((List<FloorEntity> entities) => entities.Select(e => new FloorDto()).ToList());
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Equal(2, result.Errors.Count);
+
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var ids = Array.Empty<int>();
+
+        // Act
+        var result = await _service.BulkDeleteAsync(ids, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_AllExistingEntities_DeletesAllSuccessfully()
+    {
+        // Arrange
+        var idsToDelete = new[] { 1, 2, 3 };
+
+        var existingEntities = new Dictionary<int, FloorEntity>
+        {
+            { 1, new FloorEntity { Id = 1, FloorCode = "F1", Description = "Floor 1" } },
+            { 2, new FloorEntity { Id = 2, FloorCode = "F2", Description = "Floor 2" } },
+            { 3, new FloorEntity { Id = 3, FloorCode = "F3", Description = "Floor 3" } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(3, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(1, result.Results);
+        Assert.Contains(2, result.Results);
+        Assert.Contains(3, result.Results);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+    {
+        // Arrange
+        var idsToDelete = new[] { 1, 9999, 2 };
+
+        var existingEntities = new Dictionary<int, FloorEntity>
+        {
+            { 1, new FloorEntity { Id = 1, FloorCode = "F1", Description = "Floor 1" } },
+            { 2, new FloorEntity { Id = 2, FloorCode = "F2", Description = "Floor 2" } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        Assert.Contains("9999", result.Errors[0]);
+
+        Assert.Contains(1, result.Results);
+        Assert.Contains(2, result.Results);
+        Assert.DoesNotContain(9999, result.Results);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_AllNonExisting_ReturnsAllFailures()
+    {
+        // Arrange
+        var idsToDelete = new[] { 9998, 9999 };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorEntity?)null);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Equal(2, result.Errors.Count);
+
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+}

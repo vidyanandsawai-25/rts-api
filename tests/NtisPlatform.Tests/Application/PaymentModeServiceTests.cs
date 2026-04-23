@@ -252,13 +252,13 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(existing);
 
             _mockRepository
-                .Setup(r => r.DeleteAsync(3, It.IsAny<CancellationToken>()))
+                .Setup(r => r.DeleteAsync(It.IsAny<PaymentModeEntity>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
             var result = await _service.DeleteAsync(3, CancellationToken.None);
 
             Assert.True(result);
-            _mockRepository.Verify(r => r.DeleteAsync(3, It.IsAny<CancellationToken>()), Times.Once);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PaymentModeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
 
@@ -272,7 +272,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.DeleteAsync(4, CancellationToken.None);
 
             Assert.False(result);
-            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PaymentModeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
         }
 

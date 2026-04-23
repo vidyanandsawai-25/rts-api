@@ -1,6 +1,7 @@
 using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
@@ -9,10 +10,12 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> 
+public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>
     : ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>
     where TEntity : class
     where TQueryParams : BaseQueryParameters
+    where TCreateDto : class
+    where TUpdateDto : class
 {
     protected readonly IRepository<TEntity, TKey> _repository;
     protected readonly IUnitOfWork _unitOfWork;
@@ -27,6 +30,8 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
+
+    #region Single CRUD Operations
 
     public virtual async Task<PagedResult<TDto>> GetAllAsync(
         TQueryParams queryParameters,
@@ -92,10 +97,130 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         if (entity == null)
             return false;
 
-        await _repository.DeleteAsync(id, cancellationToken);
+        // Use entity overload to avoid redundant GetByIdAsync call in DeleteAsync
+        await _repository.DeleteAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return true;
     }
 
+    #endregion
+
+    #region Bulk Operations
+
+    public virtual async Task<BulkResult<TDto>> BulkCreateAsync(TCreateDto[] items,CancellationToken cancellationToken = default)
+    {
+        if (items.Length == 0)
+            return new BulkResult<TDto>(0, 0, []);
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var entities = _mapper.Map<TEntity[]>(items);
+
+            await _repository.AddRangeAsync(entities, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            var results = _mapper.Map<TDto[]>(entities);
+            return new BulkResult<TDto>(results.Length, 0, results);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public virtual async Task<BulkResult<TDto>> BulkUpdateAsync(
+    BulkUpdateItem<TKey, TUpdateDto>[] items,
+    CancellationToken cancellationToken = default)
+    {
+        if (items.Length == 0)
+            return new BulkResult<TDto>(0, 0, []);
+        var updatedEntities = new List<TEntity>();
+        var errors = new List<string>();
+        var failedCount = 0;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var item in items)
+            {
+                var entity = await _repository.GetByIdAsync(item.Id, cancellationToken);
+                if (entity == null)
+                {
+                    failedCount++;
+                    errors.Add($"Record with Id '{item.Id}' not found.");
+                    continue;
+                }
+
+                _mapper.Map(item.Data, entity);
+                await _repository.UpdateAsync(entity, cancellationToken);
+                updatedEntities.Add(entity);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+
+        var results = _mapper.Map<List<TDto>>(updatedEntities);
+
+        return new BulkResult<TDto>(
+            results.Count,
+            failedCount,
+            results,
+            errors.Count > 0 ? errors : null);
+    }
+
+    public virtual async Task<BulkResult<TKey>> BulkDeleteAsync(
+        TKey[] ids,
+        CancellationToken cancellationToken = default)
+    {
+        if (ids.Length == 0)
+            return new BulkResult<TKey>(0, 0, []);
+
+        var deletedIds = new List<TKey>();
+        var errors = new List<string>();
+        var failedCount = 0;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var id in ids)
+            {
+                var entity = await _repository.GetByIdAsync(id, cancellationToken);
+                if (entity == null)
+                {
+                    failedCount++;
+                    errors.Add($"Record with Id '{id}' not found.");
+                    continue;
+                }
+
+                await _repository.DeleteAsync(entity, cancellationToken);
+                deletedIds.Add(id);
+            }
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+
+        return new BulkResult<TKey>(   
+            deletedIds.Count,
+            failedCount,
+            deletedIds,
+            errors.Count > 0 ? errors : null);
+    }
+
+    #endregion
 }

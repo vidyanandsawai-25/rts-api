@@ -112,12 +112,12 @@ namespace NtisPlatform.Tests.Application
         {
             var entity = new ConfigCategoryMasterEntity { Id = 1 };
             _repositoryMock.Setup(r => r.GetByIdAsync(1, default)).ReturnsAsync(entity);
-            _repositoryMock.Setup(r => r.DeleteAsync(1, default)).Returns(Task.CompletedTask);
+            _repositoryMock.Setup(r => r.DeleteAsync(It.IsAny<ConfigCategoryMasterEntity>(), default)).Returns(Task.CompletedTask);
             _unitOfWorkMock.Setup(u => u.SaveChangesAsync(default)).ReturnsAsync(1);
 
             var result = await _service.DeleteAsync(1);
 
-            _repositoryMock.Verify(r => r.DeleteAsync(1, default), Times.Once);
+            _repositoryMock.Verify(r => r.DeleteAsync(It.IsAny<ConfigCategoryMasterEntity>(), default), Times.Once);
             _unitOfWorkMock.Verify(u => u.SaveChangesAsync(default), Times.Once);
             Assert.True(result);
         }
