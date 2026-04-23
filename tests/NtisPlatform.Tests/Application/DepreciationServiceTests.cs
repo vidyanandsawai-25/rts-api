@@ -2,6 +2,7 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -263,5 +264,350 @@ namespace NtisPlatform.Tests.Application
             _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
+
+        #region Bulk Operations Tests
+
+        [Fact]
+        public async Task BulkCreateAsync_EmptyArray_ReturnsEmptyResult()
+        {
+            // Arrange
+            var items = Array.Empty<CreateDepreciationDto>();
+
+            // Act
+            var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(0, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Empty(result.Results);
+            Assert.True(result.AllSucceeded);
+
+            _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<DepreciationMasterEntity>>(), It.IsAny<CancellationToken>()), Times.Never);
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task BulkCreateAsync_ValidItems_CreatesAllAndReturnsSuccessResult()
+        {
+            // Arrange
+            _mockUnitOfWork
+                .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            _mockUnitOfWork
+                .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            var createDtos = new[]
+            {
+                new CreateDepreciationDto { ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true },
+                new CreateDepreciationDto { ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true },
+                new CreateDepreciationDto { ConstructionTypeId = "C", MinYear = 11, MaxYear = 15, Rate = 4.5m, Year = 2022, IsActive = true }
+            };
+
+            _mockMapper
+                .Setup(m => m.Map<DepreciationMasterEntity[]>(It.IsAny<CreateDepreciationDto[]>()))
+                .Returns((CreateDepreciationDto[] dtos) => dtos.Select((dto, idx) => new DepreciationMasterEntity
+                {
+                    Id = idx + 1,
+                    ConstructionTypeId = dto.ConstructionTypeId,
+                    MinYear = dto.MinYear,
+                    MaxYear = dto.MaxYear,
+                    Rate = dto.Rate,
+                    Year = dto.Year,
+                    IsActive = dto.IsActive
+                }).ToArray());
+
+            _mockRepository
+                .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<DepreciationMasterEntity>>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            _mockMapper
+                .Setup(m => m.Map<DepreciationDtos[]>(It.IsAny<DepreciationMasterEntity[]>()))
+                .Returns((DepreciationMasterEntity[] entities) => entities.Select(e => new DepreciationDtos
+                {
+                    Id = e.Id,
+                    ConstructionTypeId = e.ConstructionTypeId,
+                    MinYear = e.MinYear,
+                    MaxYear = e.MaxYear,
+                    Rate = e.Rate,
+                    Year = e.Year,
+                    IsActive = e.IsActive
+                }).ToArray());
+
+            // Act
+            var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(3, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Equal(3, result.Results.Count);
+            Assert.True(result.AllSucceeded);
+            Assert.False(result.HasFailures);
+            Assert.Null(result.Errors);
+
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == "A");
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == "B");
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == "C");
+
+            _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<DepreciationMasterEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
+            _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+            _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task BulkUpdateAsync_EmptyArray_ReturnsEmptyResult()
+        {
+            // Arrange
+            var items = Array.Empty<BulkUpdateItem<int, UpdateDepreciationDto>>();
+
+            // Act
+            var result = await _service.BulkUpdateAsync(items, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(0, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Empty(result.Results);
+            Assert.True(result.AllSucceeded);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task BulkUpdateAsync_AllExistingEntities_UpdatesAllSuccessfully()
+        {
+            // Arrange
+            var updateItems = new[]
+            {
+                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = "A", MinYear = 2, MaxYear = 6, Rate = 5.5m, Year = 2023, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = "B", MinYear = 7, MaxYear = 12, Rate = 6.5m, Year = 2024, IsActive = true })
+            };
+
+            var existingEntities = new Dictionary<int, DepreciationMasterEntity>
+            {
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true } }
+            };
+
+            _mockRepository
+                .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+            _mockRepository
+                .Setup(r => r.UpdateAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            _mockMapper
+                .Setup(m => m.Map(It.IsAny<UpdateDepreciationDto>(), It.IsAny<DepreciationMasterEntity>()))
+                .Callback((UpdateDepreciationDto src, DepreciationMasterEntity dest) =>
+                {
+                    dest.ConstructionTypeId = src.ConstructionTypeId;
+                    dest.MinYear = src.MinYear;
+                    dest.MaxYear = src.MaxYear;
+                    dest.Rate = src.Rate;
+                    dest.Year = src.Year;
+                    dest.IsActive = src.IsActive;
+                });
+
+            _mockMapper
+                .Setup(m => m.Map<List<DepreciationDtos>>(It.IsAny<List<DepreciationMasterEntity>>()))
+                .Returns((List<DepreciationMasterEntity> entities) => entities.Select(e => new DepreciationDtos
+                {
+                    Id = e.Id,
+                    ConstructionTypeId = e.ConstructionTypeId,
+                    MinYear = e.MinYear,
+                    MaxYear = e.MaxYear,
+                    Rate = e.Rate,
+                    Year = e.Year,
+                    IsActive = e.IsActive
+                }).ToList());
+
+            // Act
+            var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(2, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Equal(2, result.Results.Count);
+            Assert.True(result.AllSucceeded);
+            Assert.False(result.HasFailures);
+            Assert.Null(result.Errors);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+            _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task BulkUpdateAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+        {
+            // Arrange
+            var updateItems = new[]
+            {
+                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = "A", MinYear = 2, MaxYear = 6, Rate = 5.5m, Year = 2023, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(9999, new UpdateDepreciationDto { ConstructionTypeId = "X", MinYear = 99, MaxYear = 99, Rate = 99m, Year = 9999, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = "B", MinYear = 7, MaxYear = 12, Rate = 6.5m, Year = 2024, IsActive = true })
+            };
+
+            var existingEntities = new Dictionary<int, DepreciationMasterEntity>
+            {
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true } }
+            };
+
+            _mockRepository
+                .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+            _mockRepository
+                .Setup(r => r.UpdateAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            _mockMapper
+                .Setup(m => m.Map(It.IsAny<UpdateDepreciationDto>(), It.IsAny<DepreciationMasterEntity>()))
+                .Callback((UpdateDepreciationDto src, DepreciationMasterEntity dest) =>
+                {
+                    dest.ConstructionTypeId = src.ConstructionTypeId;
+                });
+
+            _mockMapper
+                .Setup(m => m.Map<List<DepreciationDtos>>(It.IsAny<List<DepreciationMasterEntity>>()))
+                .Returns((List<DepreciationMasterEntity> entities) => entities.Select(e => new DepreciationDtos
+                {
+                    Id = e.Id,
+                    ConstructionTypeId = e.ConstructionTypeId
+                }).ToList());
+
+            // Act
+            var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(2, result.SuccessCount);
+            Assert.Equal(1, result.FailedCount);
+            Assert.Equal(2, result.Results.Count);
+            Assert.False(result.AllSucceeded);
+            Assert.True(result.HasFailures);
+            Assert.NotNull(result.Errors);
+            Assert.Single(result.Errors);
+            Assert.Contains("9999", result.Errors[0]);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+            _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task BulkDeleteAsync_EmptyArray_ReturnsEmptyResult()
+        {
+            // Arrange
+            var ids = Array.Empty<int>();
+
+            // Act
+            var result = await _service.BulkDeleteAsync(ids, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(0, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Empty(result.Results);
+            Assert.True(result.AllSucceeded);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task BulkDeleteAsync_AllExistingEntities_DeletesAllSuccessfully()
+        {
+            // Arrange
+            var idsToDelete = new[] { 1, 2, 3 };
+
+            var existingEntities = new Dictionary<int, DepreciationMasterEntity>
+            {
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A" } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B" } },
+                { 3, new DepreciationMasterEntity { Id = 3, ConstructionTypeId = "C" } }
+            };
+
+            _mockRepository
+                .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+            _mockRepository
+                .Setup(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(3, result.SuccessCount);
+            Assert.Equal(0, result.FailedCount);
+            Assert.Equal(3, result.Results.Count);
+            Assert.True(result.AllSucceeded);
+            Assert.False(result.HasFailures);
+            Assert.Null(result.Errors);
+
+            Assert.Contains(1, result.Results);
+            Assert.Contains(2, result.Results);
+            Assert.Contains(3, result.Results);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task BulkDeleteAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+        {
+            // Arrange
+            var idsToDelete = new[] { 1, 9999, 2 };
+
+            var existingEntities = new Dictionary<int, DepreciationMasterEntity>
+            {
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A" } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B" } }
+            };
+
+            _mockRepository
+                .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+            _mockRepository
+                .Setup(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(2, result.SuccessCount);
+            Assert.Equal(1, result.FailedCount);
+            Assert.Equal(2, result.Results.Count);
+            Assert.False(result.AllSucceeded);
+            Assert.True(result.HasFailures);
+            Assert.NotNull(result.Errors);
+            Assert.Single(result.Errors);
+            Assert.Contains("9999", result.Errors[0]);
+
+            Assert.Contains(1, result.Results);
+            Assert.Contains(2, result.Results);
+            Assert.DoesNotContain(9999, result.Results);
+
+            _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+            _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<DepreciationMasterEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        #endregion
     }
 }

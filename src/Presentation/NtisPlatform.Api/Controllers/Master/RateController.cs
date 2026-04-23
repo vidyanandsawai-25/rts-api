@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
@@ -46,5 +47,26 @@ public class RateController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<RateEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<RateEntity, int>(_cleanupService, id, _logger, ct);
+
+    /// <summary>
+    /// Creates multiple records in a single Bulk.
+    /// </summary>
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateRateDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    /// <summary>
+    /// Updates multiple records in a single Bulk.
+    /// </summary>
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    /// <summary>
+    /// Deletes multiple records by IDs.
+    /// </summary>
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 }

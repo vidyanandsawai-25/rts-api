@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
@@ -47,4 +48,16 @@ public class ZoneController : ControllerBase
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
         => this.ExecuteForceDelete<ZoneEntity, int>(_cleanupService, id, _logger, ct);
+
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateZoneDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateZoneDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 }

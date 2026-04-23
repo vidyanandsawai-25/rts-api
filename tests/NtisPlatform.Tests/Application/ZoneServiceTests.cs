@@ -2,6 +2,7 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -375,4 +376,339 @@ public class ZoneServiceTests
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    #region Bulk Operations Tests
+
+    [Fact]
+    public async Task BulkCreateAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var items = Array.Empty<CreateZoneDto>();
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<ZoneEntity>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAllAndReturnsSuccessResult()
+    {
+        // Arrange
+        var createDtos = new[]
+        {
+            new CreateZoneDto { ZoneNo = "Z1", Description = "Zone 1", SequenceNo = 1, IsActive = true },
+            new CreateZoneDto { ZoneNo = "Z2", Description = "Zone 2", SequenceNo = 2, IsActive = true },
+            new CreateZoneDto { ZoneNo = "Z3", Description = "Zone 3", SequenceNo = 3, IsActive = true }
+        };
+
+        _mockMapper
+            .Setup(m => m.Map<ZoneEntity[]>(It.IsAny<CreateZoneDto[]>()))
+            .Returns((CreateZoneDto[] dtos) => dtos.Select((dto, idx) => new ZoneEntity
+            {
+                Id = idx + 1,
+                ZoneNo = dto.ZoneNo,
+                Description = dto.Description,
+                SequenceNo = dto.SequenceNo,
+                IsActive = dto.IsActive
+            }).ToArray());
+
+        _mockRepository
+            .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<ZoneEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map<ZoneDto[]>(It.IsAny<ZoneEntity[]>()))
+            .Returns((ZoneEntity[] entities) => entities.Select(e => new ZoneDto
+            {
+                Id = e.Id,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToArray());
+
+        // Act
+        var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(3, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(result.Results, r => r.ZoneNo == "Z1");
+        Assert.Contains(result.Results, r => r.ZoneNo == "Z2");
+        Assert.Contains(result.Results, r => r.ZoneNo == "Z3");
+
+        _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<ZoneEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var items = Array.Empty<BulkUpdateItem<int, UpdateZoneDto>>();
+
+        // Act
+        var result = await _service.BulkUpdateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_AllExistingEntities_UpdatesAllSuccessfully()
+    {
+        // Arrange
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateZoneDto>(1, new UpdateZoneDto { ZoneNo = "Z1", Description = "Updated 1", SequenceNo = 10, IsActive = true }),
+            new BulkUpdateItem<int, UpdateZoneDto>(2, new UpdateZoneDto { ZoneNo = "Z2", Description = "Updated 2", SequenceNo = 20, IsActive = true })
+        };
+
+        var existingEntities = new Dictionary<int, ZoneEntity>
+        {
+            { 1, new ZoneEntity { Id = 1, ZoneNo = "Z1", Description = "Old 1", SequenceNo = 1, IsActive = true } },
+            { 2, new ZoneEntity { Id = 2, ZoneNo = "Z2", Description = "Old 2", SequenceNo = 2, IsActive = true } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateZoneDto>(), It.IsAny<ZoneEntity>()))
+            .Callback((UpdateZoneDto src, ZoneEntity dest) =>
+            {
+                dest.ZoneNo = src.ZoneNo;
+                dest.Description = src.Description;
+                dest.SequenceNo = src.SequenceNo;
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<List<ZoneDto>>(It.IsAny<List<ZoneEntity>>()))
+            .Returns((List<ZoneEntity> entities) => entities.Select(e => new ZoneDto
+            {
+                Id = e.Id,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(result.Results, r => r.Description == "Updated 1");
+        Assert.Contains(result.Results, r => r.Description == "Updated 2");
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+    {
+        // Arrange
+        var updateItems = new[]
+        {
+            new BulkUpdateItem<int, UpdateZoneDto>(1, new UpdateZoneDto { ZoneNo = "Z1", Description = "Updated 1", SequenceNo = 10, IsActive = true }),
+            new BulkUpdateItem<int, UpdateZoneDto>(9999, new UpdateZoneDto { ZoneNo = "ZX", Description = "Not Found", SequenceNo = 99, IsActive = true }),
+            new BulkUpdateItem<int, UpdateZoneDto>(2, new UpdateZoneDto { ZoneNo = "Z2", Description = "Updated 2", SequenceNo = 20, IsActive = true })
+        };
+
+        var existingEntities = new Dictionary<int, ZoneEntity>
+        {
+            { 1, new ZoneEntity { Id = 1, ZoneNo = "Z1", Description = "Old 1", SequenceNo = 1, IsActive = true } },
+            { 2, new ZoneEntity { Id = 2, ZoneNo = "Z2", Description = "Old 2", SequenceNo = 2, IsActive = true } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateZoneDto>(), It.IsAny<ZoneEntity>()))
+            .Callback((UpdateZoneDto src, ZoneEntity dest) =>
+            {
+                dest.Description = src.Description;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<List<ZoneDto>>(It.IsAny<List<ZoneEntity>>()))
+            .Returns((List<ZoneEntity> entities) => entities.Select(e => new ZoneDto
+            {
+                Id = e.Id,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateItems, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        Assert.Contains("9999", result.Errors[0]);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_EmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var ids = Array.Empty<int>();
+
+        // Act
+        var result = await _service.BulkDeleteAsync(ids, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+        Assert.True(result.AllSucceeded);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_AllExistingEntities_DeletesAllSuccessfully()
+    {
+        // Arrange
+        var idsToDelete = new[] { 1, 2, 3 };
+
+        var existingEntities = new Dictionary<int, ZoneEntity>
+        {
+            { 1, new ZoneEntity { Id = 1, ZoneNo = "Z1", Description = "Zone 1" } },
+            { 2, new ZoneEntity { Id = 2, ZoneNo = "Z2", Description = "Zone 2" } },
+            { 3, new ZoneEntity { Id = 3, ZoneNo = "Z3", Description = "Zone 3" } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(3, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+        Assert.Null(result.Errors);
+
+        Assert.Contains(1, result.Results);
+        Assert.Contains(2, result.Results);
+        Assert.Contains(3, result.Results);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_MixedExistingAndNonExisting_ReturnsPartialSuccess()
+    {
+        // Arrange
+        var idsToDelete = new[] { 1, 9999, 2 };
+
+        var existingEntities = new Dictionary<int, ZoneEntity>
+        {
+            { 1, new ZoneEntity { Id = 1, ZoneNo = "Z1", Description = "Zone 1" } },
+            { 2, new ZoneEntity { Id = 2, ZoneNo = "Z2", Description = "Zone 2" } }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(idsToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.False(result.AllSucceeded);
+        Assert.True(result.HasFailures);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        Assert.Contains("9999", result.Errors[0]);
+
+        Assert.Contains(1, result.Results);
+        Assert.Contains(2, result.Results);
+        Assert.DoesNotContain(9999, result.Results);
+
+        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
 }

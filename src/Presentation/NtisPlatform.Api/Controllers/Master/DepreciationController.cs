@@ -2,14 +2,14 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
-[Route("api/[controller]")]
- 
+[Route("api/[controller]")] 
 public class DepreciationController : ControllerBase
 {
     private readonly IDepreciationService _service;
@@ -22,6 +22,7 @@ public class DepreciationController : ControllerBase
         _cleanupService = cleanupService;
         _logger = logger;
     }
+
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] DepreciationQueryParameters queryParameters, CancellationToken ct)
     => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -46,6 +47,18 @@ public class DepreciationController : ControllerBase
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
     => this.ExecuteForceDelete<DepreciationMasterEntity, int>(_cleanupService, id, _logger, ct);
+
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateDepreciationDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateDepreciationDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 
 }
 
