@@ -76,6 +76,16 @@ public class PropertyService
     {
         return await _propertyRepository.UpdateOldTaxesDetailsAsync(propertyId, dto, cancellationToken);
     }
+
+    public async Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetFloorDetailsOldAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PropertyDetailsOldListDto?> UpdateFloorDetailsOldAsync(int propertyId, UpdatePropertyDetailsOldListDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.UpdateFloorDetailsOldAsync(propertyId, dto, cancellationToken);
+    }
 }
 
 

@@ -24,7 +24,6 @@ public class PropertyOldDetailsDto
     public string? OldConstructionYear { get; set; }
     public double? OldCarpetAreaSqFeet { get; set; }
     public double? OldCarpetAreaSqMeter { get; set; }
-    public bool? OldRegistration { get; set; }
-    public string? OldConstructionTypeId { get; set; }
-    public string? OldTypeOfUseId { get; set; }
+    public int? OldConstructionTypeId { get; set; }
+    public int? OldTypeOfUseId { get; set; }
 }

@@ -48,11 +48,7 @@ public class UpdatePropertyOldDetailsDto
     [Range(0, double.MaxValue, ErrorMessage = "OldCarpetAreaSqMeter cannot be negative.")]
     public double? OldCarpetAreaSqMeter { get; set; }
 
-    public bool? OldRegistration { get; set; }
+    public int? OldConstructionTypeId { get; set; }
 
-    [StringLength(7, ErrorMessage = "OldConstructionTypeId cannot exceed 7 characters.")]
-    public string? OldConstructionTypeId { get; set; }
-
-    [StringLength(20, ErrorMessage = "OldTypeOfUseId cannot exceed 20 characters.")]
-    public string? OldTypeOfUseId { get; set; }
+    public int? OldTypeOfUseId { get; set; }
 }

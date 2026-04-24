@@ -1116,15 +1116,19 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyDetailsOld", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();  // Database auto-generates Id (IDENTITY)
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldFloorId).HasMaxLength(10);
-            entity.Property(e => e.OldConstructionYear).HasMaxLength(4);
-            entity.Property(e => e.OldConstructionTypeId).HasMaxLength(7);
-            entity.Property(e => e.OldTypeOfUseId).HasMaxLength(20);
-            entity.Property(e => e.OldCarpetAreaSqfeet).HasColumnType("float");
+            entity.Property(e => e.OldFloorId);  // int? FK to FloorMaster.Id
+            entity.Property(e => e.OldSubFloorId);  // int? FK to SubFloorMaster.Id
+            entity.Property(e => e.OldConstructionYear).HasMaxLength(4);  // varchar(4) - year string
+            entity.Property(e => e.OldAssessmentYear).HasMaxLength(4);  // nvarchar(4) - year string
+            entity.Property(e => e.OldConstructionTypeId);  // int? FK to ConstructionTypeMaster.Id
+            entity.Property(e => e.OldTypeOfUseId);  // int? FK to TypeOfUseMaster.Id
+            entity.Property(e => e.OldSubTypeOfUseId);  // int? FK to SubTypeOfUseMaster.Id
             entity.Property(e => e.OldCarpetAreaSqMeter).HasColumnType("float");
-            entity.Property(e => e.OldRegistration);
+            entity.Property(e => e.OldCarpetAreaSqFeet).HasColumnType("float");
+            entity.Property(e => e.OldBuiltupAreaSqMeter).HasColumnType("float");
+            entity.Property(e => e.OldBuiltupAreaSqFeet).HasColumnType("float");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);

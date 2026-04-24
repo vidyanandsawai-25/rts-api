@@ -184,13 +184,17 @@ public class PropertyOldDetailsTests
             {
                 Id = 1,
                 PropertyId = 549357,
-                OldFloorId = "F1",
+                OldFloorId = 5,
+                OldSubFloorId = 12,
                 OldConstructionYear = "2015",
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001",
-                OldCarpetAreaSqfeet = 1200.50,
+                OldAssessmentYear = "2020",
+                OldConstructionTypeId = 2,
+                OldTypeOfUseId = 3,
+                OldSubTypeOfUseId = 7,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
+                OldCarpetAreaSqFeet = 1200.50,
+                OldBuiltupAreaSqMeter = 130.50,
+                OldBuiltupAreaSqFeet = 1400.75,
                 MarkedForDeletion = false,
                 IsActive = true,
                 CreatedBy = 1,
@@ -201,13 +205,17 @@ public class PropertyOldDetailsTests
 
             Assert.Equal(1, entity.Id);
             Assert.Equal(549357, entity.PropertyId);
-            Assert.Equal("F1", entity.OldFloorId);
+            Assert.Equal(5, entity.OldFloorId);
+            Assert.Equal(12, entity.OldSubFloorId);
             Assert.Equal("2015", entity.OldConstructionYear);
-            Assert.Equal("CT001", entity.OldConstructionTypeId);
-            Assert.Equal("TU001", entity.OldTypeOfUseId);
-            Assert.Equal(1200.50, entity.OldCarpetAreaSqfeet);
+            Assert.Equal("2020", entity.OldAssessmentYear);
+            Assert.Equal(2, entity.OldConstructionTypeId);
+            Assert.Equal(3, entity.OldTypeOfUseId);
+            Assert.Equal(7, entity.OldSubTypeOfUseId);
+            Assert.Equal(1200.50, entity.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, entity.OldCarpetAreaSqMeter);
-            Assert.True(entity.OldRegistration);
+            Assert.Equal(130.50, entity.OldBuiltupAreaSqMeter);
+            Assert.Equal(1400.75, entity.OldBuiltupAreaSqFeet);
             Assert.False(entity.MarkedForDeletion);
             Assert.True(entity.IsActive);
         }
@@ -224,12 +232,16 @@ public class PropertyOldDetailsTests
             };
 
             Assert.Null(entity.OldFloorId);
+            Assert.Null(entity.OldSubFloorId);
             Assert.Null(entity.OldConstructionYear);
+            Assert.Null(entity.OldAssessmentYear);
             Assert.Null(entity.OldConstructionTypeId);
             Assert.Null(entity.OldTypeOfUseId);
-            Assert.Null(entity.OldCarpetAreaSqfeet);
+            Assert.Null(entity.OldSubTypeOfUseId);
+            Assert.Null(entity.OldCarpetAreaSqFeet);
             Assert.Null(entity.OldCarpetAreaSqMeter);
-            Assert.Null(entity.OldRegistration);
+            Assert.Null(entity.OldBuiltupAreaSqMeter);
+            Assert.Null(entity.OldBuiltupAreaSqFeet);
         }
 
         [Fact]
@@ -276,9 +288,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001"
+                OldConstructionTypeId = 2,
+                OldTypeOfUseId = 3
             };
 
             Assert.Equal(549357, dto.PropertyId);
@@ -295,9 +306,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", dto.OldConstructionYear);
             Assert.Equal(1200.50, dto.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, dto.OldCarpetAreaSqMeter);
-            Assert.True(dto.OldRegistration);
-            Assert.Equal("CT001", dto.OldConstructionTypeId);
-            Assert.Equal("TU001", dto.OldTypeOfUseId);
+            Assert.Equal(2, dto.OldConstructionTypeId);
+            Assert.Equal(3, dto.OldTypeOfUseId);
         }
 
         [Fact]
@@ -321,7 +331,6 @@ public class PropertyOldDetailsTests
             Assert.Null(dto.OldConstructionYear);
             Assert.Null(dto.OldCarpetAreaSqFeet);
             Assert.Null(dto.OldCarpetAreaSqMeter);
-            Assert.Null(dto.OldRegistration);
             Assert.Null(dto.OldConstructionTypeId);
             Assert.Null(dto.OldTypeOfUseId);
         }
@@ -379,9 +388,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001"
+                OldConstructionTypeId = 2,
+                OldTypeOfUseId = 3
             };
 
             Assert.Equal("W79", dto.OldWardNo);
@@ -397,9 +405,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", dto.OldConstructionYear);
             Assert.Equal(1200.50, dto.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, dto.OldCarpetAreaSqMeter);
-            Assert.True(dto.OldRegistration);
-            Assert.Equal("CT001", dto.OldConstructionTypeId);
-            Assert.Equal("TU001", dto.OldTypeOfUseId);
+            Assert.Equal(2, dto.OldConstructionTypeId);
+            Assert.Equal(3, dto.OldTypeOfUseId);
         }
 
         [Fact]
@@ -544,18 +551,6 @@ public class PropertyOldDetailsTests
         }
 
         [Fact]
-        public void UpdatePropertyOldDetailsDto_BooleanOldRegistration_AcceptsTrueAndFalse()
-        {
-            var dto1 = new UpdatePropertyOldDetailsDto { OldRegistration = true };
-            var dto2 = new UpdatePropertyOldDetailsDto { OldRegistration = false };
-            var dto3 = new UpdatePropertyOldDetailsDto { OldRegistration = null };
-
-            Assert.True(dto1.OldRegistration);
-            Assert.False(dto2.OldRegistration);
-            Assert.Null(dto3.OldRegistration);
-        }
-
-        [Fact]
         public void UpdatePropertyOldDetailsDto_AllNullValues_PassesValidation()
         {
             var dto = new UpdatePropertyOldDetailsDto
@@ -563,8 +558,7 @@ public class PropertyOldDetailsTests
                 OldWardNo = null,
                 OldPropertyNo = null,
                 OldPlotArea = null,
-                OldRV = null,
-                OldRegistration = null
+                OldRV = null
             };
 
             var results = Validate(dto);
@@ -641,32 +635,6 @@ public class PropertyOldDetailsTests
         }
 
         [Fact]
-        public void UpdatePropertyOldDetailsDto_ExceedMaxLengthOldConstructionTypeId_FailsValidation()
-        {
-            var dto = new UpdatePropertyOldDetailsDto
-            {
-                OldConstructionTypeId = new string('G', 8) // 8 characters, max is 7
-            };
-
-            var results = Validate(dto);
-            Assert.NotEmpty(results);
-            Assert.Contains(results, r => r.ErrorMessage!.Contains("OldConstructionTypeId") && r.ErrorMessage.Contains("7"));
-        }
-
-        [Fact]
-        public void UpdatePropertyOldDetailsDto_ExceedMaxLengthOldTypeOfUseId_FailsValidation()
-        {
-            var dto = new UpdatePropertyOldDetailsDto
-            {
-                OldTypeOfUseId = new string('H', 21) // 21 characters, max is 20
-            };
-
-            var results = Validate(dto);
-            Assert.NotEmpty(results);
-            Assert.Contains(results, r => r.ErrorMessage!.Contains("OldTypeOfUseId") && r.ErrorMessage.Contains("20"));
-        }
-
-        [Fact]
         public void UpdatePropertyOldDetailsDto_ValidConstructionYear_PassesValidation()
         {
             var dto = new UpdatePropertyOldDetailsDto
@@ -718,9 +686,7 @@ public class PropertyOldDetailsTests
                 OldPartitionNo = new string('C', 10), // Exactly 10 characters
                 OldEgovNo = new string('D', 10), // Exactly 10 characters
                 OldPlotNo = new string('E', 20), // Exactly 20 characters
-                OldZoneNo = new string('F', 20), // Exactly 20 characters
-                OldConstructionTypeId = new string('G', 7), // Exactly 7 characters
-                OldTypeOfUseId = new string('H', 20) // Exactly 20 characters
+                OldZoneNo = new string('F', 20) // Exactly 20 characters
             };
 
             var results = Validate(dto);
@@ -860,11 +826,10 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
-                OldCarpetAreaSqfeet = 1200.50,
+                OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001",
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -881,9 +846,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", result.OldConstructionYear);
             Assert.Equal(1200.50, result.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
-            Assert.Equal("CT001", result.OldConstructionTypeId);
-            Assert.Equal("TU001", result.OldTypeOfUseId);
+            Assert.Equal(1, result.OldConstructionTypeId);
+            Assert.Equal(1, result.OldTypeOfUseId);
         }
 
         [Fact]
@@ -922,7 +886,6 @@ public class PropertyOldDetailsTests
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -942,7 +905,6 @@ public class PropertyOldDetailsTests
             Assert.Equal(75000.75, result.OldRV);
             Assert.Equal("2015", result.OldConstructionYear);
             Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
         }
 
         [Fact]
@@ -1296,8 +1258,7 @@ public class PropertyOldDetailsTests
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldConstructionYear = "2015",
-                OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true
+                OldCarpetAreaSqMeter = 111.48
                 // No PropertyMastOld data
             };
 
@@ -1306,7 +1267,6 @@ public class PropertyOldDetailsTests
             Assert.NotNull(result);
             Assert.Equal("2015", result.OldConstructionYear);
             Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
 
             // Repository only inserts records when data is provided (consistent with BasicDetails/KycDetails pattern)
             var oldMastCount = await context.PropertyMastOld.CountAsync();
@@ -1393,9 +1353,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001"
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1
             };
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -1404,9 +1363,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", result.OldConstructionYear);
             Assert.Equal(1200.50, result.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
-            Assert.Equal("CT001", result.OldConstructionTypeId);
-            Assert.Equal("TU001", result.OldTypeOfUseId);
+            Assert.Equal(1, result.OldConstructionTypeId);
+            Assert.Equal(1, result.OldTypeOfUseId);
         }
     }
 
@@ -1603,9 +1561,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001"
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1
             };
 
             mockPropertyRepo
@@ -1631,9 +1588,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", result.OldConstructionYear);
             Assert.Equal(1200.50, result.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
-            Assert.Equal("CT001", result.OldConstructionTypeId);
-            Assert.Equal("TU001", result.OldTypeOfUseId);
+            Assert.Equal(1, result.OldConstructionTypeId);
+            Assert.Equal(1, result.OldTypeOfUseId);
         }
     }
 
@@ -2062,11 +2018,10 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
-                OldCarpetAreaSqfeet = 500.0,
+                OldCarpetAreaSqFeet = 500.0,
                 OldCarpetAreaSqMeter = 46.45,
-                OldRegistration = false,
-                OldConstructionTypeId = "OLD_CT",
-                OldTypeOfUseId = "OLD_TU",
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -2081,9 +2036,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2023",
                 OldCarpetAreaSqFeet = 1500.0,
                 OldCarpetAreaSqMeter = 139.35,
-                OldRegistration = true,
-                OldConstructionTypeId = "NEW_CT",
-                OldTypeOfUseId = "NEW_TU"
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1
             };
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -2092,9 +2046,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2023", result.OldConstructionYear);
             Assert.Equal(1500.0, result.OldCarpetAreaSqFeet);
             Assert.Equal(139.35, result.OldCarpetAreaSqMeter);
-            Assert.True(result.OldRegistration);
-            Assert.Equal("NEW_CT", result.OldConstructionTypeId);
-            Assert.Equal("NEW_TU", result.OldTypeOfUseId);
+            Assert.Equal(1, result.OldConstructionTypeId);
+            Assert.Equal(1, result.OldTypeOfUseId);
 
             // Verify still only 1 record (UPDATE, not INSERT)
             var oldDetailsCount = await context.PropertyDetailsOld.CountAsync();
@@ -2196,7 +2149,6 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2010",
-                OldRegistration = false,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -2211,8 +2163,7 @@ public class PropertyOldDetailsTests
             {
                 OldWardNo = "NEW",
                 OldRV = 5000.0,
-                OldConstructionYear = "2023",
-                OldRegistration = true
+                OldConstructionYear = "2023"
             };
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -2221,7 +2172,6 @@ public class PropertyOldDetailsTests
             Assert.Equal("NEW", result.OldWardNo);
             Assert.Equal(5000.0, result.OldRV);
             Assert.Equal("2023", result.OldConstructionYear);
-            Assert.True(result.OldRegistration);
 
             // Verify counts remain 1 (updates, not inserts)
             var oldMastCount = await context.PropertyMastOld.CountAsync();
@@ -2252,11 +2202,10 @@ public class PropertyOldDetailsTests
                 Id = 1,
                 PropertyId = 549357,
                 OldConstructionYear = "2015",
-                OldCarpetAreaSqfeet = 1000.0,
+                OldCarpetAreaSqFeet = 1000.0,
                 OldCarpetAreaSqMeter = 92.9,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001",
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1,
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -2277,9 +2226,8 @@ public class PropertyOldDetailsTests
             Assert.Equal("2015", result.OldConstructionYear); // Unchanged
             Assert.Equal(1500.0, result.OldCarpetAreaSqFeet); // Updated
             Assert.Equal(92.9, result.OldCarpetAreaSqMeter); // Unchanged
-            Assert.True(result.OldRegistration); // Unchanged
-            Assert.Equal("CT001", result.OldConstructionTypeId); // Unchanged
-            Assert.Equal("TU001", result.OldTypeOfUseId); // Unchanged
+            Assert.Equal(1, result.OldConstructionTypeId); // Unchanged
+            Assert.Equal(1, result.OldTypeOfUseId); // Unchanged
         }
 
         [Fact]
@@ -2376,9 +2324,8 @@ public class PropertyOldDetailsTests
                 OldConstructionYear = "2015",
                 OldCarpetAreaSqFeet = 1200.50,
                 OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true,
-                OldConstructionTypeId = "CT001",
-                OldTypeOfUseId = "TU001"
+                OldConstructionTypeId = 1,
+                OldTypeOfUseId = 1
             };
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -2397,11 +2344,10 @@ public class PropertyOldDetailsTests
             var insertedDetails = await context.PropertyDetailsOld.FirstAsync();
             Assert.Equal(549357, insertedDetails.PropertyId);
             Assert.Equal("2015", insertedDetails.OldConstructionYear);
-            Assert.Equal(1200.50, insertedDetails.OldCarpetAreaSqfeet);
+            Assert.Equal(1200.50, insertedDetails.OldCarpetAreaSqFeet);
             Assert.Equal(111.48, insertedDetails.OldCarpetAreaSqMeter);
-            Assert.True(insertedDetails.OldRegistration);
-            Assert.Equal("CT001", insertedDetails.OldConstructionTypeId);
-            Assert.Equal("TU001", insertedDetails.OldTypeOfUseId);
+            Assert.Equal(1, insertedDetails.OldConstructionTypeId);
+            Assert.Equal(1, insertedDetails.OldTypeOfUseId);
             Assert.True(insertedDetails.IsActive);
             Assert.False(insertedDetails.MarkedForDeletion);
         }
@@ -2437,8 +2383,7 @@ public class PropertyOldDetailsTests
                 OldRV = 75000.75,
                 // PropertyDetailsOld fields
                 OldConstructionYear = "2015",
-                OldCarpetAreaSqMeter = 111.48,
-                OldRegistration = true
+                OldCarpetAreaSqMeter = 111.48
             };
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -2462,7 +2407,6 @@ public class PropertyOldDetailsTests
             var insertedDetails = await context.PropertyDetailsOld.FirstAsync();
             Assert.Equal("2015", insertedDetails.OldConstructionYear);
             Assert.Equal(111.48, insertedDetails.OldCarpetAreaSqMeter);
-            Assert.True(insertedDetails.OldRegistration);
         }
 
         [Fact]
@@ -2696,7 +2640,6 @@ public class PropertyOldDetailsTests
             Assert.Null(dto.OldConstructionYear);
             Assert.Null(dto.OldCarpetAreaSqFeet);
             Assert.Null(dto.OldCarpetAreaSqMeter);
-            Assert.Null(dto.OldRegistration);
             Assert.Null(dto.OldConstructionTypeId);
             Assert.Null(dto.OldTypeOfUseId);
         }
@@ -4079,14 +4022,14 @@ public class PropertyOldDetailsTests
             var now = DateTime.Now;
             var entity = new PropertyDetailsOldEntity
             {
-                OldFloorId = "F1",
+                OldFloorId = 1,
                 CreatedBy = 1,
                 CreatedDate = now,
                 UpdatedBy = 2,
                 UpdatedDate = now
             };
 
-            Assert.Equal("F1", entity.OldFloorId);
+            Assert.Equal(1, entity.OldFloorId);
             Assert.Equal(1, entity.CreatedBy);
             Assert.Equal(now, entity.CreatedDate);
             Assert.Equal(2, entity.UpdatedBy);
@@ -4132,11 +4075,11 @@ public class PropertyOldDetailsTests
         {
             var entity = new PropertyDetailsOldEntity
             {
-                OldCarpetAreaSqfeet = double.MaxValue,
+                OldCarpetAreaSqFeet = double.MaxValue,
                 OldCarpetAreaSqMeter = double.MinValue
             };
 
-            Assert.Equal(double.MaxValue, entity.OldCarpetAreaSqfeet);
+            Assert.Equal(double.MaxValue, entity.OldCarpetAreaSqFeet);
             Assert.Equal(double.MinValue, entity.OldCarpetAreaSqMeter);
         }
     }
@@ -4843,3 +4786,4 @@ public class PropertyOldDetailsTests
 
     #endregion
 }
+

@@ -67,4 +67,21 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Updated PropertyOldTaxesDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves all historical floor details for a property (PropertyDetailsOld records)
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of historical floor details or null if property not found</returns>
+    Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates historical floor details for a property (batch create, update, delete)
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The update data containing floor detail records to create, update, or delete</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated PropertyDetailsOldListDto if property was found and updated, null otherwise</returns>
+    Task<PropertyDetailsOldListDto?> UpdateFloorDetailsOldAsync(int propertyId, UpdatePropertyDetailsOldListDto dto, CancellationToken cancellationToken = default);
 }

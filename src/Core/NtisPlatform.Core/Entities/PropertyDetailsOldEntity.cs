@@ -12,25 +12,54 @@ public class PropertyDetailsOldEntity : BaseEntity
 {
     public int PropertyId { get; set; }
 
-    [Column(TypeName = "nvarchar(10)")]
-    public string? OldFloorId { get; set; }
+    /// <summary>
+    /// Foreign Key to FloorMaster.Id
+    /// </summary>
+    public int? OldFloorId { get; set; }
 
+    /// <summary>
+    /// Foreign Key to SubFloorMaster.Id
+    /// </summary>
+    public int? OldSubFloorId { get; set; }
+
+    /// <summary>
+    /// Construction Year as string (e.g., "2020")
+    /// </summary>
     [Column(TypeName = "varchar(4)")]
     public string? OldConstructionYear { get; set; }
 
-    [Column(TypeName = "varchar(7)")]
-    public string? OldConstructionTypeId { get; set; }
+    /// <summary>
+    /// Assessment Year as string (e.g., "2020")
+    /// </summary>
+    [Column(TypeName = "nvarchar(4)")]
+    public string? OldAssessmentYear { get; set; }
 
-    [Column(TypeName = "nvarchar(20)")]
-    public string? OldTypeOfUseId { get; set; }
+    /// <summary>
+    /// Foreign Key to ConstructionTypeMaster.Id
+    /// </summary>
+    public int? OldConstructionTypeId { get; set; }
 
-    [Column(TypeName = "float")]
-    public double? OldCarpetAreaSqfeet { get; set; }
+    /// <summary>
+    /// Foreign Key to TypeOfUseMaster.Id
+    /// </summary>
+    public int? OldTypeOfUseId { get; set; }
+
+    /// <summary>
+    /// Foreign Key to SubTypeOfUseMaster.Id
+    /// </summary>
+    public int? OldSubTypeOfUseId { get; set; }
 
     [Column(TypeName = "float")]
     public double? OldCarpetAreaSqMeter { get; set; }
 
-    public bool? OldRegistration { get; set; }
+    [Column(TypeName = "float")]
+    public double? OldCarpetAreaSqFeet { get; set; }
+
+    [Column(TypeName = "float")]
+    public double? OldBuiltupAreaSqMeter { get; set; }
+
+    [Column(TypeName = "float")]
+    public double? OldBuiltupAreaSqFeet { get; set; }
 
     public bool MarkedForDeletion { get; set; } = false;
 
