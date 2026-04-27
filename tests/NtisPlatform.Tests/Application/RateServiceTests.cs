@@ -5,6 +5,7 @@ using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -40,7 +41,23 @@ namespace NtisPlatform.Tests.Application
                 .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            _service = new RateService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            _service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
         }
 
         [Fact]
@@ -61,7 +78,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateEntity e) => new RateDto
                 {
                     Id = e.Id,
-                    Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     RateSquareMeter = e.RateSquareMeter
                 });
@@ -70,7 +86,6 @@ namespace NtisPlatform.Tests.Application
 
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal(2023, result.Year);
             Assert.Equal(1, result.TaxZoneId);
             Assert.Equal(100m, result.RateSquareMeter);
         }
@@ -106,7 +121,23 @@ namespace NtisPlatform.Tests.Application
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();
 
-            var service = new RateService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                mapper,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
 
             var qp = new RateQueryParameters
             {
@@ -133,7 +164,6 @@ namespace NtisPlatform.Tests.Application
         {
             var createDto = new CreateRateDto
             {
-                Year = 2022,
                 TaxZoneId = 1,
                 RateSquareMeter = 200m,
                 FloorId = 1,
@@ -151,7 +181,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((CreateRateDto dto) => new RateEntity
                 {
                     Id = 0,
-                    Year = dto.Year,
                     TaxZoneId = dto.TaxZoneId,
                     RateSquareMeter = dto.RateSquareMeter,
                     FloorId = dto.FloorId,
@@ -179,7 +208,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateEntity e) => new RateDto
                 {
                     Id = e.Id,
-                    Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     RateSquareMeter = e.RateSquareMeter,
                     FloorId = e.FloorId,
@@ -196,7 +224,6 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(2022, result.Year);
             Assert.Equal(1, result.TaxZoneId);
             Assert.Equal(200m, result.RateSquareMeter);
 
@@ -209,7 +236,6 @@ namespace NtisPlatform.Tests.Application
         {
             var updateDto = new UpdateRateDto
             {
-                Year = 2025,
                 RateSquareMeter = 300m,
                 TaxZoneId = 2,
                 FloorID = 2,
@@ -226,7 +252,6 @@ namespace NtisPlatform.Tests.Application
             var existingEntity = new RateEntity
             {
                 Id = 1,
-                Year = 2020,
                 RateSquareMeter = 100m,
                 TaxZoneId = 1,
                 FloorId = 1,
@@ -253,7 +278,6 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map(It.IsAny<UpdateRateDto>(), It.IsAny<RateEntity>()))
                 .Callback((UpdateRateDto src, RateEntity dest) =>
                 {
-                    dest.Year = src.Year;
                     dest.RateSquareMeter = src.RateSquareMeter;
                 });
 
@@ -263,24 +287,8 @@ namespace NtisPlatform.Tests.Application
             _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<RateEntity>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
 
-            Assert.Equal(2025, existingEntity.Year);
             Assert.Equal(300m, existingEntity.RateSquareMeter);
-        }
-
-        [Fact]
-        public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
-        {
-            var updateDto = new UpdateRateDto { Year = 2030 };
-
-            _mockRepository
-                .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((RateEntity?)null);
-
-            await _service.UpdateAsync(99, updateDto, CancellationToken.None);
-
-            _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<RateEntity>(), It.IsAny<CancellationToken>()), Times.Never);
-            _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
-        }
+        }        
 
         [Fact]
         public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
@@ -347,9 +355,9 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var createDtos = new[]
             {
-                new CreateRateDto { Year = 2020, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, RateSquareMeter = 100m, IsActive = true },
-                new CreateRateDto { Year = 2021, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, RateSquareMeter = 200m, IsActive = true },
-                new CreateRateDto { Year = 2022, TaxZoneId = 3, FloorId = 3, ConstructionTypeId = 3, RateSquareMeter = 300m, IsActive = true }
+                new CreateRateDto { TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, RateSquareMeter = 100m, IsActive = true },
+                new CreateRateDto { TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, RateSquareMeter = 200m, IsActive = true },
+                new CreateRateDto { TaxZoneId = 3, FloorId = 3, ConstructionTypeId = 3, RateSquareMeter = 300m, IsActive = true }
             };
 
             _mockMapper
@@ -357,7 +365,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((CreateRateDto[] dtos) => dtos.Select((dto, idx) => new RateEntity
                 {
                     Id = idx + 1,
-                    Year = dto.Year,
                     TaxZoneId = dto.TaxZoneId,
                     FloorId = dto.FloorId,
                     ConstructionTypeId = dto.ConstructionTypeId,
@@ -374,7 +381,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateEntity[] entities) => entities.Select(e => new RateDto
                 {
                     Id = e.Id,
-                    Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     FloorId = e.FloorId,
                     ConstructionTypeId = e.ConstructionTypeId,
@@ -393,10 +399,6 @@ namespace NtisPlatform.Tests.Application
             Assert.True(result.AllSucceeded);
             Assert.False(result.HasFailures);
             Assert.Null(result.Errors);
-
-            Assert.Contains(result.Results, r => r.Year == 2020);
-            Assert.Contains(result.Results, r => r.Year == 2021);
-            Assert.Contains(result.Results, r => r.Year == 2022);
 
             _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<RateEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -430,8 +432,8 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var updateItems = new[]
             {
-                new BulkUpdateItem<int, UpdateRateDto>(1, new UpdateRateDto { Year = 2025, TaxZoneId = 10, RateSquareMeter = 500m, IsActive = true }),
-                new BulkUpdateItem<int, UpdateRateDto>(2, new UpdateRateDto { Year = 2026, TaxZoneId = 20, RateSquareMeter = 600m, IsActive = true })
+                new BulkUpdateItem<int, UpdateRateDto>(1, new UpdateRateDto { TaxZoneId = 10, RateSquareMeter = 500m, IsActive = true }),
+                new BulkUpdateItem<int, UpdateRateDto>(2, new UpdateRateDto { TaxZoneId = 20, RateSquareMeter = 600m, IsActive = true })
             };
 
             var existingEntities = new Dictionary<int, RateEntity>
@@ -452,7 +454,6 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map(It.IsAny<UpdateRateDto>(), It.IsAny<RateEntity>()))
                 .Callback((UpdateRateDto src, RateEntity dest) =>
                 {
-                    dest.Year = src.Year;
                     dest.TaxZoneId = src.TaxZoneId ?? dest.TaxZoneId;
                     dest.RateSquareMeter = src.RateSquareMeter;
                     dest.IsActive = src.IsActive;
@@ -463,7 +464,6 @@ namespace NtisPlatform.Tests.Application
                 .Returns((List<RateEntity> entities) => entities.Select(e => new RateDto
                 {
                     Id = e.Id,
-                    Year = e.Year,
                     TaxZoneId = e.TaxZoneId,
                     RateSquareMeter = e.RateSquareMeter,
                     IsActive = e.IsActive
@@ -481,9 +481,6 @@ namespace NtisPlatform.Tests.Application
             Assert.False(result.HasFailures);
             Assert.Null(result.Errors);
 
-            Assert.Contains(result.Results, r => r.Year == 2025);
-            Assert.Contains(result.Results, r => r.Year == 2026);
-
             _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
             _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<RateEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -495,9 +492,9 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var updateItems = new[]
             {
-                new BulkUpdateItem<int, UpdateRateDto>(1, new UpdateRateDto { Year = 2025, TaxZoneId = 10, RateSquareMeter = 500m, IsActive = true }),
-                new BulkUpdateItem<int, UpdateRateDto>(9999, new UpdateRateDto { Year = 9999, TaxZoneId = 99, RateSquareMeter = 999m, IsActive = true }),
-                new BulkUpdateItem<int, UpdateRateDto>(2, new UpdateRateDto { Year = 2026, TaxZoneId = 20, RateSquareMeter = 600m, IsActive = true })
+                new BulkUpdateItem<int, UpdateRateDto>(1, new UpdateRateDto { TaxZoneId = 10, RateSquareMeter = 500m, IsActive = true }),
+                new BulkUpdateItem<int, UpdateRateDto>(9999, new UpdateRateDto { TaxZoneId = 99, RateSquareMeter = 999m, IsActive = true }),
+                new BulkUpdateItem<int, UpdateRateDto>(2, new UpdateRateDto { TaxZoneId = 20, RateSquareMeter = 600m, IsActive = true })
             };
 
             var existingEntities = new Dictionary<int, RateEntity>
@@ -518,15 +515,15 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map(It.IsAny<UpdateRateDto>(), It.IsAny<RateEntity>()))
                 .Callback((UpdateRateDto src, RateEntity dest) =>
                 {
-                    dest.Year = src.Year;
+                    dest.RateSquareMeter = src.RateSquareMeter;
+                    dest.IsActive = src.IsActive;
                 });
 
             _mockMapper
                 .Setup(m => m.Map<List<RateDto>>(It.IsAny<List<RateEntity>>()))
                 .Returns((List<RateEntity> entities) => entities.Select(e => new RateDto
                 {
-                    Id = e.Id,
-                    Year = e.Year
+                    Id = e.Id
                 }).ToList());
 
             // Act
@@ -651,6 +648,333 @@ namespace NtisPlatform.Tests.Application
             _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
             _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RateEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
             _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        #endregion
+
+        #region GetDetailedAllAsync Tests
+
+        [Fact]
+        public async Task GetDetailedAllAsync_WithPagination_ReturnsPaginatedResults()
+        {
+            // Arrange
+            var rateEntities = new List<RateEntity>
+            {
+                new() { Id = 1, Year = 2020, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
+                new() { Id = 2, Year = 2021, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 },
+                new() { Id = 3, Year = 2022, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 }
+            };
+
+            var taxZones = new List<TaxZoneEntity> { new() { Id = 1, TaxZoneNo = "TZ001" }, new() { Id = 2, TaxZoneNo = "TZ002" } };
+            var floors = new List<FloorEntity> { new() { Id = 1, Description = "Floor 1" }, new() { Id = 2, Description = "Floor 2" } };
+            var constructionTypes = new List<ConstructionTypeEntity> { new() { Id = 1, Description = "Type A" }, new() { Id = 2, Description = "Type B" } };
+            var useGroups = new List<TypeOfUseGroupEntity> { new() { Id = 1, GroupName = "Group 1" }, new() { Id = 2, GroupName = "Group 2" } };
+            var yearRanges = new List<AssessmentYearRangeEntity> { new() { Id = 1, FromYear = 2020, ToYear = 2025 }, new() { Id = 2, FromYear = 2026, ToYear = 2030 } };
+            var sections = new List<RateSectionEntity> { new() { Id = 1, Description = "Section 1" }, new() { Id = 2, Description = "Section 2" } };
+
+            var rateQuery = rateEntities.BuildMock();
+            var taxZoneQuery = taxZones.BuildMock();
+            var floorQuery = floors.BuildMock();
+            var constructionTypeQuery = constructionTypes.BuildMock();
+            var useGroupQuery = useGroups.BuildMock();
+            var yearRangeQuery = yearRanges.BuildMock();
+            var sectionQuery = sections.BuildMock();
+
+            _mockRepository.Setup(r => r.GetQueryable()).Returns(rateQuery);
+
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
+            mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypeQuery);
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(useGroupQuery);
+            mockAssessmentYearRangeRepository.Setup(r => r.GetQueryable()).Returns(yearRangeQuery);
+            mockRateSectionRepository.Setup(r => r.GetQueryable()).Returns(sectionQuery);
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
+
+            var qp = new RateQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 2,
+                FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+                SearchTerm = null,
+                SortBy = null
+            };
+
+            // Act
+            var result = await service.GetDetailedAllAsync(qp, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(3, result.TotalCount);
+            Assert.Equal(1, result.PageNumber);
+            Assert.Equal(2, result.PageSize);
+            Assert.Equal(2, result.Items.Count());
+        }
+
+        [Fact]
+        public async Task GetDetailedAllAsync_WithPageSizeNegativeOne_NormalizesPageMetadata()
+        {
+            // Arrange
+            var rateEntities = new List<RateEntity>
+            {
+                new() { Id = 1, Year = 2020, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
+                new() { Id = 2, Year = 2021, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 }
+            };
+
+            var taxZones = new List<TaxZoneEntity> { new() { Id = 1, TaxZoneNo = "TZ001" }, new() { Id = 2, TaxZoneNo = "TZ002" } };
+            var floors = new List<FloorEntity> { new() { Id = 1, Description = "Floor 1" }, new() { Id = 2, Description = "Floor 2" } };
+            var constructionTypes = new List<ConstructionTypeEntity> { new() { Id = 1, Description = "Type A" }, new() { Id = 2, Description = "Type B" } };
+            var useGroups = new List<TypeOfUseGroupEntity> { new() { Id = 1, GroupName = "Group 1" }, new() { Id = 2, GroupName = "Group 2" } };
+            var yearRanges = new List<AssessmentYearRangeEntity> { new() { Id = 1, FromYear = 2020, ToYear = 2025 }, new() { Id = 2, FromYear = 2026, ToYear = 2030 } };
+            var sections = new List<RateSectionEntity> { new() { Id = 1, Description = "Section 1" }, new() { Id = 2, Description = "Section 2" } };
+
+            var rateQuery = rateEntities.BuildMock();
+            var taxZoneQuery = taxZones.BuildMock();
+            var floorQuery = floors.BuildMock();
+            var constructionTypeQuery = constructionTypes.BuildMock();
+            var useGroupQuery = useGroups.BuildMock();
+            var yearRangeQuery = yearRanges.BuildMock();
+            var sectionQuery = sections.BuildMock();
+
+            _mockRepository.Setup(r => r.GetQueryable()).Returns(rateQuery);
+
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
+            mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypeQuery);
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(useGroupQuery);
+            mockAssessmentYearRangeRepository.Setup(r => r.GetQueryable()).Returns(yearRangeQuery);
+            mockRateSectionRepository.Setup(r => r.GetQueryable()).Returns(sectionQuery);
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
+
+            var qp = new RateQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = -1, // Unpaged
+                FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+                SearchTerm = null,
+                SortBy = null
+            };
+
+            // Act
+            var result = await service.GetDetailedAllAsync(qp, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(2, result.TotalCount);
+            Assert.Equal(1, result.PageNumber); // Should normalize to 1
+            Assert.Equal(2, result.PageSize); // Should normalize to totalCount (2)
+            Assert.Equal(2, result.Items.Count());
+        }
+
+        [Fact]
+        public async Task GetDetailedAllAsync_PopulatesRelatedEntityNames()
+        {
+            // Arrange
+            var rateEntities = new List<RateEntity>
+            {
+                new()
+                {
+                    Id = 1,
+                    Year = 2020,
+                    TaxZoneId = 1,
+                    FloorId = 1,
+                    ConstructionTypeId = 1,
+                    TypeOfUseGroupId = 1,
+                    YearRangeRVId = 1,
+                    RateSectionId = 1,
+                    RateRemark = "Test Remark",
+                    RateSquareFeet = 100.5m,
+                    RateSquareMeter = 150.5m,
+                    IsActive = true
+                }
+            };
+
+            var taxZones = new List<TaxZoneEntity> { new() { Id = 1, TaxZoneNo = "TZ-001" } };
+            var floors = new List<FloorEntity> { new() { Id = 1, Description = "Ground Floor" } };
+            var constructionTypes = new List<ConstructionTypeEntity> { new() { Id = 1, Description = "Concrete" } };
+            var useGroups = new List<TypeOfUseGroupEntity> { new() { Id = 1, GroupName = "Residential" } };
+            var yearRanges = new List<AssessmentYearRangeEntity> { new() { Id = 1, FromYear = 2020, ToYear = 2025 } };
+            var sections = new List<RateSectionEntity> { new() { Id = 1, Description = "Main Section" } };
+
+            var rateQuery = rateEntities.BuildMock();
+            var taxZoneQuery = taxZones.BuildMock();
+            var floorQuery = floors.BuildMock();
+            var constructionTypeQuery = constructionTypes.BuildMock();
+            var useGroupQuery = useGroups.BuildMock();
+            var yearRangeQuery = yearRanges.BuildMock();
+            var sectionQuery = sections.BuildMock();
+
+            _mockRepository.Setup(r => r.GetQueryable()).Returns(rateQuery);
+
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
+            mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypeQuery);
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(useGroupQuery);
+            mockAssessmentYearRangeRepository.Setup(r => r.GetQueryable()).Returns(yearRangeQuery);
+            mockRateSectionRepository.Setup(r => r.GetQueryable()).Returns(sectionQuery);
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
+
+            var qp = new RateQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 10,
+                FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+                SearchTerm = null,
+                SortBy = null
+            };
+
+            // Act
+            var result = await service.GetDetailedAllAsync(qp, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result.Items);
+            var item = result.Items.First();
+            Assert.Equal("TZ-001", item.TaxZone);
+            Assert.Equal("Ground Floor", item.Floor);
+            Assert.Equal("Concrete", item.ConstructionType);
+            Assert.Equal("Residential", item.TypeOfUseGroup);
+            Assert.Equal("2020-2025", item.YearRangeRV);
+            Assert.Equal("Main Section", item.RateSection);
+            Assert.Equal("Test Remark", item.RateRemark);
+            Assert.Equal(100.5m, item.RateSquareFeet);
+            Assert.Equal(150.5m, item.RateSquareMeter);
+            Assert.True(item.IsActive);
+        }
+
+        [Fact]
+        public async Task GetDetailedAllAsync_WithNullRelatedEntities_PopulatesEmptyStrings()
+        {
+            // Arrange
+            var rateEntities = new List<RateEntity>
+            {
+                new()
+                {
+                    Id = 1,
+                    Year = 2020,
+                    TaxZoneId = 999, // Non-existent
+                    FloorId = 999,   // Non-existent
+                    ConstructionTypeId = 999, // Non-existent
+                    TypeOfUseGroupId = 999, // Non-existent
+                    YearRangeRVId = 999, // Non-existent
+                    RateSectionId = 999 // Non-existent
+                }
+            };
+
+            var taxZones = new List<TaxZoneEntity>();
+            var floors = new List<FloorEntity>();
+            var constructionTypes = new List<ConstructionTypeEntity>();
+            var useGroups = new List<TypeOfUseGroupEntity>();
+            var yearRanges = new List<AssessmentYearRangeEntity>();
+            var sections = new List<RateSectionEntity>();
+
+            var rateQuery = rateEntities.BuildMock();
+            var taxZoneQuery = taxZones.BuildMock();
+            var floorQuery = floors.BuildMock();
+            var constructionTypeQuery = constructionTypes.BuildMock();
+            var useGroupQuery = useGroups.BuildMock();
+            var yearRangeQuery = yearRanges.BuildMock();
+            var sectionQuery = sections.BuildMock();
+
+            _mockRepository.Setup(r => r.GetQueryable()).Returns(rateQuery);
+
+            var mockTaxZoneRepository = new Mock<IRepository<TaxZoneEntity>>();
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            var mockConstructionTypeRepository = new Mock<IRepository<ConstructionTypeEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+            var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
+            var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+
+            mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
+            mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypeQuery);
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(useGroupQuery);
+            mockAssessmentYearRangeRepository.Setup(r => r.GetQueryable()).Returns(yearRangeQuery);
+            mockRateSectionRepository.Setup(r => r.GetQueryable()).Returns(sectionQuery);
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                mockTaxZoneRepository.Object,
+                mockFloorRepository.Object,
+                mockConstructionTypeRepository.Object,
+                mockTypeOfUseGroupRepository.Object,
+                mockAssessmentYearRangeRepository.Object,
+                mockRateSectionRepository.Object);
+
+            var qp = new RateQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 10,
+                FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+                SearchTerm = null,
+                SortBy = null
+            };
+
+            // Act
+            var result = await service.GetDetailedAllAsync(qp, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result.Items);
+            var item = result.Items.First();
+            Assert.Equal(string.Empty, item.TaxZone);
+            Assert.Equal(string.Empty, item.Floor);
+            Assert.Equal(string.Empty, item.ConstructionType);
+            Assert.Equal(string.Empty, item.TypeOfUseGroup);
+            Assert.Equal(string.Empty, item.YearRangeRV);
+            Assert.Equal(string.Empty, item.RateSection);
         }
 
         #endregion

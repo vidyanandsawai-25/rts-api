@@ -7,10 +7,6 @@ namespace NtisPlatform.Application.DTOs;
 public class RateQueryParameters : BaseQueryParameters
 {
     [Filterable]
-    [Sortable]
-    public int? RateId { get; set; }
-
-    [Filterable]
     [Searchable]
     [Sortable]
     public int? ConstructionTypeId { get; set; }
@@ -23,9 +19,6 @@ public class RateQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     [Searchable]
     public int? TypeOfUseGroupId { get; set; }
-
-    [Filterable]
-    public int? Year { get; set; }
 
     [Filterable]
     public int? YearRangeRVId { get; set; }

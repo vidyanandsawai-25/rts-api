@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
@@ -27,6 +28,35 @@ public class RateController : ControllerBase
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] RateQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
+
+    [HttpGet("detailed")]
+    public async Task<IActionResult> GetDetailedAll([FromQuery] RateQueryParameters queryParameters, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GetDetailedAllAsync(queryParameters, ct);
+            return Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FilterValidationException ex)
+        {
+            _logger.LogWarning(ex, "Filter validation failed: {Message}", ex.Message);
+            return BadRequest(new
+            {
+                message = ex.Message,
+                errors = ex.Errors
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetDetailedAll rates");
+            return StatusCode(500, new { message = "An error occurred while fetching detailed rates" });
+        }
+    }
+
 
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)

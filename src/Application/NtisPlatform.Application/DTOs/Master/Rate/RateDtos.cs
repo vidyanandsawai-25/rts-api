@@ -18,8 +18,6 @@ public class RateDto: BaseDtos
 
     public string RateRemark { get; set; } = string.Empty;
 
-    public int? Year { get; set; }
-
     public int YearRangeRVId { get; set; }
 
     public decimal? RateSquareFeet { get; set; }
@@ -27,12 +25,30 @@ public class RateDto: BaseDtos
     public decimal? RateSquareMeter { get; set; }
 }
 
+public class DetailedRateDto : BaseDtos
+{
+    public string TaxZone { get; set; } = string.Empty;
+    public string Floor { get; set; } = string.Empty;
+    public string ConstructionType { get; set; } = string.Empty;
+    public string TypeOfUseGroup { get; set; } = string.Empty;
+    public string YearRangeRV { get; set; } = string.Empty;
+    public string RateSection { get; set; } = string.Empty;
+    public string RateRemark { get; set; } = string.Empty;
+    public decimal? RateSquareFeet { get; set; }
+    public decimal? RateSquareMeter { get; set; }
+    public int TaxZoneId { get; set; }
+    public int FloorId { get; set; }
+    public int ConstructionTypeId { get; set; }
+    public int TypeOfUseGroupId { get; set; }
+    public int YearRangeRVId { get; set; }
+    public int RateSectionId { get; set; }
+
+    public int? CreatedBy { get; set; }
+    public int? UpdatedBy { get; set; }
+}
 
 public class CreateRateDto: CreateBaseDtos
 {
-
-    [Range(1, 9999, ErrorMessage = "Rate_Year_Range_1_9999")]
-    public int? Year { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int TaxZoneId { get; set; }
@@ -63,8 +79,6 @@ public class CreateRateDto: CreateBaseDtos
 public class UpdateRateDto: UpdateBaseDtos
 {
 
-    [Range(1, 9999, ErrorMessage = "Rate_Year_Range_1_9999")]
-    public int? Year { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int? TaxZoneId { get; set; }

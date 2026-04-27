@@ -576,7 +576,7 @@ public class AllMasterControllersComprehensiveTests
         var mockLogger = new Mock<ILogger<RateController>>();
         var controller = new RateController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
 
-        var createDto = new CreateRateDto { Year = 2024 };
+        var createDto = new CreateRateDto { YearRangeRVId = 1 };
         var resultDto = new RateDto { Id = 1 };
 
         mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
