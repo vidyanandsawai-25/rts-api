@@ -10,7 +10,6 @@ public class TypeOfUseDto : BaseDtos
     public string Description { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public int TypeOfUseGroupId { get; set; } 
-    public string? SearchKey { get; set; }
     public int? SearchSequence { get; set; }
 }
 
@@ -30,10 +29,6 @@ public class CreateTypeOfUseDto : CreateBaseDtos
 
     [Required(ErrorMessage = "TypeOfUse_GroupID_Required")]
     public int TypeOfUseGroupId { get; set; } 
-
-    [StringLength(20, ErrorMessage = "TypeOfUse_SearchKey_MaxLen_20")]
-    public string? SearchKey { get; set; }
-
     public int? SearchSequence { get; set; }
 }
 
@@ -53,9 +48,5 @@ public class UpdateTypeOfUseDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "TypeOfUse_GroupID_Required")]
     public int TypeOfUseGroupId { get; set; } 
-
-    [StringLength(20, ErrorMessage = "TypeOfUse_SearchKey_MaxLen_20")]
-    public string? SearchKey { get; set; }
-
     public int? SearchSequence { get; set; }
 }

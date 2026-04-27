@@ -7,7 +7,6 @@ public class ConstructionTypeDto : BaseDtos
     public int Id { get; set; }
     public string ConstructionCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public string? SearchKey { get; set; } = string.Empty;
     public int? SearchSequence { get; set; }
 }
 
@@ -20,11 +19,6 @@ public class CreateConstructionTypeDto : CreateBaseDtos
 
     [StringLength(100, ErrorMessage = "Construction_Description_MaxLen_100")]
     public string Description { get; set; } = string.Empty;
-
-
-    [StringLength(20, ErrorMessage = "Construction_KeyboardShortCutKey_MaxLen_20")]
-    public string? SearchKey { get; set; } = string.Empty;
-
     public int? SearchSequence { get; set; }
 }
 
@@ -37,8 +31,5 @@ public class UpdateConstructionTypeDto : UpdateBaseDtos
 
     [StringLength(100, ErrorMessage = "Construction_Description_MaxLen_100")]
     public string Description { get; set; } = string.Empty;
-
-    [StringLength(20, ErrorMessage = "Construction_KeyboardShortCutKey_MaxLen_20")]
-    public string? SearchKey { get; set; } = string.Empty;
     public int? SearchSequence { get; set; }
 }

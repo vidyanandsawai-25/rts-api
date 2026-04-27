@@ -90,7 +90,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.ConstructionCode);
             entity.Property(e => e.Description);
-            entity.Property(e => e.SearchKey);
             entity.Property(e => e.SearchSequence);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
@@ -192,7 +191,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Description);
             entity.Property(x => x.TypeOfUseId);
-            entity.Property(x => x.SearchKey);
             entity.Property(x => x.SearchSequence);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
@@ -208,7 +206,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Description);
             entity.Property(x => x.Type);
             entity.Property(x => x.TypeOfUseGroupId);
-            entity.Property(x => x.SearchKey);
             entity.Property(x => x.SearchSequence);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
@@ -268,7 +265,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MinYear);
             entity.Property(e => e.MaxYear);
             entity.Property(e => e.Rate).HasColumnType("money");
-            entity.Property(e => e.Year);
+            entity.Property(e => e.YearRangeRVId);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
         // TaxZone configuration

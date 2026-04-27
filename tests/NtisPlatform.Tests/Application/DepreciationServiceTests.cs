@@ -36,11 +36,11 @@ namespace NtisPlatform.Tests.Application
             var entity = new DepreciationMasterEntity
             {
                 Id = 1,
-                ConstructionTypeId = "A",
+                ConstructionTypeId = 1,
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 2.5m,
-                Year = 2020,
+                YearRangeRVId = 1,
                 IsActive = true
             };
 
@@ -54,7 +54,7 @@ namespace NtisPlatform.Tests.Application
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
-                    Year = e.Year,
+                    YearRangeRVId = e.YearRangeRVId,
                     IsActive = e.IsActive
                 });
 
@@ -62,7 +62,7 @@ namespace NtisPlatform.Tests.Application
 
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal("A", result.ConstructionTypeId);
+            Assert.Equal(1, result.ConstructionTypeId);
             Assert.Equal(2.5m, result.Rate);
         }
 
@@ -81,8 +81,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<DepreciationMasterEntity>
             {
-                new() { Id = 1, ConstructionTypeId = "A", Rate = 1.1m,MinYear=2020,MaxYear=2025,Year=2026 },
-                new() { Id = 2, ConstructionTypeId = "B", Rate = 2.2m,MinYear=2020,MaxYear=2025,Year=2026 }
+                new() { Id = 1, ConstructionTypeId = 1, Rate = 1.1m,MinYear=2020,MaxYear=2025,YearRangeRVId=1 },
+                new() { Id = 2, ConstructionTypeId = 2, Rate = 2.2m,MinYear=2020,MaxYear=2025,YearRangeRVId=2 }
             };
 
             var mockQuery = entities.BuildMock(); // async IQueryable
@@ -119,8 +119,8 @@ namespace NtisPlatform.Tests.Application
 
             var items = result.Items.ToList();
             Assert.Equal(2, items.Count);
-            Assert.Contains(items, x => x.ConstructionTypeId == "A");
-            Assert.Contains(items, x => x.ConstructionTypeId == "B");
+            Assert.Contains(items, x => x.ConstructionTypeId == 1);
+            Assert.Contains(items, x => x.ConstructionTypeId == 2);
         }
 
 
@@ -129,12 +129,11 @@ namespace NtisPlatform.Tests.Application
         {
             var createDto = new CreateDepreciationDto
             {
-                Id = 1,
-                ConstructionTypeId = "A",
+                ConstructionTypeId = 1,
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 3.3m,
-                Year = 2021,
+                YearRangeRVId = 1,
                 IsActive = true,
                 CreatedBy = 10
             };
@@ -143,12 +142,11 @@ namespace NtisPlatform.Tests.Application
                 .Setup(m => m.Map<DepreciationMasterEntity>(It.IsAny<CreateDepreciationDto>()))
                 .Returns((CreateDepreciationDto dto) => new DepreciationMasterEntity
                 {
-                    Id = dto.Id,
                     ConstructionTypeId = dto.ConstructionTypeId,
                     MinYear = dto.MinYear,
                     MaxYear = dto.MaxYear,
                     Rate = dto.Rate,
-                    Year = dto.Year,
+                    YearRangeRVId = dto.YearRangeRVId,
                 });
 
             _mockRepository
@@ -164,13 +162,12 @@ namespace NtisPlatform.Tests.Application
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
-                    Year = e.Year
+                    YearRangeRVId = e.YearRangeRVId
                 });
 
             var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
             Assert.NotNull(result);
-            Assert.Equal(createDto.Id, result.Id);
             Assert.Equal(createDto.ConstructionTypeId, result.ConstructionTypeId);
             Assert.Equal(createDto.Rate, result.Rate);
 
@@ -184,11 +181,11 @@ namespace NtisPlatform.Tests.Application
             var updateDto = new UpdateDepreciationDto
             {
                 Id = 1,
-                ConstructionTypeId = "A",
+                ConstructionTypeId = 1,
                 MinYear = 2,
                 MaxYear = 6,
                 Rate = 4.4m,
-                Year = 2022,
+                YearRangeRVId = 1,
                 IsActive = true,
                 UpdatedBy = 20
             };
@@ -196,11 +193,11 @@ namespace NtisPlatform.Tests.Application
             var existing = new DepreciationMasterEntity
             {
                 Id = 1,
-                ConstructionTypeId = "A",
+                ConstructionTypeId = 1,
                 MinYear = 1,
                 MaxYear = 5,
                 Rate = 3.3m,
-                Year = 2021
+                YearRangeRVId = 1
             };
 
             _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existing);
@@ -212,7 +209,7 @@ namespace NtisPlatform.Tests.Application
                     dest.MinYear = src.MinYear;
                     dest.MaxYear = src.MaxYear;
                     dest.Rate = src.Rate;
-                    dest.Year = src.Year;
+                    dest.YearRangeRVId = src.YearRangeRVId;
                 });
 
             await _service.UpdateAsync(1, updateDto, CancellationToken.None);
@@ -224,13 +221,13 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal(2, existing.MinYear);
             Assert.Equal(6, existing.MaxYear);
             Assert.Equal(4.4m, existing.Rate);
-            Assert.Equal(2022, existing.Year);
+            Assert.Equal(1, existing.YearRangeRVId);
         }
 
         [Fact]
         public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
         {
-            var updateDto = new UpdateDepreciationDto { Id = 99, ConstructionTypeId = "X" };
+            var updateDto = new UpdateDepreciationDto { Id = 99, ConstructionTypeId = 1 };
             _mockRepository.Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>())).ReturnsAsync((DepreciationMasterEntity?)null);
 
             await _service.UpdateAsync(99, updateDto, CancellationToken.None);
@@ -301,9 +298,9 @@ namespace NtisPlatform.Tests.Application
 
             var createDtos = new[]
             {
-                new CreateDepreciationDto { ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true },
-                new CreateDepreciationDto { ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true },
-                new CreateDepreciationDto { ConstructionTypeId = "C", MinYear = 11, MaxYear = 15, Rate = 4.5m, Year = 2022, IsActive = true }
+                new CreateDepreciationDto { ConstructionTypeId = 1, MinYear = 1, MaxYear = 5, Rate = 2.5m, YearRangeRVId = 1, IsActive = true },
+                new CreateDepreciationDto { ConstructionTypeId = 2, MinYear = 6, MaxYear = 10, Rate = 3.5m, YearRangeRVId = 2, IsActive = true },
+                new CreateDepreciationDto { ConstructionTypeId = 3, MinYear = 11, MaxYear = 15, Rate = 4.5m, YearRangeRVId = 3, IsActive = true }
             };
 
             _mockMapper
@@ -315,7 +312,7 @@ namespace NtisPlatform.Tests.Application
                     MinYear = dto.MinYear,
                     MaxYear = dto.MaxYear,
                     Rate = dto.Rate,
-                    Year = dto.Year,
+                    YearRangeRVId = dto.YearRangeRVId,
                     IsActive = dto.IsActive
                 }).ToArray());
 
@@ -332,7 +329,7 @@ namespace NtisPlatform.Tests.Application
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
-                    Year = e.Year,
+                    YearRangeRVId = e.YearRangeRVId,
                     IsActive = e.IsActive
                 }).ToArray());
 
@@ -348,9 +345,9 @@ namespace NtisPlatform.Tests.Application
             Assert.False(result.HasFailures);
             Assert.Null(result.Errors);
 
-            Assert.Contains(result.Results, r => r.ConstructionTypeId == "A");
-            Assert.Contains(result.Results, r => r.ConstructionTypeId == "B");
-            Assert.Contains(result.Results, r => r.ConstructionTypeId == "C");
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == 1);
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == 2);
+            Assert.Contains(result.Results, r => r.ConstructionTypeId == 3);
 
             _mockRepository.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<DepreciationMasterEntity>>(), It.IsAny<CancellationToken>()), Times.Once);
             _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -384,14 +381,14 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var updateItems = new[]
             {
-                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = "A", MinYear = 2, MaxYear = 6, Rate = 5.5m, Year = 2023, IsActive = true }),
-                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = "B", MinYear = 7, MaxYear = 12, Rate = 6.5m, Year = 2024, IsActive = true })
+                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = 1, MinYear = 2, MaxYear = 6, Rate = 5.5m, YearRangeRVId = 1, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = 2, MinYear = 7, MaxYear = 12, Rate = 6.5m, YearRangeRVId = 2, IsActive = true })
             };
 
             var existingEntities = new Dictionary<int, DepreciationMasterEntity>
             {
-                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true } },
-                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true } }
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = 1, MinYear = 1, MaxYear = 5, Rate = 2.5m, YearRangeRVId = 1, IsActive = true } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = 2, MinYear = 6, MaxYear = 10, Rate = 3.5m, YearRangeRVId = 2, IsActive = true } }
             };
 
             _mockRepository
@@ -410,7 +407,7 @@ namespace NtisPlatform.Tests.Application
                     dest.MinYear = src.MinYear;
                     dest.MaxYear = src.MaxYear;
                     dest.Rate = src.Rate;
-                    dest.Year = src.Year;
+                    dest.YearRangeRVId = src.YearRangeRVId;
                     dest.IsActive = src.IsActive;
                 });
 
@@ -423,7 +420,7 @@ namespace NtisPlatform.Tests.Application
                     MinYear = e.MinYear,
                     MaxYear = e.MaxYear,
                     Rate = e.Rate,
-                    Year = e.Year,
+                    YearRangeRVId = e.YearRangeRVId,
                     IsActive = e.IsActive
                 }).ToList());
 
@@ -450,15 +447,15 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var updateItems = new[]
             {
-                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = "A", MinYear = 2, MaxYear = 6, Rate = 5.5m, Year = 2023, IsActive = true }),
-                new BulkUpdateItem<int, UpdateDepreciationDto>(9999, new UpdateDepreciationDto { ConstructionTypeId = "X", MinYear = 99, MaxYear = 99, Rate = 99m, Year = 9999, IsActive = true }),
-                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = "B", MinYear = 7, MaxYear = 12, Rate = 6.5m, Year = 2024, IsActive = true })
+                new BulkUpdateItem<int, UpdateDepreciationDto>(1, new UpdateDepreciationDto { ConstructionTypeId = 1, MinYear = 2, MaxYear = 6, Rate = 5.5m, YearRangeRVId = 1, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(9999, new UpdateDepreciationDto { ConstructionTypeId = 9999, MinYear = 99, MaxYear = 99, Rate = 99m, YearRangeRVId = 9999, IsActive = true }),
+                new BulkUpdateItem<int, UpdateDepreciationDto>(2, new UpdateDepreciationDto { ConstructionTypeId = 2, MinYear = 7, MaxYear = 12, Rate = 6.5m, YearRangeRVId = 2, IsActive = true })
             };
 
             var existingEntities = new Dictionary<int, DepreciationMasterEntity>
             {
-                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A", MinYear = 1, MaxYear = 5, Rate = 2.5m, Year = 2020, IsActive = true } },
-                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B", MinYear = 6, MaxYear = 10, Rate = 3.5m, Year = 2021, IsActive = true } }
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = 1, MinYear = 1, MaxYear = 5, Rate = 2.5m, YearRangeRVId = 1, IsActive = true } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = 2, MinYear = 6, MaxYear = 10, Rate = 3.5m, YearRangeRVId = 2, IsActive = true } }
             };
 
             _mockRepository
@@ -531,9 +528,9 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, DepreciationMasterEntity>
             {
-                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A" } },
-                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B" } },
-                { 3, new DepreciationMasterEntity { Id = 3, ConstructionTypeId = "C" } }
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = 1 } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = 2 } },
+                { 3, new DepreciationMasterEntity { Id = 3, ConstructionTypeId = 3 } }
             };
 
             _mockRepository
@@ -573,8 +570,8 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, DepreciationMasterEntity>
             {
-                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = "A" } },
-                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = "B" } }
+                { 1, new DepreciationMasterEntity { Id = 1, ConstructionTypeId = 1 } },
+                { 2, new DepreciationMasterEntity { Id = 2, ConstructionTypeId = 2 } }
             };
 
             _mockRepository

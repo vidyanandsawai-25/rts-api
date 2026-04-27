@@ -48,7 +48,6 @@ public class ConstructionTypeServiceTests
             Id = 1,
             ConstructionCode = "A",
             Description = "RCC",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -65,7 +64,6 @@ public class ConstructionTypeServiceTests
             {
                 ConstructionCode = "A",
                 Description = "RCC",
-                SearchKey = "Alt+D",
                 SearchSequence = 1,
                 IsActive = true,
             });
@@ -77,7 +75,6 @@ public class ConstructionTypeServiceTests
         Assert.NotNull(result);
         Assert.Equal("A", result.ConstructionCode);
         Assert.Equal("RCC", result.Description);
-        Assert.Equal("Alt+D", result.SearchKey);
         Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
 
@@ -103,8 +100,8 @@ public class ConstructionTypeServiceTests
         // Arrange
         var entities = new List<ConstructionTypeEntity>
         {
-            new() {Id=1,ConstructionCode = "A", Description = "Test1",  SearchKey="Alt+D", SearchSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
-            new() {Id=2, ConstructionCode = "B", Description = "Test2",  SearchKey="Alt+L", SearchSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
+            new() {Id=1,ConstructionCode = "A", Description = "Test1",   SearchSequence=1, CreatedBy=31, CreatedDate = DateTime.Now ,IsActive=true},
+            new() {Id=2, ConstructionCode = "B", Description = "Test2",  SearchSequence=2, CreatedBy=31, CreatedDate = DateTime.Now  ,IsActive=true},
         };
 
         var mockQuery = entities.BuildMock(); // async IQueryable
@@ -153,7 +150,6 @@ public class ConstructionTypeServiceTests
         {
             ConstructionCode = "A",
             Description = "New Description",
-            SearchKey = "Alt+A",
             SearchSequence = 3,
             IsActive = true,
         };
@@ -164,7 +160,6 @@ public class ConstructionTypeServiceTests
             {
                 ConstructionCode = dto.ConstructionCode,
                 Description = dto.Description,
-                SearchKey = dto.SearchKey,
                 SearchSequence = dto.SearchSequence,
                 CreatedBy = 31,
                 CreatedDate = DateTime.Now,
@@ -181,7 +176,6 @@ public class ConstructionTypeServiceTests
             {
                 ConstructionCode = e.ConstructionCode,
                 Description = e.Description,
-                SearchKey = e.SearchKey,
                 SearchSequence = e.SearchSequence,
                 IsActive = true,
             });
@@ -193,7 +187,6 @@ public class ConstructionTypeServiceTests
         Assert.NotNull(result);
         Assert.Equal("A", result.ConstructionCode);
         Assert.Equal("New Description", result.Description);
-        Assert.Equal("Alt+A", result.SearchKey);
         Assert.Equal(3, result.SearchSequence); 
         Assert.True(result.IsActive);
 
@@ -214,7 +207,6 @@ public class ConstructionTypeServiceTests
         var updateDto = new UpdateConstructionTypeDto
         {
             Description = "New Description",
-            SearchKey = "Alt+A",
             SearchSequence = 3,
             IsActive = true,
         };
@@ -223,7 +215,6 @@ public class ConstructionTypeServiceTests
         {
             Id = 1,
             Description = "Old Description",
-            SearchKey = "Alt+A",
             SearchSequence = 3,
             IsActive = true,
         };
@@ -256,7 +247,6 @@ public class ConstructionTypeServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("New Description", existingEntity.Description);
-        Assert.Equal("Alt+A", existingEntity.SearchKey);
         Assert.Equal(3, existingEntity.SearchSequence);
         Assert.True(existingEntity.IsActive);
     }
@@ -268,7 +258,6 @@ public class ConstructionTypeServiceTests
         var updateDto = new UpdateConstructionTypeDto
         {
             Description = "New Description",
-            SearchKey = "Alt+A",
             SearchSequence = 3,
             IsActive = true
         };
@@ -320,7 +309,6 @@ public class ConstructionTypeServiceTests
             Id = idToDelete,
             ConstructionCode = "RCC",
             Description = "RCC",
-            SearchKey = "Alt+A",
             SearchSequence = 3,
             IsActive = true
         };

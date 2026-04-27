@@ -31,11 +31,9 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         _mapper = mapper;
     }
 
-    #region Single CRUD Operations
+    #region Single CRUD Operations    
 
-    public virtual async Task<PagedResult<TDto>> GetAllAsync(
-        TQueryParams queryParameters,
-        CancellationToken cancellationToken = default)
+    public virtual async Task<PagedResult<TDto>> GetAllAsync(TQueryParams queryParameters,CancellationToken cancellationToken = default)
     {
         var query = _repository.GetQueryable();
 
@@ -53,12 +51,16 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
         // Apply pagination
         var items = await query
-            .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
-            .Take(queryParameters.PageSize)
+            .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
             .ProjectTo<TDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<TDto>(items, totalCount, queryParameters.PageNumber, queryParameters.PageSize);
+        // Normalize pagination metadata for unpaged results (PageSize = -1)
+        var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+        var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+        return new PagedResult<TDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public virtual async Task<TDto?> GetByIdAsync(TKey id, CancellationToken cancellationToken = default)

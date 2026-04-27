@@ -45,7 +45,6 @@ public class SubTypeOfUseServiceTests
             Id = 1,
             TypeOfUseId = 1,
             Description = "Residential",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -63,7 +62,6 @@ public class SubTypeOfUseServiceTests
                 Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
-                SearchKey = e.SearchKey,
                 SearchSequence = e.SearchSequence,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate,
@@ -78,7 +76,6 @@ public class SubTypeOfUseServiceTests
         Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
-        Assert.Equal("Alt+D", result.SearchKey);
         Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
     }
@@ -103,8 +100,8 @@ public class SubTypeOfUseServiceTests
         // Arrange
         var entities = new List<SubTypeOfUseEntity>
         {
-            new() { Id = 1, TypeOfUseId = 1, Description = "Residential", SearchKey = "Alt+D", SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
-            new() { Id = 2, TypeOfUseId = 2, Description = "Commercial", SearchKey = "Alt+C", SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
+            new() { Id = 1, TypeOfUseId = 1, Description = "Residential",  SearchSequence = 1, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now },
+            new() { Id = 2, TypeOfUseId = 2, Description = "Commercial",  SearchSequence = 2, IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now, UpdatedBy = 31, UpdatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -153,7 +150,6 @@ public class SubTypeOfUseServiceTests
         {
             TypeOfUseId = 1,
             Description = "Residential",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             CreatedBy = 31
         };
@@ -165,7 +161,6 @@ public class SubTypeOfUseServiceTests
                 Id = 1,
                 TypeOfUseId = dto.TypeOfUseId,
                 Description = dto.Description,
-                SearchKey = dto.SearchKey,
                 SearchSequence = dto.SearchSequence,
                 IsActive = true,
                 CreatedDate = DateTime.Now,
@@ -183,7 +178,6 @@ public class SubTypeOfUseServiceTests
                 Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
-                SearchKey = e.SearchKey,
                 SearchSequence = e.SearchSequence,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate
@@ -197,7 +191,6 @@ public class SubTypeOfUseServiceTests
         Assert.Equal(1, result.Id);
         Assert.Equal(1, result.TypeOfUseId);
         Assert.Equal("Residential", result.Description);
-        Assert.Equal("Alt+D", result.SearchKey);
         Assert.Equal(1, result.SearchSequence);
         Assert.True(result.IsActive);
 
@@ -215,7 +208,6 @@ public class SubTypeOfUseServiceTests
         {
             TypeOfUseId =1,
             Description = "Residential Updated",
-            SearchKey = "Alt+R",
             SearchSequence = 2,
             IsActive = true,
             UpdatedBy = 31
@@ -226,7 +218,6 @@ public class SubTypeOfUseServiceTests
             Id = 1,
             TypeOfUseId = 1,
             Description = "Residential",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -249,7 +240,6 @@ public class SubTypeOfUseServiceTests
             {
                 dest.TypeOfUseId = src.TypeOfUseId;
                 dest.Description = src.Description;
-                dest.SearchKey = src.SearchKey;
                 dest.SearchSequence = src.SearchSequence;
                 dest.IsActive = src.IsActive;
                 dest.UpdatedBy = src.UpdatedBy;
@@ -263,7 +253,6 @@ public class SubTypeOfUseServiceTests
                 Id = e.Id,
                 TypeOfUseId = e.TypeOfUseId,
                 Description = e.Description,
-                SearchKey = e.SearchKey,
                 SearchSequence = e.SearchSequence,
                 IsActive = e.IsActive
             });
@@ -280,7 +269,6 @@ public class SubTypeOfUseServiceTests
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         Assert.Equal("Residential Updated", existingEntity.Description);
-        Assert.Equal("Alt+R", existingEntity.SearchKey);
         Assert.Equal(2, existingEntity.SearchSequence);
         Assert.True(existingEntity.IsActive);
     }
@@ -293,7 +281,6 @@ public class SubTypeOfUseServiceTests
         {
             TypeOfUseId = 1,
             Description = "Residential",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             UpdatedBy = 31
@@ -345,7 +332,6 @@ public class SubTypeOfUseServiceTests
             Id = idToDelete,
             TypeOfUseId = 1,
             Description = "Residential",
-            SearchKey = "Alt+D",
             SearchSequence = 1,
             IsActive = true,
             CreatedDate = DateTime.Now,

@@ -63,6 +63,7 @@ public class FloorController : ControllerBase
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
