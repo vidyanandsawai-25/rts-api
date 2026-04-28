@@ -11,6 +11,9 @@ public class PropertyCategoryMappingProfile : Profile
         CreateMap<PropertyCategoryEntity, PropertyCategoryDto>()
             ;
 
+        // Add missing mapping for update scenarios
+        CreateMap<PropertyCategoryDto, PropertyCategoryEntity>();
+
         CreateMap<PropertyCategoryCreateDto, PropertyCategoryEntity>()
           .ForMember(dest => dest.Id, opt => opt.Ignore())
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

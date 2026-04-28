@@ -8,8 +8,8 @@ public class TaxZoneMappingProfile : Profile
 {
     public TaxZoneMappingProfile()
     {
-        CreateMap<TaxZoneEntity, TaxZoneDto>()
-            ;
+        CreateMap<TaxZoneEntity, TaxZoneDto>();
+        CreateMap<TaxZoneDto, TaxZoneEntity>();
 
         CreateMap<CreateTaxZoneDto, TaxZoneEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

@@ -65,6 +65,7 @@ public static class ServiceCollectionExtensions
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
+        services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
 
 
         // TODO: Add other providers when implemented

@@ -80,10 +80,29 @@ public class ApplicationDbContext : DbContext
     public DbSet<GenderMasterEntity> GenderMasters { get; set; } = null!;
 
     public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
+    public DbSet<AgeFactorCVMasterEntity> AgeFactorCVMasters { get; set; } = null!;
+    public DbSet<NatureFactorCVMasterEntity> NatureFactorCVMasters { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        // AgeFactorCVMaster configuration
+        modelBuilder.Entity<AgeFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("AgeFactorCVMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
+           // Add additional property configurations if needed
+        });
+
+        // NatureFactorCVMaster configuration
+        modelBuilder.Entity<NatureFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("NatureFactorCVMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
+            // Add additional property configurations if needed
+        });
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
         {
             entity.ToTable("ConstructionTypeMaster", "PTIS");

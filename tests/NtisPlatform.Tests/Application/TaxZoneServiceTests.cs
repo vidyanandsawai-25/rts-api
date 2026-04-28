@@ -4,6 +4,7 @@ using Moq;
 using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -78,7 +79,6 @@ public class TaxZoneEntityTests
 }
 
 #endregion
-
 #region TaxZoneDto Tests
 
 public class TaxZoneDtoTests
@@ -758,11 +758,13 @@ public class TaxZoneQueryParametersTests
 
 #endregion
 
+
 #region TaxZoneService Tests
 
 public class TaxZoneServiceTests
 {
     private readonly Mock<IRepository<TaxZoneEntity, int>> _mockRepository;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly TaxZoneService _service;
@@ -770,6 +772,7 @@ public class TaxZoneServiceTests
     public TaxZoneServiceTests()
     {
         _mockRepository = new Mock<IRepository<TaxZoneEntity, int>>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -777,7 +780,11 @@ public class TaxZoneServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _service = new TaxZoneService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new TaxZoneService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -850,7 +857,12 @@ public class TaxZoneServiceTests
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new TaxZoneService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+        var mockReferenceValidator = new Mock<IReferenceValidationService>();
+        var service = new TaxZoneService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            mapper,
+            mockReferenceValidator.Object);
 
         var qp = new TaxZoneQueryParameters
         {
@@ -931,7 +943,8 @@ public class TaxZoneServiceTests
         {
             TaxZoneNo = "TZ1",
             TaxZoneType = "Urban",
-            Remark = "Updated Zone"
+            Remark = "Updated Zone",
+            IsActive = true
         };
 
         var existingEntity = new TaxZoneEntity
@@ -957,7 +970,12 @@ public class TaxZoneServiceTests
             {
                 dest.Remark = src.Remark;
                 dest.TaxZoneType = src.TaxZoneType;
+                dest.IsActive = src.IsActive;
             });
+
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
+            .Returns(new TaxZoneDto { Id = 1, IsActive = false });
 
         // Act
         await _service.UpdateAsync(1, updateDto, CancellationToken.None);
@@ -1038,6 +1056,11 @@ public class TaxZoneServiceTests
             .Setup(r => r.DeleteAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        // Mock reference validation service to return success (no references)
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<TaxZoneEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
         // Act
         var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
 
@@ -1048,6 +1071,201 @@ public class TaxZoneServiceTests
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    #region Validation Tests
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateTaxZoneDto
+        {
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Zone 1",
+            IsActive = false
+        };
+
+        var existingEntity = new TaxZoneEntity
+        {
+            Id = 1,
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Zone 1",
+            IsActive = true
+        };
+
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        // Map entity to DTO (for snapshot creation)
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
+            .Returns((TaxZoneEntity e) => new TaxZoneDto
+            {
+                Id = e.Id,
+                TaxZoneNo = e.TaxZoneNo,
+                TaxZoneType = e.TaxZoneType,
+                Remark = e.Remark,
+                IsActive = e.IsActive
+            });
+
+        // Map DTO back to entity (for snapshot creation)
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneEntity>(It.IsAny<TaxZoneDto>()))
+            .Returns((TaxZoneDto d) => new TaxZoneEntity
+            {
+                Id = d.Id,
+                TaxZoneNo = d.TaxZoneNo,
+                TaxZoneType = d.TaxZoneType,
+                Remark = d.Remark,
+                IsActive = d.IsActive
+            });
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateTaxZoneDto>(), It.IsAny<TaxZoneEntity>()))
+            .Callback((UpdateTaxZoneDto src, TaxZoneEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        // Mock reference validation service to return failure
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<TaxZoneEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Cannot deactivate/delete this Tax Zone because it is referenced in: Rates, Properties"));
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        Assert.NotNull(exception.Errors);
+        Assert.Contains(
+            exception.Errors,
+            error => error.Value != null &&
+                error.Value.Contains("Cannot deactivate/delete this Tax Zone because it is referenced in: Rates, Properties"));
+    }
+
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingWithoutReferences_UpdatesSuccessfully()
+    {
+        // Arrange
+        var updateDto = new UpdateTaxZoneDto
+        {
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Zone 1",
+            IsActive = false
+        };
+
+        var existingEntity = new TaxZoneEntity
+        {
+            Id = 1,
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Zone 1",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Map entity to DTO (for snapshot creation)
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
+            .Returns((TaxZoneEntity e) => new TaxZoneDto
+            {
+                Id = e.Id,
+                TaxZoneNo = e.TaxZoneNo,
+                TaxZoneType = e.TaxZoneType,
+                Remark = e.Remark,
+                IsActive = e.IsActive
+            });
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateTaxZoneDto>(), It.IsAny<TaxZoneEntity>()))
+            .Callback((UpdateTaxZoneDto src, TaxZoneEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
+            .Returns(new TaxZoneDto { Id = 1, IsActive = false });
+
+        // Mock reference validation service to return success (no references)
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<TaxZoneEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        // Act
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NotDeactivating_DoesNotCheckReferences()
+    {
+        // Arrange
+        var updateDto = new UpdateTaxZoneDto
+        {
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Updated Zone",
+            IsActive = true
+        };
+
+        var existingEntity = new TaxZoneEntity
+        {
+            Id = 1,
+            TaxZoneNo = "TZ1",
+            TaxZoneType = "Urban",
+            Remark = "Old Remark",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateTaxZoneDto>(), It.IsAny<TaxZoneEntity>()))
+            .Callback((UpdateTaxZoneDto src, TaxZoneEntity dest) =>
+            {
+                dest.Remark = src.Remark;
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<TaxZoneDto>(It.IsAny<TaxZoneEntity>()))
+            .Returns(new TaxZoneDto { Id = 1, IsActive = true });
+
+        // Act
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        _mockReferenceValidator.Verify(r => r.ValidateReferencesAsync<TaxZoneEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TaxZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
 }
 
 #endregion
+
+

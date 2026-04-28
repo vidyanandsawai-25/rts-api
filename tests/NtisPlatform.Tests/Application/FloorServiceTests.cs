@@ -388,16 +388,15 @@ public class FloorServiceTests
         };
 
         _mockMapper
-            .Setup(m => m.Map<FloorEntity[]>(It.IsAny<CreateFloorDto[]>()))
-            .Returns((CreateFloorDto[] dtos) => dtos.Select((dto, idx) => new FloorEntity
+            .Setup(m => m.Map<FloorEntity>(It.IsAny<CreateFloorDto>()))
+            .Returns((CreateFloorDto dto) => new FloorEntity
             {
-                Id = idx + 1,
                 FloorCode = dto.FloorCode,
                 Description = dto.Description,
                 MaxFloorNo = dto.MaxFloorNo,
                 SequenceNo = dto.SequenceNo,
                 IsActive = dto.IsActive
-            }).ToArray());
+            });
 
         _mockRepository
             .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<FloorEntity>>(), It.IsAny<CancellationToken>()))
@@ -414,6 +413,18 @@ public class FloorServiceTests
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive
             }).ToArray());
+
+        _mockMapper
+            .Setup(m => m.Map<List<FloorDto>>(It.IsAny<List<FloorEntity>>()))
+            .Returns((List<FloorEntity> entities) => entities.Select(e => new FloorDto
+            {
+                Id = e.Id,
+                FloorCode = e.FloorCode,
+                Description = e.Description,
+                MaxFloorNo = e.MaxFloorNo,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
 
         // Act
         var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);

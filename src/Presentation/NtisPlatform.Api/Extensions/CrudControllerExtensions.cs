@@ -96,12 +96,10 @@ public static class CrudControllerExtensions
                 Items = result
             });
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not ValidationException)
         {
             logger.LogError(ex, "Create operation failed");
             var errorMessage = ex.InnerException?.Message ?? ex.Message;
-
-
             // Duplicate / unique constraint (DB-agnostic-ish)
             if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
                 errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
@@ -113,12 +111,13 @@ public static class CrudControllerExtensions
                     Message = "A record with the same details already exists."
                 });
             }
+            // Return 500 for other exceptions
             return controller.StatusCode(500, new ApiResponse<TDto>
             {
                 Success = false,
-                Message = "An error occurred while processing your request."
+                Message = "An error occurred while creating the record",
+                Items = default
             });
-
         }
     }
 
@@ -136,7 +135,6 @@ public static class CrudControllerExtensions
         try
         {
             var result = await service.UpdateAsync(id, updateDto, cancellationToken);
-
             if (result == null)
             {
                 return controller.Ok(new ApiResponse<TDto>
@@ -146,24 +144,17 @@ public static class CrudControllerExtensions
                     Items = result
                 });
             }
-
             return controller.Ok(new ApiResponse<TDto>
             {
                 Success = true,
                 Message = "Record updated successfully",
                 Items = result
             });
-
-
-
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not ValidationException)
         {
             logger.LogError(ex, "Update operation failed for id: {Id}", id);
-
-
             var errorMessage = ex.InnerException?.Message ?? ex.Message;
-
             // Duplicate / unique constraint (DB-agnostic-ish)
             if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
                 errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
@@ -175,12 +166,13 @@ public static class CrudControllerExtensions
                     Message = "A record with the same details already exists."
                 });
             }
+            // Return 500 for other exceptions
             return controller.StatusCode(500, new ApiResponse<TDto>
             {
                 Success = false,
-                Message = "An error occurred while processing your request."
+                Message = "An error occurred while updating the record",
+                Items = default
             });
-
         }
     }
     // This method performs a soft-delete operation through the service layer.
@@ -208,16 +200,15 @@ public static class CrudControllerExtensions
                 Success = false,
                 Message = "Record not found"
             });
-
-
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not ValidationException)
         {
             logger.LogError(ex, "Delete operation failed for id: {Id}", id);
             return controller.StatusCode(500, new ApiResponse<TDto>
             {
                 Success = false,
-                Message = "An error occurred while processing your request."
+                Message = "An error occurred while deleting the record",
+                Items = default
             });
         }
     }

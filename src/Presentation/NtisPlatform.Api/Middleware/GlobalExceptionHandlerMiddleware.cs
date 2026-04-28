@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using NtisPlatform.Application.Exceptions;
 
 namespace NtisPlatform.Api.Middleware;
 
@@ -36,6 +37,14 @@ public class GlobalExceptionHandlerMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
+        // Handle ValidationException with detailed response
+        if (exception is ValidationException validationException)
+        {
+            _logger.LogWarning(validationException, "A validation error occurred: {Message}", validationException.Message);
+            await HandleValidationExceptionAsync(context, validationException);
+            return;
+        }
+
         _logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
 
         var statusCode = exception switch
@@ -57,6 +66,27 @@ public class GlobalExceptionHandlerMiddleware
 
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)statusCode;
+
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, options));
+    }
+
+    private async Task HandleValidationExceptionAsync(HttpContext context, ValidationException exception)
+    {
+        var response = new ValidationErrorResponse
+        {
+            StatusCode = (int)HttpStatusCode.BadRequest,
+            Message = exception.Message,
+            OperationType = exception.OperationType.ToString(),
+            Errors = exception.Errors
+        };
+
+        context.Response.ContentType = "application/json";
+        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
 
         var options = new JsonSerializerOptions
         {
@@ -93,4 +123,15 @@ public class ErrorResponse
     public int StatusCode { get; set; }
     public string Message { get; set; } = string.Empty;
     public string? Details { get; set; }
+}
+
+/// <summary>
+/// Validation error response model with operation type and errors dictionary
+/// </summary>
+public class ValidationErrorResponse
+{
+    public int StatusCode { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string OperationType { get; set; } = string.Empty;
+    public Dictionary<string, string> Errors { get; set; } = new();
 }

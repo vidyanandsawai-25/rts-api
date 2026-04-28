@@ -360,33 +360,35 @@ namespace NtisPlatform.Tests.Application
                 new CreateRateDto { TaxZoneId = 3, FloorId = 3, ConstructionTypeId = 3, RateSquareMeter = 300m, IsActive = true }
             };
 
+            // Setup mapping for each item (service maps each CreateRateDto to RateEntity individually)
             _mockMapper
-                .Setup(m => m.Map<RateEntity[]>(It.IsAny<CreateRateDto[]>()))
-                .Returns((CreateRateDto[] dtos) => dtos.Select((dto, idx) => new RateEntity
+                .Setup(m => m.Map<RateEntity>(It.IsAny<CreateRateDto>()))
+                .Returns((CreateRateDto dto) => new RateEntity
                 {
-                    Id = idx + 1,
+                    Id = 0,
                     TaxZoneId = dto.TaxZoneId,
                     FloorId = dto.FloorId,
                     ConstructionTypeId = dto.ConstructionTypeId,
                     RateSquareMeter = dto.RateSquareMeter,
                     IsActive = dto.IsActive
-                }).ToArray());
+                });
 
             _mockRepository
                 .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<RateEntity>>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
+            // Setup mapping from List<RateEntity> to List<RateDto> (service uses this after creation)
             _mockMapper
-                .Setup(m => m.Map<RateDto[]>(It.IsAny<RateEntity[]>()))
-                .Returns((RateEntity[] entities) => entities.Select(e => new RateDto
+                .Setup(m => m.Map<List<RateDto>>(It.IsAny<List<RateEntity>>()))
+                .Returns((List<RateEntity> entities) => entities.Select((e, idx) => new RateDto
                 {
-                    Id = e.Id,
+                    Id = idx + 1,
                     TaxZoneId = e.TaxZoneId,
                     FloorId = e.FloorId,
                     ConstructionTypeId = e.ConstructionTypeId,
                     RateSquareMeter = e.RateSquareMeter,
                     IsActive = e.IsActive
-                }).ToArray());
+                }).ToList());
 
             // Act
             var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);

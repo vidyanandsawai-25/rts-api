@@ -2,6 +2,8 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Queries;
+using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -68,6 +70,13 @@ public abstract class BaseCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQu
         var entity = _mapper.Map<TEntity>(createDto);
         entity.CreatedDate = DateTime.Now;
         
+        // Run validation before persisting
+        var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException("Validation failed for create operation", validationResult.ToDictionary(), OperationType.Create);
+        }
+        
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         
@@ -80,8 +89,18 @@ public abstract class BaseCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQu
         if (entity == null)
             return default;
 
+        // Create a copy of the current entity state for validation comparison
+        var currentEntitySnapshot = _mapper.Map<TEntity>(_mapper.Map<TDto>(entity));
+        
         _mapper.Map(updateDto, entity);
         entity.UpdatedDate = DateTime.Now;
+        
+        // Run validation before persisting
+        var validationResult = await ValidateForUpdateAsync(id, currentEntitySnapshot, entity, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException("Validation failed for update operation", validationResult.ToDictionary(), OperationType.Update);
+        }
         
         await _repository.UpdateAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -95,9 +114,57 @@ public abstract class BaseCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQu
         if (entity == null)
             return false;
 
+        // Run validation before deleting
+        var validationResult = await ValidateForDeleteAsync(id, entity, cancellationToken);
+        if (!validationResult.IsValid)
+        {
+            throw new ValidationException("Validation failed for delete operation", validationResult.ToDictionary(), OperationType.Delete);
+        }
+
         await _repository.DeleteAsync(id, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         
         return true;
     }
+
+    #region Validation Hooks
+
+    /// <summary>
+    /// Validates an entity before creating it. Override in derived services to add custom validation logic.
+    /// </summary>
+    /// <param name="entity">The entity to be created</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A validation result indicating success or containing errors</returns>
+    protected virtual Task<ValidationResult> ValidateForCreateAsync(TEntity entity, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(ValidationResult.Success());
+    }
+
+    /// <summary>
+    /// Validates an entity before updating it. Override in derived services to add custom validation logic.
+    /// </summary>
+    /// <param name="id">The ID of the entity being updated</param>
+    /// <param name="currentEntity">The entity state before the update</param>
+    /// <param name="updatedEntity">The entity state after mapping the update DTO</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A validation result indicating success or containing errors</returns>
+    protected virtual Task<ValidationResult> ValidateForUpdateAsync(int id, TEntity currentEntity, TEntity updatedEntity, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(ValidationResult.Success());
+    }
+
+    /// <summary>
+    /// Validates an entity before deleting it. Override in derived services to add custom validation logic.
+    /// Use this to check for referential integrity (e.g., prevent deletion if related records exist).
+    /// </summary>
+    /// <param name="id">The ID of the entity being deleted</param>
+    /// <param name="entity">The entity to be deleted</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A validation result indicating success or containing errors</returns>
+    protected virtual Task<ValidationResult> ValidateForDeleteAsync(int id, TEntity entity, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(ValidationResult.Success());
+    }
+
+    #endregion
 }

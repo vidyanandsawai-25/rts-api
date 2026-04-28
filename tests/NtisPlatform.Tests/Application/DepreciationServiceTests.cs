@@ -304,17 +304,16 @@ namespace NtisPlatform.Tests.Application
             };
 
             _mockMapper
-                .Setup(m => m.Map<DepreciationMasterEntity[]>(It.IsAny<CreateDepreciationDto[]>()))
-                .Returns((CreateDepreciationDto[] dtos) => dtos.Select((dto, idx) => new DepreciationMasterEntity
+                .Setup(m => m.Map<DepreciationMasterEntity>(It.IsAny<CreateDepreciationDto>()))
+                .Returns((CreateDepreciationDto dto) => new DepreciationMasterEntity
                 {
-                    Id = idx + 1,
                     ConstructionTypeId = dto.ConstructionTypeId,
                     MinYear = dto.MinYear,
                     MaxYear = dto.MaxYear,
                     Rate = dto.Rate,
                     YearRangeRVId = dto.YearRangeRVId,
                     IsActive = dto.IsActive
-                }).ToArray());
+                });
 
             _mockRepository
                 .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<DepreciationMasterEntity>>(), It.IsAny<CancellationToken>()))
@@ -332,6 +331,18 @@ namespace NtisPlatform.Tests.Application
                     YearRangeRVId = e.YearRangeRVId,
                     IsActive = e.IsActive
                 }).ToArray());
+
+            _mockMapper
+                .Setup(m => m.Map<List<DepreciationDtos>>(It.IsAny<List<DepreciationMasterEntity>>()))
+                .Returns((List<DepreciationMasterEntity> entities) => entities.Select(e => new DepreciationDtos
+                {
+                    Id = e.Id,
+                    ConstructionTypeId = e.ConstructionTypeId,
+                    MinYear = e.MinYear,
+                    MaxYear = e.MaxYear,
+                    Rate = e.Rate,                   
+                    IsActive = e.IsActive
+                }).ToList());
 
             // Act
             var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);

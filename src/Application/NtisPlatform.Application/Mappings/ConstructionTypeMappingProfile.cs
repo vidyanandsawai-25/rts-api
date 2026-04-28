@@ -8,13 +8,13 @@ public class ConstructionTypeMappingProfile : Profile
 {
     public ConstructionTypeMappingProfile()
     {
-        CreateMap<ConstructionTypeEntity, ConstructionTypeDto>()
-            ;
+        CreateMap<ConstructionTypeEntity, ConstructionTypeDto>();
+        CreateMap<ConstructionTypeDto, ConstructionTypeEntity>();
 
         CreateMap<CreateConstructionTypeDto, ConstructionTypeEntity>()
-          .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-          .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-          .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
+        .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+        .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+        .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdateConstructionTypeDto, ConstructionTypeEntity>()
       .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())

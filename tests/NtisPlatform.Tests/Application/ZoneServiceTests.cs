@@ -411,15 +411,14 @@ public class ZoneServiceTests
         };
 
         _mockMapper
-            .Setup(m => m.Map<ZoneEntity[]>(It.IsAny<CreateZoneDto[]>()))
-            .Returns((CreateZoneDto[] dtos) => dtos.Select((dto, idx) => new ZoneEntity
+            .Setup(m => m.Map<ZoneEntity>(It.IsAny<CreateZoneDto>()))
+            .Returns((CreateZoneDto dto) => new ZoneEntity
             {
-                Id = idx + 1,
                 ZoneNo = dto.ZoneNo,
                 Description = dto.Description,
                 SequenceNo = dto.SequenceNo,
                 IsActive = dto.IsActive
-            }).ToArray());
+            });
 
         _mockRepository
             .Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<ZoneEntity>>(), It.IsAny<CancellationToken>()))
@@ -435,6 +434,17 @@ public class ZoneServiceTests
                 SequenceNo = e.SequenceNo,
                 IsActive = e.IsActive
             }).ToArray());
+
+        _mockMapper
+            .Setup(m => m.Map<List<ZoneDto>>(It.IsAny<List<ZoneEntity>>()))
+            .Returns((List<ZoneEntity> entities) => entities.Select(e => new ZoneDto
+            {
+                Id = e.Id,
+                ZoneNo = e.ZoneNo,
+                Description = e.Description,
+                SequenceNo = e.SequenceNo,
+                IsActive = e.IsActive
+            }).ToList());
 
         // Act
         var result = await _service.BulkCreateAsync(createDtos, CancellationToken.None);

@@ -345,6 +345,8 @@ public class PropertyCategoryServiceTests
         var mapperConfig = new MapperConfiguration(cfg =>
         {
             cfg.CreateMap<PropertyCategoryEntity, PropertyCategoryDto>();
+         
+            cfg.CreateMap<PropertyCategoryDto, PropertyCategoryEntity>();
             cfg.CreateMap<PropertyCategoryUpdateDto, PropertyCategoryEntity>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
