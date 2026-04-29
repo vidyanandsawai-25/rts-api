@@ -11,7 +11,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
- 
+
 public class RateController : ControllerBase
 {
     private readonly IRateService _service;
@@ -25,6 +25,7 @@ public class RateController : ControllerBase
         _logger = logger;
     }
 
+    // Read operations
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] RateQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -57,19 +58,29 @@ public class RateController : ControllerBase
         }
     }
 
-
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
+    // Create operations
     [HttpPost]
     public Task<IActionResult> Create([FromBody] CreateRateDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
+    /// Creates multiple records in a single Bulk.
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateRateDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
 
+    // Update operations
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdateRateDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
+    /// Updates multiple records in a single Bulk.
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
 
+    // Delete operations
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
@@ -78,25 +89,13 @@ public class RateController : ControllerBase
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
         => this.ExecuteForceDelete<RateEntity, int>(_cleanupService, id, _logger, ct);
-
-    /// <summary>
-    /// Creates multiple records in a single Bulk.
-    /// </summary>
-    [HttpPost("Bulk")]
-    public Task<IActionResult> BulkCreate([FromBody] CreateRateDto[] items, CancellationToken ct)
-        => this.ExecuteBulkCreate(_service, items, _logger, ct);
-
-    /// <summary>
-    /// Updates multiple records in a single Bulk.
-    /// </summary>
-    [HttpPut("Bulk")]
-    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateDto>[] items, CancellationToken ct)
-        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
-
-    /// <summary>
     /// Deletes multiple records by IDs.
-    /// </summary>
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+    /// Permanently deletes multiple records by IDs. This is an irreversible operation.
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<RateEntity, int>(_cleanupService, ids, _logger, ct);
 }

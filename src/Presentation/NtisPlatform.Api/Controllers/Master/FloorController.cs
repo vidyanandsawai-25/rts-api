@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
@@ -23,6 +24,7 @@ public class FloorController : ControllerBase
         _logger = logger;
     }
 
+    // read
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] FloorQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -31,35 +33,34 @@ public class FloorController : ControllerBase
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
+    // create 
     [HttpPost]
     public Task<IActionResult> Create([FromBody] CreateFloorDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    [HttpPost("Range")]
+    public Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateFloorDto> request, CancellationToken ct)
+    => this.ExecuteCreateFromRange(_service, request, _logger, ct);
+
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateFloorDto[] items, CancellationToken ct)
+    => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+
+    // update
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdateFloorDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateFloorDto>[] items, CancellationToken ct)
+    => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    // delete
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
-    /// <summary>
-    /// Creates multiple records in a single Bulk.
-    /// </summary>
-    [HttpPost("Bulk")]
-    public Task<IActionResult> BulkCreate([FromBody] CreateFloorDto[] items, CancellationToken ct)
-        => this.ExecuteBulkCreate(_service, items, _logger, ct);
-
-    /// <summary>
-    /// Updates multiple records in a single Bulk.
-    /// </summary>
-    [HttpPut("Bulk")]
-    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateFloorDto>[] items, CancellationToken ct)
-        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
-
-    /// <summary>
-    /// Deletes multiple records by IDs.
-    /// </summary>
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);

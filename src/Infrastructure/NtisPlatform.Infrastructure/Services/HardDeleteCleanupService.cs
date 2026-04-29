@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
@@ -14,9 +15,7 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
     private readonly ApplicationDbContext _context;
     private readonly ILogger<HardDeleteCleanupService> _logger;
 
-    public HardDeleteCleanupService(
-        ApplicationDbContext context,
-        ILogger<HardDeleteCleanupService> logger)
+    public HardDeleteCleanupService(ApplicationDbContext context,ILogger<HardDeleteCleanupService> logger)
     {
         _context = context;
         _logger = logger;
@@ -128,5 +127,74 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
                 typeof(TEntity).Name, id);
             throw;
         }
+    }
+
+    public async Task<BulkResult<TKey>> BulkForceHardDeleteAsync<TEntity, TKey>(TKey[] ids, CancellationToken cancellationToken = default)
+        where TEntity : class
+    {
+        if (ids == null || ids.Length == 0)
+        {
+            return new BulkResult<TKey>(0, 0, []);
+        }
+
+        _logger.LogInformation("Starting bulk force hard delete for {Count} {EntityType} entities",
+            ids.Length, typeof(TEntity).Name);
+
+        var deletedIds = new List<TKey>();
+        var errors = new List<string>();
+        var failedCount = 0;
+
+        foreach (var id in ids)
+        {
+            try
+            {
+                var entity = await _context.Set<TEntity>().FindAsync(new object[] { id }, cancellationToken);
+
+                if (entity == null)
+                {
+                    failedCount++;
+                    errors.Add($"{typeof(TEntity).Name} with ID {id} not found");
+                    _logger.LogWarning("Bulk force hard delete - {EntityType} with ID {Id} not found",
+                        typeof(TEntity).Name, id);
+                }
+                else
+                {
+                    _context.Set<TEntity>().Remove(entity);
+                    deletedIds.Add(id);
+                }
+            }
+            catch (Exception ex)
+            {
+                failedCount++;
+                errors.Add($"Error deleting {typeof(TEntity).Name} with ID {id}: {ex.Message}");
+                _logger.LogError(ex, "Error during bulk force hard delete of {EntityType} with ID {Id}",
+                    typeof(TEntity).Name, id);
+            }
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Bulk force hard delete completed. Success: {SuccessCount}, Failed: {FailedCount}",
+                deletedIds.Count, failedCount);
+        }
+        catch (DbUpdateException dbEx)
+        {
+            _logger.LogError(dbEx, "Constraint violation or database error during bulk force hard delete. No entities deleted.");
+            // All deletes failed, so clear deletedIds and add a global error
+            errors.Add("Bulk delete failed due to database constraint violation. No entities were deleted.");
+            return new BulkResult<TKey>(0, ids.Length, [], errors);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error saving changes during bulk force hard delete");
+            throw;
+        }
+
+        return new BulkResult<TKey>(
+            deletedIds.Count,
+            failedCount,
+            deletedIds,
+            errors.Count > 0 ? errors : null);
     }
 }

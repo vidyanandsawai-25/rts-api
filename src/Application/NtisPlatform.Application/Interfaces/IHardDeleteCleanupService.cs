@@ -41,4 +41,15 @@ public interface IHardDeleteCleanupService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if deleted successfully, false if entity not found</returns>
     Task<bool> ForceHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default) where TEntity : class;
+
+    /// <summary>
+    /// Immediately performs hard delete on multiple entities (bypasses retention period)
+    /// This is an irreversible operation and should be used with extreme caution.
+    /// </summary>
+    /// <typeparam name="TEntity">Entity type</typeparam>
+    /// <typeparam name="TKey">Type of the entity's primary key</typeparam>
+    /// <param name="ids">Entity IDs</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Bulk result containing success and failure information</returns>
+    Task<DTOs.Bulk.BulkResult<TKey>> BulkForceHardDeleteAsync<TEntity, TKey>(TKey[] ids, CancellationToken cancellationToken = default) where TEntity : class;
 }

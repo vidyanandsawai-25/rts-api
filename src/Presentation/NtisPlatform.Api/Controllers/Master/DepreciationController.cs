@@ -9,7 +9,7 @@ using NtisPlatform.Core.Entities;
 namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
-[Route("api/[controller]")] 
+[Route("api/[controller]")]
 public class DepreciationController : ControllerBase
 {
     private readonly IDepreciationService _service;
@@ -22,7 +22,7 @@ public class DepreciationController : ControllerBase
         _cleanupService = cleanupService;
         _logger = logger;
     }
-
+    // read
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] DepreciationQueryParameters queryParameters, CancellationToken ct)
     => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
@@ -31,34 +31,42 @@ public class DepreciationController : ControllerBase
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
+    // create
     [HttpPost]
     public Task<IActionResult> Create([FromBody] CreateDepreciationDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateDepreciationDto[] items, CancellationToken ct)
+    => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    // update
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdateDepreciationDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateDepreciationDto>[] items, CancellationToken ct)
+    => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    // delete
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
     => this.ExecuteForceDelete<DepreciationMasterEntity, int>(_cleanupService, id, _logger, ct);
 
-    [HttpPost("Bulk")]
-    public Task<IActionResult> BulkCreate([FromBody] CreateDepreciationDto[] items, CancellationToken ct)
-        => this.ExecuteBulkCreate(_service, items, _logger, ct);
-
-    [HttpPut("Bulk")]
-    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateDepreciationDto>[] items, CancellationToken ct)
-        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
-
-    [HttpDelete("Bulk")]
-    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
-        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<DepreciationMasterEntity, int>(_cleanupService, ids, _logger, ct);
 
 }
 

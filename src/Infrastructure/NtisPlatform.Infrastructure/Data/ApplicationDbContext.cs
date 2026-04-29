@@ -130,7 +130,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RateMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Year);
             entity.Property(e => e.Id);
             entity.Property(e => e.FloorId);
             entity.Property(e => e.Id);

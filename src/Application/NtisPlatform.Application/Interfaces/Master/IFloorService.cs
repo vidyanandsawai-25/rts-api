@@ -1,8 +1,10 @@
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Interfaces;
 
 public interface IFloorService : ICommonCrudService<FloorEntity, FloorDto, CreateFloorDto, UpdateFloorDto, FloorQueryParameters, int>
 {
+    Task<RangeResult<FloorDto>> CreateFromRangeAsync(RangeCreateRequest<CreateFloorDto> request, CancellationToken cancellationToken = default);
 }

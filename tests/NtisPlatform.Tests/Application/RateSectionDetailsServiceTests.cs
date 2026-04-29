@@ -1,7 +1,12 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;

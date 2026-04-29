@@ -3,9 +3,11 @@ using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Queries;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Extensions;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -84,6 +86,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     public virtual async Task<TDto> CreateAsync(TCreateDto createDto, CancellationToken cancellationToken = default)
     {
         var entity = _mapper.Map<TEntity>(createDto);
+
         
         // Run validation before persisting
         var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
@@ -94,7 +97,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         
         await _repository.AddAsync(entity, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        
+
         return _mapper.Map<TDto>(entity);
     }
 
@@ -403,11 +406,69 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             throw;
         }
 
-        return new BulkResult<TKey>(   
+        return new BulkResult<TKey>(
             deletedIds.Count,
             failedCount,
             deletedIds,
             errors.Count > 0 ? errors : null);
+    }
+
+    #endregion
+
+    #region Range Operations
+
+    public virtual async Task<RangeResult<TDto>> CreateFromRangeAsync(RangeCreateRequest<TCreateDto> request, Func<TCreateDto, string, int, TCreateDto> transformer, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(transformer);
+
+        // Generate range values
+        var rangeValues = RangeGenerator.GenerateRangeValues(request.RangeFrom, request.RangeTo, request.Prefix, request.Suffix);
+
+        if (rangeValues.Count == 0)
+            return new RangeResult<TDto>(0, 0, []);
+
+        var createdEntities = new List<TEntity>();
+        var errors = new List<string>();
+        var sequenceNo = request.StartSequenceNo;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var rangeValue in rangeValues)
+            {
+                try
+                {
+                    // Transform the template DTO with the current range value and sequence
+                    var createDto = transformer(request.Template, rangeValue, sequenceNo);
+                    var entity = _mapper.Map<TEntity>(createDto);
+
+                    await _repository.AddAsync(entity, cancellationToken);                   
+
+                    createdEntities.Add(entity);
+                    sequenceNo++;
+                }                
+                catch (Exception ex)
+                {
+                    errors.Add($"Failed to create record for value '{rangeValue}': {ex.Message}");
+                }
+            }
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            var results = _mapper.Map<List<TDto>>(createdEntities);
+            return new RangeResult<TDto>(results.Count,errors.Count,results,errors.Count > 0 ? errors : null);
+        }
+        catch (DbUpdateException ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            return new RangeResult<TDto>(0, createdEntities.Count, [], [$"Database error: {ex.InnerException?.Message ?? ex.Message}"]);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
     }
 
     #endregion

@@ -5,23 +5,15 @@ namespace NtisPlatform.Application.DTOs;
 public class RateDto: BaseDtos
 {
     public int Id { get; set; } = 0;
-
     public int FloorId { get; set; }
-
     public int ConstructionTypeId { get; set; }
-
     public int TypeOfUseGroupId { get; set; }
-
     public int RateSectionId { get; set; }
-
     public int TaxZoneId { get; set; }
-
     public string RateRemark { get; set; } = string.Empty;
 
     public int YearRangeRVId { get; set; }
-
     public decimal? RateSquareFeet { get; set; }
-
     public decimal? RateSquareMeter { get; set; }
 }
 

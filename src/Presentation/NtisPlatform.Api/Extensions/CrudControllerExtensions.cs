@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Queries;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -175,6 +176,7 @@ public static class CrudControllerExtensions
             });
         }
     }
+
     // This method performs a soft-delete operation through the service layer.
     // For entities supporting hard deletion, it may also set MarkedForDeletion.
     public static async Task<IActionResult> ExecuteDelete<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
@@ -228,12 +230,12 @@ public static class CrudControllerExtensions
         where TEntity : class
     {
         var userName = controller.User?.Identity?.Name ?? "Anonymous";
-        var userId = controller.User?.FindFirst("sub")?.Value ?? 
-                     controller.User?.FindFirst("userId")?.Value ?? 
+        var userId = controller.User?.FindFirst("sub")?.Value ??
+                     controller.User?.FindFirst("userId")?.Value ??
                      "Unknown";
 
         // Audit log: Track who is attempting permanent deletion
-        logger.LogWarning("PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}", 
+        logger.LogWarning("PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
             userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
 
         try
@@ -243,7 +245,7 @@ public static class CrudControllerExtensions
             if (result)
             {
                 // Audit log: Successful permanent deletion
-                logger.LogWarning("PURGE completed successfully by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}", 
+                logger.LogWarning("PURGE completed successfully by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
                     userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
 
                 return controller.Ok(new ApiResponse<object>
@@ -255,7 +257,7 @@ public static class CrudControllerExtensions
             else
             {
                 // Audit log: Entity not found
-                logger.LogWarning("PURGE failed - entity not found. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}", 
+                logger.LogWarning("PURGE failed - entity not found. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
                     userName, userId, typeof(TEntity).Name, id);
 
                 return controller.Ok(new ApiResponse<object>
@@ -267,7 +269,7 @@ public static class CrudControllerExtensions
         }
         catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
         {
-            logger.LogWarning(ex, "PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}", 
+            logger.LogWarning(ex, "PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
                 userName, userId, typeof(TEntity).Name, id);
 
             return controller.Conflict(new ApiResponse<object>
@@ -278,7 +280,7 @@ public static class CrudControllerExtensions
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId}", 
+            logger.LogError(ex, "PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId}",
                 userName, userId, typeof(TEntity).Name, id);
 
             return controller.StatusCode(500, new ApiResponse<object>
@@ -338,7 +340,7 @@ public static class CrudControllerExtensions
             return controller.Ok(new ApiResponse<BulkResult<TDto>>
             {
                 Success = result.AllSucceeded,
-                Message = result.HasFailures 
+                Message = result.HasFailures
                     ? $"{result.SuccessCount} records created, {result.FailedCount} failed"
                     : $"{result.SuccessCount} records created successfully",
                 Items = result,
@@ -421,6 +423,150 @@ public static class CrudControllerExtensions
         }
     }
 
+    public static async Task<IActionResult> ExecuteCreateFromRange<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
+        this ControllerBase controller,
+        ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
+        RangeCreateRequest<TCreateDto> request,
+        Func<TCreateDto, string, int, TCreateDto> transformer,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
+    {
+        if (request == null)
+        {
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "No request provided for Range create."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.RangeFrom) || string.IsNullOrWhiteSpace(request.RangeTo))
+        {
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "RangeFrom and RangeTo are required."
+            });
+        }
+
+        try
+        {
+            var result = await service.CreateFromRangeAsync(request, transformer, cancellationToken);
+            return controller.Ok(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = result.AllSucceeded,
+                Message = result.HasFailures ? $"{result.SuccessCount} records created, {result.FailedCount} failed" : $"{result.SuccessCount} records created successfully from range",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogWarning(ex, "Invalid range parameters: {Message}", ex.Message);
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Range create operation failed");
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+
+            if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                return controller.Conflict(new ApiResponse<RangeResult<TDto>>
+                {
+                    Success = false,
+                    Message = "A record with the same details already exists."
+                });
+            }
+            return controller.StatusCode(500, new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+    //new added method to support range create without transformer, for simpler use cases where no transformation logic is needed. The service will handle default transformation if transformer is not provided.  
+    public static async Task<IActionResult> ExecuteCreateFromRange<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
+        this ControllerBase controller,
+        ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
+        RangeCreateRequest<TCreateDto> request,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TQueryParams : BaseQueryParameters
+        where TCreateDto : class
+        where TUpdateDto : class
+    {
+        if (request == null)
+        {
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "No request provided for Range create."
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.RangeFrom) || string.IsNullOrWhiteSpace(request.RangeTo))
+        {
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "RangeFrom and RangeTo are required."
+            });
+        }
+
+        try
+        {
+            var result = await ((dynamic)service).CreateFromRangeAsync(request, cancellationToken);
+            return controller.Ok(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = result.AllSucceeded,
+                Message = result.HasFailures ? $"{result.SuccessCount} records created, {result.FailedCount} failed" : $"{result.SuccessCount} records created successfully from range",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            logger.LogWarning(ex, "Invalid range parameters: {Message}", ex.Message);
+            return controller.BadRequest(new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Range create operation failed");
+            var errorMessage = ex.InnerException?.Message ?? ex.Message;
+
+            if (errorMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("unique", StringComparison.OrdinalIgnoreCase) ||
+                errorMessage.Contains("constraint", StringComparison.OrdinalIgnoreCase))
+            {
+                return controller.Conflict(new ApiResponse<RangeResult<TDto>>
+                {
+                    Success = false,
+                    Message = "A record with the same details already exists."
+                });
+            }
+            return controller.StatusCode(500, new ApiResponse<RangeResult<TDto>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+
     public static async Task<IActionResult> ExecuteBulkDelete<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
         this ControllerBase controller,
         ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
@@ -443,6 +589,7 @@ public static class CrudControllerExtensions
         try
         {
             var result = await service.BulkDeleteAsync(ids, cancellationToken);
+
             return controller.Ok(new ApiResponse<BulkResult<TKey>>
             {
                 Success = result.AllSucceeded,
@@ -454,6 +601,80 @@ public static class CrudControllerExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Bulk delete operation failed for {Count} ids", ids.Length);
+            return controller.StatusCode(500, new ApiResponse<BulkResult<TKey>>
+            {
+                Success = false,
+                Message = "An error occurred while processing your request."
+            });
+        }
+    }
+
+    /// <summary>
+    /// Execute permanent bulk delete operation through the centralized cleanup service.
+    /// This is an irreversible operation and should be used with extreme caution.
+    /// Routes through HardDeleteCleanupService to ensure consistent policy enforcement.
+    /// Logs actor identity for audit trail.
+    /// </summary>
+    public static async Task<IActionResult> ExecuteBulkForceDelete<TEntity, TKey>(
+        this ControllerBase controller,
+        IHardDeleteCleanupService cleanupService,
+        TKey[] ids,
+        ILogger logger,
+        CancellationToken cancellationToken = default)
+        where TEntity : class
+    {
+        if (ids == null || ids.Length == 0)
+        {
+            return controller.BadRequest(new ApiResponse<BulkResult<TKey>>
+            {
+                Success = false,
+                Message = "No IDs provided for Bulk purge."
+            });
+        }
+
+        var userName = controller.User?.Identity?.Name ?? "Anonymous";
+        var userId = controller.User?.FindFirst("sub")?.Value ??
+                     controller.User?.FindFirst("userId")?.Value ??
+                     "Unknown";
+
+        // Audit log: Track who is attempting permanent bulk deletion
+        logger.LogWarning("BULK PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with {Count} IDs at {Timestamp}",
+            userName, userId, typeof(TEntity).Name, ids.Length, DateTime.UtcNow);
+
+        try
+        {
+            var result = await cleanupService.BulkForceHardDeleteAsync<TEntity, TKey>(ids, cancellationToken);
+
+            // Audit log: Bulk purge completed
+            logger.LogWarning("BULK PURGE completed by User: {UserName} (ID: {UserId}) on {EntityType}. Success: {SuccessCount}, Failed: {FailedCount} at {Timestamp}",
+                userName, userId, typeof(TEntity).Name, result.SuccessCount, result.FailedCount, DateTime.UtcNow);
+
+            return controller.Ok(new ApiResponse<BulkResult<TKey>>
+            {
+                Success = result.AllSucceeded,
+                Message = result.HasFailures
+                    ? $"{result.SuccessCount} records permanently deleted, {result.FailedCount} failed"
+                    : $"{result.SuccessCount} records permanently deleted successfully",
+                Items = result,
+                Errors = result.Errors?.ToList()
+            });
+        }
+        catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
+        {
+            logger.LogWarning(ex, "BULK PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType}",
+                userName, userId, typeof(TEntity).Name);
+
+            return controller.Conflict(new ApiResponse<BulkResult<TKey>>
+            {
+                Success = false,
+                Message = "Cannot delete one or more records because they are still referenced by other entities. Please remove dependent records first."
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "BULK PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType}",
+                userName, userId, typeof(TEntity).Name);
+
             return controller.StatusCode(500, new ApiResponse<BulkResult<TKey>>
             {
                 Success = false,

@@ -1,5 +1,6 @@
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Queries;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Application.Interfaces;
@@ -19,4 +20,7 @@ public interface ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQuer
     Task<BulkResult<TDto>> BulkCreateAsync(TCreateDto[] items, CancellationToken cancellationToken = default);
     Task<BulkResult<TDto>> BulkUpdateAsync(BulkUpdateItem<TKey, TUpdateDto>[] items, CancellationToken cancellationToken = default);
     Task<BulkResult<TKey>> BulkDeleteAsync(TKey[] ids, CancellationToken cancellationToken = default);
+
+    // Range operations
+    Task<RangeResult<TDto>> CreateFromRangeAsync(RangeCreateRequest<TCreateDto> request,Func<TCreateDto, string, int, TCreateDto> transformer,CancellationToken cancellationToken = default);
 }

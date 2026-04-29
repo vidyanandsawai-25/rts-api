@@ -1,7 +1,14 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Range;
+using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -378,5 +385,73 @@ public class WardServiceTests
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateFromRange_CallsServiceAndReturnsOkObjectResult()
+    {
+        // Arrange
+        var mockService = new Mock<IWardService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<WardController>>();
+        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var request = new RangeCreateRequest<CreateWardDto>
+        {
+            RangeFrom = "1",
+            RangeTo = "3",
+            Template = new CreateWardDto { ZoneId = 1, IsActive = true, CreatedBy = 1 }
+        };
+        var rangeResult = new RangeResult<WardDto>(3, 1, null);
+
+        // Match any call to CreateFromRangeAsync, regardless of overload
+        mockService
+            .Setup(s => s.CreateFromRangeAsync(
+                It.IsAny<RangeCreateRequest<CreateWardDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rangeResult);
+
+        mockService
+            .Setup(s => s.CreateFromRangeAsync(
+                It.IsAny<RangeCreateRequest<CreateWardDto>>(),
+                It.IsAny<Func<CreateWardDto, string, int, CreateWardDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rangeResult);
+
+        // Act
+        var result = await controller.CreateFromRange(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<RangeResult<WardDto>>>(okResult.Value);
+        Assert.Equal(rangeResult, apiResponse.Items);
+        mockService.Verify(s => s.CreateFromRangeAsync(
+            It.IsAny<RangeCreateRequest<CreateWardDto>>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task BulkPurge_CallsBulkForceHardDeleteAsync_AndReturnsOkObjectResult()
+    {
+        // Arrange
+        var mockService = new Mock<IWardService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<WardController>>();
+        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var ids = new[] { 1, 2, 3 };
+        var bulkResult = new BulkResult<int>(3, 0, new List<int> { 1, 2, 3 });
+
+        mockCleanupService.Setup(s => s.BulkForceHardDeleteAsync<WardEntity, int>(ids, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkPurge(ids, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<BulkResult<int>>>(okResult.Value);
+        Assert.Equal(bulkResult, apiResponse.Items);
+        mockCleanupService.Verify(s => s.BulkForceHardDeleteAsync<WardEntity, int>(ids, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

@@ -66,7 +66,7 @@ namespace NtisPlatform.Tests.Application
             var entity = new RateEntity
             {
                 Id = 1,
-                Year = 2023,
+                YearRangeRVId = 2023,
                 TaxZoneId = 1,
                 RateSquareMeter = 100m
             };
@@ -106,8 +106,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<RateEntity>
             {
-                new() { Id = 1, Year = 2020, TaxZoneId = 1 },
-                new() { Id = 2, Year = 2021, TaxZoneId = 2 }
+                new() { Id = 1, YearRangeRVId = 2020, TaxZoneId = 1 },
+                new() { Id = 2, YearRangeRVId = 2021, TaxZoneId = 2 }
             };
 
             var mockQuery = entities.BuildMock();
@@ -310,7 +310,7 @@ namespace NtisPlatform.Tests.Application
         public async Task DeleteAsync_ExistingEntity_DeletesAndSaves_ReturnsTrue()
         {
             var idToDelete = 1;
-            var existingEntity = new RateEntity { Id = idToDelete, Year = 2020 };
+            var existingEntity = new RateEntity { Id = idToDelete, YearRangeRVId = 2020 };
 
             _mockRepository
                 .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
@@ -440,8 +440,8 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, RateEntity>
             {
-                { 1, new RateEntity { Id = 1, Year = 2020, TaxZoneId = 1, RateSquareMeter = 100m, IsActive = true } },
-                { 2, new RateEntity { Id = 2, Year = 2021, TaxZoneId = 2, RateSquareMeter = 200m, IsActive = true } }
+                { 1, new RateEntity { Id = 1, TaxZoneId = 1, RateSquareMeter = 100m, IsActive = true } },
+                { 2, new RateEntity { Id = 2, TaxZoneId = 2, RateSquareMeter = 200m, IsActive = true } }
             };
 
             _mockRepository
@@ -501,8 +501,8 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, RateEntity>
             {
-                { 1, new RateEntity { Id = 1, Year = 2020, TaxZoneId = 1, RateSquareMeter = 100m, IsActive = true } },
-                { 2, new RateEntity { Id = 2, Year = 2021, TaxZoneId = 2, RateSquareMeter = 200m, IsActive = true } }
+                { 1, new RateEntity { Id = 1, YearRangeRVId = 2020, TaxZoneId = 1, RateSquareMeter = 100m, IsActive = true } },
+                { 2, new RateEntity { Id = 2, YearRangeRVId = 2021, TaxZoneId = 2, RateSquareMeter = 200m, IsActive = true } }
             };
 
             _mockRepository
@@ -575,9 +575,9 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, RateEntity>
             {
-                { 1, new RateEntity { Id = 1, Year = 2020, TaxZoneId = 1 } },
-                { 2, new RateEntity { Id = 2, Year = 2021, TaxZoneId = 2 } },
-                { 3, new RateEntity { Id = 3, Year = 2022, TaxZoneId = 3 } }
+                { 1, new RateEntity { Id = 1, YearRangeRVId = 2020, TaxZoneId = 1 } },
+                { 2, new RateEntity { Id = 2, YearRangeRVId = 2021, TaxZoneId = 2 } },
+                { 3, new RateEntity { Id = 3, YearRangeRVId = 2022, TaxZoneId = 3 } }
             };
 
             _mockRepository
@@ -617,8 +617,8 @@ namespace NtisPlatform.Tests.Application
 
             var existingEntities = new Dictionary<int, RateEntity>
             {
-                { 1, new RateEntity { Id = 1, Year = 2020, TaxZoneId = 1 } },
-                { 2, new RateEntity { Id = 2, Year = 2021, TaxZoneId = 2 } }
+                { 1, new RateEntity { Id = 1, YearRangeRVId = 2020, TaxZoneId = 1 } },
+                { 2, new RateEntity { Id = 2, YearRangeRVId = 2021, TaxZoneId = 2 } }
             };
 
             _mockRepository
@@ -662,9 +662,9 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var rateEntities = new List<RateEntity>
             {
-                new() { Id = 1, Year = 2020, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
-                new() { Id = 2, Year = 2021, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 },
-                new() { Id = 3, Year = 2022, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 }
+                new() { Id = 1, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
+                new() { Id = 2, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 },
+                new() { Id = 3, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 }
             };
 
             var taxZones = new List<TaxZoneEntity> { new() { Id = 1, TaxZoneNo = "TZ001" }, new() { Id = 2, TaxZoneNo = "TZ002" } };
@@ -735,8 +735,8 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var rateEntities = new List<RateEntity>
             {
-                new() { Id = 1, Year = 2020, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
-                new() { Id = 2, Year = 2021, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 }
+                new() { Id = 1, TaxZoneId = 1, FloorId = 1, ConstructionTypeId = 1, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSectionId = 1 },
+                new() { Id = 2, TaxZoneId = 2, FloorId = 2, ConstructionTypeId = 2, TypeOfUseGroupId = 2, YearRangeRVId = 2, RateSectionId = 2 }
             };
 
             var taxZones = new List<TaxZoneEntity> { new() { Id = 1, TaxZoneNo = "TZ001" }, new() { Id = 2, TaxZoneNo = "TZ002" } };
@@ -810,7 +810,6 @@ namespace NtisPlatform.Tests.Application
                 new()
                 {
                     Id = 1,
-                    Year = 2020,
                     TaxZoneId = 1,
                     FloorId = 1,
                     ConstructionTypeId = 1,
@@ -903,7 +902,6 @@ namespace NtisPlatform.Tests.Application
                 new()
                 {
                     Id = 1,
-                    Year = 2020,
                     TaxZoneId = 999, // Non-existent
                     FloorId = 999,   // Non-existent
                     ConstructionTypeId = 999, // Non-existent

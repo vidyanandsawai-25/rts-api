@@ -39,9 +39,17 @@ public class RateSectionDetailsController : ControllerBase
     public Task<IActionResult> Create([FromBody] CreateRateSectionDetailsDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_service, createDto, _logger, ct);
 
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateRateSectionDetailsDto[] items, CancellationToken ct)
+    => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdateRateSectionDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
+
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateSectionDetailsDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
 
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
@@ -52,13 +60,10 @@ public class RateSectionDetailsController : ControllerBase
     public Task<IActionResult> Purge(int id, CancellationToken ct)
         => this.ExecuteForceDelete<RateSectionDetailsEntity, int>(_cleanupService, id, _logger, ct);
 
-    [HttpPost("Bulk")]
-    public Task<IActionResult> BulkCreate([FromBody] CreateRateSectionDetailsDto[] items, CancellationToken ct)
-        => this.ExecuteBulkCreate(_service, items, _logger, ct);
-
-    [HttpPut("Bulk")]
-    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateSectionDetailsDto>[] items, CancellationToken ct)
-        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+    => this.ExecuteBulkForceDelete<RateSectionDetailsEntity, int>(_cleanupService, ids, _logger, ct);
 
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)

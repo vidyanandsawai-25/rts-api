@@ -1,8 +1,13 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Range;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -763,6 +768,50 @@ public class FloorServiceTests
 
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateFromRange_CallsServiceAndReturnsOkObjectResult()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        var request = new RangeCreateRequest<CreateFloorDto>
+        {
+            RangeFrom = "1",
+            RangeTo = "3",
+            Template = new CreateFloorDto { FloorCode = "F", Description = "Floor", MaxFloorNo = 1, SequenceNo = 1, IsActive = true }
+        };
+        var rangeResult = new RangeResult<FloorDto>(3, 1, null);
+
+        // Mock both overloads
+        mockService
+            .Setup(s => s.CreateFromRangeAsync(
+                It.IsAny<RangeCreateRequest<CreateFloorDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rangeResult);
+
+        mockService
+            .Setup(s => s.CreateFromRangeAsync(
+                It.IsAny<RangeCreateRequest<CreateFloorDto>>(),
+                It.IsAny<Func<CreateFloorDto, string, int, CreateFloorDto>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rangeResult);
+
+        // Act
+        var result = await controller.CreateFromRange(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<RangeResult<FloorDto>>>(okResult.Value);
+        Assert.Same(rangeResult, apiResponse.Items);
+
+        mockService.Verify(s => s.CreateFromRangeAsync(
+            It.IsAny<RangeCreateRequest<CreateFloorDto>>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     #endregion
