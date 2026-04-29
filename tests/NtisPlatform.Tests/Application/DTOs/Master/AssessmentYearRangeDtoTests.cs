@@ -65,7 +65,7 @@ public class AssessmentYearRangeDtoTests
 
         var results = Validate(dto);
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanOrEqualToYear");
+        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanToYear");
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class AssessmentYearRangeDtoTests
     {
         var dto = new CreateAssessmentYearRangeDto
         {
-            FromYear = 1899,
+            FromYear = 1699,
             ToYear = 2025
         };
 
@@ -110,7 +110,7 @@ public class AssessmentYearRangeDtoTests
     }
 
     [Fact]
-    public void CreateAssessmentYearRangeDto_EqualYears_PassesValidation()
+    public void CreateAssessmentYearRangeDto_EqualYears_FailsValidation()
     {
         var dto = new CreateAssessmentYearRangeDto
         {
@@ -119,68 +119,8 @@ public class AssessmentYearRangeDtoTests
         };
 
         var results = Validate(dto);
-        Assert.Empty(results);
-    }
-
-    #endregion
-
-    #region CreateAssessmentYearRangeCVDto Tests
-
-    [Fact]
-    public void CreateAssessmentYearRangeCVDto_AllProperties_GetSet_WorksCorrectly()
-    {
-        var dto = new CreateAssessmentYearRangeCVDto
-        {
-            FromYear = 2020,
-            ToYear = 2025,
-            IsActive = true,
-            CreatedBy = 1
-        };
-
-        Assert.Equal(2020, dto.FromYear);
-        Assert.Equal(2025, dto.ToYear);
-        Assert.True(dto.IsActive);
-        Assert.Equal(1, dto.CreatedBy);
-    }
-
-    [Fact]
-    public void CreateAssessmentYearRangeCVDto_ValidData_PassesValidation()
-    {
-        var dto = new CreateAssessmentYearRangeCVDto
-        {
-            FromYear = 2020,
-            ToYear = 2025
-        };
-
-        var results = Validate(dto);
-        Assert.Empty(results);
-    }
-
-    [Fact]
-    public void CreateAssessmentYearRangeCVDto_FromYearGreaterThanToYear_FailsValidation()
-    {
-        var dto = new CreateAssessmentYearRangeCVDto
-        {
-            FromYear = 2025,
-            ToYear = 2020
-        };
-
-        var results = Validate(dto);
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanOrEqualToYear");
-    }
-
-    [Fact]
-    public void CreateAssessmentYearRangeCVDto_EqualYears_PassesValidation()
-    {
-        var dto = new CreateAssessmentYearRangeCVDto
-        {
-            FromYear = 2023,
-            ToYear = 2023
-        };
-
-        var results = Validate(dto);
-        Assert.Empty(results);
+        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanToYear");
     }
 
     #endregion

@@ -105,6 +105,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssessmentYearRangeCVService, AssessmentYearRangeCVService>();
         services.AddScoped<IActiveTaxesService, ActiveTaxesService>();
         services.AddScoped<IFloorFactorCVMasterService, FloorFactorCVMasterService>();
+        services.AddScoped<INatureFactorCVMasterService, NatureFactorCVMasterService>();
+        services.AddScoped<IUseFactorCVMasterService, UseFactorCVMasterService>();
+        services.AddScoped<IAgeFactorCVMasterService, AgeFactorCVMasterService>();
         services.AddScoped<IDepartmentLicenceDetailsService, DepartmentLicenceDetailsService>();
         services.AddScoped<IScreenGroupMasterService, ScreenGroupMasterService>();
         services.AddScoped<IRoleWiseScreenAccessMasterService, RoleWiseScreenAccessMasterService>();

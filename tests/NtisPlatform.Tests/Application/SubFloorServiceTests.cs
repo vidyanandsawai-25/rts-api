@@ -2,9 +2,12 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -13,6 +16,7 @@ public class SubFloorServiceTests
     private readonly Mock<IRepository<SubFloorEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly SubFloorService _service;
 
     public SubFloorServiceTests()
@@ -20,6 +24,7 @@ public class SubFloorServiceTests
         _mockRepository = new Mock<IRepository<SubFloorEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -33,7 +38,11 @@ public class SubFloorServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new SubFloorService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new SubFloorService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -118,7 +127,8 @@ public class SubFloorServiceTests
         var service = new SubFloorService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new SubFloorQueryParameters
         {
@@ -341,6 +351,10 @@ public class SubFloorServiceTests
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<SubFloorEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
 
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<SubFloorEntity>(), It.IsAny<CancellationToken>()))

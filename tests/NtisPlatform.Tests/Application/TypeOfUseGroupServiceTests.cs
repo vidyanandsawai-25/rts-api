@@ -2,12 +2,15 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -16,6 +19,7 @@ public class TypeOfUseGroupServiceTests
     private readonly Mock<IRepository<TypeOfUseGroupEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly TypeOfUseGroupService _service;
 
     public TypeOfUseGroupServiceTests()
@@ -23,6 +27,7 @@ public class TypeOfUseGroupServiceTests
         _mockRepository = new Mock<IRepository<TypeOfUseGroupEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -36,7 +41,11 @@ public class TypeOfUseGroupServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new TypeOfUseGroupService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new TypeOfUseGroupService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -121,7 +130,8 @@ public class TypeOfUseGroupServiceTests
         var service = new TypeOfUseGroupService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new TypeOfUseGroupQueryParameters
         {
@@ -348,6 +358,10 @@ public class TypeOfUseGroupServiceTests
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<TypeOfUseGroupEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -362,5 +376,157 @@ public class TypeOfUseGroupServiceTests
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateTypeOfUseGroupDto
+        {
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = false
+        };
+
+        var existingEntity = new TypeOfUseGroupEntity
+        {
+            Id = 1,
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateTypeOfUseGroupDto>(), It.IsAny<TypeOfUseGroupEntity>()))
+            .Callback((UpdateTypeOfUseGroupDto src, TypeOfUseGroupEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<TypeOfUseGroupEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot deactivate Type Of Use Group. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithoutReferences_Succeeds()
+    {
+        // Arrange
+        var updateDto = new UpdateTypeOfUseGroupDto
+        {
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = false
+        };
+
+        var existingEntity = new TypeOfUseGroupEntity
+        {
+            Id = 1,
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateTypeOfUseGroupDto>(), It.IsAny<TypeOfUseGroupEntity>()))
+            .Callback((UpdateTypeOfUseGroupDto src, TypeOfUseGroupEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<TypeOfUseGroupEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.False(existingEntity.IsActive);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new TypeOfUseGroupEntity
+        {
+            Id = idToDelete,
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<TypeOfUseGroupEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot delete Type Of Use Group. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.DeleteAsync(idToDelete, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutReferences_Succeeds()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new TypeOfUseGroupEntity
+        {
+            Id = idToDelete,
+            TypeOfUseGroupCode = "R",
+            GroupName = "Residential",
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<TypeOfUseGroupEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<TypeOfUseGroupEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }

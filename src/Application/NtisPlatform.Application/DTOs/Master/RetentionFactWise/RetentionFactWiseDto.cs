@@ -10,32 +10,54 @@ public class RetentionFactWiseDto : BaseDtos
     public double? FactorValue { get; set; }
 
 }
-public class CreateRetentionFactWiseDto : CreateBaseDtos
+public class CreateRetentionFactWiseDto : CreateBaseDtos, IValidatableObject
 {
     [Required(ErrorMessage = "FromFactor_Required")]
-    [Range(0, 100, ErrorMessage = "FromFactor_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FromFactor_Range")]
     public double FromFactor { get; set; }
 
     [Required(ErrorMessage = "ToFactor_Required")]
-    [Range(0, 100, ErrorMessage = "ToFactor_Range")]
+    [Range(0.0001, 100, ErrorMessage = "ToFactor_Range")]
     public double ToFactor { get; set; }
 
     [Required(ErrorMessage = "FactorValue_Required")]
-    [Range(0, 100, ErrorMessage = "FactorValue_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FactorValue_Range")]
     public double FactorValue { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (FromFactor >= ToFactor)
+        {
+            yield return new ValidationResult(
+                "FromFactor_MustBeLessThanToFactor",
+                new[] { nameof(FromFactor), nameof(ToFactor) }
+            );
+        }
+    }
 }
 
-public class UpdateRetentionFactWiseDto : UpdateBaseDtos
+public class UpdateRetentionFactWiseDto : UpdateBaseDtos, IValidatableObject
 {
     [Required(ErrorMessage = "FromFactor_Required")]
-    [Range(0, 100, ErrorMessage = "FromFactor_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FromFactor_Range")]
     public double FromFactor { get; set; }
 
     [Required(ErrorMessage = "ToFactor_Required")]
-    [Range(0, 100, ErrorMessage = "ToFactor_Range")]
+    [Range(0.0001, 100, ErrorMessage = "ToFactor_Range")]
     public double ToFactor { get; set; }
 
     [Required(ErrorMessage = "FactorValue_Required")]
-    [Range(0, 100, ErrorMessage = "FactorValue_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FactorValue_Range")]
     public double FactorValue { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (FromFactor >= ToFactor)
+        {
+            yield return new ValidationResult(
+                "FromFactor_MustBeLessThanToFactor",
+                new[] { nameof(FromFactor), nameof(ToFactor) }
+            );
+        }
+    }
 }

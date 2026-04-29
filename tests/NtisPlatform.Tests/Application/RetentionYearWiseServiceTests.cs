@@ -6,6 +6,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using System.ComponentModel.DataAnnotations;
+using MockQueryable.Moq;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -157,8 +158,8 @@ public class RetentionYearWiseServiceTests
             new() { Id = 2, FromYear = 2021, ToYear = 2030, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
         };
 
-        var mockQuery = entities.BuildMock();
-        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        var mockQuery = entities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -205,6 +206,10 @@ public class RetentionYearWiseServiceTests
             IsActive = true,
             CreatedBy = 1
         };
+
+        // Setup repository to return empty queryable for validation
+        var emptyEntities = new List<RetentionYearWiseEntity>();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(emptyEntities.BuildMockDbSet().Object);
 
         _mockMapper
             .Setup(m => m.Map<RetentionYearWiseEntity>(It.IsAny<CreateRetentionYearWiseDto>()))
@@ -276,6 +281,10 @@ public class RetentionYearWiseServiceTests
             UpdatedDate = DateTime.Now,
             UpdatedBy = 1
         };
+
+        // Setup repository to return empty queryable for validation
+        var emptyEntities = new List<RetentionYearWiseEntity>();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(emptyEntities.BuildMockDbSet().Object);
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -392,5 +401,158 @@ public class RetentionYearWiseServiceTests
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RetentionYearWiseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+    [Fact]
+    public async Task CreateAsync_OverlappingYearRange_ThrowsValidationException()
+    {
+        var existing = new List<RetentionYearWiseEntity>
+    {
+        new() { Id = 1, FromYear = 2000, ToYear = 2010, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var createDto = new CreateRetentionYearWiseDto
+        {
+            FromYear = 2005,
+            ToYear = 2015,
+            FactorValue = 1.5
+        };
+
+        _mockMapper.Setup(m => m.Map<RetentionYearWiseEntity>(It.IsAny<CreateRetentionYearWiseDto>()))
+            .Returns((CreateRetentionYearWiseDto dto) => new RetentionYearWiseEntity
+            {
+                FromYear = dto.FromYear,
+                ToYear = dto.ToYear,
+                FactorValue = dto.FactorValue,
+                IsActive = true
+            });
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.CreateAsync(createDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_NonOverlappingYearRange_Succeeds()
+    {
+        var existing = new List<RetentionYearWiseEntity>
+    {
+        new() { Id = 1, FromYear = 2000, ToYear = 2010, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var createDto = new CreateRetentionYearWiseDto
+        {
+            FromYear = 2011,
+            ToYear = 2020,
+            FactorValue = 1.5
+        };
+
+        _mockMapper.Setup(m => m.Map<RetentionYearWiseEntity>(It.IsAny<CreateRetentionYearWiseDto>()))
+            .Returns((CreateRetentionYearWiseDto dto) => new RetentionYearWiseEntity
+            {
+                FromYear = dto.FromYear,
+                ToYear = dto.ToYear,
+                FactorValue = dto.FactorValue,
+                IsActive = true
+            });
+
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<RetentionYearWiseEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetentionYearWiseEntity e, CancellationToken _) => e);
+
+        _mockMapper.Setup(m => m.Map<RetentionYearWiseDto>(It.IsAny<RetentionYearWiseEntity>()))
+            .Returns((RetentionYearWiseEntity e) => new RetentionYearWiseDto
+            {
+                Id = 2,
+                FromYear = e.FromYear,
+                ToYear = e.ToYear,
+                FactorValue = e.FactorValue
+            });
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(2011, result.FromYear);
+        Assert.Equal(2020, result.ToYear);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_OverlappingYearRange_ThrowsValidationException()
+    {
+        var existing = new List<RetentionYearWiseEntity>
+    {
+        new() { Id = 2, FromYear = 2015, ToYear = 2025, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var updateDto = new UpdateRetentionYearWiseDto
+        {
+            FromYear = 2020,
+            ToYear = 2030,
+            FactorValue = 2.0
+        };
+
+        var existingEntity = new RetentionYearWiseEntity
+        {
+            Id = 1,
+            FromYear = 2010,
+            ToYear = 2014,
+            IsActive = true
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdateRetentionYearWiseDto>(), It.IsAny<RetentionYearWiseEntity>()))
+            .Callback((UpdateRetentionYearWiseDto src, RetentionYearWiseEntity dest) =>
+            {
+                dest.FromYear = src.FromYear;
+                dest.ToYear = src.ToYear;
+                dest.FactorValue = src.FactorValue;
+            });
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NonOverlappingYearRange_Succeeds()
+    {
+        var existing = new List<RetentionYearWiseEntity>
+    {
+        new() { Id = 2, FromYear = 2015, ToYear = 2025, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var updateDto = new UpdateRetentionYearWiseDto
+        {
+            FromYear = 2026,
+            ToYear = 2030,
+            FactorValue = 2.0
+        };
+
+        var existingEntity = new RetentionYearWiseEntity
+        {
+            Id = 1,
+            FromYear = 2010,
+            ToYear = 2014,
+            IsActive = true
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdateRetentionYearWiseDto>(), It.IsAny<RetentionYearWiseEntity>()))
+            .Callback((UpdateRetentionYearWiseDto src, RetentionYearWiseEntity dest) =>
+            {
+                dest.FromYear = src.FromYear;
+                dest.ToYear = src.ToYear;
+                dest.FactorValue = src.FactorValue;
+            });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<RetentionYearWiseEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+        Assert.Equal(2026, existingEntity.FromYear);
+        Assert.Equal(2030, existingEntity.ToYear);
+        Assert.Equal(2.0, existingEntity.FactorValue);
     }
 }

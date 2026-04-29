@@ -1,6 +1,7 @@
 using AutoMapper;
 using MockQueryable;
 using Moq;
+using MockQueryable.Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
@@ -106,8 +107,8 @@ public class RetentionFactWiseServiceTests
             new() { Id = 2, FromFactor = 21, ToFactor = 30, FactorValue = 2.0, IsActive = false, CreatedDate = DateTime.Now }
         };
 
-        var mockQuery = entities.BuildMock();
-        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        var mockQuery = entities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -154,6 +155,10 @@ public class RetentionFactWiseServiceTests
             IsActive = true,
             CreatedBy = 1
         };
+
+        // Setup repository to return empty queryable for validation
+        var emptyEntities = new List<RetentionFactWiseEntity>();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(emptyEntities.BuildMockDbSet().Object);
 
         _mockMapper
             .Setup(m => m.Map<RetentionFactWiseEntity>(It.IsAny<CreateRetentionFactWiseDto>()))
@@ -225,6 +230,10 @@ public class RetentionFactWiseServiceTests
             UpdatedDate = DateTime.Now,
             UpdatedBy = 1
         };
+
+        // Setup repository to return empty queryable for validation
+        var emptyEntities = new List<RetentionFactWiseEntity>();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(emptyEntities.BuildMockDbSet().Object);
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -341,5 +350,158 @@ public class RetentionFactWiseServiceTests
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RetentionFactWiseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+    [Fact]
+    public async Task CreateAsync_OverlappingFactorRange_ThrowsValidationException()
+    {
+        var existing = new List<RetentionFactWiseEntity>
+    {
+        new() { Id = 1, FromFactor = 10, ToFactor = 20, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var createDto = new CreateRetentionFactWiseDto
+        {
+            FromFactor = 15,
+            ToFactor = 25,
+            FactorValue = 1.5
+        };
+
+        _mockMapper.Setup(m => m.Map<RetentionFactWiseEntity>(It.IsAny<CreateRetentionFactWiseDto>()))
+            .Returns((CreateRetentionFactWiseDto dto) => new RetentionFactWiseEntity
+            {
+                FromFactor = dto.FromFactor,
+                ToFactor = dto.ToFactor,
+                FactorValue = dto.FactorValue,
+                IsActive = true
+            });
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.CreateAsync(createDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_NonOverlappingFactorRange_Succeeds()
+    {
+        var existing = new List<RetentionFactWiseEntity>
+    {
+        new() { Id = 1, FromFactor = 10, ToFactor = 20, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var createDto = new CreateRetentionFactWiseDto
+        {
+            FromFactor = 21,
+            ToFactor = 30,
+            FactorValue = 2.0
+        };
+
+        _mockMapper.Setup(m => m.Map<RetentionFactWiseEntity>(It.IsAny<CreateRetentionFactWiseDto>()))
+            .Returns((CreateRetentionFactWiseDto dto) => new RetentionFactWiseEntity
+            {
+                FromFactor = dto.FromFactor,
+                ToFactor = dto.ToFactor,
+                FactorValue = dto.FactorValue,
+                IsActive = true
+            });
+
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<RetentionFactWiseEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RetentionFactWiseEntity e, CancellationToken _) => e);
+
+        _mockMapper.Setup(m => m.Map<RetentionFactWiseDto>(It.IsAny<RetentionFactWiseEntity>()))
+            .Returns((RetentionFactWiseEntity e) => new RetentionFactWiseDto
+            {
+                Id = 2,
+                FromFactor = e.FromFactor,
+                ToFactor = e.ToFactor,
+                FactorValue = e.FactorValue
+            });
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+        Assert.NotNull(result);
+        Assert.Equal(21, result.FromFactor);
+        Assert.Equal(30, result.ToFactor);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_OverlappingFactorRange_ThrowsValidationException()
+    {
+        var existing = new List<RetentionFactWiseEntity>
+    {
+        new() { Id = 2, FromFactor = 15, ToFactor = 25, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var updateDto = new UpdateRetentionFactWiseDto
+        {
+            FromFactor = 20,
+            ToFactor = 30,
+            FactorValue = 2.0
+        };
+
+        var existingEntity = new RetentionFactWiseEntity
+        {
+            Id = 1,
+            FromFactor = 10,
+            ToFactor = 14,
+            IsActive = true
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdateRetentionFactWiseDto>(), It.IsAny<RetentionFactWiseEntity>()))
+            .Callback((UpdateRetentionFactWiseDto src, RetentionFactWiseEntity dest) =>
+            {
+                dest.FromFactor = src.FromFactor;
+                dest.ToFactor = src.ToFactor;
+                dest.FactorValue = src.FactorValue;
+            });
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NonOverlappingFactorRange_Succeeds()
+    {
+        var existing = new List<RetentionFactWiseEntity>
+    {
+        new() { Id = 2, FromFactor = 15, ToFactor = 25, IsActive = true }
+    };
+        var mockQuery = existing.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
+
+        var updateDto = new UpdateRetentionFactWiseDto
+        {
+            FromFactor = 26,
+            ToFactor = 30,
+            FactorValue = 2.0
+        };
+
+        var existingEntity = new RetentionFactWiseEntity
+        {
+            Id = 1,
+            FromFactor = 10,
+            ToFactor = 14,
+            IsActive = true
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdateRetentionFactWiseDto>(), It.IsAny<RetentionFactWiseEntity>()))
+            .Callback((UpdateRetentionFactWiseDto src, RetentionFactWiseEntity dest) =>
+            {
+                dest.FromFactor = src.FromFactor;
+                dest.ToFactor = src.ToFactor;
+                dest.FactorValue = src.FactorValue;
+            });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<RetentionFactWiseEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+        Assert.Equal(26, existingEntity.FromFactor);
+        Assert.Equal(30, existingEntity.ToFactor);
+        Assert.Equal(2.0, existingEntity.FactorValue);
     }
 }

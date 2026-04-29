@@ -6,6 +6,7 @@ using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
@@ -14,6 +15,7 @@ using NtisPlatform.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -22,6 +24,7 @@ public class FloorServiceTests
     private readonly Mock<IRepository<FloorEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly FloorService _service;
 
     public FloorServiceTests()
@@ -29,6 +32,7 @@ public class FloorServiceTests
         _mockRepository = new Mock<IRepository<FloorEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         // Service is calling SaveChangesAsync (NOT transactions), so setup SaveChangesAsync.
         // If your SaveChangesAsync returns Task (not Task<int>), change ReturnsAsync(1) to Returns(Task.CompletedTask).
@@ -45,7 +49,11 @@ public class FloorServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new FloorService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new FloorService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -130,7 +138,8 @@ public class FloorServiceTests
         var service = new FloorService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new FloorQueryParameters
         {
@@ -339,6 +348,10 @@ public class FloorServiceTests
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<FloorEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
 
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
@@ -675,6 +688,10 @@ public class FloorServiceTests
             .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<FloorEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -715,6 +732,10 @@ public class FloorServiceTests
         _mockRepository
             .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
+
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<FloorEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
 
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
@@ -812,6 +833,176 @@ public class FloorServiceTests
         mockService.Verify(s => s.CreateFromRangeAsync(
             It.IsAny<RangeCreateRequest<CreateFloorDto>>(),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    #endregion
+
+    #region Reference Validation Tests
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateFloorDto
+        {
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new FloorEntity
+        {
+            Id = 1,
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateFloorDto>(), It.IsAny<FloorEntity>()))
+            .Callback((UpdateFloorDto src, FloorEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+                dest.Description = src.Description;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<FloorEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot deactivate Floor. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithoutReferences_Succeeds()
+    {
+        // Arrange
+        var updateDto = new UpdateFloorDto
+        {
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new FloorEntity
+        {
+            Id = 1,
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateFloorDto>(), It.IsAny<FloorEntity>()))
+            .Callback((UpdateFloorDto src, FloorEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+                dest.Description = src.Description;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<FloorEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.False(existingEntity.IsActive);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new FloorEntity
+        {
+            Id = idToDelete,
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<FloorEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot delete Floor. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.DeleteAsync(idToDelete, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutReferences_Succeeds()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new FloorEntity
+        {
+            Id = idToDelete,
+            FloorCode = "1",
+            Description = "Floor 1",
+            MaxFloorNo = 1,
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<FloorEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<FloorEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

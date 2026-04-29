@@ -2,9 +2,12 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -13,6 +16,7 @@ public class AssessmentYearRangeCVServiceTests
     private readonly Mock<IRepository<AssessmentYearRangeCVEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly AssessmentYearRangeCVService _service;
 
     public AssessmentYearRangeCVServiceTests()
@@ -20,6 +24,7 @@ public class AssessmentYearRangeCVServiceTests
         _mockRepository = new Mock<IRepository<AssessmentYearRangeCVEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -28,7 +33,8 @@ public class AssessmentYearRangeCVServiceTests
         _service = new AssessmentYearRangeCVService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            _mockMapper.Object);
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -103,7 +109,8 @@ public class AssessmentYearRangeCVServiceTests
         var service = new AssessmentYearRangeCVService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new AssessmentYearRangeCVQueryParameters
         {
@@ -125,6 +132,11 @@ public class AssessmentYearRangeCVServiceTests
     [Fact]
     public async Task CreateAsync_ValidDto_ReturnsCreatedDto()
     {
+        // Setup GetQueryable to return empty list for overlap validation
+        var existingRanges = new List<AssessmentYearRangeCVEntity>();
+        var mockQuery = existingRanges.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+
         var createDto = new CreateAssessmentYearRangeCVDto
         {
             FromYear = 2000,
@@ -199,6 +211,16 @@ public class AssessmentYearRangeCVServiceTests
         _mockRepository
             .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
+
+        // Setup reference validation for deactivation
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<AssessmentYearRangeCVEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Setup GetQueryable to return only the entity being updated (no other overlapping ranges)
+        var existingRanges = new List<AssessmentYearRangeCVEntity> { existingEntity };
+        var mockQuery = existingRanges.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
         _mockRepository
             .Setup(r => r.UpdateAsync(It.IsAny<AssessmentYearRangeCVEntity>(), It.IsAny<CancellationToken>()))
@@ -285,6 +307,10 @@ public class AssessmentYearRangeCVServiceTests
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<AssessmentYearRangeCVEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<AssessmentYearRangeCVEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -296,5 +322,49 @@ public class AssessmentYearRangeCVServiceTests
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<AssessmentYearRangeCVEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_OverlappingRange_ThrowsValidationException()
+    {
+        var existingRanges = new List<AssessmentYearRangeCVEntity>
+        {
+            new() { Id = 1, FromYear = 2000, ToYear = 2020 }
+        };
+        var mockQuery = existingRanges.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+
+        var createDto = new CreateAssessmentYearRangeCVDto { FromYear = 2010, ToYear = 2025, IsActive = true };
+        _mockMapper.Setup(m => m.Map<AssessmentYearRangeCVEntity>(It.IsAny<CreateAssessmentYearRangeCVDto>()))
+            .Returns(new AssessmentYearRangeCVEntity { FromYear = createDto.FromYear, ToYear = createDto.ToYear });
+
+        await Assert.ThrowsAsync<ValidationException>(() => _service.CreateAsync(createDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_NonOverlappingRange_Succeeds()
+    {
+        var existingRanges = new List<AssessmentYearRangeCVEntity>
+        {
+            new() { Id = 1, FromYear = 2000, ToYear = 2020 }
+        };
+        var mockQuery = existingRanges.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+
+        var createDto = new CreateAssessmentYearRangeCVDto { FromYear = 2021, ToYear = 2025, IsActive = true, CreatedBy = 1 };
+        _mockMapper.Setup(m => m.Map<AssessmentYearRangeCVEntity>(It.IsAny<CreateAssessmentYearRangeCVDto>()))
+            .Returns(new AssessmentYearRangeCVEntity { Id = 2, FromYear = createDto.FromYear, ToYear = createDto.ToYear, IsActive = true });
+
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<AssessmentYearRangeCVEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AssessmentYearRangeCVEntity e, CancellationToken _) => e);
+
+        _mockMapper.Setup(m => m.Map<AssessmentYearRangeCVDto>(It.IsAny<AssessmentYearRangeCVEntity>()))
+            .Returns(new AssessmentYearRangeCVDto { Id = 2, FromYear = 2021, ToYear = 2025, IsActive = true });
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(2021, result.FromYear);
+        Assert.Equal(2025, result.ToYear);
     }
 }

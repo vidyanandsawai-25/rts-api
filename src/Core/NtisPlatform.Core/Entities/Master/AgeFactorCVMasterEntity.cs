@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Entities;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Core.Entities.Master;
 

@@ -21,7 +21,7 @@ public class CreateRetentionYearWiseDto : CreateBaseDtos, IValidatableObject
     public int ToYear { get; set; }
 
     [Required(ErrorMessage = "FactorValue_Required")]
-    [Range(0, 100, ErrorMessage = "FactorValue_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FactorValue_Range")]
     public double FactorValue { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -48,7 +48,7 @@ public class UpdateRetentionYearWiseDto : UpdateBaseDtos, IValidatableObject
     public int ToYear { get; set; }
 
     [Required(ErrorMessage = "FactorValue_Required")]
-    [Range(0, 100, ErrorMessage = "FactorValue_Range")]
+    [Range(0.0001, 100, ErrorMessage = "FactorValue_Range")]
     public double FactorValue { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

@@ -3,9 +3,12 @@ using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -14,6 +17,7 @@ public class ZoneServiceTests
     private readonly Mock<IRepository<ZoneEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly ZoneService _service;
 
     public ZoneServiceTests()
@@ -21,6 +25,7 @@ public class ZoneServiceTests
         _mockRepository = new Mock<IRepository<ZoneEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
@@ -34,7 +39,11 @@ public class ZoneServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _service = new ZoneService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new ZoneService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -122,7 +131,8 @@ public class ZoneServiceTests
         var service = new ZoneService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new ZoneQueryParameters
         {
@@ -360,6 +370,10 @@ public class ZoneServiceTests
         _mockRepository
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<ZoneEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
 
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
@@ -652,6 +666,10 @@ public class ZoneServiceTests
             .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<ZoneEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -693,6 +711,10 @@ public class ZoneServiceTests
             .Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((int id, CancellationToken _) => existingEntities.GetValueOrDefault(id));
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<ZoneEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -717,6 +739,168 @@ public class ZoneServiceTests
 
         _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(3));
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region Reference Validation Tests
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateZoneDto
+        {
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new ZoneEntity
+        {
+            Id = 1,
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateZoneDto>(), It.IsAny<ZoneEntity>()))
+            .Callback((UpdateZoneDto src, ZoneEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<ZoneEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot deactivate Zone. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithoutReferences_Succeeds()
+    {
+        // Arrange
+        var updateDto = new UpdateZoneDto
+        {
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new ZoneEntity
+        {
+            Id = 1,
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateZoneDto>(), It.IsAny<ZoneEntity>()))
+            .Callback((UpdateZoneDto src, ZoneEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<ZoneEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.False(existingEntity.IsActive);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new ZoneEntity
+        {
+            Id = idToDelete,
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<ZoneEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot delete Zone. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.DeleteAsync(idToDelete, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutReferences_Succeeds()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new ZoneEntity
+        {
+            Id = idToDelete,
+            ZoneNo = "WKD",
+            Description = "Zone 1",
+            SequenceNo = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<ZoneEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<ZoneEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

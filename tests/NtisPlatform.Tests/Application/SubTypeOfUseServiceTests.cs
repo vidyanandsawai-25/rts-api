@@ -2,9 +2,12 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using ValidationResult = NtisPlatform.Application.Models.ValidationResult;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -13,6 +16,7 @@ public class SubTypeOfUseServiceTests
     private readonly Mock<IRepository<SubTypeOfUseEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly SubTypeOfUseService _service;
 
     public SubTypeOfUseServiceTests()
@@ -20,6 +24,7 @@ public class SubTypeOfUseServiceTests
         _mockRepository = new Mock<IRepository<SubTypeOfUseEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -33,7 +38,11 @@ public class SubTypeOfUseServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new SubTypeOfUseService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new SubTypeOfUseService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            _mockMapper.Object,
+            _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -118,7 +127,8 @@ public class SubTypeOfUseServiceTests
         var service = new SubTypeOfUseService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new SubTypeOfUseQueryParameters
         {
@@ -344,6 +354,10 @@ public class SubTypeOfUseServiceTests
             .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingEntity);
 
+        _mockReferenceValidator
+            .Setup(r => r.ValidateReferencesAsync<SubTypeOfUseEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
         _mockRepository
             .Setup(r => r.DeleteAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -358,5 +372,163 @@ public class SubTypeOfUseServiceTests
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateSubTypeOfUseDto
+        {
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new SubTypeOfUseEntity
+        {
+            Id = 1,
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateSubTypeOfUseDto>(), It.IsAny<SubTypeOfUseEntity>()))
+            .Callback((UpdateSubTypeOfUseDto src, SubTypeOfUseEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<SubTypeOfUseEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot deactivate Sub Type Of Use. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivateWithoutReferences_Succeeds()
+    {
+        // Arrange
+        var updateDto = new UpdateSubTypeOfUseDto
+        {
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = false
+        };
+
+        var existingEntity = new SubTypeOfUseEntity
+        {
+            Id = 1,
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateSubTypeOfUseDto>(), It.IsAny<SubTypeOfUseEntity>()))
+            .Callback((UpdateSubTypeOfUseDto src, SubTypeOfUseEntity dest) =>
+            {
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<SubTypeOfUseEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.False(existingEntity.IsActive);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new SubTypeOfUseEntity
+        {
+            Id = idToDelete,
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<SubTypeOfUseEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Failure("Cannot delete Sub Type Of Use. It is referenced by other records."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ValidationException>(() => _service.DeleteAsync(idToDelete, CancellationToken.None));
+
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithoutReferences_Succeeds()
+    {
+        // Arrange
+        var idToDelete = 1;
+
+        var existingEntity = new SubTypeOfUseEntity
+        {
+            Id = idToDelete,
+            TypeOfUseId = 1,
+            Description = "Residential",
+            SearchSequence = 1,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockRepository
+            .Setup(r => r.DeleteAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<SubTypeOfUseEntity>(idToDelete, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ValidationResult.Success());
+
+        // Act
+        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<SubTypeOfUseEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 }
