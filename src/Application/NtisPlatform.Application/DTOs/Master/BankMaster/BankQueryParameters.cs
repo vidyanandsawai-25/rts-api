@@ -8,7 +8,7 @@ namespace NtisPlatform.Application.DTOs.Master.BankMaster
     {
         [Filterable]
         [Sortable]
-        public int? BankId { get; set; }
+        public int? Id { get; set; }
 
         [Filterable(FilterOperator.Contains)]
         [Searchable]
