@@ -12,8 +12,6 @@ public class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
     }
-
-
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
@@ -33,6 +31,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
+    public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
     public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
     public DbSet<WardEntity> WardMaster { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
@@ -86,6 +85,7 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
         // AgeFactorCVMaster configuration
         modelBuilder.Entity<AgeFactorCVMasterEntity>(entity =>
         {
@@ -564,6 +564,30 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DesignationCode).IsUnique();
         });
 
+        // FloorFactorCVMaster configuration
+        modelBuilder.Entity<FloorFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("FloorFactorCVMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FloorId).IsRequired();
+            entity.Property(e => e.FactorWithLift)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+            entity.Property(e => e.FactorWithoutLift)
+                .IsRequired()
+                .HasColumnType("decimal(18,2)");
+            entity.Property(e => e.YearRangeCVId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");            
+            entity.HasIndex(e => e.FloorId);
+            entity.HasIndex(e => e.YearRangeCVId);
+            entity.HasIndex(e => e.IsActive);
+            // Uniqueness constraint for FloorId + YearRangeCVId
+            entity.HasIndex(e => new { e.FloorId, e.YearRangeCVId }).IsUnique();
+        });
+
         // ActiveTaxes configuration
         modelBuilder.Entity<ActiveTaxesEntity>(entity =>
         {
@@ -839,7 +863,6 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyMast", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.PartitionNo).HasMaxLength(10);
