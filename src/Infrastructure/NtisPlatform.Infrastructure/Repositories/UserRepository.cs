@@ -20,11 +20,11 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
 
     public async Task<UserEntity?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
-        // Case-insensitive comparison using ToUpperInvariant() on both sides
+        // Case-insensitive comparison using ToUpper() on both sides
         // This approach:
-        // - Avoids culture-sensitive issues (e.g., Turkish-I problem)
+        // - Gets translated to SQL UPPER() comparison by EF Core
         // - Works consistently across all database providers
-        // - Gets translated to SQL UPPER() comparison
+        // Note: ToUpperInvariant() cannot be translated by EF Core
         return await _context.UserMasters
             .AsNoTracking()
             .FirstOrDefaultAsync(u => u.UserName.ToUpper() == username.ToUpper(), cancellationToken);

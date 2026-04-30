@@ -945,17 +945,112 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 5: Return updated data
         return await GetOldDetailsAsync(propertyId, cancellationToken);
     }
-
-    public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Check if property exists
+        var policies = await GetTaxDetailsPivotedAsync(
+            propertyId,
+            isCapitalValue: false,
+            cancellationToken);
+
+        if (policies == null)
+            return null;
+
+        return new PropertyTaxDetailsDto
+        {
+            PropertyId = propertyId,
+            Policies = policies
+        };
+    }
+
+    /// <summary>
+    /// Private helper method to query and pivot tax details from a given tax details table.
+    /// Joins with TaxMaster, filters by active/deleted flags, orders by DisplayOrder, and groups by PolicyCode.
+    /// </summary>
+    /// <typeparam name="TTaxDetail">The tax detail entity type (PolicyTaxDetails or PolicyTaxDetailsCV)</typeparam>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="taxDetailsSet">The DbSet of tax details to query</param>
+    /// <param name="propertyIdSelector">Function to extract PropertyId from the entity</param>
+    /// <param name="policyCodeSelector">Function to extract PolicyCode from the entity</param>
+    /// <param name="taxIdSelector">Function to extract TaxId from the entity</param>
+    /// <param name="taxAmountSelector">Function to extract TaxAmount from the entity</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of pivoted PolicyTaxDetail objects, or null if property not found or no data exists</returns>
+    private async Task<List<PolicyTaxDetail>?> GetTaxDetailsPivotedAsync(
+        int propertyId,
+        bool isCapitalValue,
+        CancellationToken cancellationToken)
+    {
+        // Step 1: Check if property exists
         var propertyExists = await _context.PropertyMast
             .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
         if (!propertyExists)
             return null;
 
-        // Step 1: Get all active old taxes from TaxMaster where OldTaxStatus = true
+        // Step 2: Query tax details with TaxMaster join, ordered by DisplayOrder
+        List<(string PolicyCode, string TaxName, decimal? TaxAmount)> taxData;
+
+        if (isCapitalValue)
+        {
+            taxData = await (from td in _context.PolicyTaxDetailsCV
+                             join tm in _context.TaxMaster on td.TaxId equals tm.Id
+                             where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
+                                && tm.IsActive
+                             orderby tm.DisplayOrder
+                             select new ValueTuple<string, string, decimal?>(
+                                 td.PolicyCode,
+                                 tm.TaxName,
+                                 td.TaxAmount
+                             ))
+                            .ToListAsync(cancellationToken);
+        }
+        else
+        {
+            taxData = await (from td in _context.PolicyTaxDetails
+                             join tm in _context.TaxMaster on td.TaxId equals tm.Id
+                             where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
+                                && tm.IsActive
+                             orderby tm.DisplayOrder
+                             select new ValueTuple<string, string, decimal?>(
+                                 td.PolicyCode,
+                                 tm.TaxName,
+                                 td.TaxAmount
+                             ))
+                            .ToListAsync(cancellationToken);
+        }
+
+        // Step 3: Return null if no tax details found
+        if (taxData.Count == 0)
+            return null;
+
+        // Step 4: Group by PolicyCode and create pivoted structure
+        var policies = taxData
+            .GroupBy(x => x.Item1)
+            .Select(g => new PolicyTaxDetail
+            {
+                PolicyCode = g.Key,
+                TaxAmounts = g
+                    .GroupBy(x => x.Item2)
+                    .ToDictionary(
+                        tg => tg.Key,
+                        tg => (decimal?)tg.Sum(x => x.Item3)
+                    )
+            })
+            .ToList();
+
+        return policies;
+    }
+
+    public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Check if property exists and is valid (active and not marked for deletion)
+        var propertyExists = await _context.PropertyMast
+            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (!propertyExists)
+            return null;
+
+        // Step 2: Get all active old taxes from TaxMaster where OldTaxStatus = true
         var oldTaxes = await _context.TaxMaster
             .Where(t => t.IsActive && t.OldTaxStatus)
             .OrderBy(t => t.DisplayOrder)
@@ -972,22 +1067,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
         }
 
-        // Step 2: Get all TransMastOld records for this property
+        // Step 3: Get all TransMastOld records for this property
         var transMastOldData = await _context.TransMastOld
             .Where(t => t.PropertyId == propertyId && t.IsActive && !t.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        // Step 3: Get unique finance years from the transactions
+        // Step 4: Get unique finance years from the transactions
         var financeYearIds = transMastOldData.Select(t => t.FinanceYearId).Distinct().ToList();
 
-        // Step 4: Get year details from YearMaster
+        // Step 5: Get year details from YearMaster
         var years = await _context.YearMaster
             .Where(y => financeYearIds.Contains(y.Id) && y.IsActive)
             .OrderByDescending(y => y.Year)
             .Select(y => new { y.Id, y.Year, y.YearCode })
             .ToListAsync(cancellationToken);
 
-        // Step 5: Build lookup dictionary for O(1) access (FinanceYearId, TaxId) -> Transaction
+        // Step 6: Build lookup dictionary for O(1) access (FinanceYearId, TaxId) -> Transaction
         var transactionLookup = transMastOldData
             .GroupBy(t => t.FinanceYearId)
             .ToDictionary(
@@ -995,7 +1090,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 g => g.ToDictionary(t => t.TaxId, t => t)
             );
 
-        // Step 6: Build the result
+        // Step 7: Build the result
         var result = new PropertyOldTaxesDetailsDto
         {
             PropertyId = propertyId,
@@ -1062,14 +1157,32 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return result;
     }
 
+    public async Task<PropertyTaxDetailsCVDto?> GetTaxDetailsCVAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var policies = await GetTaxDetailsPivotedAsync(
+            propertyId,
+            isCapitalValue: true,
+            cancellationToken);
+
+        if (policies == null)
+            return null;
+
+        return new PropertyTaxDetailsCVDto
+        {
+            PropertyId = propertyId,
+            Policies = policies
+        };
+    }
+
     public async Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
     {
         // Step 1: Check if PropertyMast exists
-        var propertyExists = await _context.PropertyMast
+       var propertyExists = await _context.PropertyMast
             .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
 
         if (!propertyExists)
             return null;
+    
 
         // Step 2: Validate finance years exist
         var requestedFinanceYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).ToList();
@@ -1494,3 +1607,4 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return await GetFloorDetailsOldAsync(propertyId, cancellationToken);
     }
 }
+ 

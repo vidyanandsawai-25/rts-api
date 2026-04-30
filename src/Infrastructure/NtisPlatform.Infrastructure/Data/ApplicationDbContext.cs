@@ -41,7 +41,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
-    public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
+    public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;    
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!;
@@ -64,11 +64,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
+    public DbSet<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = null!;
+    public DbSet<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
-    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;    
+    public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<UserDepartmentAllocationEntity> UserDepartmentAllocation { get; set; } = null!;
@@ -88,6 +91,46 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<PolicyTaxDetailsEntity>(entity =>
+        {
+            entity.ToTable("PolicyTaxDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            // Configure foreign key relationships
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PolicyTaxDetails)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
+        modelBuilder.Entity<PolicyTaxDetailsCVEntity>(entity =>
+        {
+            entity.ToTable("PolicyTaxDetailsCV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            // Configure foreign key relationships
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PolicyTaxDetailsCV)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        
 
         // AgeFactorCVMaster configuration
         modelBuilder.Entity<AgeFactorCVMasterEntity>(entity =>

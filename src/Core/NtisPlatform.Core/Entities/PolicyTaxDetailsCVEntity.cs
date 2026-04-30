@@ -1,0 +1,42 @@
+using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Interfaces;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace NtisPlatform.Core.Entities;
+
+[Table("PolicyTaxDetailsCV", Schema = "PTIS")]
+public class PolicyTaxDetailsCVEntity : BaseEntity, IHardDeletable
+{
+
+    public  virtual PropertyEntity? PropertyMast { get; set; }
+    public  virtual TaxMasterEntity? TaxMaster { get; set; }
+    
+    public int PropertyId { get; set; }
+     
+    [Required]
+    [StringLength(20)]
+    public string PolicyCode { get; set; } = string.Empty;
+    
+    public DateTime? PolicyDate { get; set; }
+    
+    public short? PolicyYear { get; set; }
+    
+    [StringLength(200)]
+    public string? PolicyReason { get; set; }
+    
+    [Column(TypeName = "money")]
+    public decimal? PolicyRVorCVvalue { get; set; }
+    
+    public int TaxId { get; set; }
+    
+    [Column(TypeName = "money")]
+    public decimal? TaxAmount { get; set; }
+    
+    public bool MarkedForDeletion { get; set; } = false;
+    
+    public DateTime? MarkedForDeletionDate { get; set; }
+    
+    // Navigation properties
+   
+}

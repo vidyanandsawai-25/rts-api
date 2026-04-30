@@ -121,4 +121,15 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     /// Date when the entity was marked for deletion
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    // Navigation Properties
+    /// <summary>
+    /// Collection of policy tax details associated with this property
+    /// </summary>
+    public virtual ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
+    
+    /// <summary>
+    /// Collection of policy tax details CV associated with this property
+    /// </summary>
+    public virtual ICollection<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = new List<PolicyTaxDetailsCVEntity>();
 }

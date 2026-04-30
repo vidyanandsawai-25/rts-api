@@ -1,8 +1,10 @@
+using NtisPlatform.Core.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities.Master;
 
+ 
 /// <summary>
 /// Represents tax master data in the PTIS system (TaxMaster table)
 /// Stores tax type definitions and configurations
