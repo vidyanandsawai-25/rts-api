@@ -585,9 +585,9 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ScreenMaster", "Core");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("ScreenMasterId");
-            entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupMasterId");
-            entity.Property(e => e.ModuleId).HasColumnName("ModuleMasterId");
+           entity.Property(e => e.Id).HasColumnName("Id");
+            entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
+            entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
