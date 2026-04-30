@@ -16,7 +16,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
-    public DbSet<MultilingualDetailsEntity> MultilingualDetails { get; set; } = null!;
+    public DbSet<MultilingualResourceEntity> MultilingualResourceEntity { get; set; } = null!;
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneMaster { get; set; } = null!;
     public DbSet<AssessmentYearRangeEntity> AssessmentYearRangeEntities { get; set; } = null!;
@@ -338,13 +338,25 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
         });
 
-
-        // MultilingualDetail configuration
-        modelBuilder.Entity<MultilingualDetailsEntity>(entity =>
+		
+		// MultilingualResource configuration 
+        modelBuilder.Entity<MultilingualResourceEntity>(b =>
         {
-            entity.ToTable("MultilingualDetails", "PTIS");
-            entity.HasIndex(x => new { x.Resource, x.Key, x.Culture })
-            .IsUnique();
+            b.ToTable("MultilingualResource", "CORE");
+            b.HasKey(x => x.Id);
+
+            b.Property(x => x.Resource).HasColumnName("Resource").HasMaxLength(256).IsRequired();
+            b.Property(x => x.Key).HasMaxLength(256).IsRequired();
+
+            b.Property(x => x.en_US).IsRequired();
+            b.Property(x => x.hi_IN).IsRequired();
+            b.Property(x => x.mr_IN).IsRequired();
+
+            b.Property(x => x.IsActive).IsRequired();
+            // Unique constraint on Resource + Key combination
+            // Prevents duplicate entries and ensures deterministic lookups
+            b.HasIndex(x => new { x.Resource, x.Key })
+                .IsUnique();
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
         {

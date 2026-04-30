@@ -1,21 +1,23 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
+using NtisPlatform.Api.Localization;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Mappings;
-using NtisPlatform.Application.Resources;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
 
 namespace NtisPlatform.Api.Extensions;
@@ -38,15 +40,49 @@ public static class ServiceCollectionExtensions
         {
             cfg.AddMaps(typeof(FloorMappingProfile).Assembly);
         }, NullLoggerFactory.Instance);
-        services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
 
-        // Register organization context (reads from config at deployment)
-        // Register DbContext with single connection string
-        services.AddDbContext<ApplicationDbContext>((sp, options) =>
+
+        // Shared configuration for DbContext
+        Action<DbContextOptionsBuilder> configureDbContext = options =>
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
             options.UseSqlServer(connectionString);
+            // Add interceptors, logging, etc. here if needed
+        };
+
+        // Register pooled DbContextFactory (singleton)
+        services.AddPooledDbContextFactory<ApplicationDbContext>(configureDbContext);
+
+        // Register scoped DbContext for DI (created from factory)
+        services.AddScoped(sp =>
+        {
+            var factory = sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+            return factory.CreateDbContext();
         });
+
+        // Localization service (singleton dictionary cache for both validation messages and field localization)
+        services.AddSingleton<ILocalizationService, LocalizationService>();
+        // Preload on startup
+        services.AddHostedService<LocalizationWarmupHostedService>();
+        // Replace RESX localizer with service-backed factory
+        services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
+        // model data fill culture wise.
+        services.AddScoped<LocalizationProcessor>();
+
+        // Field-level localization (uses ILocalizationService for caching)
+        services.AddScoped<ILocalization, LocalizationRepoService>();
+        services.AddScoped<ILocalizedQueryService, LocalizedQueryService>();
+
+        // API Layer - Controllers with DataAnnotations localization
+        services.AddControllers()
+            .AddDataAnnotationsLocalization(options =>
+            {
+                // Route all validation messages through a single "ValidationMessages" resource
+                // Keys in DB: Resource = "ValidationMessages", Key = "RequiredField", etc.
+                options.DataAnnotationLocalizerProvider = (type, factory) =>
+                    factory.Create("ValidationMessages", string.Empty);
+            });
+
 
         // Infrastructure Layer - Repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
@@ -65,7 +101,6 @@ public static class ServiceCollectionExtensions
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
-        services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
 
 
         // TODO: Add other providers when implemented
@@ -87,7 +122,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IRetentionYearWiseService, RetentionYearWiseService>();
         services.AddScoped<IYearMasterService, YearMasterService>();
-        services.AddScoped<IMultilingualDetailsService, MultilingualDetailsService>();
         services.AddScoped<ITaxZoneService, TaxZoneService>();
         services.AddScoped<IMoujaService, MoujaService>();
         services.AddScoped<IOfficeService, OfficeService>();
@@ -115,9 +149,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         // Localization (DB-backed)
-        services.AddScoped<IMultilingualResourceProvider, MultilingualResourceProvider>();
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
-        services.AddSingleton<IStringLocalizerFactory, DbStringLocalizerFactory>();
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
@@ -132,12 +164,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
-  
+        services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
+
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
-        // API Layer - Controllers, Swagger, CORS
-        services.AddControllers();
         services.AddEndpointsApiExplorer();
 
         services.AddSwaggerGen(options =>

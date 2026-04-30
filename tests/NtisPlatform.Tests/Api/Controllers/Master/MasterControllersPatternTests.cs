@@ -796,27 +796,6 @@ public class AllMasterControllersComprehensiveTests
 
     #endregion
 
-    #region MultilingualDetailsController Tests
-
-    [Fact]
-    public async Task MultilingualDetailsController_GetAll_CallsExtensionMethod()
-    {
-        var mockService = new Mock<IMultilingualDetailsService>();
-        var mockLogger = new Mock<ILogger<MultilingualDetailsController>>();
-        var controller = new MultilingualDetailsController(mockService.Object, mockLogger.Object);
-
-        var query = new MultilingualDetailsQueryParameters();
-        var pagedResult = new PagedResult<MultilingualDetailsDtos>(new List<MultilingualDetailsDtos>(), 0, 1, 10);
-
-        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(pagedResult);
-
-        var result = await controller.GetAll(query, CancellationToken.None);
-
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    #endregion
 
     #region OwnerTypeController Tests
 

@@ -1,12 +1,4 @@
-using Microsoft.AspNetCore.Localization;
-using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
-using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Extensions;
-using NtisPlatform.Api.Middleware;
-using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Resources;
-using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,41 +13,14 @@ builder.Services.AddControllers().AddDataAnnotationsLocalization();
 
 // Localization from Database + Cache 
 builder.Services.AddMemoryCache();
-builder.Services.AddControllers()
-    .AddDataAnnotationsLocalization(options =>
-    {
-        // Always use DB resource: ValidationMessages
-        options.DataAnnotationLocalizerProvider = (type, factory) =>
-            factory.Create("ValidationMessages", location: null);
-    });
-
-
-// Supported cultures : These must match the "Culture" values stored in your (DB table/resx file)  - Example values: "en", "hi", "mr"
-var supportedCultures = new[]
-{
-    new CultureInfo("en"),
-    new CultureInfo("hi"),
-    new CultureInfo("mr"),
-};
-
-builder.Services.Configure<RequestLocalizationOptions>(options =>
-{
-    options.DefaultRequestCulture = new RequestCulture("en");
-    options.SupportedCultures = supportedCultures;
-    options.SupportedUICultures = supportedCultures;
-
-    options.RequestCultureProviders = new List<IRequestCultureProvider>
-    {
-        new AcceptLanguageHeaderRequestCultureProvider(), // for Swagger/Postman
-        new CookieRequestCultureProvider()                // for UI cookie selection
-    };
-});
 
 var app = builder.Build();
 
 // Global exception handling
 app.UseMiddleware<NtisPlatform.Api.Middleware.GlobalExceptionHandlerMiddleware>();
-app.UseRequestLocalization(app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>().Value);
+
+// Language middleware - extracts language from Accept-Language header
+app.UseMiddleware<NtisPlatform.Api.Middleware.LanguageMiddleware>();
 
 
 if (app.Environment.IsDevelopment())

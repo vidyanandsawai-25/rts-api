@@ -1,19 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- All common properties are inherited from Directory.Build.props -->
+	<!-- All common properties are inherited from Directory.Build.props -->
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
-  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftPackageVersion)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftPackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(MicrosoftPackageVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftPackageVersion)" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
-    <!-- AutoMapper 16.1.1 patches vulnerability GHSA-rvv3-g6hj-g44x (affected versions < 16.1.1) -->
-    <PackageReference Include="AutoMapper" Version="16.1.1" />
-  </ItemGroup>
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+		<!-- AutoMapper 16.1.1 patches vulnerability GHSA-rvv3-g6hj-g44x (affected versions < 16.1.1) -->
+		<PackageReference Include="AutoMapper" Version="16.1.1" />
+	</ItemGroup>
 
 </Project>

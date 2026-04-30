@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -15,8 +16,11 @@ public class RateSectionService : BaseCommonCrudService<RateSectionEntity, RateS
         IRepository<RateSectionEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        IReferenceValidationService referenceValidator)
-        : base(repository, unitOfWork, mapper)
+        IReferenceValidationService referenceValidator,
+        LocalizationProcessor localizationProcessor,
+        ILocalizedQueryService localizedQueryService,
+        IHttpContextAccessor httpContextAccessor)
+        : base(repository, unitOfWork, mapper, localizationProcessor, localizedQueryService, httpContextAccessor)
     {
         _referenceValidator = referenceValidator;
     }

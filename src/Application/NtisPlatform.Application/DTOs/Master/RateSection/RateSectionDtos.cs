@@ -1,11 +1,15 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using NtisPlatform.Core;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 
 public class RateSectionDto : BaseDtos
 {
     public int Id { get; set; }
+
     public string RateSectionNo { get; set; } = string.Empty;
+
+    [IsLocalizable("RateSection", IdProperty = "Id")]
     public string Description { get; set; } = string.Empty;
 }
 public class CreateRateSectionDto : CreateBaseDtos
@@ -16,6 +20,7 @@ public class CreateRateSectionDto : CreateBaseDtos
 
     [Required(ErrorMessage = "RateSection_Description_Required")]
     [StringLength(80, ErrorMessage = "RateSection_Description_MaxLen_80")]
+    [IsLocalizable("RateSection")]
     public string Description { get; set; } = string.Empty;
 
 }
@@ -27,6 +32,7 @@ public class UpdateRateSectionDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "RateSection_Description_Required")]
     [StringLength(80, ErrorMessage = "RateSection_Description_MaxLen_80")]
+    [IsLocalizable("RateSection", IdProperty = "Id")]
     public string Description { get; set; } = string.Empty;
 
 }
