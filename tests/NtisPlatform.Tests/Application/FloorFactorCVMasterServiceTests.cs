@@ -7,6 +7,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Application.DTOs.Bulk;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -134,7 +135,7 @@ public class FloorFactorCVMasterServiceTests
         Assert.Equal(5, result.Id);
         Assert.Equal(4, result.FloorId);
         Assert.Equal("F4", result.FloorCode);
-        Assert.Equal("Fourth Floor", result.FloorDescription);
+        Assert.Equal("Fourth Floor", result.FloorDescription); 
         Assert.Equal(1.00m, result.FactorWithLift);
         Assert.Equal(1.00m, result.FactorWithoutLift);
         Assert.Equal(1, result.YearRangeCVId);
@@ -187,5 +188,45 @@ public class FloorFactorCVMasterServiceTests
         var result = await _service.GetAllAsync(qp, CancellationToken.None);
         Assert.NotNull(result);
         Assert.True(result.TotalCount >= 2);
+    }
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAll()
+    {
+        var createDtos = new[]
+        {
+            new CreateFloorFactorCVMasterDto { FloorId = 1, FactorWithLift = 1.1m, FactorWithoutLift = 1.0m, YearRangeCVId = 1, IsActive = true },
+            new CreateFloorFactorCVMasterDto { FloorId = 2, FactorWithLift = 2.2m, FactorWithoutLift = 2.0m, YearRangeCVId = 1, IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<FloorFactorCVMasterEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkCreateAsync(createDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_ValidItems_UpdatesAll()
+    {
+        var updateDtos = new[]
+        {
+            new BulkUpdateItem<int, UpdateFloorFactorCVMasterDto>(1, new UpdateFloorFactorCVMasterDto { FloorId = 1, FactorWithLift = 1.5m, FactorWithoutLift = 1.4m, YearRangeCVId = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateFloorFactorCVMasterDto>(2, new UpdateFloorFactorCVMasterDto { FloorId = 2, FactorWithLift = 2.5m, FactorWithoutLift = 2.4m, YearRangeCVId = 1, IsActive = true })
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => new FloorFactorCVMasterEntity { Id = id });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<FloorFactorCVMasterEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkUpdateAsync(updateDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
     }
 }

@@ -7,6 +7,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Application.DTOs.Bulk;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -114,5 +115,52 @@ public class UseFactorCVMasterServiceTests
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
         Assert.Contains(result.Items, x => x.Id == 1 && x.TypeOfUseId == 1 && x.SubTypeOfUseId == 1);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAll()
+    {
+        // Arrange
+        var createDtos = new[]
+        {
+            new CreateUseFactorCVMasterDto { TypeOfUseId = 1, SubTypeOfUseId = 1, Factor = 1.1m, YearRangeCVId = 1, IsActive = true },
+            new CreateUseFactorCVMasterDto { TypeOfUseId = 2, SubTypeOfUseId = 2, Factor = 2.2m, YearRangeCVId = 1, IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<UseFactorCVMasterEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(createDtos);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_ValidItems_UpdatesAll()
+    {
+        // Arrange
+        var updateDtos = new[]
+        {
+            new BulkUpdateItem<int, UpdateUseFactorCVMasterDto>(1, new UpdateUseFactorCVMasterDto { TypeOfUseId = 1, SubTypeOfUseId = 1, Factor = 1.5m, YearRangeCVId = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateUseFactorCVMasterDto>(2, new UpdateUseFactorCVMasterDto { TypeOfUseId = 2, SubTypeOfUseId = 2, Factor = 2.5m, YearRangeCVId = 1, IsActive = true })
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => new UseFactorCVMasterEntity { Id = id });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<UseFactorCVMasterEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkUpdateAsync(updateDtos);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
     }
 }

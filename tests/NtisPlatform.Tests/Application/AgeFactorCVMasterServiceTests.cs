@@ -7,6 +7,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Application.DTOs.Bulk;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -187,5 +188,46 @@ public class AgeFactorCVMasterServiceTests
         Assert.Contains(result.Items, x => x.Id == 1 && x.ConstructionTypeId == 1);
         // Assert placeholder row AgeTo is 5
         Assert.Contains(result.Items, x => x.Id == 0 && x.AgeTo == 5);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAll()
+    {
+        var createDtos = new[]
+        {
+            new CreateAgeFactorCVMasterDto { ConstructionTypeId = 1, AgeFrom = 0, AgeTo = 5, Factor = 1.1m, YearRangeCVId = 1, IsActive = true },
+            new CreateAgeFactorCVMasterDto { ConstructionTypeId = 2, AgeFrom = 6, AgeTo = 10, Factor = 2.2m, YearRangeCVId = 1, IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<AgeFactorCVMasterEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkCreateAsync(createDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_ValidItems_UpdatesAll()
+    {
+        var updateDtos = new[]
+        {
+            new BulkUpdateItem<int, UpdateAgeFactorCVMasterDto>(1, new UpdateAgeFactorCVMasterDto { ConstructionTypeId = 1, AgeFrom = 0, AgeTo = 5, Factor = 1.5m, YearRangeCVId = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateAgeFactorCVMasterDto>(2, new UpdateAgeFactorCVMasterDto { ConstructionTypeId = 2, AgeFrom = 6, AgeTo = 10, Factor = 2.5m, YearRangeCVId = 1, IsActive = true })
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => new AgeFactorCVMasterEntity { Id = id });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<AgeFactorCVMasterEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkUpdateAsync(updateDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
     }
 }

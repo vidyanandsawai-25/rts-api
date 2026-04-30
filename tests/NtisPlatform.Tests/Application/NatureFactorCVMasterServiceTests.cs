@@ -7,6 +7,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Application.DTOs.Bulk;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -97,5 +98,46 @@ public class NatureFactorCVMasterServiceTests
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
         Assert.Contains(result.Items, x => x.Id == 1 && x.ConstructionTypeId == 1);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_ValidItems_CreatesAll()
+    {
+        var createDtos = new[]
+        {
+            new CreateNatureFactorCVMasterDto { ConstructionTypeId = 1, Factor = 1.1m, YearRangeCVId = 1, IsActive = true },
+            new CreateNatureFactorCVMasterDto { ConstructionTypeId = 2, Factor = 2.2m, YearRangeCVId = 1, IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<NatureFactorCVMasterEntity>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkCreateAsync(createDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_ValidItems_UpdatesAll()
+    {
+        var updateDtos = new[]
+        {
+            new BulkUpdateItem<int, UpdateNatureFactorCVMasterDto>(1, new UpdateNatureFactorCVMasterDto { ConstructionTypeId = 1, Factor = 1.5m, YearRangeCVId = 1, IsActive = true }),
+            new BulkUpdateItem<int, UpdateNatureFactorCVMasterDto>(2, new UpdateNatureFactorCVMasterDto { ConstructionTypeId = 2, Factor = 2.5m, YearRangeCVId = 1, IsActive = true })
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => new NatureFactorCVMasterEntity { Id = id });
+
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<NatureFactorCVMasterEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await _service.BulkUpdateAsync(updateDtos);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
     }
 }
