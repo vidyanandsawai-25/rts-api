@@ -113,6 +113,16 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public int? SocietyDetailId { get; set; }
 
     /// <summary>
+    /// Foreign Key to PropertyAssessmentStatusMaster.Id
+    /// </summary>
+    public int? PropertyAssessmentStatusId { get; set; }
+
+    /// <summary>
+    /// Foreign Key to PropertyMastOld.Id
+    /// </summary>
+    public int? PropertyMastOldId { get; set; }
+
+    /// <summary>
     /// Indicates whether the entity is marked for deletion.
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;

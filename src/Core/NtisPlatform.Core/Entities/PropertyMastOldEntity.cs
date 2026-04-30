@@ -10,8 +10,6 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMastOld", Schema = "PTIS")]
 public class PropertyMastOldEntity : BaseEntity
 {
-    public int? PropertyId { get; set; }
-
     [Column(TypeName = "nvarchar(10)")]
     public string? OldWardNo { get; set; }
 

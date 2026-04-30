@@ -10,7 +10,10 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyDetailsOld", Schema = "PTIS")]
 public class PropertyDetailsOldEntity : BaseEntity
 {
-    public int PropertyId { get; set; }
+    /// <summary>
+    /// Foreign Key to PropertyMastOld.Id
+    /// </summary>
+    public int PropertyMastOldId { get; set; }
 
     /// <summary>
     /// Foreign Key to FloorMaster.Id

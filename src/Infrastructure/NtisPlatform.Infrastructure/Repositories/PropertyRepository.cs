@@ -757,22 +757,28 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     public async Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Check if property exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
-
-        if (!propertyExists)
-            return null;
-
-        // Step 1: Get PropertyMastOld data
-        var oldMastData = await _context.PropertyMastOld
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.Id)
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
             .FirstOrDefaultAsync(cancellationToken);
 
-        // Step 2: Get first PropertyDetailsOld data (or aggregate if needed)
+        if (property == null)
+            return null;
+
+        if (!property.PropertyMastOldId.HasValue)
+            return new PropertyOldDetailsDto { PropertyId = propertyId };
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
+
+        // Step 2: Get PropertyMastOld data
+        var oldMastData = await _context.PropertyMastOld
+            .Where(x => x.Id == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Step 3: Get first PropertyDetailsOld data (or aggregate if needed)
         var oldDetailsData = await _context.PropertyDetailsOld
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => x.PropertyMastOldId == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -802,92 +808,86 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if PropertyMast exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
-
-        if (!propertyExists)
-            return null;
-
-        // Step 2: Upsert PropertyMastOld
-        var oldMastId = await _context.PropertyMastOld
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.Id)
-            .Select(x => x.Id)
+        // Step 1: Get or create PropertyMastOld for this property
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
             .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasOldMastData = dto.OldWardNo != null || dto.OldPropertyNo != null ||
-                              dto.OldPartitionNo != null || dto.OldEgovNo != null ||
-                              dto.OldPlotArea.HasValue || dto.OldPlotNo != null ||
-                              dto.OldRV.HasValue || dto.OldALV.HasValue ||
-                              dto.OldTotalTax.HasValue || dto.OldZoneNo != null;
+        if (property == null)
+            return null;
 
-        if (oldMastId > 0)
+        int propertyMastOldId;
+
+        // Step 2: Check if PropertyMastOld exists or create it
+        if (property.PropertyMastOldId.HasValue)
         {
-            // UPDATE existing record
-            var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { oldMastId }, cancellationToken);
-
-            if (oldMastData != null)
-            {
-                if (dto.OldWardNo != null)
-                    oldMastData.OldWardNo = dto.OldWardNo;
-
-                if (dto.OldPropertyNo != null)
-                    oldMastData.OldPropertyNo = dto.OldPropertyNo;
-
-                if (dto.OldPartitionNo != null)
-                    oldMastData.OldPartitionNo = dto.OldPartitionNo;
-
-                if (dto.OldEgovNo != null)
-                    oldMastData.OldEgovNo = dto.OldEgovNo;
-
-                if (dto.OldPlotArea.HasValue)
-                    oldMastData.OldPlotArea = dto.OldPlotArea;
-
-                if (dto.OldPlotNo != null)
-                    oldMastData.OldPlotNo = dto.OldPlotNo;
-
-                if (dto.OldRV.HasValue)
-                    oldMastData.OldRV = dto.OldRV;
-
-                if (dto.OldALV.HasValue)
-                    oldMastData.OldALV = dto.OldALV;
-
-                if (dto.OldTotalTax.HasValue)
-                    oldMastData.OldTotalTax = dto.OldTotalTax;
-
-                if (dto.OldZoneNo != null)
-                    oldMastData.OldZoneNo = dto.OldZoneNo;
-
-                oldMastData.UpdatedDate = DateTime.Now;
-            }
+            propertyMastOldId = property.PropertyMastOldId.Value;
         }
-        else if (hasOldMastData)
+        else
         {
-            // INSERT new record only if data is provided
-            var newOldMastData = new PropertyMastOldEntity
+            // Create new PropertyMastOld record
+            var newPropertyMastOld = new PropertyMastOldEntity
             {
-                PropertyId = propertyId,
-                OldWardNo = dto.OldWardNo,
-                OldPropertyNo = dto.OldPropertyNo,
-                OldPartitionNo = dto.OldPartitionNo,
-                OldEgovNo = dto.OldEgovNo,
-                OldPlotArea = dto.OldPlotArea,
-                OldPlotNo = dto.OldPlotNo,
-                OldRV = dto.OldRV,
-                OldALV = dto.OldALV,
-                OldTotalTax = dto.OldTotalTax,
-                OldZoneNo = dto.OldZoneNo,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedDate = DateTime.Now
             };
-            await _context.PropertyMastOld.AddAsync(newOldMastData, cancellationToken);
+            await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            propertyMastOldId = newPropertyMastOld.Id;
+
+            // Update PropertyMast with the new PropertyMastOldId
+            var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
+            if (propertyEntity != null)
+            {
+                propertyEntity.PropertyMastOldId = propertyMastOldId;
+                propertyEntity.UpdatedDate = DateTime.Now;
+            }
         }
 
-        // Step 3: Upsert PropertyDetailsOld
+        // Step 3: Update PropertyMastOld fields
+        var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
+
+        if (oldMastData != null)
+        {
+            if (dto.OldWardNo != null)
+                oldMastData.OldWardNo = dto.OldWardNo;
+
+            if (dto.OldPropertyNo != null)
+                oldMastData.OldPropertyNo = dto.OldPropertyNo;
+
+            if (dto.OldPartitionNo != null)
+                oldMastData.OldPartitionNo = dto.OldPartitionNo;
+
+            if (dto.OldEgovNo != null)
+                oldMastData.OldEgovNo = dto.OldEgovNo;
+
+            if (dto.OldPlotArea.HasValue)
+                oldMastData.OldPlotArea = dto.OldPlotArea;
+
+            if (dto.OldPlotNo != null)
+                oldMastData.OldPlotNo = dto.OldPlotNo;
+
+            if (dto.OldRV.HasValue)
+                oldMastData.OldRV = dto.OldRV;
+
+            if (dto.OldALV.HasValue)
+                oldMastData.OldALV = dto.OldALV;
+
+            if (dto.OldTotalTax.HasValue)
+                oldMastData.OldTotalTax = dto.OldTotalTax;
+
+            if (dto.OldZoneNo != null)
+                oldMastData.OldZoneNo = dto.OldZoneNo;
+
+            oldMastData.UpdatedDate = DateTime.Now;
+        }
+
+        // Step 4: Upsert PropertyDetailsOld
         var oldDetailsId = await _context.PropertyDetailsOld
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => x.PropertyMastOldId == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .Select(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
@@ -926,7 +926,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             // INSERT new record only if data is provided
             var newOldDetailsData = new PropertyDetailsOldEntity
             {
-                PropertyId = propertyId,
+                PropertyMastOldId = propertyMastOldId,
                 OldConstructionYear = dto.OldConstructionYear,
                 OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
                 OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
@@ -1043,12 +1043,26 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
     public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if property exists and is valid (active and not marked for deletion)
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!propertyExists)
+        if (property == null)
             return null;
+
+        if (!property.PropertyMastOldId.HasValue)
+        {
+            // Return empty result if no PropertyMastOld is linked
+            return new PropertyOldTaxesDetailsDto
+            {
+                PropertyId = propertyId,
+                TaxYears = new List<OldTaxYearDto>()
+            };
+        }
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
 
         // Step 2: Get all active old taxes from TaxMaster where OldTaxStatus = true
         var oldTaxes = await _context.TaxMaster
@@ -1067,9 +1081,9 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             };
         }
 
-        // Step 3: Get all TransMastOld records for this property
+        // Step 3: Get all TransMastOld records for this PropertyMastOldId
         var transMastOldData = await _context.TransMastOld
-            .Where(t => t.PropertyId == propertyId && t.IsActive && !t.MarkedForDeletion)
+            .Where(t => t.PropertyMastOldId == propertyMastOldId && t.IsActive && !t.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
         // Step 4: Get unique finance years from the transactions
@@ -1176,13 +1190,46 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
     public async Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if PropertyMast exists
-       var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        // Step 1: Get or create PropertyMastOld for this property
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!propertyExists)
+        if (property == null)
             return null;
     
+
+        int propertyMastOldId;
+
+        // Step 2: Check if PropertyMastOld exists or create it
+        if (property.PropertyMastOldId.HasValue)
+        {
+            propertyMastOldId = property.PropertyMastOldId.Value;
+        }
+        else
+        {
+            // Create new PropertyMastOld record
+            var newPropertyMastOld = new PropertyMastOldEntity
+            {
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = DateTime.Now
+            };
+            await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            propertyMastOldId = newPropertyMastOld.Id;
+
+            // Update PropertyMast with the new PropertyMastOldId
+            var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
+            if (propertyEntity != null)
+            {
+                propertyEntity.PropertyMastOldId = propertyMastOldId;
+                propertyEntity.UpdatedDate = DateTime.Now;
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         // Step 2: Validate finance years exist
         var requestedFinanceYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).ToList();
@@ -1244,14 +1291,14 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             }
         }
 
-        // Step 5: Prefetch all existing transactions for this property and requested years (fix N+1)
-        // Do not filter by IsActive/MarkedForDeletion here because the database uniqueness
-        // constraint is on (PropertyId, FinanceYearId, TaxId) regardless of soft-delete state.
-        // If we exclude inactive or soft-deleted rows from the prefetch, later upsert logic can
-        // miss an existing row and attempt to insert a duplicate key.
+        // Step 5: Prefetch all existing transactions for this PropertyMastOldId and requested years (fix N+1)
+        // Do not filter by IsActive/MarkedForDeletion here even though the database has a filtered unique index
+        // (PropertyMastOldId, FinanceYearId, TaxId WHERE IsActive=1 AND MarkedForDeletion=0).
+        // We need to load all rows to support reactivation: if a soft-deleted row exists,
+        // the upsert logic must UPDATE (not INSERT) to avoid constraint violations when reactivating.
         var requestedYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).Distinct().ToList();
         var allExistingTransactions = await _context.TransMastOld
-            .Where(t => t.PropertyId == propertyId &&
+            .Where(t => t.PropertyMastOldId == propertyMastOldId &&
                        requestedYearIds.Contains(t.FinanceYearId))
             .ToListAsync(cancellationToken);
 
@@ -1304,7 +1351,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
                     // INSERT new transaction
                     var newTransaction = new TransMastOldEntity
                     {
-                        PropertyId = propertyId,
+                        PropertyMastOldId = propertyMastOldId,
                         FinanceYearId = yearDto.FinanceYearId,
                         TaxId = taxDto.TaxId,
                         TaxAmount = taxDto.TaxAmount,
@@ -1329,16 +1376,23 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
     public async Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if PropertyMast exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!propertyExists)
+        if (property == null)
             return null;
+
+        if (!property.PropertyMastOldId.HasValue)
+            return new PropertyDetailsOldListDto { PropertyId = propertyId, FloorDetails = new List<PropertyDetailsOldDto>() };
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
 
         // Step 2: Query PropertyDetailsOld with joins to master tables by ID
         var query = from pd in _context.PropertyDetailsOld
-                    where pd.PropertyId == propertyId && pd.IsActive && !pd.MarkedForDeletion
+                    where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
 
                     join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                     from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
@@ -1360,7 +1414,6 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
                     select new
                     {
                         Id = pd.Id,
-                        PropertyId = pd.PropertyId,
                         OldFloorId = pd.OldFloorId,
                         FloorDescription = f != null ? f.Description : null,
                         OldSubFloorId = pd.OldSubFloorId,
@@ -1387,7 +1440,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         var floorDetails = queryResults.Select(x => new PropertyDetailsOldDto
         {
             Id = x.Id,
-            PropertyId = x.PropertyId,
+            PropertyId = propertyId,
             OldFloorId = x.OldFloorId,
             FloorDescription = x.FloorDescription,
             OldSubFloorId = x.OldSubFloorId,
@@ -1417,194 +1470,525 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         };
     }
 
-    public async Task<PropertyDetailsOldListDto?> UpdateFloorDetailsOldAsync(int propertyId, UpdatePropertyDetailsOldListDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Check if PropertyMast exists
-        var propertyExists = await _context.PropertyMast
-            .AnyAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (!propertyExists)
+        if (property == null)
             return null;
 
-        // Step 2: Get all existing records for this property
-        var existingRecords = await _context.PropertyDetailsOld
-            .Where(pd => pd.PropertyId == propertyId && pd.IsActive && !pd.MarkedForDeletion)
-            .ToListAsync(cancellationToken);
+        if (!property.PropertyMastOldId.HasValue)
+            return null;
 
-        var existingRecordsDict = existingRecords.ToDictionary(r => r.Id);
+        var propertyMastOldId = property.PropertyMastOldId.Value;
 
-        // Step 3: Collect all IDs from the incoming request (only non-null, positive IDs)
-        var incomingIds = dto.FloorDetails
-            .Where(r => r.Id.HasValue && r.Id.Value > 0)
-            .Select(r => r.Id!.Value)
-            .ToHashSet();
+        // Step 2: Query single PropertyDetailsOld record with joins
+        var query = from pd in _context.PropertyDetailsOld
+                    where pd.Id == floorId && pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
 
-        // Step 4: Validate all foreign keys upfront (for both new and update records)
-        var allFloorIds = dto.FloorDetails
-            .Where(r => r.OldFloorId.HasValue)
-            .Select(r => r.OldFloorId!.Value)
-            .Distinct()
-            .ToList();
+                    join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
+                    from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-        if (allFloorIds.Any())
+                    join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
+                    from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
+                    from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
+                    from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
+                    from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    select new
+                    {
+                        Id = pd.Id,
+                        OldFloorId = pd.OldFloorId,
+                        FloorDescription = f != null ? f.Description : null,
+                        OldSubFloorId = pd.OldSubFloorId,
+                        SubFloorDescription = sf != null ? sf.Description : null,
+                        OldConstructionYear = pd.OldConstructionYear,
+                        OldAssessmentYear = pd.OldAssessmentYear,
+                        OldConstructionTypeId = pd.OldConstructionTypeId,
+                        ConstructionTypeDescription = ct != null ? ct.Description : null,
+                        OldTypeOfUseId = pd.OldTypeOfUseId,
+                        TypeOfUseDescription = tu != null ? tu.Description : null,
+                        OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
+                        SubTypeOfUseDescription = stu != null ? stu.Description : null,
+                        OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+                        OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+                        OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+                        OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                        MarkedForDeletion = pd.MarkedForDeletion,
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                    };
+
+        var result = await query.FirstOrDefaultAsync(cancellationToken);
+
+        if (result == null)
+            return null;
+
+        return new PropertyDetailsOldDto
         {
-            var validFloorIds = await _context.FloorEntity
-                .Where(f => allFloorIds.Contains(f.Id) && f.IsActive)
-                .Select(f => f.Id)
-                .ToListAsync(cancellationToken);
+            Id = result.Id,
+            PropertyId = propertyId,
+            OldFloorId = result.OldFloorId,
+            FloorDescription = result.FloorDescription,
+            OldSubFloorId = result.OldSubFloorId,
+            SubFloorDescription = result.SubFloorDescription,
+            OldConstructionYear = result.OldConstructionYear,
+            ConstructionYearValue = !string.IsNullOrEmpty(result.OldConstructionYear) && int.TryParse(result.OldConstructionYear, out int cyear) ? cyear : (int?)null,
+            OldAssessmentYear = result.OldAssessmentYear,
+            AssessmentYearValue = !string.IsNullOrEmpty(result.OldAssessmentYear) && int.TryParse(result.OldAssessmentYear, out int ayear) ? ayear : (int?)null,
+            OldConstructionTypeId = result.OldConstructionTypeId,
+            ConstructionTypeDescription = result.ConstructionTypeDescription,
+            OldTypeOfUseId = result.OldTypeOfUseId,
+            TypeOfUseDescription = result.TypeOfUseDescription,
+            OldSubTypeOfUseId = result.OldSubTypeOfUseId,
+            SubTypeOfUseDescription = result.SubTypeOfUseDescription,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            MarkedForDeletion = result.MarkedForDeletion,
+            MarkedForDeletionDate = result.MarkedForDeletionDate
+        };
+    }
 
-            var invalidFloorIds = allFloorIds.Except(validFloorIds).ToList();
-            if (invalidFloorIds.Any())
+    public async Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get or create PropertyMastOld for this property
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        int propertyMastOldId;
+
+        // Step 2: Check if PropertyMastOld exists or create it
+        if (property.PropertyMastOldId.HasValue)
+        {
+            propertyMastOldId = property.PropertyMastOldId.Value;
+        }
+        else
+        {
+            // Auto-create PropertyMastOld record (consistent with UpdateOldDetailsAsync behavior)
+            var newPropertyMastOld = new PropertyMastOldEntity
             {
-                throw new InvalidOperationException($"Invalid or inactive Floor ID(s): {string.Join(", ", invalidFloorIds)}");
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = DateTime.Now
+            };
+            await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            propertyMastOldId = newPropertyMastOld.Id;
+
+            // Update PropertyMast with the new PropertyMastOldId
+            var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
+            if (propertyEntity != null)
+            {
+                propertyEntity.PropertyMastOldId = propertyMastOldId;
+                propertyEntity.UpdatedDate = DateTime.Now;
+                await _context.SaveChangesAsync(cancellationToken);
             }
         }
 
-        var allConstructionTypeIds = dto.FloorDetails
-            .Where(r => r.OldConstructionTypeId.HasValue)
-            .Select(r => r.OldConstructionTypeId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (allConstructionTypeIds.Any())
+        // Step 3: Validate foreign keys
+        if (dto.OldFloorId.HasValue)
         {
-            var validConstructionTypeIds = await _context.ConstructionTypeEntity
-                .Where(c => allConstructionTypeIds.Contains(c.Id) && c.IsActive)
-                .Select(c => c.Id)
-                .ToListAsync(cancellationToken);
-
-            var invalidConstructionTypeIds = allConstructionTypeIds.Except(validConstructionTypeIds).ToList();
-            if (invalidConstructionTypeIds.Any())
+            var floorExists = await _context.FloorEntity
+                .AnyAsync(f => f.Id == dto.OldFloorId.Value && f.IsActive, cancellationToken);
+            if (!floorExists)
             {
-                throw new InvalidOperationException($"Invalid or inactive ConstructionType ID(s): {string.Join(", ", invalidConstructionTypeIds)}");
+                throw new InvalidOperationException($"Invalid or inactive Floor ID: {dto.OldFloorId.Value}");
             }
         }
 
-        var allTypeOfUseIds = dto.FloorDetails
-            .Where(r => r.OldTypeOfUseId.HasValue)
-            .Select(r => r.OldTypeOfUseId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (allTypeOfUseIds.Any())
+        if (dto.OldSubFloorId.HasValue)
         {
-            var validTypeOfUseIds = await _context.TypeOfUse
-                .Where(t => allTypeOfUseIds.Contains(t.Id) && t.IsActive)
-                .Select(t => t.Id)
-                .ToListAsync(cancellationToken);
-
-            var invalidTypeOfUseIds = allTypeOfUseIds.Except(validTypeOfUseIds).ToList();
-            if (invalidTypeOfUseIds.Any())
+            var subFloorExists = await _context.SubFloorEntity
+                .AnyAsync(sf => sf.Id == dto.OldSubFloorId.Value && sf.IsActive, cancellationToken);
+            if (!subFloorExists)
             {
-                throw new InvalidOperationException($"Invalid or inactive TypeOfUse ID(s): {string.Join(", ", invalidTypeOfUseIds)}");
+                throw new InvalidOperationException($"Invalid or inactive SubFloor ID: {dto.OldSubFloorId.Value}");
             }
         }
 
-        var allSubFloorIds = dto.FloorDetails
-            .Where(r => r.OldSubFloorId.HasValue)
-            .Select(r => r.OldSubFloorId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (allSubFloorIds.Any())
+        if (dto.OldConstructionTypeId.HasValue)
         {
-            var validSubFloorIds = await _context.SubFloorEntity
-                .Where(sf => allSubFloorIds.Contains(sf.Id) && sf.IsActive)
-                .Select(sf => sf.Id)
-                .ToListAsync(cancellationToken);
-
-            var invalidSubFloorIds = allSubFloorIds.Except(validSubFloorIds).ToList();
-            if (invalidSubFloorIds.Any())
+            var constructionTypeExists = await _context.ConstructionTypeEntity
+                .AnyAsync(c => c.Id == dto.OldConstructionTypeId.Value && c.IsActive, cancellationToken);
+            if (!constructionTypeExists)
             {
-                throw new InvalidOperationException($"Invalid or inactive SubFloor ID(s): {string.Join(", ", invalidSubFloorIds)}");
+                throw new InvalidOperationException($"Invalid or inactive ConstructionType ID: {dto.OldConstructionTypeId.Value}");
             }
         }
 
-        var allSubTypeOfUseIds = dto.FloorDetails
-            .Where(r => r.OldSubTypeOfUseId.HasValue)
-            .Select(r => r.OldSubTypeOfUseId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (allSubTypeOfUseIds.Any())
+        if (dto.OldTypeOfUseId.HasValue)
         {
-            var validSubTypeOfUseIds = await _context.SubTypeOfUse
-                .Where(stu => allSubTypeOfUseIds.Contains(stu.Id) && stu.IsActive)
-                .Select(stu => stu.Id)
-                .ToListAsync(cancellationToken);
-
-            var invalidSubTypeOfUseIds = allSubTypeOfUseIds.Except(validSubTypeOfUseIds).ToList();
-            if (invalidSubTypeOfUseIds.Any())
+            var typeOfUseExists = await _context.TypeOfUse
+                .AnyAsync(t => t.Id == dto.OldTypeOfUseId.Value && t.IsActive, cancellationToken);
+            if (!typeOfUseExists)
             {
-                throw new InvalidOperationException($"Invalid or inactive SubTypeOfUse ID(s): {string.Join(", ", invalidSubTypeOfUseIds)}");
+                throw new InvalidOperationException($"Invalid or inactive TypeOfUse ID: {dto.OldTypeOfUseId.Value}");
             }
         }
 
-        // Step 5: Process each record - UPSERT logic based on Id
-        foreach (var record in dto.FloorDetails)
+        if (dto.OldSubTypeOfUseId.HasValue)
         {
-            if (record.Id.HasValue && record.Id.Value > 0)
+            var subTypeOfUseExists = await _context.SubTypeOfUse
+                .AnyAsync(stu => stu.Id == dto.OldSubTypeOfUseId.Value && stu.IsActive, cancellationToken);
+            if (!subTypeOfUseExists)
             {
-                // UPDATE existing record
-                if (!existingRecordsDict.TryGetValue(record.Id.Value, out var entity))
-                {
-                    throw new InvalidOperationException($"PropertyDetailsOld record with ID {record.Id.Value} not found or does not belong to property {propertyId}");
-                }
-
-                entity.OldFloorId = record.OldFloorId;
-                entity.OldSubFloorId = record.OldSubFloorId;
-                entity.OldConstructionYear = record.OldConstructionYear;
-                entity.OldAssessmentYear = record.OldAssessmentYear;
-                entity.OldConstructionTypeId = record.OldConstructionTypeId;
-                entity.OldTypeOfUseId = record.OldTypeOfUseId;
-                entity.OldSubTypeOfUseId = record.OldSubTypeOfUseId;
-                entity.OldCarpetAreaSqMeter = record.OldCarpetAreaSqMeter;
-                entity.OldCarpetAreaSqFeet = record.OldCarpetAreaSqFeet;
-                entity.OldBuiltupAreaSqMeter = record.OldBuiltupAreaSqMeter;
-                entity.OldBuiltupAreaSqFeet = record.OldBuiltupAreaSqFeet;
-                entity.UpdatedDate = DateTime.Now;
-            }
-            else
-            {
-                // INSERT new record (Id will be auto-generated by database)
-                var newEntity = new PropertyDetailsOldEntity
-                {
-                    PropertyId = propertyId,
-                    OldFloorId = record.OldFloorId,
-                    OldSubFloorId = record.OldSubFloorId,
-                    OldConstructionYear = record.OldConstructionYear,
-                    OldAssessmentYear = record.OldAssessmentYear,
-                    OldConstructionTypeId = record.OldConstructionTypeId,
-                    OldTypeOfUseId = record.OldTypeOfUseId,
-                    OldSubTypeOfUseId = record.OldSubTypeOfUseId,
-                    OldCarpetAreaSqMeter = record.OldCarpetAreaSqMeter,
-                    OldCarpetAreaSqFeet = record.OldCarpetAreaSqFeet,
-                    OldBuiltupAreaSqMeter = record.OldBuiltupAreaSqMeter,
-                    OldBuiltupAreaSqFeet = record.OldBuiltupAreaSqFeet,
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    CreatedDate = DateTime.Now
-                };
-
-                await _context.PropertyDetailsOld.AddAsync(newEntity, cancellationToken);
+                throw new InvalidOperationException($"Invalid or inactive SubTypeOfUse ID: {dto.OldSubTypeOfUseId.Value}");
             }
         }
 
-        // Step 6: Soft DELETE records not in the incoming list (records that were removed from UI)
-        var recordsToDelete = existingRecords.Where(r => !incomingIds.Contains(r.Id)).ToList();
-        foreach (var record in recordsToDelete)
+        // Step 4: Create new entity
+        var newEntity = new PropertyDetailsOldEntity
         {
-            record.MarkedForDeletion = true;
-            record.IsActive = false;
-            record.MarkedForDeletionDate = DateTime.Now;
-            record.UpdatedDate = DateTime.Now;
-        }
+            PropertyMastOldId = propertyMastOldId,
+            OldFloorId = dto.OldFloorId,
+            OldSubFloorId = dto.OldSubFloorId,
+            OldConstructionYear = dto.OldConstructionYear,
+            OldAssessmentYear = dto.OldAssessmentYear,
+            OldConstructionTypeId = dto.OldConstructionTypeId,
+            OldTypeOfUseId = dto.OldTypeOfUseId,
+            OldSubTypeOfUseId = dto.OldSubTypeOfUseId,
+            OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
+            OldBuiltupAreaSqMeter = dto.OldBuiltupAreaSqMeter,
+            OldBuiltupAreaSqFeet = dto.OldBuiltupAreaSqFeet,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
 
-        // Step 7: Save all changes
+        await _context.PropertyDetailsOld.AddAsync(newEntity, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Step 8: Return updated data
-        return await GetFloorDetailsOldAsync(propertyId, cancellationToken);
+        // Step 5: Return the newly created record with joined data
+        var query = from pd in _context.PropertyDetailsOld
+                    where pd.Id == newEntity.Id
+
+                    join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
+                    from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
+                    from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
+                    from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
+                    from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
+                    from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    select new
+                    {
+                        Id = pd.Id,
+                        OldFloorId = pd.OldFloorId,
+                        FloorDescription = f != null ? f.Description : null,
+                        OldSubFloorId = pd.OldSubFloorId,
+                        SubFloorDescription = sf != null ? sf.Description : null,
+                        OldConstructionYear = pd.OldConstructionYear,
+                        OldAssessmentYear = pd.OldAssessmentYear,
+                        OldConstructionTypeId = pd.OldConstructionTypeId,
+                        ConstructionTypeDescription = ct != null ? ct.Description : null,
+                        OldTypeOfUseId = pd.OldTypeOfUseId,
+                        TypeOfUseDescription = tu != null ? tu.Description : null,
+                        OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
+                        SubTypeOfUseDescription = stu != null ? stu.Description : null,
+                        OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+                        OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+                        OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+                        OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                        MarkedForDeletion = pd.MarkedForDeletion,
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                    };
+
+        var result = await query.FirstOrDefaultAsync(cancellationToken);
+
+        if (result == null)
+            return null;
+
+        return new PropertyDetailsOldDto
+        {
+            Id = result.Id,
+            PropertyId = propertyId,
+            OldFloorId = result.OldFloorId,
+            FloorDescription = result.FloorDescription,
+            OldSubFloorId = result.OldSubFloorId,
+            SubFloorDescription = result.SubFloorDescription,
+            OldConstructionYear = result.OldConstructionYear,
+            ConstructionYearValue = !string.IsNullOrEmpty(result.OldConstructionYear) && int.TryParse(result.OldConstructionYear, out int cyear) ? cyear : (int?)null,
+            OldAssessmentYear = result.OldAssessmentYear,
+            AssessmentYearValue = !string.IsNullOrEmpty(result.OldAssessmentYear) && int.TryParse(result.OldAssessmentYear, out int ayear) ? ayear : (int?)null,
+            OldConstructionTypeId = result.OldConstructionTypeId,
+            ConstructionTypeDescription = result.ConstructionTypeDescription,
+            OldTypeOfUseId = result.OldTypeOfUseId,
+            TypeOfUseDescription = result.TypeOfUseDescription,
+            OldSubTypeOfUseId = result.OldSubTypeOfUseId,
+            SubTypeOfUseDescription = result.SubTypeOfUseDescription,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            MarkedForDeletion = result.MarkedForDeletion,
+            MarkedForDeletionDate = result.MarkedForDeletionDate
+        };
+    }
+
+    public async Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        if (!property.PropertyMastOldId.HasValue)
+            throw new InvalidOperationException($"Property {propertyId} does not have an associated PropertyMastOld record");
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
+
+        // Step 2: Get the existing floor record
+        var existingRecord = await _context.PropertyDetailsOld
+            .FirstOrDefaultAsync(pd => pd.Id == floorId && pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion, cancellationToken);
+
+        if (existingRecord == null)
+            return null;
+
+        // Step 3: Validate foreign keys
+        if (dto.OldFloorId.HasValue)
+        {
+            var floorExists = await _context.FloorEntity
+                .AnyAsync(f => f.Id == dto.OldFloorId.Value && f.IsActive, cancellationToken);
+            if (!floorExists)
+            {
+                throw new InvalidOperationException($"Invalid or inactive Floor ID: {dto.OldFloorId.Value}");
+            }
+        }
+
+        if (dto.OldSubFloorId.HasValue)
+        {
+            var subFloorExists = await _context.SubFloorEntity
+                .AnyAsync(sf => sf.Id == dto.OldSubFloorId.Value && sf.IsActive, cancellationToken);
+            if (!subFloorExists)
+            {
+                throw new InvalidOperationException($"Invalid or inactive SubFloor ID: {dto.OldSubFloorId.Value}");
+            }
+        }
+
+        if (dto.OldConstructionTypeId.HasValue)
+        {
+            var constructionTypeExists = await _context.ConstructionTypeEntity
+                .AnyAsync(c => c.Id == dto.OldConstructionTypeId.Value && c.IsActive, cancellationToken);
+            if (!constructionTypeExists)
+            {
+                throw new InvalidOperationException($"Invalid or inactive ConstructionType ID: {dto.OldConstructionTypeId.Value}");
+            }
+        }
+
+        if (dto.OldTypeOfUseId.HasValue)
+        {
+            var typeOfUseExists = await _context.TypeOfUse
+                .AnyAsync(t => t.Id == dto.OldTypeOfUseId.Value && t.IsActive, cancellationToken);
+            if (!typeOfUseExists)
+            {
+                throw new InvalidOperationException($"Invalid or inactive TypeOfUse ID: {dto.OldTypeOfUseId.Value}");
+            }
+        }
+
+        if (dto.OldSubTypeOfUseId.HasValue)
+        {
+            var subTypeOfUseExists = await _context.SubTypeOfUse
+                .AnyAsync(stu => stu.Id == dto.OldSubTypeOfUseId.Value && stu.IsActive, cancellationToken);
+            if (!subTypeOfUseExists)
+            {
+                throw new InvalidOperationException($"Invalid or inactive SubTypeOfUse ID: {dto.OldSubTypeOfUseId.Value}");
+            }
+        }
+
+        // Step 4: Update the entity
+        if (dto.OldFloorId.HasValue)
+        {
+            existingRecord.OldFloorId = dto.OldFloorId;
+        }
+
+        if (dto.OldSubFloorId.HasValue)
+        {
+            existingRecord.OldSubFloorId = dto.OldSubFloorId;
+        }
+
+        if (dto.OldConstructionYear != null)
+        {
+            existingRecord.OldConstructionYear = dto.OldConstructionYear;
+        }
+
+        if (dto.OldAssessmentYear != null)
+        {
+            existingRecord.OldAssessmentYear = dto.OldAssessmentYear;
+        }
+
+        if (dto.OldConstructionTypeId.HasValue)
+        {
+            existingRecord.OldConstructionTypeId = dto.OldConstructionTypeId;
+        }
+
+        if (dto.OldTypeOfUseId.HasValue)
+        {
+            existingRecord.OldTypeOfUseId = dto.OldTypeOfUseId;
+        }
+
+        if (dto.OldSubTypeOfUseId.HasValue)
+        {
+            existingRecord.OldSubTypeOfUseId = dto.OldSubTypeOfUseId;
+        }
+
+        if (dto.OldCarpetAreaSqMeter.HasValue)
+        {
+            existingRecord.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
+        }
+
+        if (dto.OldCarpetAreaSqFeet.HasValue)
+        {
+            existingRecord.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
+        }
+
+        if (dto.OldBuiltupAreaSqMeter.HasValue)
+        {
+            existingRecord.OldBuiltupAreaSqMeter = dto.OldBuiltupAreaSqMeter;
+        }
+
+        if (dto.OldBuiltupAreaSqFeet.HasValue)
+        {
+            existingRecord.OldBuiltupAreaSqFeet = dto.OldBuiltupAreaSqFeet;
+        }
+        existingRecord.UpdatedDate = DateTime.Now;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Step 5: Return the updated record with joined data
+        var query = from pd in _context.PropertyDetailsOld
+                    where pd.Id == floorId
+
+                    join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
+                    from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
+                    from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
+                    from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
+                    from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
+                    from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    select new
+                    {
+                        Id = pd.Id,
+                        OldFloorId = pd.OldFloorId,
+                        FloorDescription = f != null ? f.Description : null,
+                        OldSubFloorId = pd.OldSubFloorId,
+                        SubFloorDescription = sf != null ? sf.Description : null,
+                        OldConstructionYear = pd.OldConstructionYear,
+                        OldAssessmentYear = pd.OldAssessmentYear,
+                        OldConstructionTypeId = pd.OldConstructionTypeId,
+                        ConstructionTypeDescription = ct != null ? ct.Description : null,
+                        OldTypeOfUseId = pd.OldTypeOfUseId,
+                        TypeOfUseDescription = tu != null ? tu.Description : null,
+                        OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
+                        SubTypeOfUseDescription = stu != null ? stu.Description : null,
+                        OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+                        OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+                        OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+                        OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                        MarkedForDeletion = pd.MarkedForDeletion,
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                    };
+
+        var result = await query.FirstOrDefaultAsync(cancellationToken);
+
+        if (result == null)
+            return null;
+
+        return new PropertyDetailsOldDto
+        {
+            Id = result.Id,
+            PropertyId = propertyId,
+            OldFloorId = result.OldFloorId,
+            FloorDescription = result.FloorDescription,
+            OldSubFloorId = result.OldSubFloorId,
+            SubFloorDescription = result.SubFloorDescription,
+            OldConstructionYear = result.OldConstructionYear,
+            ConstructionYearValue = !string.IsNullOrEmpty(result.OldConstructionYear) && int.TryParse(result.OldConstructionYear, out int cyear) ? cyear : (int?)null,
+            OldAssessmentYear = result.OldAssessmentYear,
+            AssessmentYearValue = !string.IsNullOrEmpty(result.OldAssessmentYear) && int.TryParse(result.OldAssessmentYear, out int ayear) ? ayear : (int?)null,
+            OldConstructionTypeId = result.OldConstructionTypeId,
+            ConstructionTypeDescription = result.ConstructionTypeDescription,
+            OldTypeOfUseId = result.OldTypeOfUseId,
+            TypeOfUseDescription = result.TypeOfUseDescription,
+            OldSubTypeOfUseId = result.OldSubTypeOfUseId,
+            SubTypeOfUseDescription = result.SubTypeOfUseDescription,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            MarkedForDeletion = result.MarkedForDeletion,
+            MarkedForDeletionDate = result.MarkedForDeletionDate
+        };
+    }
+
+    public async Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return false;
+
+        if (!property.PropertyMastOldId.HasValue)
+            return false;
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
+
+        // Step 2: Get the existing floor record
+        var existingRecord = await _context.PropertyDetailsOld
+            .FirstOrDefaultAsync(pd => pd.Id == floorId && pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion, cancellationToken);
+
+        if (existingRecord == null)
+            return false;
+
+        // Step 3: Soft delete the record
+        existingRecord.MarkedForDeletion = true;
+        existingRecord.IsActive = false;
+        existingRecord.MarkedForDeletionDate = DateTime.Now;
+        existingRecord.UpdatedDate = DateTime.Now;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 }
  

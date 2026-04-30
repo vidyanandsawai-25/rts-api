@@ -90,11 +90,39 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates historical floor details for a property (batch create, update, delete)
+    /// Retrieves a single historical floor detail record by ID
     /// </summary>
     /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update data containing floor detail records to create, update, or delete</param>
+    /// <param name="floorId">The floor record identifier</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertyDetailsOldListDto if property was found and updated, null otherwise</returns>
-    Task<PropertyDetailsOldListDto?> UpdateFloorDetailsOldAsync(int propertyId, UpdatePropertyDetailsOldListDto dto, CancellationToken cancellationToken = default);
+    /// <returns>Single floor record or null if not found</returns>
+    Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a new historical floor detail record for a property
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The floor data to add</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The newly created PropertyDetailsOldDto if property was found and record created, null otherwise</returns>
+    Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates an existing historical floor detail record for a property
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="floorId">The floor record identifier</param>
+    /// <param name="dto">The update data for the floor record</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated PropertyDetailsOldDto if property and floor record were found and updated, null otherwise</returns>
+    Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a historical floor detail record for a property (soft delete)
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="floorId">The floor record identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if the record was found and deleted, false otherwise</returns>
+    Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
 }

@@ -92,9 +92,24 @@ public class PropertyService
         return await _propertyRepository.GetFloorDetailsOldAsync(propertyId, cancellationToken);
     }
 
-    public async Task<PropertyDetailsOldListDto?> UpdateFloorDetailsOldAsync(int propertyId, UpdatePropertyDetailsOldListDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
     {
-        return await _propertyRepository.UpdateFloorDetailsOldAsync(propertyId, dto, cancellationToken);
+        return await _propertyRepository.GetFloorDetailsOldByIdAsync(propertyId, floorId, cancellationToken);
+    }
+
+    public async Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.AddFloorDetailsOldAsync(propertyId, dto, cancellationToken);
+    }
+
+    public async Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.UpdateFloorDetailsOldAsync(propertyId, floorId, dto, cancellationToken);
+    }
+
+    public async Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.DeleteFloorDetailsOldAsync(propertyId, floorId, cancellationToken);
     }
 }
 

@@ -1288,7 +1288,6 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyMastOld", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired(false);
             entity.Property(e => e.OldWardNo).HasMaxLength(10);
             entity.Property(e => e.OldPropertyNo).HasMaxLength(10);
             entity.Property(e => e.OldPartitionNo).HasMaxLength(10);
@@ -1330,7 +1329,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
         });
 
         // PropertyDetailsOld configuration
@@ -1339,7 +1337,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyDetailsOld", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();  // Database auto-generates Id (IDENTITY)
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PropertyMastOldId).IsRequired();
             entity.Property(e => e.OldFloorId);  // int? FK to FloorMaster.Id
             entity.Property(e => e.OldSubFloorId);  // int? FK to SubFloorMaster.Id
             entity.Property(e => e.OldConstructionYear).HasMaxLength(4);  // varchar(4) - year string
@@ -1358,7 +1356,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.PropertyMastOldId);
         });
 
         // ── UserDepartmentAllocation ─────────────────────────────────────────
@@ -1564,7 +1562,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("TransMastOld", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PropertyMastOldId).IsRequired();
             entity.Property(e => e.FinanceYearId).IsRequired();
             entity.Property(e => e.RVorCV).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
             entity.Property(e => e.RVorCVValue).IsRequired().HasColumnType("decimal(18,2)");
@@ -1577,18 +1575,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
-            // Unique constraint on PropertyId, FinanceYearId, TaxId for active, non-deleted rows only
-            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId })
+
+            // Unique constraint on PropertyMastOldId, FinanceYearId, TaxId for active, non-deleted rows only
+            entity.HasIndex(e => new { e.PropertyMastOldId, e.FinanceYearId, e.TaxId })
                 .IsUnique()
                 .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
                 .HasDatabaseName("UQ_TransMastOld_Property_Year_Tax");
-            
+
             // Performance indexes
-            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId })
+            entity.HasIndex(e => new { e.PropertyMastOldId, e.FinanceYearId })
                 .HasDatabaseName("IX_TransMastOld_PropertyYear")
                 .IncludeProperties(e => new { e.TaxId, e.TaxAmount });
-            
+
             entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastOld_TaxId");
         });
     }

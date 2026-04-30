@@ -11,7 +11,7 @@ namespace NtisPlatform.Core.Entities;
 public class TransMastOldEntity : BaseEntity
 {
     [Required]
-    public int PropertyId { get; set; }
+    public int PropertyMastOldId { get; set; }
 
     [Required]
     public int FinanceYearId { get; set; }

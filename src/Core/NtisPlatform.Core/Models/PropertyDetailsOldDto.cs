@@ -115,19 +115,11 @@ public class PropertyDetailsOldListDto
 }
 
 /// <summary>
-/// Request DTO for updating Property Details Old records
-/// If Id is null or 0, a new record will be created (INSERT)
-/// If Id is provided and exists, the record will be updated (UPDATE)
-/// Records not included in the list will be soft-deleted
+/// Request DTO for adding a new Property Details Old record via POST
+/// Used for adding a single floor record
 /// </summary>
-public class UpdatePropertyDetailsOldDto
+public class AddPropertyDetailsOldDto
 {
-    /// <summary>
-    /// If null or 0: INSERT new record (database auto-generates Id)
-    /// If > 0: UPDATE existing record
-    /// </summary>
-    public int? Id { get; set; }
-
     public int? OldFloorId { get; set; }
     public int? OldSubFloorId { get; set; }
     public string? OldConstructionYear { get; set; }
@@ -142,16 +134,20 @@ public class UpdatePropertyDetailsOldDto
 }
 
 /// <summary>
-/// Batch update DTO for PUT /api/Property/{propertyId}/floor-details-old
-/// Supports automatic upsert logic: update existing records by Id, insert new records without Id
-/// Records not in the list will be soft-deleted
+/// Request DTO for updating a single existing Property Details Old record
+/// Used for updating one floor record via the update endpoint
 /// </summary>
-public class UpdatePropertyDetailsOldListDto
+public class UpdatePropertyDetailsOldDto
 {
-    /// <summary>
-    /// List of floor details to upsert. Cannot be null - use empty list to delete all records.
-    /// </summary>
-    [Required]
-    public List<UpdatePropertyDetailsOldDto> FloorDetails { get; init; } = new();
+    public int? OldFloorId { get; set; }
+    public int? OldSubFloorId { get; set; }
+    public string? OldConstructionYear { get; set; }
+    public string? OldAssessmentYear { get; set; }
+    public int? OldConstructionTypeId { get; set; }
+    public int? OldTypeOfUseId { get; set; }
+    public int? OldSubTypeOfUseId { get; set; }
+    public double? OldCarpetAreaSqMeter { get; set; }
+    public double? OldCarpetAreaSqFeet { get; set; }
+    public double? OldBuiltupAreaSqMeter { get; set; }
+    public double? OldBuiltupAreaSqFeet { get; set; }
 }
-
