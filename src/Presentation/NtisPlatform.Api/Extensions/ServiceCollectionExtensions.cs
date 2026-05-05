@@ -165,6 +165,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
+        services.AddScoped<IRuleScopeService, RuleScopeService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper

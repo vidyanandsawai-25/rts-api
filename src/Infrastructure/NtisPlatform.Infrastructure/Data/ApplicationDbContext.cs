@@ -41,7 +41,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
-    public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;    
+    public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!;
@@ -70,7 +70,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
-    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;    
+    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
@@ -88,6 +88,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = null!;
     public DbSet<BlockMasterEntity> BlockMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
+    public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -110,7 +111,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-        
+
         modelBuilder.Entity<PolicyTaxDetailsCVEntity>(entity =>
         {
             entity.ToTable("PolicyTaxDetailsCV", "PTIS");
@@ -130,7 +131,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-        
+
 
         // AgeFactorCVMaster configuration
         modelBuilder.Entity<AgeFactorCVMasterEntity>(entity =>
@@ -212,7 +213,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("BlockMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
-            entity.Property(e => e.WardId).IsRequired();           
+            entity.Property(e => e.WardId).IsRequired();
             // Add other property configurations as needed
             entity.HasIndex(e => e.WardId);
         });
@@ -381,8 +382,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
         });
 
-		
-		// MultilingualResource configuration 
+
+        // MultilingualResource configuration 
         modelBuilder.Entity<MultilingualResourceEntity>(b =>
         {
             b.ToTable("MultilingualResource", "CORE");
@@ -640,7 +641,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ScreenMaster", "Core");
             entity.HasKey(e => e.Id);
-           entity.Property(e => e.Id).HasColumnName("Id");
+            entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
             entity.HasOne(e => e.ScreenGroup)
@@ -744,7 +745,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.YearRangeCVId).IsRequired();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime");
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");            
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.FloorId);
             entity.HasIndex(e => e.YearRangeCVId);
             entity.HasIndex(e => e.IsActive);
@@ -1588,6 +1589,19 @@ public class ApplicationDbContext : DbContext
                 .IncludeProperties(e => new { e.TaxId, e.TaxAmount });
 
             entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastOld_TaxId");
+        });
+        // rule scope configuration
+        modelBuilder.Entity<RuleScopeEntity>(entity =>
+        {
+            entity.ToTable("RuleScopeMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuleScope).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }
