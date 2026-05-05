@@ -173,7 +173,7 @@ public class PropertyOldDetailsComprehensiveTests
             OldFloor = "G+2",
             OldConstructionTypeOfUseId = "RCC",
             OldUseType = "Residential",
-            OldConstArea = 500.25,
+            OldConstructionArea = 500.25,
             OldOwnerName = "John Doe",
             OldOccupierName = "Jane Doe",
             OldAddress = "123 Main St",
@@ -218,7 +218,7 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal("G+2", entity.OldFloor);
         Assert.Equal("RCC", entity.OldConstructionTypeOfUseId);
         Assert.Equal("Residential", entity.OldUseType);
-        Assert.Equal(500.25, entity.OldConstArea);
+        Assert.Equal(500.25, entity.OldConstructionArea);
         Assert.Equal("John Doe", entity.OldOwnerName);
         Assert.Equal("Jane Doe", entity.OldOccupierName);
         Assert.Equal("123 Main St", entity.OldAddress);
@@ -269,7 +269,7 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Null(entity.OldFloor);
         Assert.Null(entity.OldConstructionTypeOfUseId);
         Assert.Null(entity.OldUseType);
-        Assert.Null(entity.OldConstArea);
+        Assert.Null(entity.OldConstructionArea);
         Assert.Null(entity.OldOwnerName);
         Assert.Null(entity.OldOccupierName);
         Assert.Null(entity.OldAddress);
@@ -638,7 +638,10 @@ public class PropertyOldDetailsComprehensiveTests
             OldCarpetAreaSqFeet = 1200.50,
             OldCarpetAreaSqMeter = 111.48,
             OldConstructionTypeId = 2,
-            OldTypeOfUseId = 3
+            OldTypeOfUseId = 3,
+            OldConstructionArea = 500.25,
+            OldCSN = "98/440",
+            OldGeneralTax = 5000.25
         };
 
         // Assert

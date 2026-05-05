@@ -60,7 +60,7 @@ public class PropertyMastOldEntity : BaseEntity
     public string? OldUseType { get; set; }
 
     [Column(TypeName = "float")]
-    public double? OldConstArea { get; set; }
+    public double? OldConstructionArea { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
     public string? OldOwnerName { get; set; }

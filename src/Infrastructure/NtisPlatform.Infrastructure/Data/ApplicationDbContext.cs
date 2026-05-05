@@ -1306,7 +1306,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OldFloor).HasMaxLength(10);
             entity.Property(e => e.OldConstructionTypeOfUseId).HasMaxLength(7);
             entity.Property(e => e.OldUseType).HasMaxLength(100);
-            entity.Property(e => e.OldConstArea).HasColumnType("float");
+            entity.Property(e => e.OldConstructionArea).HasColumnType("float");
             entity.Property(e => e.OldOwnerName).HasMaxLength(1000);
             entity.Property(e => e.OldOccupierName).HasMaxLength(1000);
             entity.Property(e => e.OldAddress).HasMaxLength(500);

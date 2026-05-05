@@ -19,6 +19,9 @@ public class PropertyOldDetailsDto
     public double? OldALV { get; set; }
     public double? OldTotalTax { get; set; }
     public string? OldZoneNo { get; set; }
+    public double? OldGeneralTax { get; set; }
+    public string? OldCSN { get; set; }
+    public double? OldConstructionArea { get; set; }
 
     // From PropertyDetailsOld (Aggregated if multiple records exist)
     public string? OldConstructionYear { get; set; }

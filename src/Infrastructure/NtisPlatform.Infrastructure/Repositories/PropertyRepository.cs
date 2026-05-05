@@ -797,6 +797,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             OldALV = oldMastData?.OldALV,
             OldTotalTax = oldMastData?.OldTotalTax,
             OldZoneNo = oldMastData?.OldZoneNo,
+            OldGeneralTax = oldMastData?.OldGeneralTax,
+            OldCSN = oldMastData?.OldCSN,
+            OldConstructionArea = oldMastData?.OldConstructionArea,
             // From PropertyDetailsOld
             OldConstructionYear = oldDetailsData?.OldConstructionYear,
             OldCarpetAreaSqFeet = oldDetailsData?.OldCarpetAreaSqFeet,
