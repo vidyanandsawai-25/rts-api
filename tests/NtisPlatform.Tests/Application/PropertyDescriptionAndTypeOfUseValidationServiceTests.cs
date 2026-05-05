@@ -5,6 +5,11 @@ using NtisPlatform.Application.DTOs.Master.PropertyDescriptionAndTypeOfUseValida
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Api.Controllers.Master;
+using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Master;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -15,11 +20,20 @@ public class PropertyDescriptionAndTypeOfUseValidationServiceTests
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertyDescriptionAndTypeOfUseValidationService _service;
 
+    private readonly Mock<IPropertyDescriptionAndTypeOfUseValidationService> _mockService;
+    private readonly Mock<IHardDeleteCleanupService> _mockCleanupService;
+    private readonly Mock<ILogger<PropertyDescriptionAndTypeOfUseValidationController>> _mockLogger;
+    private readonly PropertyDescriptionAndTypeOfUseValidationController _controller;
+
     public PropertyDescriptionAndTypeOfUseValidationServiceTests()
     {
         _mockRepository = new Mock<IRepository<PropertyDescriptionAndTypeOfUseValidationEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockService = new Mock<IPropertyDescriptionAndTypeOfUseValidationService>();
+        _mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        _mockLogger = new Mock<ILogger<PropertyDescriptionAndTypeOfUseValidationController>>();
+        _controller = new PropertyDescriptionAndTypeOfUseValidationController(_mockService.Object, _mockCleanupService.Object, _mockLogger.Object);
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -35,6 +49,165 @@ public class PropertyDescriptionAndTypeOfUseValidationServiceTests
 
         _service = new PropertyDescriptionAndTypeOfUseValidationService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
     }
+
+
+    // --- Controller Endpoint Tests ---
+
+    [Fact]
+    public async Task GetAll_ReturnsOkResult_WithPagedData()
+    {
+        var queryParams = new PropertyDescriptionAndTypeOfUseValidationQueryParameters { PageNumber = 1, PageSize = 10 };
+        var pagedResult = new NtisPlatform.Application.Models.PagedResult<PropertyDescriptionAndTypeOfUseValidationDto>(
+            new List<PropertyDescriptionAndTypeOfUseValidationDto> { new() { Id = 1 }, new() { Id = 2 } }, 2, 1, 10);
+        _mockService.Setup(s => s.GetAllAsync(It.IsAny<PropertyDescriptionAndTypeOfUseValidationQueryParameters>(), It.IsAny<CancellationToken>())).ReturnsAsync(pagedResult);
+        var result = await _controller.GetAll(queryParams, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnValue = Assert.IsType<NtisPlatform.Application.Models.PagedResult<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.Equal(2, returnValue.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetById_ExistingId_ReturnsOkResult()
+    {
+        var dto = new PropertyDescriptionAndTypeOfUseValidationDto { Id = 1 };
+        _mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(dto);
+        var result = await _controller.GetById(1, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnValue = Assert.IsType<PropertyDescriptionAndTypeOfUseValidationDto>(okResult.Value);
+        Assert.Equal(1, returnValue.Id);
+    }
+
+    [Fact]
+    public async Task GetById_NonExistingId_ReturnsNotFound()
+    {
+        _mockService.Setup(s => s.GetByIdAsync(9999, It.IsAny<CancellationToken>())).ReturnsAsync((PropertyDescriptionAndTypeOfUseValidationDto?)null);
+        var result = await _controller.GetById(9999, CancellationToken.None);
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_ValidDto_ReturnsOkResult()
+    {
+        var createDto = new CreatePropertyDescriptionAndTypeOfUseValidationDto { PropertyTypeId = 5, TypeOfUseId = 10, IsActive = true };
+        var createdDto = new PropertyDescriptionAndTypeOfUseValidationDto { Id = 1, PropertyTypeId = 5, TypeOfUseId = 10, IsActive = true };
+        _mockService.Setup(s => s.CreateAsync(It.IsAny<CreatePropertyDescriptionAndTypeOfUseValidationDto>(), It.IsAny<CancellationToken>())).ReturnsAsync(createdDto);
+        var result = await _controller.Create(createDto, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(1, response.Items!.Id);
+    }
+
+    [Fact]
+    public async Task Update_ExistingId_ReturnsOkResult()
+    {
+        var updateDto = new UpdatePropertyDescriptionAndTypeOfUseValidationDto { PropertyTypeId = 6, TypeOfUseId = 11, IsActive = true };
+        var updatedDto = new PropertyDescriptionAndTypeOfUseValidationDto { Id = 1, PropertyTypeId = 6, TypeOfUseId = 11, IsActive = true };
+        _mockService.Setup(s => s.UpdateAsync(1, It.IsAny<UpdatePropertyDescriptionAndTypeOfUseValidationDto>(), It.IsAny<CancellationToken>())).ReturnsAsync(updatedDto);
+        var result = await _controller.Update(1, updateDto, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(1, response.Items!.Id);
+    }
+
+    [Fact]
+    public async Task Update_NonExistingId_ReturnsOkWithFailureResponse()
+    {
+        var updateDto = new UpdatePropertyDescriptionAndTypeOfUseValidationDto { PropertyTypeId = 6, TypeOfUseId = 11, IsActive = true };
+        _mockService.Setup(s => s.UpdateAsync(9999, It.IsAny<UpdatePropertyDescriptionAndTypeOfUseValidationDto>(), It.IsAny<CancellationToken>())).ReturnsAsync((PropertyDescriptionAndTypeOfUseValidationDto?)null);
+        var result = await _controller.Update(9999, updateDto, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task Delete_ExistingId_ReturnsOkResult()
+    {
+        _mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var result = await _controller.Delete(1, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task Delete_NonExistingId_ReturnsOkWithFailureResponse()
+    {
+        _mockService.Setup(s => s.DeleteAsync(9999, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var result = await _controller.Delete(9999, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<PropertyDescriptionAndTypeOfUseValidationDto>>(okResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkCreate_ValidItems_ReturnsOkResult()
+    {
+        var items = new[] { new CreatePropertyDescriptionAndTypeOfUseValidationDto { PropertyTypeId = 1, TypeOfUseId = 2, IsActive = true } };
+        var bulkResult = new NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>(1, 0, new[] { new PropertyDescriptionAndTypeOfUseValidationDto { Id = 1 } });
+        _mockService.Setup(s => s.BulkCreateAsync(items, It.IsAny<CancellationToken>())).ReturnsAsync(bulkResult);
+        var result = await _controller.BulkCreate(items, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkCreate_EmptyArray_ReturnsBadRequest()
+    {
+        var items = Array.Empty<CreatePropertyDescriptionAndTypeOfUseValidationDto>();
+        var result = await _controller.BulkCreate(items, CancellationToken.None);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>>>(badRequest.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkUpdate_ValidItems_ReturnsOkResult()
+    {
+        var items = new[] { new NtisPlatform.Application.DTOs.Bulk.BulkUpdateItem<int, UpdatePropertyDescriptionAndTypeOfUseValidationDto>(1, new UpdatePropertyDescriptionAndTypeOfUseValidationDto { PropertyTypeId = 1, TypeOfUseId = 2, IsActive = true }) };
+        var bulkResult = new NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>(1, 0, new[] { new PropertyDescriptionAndTypeOfUseValidationDto { Id = 1 } });
+        _mockService.Setup(s => s.BulkUpdateAsync(items, It.IsAny<CancellationToken>())).ReturnsAsync(bulkResult);
+        var result = await _controller.BulkUpdate(items, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkUpdate_EmptyArray_ReturnsBadRequest()
+    {
+        var items = Array.Empty<NtisPlatform.Application.DTOs.Bulk.BulkUpdateItem<int, UpdatePropertyDescriptionAndTypeOfUseValidationDto>>();
+        var result = await _controller.BulkUpdate(items, CancellationToken.None);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<PropertyDescriptionAndTypeOfUseValidationDto>>>(badRequest.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkPurge_ValidIds_ReturnsOkResult()
+    {
+        var ids = new[] { 1, 2 };
+        var bulkResult = new NtisPlatform.Application.DTOs.Bulk.BulkResult<int>(2, 0, ids);
+        _mockCleanupService.Setup(s => s.BulkForceHardDeleteAsync<PropertyDescriptionAndTypeOfUseValidationEntity, int>(ids, It.IsAny<CancellationToken>())).ReturnsAsync(bulkResult);
+        var result = await _controller.BulkPurge(ids, CancellationToken.None);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<int>>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task BulkPurge_EmptyArray_ReturnsBadRequest()
+    {
+        var ids = Array.Empty<int>();
+        var result = await _controller.BulkPurge(ids, CancellationToken.None);
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<int>>>(badRequest.Value);
+        Assert.False(response.Success);
+    }
+
 
     [Fact]
     public async Task GetByIdAsync_ExistingId_ReturnsDto()

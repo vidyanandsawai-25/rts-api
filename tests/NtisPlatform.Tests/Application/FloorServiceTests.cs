@@ -1006,4 +1006,60 @@ public class FloorServiceTests
     }
 
     #endregion
+
+    #region FloorController BulkPurge Endpoint Tests
+
+    [Fact]
+    public async Task BulkPurge_ValidIds_ReturnsOkAndCallsCleanupService()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        int[] ids = { 1, 2, 3 };
+        var bulkResult = new BulkResult<int>(
+            3, // SuccessCount
+            0, // FailedCount
+            new List<int> { 1, 2, 3 }, // Results
+            null // Errors
+        );
+        mockCleanupService
+            .Setup(s => s.BulkForceHardDeleteAsync<FloorEntity, int>(ids, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bulkResult);
+
+        // Act
+        var result = await controller.BulkPurge(ids, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<int>>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal(bulkResult, apiResponse.Items);
+        mockCleanupService.Verify(s => s.BulkForceHardDeleteAsync<FloorEntity, int>(ids, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkPurge_EmptyArray_ReturnsBadRequest()
+    {
+        // Arrange
+        var mockService = new Mock<IFloorService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockLogger = new Mock<ILogger<FloorController>>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+
+        int[] ids = Array.Empty<int>();
+
+        // Act
+        var result = await controller.BulkPurge(ids, CancellationToken.None);
+
+        // Assert
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<NtisPlatform.Application.Models.ApiResponse<NtisPlatform.Application.DTOs.Bulk.BulkResult<int>>>(badRequest.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("No IDs provided", apiResponse.Message);
+        mockCleanupService.Verify(s => s.BulkForceHardDeleteAsync<FloorEntity, int>(It.IsAny<int[]>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+    #endregion
 }

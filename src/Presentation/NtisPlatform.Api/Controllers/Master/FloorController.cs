@@ -69,4 +69,9 @@ public class FloorController : ControllerBase
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
     => this.ExecuteForceDelete<FloorEntity, int>(_cleanupService, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+    => this.ExecuteBulkForceDelete<FloorEntity, int>(_cleanupService, ids, _logger, ct);
 }
