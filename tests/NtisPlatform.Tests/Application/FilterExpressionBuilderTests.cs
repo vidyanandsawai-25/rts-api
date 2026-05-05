@@ -1429,6 +1429,79 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal("Dev", result[0].Description);
         }
     }
+
+    // =======================
+    // FilterExpressionBuilder Helper Methods Tests
+    // =======================
+    public class FilterExpressionBuilderHelpersTests
+    {
+        [Fact]
+        public void Norm_ReturnsNullForNullOrWhitespace_AndTrimsOtherwise()
+        {
+            Assert.Null(FilterExpressionBuilder.Norm(null));
+            Assert.Null(FilterExpressionBuilder.Norm("   "));
+            Assert.Equal("abc", FilterExpressionBuilder.Norm("  abc  "));
+        }
+
+        [Fact]
+        public void Csv_SplitsAndTrimsAndDeduplicates()
+        {
+            var result = FilterExpressionBuilder.Csv("a, b, c, a, , ,B");
+            Assert.Equal(3, result.Count);
+            Assert.Contains("a", result, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("b", result, StringComparer.OrdinalIgnoreCase);
+            Assert.Contains("c", result, StringComparer.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("A123", true, "A", 123)]
+        [InlineData("B0010", true, "B", 10)]
+        [InlineData("X", false, "", 0)]
+        [InlineData("123", false, "", 0)]
+        [InlineData("", false, "", 0)]
+        public void SplitAlphaNum_ParsesCorrectly(string input, bool expected, string expectedPref, int expectedNum)
+        {
+            var result = FilterExpressionBuilder.SplitAlphaNum(input, out var pref, out var num);
+            Assert.Equal(expected, result);
+            if (expected)
+            {
+                Assert.Equal(expectedPref, pref);
+                Assert.Equal(expectedNum, num);
+            }
+        }
+
+        [Theory]
+        // Numeric range
+        [InlineData("5", "1", "10", true)]
+        [InlineData("0", "1", "10", false)]
+        [InlineData("11", "1", "10", false)]
+        // Alphanum range, same prefix
+        [InlineData("A5", "A1", "A10", true)]
+        [InlineData("A0", "A1", "A10", false)]
+        [InlineData("A11", "A1", "A10", false)]
+        // Alphanum, reversed range
+        [InlineData("A5", "A10", "A1", true)]
+        // Lexicographic fallback
+        [InlineData("B", "A", "C", true)]
+        [InlineData("D", "A", "C", false)]
+        // Empty/Null
+        [InlineData("", "A", "C", false)]
+        public void MatchRange_CoversEdgeCases(string pn, string from, string to, bool expected)
+        {
+            Assert.Equal(expected, FilterExpressionBuilder.MatchRange(pn, from, to));
+        }
+
+        [Theory]
+        [InlineData("123", 0, 123, "123")]
+        [InlineData("abc", 1, long.MaxValue, "abc")]
+        [InlineData("  456  ", 0, 456, "456")]
+        [InlineData("", 1, long.MaxValue, "")]
+        public void SortKey_ParsesNumericAndTextCorrectly(string value, int expectedKind, long expectedNum, string expectedText)
+        {
+            var result = FilterExpressionBuilder.SortKey(value);
+            Assert.Equal((expectedKind, expectedNum, expectedText.Trim()), result);
+        }
+    }
 }
 
 

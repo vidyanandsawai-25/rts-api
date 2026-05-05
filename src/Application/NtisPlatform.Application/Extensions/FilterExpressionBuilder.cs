@@ -18,7 +18,7 @@ public static class FilterExpressionBuilder
         var queryType = typeof(TQuery);
         var entityType = typeof(TEntity);
         var parameter = Expression.Parameter(entityType, "x");
-        
+
         var expressions = new List<Expression>();
         var errors = new Dictionary<string, string>();
 
@@ -31,7 +31,7 @@ public static class FilterExpressionBuilder
         {
             var value = property.GetValue(queryParameters);
             var attribute = property.GetCustomAttribute<FilterableAttribute>()!;
-            
+
             // Skip null values EXCEPT for IsNull/IsNotNull operators which work on boolean flags
             if (value == null && attribute.Operator != FilterOperator.IsNull && attribute.Operator != FilterOperator.IsNotNull)
                 continue;
@@ -84,10 +84,10 @@ public static class FilterExpressionBuilder
             try
             {
                 // For IsNull/IsNotNull, we don't need the actual value, just pass a dummy
-                var valueToPass = (attribute.Operator == FilterOperator.IsNull || attribute.Operator == FilterOperator.IsNotNull) 
-                    ? new object() 
+                var valueToPass = (attribute.Operator == FilterOperator.IsNull || attribute.Operator == FilterOperator.IsNotNull)
+                    ? new object()
                     : value!;
-                    
+
                 var expression = BuildComparisonExpression(parameter, entityProperty, valueToPass, attribute.Operator, property.Name);
                 if (expression != null)
                 {
@@ -200,8 +200,8 @@ public static class FilterExpressionBuilder
 
     private static Expression BuildStringExpression(Expression propertyAccess, string value, FilterOperator operatorType)
     {
-        if (operatorType == FilterOperator.Contains || 
-            operatorType == FilterOperator.StartsWith || 
+        if (operatorType == FilterOperator.Contains ||
+            operatorType == FilterOperator.StartsWith ||
             operatorType == FilterOperator.EndsWith)
         {
             var toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
@@ -237,9 +237,9 @@ public static class FilterExpressionBuilder
             return Expression.AndAlso(propertyNotNull, textOperation);
         }
 
-        if (operatorType == FilterOperator.GreaterThan || 
-            operatorType == FilterOperator.LessThan || 
-            operatorType == FilterOperator.GreaterThanOrEqual || 
+        if (operatorType == FilterOperator.GreaterThan ||
+            operatorType == FilterOperator.LessThan ||
+            operatorType == FilterOperator.GreaterThanOrEqual ||
             operatorType == FilterOperator.LessThanOrEqual)
         {
             if (long.TryParse(value, out _))
@@ -251,16 +251,16 @@ public static class FilterExpressionBuilder
                 var valueLength = value.Length;
                 var valueLengthConstant = Expression.Constant(valueLength);
                 var valueConstant = Expression.Constant(value);
-                
+
                 var lengthProperty = typeof(string).GetProperty("Length")!;
                 var propertyLength = Expression.Property(propertyAccess, lengthProperty);
-                
+
                 var compareToMethod = typeof(string).GetMethod("CompareTo", new[] { typeof(string) })!;
                 var compareToCall = Expression.Call(propertyAccess, compareToMethod, valueConstant);
                 var zero = Expression.Constant(0);
-                
+
                 Expression lengthComparison, stringComparison, numericRangeComparison;
-                
+
                 switch (operatorType)
                 {
                     case FilterOperator.GreaterThan:
@@ -274,7 +274,7 @@ public static class FilterExpressionBuilder
                             )
                         );
                         break;
-                        
+
                     case FilterOperator.LessThan:
                         lengthComparison = Expression.LessThan(propertyLength, valueLengthConstant);
                         stringComparison = Expression.LessThan(compareToCall, zero);
@@ -286,7 +286,7 @@ public static class FilterExpressionBuilder
                             )
                         );
                         break;
-                        
+
                     case FilterOperator.GreaterThanOrEqual:
                         lengthComparison = Expression.GreaterThan(propertyLength, valueLengthConstant);
                         stringComparison = Expression.GreaterThanOrEqual(compareToCall, zero);
@@ -298,7 +298,7 @@ public static class FilterExpressionBuilder
                             )
                         );
                         break;
-                        
+
                     case FilterOperator.LessThanOrEqual:
                         lengthComparison = Expression.LessThan(propertyLength, valueLengthConstant);
                         stringComparison = Expression.LessThanOrEqual(compareToCall, zero);
@@ -310,24 +310,24 @@ public static class FilterExpressionBuilder
                             )
                         );
                         break;
-                        
+
                     default:
                         throw new Exception($"Unexpected operator");
                 }
-                
+
                 return Expression.AndAlso(numericPropertyNotNull, numericRangeComparison);
             }
         }
 
         var fallbackToLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
-        
+
         var fallbackPropertyNotNull = Expression.NotEqual(
             propertyAccess,
             Expression.Constant(null, typeof(string)));
-        
+
         var fallbackPropertyLower = Expression.Call(propertyAccess, fallbackToLowerMethod);
         var fallbackValueLower = Expression.Constant(value.ToLower());
-        
+
         Expression fallbackComparison;
         if (operatorType == FilterOperator.Equals)
         {
@@ -342,7 +342,7 @@ public static class FilterExpressionBuilder
             var compareToMethod = typeof(string).GetMethod("CompareTo", new[] { typeof(string) })!;
             var compareToCall = Expression.Call(fallbackPropertyLower, compareToMethod, fallbackValueLower);
             var zero = Expression.Constant(0);
-            
+
             fallbackComparison = operatorType switch
             {
                 FilterOperator.GreaterThan => Expression.GreaterThan(compareToCall, zero),
@@ -352,14 +352,14 @@ public static class FilterExpressionBuilder
                 _ => throw new Exception($"Operator '{operatorType}' not supported for string type")
             };
         }
-        
+
         return Expression.AndAlso(fallbackPropertyNotNull, fallbackComparison);
     }
 
     private static Expression BuildInExpression(Expression propertyAccess, object collectionValue, PropertyInfo entityProperty, FilterOperator operatorType)
     {
         var valueType = collectionValue.GetType();
-        
+
         // Validate that the value is a collection (but not a string)
         if (!typeof(System.Collections.IEnumerable).IsAssignableFrom(valueType) || valueType == typeof(string))
         {
@@ -376,8 +376,8 @@ public static class FilterExpressionBuilder
         }
 
         // Get the element type of the collection
-        var elementType = valueType.IsGenericType 
-            ? valueType.GetGenericArguments()[0] 
+        var elementType = valueType.IsGenericType
+            ? valueType.GetGenericArguments()[0]
             : valueType.GetElementType() ?? typeof(object);
 
         var propertyType = entityProperty.PropertyType;
@@ -387,7 +387,7 @@ public static class FilterExpressionBuilder
         var targetType = underlyingPropertyType;
         var sourceElementType = Nullable.GetUnderlyingType(elementType) ?? elementType;
         var targetElementType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        
+
         if (sourceElementType != targetElementType && !targetElementType.IsAssignableFrom(sourceElementType))
         {
             // Check if types can be converted (e.g., int to long, string to enum)
@@ -426,24 +426,24 @@ public static class FilterExpressionBuilder
                 .Where(s => s != null)
                 .Select(s => s.ToLower())
                 .ToList();
-            
+
             // If after filtering nulls, collection is empty
             if (lowerCaseCollection.Count == 0)
             {
                 return Expression.Constant(operatorType == FilterOperator.NotIn);
             }
-            
+
             var lowerCollectionConstant = Expression.Constant(lowerCaseCollection);
-            
+
             // Convert property to lowercase for case-insensitive comparison
             var toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
             var propertyLower = Expression.Call(propertyToCheck, toLowerMethod);
-            
+
             // Use Enumerable.Contains with case-insensitive comparison
             var containsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
                 .MakeGenericMethod(typeof(string));
-            
+
             containsCall = Expression.Call(null, containsMethod, lowerCollectionConstant, propertyLower);
         }
         else
@@ -451,19 +451,19 @@ public static class FilterExpressionBuilder
             // For non-string types, convert collection elements to target type if needed
             object convertedCollection = collectionValue;
             var collectionElementType = elementType;
-            
+
             if (sourceElementType != targetElementType)
             {
                 // Convert collection elements to target type
                 convertedCollection = ConvertCollectionElements(enumerable, targetElementType);
                 collectionElementType = targetElementType;
             }
-            
+
             // Use standard Contains for non-string types
             var containsMethod = typeof(Enumerable).GetMethods()
                 .First(m => m.Name == "Contains" && m.GetParameters().Length == 2)
                 .MakeGenericMethod(collectionElementType);
-            
+
             var collectionConstant = Expression.Constant(convertedCollection);
             containsCall = Expression.Call(null, containsMethod, collectionConstant, propertyToCheck);
         }
@@ -503,10 +503,10 @@ public static class FilterExpressionBuilder
             return true;
 
         // Handle numeric conversions
-        var numericTypes = new[] { typeof(byte), typeof(sbyte), typeof(short), typeof(ushort), 
-                                   typeof(int), typeof(uint), typeof(long), typeof(ulong), 
+        var numericTypes = new[] { typeof(byte), typeof(sbyte), typeof(short), typeof(ushort),
+                                   typeof(int), typeof(uint), typeof(long), typeof(ulong),
                                    typeof(float), typeof(double), typeof(decimal) };
-        
+
         if (numericTypes.Contains(sourceType) && numericTypes.Contains(targetType))
             return true;
 
@@ -534,12 +534,12 @@ public static class FilterExpressionBuilder
     {
         var listType = typeof(List<>).MakeGenericType(targetType);
         var list = (System.Collections.IList)Activator.CreateInstance(listType)!;
-        
+
         foreach (var item in source)
         {
             if (item == null)
                 continue;
-                
+
             try
             {
                 object convertedItem;
@@ -562,7 +562,7 @@ public static class FilterExpressionBuilder
                 // Skip items that can't be converted
             }
         }
-        
+
         return list;
     }
 
@@ -573,7 +573,7 @@ public static class FilterExpressionBuilder
     private static Expression BuildNullCheckExpression(Expression propertyAccess, Type propertyType, FilterOperator operatorType)
     {
         var underlyingType = Nullable.GetUnderlyingType(propertyType);
-        
+
         // Handle Nullable<T> types (e.g., int?, DateTime?)
         if (underlyingType != null)
         {
@@ -582,7 +582,7 @@ public static class FilterExpressionBuilder
                 ? Expression.Not(hasValueProperty)  // !HasValue means IsNull
                 : hasValueProperty;                  // HasValue means IsNotNull
         }
-        
+
         // Handle reference types (classes, strings, etc.)
         if (propertyType.IsClass)
         {
@@ -591,7 +591,7 @@ public static class FilterExpressionBuilder
                 ? Expression.Equal(propertyAccess, nullConstant)
                 : Expression.NotEqual(propertyAccess, nullConstant);
         }
-        
+
         // Non-nullable value types (int, double, bool, DateTime, enums, structs, etc.)
         // These can never be null, so IsNull/IsNotNull operators don't make sense
         throw new Exception(
@@ -610,7 +610,7 @@ public static class FilterExpressionBuilder
         var queryType = typeof(TQuery);
         var entityType = typeof(TEntity);
         var parameter = Expression.Parameter(entityType, "x");
-        
+
         var searchableProperties = queryType.GetProperties()
             .Where(p => p.GetCustomAttribute<SearchableAttribute>() != null)
             .ToList();
@@ -659,5 +659,151 @@ public static class FilterExpressionBuilder
                 return attribute.EntityProperty ?? p.Name;
             })
             .ToArray();
+    }
+
+
+    // --- Conversion/Parsing Utilities for PropertyNo and Range Logic ---
+
+    /// <summary>
+    /// Normalizes a string by trimming whitespace and converting empty/whitespace strings to null.
+    /// </summary>
+    /// <param name="s">The string to normalize.</param>
+    /// <returns>The trimmed string, or null if the input is null, empty, or whitespace.</returns>
+    /// <example>
+    /// <code>
+    /// Norm("  hello  ") // Returns "hello"
+    /// Norm("   ")       // Returns null
+    /// Norm(null)        // Returns null
+    /// </code>
+    /// </example>
+    public static string? Norm(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>
+    /// Parses a comma-separated value (CSV) string into a distinct list of trimmed, non-empty strings.
+    /// </summary>
+    /// <param name="s">The CSV string to parse (e.g., "A1, A2, A3").</param>
+    /// <returns>A list of distinct, trimmed values (case-insensitive comparison).</returns>
+    /// <example>
+    /// <code>
+    /// Csv("A1,A2,A3")      // Returns ["A1", "A2", "A3"]
+    /// Csv("A1, A1, a1")    // Returns ["A1"] (duplicates removed)
+    /// Csv("  A1 ,  , A2 ") // Returns ["A1", "A2"] (empty values excluded)
+    /// </code>
+    /// </example>
+    public static List<string> Csv(string? s) =>
+        (s ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(x => x.Trim())
+                .Where(x => x.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    /// <summary>
+    /// Attempts to split a string into an alphabetic prefix and numeric suffix (e.g., "A123" → "A" and 123).
+    /// </summary>
+    /// <param name="s">The string to split.</param>
+    /// <param name="pref">The alphabetic prefix (output parameter).</param>
+    /// <param name="num">The numeric suffix (output parameter).</param>
+    /// <returns>
+    /// <c>true</c> if the string contains both a letter prefix and numeric suffix; otherwise, <c>false</c>.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// SplitAlphaNum("A123", out var prefix, out var number) // Returns true, prefix="A", number=123
+    /// SplitAlphaNum("ABC", out var prefix, out var number)  // Returns false (no numeric part)
+    /// SplitAlphaNum("123", out var prefix, out var number)  // Returns false (no letter prefix)
+    /// </code>
+    /// </example>
+    public static bool SplitAlphaNum(string s, out string pref, out int num)
+    {
+        s = s.Trim();
+        int i = 0; while (i < s.Length && char.IsLetter(s[i])) i++;
+        pref = ""; num = 0;
+        return i > 0 && i < s.Length && int.TryParse(s[i..], out num) && (pref = s[..i]).Length > 0;
+    }
+
+    /// <summary>
+    /// Determines if a property number falls within the specified range using intelligent range matching.
+    /// </summary>
+    /// <param name="pn">The property number to test.</param>
+    /// <param name="from">The start of the range.</param>
+    /// <param name="to">The end of the range.</param>
+    /// <returns><c>true</c> if <paramref name="pn"/> falls within the range; otherwise, <c>false</c>.</returns>
+    /// <remarks>
+    /// <para>This method supports three range types:</para>
+    /// <list type="number">
+    ///   <item><b>Numeric range:</b> "1" to "100" matches numeric values 1-100.</item>
+    ///   <item><b>Alphanumeric range (same prefix):</b> "A1" to "A100" matches A1, A2, ..., A100 (numeric comparison).</item>
+    ///   <item><b>Lexicographic range:</b> Fallback for mixed formats using case-insensitive string comparison.</item>
+    /// </list>
+    /// <para>The range is automatically normalized (swaps from/to if reversed).</para>
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// MatchRange("50", "1", "100")     // Returns true (numeric range)
+    /// MatchRange("A10", "A1", "A100")  // Returns true (alphanumeric range)
+    /// MatchRange("A10", "A20", "A100") // Returns false
+    /// MatchRange("ABC", "A", "Z")      // Returns true (lexicographic)
+    /// </code>
+    /// </example>
+    public static bool MatchRange(string pn, string from, string to)
+    {
+        pn = pn.Trim();
+        if (pn.Length == 0) return false;
+
+        // normalize order (ignore-case)
+        if (string.Compare(from, to, StringComparison.OrdinalIgnoreCase) > 0) (from, to) = (to, from);
+
+        // numeric range: 1..10
+        if (int.TryParse(from, out var fInt) && int.TryParse(to, out var tInt))
+            return int.TryParse(pn, out var pInt) && pInt >= fInt && pInt <= tInt;
+
+        // same-prefix alphanum range: A1..A10
+        if (SplitAlphaNum(from, out var fPref, out var fNum) &&
+            SplitAlphaNum(to, out var tPref, out var tNum) &&
+            string.Equals(fPref, tPref, StringComparison.OrdinalIgnoreCase) &&
+            SplitAlphaNum(pn, out var pPref, out var pNum) &&
+            string.Equals(pPref, fPref, StringComparison.OrdinalIgnoreCase))
+        {
+            var lo = Math.Min(fNum, tNum);
+            var hi = Math.Max(fNum, tNum);
+            return pNum >= lo && pNum <= hi;
+        }
+
+        // fallback: lexicographic (ignore-case)
+        return string.Compare(pn, from, StringComparison.OrdinalIgnoreCase) >= 0 &&
+               string.Compare(pn, to, StringComparison.OrdinalIgnoreCase) <= 0;
+    }
+
+    /// <summary>
+    /// Returns a sort key for mixed numeric/alphanumeric values: numeric values sort before text, and are sorted numerically.
+    /// </summary>
+    /// <param name="value">The value to generate a sort key for.</param>
+    /// <returns>
+    /// A tuple containing:
+    /// <list type="bullet">
+    ///   <item><b>kind:</b> 0 for numeric values, 1 for text values.</item>
+    ///   <item><b>num:</b> The numeric value (or <see cref="long.MaxValue"/> for text).</item>
+    ///   <item><b>text:</b> The original trimmed string value.</item>
+    /// </list>
+    /// </returns>
+    /// <remarks>
+    /// Use this for natural sorting where "10" comes after "2" instead of before it.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var items = new[] { "10", "2", "A", "1" };
+    /// var sorted = items.OrderBy(x => SortKey(x));
+    /// // Result: ["1", "2", "10", "A"]
+    /// </code>
+    /// </example>
+    public static (int kind, long num, string text) SortKey(string? value)
+    {
+        var v = (value ?? "").Trim();
+        bool allDigits = v.Length > 0 && v.All(char.IsDigit);
+
+        if (allDigits && long.TryParse(v, out var n))
+            return (0, n, v);
+
+        return (1, long.MaxValue, v);
     }
 }
