@@ -4,6 +4,7 @@ using Moq;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Application.Interfaces;
 
 namespace NtisPlatform.Tests.Infrastructure.Services;
 
@@ -23,7 +24,7 @@ public class HardDeleteCleanupForceHardDeleteTests
 
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
 
         var property = new PropertyEntity
         {
@@ -54,7 +55,7 @@ public class HardDeleteCleanupForceHardDeleteTests
 
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
 
         // Act - Try to delete non-existent entity
         var result = await service.ForceHardDeleteAsync<PropertyEntity, int>(999, CancellationToken.None);
@@ -73,7 +74,7 @@ public class HardDeleteCleanupForceHardDeleteTests
 
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
 
         var entity1 = new PropertyEntity { Id = 1, IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now };
         var entity2 = new PropertyEntity { Id = 2, IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now };
@@ -102,7 +103,7 @@ public class HardDeleteCleanupForceHardDeleteTests
 
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
 
         var entity = new PropertyEntity { Id = 5, IsActive = true, CreatedBy = 1, CreatedDate = DateTime.Now };
         context.Set<PropertyEntity>().Add(entity);
@@ -132,7 +133,7 @@ public class HardDeleteCleanupForceHardDeleteTests
 
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
 
         // Act - Try to delete non-existent entity
         await service.ForceHardDeleteAsync<PropertyEntity, int>(999, CancellationToken.None);

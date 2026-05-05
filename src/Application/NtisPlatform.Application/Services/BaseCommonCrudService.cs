@@ -79,7 +79,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         // Pre-filter hook for localization
         if (IsLocalizationEnabled)
         {
-            await PreFilterLocalizationAsync(queryParameters, cancellationToken);
+            query = await PreFilterLocalizationAsync(query, queryParameters, cancellationToken);
         }
 
         // Apply filters
@@ -201,16 +201,18 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         }
     }
 
+  
+    private static readonly Lazy<PropertyInfo?> _idPropertyCache = new(() =>
+        typeof(TEntity).GetProperty("Id")
+        ?? typeof(TEntity).GetProperty("ID")
+        ?? typeof(TEntity).GetProperty($"{typeof(TEntity).Name}Id"));
+
     /// <summary>
     /// Extracts the entity ID as a string. Override for custom ID types.
     /// </summary>
     protected virtual string? GetEntityId(TEntity entity)
     {
-        // Try common ID property names
-        var idProperty = typeof(TEntity).GetProperty("Id")
-            ?? typeof(TEntity).GetProperty("ID")
-            ?? typeof(TEntity).GetProperty($"{typeof(TEntity).Name}Id");
-
+        var idProperty = _idPropertyCache.Value;
         if (idProperty == null)
             return null;
 
@@ -218,31 +220,71 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         return value?.ToString();
     }
 
+    // Validation order is consistent in both paths:
+    // 1. (Localized only) PreSaveLocalizationAsync - transforms DTO values
+    // 2. Map DTO → Entity
+    // 3. Validate (after mapping, comparing old vs new entity state)
+    // 4. Save
     public virtual async Task<TDto?> UpdateAsync(TKey id, TUpdateDto updateDto, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetByIdAsync(id, cancellationToken);
         if (entity == null)
             return default;
 
-        // Create a shallow clone of the entity before mapping to capture current state
-        // This snapshot is used for validation logic (e.g., checking IsActive transitions)
+        // Create a shallow clone BEFORE mapping to capture current state
         var currentEntitySnapshot = CloneEntity(entity);
 
-        _mapper.Map(updateDto, entity);
-
-        // Run deactivation validation only (checks IsActive transitions)
-        var validationResult = await ValidateForDeactivationAsync(id, currentEntitySnapshot, entity, cancellationToken);
-        if (!validationResult.IsValid)
+        if (IsLocalizationEnabled)
         {
-            // Use the first error message as the exception message for client visibility
-            var firstError = validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed for deactivation";
-            throw new ValidationException(firstError, validationResult.ToDictionary(), OperationType.Update);
+            // Start transaction BEFORE localization writes to ensure atomicity
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                // Pre-save hook: converts display text to localization keys in updateDto
+                await PreSaveLocalizationAsync(updateDto, Convert.ToString(id), cancellationToken);
+
+                // Map AFTER localization processing
+                _mapper.Map(updateDto, entity);
+
+                // Validate AFTER mapping so we can compare old vs new state
+                var validationResult = await ValidateForDeactivationAsync(id, currentEntitySnapshot, entity, cancellationToken);
+                if (!validationResult.IsValid)
+                {
+                    var firstError = validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed for deactivation";
+                    throw new ValidationException(firstError, validationResult.ToDictionary(), OperationType.Update);
+                }
+
+                await _repository.UpdateAsync(entity, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                var dto = _mapper.Map<TDto>(entity);
+                await PostReadLocalizationAsync(new[] { dto }, cancellationToken);
+                return dto;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
         }
+        else
+        {
+            // Non-localized path
+            _mapper.Map(updateDto, entity);
 
-        await _repository.UpdateAsync(entity, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            // Validate AFTER mapping
+            var validationResult = await ValidateForDeactivationAsync(id, currentEntitySnapshot, entity, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                var firstError = validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed for deactivation";
+                throw new ValidationException(firstError, validationResult.ToDictionary(), OperationType.Update);
+            }
 
-        return _mapper.Map<TDto>(entity);
+            await _repository.UpdateAsync(entity, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return _mapper.Map<TDto>(entity);
+        }
     }
 
     public virtual async Task<bool> DeleteAsync(TKey id, CancellationToken cancellationToken = default)
@@ -260,13 +302,45 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             throw new ValidationException(firstError, validationResult.ToDictionary(), OperationType.Delete);
         }
 
-        await _repository.DeleteAsync(entity, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        
-        return true;
+        if (IsLocalizationEnabled)
+        {
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                // Get the actual localization keys from the entity before soft deleting
+                var localizationKeys = ExtractLocalizationKeys(entity);
+
+                // Deactivate localization entries (NOT delete)
+                if (localizationKeys.Any())
+                {
+                    var resource = LocalizationProcessor.GetResource<TDto>();
+                    await _localizationProcessor!.ProcessDeactivateAsync(resource, localizationKeys);
+                }
+
+                await _repository.DeleteAsync(entity, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                return true;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
+        }
+        else
+        {
+            await _repository.DeleteAsync(entity, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return true;
+        }
     }
 
 
+    // Cache MemberwiseClone method per entity type
+    private static readonly ConcurrentDictionary<Type, MethodInfo> _cloneMethodCache = new();
 
     /// <summary>
     /// Creates a shallow clone of an entity for validation purposes.
@@ -276,54 +350,54 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     /// <returns>A shallow copy of the entity</returns>
     private TEntity CloneEntity(TEntity entity)
     {
-        // MemberwiseClone creates a shallow copy which is sufficient for validation
-        // since we only need to check simple property values (e.g., IsActive)
-        var cloneMethod = entity.GetType().GetMethod("MemberwiseClone", 
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        return (TEntity)cloneMethod!.Invoke(entity, null)!;
+        var cloneMethod = _cloneMethodCache.GetOrAdd(
+            entity.GetType(),
+            t => t.GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic)!);
+
+        return (TEntity)cloneMethod.Invoke(entity, null)!;
     }
 
     /// <summary>
     /// Validates an entity before creating it.
-    ///
-    /// By default, this method returns success and does not perform any validation.
-    /// Override this method in derived services to add custom business validation logic for create operations,
-    /// such as duplicate prevention (e.g., same code/name already exists), business rule checks, or cross-entity constraints.
-    ///
-    /// If you rely solely on database constraints or controller-level DTO validation for create operations,
-    /// you may leave this method unimplemented. In that case, document where validation is handled to avoid confusion.
     /// </summary>
-    /// <param name="entity">The entity to be created</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>A validation result indicating success or containing errors</returns>
+    /// <remarks>
+    /// <para><b>Important:</b> Validation methods must be read-only.</para>
+    /// <list type="bullet">
+    ///   <item>Do NOT modify the <paramref name="entity"/> or any tracked entities.</item>
+    ///   <item>Use <c>AsNoTracking()</c> for any repository queries.</item>
+    /// </list>
+    /// </remarks>
     protected virtual Task<ValidationResult> ValidateForCreateAsync(TEntity entity, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(ValidationResult.Success());
     }
 
     /// <summary>
-    /// Validates an entity only for deactivation (when IsActive changes from true to false).
-    /// Override in derived services to add custom deactivation validation logic.
-    /// This is NOT called for general update validation.
+    /// Validates an entity for deactivation (when IsActive changes from true to false).
     /// </summary>
-    /// <param name="id">The ID of the entity being updated</param>
-    /// <param name="currentEntity">The entity state before the update</param>
-    /// <param name="updatedEntity">The entity state after mapping the update DTO</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>A validation result indicating success or containing errors</returns>
+    /// <remarks>
+    /// <para><b>Important:</b> Validation methods must be read-only.</para>
+    /// <list type="bullet">
+    ///   <item>Do NOT modify <paramref name="currentEntity"/>, <paramref name="updatedEntity"/>, or any tracked entities.</item>
+    ///   <item>Use <c>AsNoTracking()</c> for any repository queries.</item>
+    ///   <item><paramref name="updatedEntity"/> may be an untracked clone in bulk operations.</item>
+    /// </list>
+    /// </remarks>
     protected virtual Task<ValidationResult> ValidateForDeactivationAsync(TKey id, TEntity currentEntity, TEntity updatedEntity, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(ValidationResult.Success());
     }
 
     /// <summary>
-    /// Validates an entity before deleting it. Override in derived services to add custom validation logic.
-    /// Use this to check for referential integrity (e.g., prevent deletion if related records exist).
+    /// Validates an entity before deleting it.
     /// </summary>
-    /// <param name="id">The ID of the entity being deleted</param>
-    /// <param name="entity">The entity to be deleted</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>A validation result indicating success or containing errors</returns>
+    /// <remarks>
+    /// <para><b>Important:</b> Validation methods must be read-only.</para>
+    /// <list type="bullet">
+    ///   <item>Do NOT modify the <paramref name="entity"/> or any tracked entities.</item>
+    ///   <item>Use <c>AsNoTracking()</c> for any repository queries.</item>
+    /// </list>
+    /// </remarks>
     protected virtual Task<ValidationResult> ValidateForDeleteAsync(TKey id, TEntity entity, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(ValidationResult.Success());
@@ -343,16 +417,9 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     /// If DTO validation fails, return HTTP 400 before calling this method. If entity validation fails, the item is skipped and an error is returned for that item.
     /// The method is transactional: if an exception occurs, all changes are rolled back.
     /// </summary>
-    /// <summary>
-    /// Creates multiple entities from the given DTOs in a single transaction.
-    ///
-    /// Validation flow for each item:
-    /// 1. DTO-level validation (syntax, format, basic rules) should be performed before calling this method (e.g., in the controller using DataAnnotations or FluentValidation).
-    /// 2. Entity-level validation (business rules, database checks) is performed here via ValidateForCreateAsync after mapping.
-    ///
-    /// If DTO validation fails, return HTTP 400 before calling this method. If entity validation fails, the item is skipped and an error is returned for that item.
-    /// The method is transactional: if an exception occurs, all changes are rolled back.
-    /// </summary>
+    /// <param name="items">The array of DTOs to create</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A bulk result containing created DTOs, error count, and validation errors</returns>
     public virtual async Task<BulkResult<TDto>> BulkCreateAsync(TCreateDto[] items, CancellationToken cancellationToken = default)
     {
         if (items.Length == 0)
@@ -418,7 +485,13 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
     /// <summary>
     /// Bulk create with localization support.
-    /// Similar to single CreateAsync but handles multiple items efficiently.
+    /// 
+    /// <para><b>Transaction Behavior:</b></para>
+    /// <para>
+    /// This method uses a single transaction for both entity creation and localization.
+    /// If localization fails for ANY item, the entire transaction is rolled back - no entities are created.
+    /// This ensures data consistency between entities and their localization entries.
+    /// </para>
     /// </summary>
     private async Task<BulkResult<TDto>> BulkCreateWithLocalizationAsync(TCreateDto[] items, CancellationToken cancellationToken)
     {
@@ -433,6 +506,8 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             // Step 1: Map and validate all items
             for (int i = 0; i < items.Length; i++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var entity = _mapper.Map<TEntity>(items[i]);
 
                 var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
@@ -460,25 +535,22 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // Step 3: Process localization for all items with REAL entity IDs
+            // FAIL-FAST: If any localization fails, rollback entire transaction
             foreach (var (dto, entity, index) in itemEntityMap)
             {
-                try
-                {
-                    var entityId = GetEntityId(entity);
-                    await PreSaveLocalizationAsync(dto, entityId, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
 
-                    // Re-map the DTO (now with localization keys) to update the entity
-                    _mapper.Map(dto, entity);
-                }
-                catch (Exception ex)
-                {
-                    validationErrors.Add($"Item {index}: Localization processing failed - {ex.Message}");
-                }
+                var entityId = GetEntityId(entity);
+                await PreSaveLocalizationAsync(dto, entityId, cancellationToken);
+
+                // Re-map the DTO (now with localization keys) to update the entity
+                _mapper.Map(dto, entity);
             }
 
             // Step 4: Update entities with localization keys
             foreach (var entity in createdEntities)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 await _repository.UpdateAsync(entity, cancellationToken);
             }
 
@@ -495,54 +567,121 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
                 results,
                 validationErrors.Count > 0 ? validationErrors : null);
         }
+        catch (OperationCanceledException)
+        {
+            await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            throw;
+        }
         catch
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
     }
-
+    /// <summary>
+    /// Creates multiple entities from a range of values in a single transaction.
+    /// 
+    /// <para><b>Transaction Behavior:</b></para>
+    /// <para>
+    /// This method uses a single transaction for both entity creation and localization.
+    /// If localization fails for ANY item, the entire transaction is rolled back - no entities are created.
+    /// This ensures data consistency between entities and their localization entries.
+    /// </para>
+    /// </summary>
     public virtual async Task<RangeResult<TDto>> CreateFromRangeAsync(RangeCreateRequest<TCreateDto> request, Func<TCreateDto, string, int, TCreateDto> transformer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(transformer);
 
-        // Generate range values
         var rangeValues = RangeGenerator.GenerateRangeValues(request.RangeFrom, request.RangeTo, request.Prefix, request.Suffix);
 
         if (rangeValues.Count == 0)
             return new RangeResult<TDto>(0, 0, []);
 
         var createdEntities = new List<TEntity>();
+        var itemDtoMap = new List<(TCreateDto Dto, TEntity Entity)>();
         var errors = new List<string>();
         var sequenceNo = request.StartSequenceNo;
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // Step 1: Create all entities
             foreach (var rangeValue in rangeValues)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 try
                 {
-                    // Transform the template DTO with the current range value and sequence
                     var createDto = transformer(request.Template, rangeValue, sequenceNo);
                     var entity = _mapper.Map<TEntity>(createDto);
 
                     await _repository.AddAsync(entity, cancellationToken);
-
                     createdEntities.Add(entity);
+
+                    if (IsLocalizationEnabled)
+                    {
+                        itemDtoMap.Add((createDto, entity));
+                    }
+
                     sequenceNo++;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     errors.Add($"Failed to create record for value '{rangeValue}': {ex.Message}");
                 }
             }
+
+            if (createdEntities.Count == 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                return new RangeResult<TDto>(0, errors.Count, [], errors.Count > 0 ? errors : null);
+            }
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Step 2: Process localization with real entity IDs (if enabled)
+            // FAIL-FAST: If any localization fails, rollback entire transaction
+            if (IsLocalizationEnabled && itemDtoMap.Count > 0)
+            {
+                foreach (var (dto, entity) in itemDtoMap)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var entityId = GetEntityId(entity);
+                    await PreSaveLocalizationAsync(dto, entityId, cancellationToken);
+                    _mapper.Map(dto, entity);
+                }
+
+                // Update entities with localization keys
+                foreach (var entity in createdEntities)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await _repository.UpdateAsync(entity, cancellationToken);
+                }
+
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
             var results = _mapper.Map<List<TDto>>(createdEntities);
+
+            if (IsLocalizationEnabled && results.Count > 0)
+            {
+                await PostReadLocalizationAsync(results, cancellationToken);
+            }
+
             return new RangeResult<TDto>(results.Count, errors.Count, results, errors.Count > 0 ? errors : null);
+        }
+        catch (OperationCanceledException)
+        {
+            await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            throw;
         }
         catch (DbUpdateException ex)
         {
@@ -555,7 +694,6 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             throw;
         }
     }
-
     /// <summary>
     /// Updates multiple entities in a single transaction.
     ///
@@ -573,6 +711,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     {
         if (items.Length == 0)
             return new BulkResult<TDto>(0, 0, []);
+
         var updatedEntities = new List<TEntity>();
         var errors = new List<string>();
         var failedCount = 0;
@@ -583,20 +722,23 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             foreach (var item in items)
             {
                 var entity = await _repository.GetByIdAsync(item.Id, cancellationToken);
-                if (entity == null)
+                if (entity is null)
                 {
                     failedCount++;
                     errors.Add($"Record with Id '{item.Id}' not found.");
                     continue;
                 }
 
-                // Create a shallow clone of the entity before mapping to capture current state
+                // Create snapshot BEFORE any modification
                 var currentEntitySnapshot = CloneEntity(entity);
 
-                _mapper.Map(item.Data, entity);
+                // Validate against an UNTRACKED clone to avoid corrupting the EF change tracker.
+                // If we mapped directly onto the tracked entity and validation failed,
+                // SaveChangesAsync would still persist the invalid mutation.
+                var tempEntity = CloneEntity(entity);
+                _mapper.Map(item.Data, tempEntity);
 
-                // Run deactivation validation (same as single UpdateAsync)
-                var validationResult = await ValidateForDeactivationAsync(item.Id, currentEntitySnapshot, entity, cancellationToken);
+                var validationResult = await ValidateForDeactivationAsync(item.Id, currentEntitySnapshot, tempEntity, cancellationToken);
                 if (!validationResult.IsValid)
                 {
                     failedCount++;
@@ -606,6 +748,13 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
                     continue;
                 }
 
+                // Validation passed — now safe to process localization and apply to tracked entity
+                if (IsLocalizationEnabled)
+                {
+                    await PreSaveLocalizationAsync(item.Data, Convert.ToString(item.Id), cancellationToken);
+                }
+
+                _mapper.Map(item.Data, entity);
                 await _repository.UpdateAsync(entity, cancellationToken);
                 updatedEntities.Add(entity);
             }
@@ -620,6 +769,11 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         }
 
         var results = _mapper.Map<List<TDto>>(updatedEntities);
+
+        if (IsLocalizationEnabled && results.Count > 0)
+        {
+            await PostReadLocalizationAsync(results, cancellationToken);
+        }
 
         return new BulkResult<TDto>(
             results.Count,
@@ -639,8 +793,8 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     /// The method is transactional: if an exception occurs, all changes are rolled back.
     /// </summary>
     public virtual async Task<BulkResult<TKey>> BulkDeleteAsync(
-        TKey[] ids,
-        CancellationToken cancellationToken = default)
+    TKey[] ids,
+    CancellationToken cancellationToken = default)
     {
         if (ids.Length == 0)
             return new BulkResult<TKey>(0, 0, []);
@@ -648,6 +802,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         var deletedIds = new List<TKey>();
         var errors = new List<string>();
         var failedCount = 0;
+        var allLocalizationKeys = new List<string>();
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
@@ -655,14 +810,13 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             foreach (var id in ids)
             {
                 var entity = await _repository.GetByIdAsync(id, cancellationToken);
-                if (entity == null)
+                if (entity is null)
                 {
                     failedCount++;
                     errors.Add($"Record with Id '{id}' not found.");
                     continue;
                 }
 
-                // Run validation before deleting (same as single DeleteAsync)
                 var validationResult = await ValidateForDeleteAsync(id, entity, cancellationToken);
                 if (!validationResult.IsValid)
                 {
@@ -673,8 +827,20 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
                     continue;
                 }
 
+                if (IsLocalizationEnabled)
+                {
+                    var keys = ExtractLocalizationKeys(entity);
+                    allLocalizationKeys.AddRange(keys);
+                }
+
                 await _repository.DeleteAsync(entity, cancellationToken);
                 deletedIds.Add(id);
+            }
+
+            if (IsLocalizationEnabled && allLocalizationKeys.Count > 0)
+            {
+                var resource = LocalizationProcessor.GetResource<TDto>();
+                await _localizationProcessor!.ProcessDeactivateAsync(resource, allLocalizationKeys.Distinct());
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -686,7 +852,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             throw;
         }
 
-        return new BulkResult<TKey>(   
+        return new BulkResult<TKey>(
             deletedIds.Count,
             failedCount,
             deletedIds,
@@ -708,14 +874,14 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             .ToList();
     });
 
-    protected virtual async Task PreFilterLocalizationAsync(TQueryParams queryParameters, CancellationToken cancellationToken)
+    protected virtual async Task<IQueryable<TEntity>> PreFilterLocalizationAsync(IQueryable<TEntity> query, TQueryParams queryParameters, CancellationToken cancellationToken)
     {
         if (_localizedQueryService == null || !HasLocalizableProperties<TDto>())
-            return;
+            return query;
 
         var queryProps = _localizableQueryPropsCache.Value;
         if (queryProps.Count == 0)
-            return;
+            return query;
 
         // Collect all non-empty filter values in one pass
         var propsWithValues = new List<(PropertyInfo Prop, string Value)>();
@@ -727,7 +893,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         }
 
         if (propsWithValues.Count == 0)
-            return;
+            return query;
 
         var resource = LocalizationProcessor.GetResource<TDto>();
 
@@ -740,13 +906,32 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             exactMatch: false,
             cancellationToken);
 
-        // Apply results back to properties
-        for (int i = 0; i < propsWithValues.Count; i++)
+        // Apply results back to query
+        var entityType = typeof(TEntity);
+        var parameter = System.Linq.Expressions.Expression.Parameter(entityType, "x");
+        
+        foreach (var (prop, value) in propsWithValues)
         {
-            var (prop, value) = propsWithValues[i];
-            if (batchResults.TryGetValue(value, out var matchingKeys) && matchingKeys.Count == 1)
-                prop.SetValue(queryParameters, matchingKeys[0]);
+            if (batchResults.TryGetValue(value, out var matchingKeys) && matchingKeys.Count > 0)
+            {
+                // Find corresponding entity property
+                if (!_entityLocalizablePropsCache.Value.TryGetValue(prop.Name, out var entityProp))
+                    continue;
+
+                // Build: x => matchingKeys.Contains(x.Property)
+                var propertyAccess = System.Linq.Expressions.Expression.Property(parameter, entityProp);
+                var keySet = matchingKeys.ToHashSet();
+                var keySetConstant = System.Linq.Expressions.Expression.Constant(keySet);
+                var containsCall = System.Linq.Expressions.Expression.Call(keySetConstant, _hashSetContainsMethod, propertyAccess);
+
+                query = query.Where(System.Linq.Expressions.Expression.Lambda<Func<TEntity, bool>>(containsCall, parameter));
+
+                // Clear the property on queryParameters so ApplyFilters doesn't filter by the original text value
+                prop.SetValue(queryParameters, null);
+            }
         }
+
+        return query;
     }
 
     /// <summary>
@@ -795,12 +980,8 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             var keySet = matchingKeys.ToHashSet();
             var keySetConstant = System.Linq.Expressions.Expression.Constant(keySet);
 
-            foreach (var propName in localizablePropNames)
+            foreach (var (propName, entityProp) in _entityLocalizablePropsCache.Value)
             {
-                var entityProp = entityType.GetProperty(propName);
-                if (entityProp == null || entityProp.PropertyType != typeof(string))
-                    continue;
-
                 var propertyAccess = System.Linq.Expressions.Expression.Property(parameter, entityProp);
                 var containsCall = System.Linq.Expressions.Expression.Call(keySetConstant, _hashSetContainsMethod, propertyAccess);
 
@@ -848,24 +1029,40 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         return query.Where(lambda);
     }
 
+    
+    // Cache searchable properties per entity type
+    private static readonly Lazy<IReadOnlyList<PropertyInfo>> _defaultSearchablePropsCache = new(() =>
+        typeof(TEntity).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.PropertyType == typeof(string) && !p.Name.EndsWith("Id"))
+            .ToList());
+
+    private static readonly Lazy<PropertyInfo?> _searchFieldsPropertyCache = new(() =>
+        typeof(TQueryParams).GetProperty("SearchFields"));
+
+
+    // Add at class level
+    private static readonly Lazy<Dictionary<string, PropertyInfo>> _entityStringPropsCache = new(() =>
+        typeof(TEntity).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.PropertyType == typeof(string))
+            .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase));
+
     /// <summary>
     /// Gets searchable properties from the entity based on query parameters.
     /// </summary>
     private static IEnumerable<PropertyInfo> GetSearchableProperties(Type entityType, TQueryParams queryParameters)
     {
-        // Get properties marked as searchable or use common string properties
-        var searchFields = queryParameters.GetType().GetProperty("SearchFields")?.GetValue(queryParameters) as string[];
+        var searchFieldsProp = _searchFieldsPropertyCache.Value;
+        var searchFields = searchFieldsProp?.GetValue(queryParameters) as string[];
 
         if (searchFields != null && searchFields.Length > 0)
         {
+            var entityProps = _entityStringPropsCache.Value;
             return searchFields
-                .Select(f => entityType.GetProperty(f, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase))
-                .Where(p => p != null && p.PropertyType == typeof(string))!;
+                .Select(f => entityProps.TryGetValue(f, out var prop) ? prop : null)
+                .Where(p => p != null)!;
         }
 
-        // Default: return all string properties that are not navigation properties
-        return entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.PropertyType == typeof(string) && !p.Name.EndsWith("Id"));
+        return _defaultSearchablePropsCache.Value;
     }
 
     /// <summary>
@@ -901,5 +1098,35 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         return _localizableTypeCache.GetOrAdd(typeof(T), static t =>
             t.GetProperties().Any(p => p.GetCustomAttribute<IsLocalizableAttribute>() != null));
     }
+    
+    // Add static cache for entity properties at class level
+    private static readonly Lazy<Dictionary<string, PropertyInfo>> _entityLocalizablePropsCache = new(() =>
+    {
+        var entityType = typeof(TEntity);
+        var localizableNames = _localizablePropNamesCache.Value;
 
+        return localizableNames
+            .Select(name => (Name: name, Prop: entityType.GetProperty(name)))
+            .Where(x => x.Prop != null && x.Prop.PropertyType == typeof(string))
+            .ToDictionary(x => x.Name, x => x.Prop!);
+    });
+
+    // Cache localizable property names per DTO type (already exists in _localizablePropNamesCache)
+    // ExtractLocalizationKeys should use this cache
+    private List<string> ExtractLocalizationKeys(TEntity entity)
+    {
+        var keys = new List<string>();
+
+        // Use cached property info
+        foreach (var (_, prop) in _entityLocalizablePropsCache.Value)
+        {
+            var keyValue = prop.GetValue(entity) as string;
+            if (!string.IsNullOrWhiteSpace(keyValue))
+            {
+                keys.Add(keyValue);
+            }
+        }
+
+        return keys;
+    }
 }

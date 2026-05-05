@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Infrastructure.Data;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace NtisPlatform.Infrastructure.Services.Localization;
 
@@ -182,43 +184,50 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             .AsNoTracking()
             .Where(x => x.IsActive && x.Resource == resource);
 
-        // Select key + the language column value so we can group by value afterwards
-        var rows = normalizedLanguage switch
+        IQueryable<Core.Entities.MultilingualResourceEntity> languageQuery;
+
+        if (exactMatch)
         {
-            "mr" => exactMatch
-                ? await baseQuery.Where(x => x.mr_IN != null && valueList.Contains(x.mr_IN))
-                    .Select(x => new { x.Key, Value = x.mr_IN! }).ToListAsync(cancellationToken)
-                : await baseQuery.Where(x => x.mr_IN != null && valueList.Any(v => EF.Functions.Like(x.mr_IN!, "%" + v + "%")))
-                    .Select(x => new { x.Key, Value = x.mr_IN! }).ToListAsync(cancellationToken),
-            "hi" => exactMatch
-                ? await baseQuery.Where(x => x.hi_IN != null && valueList.Contains(x.hi_IN))
-                    .Select(x => new { x.Key, Value = x.hi_IN! }).ToListAsync(cancellationToken)
-                : await baseQuery.Where(x => x.hi_IN != null && valueList.Any(v => EF.Functions.Like(x.hi_IN!, "%" + v + "%")))
-                    .Select(x => new { x.Key, Value = x.hi_IN! }).ToListAsync(cancellationToken),
-            _ => exactMatch
-                ? await baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US))
-                    .Select(x => new { x.Key, Value = x.en_US! }).ToListAsync(cancellationToken)
-                : await baseQuery.Where(x => x.en_US != null && valueList.Any(v => EF.Functions.Like(x.en_US!, "%" + v + "%")))
-                    .Select(x => new { x.Key, Value = x.en_US! }).ToListAsync(cancellationToken)
-        };
+            languageQuery = normalizedLanguage switch
+            {
+                "mr" => baseQuery.Where(x => x.mr_IN != null && valueList.Contains(x.mr_IN)),
+                "hi" => baseQuery.Where(x => x.hi_IN != null && valueList.Contains(x.hi_IN)),
+                _ => baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US))
+            };
+        }
+        else
+        {
+            // Build dynamic OR expression for LIKE to avoid EF Core translation crash
+            var columnName = normalizedLanguage switch
+            {
+                "mr" => "mr_IN",
+                "hi" => "hi_IN",
+                _ => "en_US"
+            };
+            languageQuery = ApplyLikeAny(baseQuery, columnName, valueList);
+        }
+
+        var rows = await languageQuery
+            .Select(x => new { x.Key, Value = normalizedLanguage == "mr" ? x.mr_IN : (normalizedLanguage == "hi" ? x.hi_IN : x.en_US) })
+            .ToListAsync(cancellationToken);
 
         // If no results in requested language, fallback to English
         if (rows.Count == 0 && normalizedLanguage != "en")
         {
-            rows = exactMatch
-                ? await baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US))
-                    .Select(x => new { x.Key, Value = x.en_US! }).ToListAsync(cancellationToken)
-                : await baseQuery.Where(x => x.en_US != null && valueList.Any(v => EF.Functions.Like(x.en_US!, "%" + v + "%")))
-                    .Select(x => new { x.Key, Value = x.en_US! }).ToListAsync(cancellationToken);
+            var fallbackQuery = exactMatch
+                ? baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US))
+                : ApplyLikeAny(baseQuery, "en_US", valueList);
+
+            rows = await fallbackQuery
+                .Select(x => new { x.Key, Value = x.en_US })
+                .ToListAsync(cancellationToken);
         }
 
-        // Group results: for exact match, group by the matched value directly
-        // For LIKE match, we need to associate each result with matching input values
         var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
         if (exactMatch)
         {
-            foreach (var group in rows.GroupBy(r => r.Value, StringComparer.OrdinalIgnoreCase))
+            foreach (var group in rows.GroupBy(r => r.Value!, StringComparer.OrdinalIgnoreCase))
             {
                 result[group.Key] = group.Select(r => r.Key).ToList();
             }
@@ -229,7 +238,7 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             foreach (var inputValue in valueList)
             {
                 var matchingKeys = rows
-                    .Where(r => r.Value.Contains(inputValue, StringComparison.OrdinalIgnoreCase))
+                    .Where(r => r.Value != null && r.Value.Contains(inputValue, StringComparison.OrdinalIgnoreCase))
                     .Select(r => r.Key)
                     .ToList();
 
@@ -241,6 +250,32 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
         }
 
         return result;
+    }
+
+    private static readonly MethodInfo _likeMethod = typeof(DbFunctionsExtensions).GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
+
+    private IQueryable<Core.Entities.MultilingualResourceEntity> ApplyLikeAny(
+        IQueryable<Core.Entities.MultilingualResourceEntity> query,
+        string columnName,
+        List<string> values)
+    {
+        var parameter = Expression.Parameter(typeof(Core.Entities.MultilingualResourceEntity), "x");
+        var property = Expression.Property(parameter, columnName);
+        
+        Expression? combined = null;
+        var functionsProp = typeof(EF).GetProperty("Functions")!;
+        var functions = Expression.Property(null, functionsProp);
+
+        foreach (var v in values)
+        {
+            var pattern = Expression.Constant($"%{EscapeLikePattern(v)}%");
+            var likeCall = Expression.Call(null, _likeMethod, functions, property, pattern);
+
+            combined = combined == null ? likeCall : Expression.OrElse(combined, likeCall);
+        }
+
+        if (combined == null) return query;
+        return query.Where(Expression.Lambda<Func<Core.Entities.MultilingualResourceEntity, bool>>(combined, parameter));
     }
 
     private static string? GetLanguageValueWithFallback(Core.Entities.MultilingualResourceEntity entity, string language)

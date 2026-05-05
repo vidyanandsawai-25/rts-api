@@ -1,7 +1,10 @@
+using NtisPlatform.Core;
+using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
 
+[LocalizableEntity(typeof(PropertyTypeMasterEntity))]
 public class PropertyTypeMasterDto : BaseDtos
 {
     public int Id { get; set; }

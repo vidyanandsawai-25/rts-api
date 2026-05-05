@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Application.Interfaces;
 
@@ -21,4 +21,9 @@ public interface ILocalization
     /// </summary>
     Task<Dictionary<string, string>> GetAsync(string resource, IEnumerable<string> keys, string language);
 
+    /// <summary>
+    /// Deactivates localization entries for the specified keys.
+    /// </summary>
+
+    Task DeactivateByKeysAsync(string resource, IEnumerable<string> keys); // NEW - Soft delete
 }

@@ -187,6 +187,59 @@ public sealed class LocalizationService : ILocalizationService
         }
     }
 
+    // In LocalizationService.cs - implement threshold behavior
+    /// <summary>
+    /// Removes multiple keys from cache for a specific resource across all supported languages.
+    /// Keys are de-duplicated and converted to HashSet for O(1) lookups.
+    /// Falls back to full resource invalidation if key count exceeds threshold.
+    /// </summary>
+    public void InvalidateKeys(string resource, IEnumerable<string> keys)
+    {
+        if (string.IsNullOrWhiteSpace(resource))
+            return;
+
+        // De-duplicate keys and use HashSet for O(1) lookups
+        var keySet = new HashSet<string>(
+            keys.Where(k => !string.IsNullOrWhiteSpace(k)),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (keySet.Count == 0)
+            return;
+
+        // Threshold: If invalidating too many keys, just drop the entire resource to avoid iteration cost
+        const int ThresholdForFullInvalidation = 1000;
+        if (keySet.Count > ThresholdForFullInvalidation)
+        {
+            Invalidate(resource);
+            return;
+        }
+
+        lock (_bucketLock)
+        {
+            // Get all buckets for this resource
+            var resourceBuckets = _cache
+                .Where(kvp => string.Equals(kvp.Key.Resource, resource, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            foreach (var (bucketKey, dict) in resourceBuckets)
+            {
+                // HashSet.Where with dict.ContainsKey is more efficient than List.Where
+                var keysToRemove = keySet.Where(k => dict.ContainsKey(k)).ToList();
+
+                if (keysToRemove.Count == 0)
+                    continue;
+
+                // Create a copy, remove keys, replace atomically
+                var copy = new Dictionary<string, string>(dict, StringComparer.OrdinalIgnoreCase);
+                foreach (var key in keysToRemove)
+                {
+                    copy.Remove(key);
+                }
+                _cache[bucketKey] = copy;
+            }
+        }
+    }
+
     public Task RefreshAsync(string? resource = null, string? language = null, string? key = null, CancellationToken ct = default)
     {
         Invalidate(resource, language, key);

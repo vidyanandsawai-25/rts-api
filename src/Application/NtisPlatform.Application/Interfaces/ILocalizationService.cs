@@ -46,6 +46,14 @@ public interface ILocalizationService
     void Invalidate(string? resource = null, string? language = null, string? key = null);
 
     /// <summary>
+    /// Removes multiple keys from cache for a specific resource across all supported languages.
+    /// More efficient than calling Invalidate() repeatedly or invalidating the entire resource.
+    /// Falls back to full resource invalidation if key count exceeds threshold.
+    /// </summary>
+    /// <param name="resource">The resource name (e.g., "PropertyMast")</param>
+    /// <param name="keys">The keys to remove from cache</param>
+    void InvalidateKeys(string resource, IEnumerable<string> keys);
+    /// <summary>
     /// Reloads translations from DB into memory.
     /// - If resource/culture/key are null: reloads everything
     /// - If resource is provided: reloads only that resource

@@ -40,14 +40,17 @@ public class LocalizationRepoService : ILocalization
         }
         else
         {
-            // Update existing entry
-            SetLanguageValue(entity, entry.Language, entry.Value);
-            entity.UpdatedDate = DateTime.Now;
+            // Update existing entry only if value changed
+            if (IsValueChanged(entity, entry.Language, entry.Value))
+            {
+                SetLanguageValue(entity, entry.Language, entry.Value);
+                entity.UpdatedDate = DateTime.Now;
+            }
         }
 
         await _db.SaveChangesAsync();
 
-        // ✅ Update cache only if NOT inside a transaction
+        // Update cache only if NOT inside a transaction
         // If inside transaction, invalidate instead to prevent cache/DB divergence on rollback
         UpdateCacheAfterSave(entry.Resource, entry.Language, key, entry.Value);
 
@@ -76,9 +79,12 @@ public class LocalizationRepoService : ILocalization
         {
             if (existingEntities.TryGetValue((entry.Resource, entry.Key), out var existing))
             {
-                // Update existing
-                SetLanguageValue(existing, entry.Language, entry.Value);
-                existing.UpdatedDate = DateTime.Now;
+                // Update existing only if value changed
+                if (IsValueChanged(existing, entry.Language, entry.Value))
+                {
+                    SetLanguageValue(existing, entry.Language, entry.Value);
+                    existing.UpdatedDate = DateTime.Now;
+                }
             }
             else
             {
@@ -107,7 +113,7 @@ public class LocalizationRepoService : ILocalization
         // Single SaveChanges for all operations
         await _db.SaveChangesAsync();
 
-        // ✅ Update cache only if NOT inside a transaction
+        // Update cache only if NOT inside a transaction
         // If inside transaction, invalidate affected resources to prevent cache/DB divergence on rollback
         UpdateCacheAfterBatchSave(entryList);
 
@@ -131,22 +137,127 @@ public class LocalizationRepoService : ILocalization
             if (string.IsNullOrWhiteSpace(row.Key))
                 continue;
 
-            // Get value with fallback logic
+            // Get value with fallback logic for the current request
             var value = GetLanguageValueWithFallback(row, language);
             cached[row.Key] = value;
 
-            _localizationService.SetTranslation(resource, language, row.Key, value);
+            // Optimization: Cache all available languages to prevent redundant DB hits for same keys
+            if (!string.IsNullOrWhiteSpace(row.en_US)) _localizationService.SetTranslation(resource, "en", row.Key, row.en_US);
+            if (!string.IsNullOrWhiteSpace(row.hi_IN)) _localizationService.SetTranslation(resource, "hi", row.Key, row.hi_IN);
+            if (!string.IsNullOrWhiteSpace(row.mr_IN)) _localizationService.SetTranslation(resource, "mr", row.Key, row.mr_IN);
         }
 
         // Keys not in DB at all - return key itself
         foreach (var key in missing.Where(k => !cached.ContainsKey(k)))
         {
             cached[key] = key;
-            // ✅ Cache the "not found" result to prevent repeated DB queries
+            // Cache the "not found" result to prevent repeated DB queries
             _localizationService.SetTranslation(resource, language, key, key);
         }
 
         return cached;
+    }
+
+    /// <summary>
+    /// Soft delete: Sets IsActive = false on localization entries.
+    /// Handles large key collections with deduplication and chunking to avoid SQL parameter limits.
+    /// Idempotent: Only updates rows that are currently active.
+    /// </summary>
+    /// <remarks>
+    /// Uses chunk size of 1000 to stay safely under SQL Server's ~2100 parameter limit,
+    /// accounting for additional WHERE clause parameters and key string overhead.
+    /// Includes retry logic with smaller chunks if parameter limit is still exceeded.
+    /// </remarks>
+    public async Task DeactivateByKeysAsync(string resource, IEnumerable<string> keys)
+    {
+        var uniqueKeys = keys.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (uniqueKeys.Count == 0)
+            return;
+
+        var allDeactivatedKeys = new List<string>();
+
+        // Use 1000 as default chunk size for safer margin (SQL Server limit is ~2100)
+        const int defaultChunkSize = 1000;
+        var currentChunkSize = defaultChunkSize;
+
+        var remainingKeys = uniqueKeys.ToList();
+
+        while (remainingKeys.Count > 0)
+        {
+            var keyChunk = remainingKeys.Take(currentChunkSize).ToList();
+
+            try
+            {
+                var deactivatedKeys = await DeactivateChunkAsync(resource, keyChunk);
+                allDeactivatedKeys.AddRange(deactivatedKeys);
+
+                // Remove processed keys from remaining
+                remainingKeys = remainingKeys.Skip(keyChunk.Count).ToList();
+
+                // Reset chunk size after successful processing
+                currentChunkSize = defaultChunkSize;
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex) when (IsTooManyParametersError(ex))
+            {
+                // SQL Server parameter limit exceeded - retry with smaller chunk
+                currentChunkSize = Math.Max(100, currentChunkSize / 2);
+
+                // Log warning but continue processing
+                // Note: In production, inject ILogger and log properly
+                System.Diagnostics.Debug.WriteLine(
+                    $"SQL parameter limit exceeded. Retrying with chunk size: {currentChunkSize}");
+            }
+        }
+
+        // Batch invalidate all affected keys once at the end
+        if (allDeactivatedKeys.Count > 0)
+        {
+            _localizationService.InvalidateKeys(resource, allDeactivatedKeys);
+        }
+    }
+
+    /// <summary>
+    /// Deactivates a single chunk of keys. Returns the keys that were actually deactivated.
+    /// </summary>
+    private async Task<List<string>> DeactivateChunkAsync(string resource, List<string> keyChunk)
+    {
+        var deactivatedKeys = new List<string>();
+
+        // Only fetch rows that are currently active - prevents unnecessary updates
+        var entries = await _db.MultilingualResourceEntity
+            .Where(x => x.Resource == resource &&
+                       keyChunk.Contains(x.Key) &&
+                       x.IsActive)
+            .ToListAsync();
+
+        if (entries.Count > 0)
+        {
+            foreach (var entry in entries)
+            {
+                entry.IsActive = false;
+                entry.UpdatedDate = DateTime.Now;
+            }
+
+            await _db.SaveChangesAsync();
+            deactivatedKeys.AddRange(entries.Where(e => e.Key != null).Select(e => e.Key!));
+        }
+
+        return deactivatedKeys;
+    }
+
+    /// <summary>
+    /// Checks if the SqlException is due to too many parameters.
+    /// SQL Server error codes: 
+    /// - 8631: Internal error - parameter limit exceeded
+    /// - 103: The identifier is too long
+    /// </summary>
+    private static bool IsTooManyParametersError(Microsoft.Data.SqlClient.SqlException ex)
+    {
+        // Error 8631: "Internal error: Server stack limit has been reached"
+        // This can occur when too many parameters are passed
+        // Also check for general "too many" related errors
+        return ex.Number == 8631
+            || ex.Message.Contains("parameter", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -192,13 +303,13 @@ public class LocalizationRepoService : ILocalization
     {
         if (IsInsideTransaction())
         {
-            // ⚠️ Inside transaction - invalidate entire resource bucket
-            // This is safe: next read will reload fresh data from DB after transaction completes
-            _localizationService.Invalidate(resource);
+            // Inside transaction - invalidate only the affected key
+            // This prevents the massive performance hit of dropping the entire resource table cache
+            _localizationService.InvalidateKeys(resource, new[] { key });
         }
         else
         {
-            // ✅ No transaction - safe to update cache immediately
+            // No transaction - safe to update cache immediately
             _localizationService.SetTranslation(resource, language, key, value);
         }
     }
@@ -211,16 +322,15 @@ public class LocalizationRepoService : ILocalization
     {
         if (IsInsideTransaction())
         {
-            // ⚠️ Inside transaction - invalidate all affected resources
-            var affectedResources = entries.Select(e => e.Resource).Distinct();
-            foreach (var resource in affectedResources)
+            // Inside transaction - invalidate only affected keys
+            foreach (var group in entries.GroupBy(e => e.Resource))
             {
-                _localizationService.Invalidate(resource);
+                _localizationService.InvalidateKeys(group.Key, group.Select(e => e.Key));
             }
         }
         else
         {
-            // ✅ No transaction - safe to update cache immediately
+            // No transaction - safe to update cache immediately
             foreach (var entry in entries)
             {
                 _localizationService.SetTranslation(entry.Resource, entry.Language, entry.Key, entry.Value);
@@ -260,5 +370,23 @@ public class LocalizationRepoService : ILocalization
             entity.mr_IN = value;
         else
             entity.en_US = value;
+    }
+
+    private static bool IsValueChanged(MultilingualResourceEntity entity, string language, string newValue)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+            return !string.Equals(entity.en_US, newValue);
+
+        var span = language.AsSpan().Trim();
+        var dash = span.IndexOf('-');
+        if (dash < 0) dash = span.IndexOf('_');
+        if (dash > 0) span = span[..dash];
+
+        if (span.Equals("hi", StringComparison.OrdinalIgnoreCase))
+            return !string.Equals(entity.hi_IN, newValue);
+        if (span.Equals("mr", StringComparison.OrdinalIgnoreCase))
+            return !string.Equals(entity.mr_IN, newValue);
+
+        return !string.Equals(entity.en_US, newValue);
     }
 }

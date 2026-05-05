@@ -1,8 +1,10 @@
 ﻿using NtisPlatform.Core;
+using NtisPlatform.Core.Entities;
 using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 
+[LocalizableEntity(typeof(RateSectionEntity))]
 public class RateSectionDto : BaseDtos
 {
     public int Id { get; set; }

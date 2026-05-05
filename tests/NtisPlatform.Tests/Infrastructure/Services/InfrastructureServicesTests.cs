@@ -8,6 +8,7 @@ using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Infrastructure;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Application.Interfaces;
 using Xunit;
 
 namespace NtisPlatform.Tests.Infrastructure.Services;
@@ -184,7 +185,7 @@ public class HardDeleteCleanupServiceTests
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
         
         try
         {
@@ -222,7 +223,7 @@ public class HardDeleteCleanupServiceTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
         
         try
         {
@@ -246,7 +247,7 @@ public class HardDeleteCleanupServiceTests
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
         
         try
         {
@@ -270,7 +271,7 @@ public class HardDeleteCleanupServiceTests
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
         await service.MarkForHardDeleteAsync<PropertyEntity, int>(1);
 
         // Should complete without throwing
@@ -287,7 +288,7 @@ public class HardDeleteCleanupServiceTests
         using var context = new ApplicationDbContext(options);
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
 
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var service = new HardDeleteCleanupService(context, Mock.Of<ILocalizationService>(), mockLogger.Object);
         await service.UnmarkForHardDeleteAsync<PropertyEntity, int>(1);
 
         // Should complete without throwing
@@ -295,7 +296,7 @@ public class HardDeleteCleanupServiceTests
     }
 
     [Fact]
-    public async Task ForceHardDeleteAsync_DeletesEntity_ReturnsTrue()
+    public async Task ForceHardDeleteAsync_EntityWithoutLocalizableProperties_DeletesEntityOnly()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -303,25 +304,106 @@ public class HardDeleteCleanupServiceTests
 
         using var context = new ApplicationDbContext(options);
 
-        // Add a test entity
+        // PropertyEntity has NO [IsLocalizable] properties, so no localization cleanup should occur
         var property = new PropertyEntity
         {
             Id = 1,
             IsActive = true,
+            Address = "PropertyMast_1_Address", // Not marked with [IsLocalizable]
             CreatedDate = DateTime.Now,
             CreatedBy = 1
         };
         context.Set<PropertyEntity>().Add(property);
+
+        // Add a localization row that should NOT be deleted (no [IsLocalizable] to extract key)
+        var locRow = new NtisPlatform.Core.Entities.MultilingualResourceEntity
+        {
+            Id = 1,
+            Resource = "PropertyMast",
+            Key = "PropertyMast_1_Address",
+            mr_IN = "Test Address",
+            IsGenerated = true,
+            IsActive = true
+        };
+        context.MultilingualResourceEntity.Add(locRow);
         await context.SaveChangesAsync();
 
         var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
-        var service = new HardDeleteCleanupService(context, mockLogger.Object);
+        var mockLocalizationService = new Mock<ILocalizationService>();
+
+        var service = new HardDeleteCleanupService(context, mockLocalizationService.Object, mockLogger.Object);
 
         var result = await service.ForceHardDeleteAsync<PropertyEntity, int>(1);
 
+        // Entity should be deleted
         Assert.True(result);
         var deletedEntity = await context.Set<PropertyEntity>().FindAsync(1);
         Assert.Null(deletedEntity);
+
+        // Localization row should NOT be deleted (PropertyEntity has no [IsLocalizable] properties)
+        var locRowAfter = await context.MultilingualResourceEntity.FindAsync(1);
+        Assert.NotNull(locRowAfter);
+
+        // Cache invalidation should NOT be called (no keys extracted)
+        mockLocalizationService.Verify(
+            x => x.InvalidateKeys(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkForceHardDeleteAsync_EntitiesWithoutLocalizableProperties_DeletesEntitiesOnly()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        // PropertyEntity has NO [IsLocalizable] properties
+        var property1 = new PropertyEntity { Id = 1, Address = "PropertyMast_1_Address", IsActive = true };
+        var property2 = new PropertyEntity { Id = 2, Address = "PropertyMast_2_Address", IsActive = true };
+        context.Set<PropertyEntity>().AddRange(property1, property2);
+
+        // Add localization rows that should NOT be deleted (no [IsLocalizable] to extract keys)
+        context.MultilingualResourceEntity.AddRange(
+            new NtisPlatform.Core.Entities.MultilingualResourceEntity
+            {
+                Id = 1,
+                Resource = "PropertyMast",
+                Key = "PropertyMast_1_Address",
+                en_US = "Test 1",
+                IsActive = true
+            },
+            new NtisPlatform.Core.Entities.MultilingualResourceEntity
+            {
+                Id = 2,
+                Resource = "PropertyMast",
+                Key = "PropertyMast_2_Address",
+                en_US = "Test 2",
+                IsActive = true
+            }
+        );
+        await context.SaveChangesAsync();
+
+        var mockLogger = new Mock<ILogger<HardDeleteCleanupService>>();
+        var mockLocalizationService = new Mock<ILocalizationService>();
+
+        var service = new HardDeleteCleanupService(context, mockLocalizationService.Object, mockLogger.Object);
+
+        var result = await service.BulkForceHardDeleteAsync<PropertyEntity, int>(new[] { 1, 2 });
+
+        // Entities should be deleted
+        Assert.True(result.AllSucceeded);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Empty(context.Set<PropertyEntity>());
+
+        // Localization rows should NOT be deleted (PropertyEntity has no [IsLocalizable] properties)
+        Assert.Equal(2, context.MultilingualResourceEntity.Count());
+
+        // Cache invalidation should NOT be called (no keys extracted)
+        mockLocalizationService.Verify(
+            x => x.InvalidateKeys(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()),
+            Times.Never);
     }
 }
 

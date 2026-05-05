@@ -17,14 +17,24 @@ builder.Services.AddWindowsService(options =>
 });
 
 // Infrastructure Layer - Database
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
+builder.Services.AddPooledDbContextFactory<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
         b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
+// Register scoped DbContext for DI (created from factory)
+builder.Services.AddScoped(sp =>
+{
+    var factory = sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+    return factory.CreateDbContext();
+});
+
 // Infrastructure Layer - Repositories
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+// Infrastructure Layer - Localization
+builder.Services.AddSingleton<ILocalizationService, NtisPlatform.Infrastructure.Services.Localization.LocalizationService>();
 
 // Application Layer - Services
 builder.Services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();

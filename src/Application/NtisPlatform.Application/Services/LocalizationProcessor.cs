@@ -17,6 +17,11 @@ public class LocalizationProcessor
     /// <summary>
     /// Per-type cache: avoids repeated reflection to discover [IsLocalizable] properties.
     /// Populated once per DTO type on first access, reused for all subsequent calls.
+    /// 
+    /// NOTE: No size limit is needed because:
+    /// 1. DTO types are fixed at compile time (not dynamically generated)
+    /// 2. Cache size = number of unique DTO types with [IsLocalizable] properties
+    /// 3. Typical apps have <100 DTO types, so memory impact is negligible (~KB)
     /// </summary>
     private static readonly ConcurrentDictionary<Type, IReadOnlyList<LocalizablePropertyAccessor>> _accessorCache = new();
 
@@ -247,6 +252,22 @@ public class LocalizationProcessor
         }
     }
 
+
+
+    // =======================
+    // DELETE FLOW
+    // =======================
+    /// <summary>
+    /// Soft delete: Deactivates localization entries (sets IsActive = false)
+    /// </summary>
+    public virtual async Task ProcessDeactivateAsync(string resource, IEnumerable<string> keys)
+    {
+        if (string.IsNullOrWhiteSpace(resource) || keys == null || !keys.Any())
+            return;
+
+        await _localizationService.DeactivateByKeysAsync(resource, keys);
+    }
+
     // =======================
     // COMPILED PROPERTY ACCESSOR (replaces slow PropertyInfo.GetValue/SetValue)
     // =======================
@@ -355,10 +376,17 @@ public class LocalizationProcessor
 
     private static bool IsLocalizationKey(string value, string resource)
     {
-        // Zero-allocation check: value must be longer than resource and have '_' separator
         // Key format: {Resource}_{EntityId}_{PropertyName}
-        return value.Length > resource.Length
-            && value[resource.Length] == '_'
-            && value.AsSpan(0, resource.Length).Equals(resource.AsSpan(), StringComparison.OrdinalIgnoreCase);
+        // Must start with {Resource}_
+        if (value.Length <= resource.Length + 1 
+            || value[resource.Length] != '_' 
+            || !value.AsSpan(0, resource.Length).Equals(resource.AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Must have at least one more underscore for the property name part: {Resource}_{Id}_{Property}
+        var secondUnderscore = value.IndexOf('_', resource.Length + 1);
+        return secondUnderscore > resource.Length + 1 && secondUnderscore < value.Length - 1;
     }
 }
