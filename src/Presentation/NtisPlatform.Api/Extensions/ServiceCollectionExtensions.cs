@@ -167,6 +167,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
         services.AddScoped<IRuleScopeService, RuleScopeService>();
+        services.AddScoped<IRuleEffectTypeService, RuleEffectTypeService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper

@@ -89,6 +89,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BlockMasterEntity> BlockMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
+    public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -1374,12 +1375,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
 
-            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
-            entity.HasOne<UserEntity>()
-                  .WithMany()
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade)
-                  .IsRequired();
 
             entity.HasOne(e => e.Department)
                   .WithMany()
@@ -1406,12 +1401,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
 
-            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
-            entity.HasOne<UserEntity>()
-                  .WithMany()
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade)
-                  .IsRequired();
 
             entity.HasOne(e => e.Department)
                   .WithMany()
@@ -1443,13 +1432,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-
-            // FK to UserEntity - enables relationship fix-up for temp keys during user creation
-            entity.HasOne<UserEntity>()
-                  .WithMany()
-                  .HasForeignKey(e => e.UserId)
-                  .OnDelete(DeleteBehavior.Cascade)
-                  .IsRequired();
 
             entity.HasOne(e => e.Department)
                   .WithMany()
@@ -1593,9 +1575,23 @@ public class ApplicationDbContext : DbContext
         // rule scope configuration
         modelBuilder.Entity<RuleScopeEntity>(entity =>
         {
-            entity.ToTable("RuleScopeMaster", "Core");
+            entity.ToTable("RuleScopeMaster", "CORE");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.RuleScope).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // rule effect type configuration
+        modelBuilder.Entity<RuleEffectTypeEntity>(entity =>
+        {
+            entity.ToTable("RuleEffectTypeMaster", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EffectType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
