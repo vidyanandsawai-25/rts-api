@@ -168,6 +168,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
         services.AddScoped<IRuleScopeService, RuleScopeService>();
         services.AddScoped<IRuleEffectTypeService, RuleEffectTypeService>();
+        services.AddScoped<IRuleOperatorService, RuleOperatorService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         // AutoMapper

@@ -1600,6 +1600,20 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
+        // rule operator configuration
+        modelBuilder.Entity<RuleOperatorEntity>(entity =>
+        {
+            entity.ToTable("RuleOperatorMaster", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Operator).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.OperatorDescription).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
+        });
         // RenterMast configuration
         modelBuilder.Entity<RenterMastEntity>(entity =>
         {
