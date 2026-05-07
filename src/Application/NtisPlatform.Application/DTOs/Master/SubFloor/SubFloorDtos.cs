@@ -20,8 +20,9 @@ public class CreateSubFloorDto
     [StringLength(5, ErrorMessage = "SubFloorId_MaxLen_5")]
     public string SubFloorCode { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "SubFloor_Description_Required")]
     [StringLength(200)]
-    public string? Description { get; set; }
+    public string Description { get; set; }
     public decimal? SubFloorPercentage { get; set; }
     public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
@@ -34,8 +35,9 @@ public class UpdateSubFloorDto
     [StringLength(5, ErrorMessage = "SubFloorId_MaxLen_5")]
     public string SubFloorCode { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "SubFloor_Description_Required")]
     [StringLength(200)]
-    public string? Description { get; set; }
+    public string Description { get; set; }
 
     public decimal? SubFloorPercentage { get; set; }
     public bool IsActive { get; set; }

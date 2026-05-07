@@ -17,13 +17,15 @@ public class CreateTaxZoneDto : CreateBaseDtos
     private string _remark = string.Empty;
 
     [Required(ErrorMessage = "TaxZoneNo_Required")]
-    [StringLength(10, ErrorMessage = "TaxZoneNo_MaxLen_10")]
+    [StringLength(10)]
     public string TaxZoneNo
     {
         get => _taxZoneNo;
         set => _taxZoneNo = value?.Trim() ?? string.Empty;
     }
 
+
+    [Required(ErrorMessage = "TaxZoneType_Required")]
     [StringLength(50, ErrorMessage = "TaxZoneType_MaxLen_50")]
     public string? TaxZoneType
     {
@@ -31,9 +33,8 @@ public class CreateTaxZoneDto : CreateBaseDtos
         set => _taxZoneType = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    [Required(ErrorMessage = "Remark_Required")]
     [StringLength(50, ErrorMessage = "Remark_MaxLen_50")]
-    public string Remark
+    public string? Remark
     {
         get => _remark;
         set => _remark = value?.Trim() ?? string.Empty;
@@ -43,27 +44,27 @@ public class CreateTaxZoneDto : CreateBaseDtos
 public class UpdateTaxZoneDto : UpdateBaseDtos
 {
     private string _taxZoneNo = string.Empty;
-    private string? _taxZoneType;
+    private string _taxZoneType = string.Empty;
     private string _remark = string.Empty;
 
     [Required(ErrorMessage = "TaxZoneNo_Required")]
-    [StringLength(10, ErrorMessage = "TaxZoneNo_MaxLen_10")]
+    [StringLength(10)]
     public string TaxZoneNo
     {
         get => _taxZoneNo;
         set => _taxZoneNo = value?.Trim() ?? string.Empty;
     }
 
+    [Required(ErrorMessage = "TaxZoneType_Required")]
     [StringLength(50, ErrorMessage = "TaxZoneType_MaxLen_50")]
-    public string? TaxZoneType
+    public string TaxZoneType
     {
         get => _taxZoneType;
         set => _taxZoneType = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
-    [Required(ErrorMessage = "Remark_Required")]
     [StringLength(50, ErrorMessage = "Remark_MaxLen_50")]
-    public string Remark
+    public string? Remark
     {
         get => _remark;
         set => _remark = value?.Trim() ?? string.Empty;

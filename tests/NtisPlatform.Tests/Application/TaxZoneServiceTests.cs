@@ -192,7 +192,8 @@ public class CreateTaxZoneDtoTests
         // Arrange
         var dto = new CreateTaxZoneDto
         {
-            TaxZoneNo = new string('X', 11), // 11 characters, max is 10
+            TaxZoneNo = new string('X', 11), // invalid
+            TaxZoneType = "TYPE1",
             Remark = "Test"
         };
 
@@ -201,7 +202,10 @@ public class CreateTaxZoneDtoTests
 
         // Assert
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "TaxZoneNo_MaxLen_10");
+
+        Assert.Contains(results, r =>
+            r.MemberNames.Contains(nameof(CreateTaxZoneDto.TaxZoneNo)) &&
+            r.ErrorMessage!.Contains("maximum length"));
     }
 
     [Fact]
@@ -238,7 +242,7 @@ public class CreateTaxZoneDtoTests
 
         // Assert
         Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "Remark_Required");
+        Assert.DoesNotContain(results, r => r.MemberNames.Contains(nameof(CreateTaxZoneDto.Remark)));
     }
 
     [Fact]
@@ -266,7 +270,7 @@ public class CreateTaxZoneDtoTests
         var dto = new CreateTaxZoneDto
         {
             TaxZoneNo = "TZ001",
-            TaxZoneType = null,
+            TaxZoneType = "TYPE1",
             Remark = "Test"
         };
 
@@ -463,7 +467,7 @@ public class UpdateTaxZoneDtoTests
 
         // Assert
         Assert.False(dto.IsActive);
-        Assert.Null(dto.TaxZoneType);
+        Assert.Equal(string.Empty, dto.TaxZoneType);
         Assert.Null(dto.UpdatedBy);
         _ = dto.TaxZoneNo;
         _ = dto.Remark;

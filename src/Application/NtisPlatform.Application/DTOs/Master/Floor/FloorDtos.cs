@@ -5,7 +5,6 @@ namespace NtisPlatform.Application.DTOs;
 
 public class FloorDto : BaseDtos
 {
-    public int Id { get; set; } 
     public string FloorCode { get; set; } = string.Empty;
     public string Description { get; set; }
     public int? SequenceNo { get; set; }
@@ -23,6 +22,7 @@ public class CreateFloorDto: CreateBaseDtos
     [StringLength(5, ErrorMessage = "FloorCode_MaxLen_5")]
     public string FloorCode { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Floor_Description_Required")]
     [StringLength(100, ErrorMessage = "Description_MaxLen_100")]
     public string Description { get; set; }
     public int? SequenceNo { get; set; }
@@ -35,6 +35,7 @@ public class UpdateFloorDto :UpdateBaseDtos
     [StringLength(5, ErrorMessage = "FloorCode_MaxLen_5")]
     public string FloorCode { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Floor_Description_Required")]
     [StringLength(100, ErrorMessage = "Description_MaxLen_100")]
     public string Description { get; set; }
 
