@@ -89,6 +89,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BlockMasterEntity> BlockMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
+    public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -1495,6 +1496,8 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.GenderName).IsUnique().HasDatabaseName("UQ_GenderMaster_GenderName");
             entity.HasIndex(e => e.IsActive);
         });
+
+
         // PropertyCertificateTypeMaster configuration
         modelBuilder.Entity<PropertyCertificateTypeMasterEntity>(entity =>
         {
@@ -1585,7 +1588,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.IsActive);
         });
-
+         // Common RemarkType configuration
+        modelBuilder.Entity<CommonRemarkTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("CommonRemarkTypeMaster", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RemarkTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.RemarkTypeName).IsUnique().HasDatabaseName("UQ_CommonRemarkTypeMaster_RemarkTypeName");
+            entity.HasIndex(e => e.IsActive);
+        });
         // rule effect type configuration
         modelBuilder.Entity<RuleEffectTypeEntity>(entity =>
         {

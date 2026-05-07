@@ -171,6 +171,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuleOperatorService, RuleOperatorService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
+        services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();
