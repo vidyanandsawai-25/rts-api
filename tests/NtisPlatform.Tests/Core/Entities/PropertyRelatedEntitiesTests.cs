@@ -251,21 +251,9 @@ public class PropertyDetailsEntityComprehensiveTests
             BuiltupAreaSqMeter = 139.35,
             BuiltupAreaSqFeet = 1500.0,
             NoOfRooms = 5,
-            RenterYesNO = true,
-            RentMonthly = 25000.0,
-            RentYearly = 300000.0,
-            NonCalculateRentMonthly = 5000.0,
-            RenterNameEnglish = "John English",
-            RenterName = "John Doe",
-            AgreementFromDate = now.AddYears(-1),
-            AgreementDate = now.AddYears(-1).AddDays(15),
-            AgreementToDate = now.AddYears(1),
+            IsRenter = true,
             SubTypeOfUseId = 2,
-            TaxLiability = "Liable",
             IsTaxable = true,
-            OccupancyDate = now.AddYears(-2),
-            OccupancyApplyOrNot = true,
-            OccupancyNumber = "OCC-001",
             MarkedForDeletion = false,
             IsActive = true,
             CreatedBy = 1,
@@ -274,22 +262,13 @@ public class PropertyDetailsEntityComprehensiveTests
             UpdatedDate = now.AddHours(1)
         };
 
-        Assert.Equal("John English", entity.RenterNameEnglish);
-        Assert.Equal("John Doe", entity.RenterName);
-        Assert.Equal(5000.0, entity.NonCalculateRentMonthly);
-        Assert.Equal(now.AddYears(-1), entity.AgreementFromDate);
-        Assert.Equal(now.AddYears(-1).AddDays(15), entity.AgreementDate);
-        Assert.Equal(now.AddYears(1), entity.AgreementToDate);
+        Assert.True(entity.IsRenter);
         Assert.Equal(2, entity.SubTypeOfUseId);
-        Assert.Equal("Liable", entity.TaxLiability);
         Assert.True(entity.IsTaxable);
-        Assert.Equal(now.AddYears(-2), entity.OccupancyDate);
-        Assert.True(entity.OccupancyApplyOrNot);
-        Assert.Equal("OCC-001", entity.OccupancyNumber);
     }
 
     [Fact]
-    public void PropertyDetailsEntity_RenterProperties_CanBeNull()
+    public void PropertyDetailsEntity_IsRenter_CanBeNull()
     {
         var entity = new PropertyDetailsEntity
         {
@@ -301,28 +280,24 @@ public class PropertyDetailsEntityComprehensiveTests
             IsActive = true
         };
 
-        Assert.Null(entity.RenterYesNO);
-        Assert.Null(entity.RentMonthly);
-        Assert.Null(entity.RentYearly);
-        Assert.Null(entity.NonCalculateRentMonthly);
-        Assert.Null(entity.RenterNameEnglish);
-        Assert.Null(entity.RenterName);
+        Assert.Null(entity.IsRenter);
     }
 
     [Fact]
-    public void PropertyDetailsEntity_OccupancyProperties_GetSet_WorksCorrectly()
+    public void PropertyDetailsEntity_NavigationProperty_Renters_InitializedAsEmpty()
     {
-        var now = DateTime.Now;
         var entity = new PropertyDetailsEntity
         {
-            OccupancyDate = now,
-            OccupancyApplyOrNot = true,
-            OccupancyNumber = "OCC-123"
+            Id = 1,
+            PropertyId = 549357,
+            FloorId = 2,
+            ConstructionTypeId = 3,
+            TypeOfUseId = 4,
+            IsActive = true
         };
 
-        Assert.Equal(now, entity.OccupancyDate);
-        Assert.True(entity.OccupancyApplyOrNot);
-        Assert.Equal("OCC-123", entity.OccupancyNumber);
+        Assert.NotNull(entity.Renters);
+        Assert.Empty(entity.Renters);
     }
 }
 

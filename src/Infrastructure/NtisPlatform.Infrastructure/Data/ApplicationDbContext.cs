@@ -90,6 +90,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
+    public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -927,7 +928,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PartOCDate);
             entity.Property(e => e.BHK).HasMaxLength(50);
             entity.Property(e => e.BlockNo).HasMaxLength(20);
-            entity.Property(e => e.UsageCategoryId);
             entity.Property(e => e.AlternativeEmailId).HasColumnName("AlternetivEmailId").HasMaxLength(100);
             entity.Property(e => e.TotalBuiltupAreaSqFeet);
             entity.Property(e => e.TotalBuiltupAreaSqMeter);
@@ -1479,7 +1479,7 @@ public class ApplicationDbContext : DbContext
             // Unique constraint on PropertyTypeId and TypeOfUseId combination
             entity.HasIndex(e => new { e.PropertyTypeId, e.TypeOfUseId })
                 .IsUnique()
-                .HasDatabaseName("UQ_PropertyDescriptionAndTypeOfUseValidation");
+                .HasDatabaseName("UQ_PropertyDescriptionAndTypeOfUseValidation_PropertyTypeId_TypeOfUseId");
         });
 
         modelBuilder.Entity<GenderMasterEntity>(entity =>
@@ -1599,5 +1599,45 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.IsActive);
         });
+
+        // RenterMast configuration
+        modelBuilder.Entity<RenterMastEntity>(entity =>
+        {
+            entity.ToTable("RenterMast", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyDetailsId).IsRequired();
+            entity.Property(e => e.RentMonthly).HasColumnType("float");
+            entity.Property(e => e.FinalYearlyRent).HasColumnType("float");
+            entity.Property(e => e.FinancialYear).HasColumnType("nvarchar(4)");
+            entity.Property(e => e.DurationFrom).HasColumnType("datetime");
+            entity.Property(e => e.DurationTo).HasColumnType("datetime");
+            entity.Property(e => e.TaxLiability).HasColumnType("nvarchar(20)");
+            entity.Property(e => e.NonCalculateRentMonthly).HasColumnType("float");
+            entity.Property(e => e.RenterNameEnglish).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.RenterName).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.AgreementDate).HasColumnType("datetime");
+            entity.Property(e => e.AgreementFromDate).HasColumnType("datetime");
+            entity.Property(e => e.AgreementToDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Configure foreign key relationship
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany(p => p.Renters)
+                .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_RenterMast_PropertyDetails");
+
+            entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        
     }
 }

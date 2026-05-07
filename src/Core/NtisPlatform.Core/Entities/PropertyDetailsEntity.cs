@@ -39,42 +39,11 @@ public class PropertyDetailsEntity : BaseEntity
 
     public int? NoOfRooms { get; set; }
 
-    public bool? RenterYesNO { get; set; }
-
-    [Column(TypeName = "float")]
-    public double? RentMonthly { get; set; }
-
-    [Column(TypeName = "float")]
-    public double? RentYearly { get; set; }
-
-    [Column(TypeName = "float")]
-    public double? NonCalculateRentMonthly { get; set; }
-
-    [Column(TypeName = "nvarchar(500)")]
-    public string? RenterNameEnglish { get; set; }
-
-    [Column(TypeName = "nvarchar(500)")]
-    public string? RenterName { get; set; }
-
-    public DateTime? AgreementFromDate { get; set; }
-
-    public DateTime? AgreementDate { get; set; }
-
-    public DateTime? AgreementToDate { get; set; }
+    public bool? IsRenter { get; set; }
 
     public int? SubTypeOfUseId { get; set; }
 
-    [Column(TypeName = "nvarchar(20)")]
-    public string? TaxLiability { get; set; }
-
     public bool? IsTaxable { get; set; }
-
-    public DateTime? OccupancyDate { get; set; }
-
-    public bool? OccupancyApplyOrNot { get; set; }
-
-    [Column(TypeName = "varchar(30)")]
-    public string? OccupancyNumber { get; set; }
 
     /// <summary>
     /// Indicates whether the entity is marked for deletion
@@ -85,4 +54,10 @@ public class PropertyDetailsEntity : BaseEntity
     /// Date when marked for deletion
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    // Navigation Properties
+    /// <summary>
+    /// Collection of renter details associated with this property detail
+    /// </summary>
+    public virtual ICollection<RenterMastEntity> Renters { get; set; } = new List<RenterMastEntity>();
 }

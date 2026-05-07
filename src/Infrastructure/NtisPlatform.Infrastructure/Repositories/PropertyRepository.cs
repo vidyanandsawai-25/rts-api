@@ -184,37 +184,18 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             }
         }
 
-        // Step 3: Update PropertyMast fields
+        // Step 3: Update PropertyMast fields (always update, even if null)
         property.WardId = dto.WardId;
         property.TaxZoneId = dto.TaxZoneId;
-
-        if (dto.CategoryId.HasValue)
-            property.CategoryId = dto.CategoryId.Value;
-
-        if (dto.PropertyTypeId.HasValue)
-            property.PropertyTypeId = dto.PropertyTypeId.Value;
-
-        if (dto.PartitionNo != null)
-            property.PartitionNo = dto.PartitionNo;
-
-        if (dto.FlatOrShopNo != null)
-            property.FlatOrShopNo = dto.FlatOrShopNo;
-
-        if (dto.PlotNo != null)
-            property.PlotNo = dto.PlotNo;
-
-        if (dto.SurveyNo != null)
-            property.CSN = dto.SurveyNo;
-
-        if (dto.UPICId != null)
-            property.UPICId = dto.UPICId;
-
-        if (dto.SubZoneNo != null)
-            property.SubZoneNo = dto.SubZoneNo;
-
-        if (dto.MoujaId.HasValue)
-            property.MoujaId = dto.MoujaId.Value;
-
+        property.CategoryId = dto.CategoryId;
+        property.PropertyTypeId = dto.PropertyTypeId;
+        property.PartitionNo = dto.PartitionNo;
+        property.FlatOrShopNo = dto.FlatOrShopNo;
+        property.PlotNo = dto.PlotNo;
+        property.CSN = dto.SurveyNo;
+        property.UPICId = dto.UPICId;
+        property.SubZoneNo = dto.SubZoneNo;
+        property.MoujaId = dto.MoujaId;
         property.UpdatedDate = DateTime.Now;
         
         // Step 4: Upsert PropertyMastDetails (assessment) - includes NoOfToilets fields only
@@ -234,12 +215,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             if (assessment != null)
             {
-                if (dto.NoOfResidentialToilets.HasValue)
-                    assessment.NoOfResidentialToilets = dto.NoOfResidentialToilets;
-
-                if (dto.NoOfCommercialToilets.HasValue)
-                    assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
-
+                // Always update, even if null
+                assessment.NoOfResidentialToilets = dto.NoOfResidentialToilets;
+                assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
                 assessment.UpdatedDate = DateTime.Now;
             }
         }
@@ -277,21 +255,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             if (plot != null)
             {
-                if (dto.PlotArea.HasValue)
-                    plot.PlotArea = dto.PlotArea;
-
-                if (dto.PlotAreaFtLength.HasValue)
-                    plot.PlotAreaFtLength = dto.PlotAreaFtLength;
-
-                if (dto.PlotAreaFtWidth.HasValue)
-                    plot.PlotAreaFtWidth = dto.PlotAreaFtWidth;
-
-                if (dto.PlotAreaMtrLength.HasValue)
-                    plot.PlotAreaMtrLength = dto.PlotAreaMtrLength;
-
-                if (dto.PlotAreaMtrWidth.HasValue)
-                    plot.PlotAreaMtrWidth = dto.PlotAreaMtrWidth;
-
+                // Always update, even if null
+                plot.PlotArea = dto.PlotArea;
+                plot.PlotAreaFtLength = dto.PlotAreaFtLength;
+                plot.PlotAreaFtWidth = dto.PlotAreaFtWidth;
+                plot.PlotAreaMtrLength = dto.PlotAreaMtrLength;
+                plot.PlotAreaMtrWidth = dto.PlotAreaMtrWidth;
                 plot.UpdatedDate = DateTime.Now;
             }
         }
@@ -313,56 +282,58 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             await _context.PlotDetails.AddAsync(newPlot, cancellationToken);
         }
 
-        // Step 6: Upsert SocietyDetailsMast for WingId, WingNo, and WingName if provided
-        if (dto.WingId.HasValue || dto.WingName != null || dto.WingNo != null)
+        // Step 6: Upsert SocietyDetailsMast for WingId, WingNo, and WingName
+        // Always process society details if any wing-related data is sent (including null to clear)
+        SocietyDetailsEntity? society = null;
+
+        // First, try to find existing society by SocietyDetailId from property
+        if (property.SocietyDetailId.HasValue)
         {
-            SocietyDetailsEntity? society = null;
+            society = await _context.SocietyDetailsMast
+                .FirstOrDefaultAsync(s => s.Id == property.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion, cancellationToken);
+        }
 
-            // First, try to find existing society by SocietyDetailId from property
-            if (property.SocietyDetailId.HasValue)
-            {
-                society = await _context.SocietyDetailsMast
-                    .FirstOrDefaultAsync(s => s.Id == property.SocietyDetailId.Value && s.IsActive && !s.MarkedForDeletion, cancellationToken);
-            }
+        // If not found by SocietyDetailId, try to find by PropertyId
+        if (society == null)
+        {
+            society = await _context.SocietyDetailsMast
+                .FirstOrDefaultAsync(s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion, cancellationToken);
 
-            // If not found by SocietyDetailId, try to find by PropertyId
-            if (society == null)
+            // Link the society to the property if found
+            if (society != null && !property.SocietyDetailId.HasValue)
             {
-                society = await _context.SocietyDetailsMast
-                    .FirstOrDefaultAsync(s => s.PropertyId == propertyId && s.IsActive && !s.MarkedForDeletion, cancellationToken);
-                
-                // Link the society to the property if found
-                if (society != null && !property.SocietyDetailId.HasValue)
-                {
-                    property.SocietyDetailId = society.Id;
-                }
-            }
-
-            // Create new society if still not found
-            if (society == null)
-            {
-                society = new SocietyDetailsEntity
-                {
-                    PropertyId = propertyId,
-                    IsActive = true,
-                    CreatedDate = DateTime.Now
-                };
-                _context.SocietyDetailsMast.Add(society);
-                
-                // Will need to link property after save
-                await _context.SaveChangesAsync(cancellationToken);
                 property.SocietyDetailId = society.Id;
             }
+        }
 
-            if (dto.WingId.HasValue)
-                society.WingId = dto.WingId;
+        // Create new society if still not found and any wing data is being set
+        if (society == null && (dto.WingId.HasValue || dto.WingName != null || dto.WingNo != null))
+        {
+            society = new SocietyDetailsEntity
+            {
+                PropertyId = propertyId,
+                IsActive = true,
+                CreatedDate = DateTime.Now
+            };
+            _context.SocietyDetailsMast.Add(society);
 
-            if (dto.WingName != null)
-                society.WingName = dto.WingName;
+            // Will need to link property after save
+            await _context.SaveChangesAsync(cancellationToken);
+            property.SocietyDetailId = society.Id;
+        }
 
+        // Update society fields if society exists
+        // NOTE: This always updates fields, even if null, to allow clearing of wing data.
+        // If a client sends null for WingId/WingName, those fields will be cleared in the database.
+        // This is intentional behavior per the requirement that null values should update fields to NULL.
+        if (society != null)
+        {
+            society.WingId = dto.WingId;
+            society.WingName = dto.WingName;
+
+            // If WingNo is provided, try to find matching WingEntity
             if (dto.WingNo != null)
             {
-                // If you want to link to a WingEntity by number, set the reference
                 var wing = await _context.Set<WingEntity>().FirstOrDefaultAsync(w => w.WingNo == dto.WingNo && w.IsActive, cancellationToken);
                 if (wing != null)
                 {
@@ -489,64 +460,26 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             needsPropertyUpdate = true;
         }
 
-        // Step 4: Update society details fields
-        if (dto.WingId.HasValue)
-            society.WingId = dto.WingId;
-
-        if (dto.WingName != null)
-            society.WingName = dto.WingName;
-
-        if (dto.SocietyName != null)
-            society.SocietyName = dto.SocietyName;
-
-        if (dto.SocietyAddress != null)
-            society.SocietyAddress = dto.SocietyAddress;
-
-        if (dto.SecretaryName != null)
-            society.SecretaryName = dto.SecretaryName;
-
-        if (dto.ManagerName != null)
-            society.ManagerName = dto.ManagerName;
-
-        if (dto.LandOwnerName != null)
-            society.LandOwnerName = dto.LandOwnerName;
-
-        if (dto.BuilderName != null)
-            society.BuilderName = dto.BuilderName;
-
-        if (dto.SocietyNameEnglish != null)
-            society.SocietyNameEnglish = dto.SocietyNameEnglish;
-
-        if (dto.SocietyAddressEnglish != null)
-            society.SocietyAddressEnglish = dto.SocietyAddressEnglish;
-
-        if (dto.SecretaryNameEnglish != null)
-            society.SecretaryNameEnglish = dto.SecretaryNameEnglish;
-
-        if (dto.ManagerNameEnglish != null)
-            society.ManagerNameEnglish = dto.ManagerNameEnglish;
-
-        if (dto.LandOwnerNameEnglish != null)
-            society.LandOwnerNameEnglish = dto.LandOwnerNameEnglish;
-
-        if (dto.BuilderNameEnglish != null)
-            society.BuilderNameEnglish = dto.BuilderNameEnglish;
-
-        if (dto.ManagerMobileNo != null)
-            society.ManagerMobileNo = dto.ManagerMobileNo;
-
-        if (dto.SecretaryMobileNo != null)
-            society.SecretaryMobileNo = dto.SecretaryMobileNo;
-
-        if (dto.SocietyEmailId != null)
-            society.SocietyEmailId = dto.SocietyEmailId;
-
-        if (dto.SecretaryEmailId != null)
-            society.SecretaryEmailId = dto.SecretaryEmailId;
-
-        if (dto.ManagerEmailId != null)
-            society.ManagerEmailId = dto.ManagerEmailId;
-
+        // Step 4: Update society details fields (always update, even if null)
+        society.WingId = dto.WingId;
+        society.WingName = dto.WingName;
+        society.SocietyName = dto.SocietyName;
+        society.SocietyAddress = dto.SocietyAddress;
+        society.SecretaryName = dto.SecretaryName;
+        society.ManagerName = dto.ManagerName;
+        society.LandOwnerName = dto.LandOwnerName;
+        society.BuilderName = dto.BuilderName;
+        society.SocietyNameEnglish = dto.SocietyNameEnglish;
+        society.SocietyAddressEnglish = dto.SocietyAddressEnglish;
+        society.SecretaryNameEnglish = dto.SecretaryNameEnglish;
+        society.ManagerNameEnglish = dto.ManagerNameEnglish;
+        society.LandOwnerNameEnglish = dto.LandOwnerNameEnglish;
+        society.BuilderNameEnglish = dto.BuilderNameEnglish;
+        society.ManagerMobileNo = dto.ManagerMobileNo;
+        society.SecretaryMobileNo = dto.SecretaryMobileNo;
+        society.SocietyEmailId = dto.SocietyEmailId;
+        society.SecretaryEmailId = dto.SecretaryEmailId;
+        society.ManagerEmailId = dto.ManagerEmailId;
         society.UpdatedDate = DateTime.Now;
 
         // Step 5: Save all changes
@@ -650,61 +583,25 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         if (property == null) return null;
 
-        // Step 2: Update PropertyMast fields
-        if (dto.OwnerTitle != null)
-            property.OwnerTitle = dto.OwnerTitle;
-
-        if (dto.OwnerName != null)
-            property.OwnerName = dto.OwnerName;
-
-        if (dto.OwnerTitleEnglish != null)
-            property.OwnerTitleEnglish = dto.OwnerTitleEnglish;
-
-        if (dto.OwnerNameEnglish != null)
-            property.OwnerNameEnglish = dto.OwnerNameEnglish;
-
-        if (dto.OccupierTitle != null)
-            property.OccupierTitle = dto.OccupierTitle;
-
-        if (dto.OccupierName != null)
-            property.OccupierName = dto.OccupierName;
-
-        if (dto.OccupierTitleEnglish != null)
-            property.OccupierTitleEnglish = dto.OccupierTitleEnglish;
-
-        if (dto.OccupierNameEnglish != null)
-            property.OccupierNameEnglish = dto.OccupierNameEnglish;
-
-        if (dto.Address != null)
-            property.Address = dto.Address;
-
-        if (dto.Location != null)
-            property.Location = dto.Location;
-
-        if (dto.AddressEnglish != null)
-            property.AddressEnglish = dto.AddressEnglish;
-
-        if (dto.LocationEnglish != null)
-            property.LocationEnglish = dto.LocationEnglish;
-
-        if (dto.FlatOrShopName != null)
-            property.FlatOrShopName = dto.FlatOrShopName;
-
-        if (dto.FlatOrShopNameEnglish != null)
-            property.FlatOrShopNameEnglish = dto.FlatOrShopNameEnglish;
-
-        if (dto.FlatOrShopNo != null)
-            property.FlatOrShopNo = dto.FlatOrShopNo;
-
-        if (dto.FlatOrShopNoEnglish != null)
-            property.FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish;
-
-        if (dto.MobileNo != null)
-            property.MobileNo = dto.MobileNo;
-
-        if (dto.EmailId != null)
-            property.EmailId = dto.EmailId;
-
+        // Step 2: Update PropertyMast fields (always update, even if null)
+        property.OwnerTitle = dto.OwnerTitle;
+        property.OwnerName = dto.OwnerName;
+        property.OwnerTitleEnglish = dto.OwnerTitleEnglish;
+        property.OwnerNameEnglish = dto.OwnerNameEnglish;
+        property.OccupierTitle = dto.OccupierTitle;
+        property.OccupierName = dto.OccupierName;
+        property.OccupierTitleEnglish = dto.OccupierTitleEnglish;
+        property.OccupierNameEnglish = dto.OccupierNameEnglish;
+        property.Address = dto.Address;
+        property.Location = dto.Location;
+        property.AddressEnglish = dto.AddressEnglish;
+        property.LocationEnglish = dto.LocationEnglish;
+        property.FlatOrShopName = dto.FlatOrShopName;
+        property.FlatOrShopNameEnglish = dto.FlatOrShopNameEnglish;
+        property.FlatOrShopNo = dto.FlatOrShopNo;
+        property.FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish;
+        property.MobileNo = dto.MobileNo;
+        property.EmailId = dto.EmailId;
         property.UpdatedDate = DateTime.Now;
 
         // Step 3: Upsert PropertyMastDetails (assessment) - OwnerTypeId and AdharCardNo
@@ -723,12 +620,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             if (assessment != null)
             {
-                if (dto.OwnerTypeId.HasValue)
-                    assessment.OwnerTypeId = dto.OwnerTypeId;
-
-                if (dto.AdharCardNo != null)
-                    assessment.AdharCardNo = dto.AdharCardNo;
-
+                // Always update, even if null
+                assessment.OwnerTypeId = dto.OwnerTypeId;
+                assessment.AdharCardNo = dto.AdharCardNo;
                 assessment.UpdatedDate = DateTime.Now;
             }
         }
@@ -855,36 +749,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         if (oldMastData != null)
         {
-            if (dto.OldWardNo != null)
-                oldMastData.OldWardNo = dto.OldWardNo;
-
-            if (dto.OldPropertyNo != null)
-                oldMastData.OldPropertyNo = dto.OldPropertyNo;
-
-            if (dto.OldPartitionNo != null)
-                oldMastData.OldPartitionNo = dto.OldPartitionNo;
-
-            if (dto.OldEgovNo != null)
-                oldMastData.OldEgovNo = dto.OldEgovNo;
-
-            if (dto.OldPlotArea.HasValue)
-                oldMastData.OldPlotArea = dto.OldPlotArea;
-
-            if (dto.OldPlotNo != null)
-                oldMastData.OldPlotNo = dto.OldPlotNo;
-
-            if (dto.OldRV.HasValue)
-                oldMastData.OldRV = dto.OldRV;
-
-            if (dto.OldALV.HasValue)
-                oldMastData.OldALV = dto.OldALV;
-
-            if (dto.OldTotalTax.HasValue)
-                oldMastData.OldTotalTax = dto.OldTotalTax;
-
-            if (dto.OldZoneNo != null)
-                oldMastData.OldZoneNo = dto.OldZoneNo;
-
+            // Always update, even if null
+            oldMastData.OldWardNo = dto.OldWardNo;
+            oldMastData.OldPropertyNo = dto.OldPropertyNo;
+            oldMastData.OldPartitionNo = dto.OldPartitionNo;
+            oldMastData.OldEgovNo = dto.OldEgovNo;
+            oldMastData.OldPlotArea = dto.OldPlotArea;
+            oldMastData.OldPlotNo = dto.OldPlotNo;
+            oldMastData.OldRV = dto.OldRV;
+            oldMastData.OldALV = dto.OldALV;
+            oldMastData.OldTotalTax = dto.OldTotalTax;
+            oldMastData.OldZoneNo = dto.OldZoneNo;
             oldMastData.UpdatedDate = DateTime.Now;
         }
 
@@ -906,21 +781,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             if (oldDetailsData != null)
             {
-                if (dto.OldConstructionYear != null)
-                    oldDetailsData.OldConstructionYear = dto.OldConstructionYear;
-
-                if (dto.OldCarpetAreaSqFeet.HasValue)
-                    oldDetailsData.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
-
-                if (dto.OldCarpetAreaSqMeter.HasValue)
-                    oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
-
-                if (dto.OldConstructionTypeId.HasValue)
-                    oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
-
-                if (dto.OldTypeOfUseId.HasValue)
-                    oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
-
+                // Always update, even if null
+                oldDetailsData.OldConstructionYear = dto.OldConstructionYear;
+                oldDetailsData.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
+                oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
+                oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
+                oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
                 oldDetailsData.UpdatedDate = DateTime.Now;
             }
         }
@@ -1827,61 +1693,18 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             }
         }
 
-        // Step 4: Update the entity
-        if (dto.OldFloorId.HasValue)
-        {
-            existingRecord.OldFloorId = dto.OldFloorId;
-        }
-
-        if (dto.OldSubFloorId.HasValue)
-        {
-            existingRecord.OldSubFloorId = dto.OldSubFloorId;
-        }
-
-        if (dto.OldConstructionYear != null)
-        {
-            existingRecord.OldConstructionYear = dto.OldConstructionYear;
-        }
-
-        if (dto.OldAssessmentYear != null)
-        {
-            existingRecord.OldAssessmentYear = dto.OldAssessmentYear;
-        }
-
-        if (dto.OldConstructionTypeId.HasValue)
-        {
-            existingRecord.OldConstructionTypeId = dto.OldConstructionTypeId;
-        }
-
-        if (dto.OldTypeOfUseId.HasValue)
-        {
-            existingRecord.OldTypeOfUseId = dto.OldTypeOfUseId;
-        }
-
-        if (dto.OldSubTypeOfUseId.HasValue)
-        {
-            existingRecord.OldSubTypeOfUseId = dto.OldSubTypeOfUseId;
-        }
-
-        if (dto.OldCarpetAreaSqMeter.HasValue)
-        {
-            existingRecord.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
-        }
-
-        if (dto.OldCarpetAreaSqFeet.HasValue)
-        {
-            existingRecord.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
-        }
-
-        if (dto.OldBuiltupAreaSqMeter.HasValue)
-        {
-            existingRecord.OldBuiltupAreaSqMeter = dto.OldBuiltupAreaSqMeter;
-        }
-
-        if (dto.OldBuiltupAreaSqFeet.HasValue)
-        {
-            existingRecord.OldBuiltupAreaSqFeet = dto.OldBuiltupAreaSqFeet;
-        }
+        // Step 4: Update the entity (always update, even if null)
+        existingRecord.OldFloorId = dto.OldFloorId;
+        existingRecord.OldSubFloorId = dto.OldSubFloorId;
+        existingRecord.OldConstructionYear = dto.OldConstructionYear;
+        existingRecord.OldAssessmentYear = dto.OldAssessmentYear;
+        existingRecord.OldConstructionTypeId = dto.OldConstructionTypeId;
+        existingRecord.OldTypeOfUseId = dto.OldTypeOfUseId;
+        existingRecord.OldSubTypeOfUseId = dto.OldSubTypeOfUseId;
+        existingRecord.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
+        existingRecord.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
+        existingRecord.OldBuiltupAreaSqMeter = dto.OldBuiltupAreaSqMeter;
+        existingRecord.OldBuiltupAreaSqFeet = dto.OldBuiltupAreaSqFeet;
         existingRecord.UpdatedDate = DateTime.Now;
 
         await _context.SaveChangesAsync(cancellationToken);
