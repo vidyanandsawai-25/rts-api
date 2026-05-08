@@ -3,8 +3,9 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
-using NtisPlatform.Application.DTOs.Master.BlockMaster;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Master.BlockMaster;
+using NtisPlatform.Application.DTOs.Master.CommonRemarkDetails;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkTypeMaster;
 using NtisPlatform.Application.DTOs.Master.GenderMaster;
 using NtisPlatform.Application.Interfaces;
@@ -1258,6 +1259,100 @@ public class AllMasterControllersComprehensiveTests
         var returnedResult = Assert.IsType<PagedResult<BlockMasterDtos>>(okResult.Value);
         Assert.Equal(0, returnedResult.TotalCount);
         Assert.Empty(returnedResult.Items);
+    }
+
+    #endregion
+
+    #region CommonRemarkDetails Master Tests
+
+    [Fact]
+    public async Task CommonRemarkDetailsController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
+        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+
+        var query = new CommonRemarkDetailsQueryParameters();
+        var pagedResult = new PagedResult<CommonRemarkDetailsDtos>(new List<CommonRemarkDetailsDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CommonRemarkDetailsController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
+        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CommonRemarkDetailsController_GetById_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
+        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+
+        var dto = new CommonRemarkDetailsDtos { Id = 1 };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CommonRemarkDetailsController_Create_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
+        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreateCommonRemarkDetailsDto { Remark = "Test Remark Details" };
+        var resultDto = new CommonRemarkDetailsDtos { Id = 1 };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CommonRemarkDetailsController_Update_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
+        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateCommonRemarkDetailsDto { Remark = "Updated Remark Details" };
+        var resultDto = new CommonRemarkDetailsDtos { Id = 1 };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

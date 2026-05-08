@@ -173,6 +173,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
+        services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

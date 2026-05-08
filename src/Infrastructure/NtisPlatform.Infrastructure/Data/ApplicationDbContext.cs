@@ -91,8 +91,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
-
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
+    public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -1678,6 +1679,28 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
-        
+        // CommonRemarkDetails configuration
+        modelBuilder.Entity<CommonRemarkDetailsEntity>(entity =>
+        {
+            entity.ToTable("CommonRemarkDetails", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RemarkTypeId).IsRequired();
+            entity.Property(e => e.Remark).IsRequired().HasMaxLength(300);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Foreign key relationship with CommonRemarkTypeMaster
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.RemarkTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.RemarkTypeId).HasDatabaseName("IX_CommonRemarkDetails_RemarkTypeId");
+            entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_CommonRemarkDetails_IsActive");
+        });
     }
 }
