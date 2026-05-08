@@ -2,6 +2,13 @@ using NtisPlatform.Api.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel server options for file upload limits
+var maxFileSizeBytes = builder.Configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+builder.Services.Configure<Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = maxFileSizeBytes;
+});
+
 // Register all services in one place
 builder.Services.AddAllServices(builder.Configuration);
 

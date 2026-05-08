@@ -48,12 +48,24 @@ Generated\ Files/
 
 # MSTest test Results
 [Tt]est[Rr]esult*/
+[Tt]est[Rr]esults/
 [Bb]uild[Ll]og.*
 
 # NUnit
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Test Coverage
+coverage/
+TestCoverage/
+*.coverage
+*.coveragexml
+*coverage*.xml
+*coverage*.json
+*coverage*.info
+CoverageReport/
+coveragereport/
 
 # Build Results of an ATL Project
 [Dd]ebugPS/
@@ -76,9 +88,6 @@ StyleCopReport.xml
 
 **/*.md
 **/.editorconfig
-
-# Coverage output
-coveragereport/
 
 # Files built by Visual Studio
 *_i.c
@@ -152,15 +161,6 @@ _TeamCity*
 # AxoCover is a Code Coverage Tool
 .axoCover/*
 !.axoCover/settings.json
-
-# Coverlet is a free, cross platform Code Coverage Tool
-coverage*.json
-coverage*.xml
-coverage*.info
-
-# Visual Studio code coverage results
-*.coverage
-*.coveragexml
 
 # NCrunch
 _NCrunch_*

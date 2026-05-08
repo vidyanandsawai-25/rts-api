@@ -1,9 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk"><!-- All common properties are inherited from Directory.Build.props -->
 
-
-
-
-
+  <ItemGroup>
+    <InternalsVisibleTo Include="NtisPlatform.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />

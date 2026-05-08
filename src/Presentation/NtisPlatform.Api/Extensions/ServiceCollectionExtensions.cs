@@ -73,6 +73,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILocalization, LocalizationRepoService>();
         services.AddScoped<ILocalizedQueryService, LocalizedQueryService>();
 
+        // Configure file upload limits from configuration
+        var maxFileSizeBytes = configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+        services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+        {
+            options.MultipartBodyLengthLimit = maxFileSizeBytes;
+        });
+
         // API Layer - Controllers with DataAnnotations localization
         services.AddControllers()
             .AddDataAnnotationsLocalization(options =>
@@ -97,10 +104,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
         services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
+        services.AddScoped<IDocumentService, DocumentService>();
+        services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
+        services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
+
+        // API Layer - Helpers
+        services.AddSingleton<NtisPlatform.Api.Helpers.FileValidationHelper>();
 
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
+        services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
+        services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
 
 
         // TODO: Add other providers when implemented
@@ -193,6 +209,9 @@ public static class ServiceCollectionExtensions
                               "5. Test your protected endpoints",
                 Contact = new OpenApiContact { Name = "NTIS Platform Team" }
             });
+
+            // Enable Swagger schema support for C# non-nullable reference types
+            options.SupportNonNullableReferenceTypes();
 
             // Enable JWT Bearer authentication in Swagger UI - Adds "Authorize" button
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -310,15 +329,24 @@ public static class ServiceCollectionExtensions
         // Rate Limiting (ASP.NET Core 7+)
         services.AddRateLimiter(options =>
         {
+            // Read rate limiting configuration
+            var globalPermitLimit = configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 100);
+            var globalWindowMinutes = configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1);
+            var loginPermitLimit = configuration.GetValue<int>("RateLimiting:Login:PermitLimit", 5);
+            var loginWindowMinutes = configuration.GetValue<int>("RateLimiting:Login:WindowMinutes", 15);
+            var uploadPermitLimit = configuration.GetValue<int>("RateLimiting:FileUpload:PermitLimit", 10);
+            var uploadWindowMinutes = configuration.GetValue<int>("RateLimiting:FileUpload:WindowMinutes", 5);
+            var uploadQueueLimit = configuration.GetValue<int>("RateLimiting:FileUpload:QueueLimit", 2);
+
             // Global default policy for all endpoints (unless overridden)
             options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
                     partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new System.Threading.RateLimiting.SlidingWindowRateLimiterOptions
                     {
-                        PermitLimit = 100, // 100 requests
-                        Window = TimeSpan.FromMinutes(1), // per minute
-                        SegmentsPerWindow = 6, // 6 segments (10 seconds each)
+                        PermitLimit = globalPermitLimit,
+                        Window = TimeSpan.FromMinutes(globalWindowMinutes),
+                        SegmentsPerWindow = 6,
                         QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0
                     }));
@@ -329,10 +357,23 @@ public static class ServiceCollectionExtensions
                     partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 5, // 5 attempts
-                        Window = TimeSpan.FromMinutes(15), // per 15 minutes
+                        PermitLimit = loginPermitLimit,
+                        Window = TimeSpan.FromMinutes(loginWindowMinutes),
                         QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                        QueueLimit = 0 // No queueing
+                        QueueLimit = 0
+                    }));
+
+            // Dedicated rate limiter for file upload endpoints
+            // Prevents abuse and resource exhaustion from excessive file uploads
+            options.AddPolicy("fileupload", context =>
+                System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                    factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = uploadPermitLimit,
+                        Window = TimeSpan.FromMinutes(uploadWindowMinutes),
+                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                        QueueLimit = uploadQueueLimit
                     }));
 
             // On rejection, return 429 Too Many Requests

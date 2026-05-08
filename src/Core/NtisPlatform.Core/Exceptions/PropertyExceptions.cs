@@ -1,0 +1,34 @@
+namespace NtisPlatform.Core.Exceptions;
+
+/// <summary>
+/// Exception thrown when a property is not found
+/// </summary>
+public class PropertyNotFoundException : EntityNotFoundException
+{
+    public PropertyNotFoundException(int propertyId)
+        : base("Property", propertyId, "PROPERTY_NOT_FOUND")
+    {
+    }
+}
+
+/// <summary>
+/// Exception thrown when a property certificate is not found
+/// </summary>
+public class PropertyCertificateNotFoundException : EntityNotFoundException
+{
+    public PropertyCertificateNotFoundException(int propertyCertificateId)
+        : base("PropertyCertificate", propertyCertificateId, "PROPERTY_CERTIFICATE_NOT_FOUND")
+    {
+    }
+}
+
+/// <summary>
+/// Exception thrown when a certificate type is not found
+/// </summary>
+public class CertificateTypeNotFoundException : EntityNotFoundException
+{
+    public CertificateTypeNotFoundException(int certificateTypeId)
+        : base("CertificateType", certificateTypeId, "CERTIFICATE_TYPE_NOT_FOUND")
+    {
+    }
+}

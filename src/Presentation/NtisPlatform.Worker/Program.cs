@@ -38,6 +38,7 @@ builder.Services.AddSingleton<ILocalizationService, NtisPlatform.Infrastructure.
 
 // Application Layer - Services
 builder.Services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
+builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 
 // Add background workers
 builder.Services.AddHostedService<Worker>();

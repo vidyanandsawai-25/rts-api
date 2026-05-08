@@ -30,7 +30,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Api\DTOs\" />
 	  <Folder Include="Api\Extensions\" />
+	  <Folder Include="Application\DTOs\Document\" />
 	  <Folder Include="Integration\" />
 	</ItemGroup>
 
