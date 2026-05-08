@@ -165,6 +165,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
+        services.AddScoped<IBlockMasterService, BlockMasterService>();
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
         services.AddScoped<IRuleScopeService, RuleScopeService>();
         services.AddScoped<IRuleEffectTypeService, RuleEffectTypeService>();

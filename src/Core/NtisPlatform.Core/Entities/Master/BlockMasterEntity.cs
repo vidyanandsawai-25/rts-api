@@ -1,9 +1,7 @@
-﻿using NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities.Master;
 
-namespace NtisPlatform.Core.Entities.Master
+public class BlockMasterEntity : BaseEntity
 {
-    public class BlockMasterEntity : BaseEntity
-    {
-        public int WardId { get; set; }
-    }
+    public int WardId { get; set; }
+    public string BlockNo { get; set; } = string.Empty;
 }

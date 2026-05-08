@@ -68,7 +68,7 @@ public class ReferenceValidationService : IReferenceValidationService
             );
         config.ForEntity<WardEntity>()
            .CheckReferences(
-               ("Block Master", (ctx, id) => ctx.BlockMaster.Where(d => d.WardId == id).Cast<object>()),
+               ("Block Master", (ctx, id) => ctx.BlockMasters.Where(d => d.WardId == id).Cast<object>()),
                ("Property Mast", (ctx, id) => ctx.PropertyMast.Where(r => r.WardId == id).Cast<object>()),
                ("Rate Section Details", (ctx, id) => ctx.RateSectionDetails.Where(r => r.WardId == id).Cast<object>())
            );

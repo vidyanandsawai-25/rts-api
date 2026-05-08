@@ -81,16 +81,17 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidations { get; set; } = null!;
     public DbSet<GenderMasterEntity> GenderMasters { get; set; } = null!;
     public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
+    public DbSet<BlockMasterEntity> BlockMasters { get; set; } = null!;
     public DbSet<AgeFactorCVMasterEntity> AgeFactorCVMasters { get; set; } = null!;
     public DbSet<NatureFactorCVMasterEntity> NatureFactorCVMasters { get; set; } = null!;
     public DbSet<TaxPercentageMasterRV> TaxPercentageMasterRVs { get; set; } = null!;
     public DbSet<TaxPercentageMasterCV> TaxPercentageMasterCVs { get; set; } = null!;
     public DbSet<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = null!;
-    public DbSet<BlockMasterEntity> BlockMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
+
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -210,16 +211,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.TypeOfUseId, e.SubTypeOfUseId, e.YearRangeCVId }).IsUnique();
         });
 
-        // BlockMaster configuration
-        modelBuilder.Entity<BlockMasterEntity>(entity =>
-        {
-            entity.ToTable("BlockMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
-            entity.Property(e => e.WardId).IsRequired();
-            // Add other property configurations as needed
-            entity.HasIndex(e => e.WardId);
-        });
 
         // ParkingTypeMaster configuration
         modelBuilder.Entity<ParkingTypeMasterEntity>(entity =>
@@ -1519,6 +1510,25 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
         });
 
+        // BlockMaster configuration
+        modelBuilder.Entity<BlockMasterEntity>(entity =>
+        {
+            entity.ToTable("BlockMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.BlockNo).IsRequired().HasMaxLength(20);
+                        // Foreign key relationship with WardMaster
+            entity.HasOne<WardEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Unique constraint on WardId and BlockNo combination
+            entity.HasIndex(e => new { e.WardId, e.BlockNo })
+                .IsUnique()
+                .HasDatabaseName("UQ_BlockMaster_Ward_BlockNo");
+        });
         // TaxMaster configuration
         modelBuilder.Entity<TaxMasterEntity>(entity =>
         {

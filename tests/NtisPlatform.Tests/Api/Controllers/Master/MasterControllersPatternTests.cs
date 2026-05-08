@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Master.BlockMaster;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkTypeMaster;
 using NtisPlatform.Application.DTOs.Master.GenderMaster;
@@ -27,7 +28,7 @@ public class AllMasterControllersComprehensiveTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
 
         var query = new FloorQueryParameters();
         var pagedResult = new PagedResult<FloorDto>(new List<FloorDto>(), 0, 1, 10);
@@ -47,7 +48,7 @@ public class AllMasterControllersComprehensiveTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
 
         var dto = new FloorDto { Id = 1 };
         mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -213,7 +214,7 @@ public class AllMasterControllersComprehensiveTests
         var mockService = new Mock<IFloorService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object ,mockLogger.Object);
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
 
         var emptyArray = Array.Empty<BulkUpdateItem<int, UpdateFloorDto>>();
 
@@ -232,7 +233,7 @@ public class AllMasterControllersComprehensiveTests
         var mockService = new Mock<IFloorService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
 
         var updateItems = new[]
         {
@@ -267,7 +268,7 @@ public class AllMasterControllersComprehensiveTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object,mockLogger.Object);
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
 
         var idsToDelete = new[] { 1, 2, 3 };
 
@@ -905,7 +906,7 @@ public class AllMasterControllersComprehensiveTests
         var mockLogger = new Mock<ILogger<GenderController>>();
         var controller = new GenderController(mockService.Object, mockLogger.Object);
 
-        var createDto = new CreateGenderMasterDto { GenderName = "Male"};
+        var createDto = new CreateGenderMasterDto { GenderName = "Male" };
         var resultDto = new GenderMasterDtos { Id = 1 };
 
         mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
@@ -954,6 +955,7 @@ public class AllMasterControllersComprehensiveTests
 
     #endregion
 
+   
     #region CommonRemarkType Master Tests
 
     [Fact]
@@ -974,6 +976,22 @@ public class AllMasterControllersComprehensiveTests
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
     }
+  
+    [Fact]
+    public async Task CommonRemarkTypeController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
+        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
 
     [Fact]
     public async Task CommonRemarkTypeController_GetById_CallsExtensionMethod()
@@ -992,6 +1010,7 @@ public class AllMasterControllersComprehensiveTests
         mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+   
     [Fact]
     public async Task CommonRemarkTypeController_Create_CallsExtensionMethod()
     {
@@ -1029,14 +1048,87 @@ public class AllMasterControllersComprehensiveTests
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
     }
-
+    #endregion
+  
+    #region BlockMasterController Tests
+      
     [Fact]
-    public async Task CommonRemarkTypeController_Delete_CallsExtensionMethod()
+    public async Task BlockMasterController_GetById_CallsExtensionMethod()
     {
-        var mockService = new Mock<ICommonRemarkTypeMasterService>();
-        var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
 
+        var dto = new BlockMasterDtos { Id = 1, WardId = 10, BlockNo = "BLK001" };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+  
+    [Fact]
+    public async Task BlockMasterController_Create_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreateBlockMasterDto { WardId = 10, BlockNo = "BLK001" };
+        var resultDto = new BlockMasterDtos { Id = 1, WardId = 10, BlockNo = "BLK001" };
+       mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+  
+    [Fact]
+    public async Task BlockMasterController_Update_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateBlockMasterDto { WardId = 20, BlockNo = "BLK001-UPDATED" };
+        var resultDto = new BlockMasterDtos { Id = 1, WardId = 20, BlockNo = "BLK001-UPDATED" };
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+  
+    [Fact]
+    public async Task BlockMasterController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var query = new BlockQueryParameters();
+        var pagedResult = new PagedResult<BlockMasterDtos>(new List<BlockMasterDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+             .ReturnsAsync(pagedResult);
+      var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+    [Fact]
+    public async Task BlockMasterController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+        
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -1045,6 +1137,129 @@ public class AllMasterControllersComprehensiveTests
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
+  
+
+    [Fact]
+    public async Task BlockMasterController_GetById_NotFound_ReturnsNotFound()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((BlockMasterDtos?)null);
+
+        var result = await controller.GetById(999, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BlockMasterController_Update_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateBlockMasterDto { WardId = 10, BlockNo = "BLK001" };
+        mockService.Setup(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((BlockMasterDtos?)null);
+
+        var result = await controller.Update(999, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BlockMasterController_Delete_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.Delete(999, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BlockMasterController_GetAll_WithFilters_ReturnsFilteredResults()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var query = new BlockQueryParameters
+        {
+            WardId = 10,
+            BlockNo = "BLK001",
+            IsActive = true
+        };
+        var pagedResult = new PagedResult<BlockMasterDtos>(
+            new List<BlockMasterDtos>
+            {
+                new() { Id = 1, WardId = 10, BlockNo = "BLK001", IsActive = true }
+            },
+            1, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResult = Assert.IsType<PagedResult<BlockMasterDtos>>(okResult.Value);
+        Assert.Equal(1, returnedResult.TotalCount);
+        Assert.Single(returnedResult.Items);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BlockMasterController_Create_ValidModel_ReturnsOk()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreateBlockMasterDto { WardId = 10, BlockNo = "BLK001" };
+        var resultDto = new BlockMasterDtos { Id = 1, WardId = 10, BlockNo = "BLK001" };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BlockMasterController_GetAll_EmptyResult_ReturnsEmptyPagedResult()
+    {
+        var mockService = new Mock<IBlockMasterService>();
+        var mockLogger = new Mock<ILogger<BlockController>>();
+        var controller = new BlockController(mockService.Object, mockLogger.Object);
+
+        var query = new BlockQueryParameters();
+        var pagedResult = new PagedResult<BlockMasterDtos>(new List<BlockMasterDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResult = Assert.IsType<PagedResult<BlockMasterDtos>>(okResult.Value);
+        Assert.Equal(0, returnedResult.TotalCount);
+        Assert.Empty(returnedResult.Items);
+    }
 
     #endregion
 }
+
