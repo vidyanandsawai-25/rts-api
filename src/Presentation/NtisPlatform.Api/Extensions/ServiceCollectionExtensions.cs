@@ -188,6 +188,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuleOperatorService, RuleOperatorService>();
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
+        services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
         // AutoMapper

@@ -98,6 +98,11 @@ public class ReferenceValidationService : IReferenceValidationService
            ("Property Details Reassessment", (ctx, id) => ctx.PropertyDetailsReassessment.Where(d => d.SubTypeOfUseId == id).Cast<object>()),           
            ("Use Factor CV Master", (ctx, id) => ctx.UseFactorCVMaster.Where(d => d.SubTypeOfUseId == id).Cast<object>())
         );
+
+        config.ForEntity<SocietyDetailsEntity>()
+        .CheckReferences(
+           ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.SocietyDetailId == id).Cast<object>())
+        );
         _referenceConfig = config.Build();
     }
 
