@@ -1826,5 +1826,138 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
         return true;
     }
+	
+	  public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        int iFromFloor = 1;
+        int iToFloor = 1;
+        int number;
+       
+
+        if (dto.GenerationType.ToLower() == "HC".ToLower() & dto.FromFloor != dto.ToFloor)
+        {
+            throw new InvalidOperationException("From floor and to floor must be same");
+        }
+        else if (dto.GenerationType.ToLower() == "VC".ToLower() & dto.NoOfFlatOnOneFloor > 1)
+        {
+            throw new InvalidOperationException("Vertical Custom Generation no of flat in one floor must be 1");
+        }
+
+
+        if (int.TryParse(dto.FromFloor, out number) && number >= 1 && number <= 1000)
+        {
+            iFromFloor = Convert.ToInt32(dto.FromFloor);
+            iToFloor = Convert.ToInt32(dto.ToFloor);
+
+            if (iFromFloor > iToFloor)
+            {
+                throw new InvalidOperationException("From Floor cannot be greater than To Floor");
+            }
+        }
+
+        else
+        {
+           
+            if (dto.GenerationType.ToLower() != "hc" && dto.GenerationType.ToLower() != "vc")
+            {
+                throw new InvalidOperationException("Select horizontal custom or vertical custom for generation");
+            }
+
+
+        }
+
+
+        // Step 1: Validate input parameters
+
+
+        if (dto.NoOfFlatOnOneFloor <= 0)
+        {
+            throw new InvalidOperationException("No Of Flat On One Floor must be greater than zero");
+        }
+
+        if (dto.Prifix != ""&& dto.Prifix != null)
+        {
+            dto.Prifix = dto.Prifix + "-";
+        }
+
+        // Step 2: Validate WingId exists and get WingNo
+        var wingNo = await _context.Set<WingEntity>()
+            .Where(w => w.Id == dto.WingId && w.IsActive)
+            .Select(w => w.WingNo)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (wingNo == null)
+        {
+            throw new InvalidOperationException("Wing Not Found");
+        }
+
+        // Step 3: Get existing property count for partition number calculation
+        // This is equivalent to @LastPropertyNo in the SQL query
+        var lastPropertyNo = await (from p in _context.PropertyMast
+                                    join s in _context.SocietyDetailsMast on p.SocietyDetailId equals s.Id
+                                    where p.WardId == dto.WardId
+                                          && p.PropertyNo == dto.PropertyNo
+                                          && s.WingId == dto.WingId
+                                          && p.IsActive
+                                          && !p.MarkedForDeletion
+                                          && s.IsActive
+                                          && !s.MarkedForDeletion
+                                    select p).CountAsync(cancellationToken);
+
+        // Step 4: Generate floor and unit sequences (equivalent to CTEs in SQL)
+        // Floors CTE: SELECT @FromFloor AS FloorNo UNION ALL SELECT FloorNo + 1 FROM Floors WHERE FloorNo < @ToFloor
+        var floors = Enumerable.Range(iFromFloor, iToFloor - iFromFloor + 1).ToList();
+
+        // Units CTE: SELECT 1 AS UnitNo UNION ALL SELECT UnitNo + 1 FROM Units WHERE UnitNo < @NoOfFlatOnOneFloor
+        var units = Enumerable.Range(1, dto.NoOfFlatOnOneFloor).ToList();
+
+        // Step 5: Vertical Generation - Cross join ordered by UnitNo, then FloorNo
+
+        // Determine generation type flags
+        var isVertical = dto.GenerationType.Equals("V", StringComparison.OrdinalIgnoreCase) ||
+                         dto.GenerationType.Equals("VC", StringComparison.OrdinalIgnoreCase);
+        var isHorizontal = dto.GenerationType.Equals("H", StringComparison.OrdinalIgnoreCase) ||
+                           dto.GenerationType.Equals("HC", StringComparison.OrdinalIgnoreCase);
+        var isHC = dto.GenerationType.Equals("HC", StringComparison.OrdinalIgnoreCase);
+
+        if (!isVertical && !isHorizontal)
+        {
+            throw new InvalidOperationException("Invalid Generation Type");
+        }
+
+        // Normalize prefix
+        var prefix = !string.IsNullOrEmpty(dto.Prifix) ? $"{dto.Prifix}-" : string.Empty;
+        var normalizedType = dto.GenerationType.ToUpperInvariant();
+
+        // Create cross join of units and floors
+        var crossJoin = from u in units
+                        from f in floors
+                        select (FloorNo: f, UnitNo: u);
+
+        // Apply ordering based on generation type
+        // Vertical (V, VC): order by UnitNo then FloorNo
+        // Horizontal (H, HC): order by FloorNo then UnitNo
+        var orderedItems = isVertical
+            ? crossJoin.OrderBy(x => x.UnitNo).ThenBy(x => x.FloorNo)
+            : crossJoin.OrderBy(x => x.FloorNo).ThenBy(x => x.UnitNo);
+
+        // Generate result with floor multiplier (HC uses 0, others use FloorNo - 1)
+        return orderedItems
+            .Select((item, index) => new BuildingGenerateStructureDto
+            {
+                WardId = dto.WardId,
+                PropertyNo = dto.PropertyNo,
+                WingId = dto.WingId,
+                RowNo = index + 1,
+                FloorNo = item.FloorNo,
+                UnitNo = item.UnitNo,
+                FlatNo = $"{prefix}{dto.FlatStart + (isHC ? 0 : (item.FloorNo - 1) * dto.IncrementedBy) + (item.UnitNo - 1)}",
+                PartitionNo = $"{wingNo}{index + 1 + lastPropertyNo}",
+                GenerationType = normalizedType
+            })
+            .ToList();
+
+    }
+	
 }
  

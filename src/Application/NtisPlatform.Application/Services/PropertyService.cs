@@ -111,6 +111,11 @@ public class PropertyService
     {
         return await _propertyRepository.DeleteFloorDetailsOldAsync(propertyId, floorId, cancellationToken);
     }
+	public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetGenerateBuildingStructureAsync(dto, cancellationToken);
+        
+    }
 }
 
 

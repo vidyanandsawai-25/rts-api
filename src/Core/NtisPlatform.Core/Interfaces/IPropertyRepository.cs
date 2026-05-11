@@ -125,4 +125,16 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if the record was found and deleted, false otherwise</returns>
     Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
+	
+	/// <summary>
+    /// Generates property structure based on floor and unit configuration (Vertical Generation).
+    /// Creates a cross join of floors and units, ordered by UnitNo then FloorNo.
+    /// </summary>
+    /// <param name="dto">The generation parameters including floor range, units per floor, and wing info</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of generated property structures or null if validation fails</returns>
+    Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
+
+
+
 }
