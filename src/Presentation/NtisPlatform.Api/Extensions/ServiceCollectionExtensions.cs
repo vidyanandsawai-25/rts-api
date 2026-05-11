@@ -191,6 +191,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
+        services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

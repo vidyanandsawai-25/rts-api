@@ -99,6 +99,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
+    public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1898,6 +1899,23 @@ public class ApplicationDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.RemarkTypeId).HasDatabaseName("IX_CommonRemarkDetails_RemarkTypeId");
             entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_CommonRemarkDetails_IsActive");
+        });
+
+        modelBuilder.Entity<RoomTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("RoomTypeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.RoomTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.RoomTypeName).IsUnique().HasDatabaseName("UQ_RoomTypeMaster_RoomTypeName");
+            entity.HasIndex(e => e.RoomTypeCode).IsUnique().HasDatabaseName("UQ_RoomTypeMaster_RoomTypeCode");
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }

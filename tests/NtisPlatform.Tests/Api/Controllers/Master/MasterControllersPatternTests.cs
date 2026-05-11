@@ -8,6 +8,7 @@ using NtisPlatform.Application.DTOs.Master.BlockMaster;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkDetails;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkTypeMaster;
 using NtisPlatform.Application.DTOs.Master.GenderMaster;
+using NtisPlatform.Application.DTOs.Master.RoomTypeMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
@@ -1353,6 +1354,149 @@ public class AllMasterControllersComprehensiveTests
 
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region RoomTypeMasterController Tests
+
+    [Fact]
+    public async Task RoomTypeMasterController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        var query = new RoomTypeMasterQueryParameters();
+        var pagedResult = new PagedResult<RoomTypeMasterDto>(new List<RoomTypeMasterDto>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_GetById_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        var dto = new RoomTypeMasterDto { Id = 1, RoomTypeName = "Bedroom", RoomTypeCode = "BED001" };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_Create_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreateRoomTypeMasterDto { RoomTypeName = "Bedroom", RoomTypeCode = "BED001" };
+        var resultDto = new RoomTypeMasterDto { Id = 1, RoomTypeName = "Bedroom", RoomTypeCode = "BED001" };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_Update_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateRoomTypeMasterDto { RoomTypeName = "Updated Bedroom", RoomTypeCode = "BED001" };
+        var resultDto = new RoomTypeMasterDto { Id = 1, RoomTypeName = "Updated Bedroom", RoomTypeCode = "BED001" };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_GetById_NotFound_ReturnsNotFound()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RoomTypeMasterDto?)null);
+
+        var result = await controller.GetById(999, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_Update_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdateRoomTypeMasterDto { RoomTypeName = "Bedroom", RoomTypeCode = "BED001" };
+        mockService.Setup(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RoomTypeMasterDto?)null);
+
+        var result = await controller.Update(999, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RoomTypeMasterController_Delete_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IRoomTypeMasterService>();
+        var mockLogger = new Mock<ILogger<RoomTypeMasterController>>();
+        var controller = new RoomTypeMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.Delete(999, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
