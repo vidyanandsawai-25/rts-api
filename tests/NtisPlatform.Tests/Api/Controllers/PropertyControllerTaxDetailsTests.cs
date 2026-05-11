@@ -77,11 +77,12 @@ public class PropertyControllerTaxDetailsTests
                 new PolicyTaxDetail
                 {
                     PolicyCode = "POL2024",
-                    TaxAmounts = new Dictionary<string, decimal?>
+                    TaxAmounts = new List<TaxAmountDetail>
                     {
-                        { "Property Tax", 1000.00m },
-                        { "Water Tax", 500.00m }
-                    }
+                        new TaxAmountDetail { TaxName = "Property Tax", TaxAmount = 1000.00m },
+                        new TaxAmountDetail { TaxName = "Water Tax", TaxAmount = 500.00m }
+                    },
+                    TaxTotal = 1500.00m
                 }
             }
         };
@@ -100,6 +101,7 @@ public class PropertyControllerTaxDetailsTests
         Assert.NotNull(response.Items);
         Assert.Single(response.Items.Policies);
         Assert.Equal("POL2024", response.Items.Policies[0].PolicyCode);
+        Assert.Equal(1500.00m, response.Items.Policies[0].TaxTotal);
     }
 
     [Fact]
@@ -173,11 +175,12 @@ public class PropertyControllerTaxDetailsTests
                 new PolicyTaxDetail
                 {
                     PolicyCode = "POLCV2024",
-                    TaxAmounts = new Dictionary<string, decimal?>
+                    TaxAmounts = new List<TaxAmountDetail>
                     {
-                        { "Capital Value Tax", 2000.00m },
-                        { "Education Cess", 750.00m }
-                    }
+                        new TaxAmountDetail { TaxName = "Capital Value Tax", TaxAmount = 2000.00m },
+                        new TaxAmountDetail { TaxName = "Education Cess", TaxAmount = 750.00m }
+                    },
+                    TaxTotal = 2750.00m
                 }
             }
         };

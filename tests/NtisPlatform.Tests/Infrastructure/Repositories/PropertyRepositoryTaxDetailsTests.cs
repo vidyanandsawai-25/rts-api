@@ -170,9 +170,10 @@ public class PropertyRepositoryTaxDetailsTests
         var policy = result.Policies[0];
         Assert.Equal("POL2024", policy.PolicyCode);
         Assert.Equal(3, policy.TaxAmounts.Count);
-        Assert.Equal(1000.50m, policy.TaxAmounts["Property Tax"]);
-        Assert.Equal(500.25m, policy.TaxAmounts["Water Tax"]);
-        Assert.Equal(300.00m, policy.TaxAmounts["Sewerage Tax"]);
+        Assert.Equal(1000.50m, policy.TaxAmounts.Single(t => t.TaxName == "Property Tax").TaxAmount);
+        Assert.Equal(500.25m, policy.TaxAmounts.Single(t => t.TaxName == "Water Tax").TaxAmount);
+        Assert.Equal(300.00m, policy.TaxAmounts.Single(t => t.TaxName == "Sewerage Tax").TaxAmount);
+        Assert.Equal(1800.75m, policy.TaxTotal);
     }
 
     [Fact]
@@ -261,14 +262,14 @@ public class PropertyRepositoryTaxDetailsTests
         var policy2023 = result.Policies.FirstOrDefault(p => p.PolicyCode == "POL2023");
         Assert.NotNull(policy2023);
         Assert.Equal(2, policy2023.TaxAmounts.Count);
-        Assert.Equal(900.00m, policy2023.TaxAmounts["Property Tax"]);
-        Assert.Equal(450.00m, policy2023.TaxAmounts["Water Tax"]);
+        Assert.Equal(900.00m, policy2023.TaxAmounts.First(t => t.TaxName == "Property Tax").TaxAmount);
+        Assert.Equal(450.00m, policy2023.TaxAmounts.First(t => t.TaxName == "Water Tax").TaxAmount);
 
         var policy2024 = result.Policies.FirstOrDefault(p => p.PolicyCode == "POL2024");
         Assert.NotNull(policy2024);
         Assert.Equal(2, policy2024.TaxAmounts.Count);
-        Assert.Equal(1000.00m, policy2024.TaxAmounts["Property Tax"]);
-        Assert.Equal(500.00m, policy2024.TaxAmounts["Water Tax"]);
+        Assert.Equal(1000.00m, policy2024.TaxAmounts.First(t => t.TaxName == "Property Tax").TaxAmount);
+        Assert.Equal(500.00m, policy2024.TaxAmounts.First(t => t.TaxName == "Water Tax").TaxAmount);
     }
 
     [Fact]
@@ -328,7 +329,7 @@ public class PropertyRepositoryTaxDetailsTests
         // Assert
         Assert.NotNull(result);
         Assert.Single(result.Policies);
-        Assert.Equal(800.00m, result.Policies[0].TaxAmounts["Property Tax"]);
+        Assert.Equal(800.00m, result.Policies[0].TaxAmounts.First(t => t.TaxName == "Property Tax").TaxAmount);
     }
 
     [Fact]
@@ -389,8 +390,8 @@ public class PropertyRepositoryTaxDetailsTests
         Assert.NotNull(result);
         Assert.Single(result.Policies);
         Assert.Single(result.Policies[0].TaxAmounts);
-        Assert.True(result.Policies[0].TaxAmounts.ContainsKey("Property Tax"));
-        Assert.False(result.Policies[0].TaxAmounts.ContainsKey("Water Tax"));
+        Assert.True(result.Policies[0].TaxAmounts.Any(t => t.TaxName == "Property Tax"));
+        Assert.False(result.Policies[0].TaxAmounts.Any(t => t.TaxName == "Water Tax"));
     }
 
     [Fact]
@@ -484,7 +485,7 @@ public class PropertyRepositoryTaxDetailsTests
         // Assert
         Assert.NotNull(result);
         Assert.Single(result.Policies);
-        Assert.Equal(0m, result.Policies[0].TaxAmounts["Property Tax"]);
+        Assert.Equal(0m, result.Policies[0].TaxAmounts.First(t => t.TaxName == "Property Tax").TaxAmount);
     }
 
     [Fact]
@@ -556,8 +557,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         // Assert
         Assert.NotNull(result);
-        var taxNames = result.Policies[0].TaxAmounts.Keys.ToList();
-        // Dictionary order is not guaranteed, but we verify all taxes are present
+        var taxNames = result.Policies[0].TaxAmounts.Select(t => t.TaxName).ToList();
+        // Verify all taxes are present
         Assert.Contains("Property Tax", taxNames);
         Assert.Contains("Water Tax", taxNames);
         Assert.Contains("Sewerage Tax", taxNames);
@@ -709,8 +710,9 @@ public class PropertyRepositoryTaxDetailsTests
         var policy = result.Policies[0];
         Assert.Equal("POLCV2024", policy.PolicyCode);
         Assert.Equal(2, policy.TaxAmounts.Count);
-        Assert.Equal(2000.50m, policy.TaxAmounts["Capital Value Tax"]);
-        Assert.Equal(750.25m, policy.TaxAmounts["Education Cess"]);
+        Assert.Equal(2000.50m, policy.TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
+        Assert.Equal(750.25m, policy.TaxAmounts.First(t => t.TaxName == "Education Cess").TaxAmount);
+        Assert.Equal(2750.75m, policy.TaxTotal);
     }
 
     [Fact]
@@ -775,11 +777,11 @@ public class PropertyRepositoryTaxDetailsTests
 
         var policy2023 = result.Policies.FirstOrDefault(p => p.PolicyCode == "POLCV2023");
         Assert.NotNull(policy2023);
-        Assert.Equal(1800.00m, policy2023.TaxAmounts["Capital Value Tax"]);
+        Assert.Equal(1800.00m, policy2023.TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
 
         var policy2024 = result.Policies.FirstOrDefault(p => p.PolicyCode == "POLCV2024");
         Assert.NotNull(policy2024);
-        Assert.Equal(2000.00m, policy2024.TaxAmounts["Capital Value Tax"]);
+        Assert.Equal(2000.00m, policy2024.TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
     }
 
     [Fact]
@@ -838,7 +840,7 @@ public class PropertyRepositoryTaxDetailsTests
         // Assert
         Assert.NotNull(result);
         Assert.Single(result.Policies);
-        Assert.Equal(2000.00m, result.Policies[0].TaxAmounts["Capital Value Tax"]);
+        Assert.Equal(2000.00m, result.Policies[0].TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
     }
 
     [Fact]
@@ -944,7 +946,7 @@ public class PropertyRepositoryTaxDetailsTests
         // Assert
         Assert.NotNull(result);
         Assert.Single(result.Policies);
-        Assert.Equal(2000.00m, result.Policies[0].TaxAmounts["Capital Value Tax"]);
+        Assert.Equal(2000.00m, result.Policies[0].TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
     }
 
     #endregion

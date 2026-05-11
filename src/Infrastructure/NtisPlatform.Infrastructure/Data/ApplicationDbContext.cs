@@ -645,6 +645,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
+            
+            // Required unique properties
+            entity.Property(e => e.ScreenCode)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(e => e.ScreenName)
+                .IsRequired()
+                .HasMaxLength(200);
+            
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
@@ -654,6 +663,15 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.ModuleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Unique constraints
+            entity.HasIndex(e => e.ScreenCode)
+                .IsUnique()
+                .HasFilter("[ScreenCode] IS NOT NULL")
+                .HasDatabaseName("IX_ScreenMaster_ScreenCode_Unique");
+            entity.HasIndex(e => e.ScreenName)
+                .IsUnique()
+                .HasFilter("[ScreenName] IS NOT NULL")
+                .HasDatabaseName("IX_ScreenMaster_ScreenName_Unique");
         });
 
 
@@ -661,6 +679,22 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ScreenGroupMaster", "Core");
             entity.HasKey(e => e.Id);
+
+            // Required unique properties
+            entity.Property(e => e.ScreenGroupCode)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(e => e.ScreenGroupName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            // Unique constraints
+            entity.HasIndex(e => e.ScreenGroupCode)
+                .IsUnique()
+                .HasDatabaseName("IX_ScreenGroupMaster_ScreenGroupCode_Unique");
+            entity.HasIndex(e => e.ScreenGroupName)
+                .IsUnique()
+                .HasDatabaseName("IX_ScreenGroupMaster_ScreenGroupName_Unique");
         });
         modelBuilder.Entity<ModuleMasterEntity>(entity =>
         {

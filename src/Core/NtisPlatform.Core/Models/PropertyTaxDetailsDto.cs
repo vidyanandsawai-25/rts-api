@@ -28,7 +28,28 @@ public class PolicyTaxDetail
     public string PolicyCode { get; set; } = string.Empty;
     
     /// <summary>
-    /// Dynamic dictionary where Key = TaxName and Value = TaxAmount
+    /// List of individual tax amounts
     /// </summary>
-    public Dictionary<string, decimal?> TaxAmounts { get; set; } = new Dictionary<string, decimal?>();
+    public List<TaxAmountDetail> TaxAmounts { get; set; } = new List<TaxAmountDetail>();
+    
+    /// <summary>
+    /// Total sum of all tax amounts
+    /// </summary>
+    public decimal TaxTotal { get; set; }
+}
+
+/// <summary>
+/// Individual tax amount detail
+/// </summary>
+public class TaxAmountDetail
+{
+    /// <summary>
+    /// Name of the tax
+    /// </summary>
+    public string TaxName { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Amount of the tax
+    /// </summary>
+    public decimal TaxAmount { get; set; }
 }

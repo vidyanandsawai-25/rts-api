@@ -895,15 +895,25 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         // Step 4: Group by PolicyCode and create pivoted structure
         var policies = taxData
             .GroupBy(x => x.Item1)
-            .Select(g => new PolicyTaxDetail
+            .Select(g => 
             {
-                PolicyCode = g.Key,
-                TaxAmounts = g
+                var taxAmounts = g
                     .GroupBy(x => x.Item2)
-                    .ToDictionary(
-                        tg => tg.Key,
-                        tg => (decimal?)tg.Sum(x => x.Item3)
-                    )
+                    .Select(tg => new TaxAmountDetail
+                    {
+                        TaxName = tg.Key,
+                        TaxAmount = tg.Sum(x => x.Item3 ?? 0)
+                    })
+                    .ToList();
+                
+                var taxTotal = taxAmounts.Sum(t => t.TaxAmount);
+                
+                return new PolicyTaxDetail
+                {
+                    PolicyCode = g.Key,
+                    TaxAmounts = taxAmounts,
+                    TaxTotal = taxTotal
+                };
             })
             .ToList();
 
