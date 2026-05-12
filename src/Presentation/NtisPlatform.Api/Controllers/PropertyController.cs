@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -55,4 +57,23 @@ public partial class PropertyController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_propertyService, id, _logger, ct);
+
+    [HttpPost("Range")]
+    public async Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
+    {
+        try 
+        {
+            var result = await _propertyService.CreatePropertiesFromRangeAsync(request, ct);    
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating properties from range");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                Success = false,
+                Message = "An unexpected error occurred while processing your request.",
+            });
+        }
+    }
 }

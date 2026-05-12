@@ -1,4 +1,5 @@
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
 
@@ -27,4 +28,11 @@ public interface IPropertyService
     Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
     Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
 	Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
+	/// <summary>
+    /// Creates multiple properties based on a range request.
+    /// </summary>
+    /// <param name="request">The range creation parameters.</param>
+    /// <param name="ct">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct);
 }

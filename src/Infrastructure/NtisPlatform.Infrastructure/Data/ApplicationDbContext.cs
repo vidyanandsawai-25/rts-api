@@ -98,6 +98,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
+    public DbSet<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = null!;
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
     public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
@@ -2099,6 +2100,39 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
+        });
+		
+		
+			modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId);
+            entity.Property(e => e.PropertyDetailsId).IsRequired();
+            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.NoOfRooms);
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.RoomNo).HasMaxLength(100);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.SubmissionType).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo);
+            entity.Property(e => e.MinusYesNo);
+            entity.Property(e => e.MarkedForDeletion);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired();
+            entity.Property(e => e.UpdatedBy);
+            entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.IsActive);
         });
     }
 }

@@ -9,7 +9,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("SocietyDetailsMast", Schema = "PTIS")]
 public class SocietyDetailsEntity : BaseEntity
 {
-    [Key]    public int? PropertyId { get; set; }
+    public int? PropertyId { get; set; }
 
     public int? WingId { get; set; }
 
@@ -53,6 +53,10 @@ public class SocietyDetailsEntity : BaseEntity
 
     [Column(TypeName = "nvarchar(200)")]
     public string? BuilderNameEnglish { get; set; }
+    public int? BuilderMobileRemarkId { get; set; }
+
+    [Column(TypeName = "varchar(13)")]
+    public string? BuilderMobile { get; set; }
 
     [Column(TypeName = "varchar(13)")]
     public string? ManagerMobileNo { get; set; }

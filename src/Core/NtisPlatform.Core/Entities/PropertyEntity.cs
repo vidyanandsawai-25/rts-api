@@ -81,6 +81,16 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public string? EmailId { get; set; }
 
+    [Column(TypeName = "varchar(6)")]
+    public string? PinCode { get; set; }
+    public int? MobileNoRemarkId { get; set; }
+
+    [Column(TypeName = "varchar(13)")]
+    public string? AlternateMobileNo { get; set; }
+    [Column(TypeName = "varchar(13)")]
+    public string? OccupierMobileNo { get; set; }
+    public int? OccupierMobileNoRemarkId { get; set; }
+
     // Society Information
     public int? SocietyDetailId { get; set; }
 

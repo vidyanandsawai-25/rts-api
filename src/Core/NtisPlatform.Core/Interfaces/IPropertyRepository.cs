@@ -171,4 +171,25 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of generated property structures or null if validation fails</returns>
     Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
+	 /// <summary>
+    /// Creates a new property along with optional related entities such as society details,
+    /// property details, and assessment records within a single transactional scope.
+    ///
+    /// This method performs:
+    /// - Input validation and null checks
+    /// - Foreign key validation (PropertyType, Category, Mouja, TaxZone)
+    /// - Duplicate property number validation (PropertyNo + WardId)
+    /// - Conditional creation of Society (for Apartment category)
+    /// - Property creation (main entity)
+    /// - Conditional PropertyDetails creation (for Plot category)
+    /// - PropertyAssessment record creation
+    /// - Transaction management (Commit / Rollback)
+    ///
+    /// Returns:
+    /// - Success response with PropertyId when operation succeeds
+    /// - Failure response with meaningful error message otherwise
+    /// </summary>
+    Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default);
+
+    Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId);
 }
