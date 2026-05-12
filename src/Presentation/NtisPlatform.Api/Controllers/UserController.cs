@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.UserMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 
 namespace NtisPlatform.Api.Controllers;
@@ -9,17 +10,19 @@ namespace NtisPlatform.Api.Controllers;
 [Route("api/users")]
 [ApiController]
 [Authorize]
-public class UserController : ControllerBase
+public partial class UserController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly ILogger<UserController> _logger;
 
     public UserController(
         IUserService userService,
-        ILogger<UserController> logger)
+        ILogger<UserController> logger,
+        IUserScreenAccessService userScreenAccessService)
     {
         _userService = userService;
         _logger = logger;
+        _userScreenAccessService = userScreenAccessService;
     }
 
     // ── Standard CRUD ────────────────────────────────────────────────────────

@@ -178,6 +178,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IUserScreenAccessService, UserScreenAccessService>();
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();

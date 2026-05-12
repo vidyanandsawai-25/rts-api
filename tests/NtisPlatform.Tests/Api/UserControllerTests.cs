@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Master.UserMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 
@@ -16,13 +17,18 @@ public class UserControllerTests
 {
     private readonly Mock<IUserService> _userServiceMock;
     private readonly Mock<ILogger<UserController>> _loggerMock;
+    private readonly Mock<IUserScreenAccessService> _userScreenAccessServiceMock;
     private readonly UserController _controller;
 
     public UserControllerTests()
     {
         _userServiceMock = new Mock<IUserService>();
         _loggerMock = new Mock<ILogger<UserController>>();
-        _controller = new UserController(_userServiceMock.Object, _loggerMock.Object);
+        _userScreenAccessServiceMock = new Mock<IUserScreenAccessService>();
+        _controller = new UserController(
+            _userServiceMock.Object, 
+            _loggerMock.Object,
+            _userScreenAccessServiceMock.Object);
     }
 
     #region GetAll Endpoint Tests
