@@ -26,7 +26,7 @@ public class PropertyQueryParameters : BaseQueryParameters
 
     /// <summary>
     /// Filter by multiple WardIds (SQL IN clause).
-    /// Example: ?WardIds=1&WardIds=2
+    /// <para>Example: ?WardIds=1&amp;WardIds=2</para>
     /// </summary>
     [Filterable(FilterOperator.In, EntityProperty = "WardId")]
     public List<int>? WardIds { get; set; }
@@ -76,10 +76,25 @@ public class PropertyQueryParameters : BaseQueryParameters
     public string? OwnerName { get; set; }
 
     /// <summary>
+    /// Filter by PartType (case-insensitive contains)
+    /// </summary>
+    [Filterable(FilterOperator.Contains)]
+    [Searchable]
+    public string? PartType { get; set; }
+
+    /// <summary>
+    /// Filter by Type (case-insensitive contains)
+    /// </summary>
+    [Filterable(FilterOperator.Contains)]
+    [Searchable]
+    public string? Type { get; set; } 
+
+    /// <summary>
     /// Filter by MarkedForDeletion status
     /// </summary>
     [Filterable(FilterOperator.Equals)]
     public bool? MarkedForDeletion { get; set; }
+
 
     /// <summary>
     /// Filter by IsActive status
@@ -88,3 +103,4 @@ public class PropertyQueryParameters : BaseQueryParameters
     [Sortable]
     public bool? IsActive { get; set; }
 }
+

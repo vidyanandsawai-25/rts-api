@@ -72,6 +72,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
+    public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<UserDepartmentAllocationEntity> UserDepartmentAllocation { get; set; } = null!;
@@ -1628,6 +1629,15 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastOld_TaxId");
         });
 
+        modelBuilder.Entity<TransMastRVEntity>(entity =>
+        {
+            entity.ToTable("TransMastRV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+        });
 
         // Document configuration
         modelBuilder.Entity<DocumentEntity>(entity =>

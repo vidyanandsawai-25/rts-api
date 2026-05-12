@@ -22,7 +22,7 @@ namespace NtisPlatform.Core.Entities
         
         public bool MarkedForDeletion { get; set; } = false;
         
-        public DateTime? MarkedForDeletionDate { get; set; }
+        public DateTime? MarkedForDeletionDate { get; set; } = null;
         
         // Navigation properties
         public virtual PropertyEntity? PropertyMast { get; set; }

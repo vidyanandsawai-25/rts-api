@@ -6,6 +6,7 @@ using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
+using NtisPlatform.Application.DTOs.Property;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -218,6 +219,184 @@ public class PropertyControllerTaxDetailsTests
         var response = Assert.IsType<ApiResponse<PropertyTaxDetailsCVDto>>(statusResult.Value);
         Assert.False(response.Success);
         Assert.Contains("error occurred", response.Message);
+    }
+
+    #endregion
+
+    #region GetApartmentPropertyTaxDetailsRV Tests
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsRV_NoTaxDetails_ReturnsNotFound()
+    {
+        // Arrange
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyTaxApartmentDetailsDto?)null);
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsRV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsDto>>(notFoundResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("No tax details found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsRV_WithData_ReturnsOk()
+    {
+        // Arrange
+        var dto = new PropertyTaxApartmentDetailsDto
+        {
+            PropertyCount = 2,
+            TaxAmounts = new List<TaxAmountDto> { new TaxAmountDto { TaxName = "Property Tax", TaxAmount = 1000, DisplayOrder = 1 } }
+        };
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsRV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Equal(2, response.Items.PropertyCount);
+        Assert.Single(response.Items.TaxAmounts);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsRV_ServiceThrowsException_ReturnsInternalServerError()
+    {
+        // Arrange
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsRV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, statusResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsDto>>(statusResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("error occurred", response.Message);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsRV_MapsQueryParamsToDto()
+    {
+        // Arrange
+        var query = new PropertyQueryParameters { WardId = 5, PropertyNo = "P123", PartType = "A", Type = "Flat", Id = 42 };
+        PropertyApartmentTaxRequestDto? capturedDto = null;
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Callback<PropertyApartmentTaxRequestDto, CancellationToken>((dto, ct) => capturedDto = dto)
+            .ReturnsAsync(new PropertyTaxApartmentDetailsDto());
+
+        // Act
+        await _controller.GetApartmentPropertyTaxDetailsRV(query, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedDto);
+        Assert.Equal(5, capturedDto.WardId);
+        Assert.Equal("P123", capturedDto.PropertyNo);
+        Assert.Equal("A", capturedDto.PartType);
+        Assert.Equal("Flat", capturedDto.Type);
+        Assert.Equal(42, capturedDto.PropertyId);
+    }
+
+    #endregion
+
+    #region GetApartmentPropertyTaxDetailsCV Tests
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCV_NoTaxDetails_ReturnsNotFound()
+    {
+        // Arrange
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyTaxApartmentDetailsCVDto?)null);
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsCV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsCVDto>>(notFoundResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("No CV tax details found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCV_WithData_ReturnsOk()
+    {
+        // Arrange
+        var dto = new PropertyTaxApartmentDetailsCVDto
+        {
+            PropertyCount = 3,
+            TaxAmounts = new List<TaxAmountDto> { new TaxAmountDto { TaxName = "CV Tax", TaxAmount = 2000, DisplayOrder = 1 } }
+        };
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsCV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsCVDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Equal(3, response.Items.PropertyCount);
+        Assert.Single(response.Items.TaxAmounts);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCV_ServiceThrowsException_ReturnsInternalServerError()
+    {
+        // Arrange
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.GetApartmentPropertyTaxDetailsCV(new PropertyQueryParameters(), CancellationToken.None);
+
+        // Assert
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status500InternalServerError, statusResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<PropertyTaxApartmentDetailsCVDto>>(statusResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("error occurred", response.Message);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCV_MapsQueryParamsToDto()
+    {
+        // Arrange
+        var query = new PropertyQueryParameters { WardId = 7, PropertyNo = "P999", PartType = "B", Type = "Shop", Id = 99 };
+        PropertyApartmentTaxRequestDto? capturedDto = null;
+        _mockPropertyService
+            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Callback<PropertyApartmentTaxRequestDto, CancellationToken>((dto, ct) => capturedDto = dto)
+            .ReturnsAsync(new PropertyTaxApartmentDetailsCVDto());
+
+        // Act
+        await _controller.GetApartmentPropertyTaxDetailsCV(query, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(capturedDto);
+        Assert.Equal(7, capturedDto.WardId);
+        Assert.Equal("P999", capturedDto.PropertyNo);
+        Assert.Equal("B", capturedDto.PartType);
+        Assert.Equal("Shop", capturedDto.Type);
+        Assert.Equal(99, capturedDto.PropertyId);
     }
 
     #endregion

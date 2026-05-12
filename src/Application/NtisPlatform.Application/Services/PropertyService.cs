@@ -111,10 +111,20 @@ public class PropertyService
     {
         return await _propertyRepository.DeleteFloorDetailsOldAsync(propertyId, floorId, cancellationToken);
     }
-	public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
+
+    public async Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetApartmentPropertyTaxDetailsAsync(dto, cancellationToken);
+    }
+
+    public async Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetApartmentPropertyTaxDetailsCVAsync(dto, cancellationToken);
+    }
+
+    public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
     {
         return await _propertyRepository.GetGenerateBuildingStructureAsync(dto, cancellationToken);
-        
     }
 }
 

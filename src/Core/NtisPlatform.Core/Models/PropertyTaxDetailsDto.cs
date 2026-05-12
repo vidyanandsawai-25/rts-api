@@ -15,6 +15,13 @@ public class PropertyTaxDetailsDto
     /// List of tax details grouped by PolicyCode
     /// </summary>
     public List<PolicyTaxDetail> Policies { get; set; } = new List<PolicyTaxDetail>();
+
+    public Dictionary<string, decimal?> TaxAmounts { get; set; } = new Dictionary<string, decimal?>();
+
+    /// <summary>
+    /// Number of properties included in the aggregation (0 for single property)
+    /// </summary>
+    public int PropertyCount { get; set; }
 }
 
 /// <summary>
@@ -52,4 +59,33 @@ public class TaxAmountDetail
     /// Amount of the tax
     /// </summary>
     public decimal TaxAmount { get; set; }
+}
+
+
+public class PropertyTaxApartmentDetailsDto
+{
+    /// <summary>
+    /// Property identifier
+    /// </summary>
+    public int PropertyId { get; set; }
+
+    /// <summary>
+    /// List of tax amounts ordered by DisplayOrder
+    /// </summary>
+    public List<TaxAmountDto> TaxAmounts { get; set; } = new List<TaxAmountDto>();
+
+    /// <summary>
+    /// Number of properties included in the aggregation (1 for single property)
+    /// </summary>
+    public int PropertyCount { get; set; }
+}
+
+/// <summary>
+/// DTO for a single tax amount with display order
+/// </summary>
+public class TaxAmountDto
+{
+    public string TaxName { get; set; } = string.Empty;
+    public decimal? TaxAmount { get; set; }
+    public int DisplayOrder { get; set; }
 }

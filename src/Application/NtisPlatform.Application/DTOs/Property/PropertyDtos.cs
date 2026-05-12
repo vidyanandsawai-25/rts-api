@@ -82,7 +82,7 @@ public class CreatePropertyDto : CreateBaseDtos
     private string? _csn;
     private string? _subZoneNo;
     private string? _plotNo;
-    private string? _type;
+    private string? _type; 
     private string? _partType;
     private string? _ownerTitle;
     private string? _ownerName;
@@ -165,12 +165,7 @@ public class CreatePropertyDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Property_CategoryId_Invalid")]
     public int? CategoryId { get; set; }
 
-    [StringLength(5, ErrorMessage = "Property_Type_MaxLen_5")]
-    public string? Type
-    {
-        get => _type;
-        set => _type = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
+    // Removed: Type property and backing field from CreatePropertyDto
 
     [StringLength(20, ErrorMessage = "Property_PartType_MaxLen_20")]
     public string? PartType
@@ -414,12 +409,7 @@ public class UpdatePropertyDto : UpdateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Property_CategoryId_Invalid")]
     public int? CategoryId { get; set; }
 
-    [StringLength(5, ErrorMessage = "Property_Type_MaxLen_5")]
-    public string? Type
-    {
-        get => _type;
-        set => _type = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
+    // Removed: Type property and backing field from UpdatePropertyDto
 
     [StringLength(20, ErrorMessage = "Property_PartType_MaxLen_20")]
     public string? PartType

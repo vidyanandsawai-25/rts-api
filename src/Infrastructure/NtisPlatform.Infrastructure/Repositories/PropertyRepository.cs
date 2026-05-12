@@ -1826,6 +1826,118 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
         return true;
     }
+    public async Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
+        var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
+        var propertyIds = await _context.PropertyMast
+            .AsNoTracking()
+            .Where(pm =>
+                (dto.WardId == null || pm.WardId == dto.WardId) &&
+                (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
+                (normalizedPartType == null || (pm.PartType != null && EF.Functions.Like(pm.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
+                pm.IsActive && !pm.MarkedForDeletion)
+            .Select(pm => pm.Id)
+            .ToListAsync(cancellationToken);
+
+        if (propertyIds == null || !propertyIds.Any())
+            return null;
+
+        var taxData = await (from tmrv in _context.TransMastRV
+                             join tm in _context.TaxMaster on tmrv.TaxId equals tm.Id
+                             join ym in _context.YearMaster on tmrv.FinanceYearId equals ym.Id
+                             where propertyIds.Contains(tmrv.PropertyId)
+                                && tmrv.IsActive && !tmrv.MarkedForDeletion
+                                && tm.IsActive 
+                                && ym.IsActive
+                             orderby tm.DisplayOrder
+                             select new
+                             {
+                                 TaxName = tm.TaxName,
+                                 TaxAmount = tmrv.TaxAmount,
+                                 DisplayOrder = tm.DisplayOrder
+                             })
+                            .ToListAsync(cancellationToken);
+
+        if (!taxData.Any())
+            return null;
+
+        var taxAmountList = taxData
+            .GroupBy(x => new { x.TaxName, x.DisplayOrder })
+            .Select(g => new TaxAmountDto
+            {
+                TaxName = g.Key.TaxName,
+                TaxAmount = g.Sum(x => x.TaxAmount),
+                DisplayOrder = g.Key.DisplayOrder
+            })
+            .OrderBy(x => x.DisplayOrder)
+            .ToList();
+
+        return new PropertyTaxApartmentDetailsDto
+        {
+            PropertyId = propertyIds.Count == 1 ? propertyIds[0] : 0,
+            PropertyCount = propertyIds.Count,
+            TaxAmounts = taxAmountList
+        };
+    }
+
+    public async Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    {
+        var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
+        var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
+        var propertyIds = await _context.PropertyMast
+            .AsNoTracking()
+            .Where(pm =>
+                (dto.WardId == null || pm.WardId == dto.WardId) &&
+                (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
+                (normalizedPartType == null || (pm.PartType != null && EF.Functions.Like(pm.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
+                pm.IsActive && !pm.MarkedForDeletion)
+            .Select(pm => pm.Id)
+            .ToListAsync(cancellationToken);
+
+        if (propertyIds == null || !propertyIds.Any())
+            return null;
+
+        var taxData = await (from tmcv in _context.TransMastCV
+                             join tm in _context.TaxMaster on tmcv.TaxId equals tm.Id
+                             join ym in _context.YearMaster on tmcv.FinanceYearId equals ym.Id
+                             where propertyIds.Contains(tmcv.PropertyId)
+                                && tmcv.IsActive && !tmcv.MarkedForDeletion
+                                && tm.IsActive
+                                && ym.IsActive
+                             orderby tm.DisplayOrder
+                             select new
+                             {
+                                 TaxName = tm.TaxName,
+                                 TaxAmount = tmcv.TaxAmount,
+                                 DisplayOrder = tm.DisplayOrder
+                             })
+                            .ToListAsync(cancellationToken);
+
+        if (!taxData.Any())
+            return null;
+
+        var taxAmountList = taxData
+            .GroupBy(x => new { x.TaxName, x.DisplayOrder })
+            .Select(g => new TaxAmountDto
+            {
+                TaxName = g.Key.TaxName,
+                TaxAmount = g.Sum(x => x.TaxAmount),
+                DisplayOrder = g.Key.DisplayOrder
+            })
+            .OrderBy(x => x.DisplayOrder)
+            .ToList();
+
+        return new PropertyTaxApartmentDetailsCVDto
+        {
+            PropertyId = propertyIds.Count == 1 ? propertyIds[0] : 0,
+            PropertyCount = propertyIds.Count,
+            TaxAmounts = taxAmountList
+        };
+    }
+
 	
 	  public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
     {
@@ -1960,4 +2072,4 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     }
 	
 }
- 
+

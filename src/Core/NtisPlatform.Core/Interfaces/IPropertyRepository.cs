@@ -19,6 +19,10 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 
     /// <summary>
     /// Updates old property details across PropertyMastOld and PropertyDetailsOld tables
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The update data for property basic details</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Updated PropertyBasicDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertyBasicDetailsDto?> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default);
 
@@ -30,13 +34,29 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <returns>Property KYC details DTO or null if not found</returns>
     Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Updates KYC details for a property
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The update data for property KYC details</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Updated PropertyKycDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default);
 
-    /// Updates society details for a property
-    /// <returns>Updated PropertyBasicDetailsDto if property was found and updated, null otherwise</returns>
+    /// <summary>
+    /// Retrieves society details for a property
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
         
+    /// <summary>
+    /// Updates society details for a property
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The update data for property society details</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
     Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default);
 
@@ -65,6 +85,7 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Property tax details CV DTO or null if not found</returns>
     Task<PropertyTaxDetailsCVDto?> GetTaxDetailsCVAsync(int propertyId, CancellationToken cancellationToken = default);
+    /// <summary>
     /// Retrieves old taxes details for a property including historical tax data across finance years
     /// </summary>
     /// <param name="propertyId">The property identifier</param>
@@ -125,6 +146,22 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if the record was found and deleted, false otherwise</returns>
     Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves apartment property tax details using a request DTO
+    /// </summary>
+    /// <param name="dto">The request DTO containing property filter fields (e.g., WardId, PropertyNo, PartType, Type, PropertyId)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Property tax details DTO or null if not found</returns>
+    Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves apartment property CV tax details using a request DTO
+    /// </summary>
+    /// <param name="dto">The request DTO containing property IDs</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Property CV tax details DTO or null if not found</returns>
+    Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
 	
 	/// <summary>
     /// Generates property structure based on floor and unit configuration (Vertical Generation).
@@ -134,7 +171,4 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of generated property structures or null if validation fails</returns>
     Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
-
-
-
 }

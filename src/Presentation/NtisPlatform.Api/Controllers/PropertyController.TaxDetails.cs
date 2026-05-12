@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 
@@ -60,9 +63,71 @@ public partial class PropertyController
     }
 
     /// <summary>
-    /// Retrieves CV tax details for a specific property.
-    /// This endpoint returns pivoted data where tax names become column headers and tax amounts are values.
-    /// The data is retrieved via the property service for the specified property identifier.
+    /// Retrieves aggregated tax details for multiple properties filtered by query parameters.
+    /// Returns a <see cref="PropertyTaxApartmentDetailsDto"/> response containing aggregate information
+    /// and tax amounts as a collection, not a pivoted structure with dynamic tax-name columns.
+    /// Only returns records where IsActive=true and MarkedForDeletion=false.
+    /// Taxes are ordered by DisplayOrder from TaxMaster table.
+    /// Filtering is performed by mapping <see cref="PropertyQueryParameters"/> to <see cref="PropertyApartmentTaxRequestDto"/>,
+    /// and applying the repository's current predicate logic for the supplied filter values (exact match for PropertyNo, PartType, etc.).
+    /// </summary>
+    /// <param name="query">Query parameters for filtering properties, including WardId, PropertyNo, PartType, Type, and Id.</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Aggregated property tax details in <see cref="PropertyTaxApartmentDetailsDto"/> format</returns>
+    /// <response code="200">Returns the aggregated property tax details in the DTO response format</response>
+    /// <response code="404">No properties found or no tax details available</response>
+    [HttpGet("apartment-property-tax-details-rv")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyTaxApartmentDetailsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetApartmentPropertyTaxDetailsRV([FromQuery] PropertyQueryParameters query, CancellationToken ct)
+    {
+        try
+        {
+            var dto = new PropertyApartmentTaxRequestDto
+            {
+                WardId = query.WardId,
+                PropertyNo = query.PropertyNo,
+                PartType = query.PartType,
+                Type = query.Type,
+                PropertyId = query.Id
+            };
+
+            var result = await _propertyService.GetApartmentPropertyTaxDetailsAsync(dto, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("No tax details found for the filtered properties");
+                return NotFound(new ApiResponse<PropertyTaxApartmentDetailsDto>
+                {
+                    Success = false,
+                    Message = $"No tax details found for the filtered properties"
+                });
+            }
+
+            return Ok(new ApiResponse<PropertyTaxApartmentDetailsDto>
+            {
+                Success = true,
+                Message = $"Aggregated tax details for {result.PropertyCount} {(result.PropertyCount == 1 ? "property" : "properties")} fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving aggregated tax details");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<PropertyTaxApartmentDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving aggregated property tax details"
+                });
+        }
+    }
+
+    /// <summary>
+    /// Retrieves CV tax details for a specific property from TransMastCV joined with TaxMaster and YearMaster.
+    /// This endpoint returns pivoted data where TaxName becomes column headers and TaxAmount are values.
+    /// Only returns records where IsActive=true, MarkedForDeletion=false, and for the active financial year.
+    /// Taxes are ordered by DisplayOrder from TaxMaster table.
     /// </summary>
     /// <param name="propertyId">The unique identifier of the property</param>
     /// <param name="ct">Cancellation token</param>
@@ -103,6 +168,66 @@ public partial class PropertyController
                 {
                     Success = false,
                     Message = "An error occurred while retrieving property CV tax details"
+                });
+        }
+    }
+
+    /// <summary>
+    /// Retrieves aggregated CV tax details for multiple properties filtered by query parameters.
+    /// Returns a <see cref="PropertyTaxApartmentDetailsCVDto"/> response containing aggregate information
+    /// and tax amounts as a collection, not a pivoted structure with dynamic tax-name columns.
+    /// Only returns records where IsActive=true, MarkedForDeletion=false, and for the active financial year.
+    /// Taxes are ordered by DisplayOrder from TaxMaster table.
+    /// Filtering is applied using the provided property query parameter values (WardId, PropertyNo, PartType, Type, Id, etc.).
+    /// </summary>
+    /// <param name="query">Query parameters for filtering properties, such as WardId, PropertyNo, PartType, Type, and Id</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Aggregated property CV tax details in <see cref="PropertyTaxApartmentDetailsCVDto"/> format</returns>
+    /// <response code="200">Returns the aggregated property CV tax details in the DTO response format</response>
+    /// <response code="404">No properties found or no CV tax details available</response>
+    [HttpGet("apartment-property-tax-details-cv")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyTaxApartmentDetailsCVDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetApartmentPropertyTaxDetailsCV([FromQuery] PropertyQueryParameters query, CancellationToken ct)
+    {
+        try
+        {
+            var dto = new PropertyApartmentTaxRequestDto
+            {
+                WardId = query.WardId,
+                PropertyNo = query.PropertyNo,
+                PartType = query.PartType,
+                Type = query.Type,
+                PropertyId = query.Id
+            };
+
+            var result = await _propertyService.GetApartmentPropertyTaxDetailsCVAsync(dto, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("No CV tax details found for the filtered properties");
+                return NotFound(new ApiResponse<PropertyTaxApartmentDetailsCVDto>
+                {
+                    Success = false,
+                    Message = $"No CV tax details found for the filtered properties"
+                });
+            }
+
+            return Ok(new ApiResponse<PropertyTaxApartmentDetailsCVDto>
+            {
+                Success = true,
+                Message = $"Aggregated CV tax details for {result.PropertyCount} {(result.PropertyCount == 1 ? "property" : "properties")} fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving aggregated CV tax details");
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<PropertyTaxApartmentDetailsCVDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving aggregated property CV tax details"
                 });
         }
     }
