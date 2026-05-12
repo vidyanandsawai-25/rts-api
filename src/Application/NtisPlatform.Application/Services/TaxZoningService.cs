@@ -285,25 +285,35 @@ public class TaxZoningService : ITaxZoningService
         return new TaxZoningDto { WardId = wardId, TaxZoneId = dto.TaxZoneId };
     }
         
-    private static IQueryable<T> ApplyFilters<T>(IQueryable<T> query, TaxZoningQueryParameters queryParams)
+    private static IQueryable<T> ApplyFilters<T>(IQueryable<T> query, TaxZoningQueryParameters queryParams) where T : class
     {
+        var wardId = queryParams.WardId;
+        var taxZoneId = queryParams.TaxZoneId;
+        var propertyNo = queryParams.PropertyNo;
+
         if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
         {
             var term = queryParams.SearchTerm.Trim();
             query = query.Where(x =>
-                x != null && (
-                    EF.Property<int>(x, "WardId").ToString().Equals(term) ||
-                    EF.Property<string>(x, "PropertyNo").Contains(term) ||
-                    EF.Property<int>(x, "TaxZoneId").ToString().Equals(term)
-                )
+                EF.Property<int>(x, "WardId").ToString().Equals(term) ||
+                EF.Property<string>(x, "PropertyNo").Contains(term) ||
+                EF.Property<int>(x, "TaxZoneId").ToString().Equals(term)
             );
         }
-        if (queryParams.WardId != null)
-            query = query.Where(x => x != null && EF.Property<int>(x, "WardId") == queryParams.WardId);
-        if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
-            query = query.Where(x => x != null && EF.Property<string>(x, "PropertyNo").Contains(queryParams.PropertyNo));
-        if (queryParams.TaxZoneId != null)
-            query = query.Where(x => x != null && EF.Property<int>(x, "TaxZoneId") == queryParams.TaxZoneId);
+        if (wardId.HasValue)
+        {
+            var wardIdValue = wardId.Value;
+            query = query.Where(x => EF.Property<int>(x, "WardId") == wardIdValue);
+        }
+        if (!string.IsNullOrWhiteSpace(propertyNo))
+        {
+            query = query.Where(x => EF.Property<string>(x, "PropertyNo").Contains(propertyNo));
+        }
+        if (taxZoneId.HasValue)
+        {
+            var taxZoneIdValue = taxZoneId.Value;
+            query = query.Where(x => EF.Property<int>(x, "TaxZoneId") == taxZoneIdValue);
+        }
 
         return query;
     }

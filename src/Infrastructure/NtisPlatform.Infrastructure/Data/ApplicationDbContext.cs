@@ -102,6 +102,13 @@ public class ApplicationDbContext : DbContext
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
     public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
 
+    public DbSet<WaterConnectionTypeEntity> WaterConnectionTypes { get; set; } = null!;
+    public DbSet<WaterConnectionSizeEntity> WaterConnectionSizes { get; set; } = null!;
+    public DbSet<WaterConnectionStatusEntity> WaterConnectionStatuses { get; set; } = null!;
+    public DbSet<WaterRateMasterEntity> WaterRateMasters { get; set; } = null!;
+    public DbSet<WaterConnectionMasterEntity> WaterConnectionMasters { get; set; } = null!;
+    public DbSet<WaterConnectionDetailsEntity> WaterConnectionDetails { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -1926,6 +1933,172 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.RoomTypeName).IsUnique().HasDatabaseName("UQ_RoomTypeMaster_RoomTypeName");
             entity.HasIndex(e => e.RoomTypeCode).IsUnique().HasDatabaseName("UQ_RoomTypeMaster_RoomTypeCode");
             entity.HasIndex(e => e.IsActive);
+        });
+
+
+        // WaterConnectionTypeMaster configuration
+        modelBuilder.Entity<WaterConnectionTypeEntity>(entity =>
+        {
+            entity.ToTable("WaterConnectionTypeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConnectionTypeCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.ConnectionTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.ConnectionTypeCode).IsUnique().HasDatabaseName("UQ_WaterConnectionTypeMaster_Code");
+            entity.HasIndex(e => e.IsActive);
+        });
+
+            // WaterConnectionSizeMaster configuration
+            modelBuilder.Entity<WaterConnectionSizeEntity>(entity =>
+        {
+            entity.ToTable("WaterConnectionSizeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConnectionSize).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.ConnectionSizeUnit).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // WaterConnectionStatusMaster configuration
+        modelBuilder.Entity<WaterConnectionStatusEntity>(entity =>
+        {
+            entity.ToTable("WaterConnectionStatusMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StatusName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.StatusName).IsUnique().HasDatabaseName("UQ_WaterConnectionStatusMaster_Name");
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // WaterRateMaster configuration
+        modelBuilder.Entity<WaterRateMasterEntity>(entity =>
+        {
+            entity.ToTable("WaterRateMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WaterConnectionTypeId).IsRequired();
+            entity.Property(e => e.WaterConnectionSizeId).IsRequired();
+            entity.Property(e => e.FinanceYearId).IsRequired();
+            entity.Property(e => e.YearlyRate).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.WaterConnectionType)
+                .WithMany()
+                .HasForeignKey(e => e.WaterConnectionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WaterConnectionSize)
+                .WithMany()
+                .HasForeignKey(e => e.WaterConnectionSizeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.FinanceYear)
+                .WithMany()
+                .HasForeignKey(e => e.FinanceYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.WaterConnectionTypeId, e.WaterConnectionSizeId, e.FinanceYearId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UQ_WaterRateMaster_Type_Size_Year");
+        });
+
+        // WaterConnectionMaster configuration
+        modelBuilder.Entity<WaterConnectionMasterEntity>(entity =>
+        {
+            entity.ToTable("WaterConnectionMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.WaterConnectionTypeId).IsRequired();
+            entity.Property(e => e.WaterConnectionSizeId).IsRequired();
+            entity.Property(e => e.ConnectionNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.MeterNo).HasMaxLength(50);
+            entity.Property(e => e.ConnectionStartDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.ConnectionStopDate).HasColumnType("date");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.WaterConnectionType)
+                .WithMany()
+                .HasForeignKey(e => e.WaterConnectionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WaterConnectionSize)
+                .WithMany()
+                .HasForeignKey(e => e.WaterConnectionSizeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WaterConnectionStatus)
+                .WithMany()
+                .HasForeignKey(e => e.WaterConnectionStatusId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+
+            entity.HasMany(e => e.Details)
+                .WithOne(d => d.WaterConnection)
+                .HasForeignKey(d => d.WaterConnectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ConnectionNo)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UQ_WaterConnectionMaster_ConnectionNo");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_WaterConnectionMaster_PropertyId");
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // WaterConnectionDetails configuration
+        modelBuilder.Entity<WaterConnectionDetailsEntity>(entity =>
+        {
+            entity.ToTable("WaterConnectionDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WaterConnectionId).IsRequired();
+            entity.Property(e => e.FinanceYearId).IsRequired();
+            entity.Property(e => e.BillDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.FromDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.ToDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.ChargeMonths).IsRequired();
+            entity.Property(e => e.YearlyRate).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WaterBill).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.FinanceYear)
+                .WithMany()
+                .HasForeignKey(e => e.FinanceYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.WaterConnectionId, e.FinanceYearId })
+                .IsUnique()
+                .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
+            entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
     }
 }

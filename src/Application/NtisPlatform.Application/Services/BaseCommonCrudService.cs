@@ -70,7 +70,15 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
     /// </summary>
     private string CurrentLanguage => _httpContextAccessor?.HttpContext?.Items[HttpContextKeys.CurrentLanguage] as string ?? "en";
 
-    #region Single CRUD Operations    
+    /// <summary>
+    /// Override in derived classes to eagerly load navigation properties.
+    /// When the returned query differs from the input (i.e. includes were added),
+    /// the base class falls back to in-memory mapping instead of ProjectTo, which
+    /// avoids EF Core SQL-translation failures for expressions like ToString("G29").
+    /// </summary>
+    protected virtual IQueryable<TEntity> ApplyIncludes(IQueryable<TEntity> query) => query;
+
+    #region Single CRUD Operations
 
     public virtual async Task<PagedResult<TDto>> GetAllAsync(TQueryParams queryParameters, CancellationToken cancellationToken = default)
     {
@@ -97,11 +105,23 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         var totalCount = await query.CountAsync(cancellationToken);
 
         // Apply pagination
-        var items = await query
+        var pagedQuery = query
             .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
-            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
-            .ProjectTo<TDto>(_mapper.ConfigurationProvider)
-            .ToListAsync(cancellationToken);
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize);
+
+        var queryWithIncludes = ApplyIncludes(pagedQuery);
+        List<TDto> items;
+        if (ReferenceEquals(queryWithIncludes, pagedQuery))
+        {
+            items = await pagedQuery
+                .ProjectTo<TDto>(_mapper.ConfigurationProvider)
+                .ToListAsync(cancellationToken);
+        }
+        else
+        {
+            var entities = await queryWithIncludes.ToListAsync(cancellationToken);
+            items = _mapper.Map<List<TDto>>(entities);
+        }
 
         // Post-read hook for localization
         if (IsLocalizationEnabled && items.Count > 0)

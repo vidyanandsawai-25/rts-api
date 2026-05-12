@@ -82,6 +82,10 @@ public static class ServiceCollectionExtensions
 
         // API Layer - Controllers with DataAnnotations localization
         services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+            })
             .AddDataAnnotationsLocalization(options =>
             {
                 // Route all validation messages through a single "ValidationMessages" resource
@@ -192,6 +196,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
+
+        // Water Connection Services
+        services.AddScoped<IWaterConnectionTypeService, WaterConnectionTypeService>();
+        services.AddScoped<IWaterConnectionSizeService, WaterConnectionSizeService>();
+        services.AddScoped<IWaterConnectionStatusService, WaterConnectionStatusService>();
+        services.AddScoped<IWaterRateMasterService, WaterRateMasterService>();
+        services.AddScoped<IWaterConnectionService, WaterConnectionService>();
+        services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
+
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
