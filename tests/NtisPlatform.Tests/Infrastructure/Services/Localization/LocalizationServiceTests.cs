@@ -1,8 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Moq;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services.Localization;
+using Xunit;
 
 namespace NtisPlatform.Tests.Infrastructure.Services.Localization;
 
@@ -19,6 +23,14 @@ public class LocalizationServiceTests
 
         var serviceProvider = services.BuildServiceProvider();
         return serviceProvider.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+    }
+
+    private IOptions<LocalizationOptions> CreateOptions(string defaultLanguage = "en")
+    {
+        var options = new LocalizationOptions { DefaultLanguage = defaultLanguage };
+        var mock = new Mock<IOptions<LocalizationOptions>>();
+        mock.Setup(x => x.Value).Returns(options);
+        return mock.Object;
     }
 
     #region GetTranslation Tests
@@ -45,7 +57,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -77,7 +89,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -109,7 +121,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -124,7 +136,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -156,7 +168,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -188,7 +200,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -218,7 +230,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -262,7 +274,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -279,7 +291,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -311,7 +323,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -347,7 +359,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -363,7 +375,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -379,7 +391,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -414,7 +426,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -431,7 +443,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -450,7 +462,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
 
         // Act
         service.SetTranslation("ValidationMessages", "en", "RequiredField", "Field is required");
@@ -465,7 +477,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         service.SetTranslation("ValidationMessages", "en", "RequiredField", "Field is required");
 
         // Act
@@ -481,7 +493,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         service.SetTranslation("ValidationMessages", "en", "RequiredField", "Field is required");
 
         // Act
@@ -518,7 +530,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -559,7 +571,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -593,7 +605,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -636,7 +648,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act
@@ -673,7 +685,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Update the database
@@ -726,7 +738,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
 
         // Act
         await service.ReloadAsync();
@@ -768,7 +780,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
 
         // Act
         await service.ReloadAsync(resource: "ValidationMessages");
@@ -812,7 +824,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
 
         // Act
         await service.ReloadAsync(excludeGenerated: true);
@@ -829,7 +841,7 @@ public class LocalizationServiceTests
     {
         // Arrange
         var factory = CreateDbContextFactory();
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
 
         var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -875,7 +887,7 @@ public class LocalizationServiceTests
             await context.SaveChangesAsync();
         }
 
-        var service = new LocalizationService(factory);
+        var service = new LocalizationService(factory, CreateOptions());
         await service.ReloadAsync();
 
         // Act

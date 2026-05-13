@@ -1,10 +1,12 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
@@ -40,7 +42,8 @@ public class RateSectionServiceTests : IDisposable
         var mockLocalization = new Mock<ILocalization>();
         _mockLocalizationProcessor = new Mock<LocalizationProcessor>(
             mockLocalization.Object,
-            _mockHttpContextAccessor.Object)
+            _mockHttpContextAccessor.Object,
+            Options.Create(new LocalizationOptions { DefaultLanguage = "en" }))
         {
             CallBase = true
         };

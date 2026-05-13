@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using Moq;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core;
 using NtisPlatform.Core.Constants;
 using System.Reflection;
-using Xunit;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 
 namespace NtisPlatform.Tests.Application.Services;
 
@@ -65,6 +68,11 @@ public class LocalizationProcessSystemTests
         return mockAccessor;
     }
 
+    private static IOptions<LocalizationOptions> CreateMockLocalizationOptions(string defaultLanguage = "en")
+    {
+        return Options.Create(new LocalizationOptions { DefaultLanguage = defaultLanguage });
+    }
+
     private static Mock<ILocalization> CreateMockLocalizationService()
     {
         var mock = new Mock<ILocalization>();
@@ -108,7 +116,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor("en");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto
         {
@@ -133,7 +141,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor("en");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto
         {
@@ -157,7 +165,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act
         await processor.ProcessSaveAsync<TestCreateDto>(null!, "123");
@@ -172,7 +180,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto
         {
@@ -193,7 +201,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new NonLocalizableDto
         {
@@ -214,7 +222,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto { Name = "Test Name" };
 
@@ -228,21 +236,21 @@ public class LocalizationProcessSystemTests
     }
 
     [Fact]
-    public async Task ProcessSaveAsync_UsesCorrectLanguageFromHttpContext()
+    public async Task ProcessSaveAsync_AlwaysUsesDefaultLanguage_RegardlessOfHttpContext()
     {
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
-        var mockHttpContext = CreateHttpContextAccessor("fr");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var mockHttpContext = CreateHttpContextAccessor("fr"); // User language is French
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto { Name = "Test Name" };
 
         // Act
         await processor.ProcessSaveAsync(dto, "123");
 
-        // Assert
+        // Assert - Save should always use default language "en", not the user's language "fr"
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
-            entries.All(e => e.Language == "fr")
+            entries.All(e => e.Language == "en")
         )), Times.Once);
     }
 
@@ -256,7 +264,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor("en");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<TestDto>
         {
@@ -280,7 +288,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<TestDto>();
 
@@ -300,7 +308,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act
         await processor.ProcessGetAsync<TestDto>(null!);
@@ -318,7 +326,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<NonLocalizableDto>
         {
@@ -341,7 +349,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<TestDto>
         {
@@ -362,7 +370,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<TestDto>
         {
@@ -391,7 +399,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var keys = new[] { "TestResource_1_Name", "TestResource_1_Description" };
 
@@ -410,7 +418,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act
         await processor.ProcessDeactivateAsync("TestResource", Array.Empty<string>());
@@ -427,7 +435,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act
         await processor.ProcessDeactivateAsync(null!, new[] { "key1" });
@@ -669,7 +677,7 @@ public class LocalizationProcessSystemTests
             });
 
         var mockHttpContext = CreateHttpContextAccessor(language);
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dtos = new List<TestDto>
         {
@@ -684,7 +692,7 @@ public class LocalizationProcessSystemTests
     }
 
     [Fact]
-    public async Task ProcessSaveAsync_WithMultipleLanguages_SavesForCurrentLanguage()
+    public async Task ProcessSaveAsync_WithMultipleLanguages_AlwaysSavesInDefaultLanguage()
     {
         // Arrange
         var savedEntries = new List<LocalizationEntry>();
@@ -693,17 +701,17 @@ public class LocalizationProcessSystemTests
             .Callback<IEnumerable<LocalizationEntry>>(entries => savedEntries.AddRange(entries))
             .ReturnsAsync(new Dictionary<string, string> { ["Name"] = "TestResource_1_Name" });
 
-        var mockHttpContext = CreateHttpContextAccessor("th");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var mockHttpContext = CreateHttpContextAccessor("th"); // User language is Thai
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var dto = new TestCreateDto { Name = "Thai Name" };
 
         // Act
         await processor.ProcessSaveAsync(dto, "1");
 
-        // Assert
+        // Assert - Should save as default language "en", not the user's language "th"
         Assert.Single(savedEntries);
-        Assert.Equal("th", savedEntries[0].Language);
+        Assert.Equal("en", savedEntries[0].Language);
     }
 
     #endregion
@@ -716,7 +724,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var longValue = new string('A', 10000);
         var dto = new TestCreateDto { Name = longValue };
@@ -736,7 +744,7 @@ public class LocalizationProcessSystemTests
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var unicodeValue = "日本語 中文 한국어 ไทย العربية";
         var dto = new TestCreateDto { Name = unicodeValue };
@@ -759,7 +767,7 @@ public class LocalizationProcessSystemTests
             .ReturnsAsync(new Dictionary<string, string>()); // Empty result - no translations found
 
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         var originalKey = "TestResource_1_Name";
         var dtos = new List<TestDto>
@@ -792,7 +800,7 @@ public class LocalizationProcessSystemTests
             });
 
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act - Run 10 concurrent save operations
         var tasks = Enumerable.Range(1, 10).Select(i =>
@@ -821,7 +829,7 @@ public class LocalizationProcessSystemTests
             });
 
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act - Run 10 concurrent get operations
         var tasks = Enumerable.Range(1, 10).Select(_ =>
@@ -888,7 +896,7 @@ public class LocalizationProcessSystemTests
             .Returns(Task.CompletedTask);
 
         var mockHttpContext = CreateHttpContextAccessor("en");
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act - CREATE
         var createDto = new TestCreateDto { Name = "Original Name", Description = "Original Description" };
@@ -941,7 +949,7 @@ public class LocalizationProcessSystemTests
                 entries.ToDictionary(e => e.PropertyName, e => e.Key));
 
         var mockHttpContext = CreateHttpContextAccessor();
-        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object);
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act - Save multiple DTOs
         for (int i = 1; i <= 5; i++)
@@ -958,3 +966,4 @@ public class LocalizationProcessSystemTests
 
     #endregion
 }
+

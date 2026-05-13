@@ -12,6 +12,7 @@ using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Mappings;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
@@ -67,6 +68,7 @@ public static class ServiceCollectionExtensions
         // Replace RESX localizer with service-backed factory
         services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
         // model data fill culture wise.
+        services.Configure<NtisPlatform.Application.Options.LocalizationOptions>(configuration.GetSection("Localization"));
         services.AddScoped<LocalizationProcessor>();
 
         // Field-level localization (uses ILocalizationService for caching)
@@ -202,6 +204,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
 
+        // Translation Management
+        services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
+
+        // Google Translate Service
+        services.AddHttpClient<ITranslationService, TranslationService>();
+
+        services.Configure<TranslationServiceOptions>(
+                 configuration.GetSection("GoogleTranslate"));
         // Water Connection Services
         services.AddScoped<IWaterConnectionTypeService, WaterConnectionTypeService>();
         services.AddScoped<IWaterConnectionSizeService, WaterConnectionSizeService>();
@@ -425,3 +435,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
+

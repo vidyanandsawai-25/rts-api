@@ -7,6 +7,7 @@ using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Worker;
 using NtisPlatform.Worker.Services;
+using NtisPlatform.Application.Options;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -34,6 +35,7 @@ builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Infrastructure Layer - Localization
+builder.Services.Configure<LocalizationOptions>(builder.Configuration.GetSection("Localization"));
 builder.Services.AddSingleton<ILocalizationService, NtisPlatform.Infrastructure.Services.Localization.LocalizationService>();
 
 // Application Layer - Services

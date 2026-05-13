@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Infrastructure.Data;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -13,10 +15,17 @@ namespace NtisPlatform.Infrastructure.Services.Localization;
 public sealed class LocalizedQueryService : ILocalizedQueryService
 {
     private readonly IDbContextFactory<ApplicationDbContext> _dbFactory;
+    private readonly string _defaultLanguage;
 
     public LocalizedQueryService(IDbContextFactory<ApplicationDbContext> dbFactory)
+        : this(dbFactory, Microsoft.Extensions.Options.Options.Create(new LocalizationOptions { DefaultLanguage = "en" }))
+    {
+    }
+
+    public LocalizedQueryService(IDbContextFactory<ApplicationDbContext> dbFactory, IOptions<LocalizationOptions> localizationOptions)
     {
         _dbFactory = dbFactory;
+        _defaultLanguage = NormalizeLanguage(localizationOptions.Value.DefaultLanguage);
     }
 
     public async Task<string?> GetLocalizedValueAsync(
@@ -89,12 +98,20 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             .Select(x => x.Key)
             .ToListAsync(cancellationToken);
 
-        if (keys.Count == 0 && normalizedLanguage != "en")
+        if (keys.Count == 0 && normalizedLanguage != _defaultLanguage)
         {
-            keys = await baseQuery
-                .Where(x => x.en_US != null && EF.Functions.Like(x.en_US, likePattern))
-                .Select(x => x.Key)
-                .ToListAsync(cancellationToken);
+            if (_defaultLanguage == "mr")
+            {
+                keys = await baseQuery.Where(x => x.mr_IN != null && EF.Functions.Like(x.mr_IN, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
+            }
+            else if (_defaultLanguage == "hi")
+            {
+                keys = await baseQuery.Where(x => x.hi_IN != null && EF.Functions.Like(x.hi_IN, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
+            }
+            else
+            {
+                keys = await baseQuery.Where(x => x.en_US != null && EF.Functions.Like(x.en_US, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
+            }
         }
 
         return keys;
@@ -144,22 +161,27 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             .Select(x => x.Key)
             .ToListAsync(cancellationToken);
 
-        if (keys.Count == 0 && normalizedLanguage != "en")
+        if (keys.Count == 0 && normalizedLanguage != _defaultLanguage)
         {
+            string defaultCol = _defaultLanguage == "mr" ? "mr_IN" : (_defaultLanguage == "hi" ? "hi_IN" : "en_US");
             if (exactMatch)
             {
-                keys = await baseQuery
-                    .Where(x => x.en_US != null && x.en_US == value)
-                    .Select(x => x.Key)
-                    .ToListAsync(cancellationToken);
+                if (defaultCol == "mr_IN")
+                    keys = await baseQuery.Where(x => x.mr_IN != null && x.mr_IN == value).Select(x => x.Key).ToListAsync(cancellationToken);
+                else if (defaultCol == "hi_IN")
+                    keys = await baseQuery.Where(x => x.hi_IN != null && x.hi_IN == value).Select(x => x.Key).ToListAsync(cancellationToken);
+                else
+                    keys = await baseQuery.Where(x => x.en_US != null && x.en_US == value).Select(x => x.Key).ToListAsync(cancellationToken);
             }
             else
             {
                 var likePattern = $"%{EscapeLikePattern(value)}%";
-                keys = await baseQuery
-                    .Where(x => x.en_US != null && EF.Functions.Like(x.en_US, likePattern))
-                    .Select(x => x.Key)
-                    .ToListAsync(cancellationToken);
+                if (defaultCol == "mr_IN")
+                    keys = await baseQuery.Where(x => x.mr_IN != null && EF.Functions.Like(x.mr_IN, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
+                else if (defaultCol == "hi_IN")
+                    keys = await baseQuery.Where(x => x.hi_IN != null && EF.Functions.Like(x.hi_IN, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
+                else
+                    keys = await baseQuery.Where(x => x.en_US != null && EF.Functions.Like(x.en_US, likePattern)).Select(x => x.Key).ToListAsync(cancellationToken);
             }
         }
 
@@ -211,15 +233,18 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             .Select(x => new { x.Key, Value = normalizedLanguage == "mr" ? x.mr_IN : (normalizedLanguage == "hi" ? x.hi_IN : x.en_US) })
             .ToListAsync(cancellationToken);
 
-        // If no results in requested language, fallback to English
-        if (rows.Count == 0 && normalizedLanguage != "en")
+        // If no results in requested language, fallback to DefaultLanguage
+        if (rows.Count == 0 && normalizedLanguage != _defaultLanguage)
         {
+            string defaultCol = _defaultLanguage == "mr" ? "mr_IN" : (_defaultLanguage == "hi" ? "hi_IN" : "en_US");
             var fallbackQuery = exactMatch
-                ? baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US))
-                : ApplyLikeAny(baseQuery, "en_US", valueList);
+                ? (defaultCol == "mr_IN" ? baseQuery.Where(x => x.mr_IN != null && valueList.Contains(x.mr_IN)) :
+                   defaultCol == "hi_IN" ? baseQuery.Where(x => x.hi_IN != null && valueList.Contains(x.hi_IN)) :
+                   baseQuery.Where(x => x.en_US != null && valueList.Contains(x.en_US)))
+                : ApplyLikeAny(baseQuery, defaultCol, valueList);
 
             rows = await fallbackQuery
-                .Select(x => new { x.Key, Value = x.en_US })
+                .Select(x => new { x.Key, Value = defaultCol == "mr_IN" ? x.mr_IN : (defaultCol == "hi_IN" ? x.hi_IN : x.en_US) })
                 .ToListAsync(cancellationToken);
         }
 
@@ -278,7 +303,7 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
         return query.Where(Expression.Lambda<Func<Core.Entities.MultilingualResourceEntity, bool>>(combined, parameter));
     }
 
-    private static string? GetLanguageValueWithFallback(Core.Entities.MultilingualResourceEntity entity, string language)
+    private string? GetLanguageValueWithFallback(Core.Entities.MultilingualResourceEntity entity, string language)
     {
         var normalized = NormalizeLanguage(language);
 
@@ -289,9 +314,14 @@ public sealed class LocalizedQueryService : ILocalizedQueryService
             _ => entity.en_US
         };
 
-        if (string.IsNullOrWhiteSpace(value) && normalized != "en")
+        if (string.IsNullOrWhiteSpace(value) && normalized != _defaultLanguage)
         {
-            value = entity.en_US;
+            value = _defaultLanguage switch
+            {
+                "mr" => entity.mr_IN,
+                "hi" => entity.hi_IN,
+                _ => entity.en_US
+            };
         }
 
         return value;

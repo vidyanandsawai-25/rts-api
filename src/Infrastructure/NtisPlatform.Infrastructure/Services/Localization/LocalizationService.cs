@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Infrastructure.Data;
 using System.Collections.Concurrent;
 
@@ -37,10 +39,17 @@ public sealed class LocalizationService : ILocalizationService
 
     // Lock for thread-safe bucket modifications
     private readonly object _bucketLock = new();
+    private readonly string _defaultLanguage;
 
     public LocalizationService(IDbContextFactory<ApplicationDbContext> dbFactory)
+        : this(dbFactory, Microsoft.Extensions.Options.Options.Create(new LocalizationOptions { DefaultLanguage = "en" }))
+    {
+    }
+
+    public LocalizationService(IDbContextFactory<ApplicationDbContext> dbFactory, IOptions<LocalizationOptions> localizationOptions)
     {
         _dbFactory = dbFactory;
+        _defaultLanguage = Normalizelanguage(localizationOptions.Value.DefaultLanguage);
     }
     
     public string GetTranslation(string resource, string language, string key)
@@ -51,7 +60,7 @@ public sealed class LocalizationService : ILocalizationService
             return value;
         }
 
-        if (normLanguage != "en" && TryGet(resource, "en", key, out value))
+        if (normLanguage != _defaultLanguage && TryGet(resource, _defaultLanguage, key, out value))
         {
             return value;
         }
@@ -63,7 +72,7 @@ public sealed class LocalizationService : ILocalizationService
     {
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var normLanguage = Normalizelanguage(language);
-        var fallbackToEn = normLanguage != "en";
+        var fallbackToDefault = normLanguage != _defaultLanguage;
 
         foreach (var key in keys)
         {
@@ -71,7 +80,7 @@ public sealed class LocalizationService : ILocalizationService
             {
                 result[key] = value;
             }
-            else if (fallbackToEn && TryGet(resource, "en", key, out value))
+            else if (fallbackToDefault && TryGet(resource, _defaultLanguage, key, out value))
             {
                 result[key] = value;
             }
@@ -311,8 +320,16 @@ public sealed class LocalizationService : ILocalizationService
                     case "mr":
                         UpsertBucket(grp.Key, "mr", grp, static r => r.MrIn);
                         break;
-                    default:
+                    case "en":
                         UpsertBucket(grp.Key, "en", grp, static r => r.EnUs);
+                        break;
+                    default:
+                        if (_defaultLanguage == "hi")
+                            UpsertBucket(grp.Key, _defaultLanguage, grp, static r => r.HiIn);
+                        else if (_defaultLanguage == "mr")
+                            UpsertBucket(grp.Key, _defaultLanguage, grp, static r => r.MrIn);
+                        else
+                            UpsertBucket(grp.Key, _defaultLanguage, grp, static r => r.EnUs);
                         break;
                 }
             }
@@ -391,10 +408,14 @@ public sealed class LocalizationService : ILocalizationService
 
         var span = language.AsSpan().Trim();
         var dash = span.IndexOf('-');
-        if (dash > 0)
-        {
-            span = span[..dash];
-        }
+        var underscore = span.IndexOf('_');
+        int split = dash > 0 && underscore > 0 ? Math.Min(dash, underscore)
+                  : dash > 0 ? dash
+                  : underscore > 0 ? underscore
+                  : -1;
+
+        if (split > 0)
+            span = span[..split];
 
         if (span.Equals("en", StringComparison.OrdinalIgnoreCase)) return "en";
         if (span.Equals("hi", StringComparison.OrdinalIgnoreCase)) return "hi";

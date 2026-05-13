@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core;
 using NtisPlatform.Core.Constants;
 using System.Collections.Concurrent;
@@ -13,6 +15,7 @@ public class LocalizationProcessor
 {
     private readonly ILocalization _localizationService;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly string _defaultLanguage;
 
     /// <summary>
     /// Per-type cache: avoids repeated reflection to discover [IsLocalizable] properties.
@@ -25,12 +28,19 @@ public class LocalizationProcessor
     /// </summary>
     private static readonly ConcurrentDictionary<Type, IReadOnlyList<LocalizablePropertyAccessor>> _accessorCache = new();
 
+    public LocalizationProcessor(ILocalization localizationService, IHttpContextAccessor httpContextAccessor)
+        : this(localizationService, httpContextAccessor, Microsoft.Extensions.Options.Options.Create(new LocalizationOptions { DefaultLanguage = "en" }))
+    {
+    }
+
     public LocalizationProcessor(
         ILocalization localizationService,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        IOptions<LocalizationOptions> localizationOptions)
     {
         _localizationService = localizationService;
         _httpContextAccessor = httpContextAccessor;
+        _defaultLanguage = localizationOptions.Value.DefaultLanguage;
     }
 
     private string GetLanguage()
@@ -44,7 +54,10 @@ public class LocalizationProcessor
         if (dto == null)
             return;
 
-        var language = GetLanguage();
+        // Always write to the configured default language column (LocalizationOptions.DefaultLanguage),
+        // regardless of the user's current language. Read operations handle language selection with
+        // fallback to that configured default language.
+        var language = _defaultLanguage;
         var accessors = GetOrCreateAccessors(typeof(TDto));
 
         if (accessors.Count == 0)
@@ -378,8 +391,8 @@ public class LocalizationProcessor
     {
         // Key format: {Resource}_{EntityId}_{PropertyName}
         // Must start with {Resource}_
-        if (value.Length <= resource.Length + 1 
-            || value[resource.Length] != '_' 
+        if (value.Length <= resource.Length + 1
+            || value[resource.Length] != '_'
             || !value.AsSpan(0, resource.Length).Equals(resource.AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
             return false;

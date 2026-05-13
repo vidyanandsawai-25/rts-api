@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 
@@ -10,11 +12,18 @@ public class LocalizationRepoService : ILocalization
 {
     private readonly ApplicationDbContext _db;
     private readonly ILocalizationService _localizationService;
+    private readonly string _defaultLanguage;
 
     public LocalizationRepoService(ApplicationDbContext db, ILocalizationService localizationService)
+        : this(db, localizationService, Microsoft.Extensions.Options.Options.Create(new LocalizationOptions { DefaultLanguage = "en" }))
+    {
+    }
+
+    public LocalizationRepoService(ApplicationDbContext db, ILocalizationService localizationService, IOptions<LocalizationOptions> localizationOptions)
     {
         _db = db;
         _localizationService = localizationService;
+        _defaultLanguage = localizationOptions.Value.DefaultLanguage;
     }
 
     public async Task<string> SaveAsync(LocalizationEntry entry)
@@ -261,10 +270,10 @@ public class LocalizationRepoService : ILocalization
     }
 
     /// <summary>
-    /// Gets value for language with fallback: requested → en → mr → hi 
+    /// Gets value for language with fallback: requested → defaultLanguage
     /// Does NOT fall back to key - returns empty string if no translations exist
     /// </summary>
-    private static string GetLanguageValueWithFallback(MultilingualResourceEntity entity, string language)
+    private string GetLanguageValueWithFallback(MultilingualResourceEntity entity, string language)
     {
         ReadOnlySpan<char> span = default;
         if (!string.IsNullOrWhiteSpace(language))
@@ -283,10 +292,19 @@ public class LocalizationRepoService : ILocalization
         if (!string.IsNullOrWhiteSpace(value))
             return value;
 
-        // Fallback to any available language (handles both null and empty strings)
-        if (!string.IsNullOrWhiteSpace(entity.en_US)) return entity.en_US;
-        if (!string.IsNullOrWhiteSpace(entity.hi_IN)) return entity.hi_IN;
-        if (!string.IsNullOrWhiteSpace(entity.mr_IN)) return entity.mr_IN;
+        // Fallback ONLY to default language dynamically based on configuration
+        string defaultLang = _defaultLanguage;
+        ReadOnlySpan<char> defSpan = defaultLang.AsSpan().Trim();
+        var defDash = defSpan.IndexOf('-');
+        if (defDash < 0) defDash = defSpan.IndexOf('_');
+        if (defDash > 0) defSpan = defSpan[..defDash];
+
+        string? defaultValue = null;
+        if (defSpan.Equals("hi", StringComparison.OrdinalIgnoreCase)) defaultValue = entity.hi_IN;
+        else if (defSpan.Equals("mr", StringComparison.OrdinalIgnoreCase)) defaultValue = entity.mr_IN;
+        else defaultValue = entity.en_US;
+
+        if (!string.IsNullOrWhiteSpace(defaultValue)) return defaultValue;
 
         return string.Empty;
     }
@@ -351,15 +369,11 @@ public class LocalizationRepoService : ILocalization
     // LANGUAGE HELPERS
     // =======================
 
-    private static void SetLanguageValue(MultilingualResourceEntity entity, string language, string value)
+    private void SetLanguageValue(MultilingualResourceEntity entity, string language, string value)
     {
-        if (string.IsNullOrWhiteSpace(language))
-        {
-            entity.en_US = value;
-            return;
-        }
+        string langToUse = string.IsNullOrWhiteSpace(language) ? _defaultLanguage : language;
 
-        var span = language.AsSpan().Trim();
+        var span = langToUse.AsSpan().Trim();
         var dash = span.IndexOf('-');
         if (dash < 0) dash = span.IndexOf('_');
         if (dash > 0) span = span[..dash];
@@ -372,12 +386,11 @@ public class LocalizationRepoService : ILocalization
             entity.en_US = value;
     }
 
-    private static bool IsValueChanged(MultilingualResourceEntity entity, string language, string newValue)
+    private bool IsValueChanged(MultilingualResourceEntity entity, string language, string newValue)
     {
-        if (string.IsNullOrWhiteSpace(language))
-            return !string.Equals(entity.en_US, newValue);
+        string langToUse = string.IsNullOrWhiteSpace(language) ? _defaultLanguage : language;
 
-        var span = language.AsSpan().Trim();
+        var span = langToUse.AsSpan().Trim();
         var dash = span.IndexOf('-');
         if (dash < 0) dash = span.IndexOf('_');
         if (dash > 0) span = span[..dash];
