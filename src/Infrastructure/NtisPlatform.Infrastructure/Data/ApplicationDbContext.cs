@@ -942,9 +942,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.Id);
 
-            // Configure relationships
+            // Configure relationships - explicitly specify the inverse navigation property
+            // to prevent EF Core from generating shadow foreign key properties
             entity.HasOne(e => e.Property)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.PropertyId)
                   .OnDelete(DeleteBehavior.Restrict);
 

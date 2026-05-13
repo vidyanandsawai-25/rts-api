@@ -901,7 +901,7 @@ namespace NtisPlatform.Application.Services
                             AgeFactor = (double)age,
                             FloorFactor = (double)floorFactor,
                             CreatedBy = dto.CreatedBy,
-                            CreatedDate = System.DateTime.UtcNow
+                            CreatedDate = System.DateTime.Now
                         }, cancellationToken);
 
                         masterData.ExistingCVRecords.Add(recordKey);
@@ -958,7 +958,7 @@ namespace NtisPlatform.Application.Services
                         AgeFactor = (double)age,
                         FloorFactor = (double)floorFactor,
                         CreatedBy = dto.CreatedBy,
-                        CreatedDate = System.DateTime.UtcNow
+                        CreatedDate = System.DateTime.Now
                     }, cancellationToken);
 
                     masterData.ExistingCVRecords.Add(taxTotalRecordKey);
@@ -1015,13 +1015,13 @@ namespace NtisPlatform.Application.Services
                         dto.PropertyId, taxId);
 
                     existingPolicyEntity.PolicyCode = dto.PolicyCode ?? CapitalValueConstants.Policy.DefaultPolicyCode;
-                    existingPolicyEntity.PolicyDate = dto.PolicyDate ?? System.DateTime.UtcNow;
+                    existingPolicyEntity.PolicyDate = dto.PolicyDate ?? System.DateTime.Now;
                     existingPolicyEntity.PolicyYear = dto.PolicyYear ?? masterData.FinanceYear.Year;
                     existingPolicyEntity.PolicyReason = dto.PolicyReason;
                     existingPolicyEntity.PolicyRVorCVvalue = totalCapitalValue;
                     existingPolicyEntity.TaxAmount = totalTaxAmount;
                     existingPolicyEntity.UpdatedBy = dto.CreatedBy;
-                    existingPolicyEntity.UpdatedDate = System.DateTime.UtcNow;
+                    existingPolicyEntity.UpdatedDate = System.DateTime.Now;
 
                     await _policyTaxDetailsCVRepository.UpdateAsync(existingPolicyEntity, cancellationToken);
                 }
@@ -1034,7 +1034,7 @@ namespace NtisPlatform.Application.Services
                     {
                         PropertyId = dto.PropertyId,
                         PolicyCode = dto.PolicyCode ?? CapitalValueConstants.Policy.DefaultPolicyCode,
-                        PolicyDate = dto.PolicyDate ?? System.DateTime.UtcNow,
+                        PolicyDate = dto.PolicyDate ?? System.DateTime.Now,
                         PolicyYear = dto.PolicyYear ?? masterData.FinanceYear.Year,
                         PolicyReason = dto.PolicyReason,
                         PolicyRVorCVvalue = totalCapitalValue,
@@ -1042,7 +1042,7 @@ namespace NtisPlatform.Application.Services
                         TaxAmount = totalTaxAmount,
                         IsActive = true,
                         CreatedBy = dto.CreatedBy,
-                        CreatedDate = System.DateTime.UtcNow
+                        CreatedDate = System.DateTime.Now
                     };
 
                     await _policyTaxDetailsCVRepository.AddAsync(policyTaxEntity, cancellationToken);
@@ -1061,7 +1061,7 @@ namespace NtisPlatform.Application.Services
                     existingTransMastEntity.TaxAmount = totalTaxAmount;
                     existingTransMastEntity.IsActive = true;
                     existingTransMastEntity.UpdatedBy = dto.CreatedBy;
-                    existingTransMastEntity.UpdatedDate = System.DateTime.UtcNow;
+                    existingTransMastEntity.UpdatedDate = System.DateTime.Now;
 
                     await _transMastCVRepository.UpdateAsync(existingTransMastEntity, cancellationToken);
                 }
@@ -1079,7 +1079,7 @@ namespace NtisPlatform.Application.Services
                         TaxAmount = totalTaxAmount,
                         IsActive = true,
                         CreatedBy = dto.CreatedBy,
-                        CreatedDate = System.DateTime.UtcNow
+                        CreatedDate = System.DateTime.Now
                     };
 
                     await _transMastCVRepository.AddAsync(transMastEntity, cancellationToken);
