@@ -20,7 +20,7 @@ public class PolicyTaxDetailsCVEntity : BaseEntity, IHardDeletable
     
     public DateTime? PolicyDate { get; set; }
     
-    public short? PolicyYear { get; set; }
+    public int? PolicyYear { get; set; }
     
     [StringLength(200)]
     public string? PolicyReason { get; set; }

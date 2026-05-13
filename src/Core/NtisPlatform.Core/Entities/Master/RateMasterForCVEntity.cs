@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using NtisPlatform.Core.Entities.Master;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
@@ -8,30 +9,24 @@ namespace NtisPlatform.Core.Entities;
 
 public class RateMasterForCVEntity : BaseEntity
 {
-    public int MoujaId { get; set; } 
 
-    [MaxLength(20)]
-    public string SubZoneNo { get; set; } = string.Empty;
 
-    [MaxLength(1000)]
-    public string SubZoneName { get; set; } = string.Empty;
+    public int SubZoneId { get; set; }
 
-    [MaxLength(4000)]
-    public string CSN { get; set; } = string.Empty;
+    public int? TypeOfUseGroupId { get; set; }
 
-    [Column(TypeName = "money")]
-    public decimal? OpenPlotRate { get; set; }
+    public int? FloorGroupId { get; set; }
 
-    [Column(TypeName = "money")]
-    public decimal? ResidentialRate { get; set; }
+    public decimal RateAmount { get; set; }
 
-    [Column(TypeName = "money")]
-    public decimal? OfficeRate { get; set; }
+    public int AssessmentYearRangeId { get; set; }
+ 
+    public virtual AssessmentYearRangeCVEntity? AssessmentYearRange { get; set; }
 
-    [Column(TypeName = "money")]
-    public decimal? ShopRate { get; set; }
+    public virtual FloorGroupMasterEntity? FloorGroup { get; set; }
 
-    [Column(TypeName = "money")]
-    public decimal? IndustrialRate { get; set; }
+    public virtual TypeOfUseGroupEntity? TypeOfUseGroup { get; set; }
+
+
 
 }

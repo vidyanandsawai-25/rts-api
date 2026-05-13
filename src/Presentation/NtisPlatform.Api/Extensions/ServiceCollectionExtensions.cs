@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
+ 
 using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Localization;
@@ -138,6 +139,8 @@ public static class ServiceCollectionExtensions
         // CRUD Services
         services.AddScoped<IULBMasterService, ULBMasterService>();
         services.AddScoped<IPaymentModeService, PaymentModeService>();
+        services.AddScoped<ICapitalValueService, CapitalValueService>();
+ 
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IRuleService, RuleService>();
 
@@ -248,6 +251,7 @@ public static class ServiceCollectionExtensions
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and your token. Example: \"Bearer eyJhbGc...\"",
+ 
                 Name = "Authorization",
                 In = ParameterLocation.Header,
                 Type = SecuritySchemeType.Http,

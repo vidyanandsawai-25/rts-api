@@ -1,6 +1,8 @@
-using System.ComponentModel.DataAnnotations;
+ ﻿using NtisPlatform.Core.Entities.Master;
+ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using NtisPlatform.Core.Interfaces;
+ using NtisPlatform.Core.Interfaces;
+ 
 
 namespace NtisPlatform.Core.Entities;
 /// <summary>
@@ -14,7 +16,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 	
     // Location Information
     public int TaxZoneId { get; set; }
-
+  
     public int WardId { get; set; }
 
     public string? PropertyNo { get; set; }
@@ -113,15 +115,20 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     /// Date when the entity was marked for deletion
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
-
-    // Navigation Properties
-    /// <summary>
-    /// Collection of policy tax details associated with this property
-    /// </summary>
+    public ICollection<FlagMasterEntity> FlagMaster { get; set; } = new List<FlagMasterEntity>();
+    public ICollection<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = new List<PropertyTaxCalculationCVResultsEntity>();
+    public ICollection<PropertyTaxCalculationRVResultsEntity> PropertyTaxCalculationRVResults { get; set; } = new List<PropertyTaxCalculationRVResultsEntity>();
+     public ICollection<PlotDetailsEntity> PlotDetails { get; set; } = new List<PlotDetailsEntity>();
+    public ICollection<TransMastCVEntity> TransMastCV { get; set; } = new List<TransMastCVEntity>();
+    public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
+    public ICollection<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = new List<PropertyDetailsOldEntity>();
+     
+    //public ICollection<PropertyMastDetailsEntity> PropertyMastDetails { get; set; } = new List<PropertyMastDetailsEntity>();
+    public ICollection<PropertyMastOldEntity> PropertyMastOld { get; set; } = new List<PropertyMastOldEntity>();
+ 
+    public ICollection<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = new List<SocietyDetailsEntity>();
+    public ICollection<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = new List<PropertyAssessmentEntity>();
+ 
     public virtual ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
-    
-    /// <summary>
-    /// Collection of policy tax details CV associated with this property
-    /// </summary>
-    public virtual ICollection<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = new List<PolicyTaxDetailsCVEntity>();
+ 
 }

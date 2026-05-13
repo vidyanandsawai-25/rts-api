@@ -79,4 +79,7 @@ public class SocietyDetailsEntity : BaseEntity
     /// Date when marked for deletion
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
+
+
+    public PropertyEntity? PropertyMast { get; set; }
 }

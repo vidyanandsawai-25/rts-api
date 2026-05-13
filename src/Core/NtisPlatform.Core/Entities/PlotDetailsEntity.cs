@@ -9,7 +9,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("PlotDetails", Schema = "PTIS")]
 public class PlotDetailsEntity : BaseEntity
 {
-    [Key]    public int? PropertyId { get; set; }
+   public int? PropertyId { get; set; }
 
     [Column(TypeName = "float")]
     public double? PlotArea { get; set; }

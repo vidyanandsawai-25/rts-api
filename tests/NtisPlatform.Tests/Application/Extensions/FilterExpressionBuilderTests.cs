@@ -282,7 +282,7 @@ public class QueryableExtensionsTests
     }
 
     [Fact]
-    public async Task ApplySort_NoSortBy_DefaultsSortById()
+    public async Task ApplySort_NoSortBy_AppliesDefaultIdOrdering()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -303,9 +303,8 @@ public class QueryableExtensionsTests
 
         var result = context.PropertyMast.AsQueryable().ApplySort(queryParams).ToList();
 
-        Assert.NotNull(result);
+        // Assert default ordering by Id (ascending)
         Assert.Equal(3, result.Count);
-        // Verify default sort by Id (ascending)
         Assert.Equal(1, result[0].Id);
         Assert.Equal(2, result[1].Id);
         Assert.Equal(3, result[2].Id);

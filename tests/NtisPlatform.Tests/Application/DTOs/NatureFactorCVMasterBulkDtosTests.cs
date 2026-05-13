@@ -28,10 +28,10 @@ namespace NtisPlatform.Tests.Application.DTOs
         {
             var dto = new BulkDeleteNatureFactorCVMasterDto
             {
-                Ids = new List<int> { 5, 6 }
+                NatureFactorIds = new List<int> { 5, 6 }
             };
 
-            Assert.Equal(new List<int> { 5, 6 }, dto.Ids);
+            Assert.Equal(new List<int> { 5, 6 }, dto.NatureFactorIds);
         }
 
         [Fact]
@@ -42,14 +42,14 @@ namespace NtisPlatform.Tests.Application.DTOs
                 Success = true,
                 Message = "deleted",
                 Items = new List<int> { 1, 2 },
-                Errors = new List<BulkNatureFactorOperationErrorDto> { new() { Id = 1, Message = "err" } }
+                Errors = new List<BulkNatureFactorOperationErrorDto> { new() { NatureFactorId = 1, Message = "err" } }
             };
 
             Assert.True(dto.Success);
             Assert.Equal("deleted", dto.Message);
             Assert.Equal(new List<int> { 1, 2 }, dto.Items);
             Assert.Single(dto.Errors);
-            Assert.Equal(1, dto.Errors[0].Id);
+            Assert.Equal(1, dto.Errors[0].NatureFactorId);
         }
 
         [Fact]
@@ -57,12 +57,12 @@ namespace NtisPlatform.Tests.Application.DTOs
         {
             var dto = new BulkNatureFactorOperationErrorDto
             {
-                Id = 5,
+                NatureFactorId = 5,
                 Index = 2,
                 Message = "msg"
             };
 
-            Assert.Equal(5, dto.Id);
+            Assert.Equal(5, dto.NatureFactorId);
             Assert.Equal(2, dto.Index);
             Assert.Equal("msg", dto.Message);
         }
@@ -75,7 +75,7 @@ namespace NtisPlatform.Tests.Application.DTOs
                 Success = true,
                 Message = "ok",
                 Items = new List<NatureFactorCVMasterDto> { new() { Id = 1, Factor = 1.1m, YearRangeCVId = 2 } },
-                Errors = new List<BulkNatureFactorOperationErrorDto> { new() { Id = 1, Message = "err" } }
+                Errors = new List<BulkNatureFactorOperationErrorDto> { new() { NatureFactorId = 1, Message = "err" } }
             };
 
             Assert.True(dto.Success);
@@ -83,7 +83,7 @@ namespace NtisPlatform.Tests.Application.DTOs
             Assert.Single(dto.Items);
             Assert.Equal(1, dto.Items[0].Id);
             Assert.Single(dto.Errors);
-            Assert.Equal(1, dto.Errors[0].Id);
+            Assert.Equal(1, dto.Errors[0].NatureFactorId);
         }
 
         [Fact]
@@ -93,12 +93,12 @@ namespace NtisPlatform.Tests.Application.DTOs
             {
                 NatureFactors = new List<BulkUpdateNatureFactorCVMasterItemDto>
                 {
-                    new() { Id = 1, ConstructionTypeId = 2, Factor = 2.0m, YearRangeCVId = 3 }
+                    new() { NatureFactorId = 1, ConstructionTypeId = 2, Factor = 2.0m, YearRangeCVId = 3 }
                 }
             };
 
             Assert.Single(dto.NatureFactors);
-            Assert.Equal(1, dto.NatureFactors[0].Id);
+            Assert.Equal(1, dto.NatureFactors[0].NatureFactorId);
             Assert.Equal(2, dto.NatureFactors[0].ConstructionTypeId);
         }
 
@@ -107,13 +107,13 @@ namespace NtisPlatform.Tests.Application.DTOs
         {
             var dto = new BulkUpdateNatureFactorCVMasterItemDto
             {
-                Id = 1,
+                NatureFactorId = 1,
                 ConstructionTypeId = 2,
                 Factor = 2.0m,
                 YearRangeCVId = 3
             };
 
-            Assert.Equal(1, dto.Id);
+            Assert.Equal(1, dto.NatureFactorId);
             Assert.Equal(2, dto.ConstructionTypeId);
             Assert.Equal(2.0m, dto.Factor);
             Assert.Equal(3, dto.YearRangeCVId);

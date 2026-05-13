@@ -48,6 +48,7 @@ public class PropertyDetailsEntity : BaseEntity
     /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>
+
     public bool MarkedForDeletion { get; set; } = false;
 
     /// <summary>
@@ -55,9 +56,9 @@ public class PropertyDetailsEntity : BaseEntity
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
 
-   
+
     public virtual ICollection<RenterMastEntity> Renters { get; set; } = new List<RenterMastEntity>();
- 
+
 
     [ForeignKey(nameof(PropertyId))]
     public virtual PropertyEntity? Property { get; set; }

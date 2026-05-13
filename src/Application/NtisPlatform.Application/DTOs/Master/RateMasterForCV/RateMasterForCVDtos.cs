@@ -4,97 +4,65 @@ namespace NtisPlatform.Application.DTOs;
 
 public class RateMasterForCVDto : BaseDtos
 {
-    public int Id { get; set; }
+    public int RateMasterCVId { get; set; }
 
-    public int MoujaId { get; set; }
+    public int SubZoneId { get; set; }
 
-    public string SubZoneNo { get; set; } = string.Empty;
+    public int? TypeOfUseGroupId { get; set; }
 
-    public string SubZoneName { get; set; } = string.Empty;
+    public int? FloorGroupId { get; set; }
 
-    public string CSN { get; set; } = string.Empty;
+    public decimal RateAmount { get; set; }
 
-    public decimal? OpenPlotRate { get; set; }
+    public int AssessmentYearRangeId { get; set; }
 
-    public decimal? ResidentialRate { get; set; }
-
-    public decimal? OfficeRate { get; set; }
-
-    public decimal? ShopRate { get; set; }
-
-    public decimal? IndustrialRate { get; set; }
-    
+    // Navigation property names (read-only, populated from joins)
+    public string? SubZoneNo { get; set; }
+    public string? SubZoneName { get; set; }
+    public string? TypeOfUseGroupName { get; set; }
+    public string? FloorGroupName { get; set; }
+    public int? FromYear { get; set; }
+    public int? ToYear { get; set; }
 }
 
 public class CreateRateMasterForCVDto : CreateBaseDtos
 {
-    public int Id { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_SubZoneId_Required")]
+    [Required(ErrorMessage = "CVRate_SubZoneId_Required")]
+    public int SubZoneId { get; set; }
 
-    [Required(ErrorMessage = "CVRate_MoujaId_Required")]
-    public int MoujaId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_TypeOfUseGroupId_Invalid")]
+    public int? TypeOfUseGroupId { get; set; }
 
-    [StringLength(20, ErrorMessage = "CVRate_SubZoneNo_MaxLen_20")]
-    [Required(ErrorMessage = "CVRate_SubZoneNo_Required")]
-    public string SubZoneNo { get; set; } = string.Empty;
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_FloorGroupId_Invalid")]
+    public int? FloorGroupId { get; set; }
 
-    [StringLength(1000, ErrorMessage = "CVRate_SubZoneName_MaxLen_1000")]
-    [Required(ErrorMessage = "CVRate_SubZoneName_Required")]
-    public string SubZoneName { get; set; } = string.Empty;
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_RateAmount_Min_0")]
+    [Required(ErrorMessage = "CVRate_RateAmount_Required")]
+    public decimal RateAmount { get; set; }
 
-    [StringLength(4000, ErrorMessage = "CVRate_CSN_MaxLen_4000")]
-    [Required(ErrorMessage = "CVRate_CSN_Required")]
-    public string CSN { get; set; } = string.Empty;
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_OpenPlotRate_Min_0")]
-    public decimal? OpenPlotRate { get; set; }
-    
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_ResidentialRate_Min_0")]
-    public decimal? ResidentialRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_OfficeRate_Min_0")]
-    public decimal? OfficeRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_ShopRate_Min_0")]
-    public decimal? ShopRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_IndustrialRate_Min_0")]
-    public decimal? IndustrialRate { get; set; }
-    
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
+    [Required(ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
+    public int AssessmentYearRangeId { get; set; }
 }
-
 
 public class UpdateRateMasterForCVDto : UpdateBaseDtos
 {    
-    public int Id { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_SubZoneId_Required")]
+    [Required(ErrorMessage = "CVRate_SubZoneId_Required")]
+    public int SubZoneId { get; set; }
 
-    [Required(ErrorMessage = "CVRate_MoujaId_Required")]
-    public int MoujaId { get; set; }
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_TypeOfUseGroupId_Invalid")]
+    public int? TypeOfUseGroupId { get; set; }
 
-    [StringLength(20, ErrorMessage = "CVRate_SubZoneNo_MaxLen_20")]
-    [Required(ErrorMessage = "CVRate_SubZoneNo_Required")]
-    public string SubZoneNo { get; set; } = string.Empty;
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_FloorGroupId_Invalid")]
+    public int? FloorGroupId { get; set; }
 
-    [StringLength(1000, ErrorMessage = "CVRate_SubZoneName_MaxLen_1000")]
-    [Required(ErrorMessage = "CVRate_SubZoneName_Required")]
-    public string SubZoneName { get; set; } = string.Empty;
+    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_RateAmount_Min_0")]
+    [Required(ErrorMessage = "CVRate_RateAmount_Required")]
+    public decimal RateAmount { get; set; }
 
-    [StringLength(4000, ErrorMessage = "CVRate_CSN_MaxLen_4000")]
-    [Required(ErrorMessage = "CVRate_CSN_Required")]
-    public string CSN { get; set; } = string.Empty;
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_OpenPlotRate_Min_0")]
-    public decimal? OpenPlotRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_ResidentialRate_Min_0")]
-    public decimal? ResidentialRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_OfficeRate_Min_0")]
-    public decimal? OfficeRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_ShopRate_Min_0")]
-    public decimal? ShopRate { get; set; }
-
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "CVRate_IndustrialRate_Min_0")]
-    public decimal? IndustrialRate { get; set; }
-
+    [Range(1, int.MaxValue, ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
+    [Required(ErrorMessage = "CVRate_AssessmentYearRangeId_Required")]
+    public int AssessmentYearRangeId { get; set; }
 }

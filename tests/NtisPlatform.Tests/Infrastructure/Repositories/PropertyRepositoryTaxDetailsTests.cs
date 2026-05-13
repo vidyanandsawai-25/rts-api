@@ -419,6 +419,65 @@ public class PropertyRepositoryTaxDetailsTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetTaxDetailsCVAsync_WithSinglePolicyAndMultipleTaxes_ReturnsCorrectGroupedData()
+    {
+        // Arrange
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity
+        {
+            Id = 1,
+            WardId = 1,
+            TaxZoneId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Education Cess", TaxCode = "EDU", DisplayOrder = 2, IsActive = true };
+
+        var policyTaxCV1 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 2000.50m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var policyTaxCV2 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 2,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 2,
+            TaxAmount = 750.25m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        context.PropertyMast.Add(property);
+        context.TaxMaster.AddRange(tax1, tax2);
+        context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+
+        // Act
+        var result = await repository.GetTaxDetailsCVAsync(1);
+
+        // Assert
+        Assert.NotNull(result);
+    }
     #endregion
 
     #region GetTaxDetailsCVAsync Tests
@@ -432,6 +491,49 @@ public class PropertyRepositoryTaxDetailsTests
             .Options;
 
         using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity
+        {
+            Id = 1,
+            WardId = 1,
+            TaxZoneId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+
+        // Policy CV 2023
+        var policyTaxCV1 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCode = "POLCV2023",
+            TaxId = 1,
+            TaxAmount = 1800.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        // Policy CV 2024
+        var policyTaxCV2 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 2,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 2000.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax1);
+        context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
+        await context.SaveChangesAsync();
+
         var repository = new PropertyRepository(context);
 
         // Act
@@ -456,11 +558,41 @@ public class PropertyRepositoryTaxDetailsTests
             Id = 1,
             WardId = 1,
             TaxZoneId = 1,
-            IsActive = false, // Inactive
+            IsActive = false, // Property is inactive - this is what we're testing
             MarkedForDeletion = false
         };
 
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+
+        var activeTax = new PolicyTaxDetailsCVEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 2000.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var inactiveTax = new PolicyTaxDetailsCVEntity
+        {
+            Id = 2,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 500.00m,
+            IsActive = false, // Inactive tax (should be filtered out anyway)
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        // Add all entities to context so they can be queried
         context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax1);
+        context.PolicyTaxDetailsCV.Add(activeTax);
+        context.PolicyTaxDetailsCV.Add(inactiveTax);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -469,6 +601,7 @@ public class PropertyRepositoryTaxDetailsTests
         var result = await repository.GetTaxDetailsCVAsync(1);
 
         // Assert
+        // Should return null because the property is inactive, even though tax data exists
         Assert.Null(result);
     }
 
@@ -488,10 +621,27 @@ public class PropertyRepositoryTaxDetailsTests
             WardId = 1,
             TaxZoneId = 1,
             IsActive = true,
-            MarkedForDeletion = true // Marked for deletion
+            MarkedForDeletion = true // Property is marked for deletion - this is what we're testing
         };
 
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+
+        var deletedTax = new PolicyTaxDetailsCVEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 2000.00m,
+            IsActive = true,
+            MarkedForDeletion = true, // Tax also marked for deletion (should be filtered anyway)
+            CreatedDate = DateTime.UtcNow
+        };
+
+        // Add all entities to context so they can be queried
         context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax1);
+        context.PolicyTaxDetailsCV.Add(deletedTax);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -500,7 +650,70 @@ public class PropertyRepositoryTaxDetailsTests
         var result = await repository.GetTaxDetailsCVAsync(1);
 
         // Assert
+        // Should return null because the property is marked for deletion, even though tax data exists
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetTaxDetailsCVAsync_WithDuplicateTaxNamesSamePolicy_SumsTaxAmounts()
+    {
+        // Arrange
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity
+        {
+            Id = 1,
+            WardId = 1,
+            TaxZoneId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+
+        // Same PolicyCode and TaxName - should be summed
+        var policyTaxCV1 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 1000.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var policyTaxCV2 = new PolicyTaxDetailsCVEntity
+        {
+            Id = 2,
+            PropertyId = 1,
+            PolicyCode = "POLCV2024",
+            TaxId = 1,
+            TaxAmount = 1000.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax1);
+        context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+
+        // Act
+        var result = await repository.GetTaxDetailsCVAsync(1);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Policies);
+        Assert.Equal(2000.00m, result.Policies[0].TaxAmounts.First(t => t.TaxName == "Capital Value Tax").TaxAmount);
     }
 
     #endregion

@@ -9,7 +9,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyMastDetails", Schema = "PTIS")]
 public class PropertyAssessmentEntity : BaseEntity
 {
-    [Key]    public int PropertyId { get; set; }
+     public int PropertyId { get; set; }
 
     public int? OwnerTypeId { get; set; }
 

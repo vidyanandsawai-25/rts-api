@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -34,4 +35,10 @@ public class TransMastOldEntity : BaseEntity
     public bool MarkedForDeletion { get; set; } = false;
 
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    public int PropertyId { get; set; }
+
+    [ForeignKey(nameof(TaxId))]
+    public virtual TaxMasterEntity? TaxMaster { get; set; }
+
 }

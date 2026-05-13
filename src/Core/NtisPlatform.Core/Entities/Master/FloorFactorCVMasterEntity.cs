@@ -1,14 +1,30 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Text;
 using NtisPlatform.Core.Entities;
-
-namespace NtisPlatform.Core.Entities.Master;
-
-/// <summary>
-/// Represents floor factor CV master entity for managing floor factor calculations
-/// </summary>
-public class FloorFactorCVMasterEntity : BaseEntity
+namespace NtisPlatform.Core.Entities.Master
 {
-    public int FloorId { get; set; }
-    public decimal FactorWithLift { get; set; }
-    public decimal FactorWithoutLift { get; set; }
-    public int YearRangeCVId { get; set; }   
+
+    /// <summary>
+    /// Represents floor factor CV master entity for managing floor factor calculations
+    /// </summary>
+    [Table("FloorFactorCVMaster", Schema = "PTIS")]
+    public class FloorFactorCVMasterEntity : BaseEntity
+    {
+     
+
+        public int FloorId { get; set; }
+
+        public decimal FactorWithLift { get; set; }
+
+        public decimal FactorWithoutLift { get; set; }
+
+        public int YearRangeCVId { get; set; }
+
+        public virtual FloorEntity? Floor { get; set; }
+
+        public virtual AssessmentYearRangeCVEntity? YearRangeCV { get; set; }
+    }
 }

@@ -42,6 +42,7 @@ public class AssessmentYearRangeCVServiceTests
     {
         var entity = new AssessmentYearRangeCVEntity
         {
+
             Id = 1,
             FromYear = 2000,
             ToYear = 2020,
@@ -58,6 +59,7 @@ public class AssessmentYearRangeCVServiceTests
         _mockMapper.Setup(m => m.Map<AssessmentYearRangeCVDto>(It.IsAny<AssessmentYearRangeCVEntity>()))
             .Returns(new AssessmentYearRangeCVDto
             {
+
                 Id = 1,
                 FromYear = entity.FromYear,
                 ToYear = entity.ToYear,
@@ -69,6 +71,7 @@ public class AssessmentYearRangeCVServiceTests
         var result = await _service.GetByIdAsync(1);
 
         Assert.NotNull(result);
+
         Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
@@ -91,6 +94,7 @@ public class AssessmentYearRangeCVServiceTests
     {
         var entities = new List<AssessmentYearRangeCVEntity>
         {
+
             new() { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true, CreatedDate = DateTime.Now },
             new() { Id = 2, FromYear = 2021, ToYear = 2030, IsActive = false, CreatedDate = DateTime.Now }
         };
@@ -149,6 +153,7 @@ public class AssessmentYearRangeCVServiceTests
             .Setup(m => m.Map<AssessmentYearRangeCVEntity>(It.IsAny<CreateAssessmentYearRangeCVDto>()))
             .Returns((CreateAssessmentYearRangeCVDto dto) => new AssessmentYearRangeCVEntity
             {
+
                 Id = 1,
                 FromYear = dto.FromYear,
                 ToYear = dto.ToYear,
@@ -165,6 +170,7 @@ public class AssessmentYearRangeCVServiceTests
             .Setup(m => m.Map<AssessmentYearRangeCVDto>(It.IsAny<AssessmentYearRangeCVEntity>()))
             .Returns((AssessmentYearRangeCVEntity e) => new AssessmentYearRangeCVDto
             {
+
                 Id = e.Id,
                 FromYear = e.FromYear,
                 ToYear = e.ToYear,
@@ -176,6 +182,7 @@ public class AssessmentYearRangeCVServiceTests
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
+
         Assert.Equal(1, result.Id);
         Assert.Equal(2000, result.FromYear);
         Assert.Equal(2020, result.ToYear);
@@ -198,6 +205,7 @@ public class AssessmentYearRangeCVServiceTests
 
         var existingEntity = new AssessmentYearRangeCVEntity
         {
+
             Id = 1,
             FromYear = 2000,
             ToYear = 2020,
@@ -295,6 +303,7 @@ public class AssessmentYearRangeCVServiceTests
 
         var existingEntity = new AssessmentYearRangeCVEntity
         {
+
             Id = idToDelete,
             FromYear = 2000,
             ToYear = 2020,

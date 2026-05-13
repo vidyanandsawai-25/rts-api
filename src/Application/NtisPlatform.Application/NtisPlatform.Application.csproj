@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<!-- All common properties are inherited from Directory.Build.props -->
-
+ 
 	<ItemGroup>
 		<ProjectReference Include="..\..\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
 	</ItemGroup>
@@ -17,4 +17,10 @@
 		<PackageReference Include="AutoMapper" Version="16.1.1" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="DTOs\Master\AgeFactorMaster\" />
+	  <Folder Include="DTOs\Master\FloorFactorMaster\" />
+	</ItemGroup>
+
+ 
 </Project>

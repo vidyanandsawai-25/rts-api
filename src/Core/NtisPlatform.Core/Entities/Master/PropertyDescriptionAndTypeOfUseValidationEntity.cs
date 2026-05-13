@@ -8,7 +8,11 @@ namespace NtisPlatform.Core.Entities.Master;
 [Table("PropertyDescriptionAndTypeOfUseValidation", Schema = "PTIS")]
 public class PropertyDescriptionAndTypeOfUseValidationEntity : BaseEntity
 {
+
+
     public int PropertyTypeId { get; set; }
     
     public int TypeOfUseId { get; set; }
+
+
 }
