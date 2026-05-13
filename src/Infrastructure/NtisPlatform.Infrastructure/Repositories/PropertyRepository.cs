@@ -705,11 +705,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get or create PropertyMastOld for this property
-        var property = await _context.PropertyMast
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
-            .FirstOrDefaultAsync(cancellationToken);
+        try
+        {
+            // Step 1: Get or create PropertyMastOld for this property
+            var property = await _context.PropertyMast
+                .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+                .Select(p => new { p.Id, p.PropertyMastOldId })
+                .FirstOrDefaultAsync(cancellationToken);
 
         if (property == null)
             return null;
@@ -747,21 +749,49 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Step 3: Update PropertyMastOld fields
         var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
 
-        if (oldMastData != null)
-        {
-            // Always update, even if null
-            oldMastData.OldWardNo = dto.OldWardNo;
-            oldMastData.OldPropertyNo = dto.OldPropertyNo;
-            oldMastData.OldPartitionNo = dto.OldPartitionNo;
-            oldMastData.OldEgovNo = dto.OldEgovNo;
-            oldMastData.OldPlotArea = dto.OldPlotArea;
-            oldMastData.OldPlotNo = dto.OldPlotNo;
-            oldMastData.OldRV = dto.OldRV;
-            oldMastData.OldALV = dto.OldALV;
-            oldMastData.OldTotalTax = dto.OldTotalTax;
-            oldMastData.OldZoneNo = dto.OldZoneNo;
-            oldMastData.UpdatedDate = DateTime.Now;
-        }
+            if (oldMastData != null)
+            {
+                if (dto.OldWardNo != null)
+                    oldMastData.OldWardNo = dto.OldWardNo;
+
+                if (dto.OldPropertyNo != null)
+                    oldMastData.OldPropertyNo = dto.OldPropertyNo;
+
+                if (dto.OldPartitionNo != null)
+                    oldMastData.OldPartitionNo = dto.OldPartitionNo;
+
+                if (dto.OldEgovNo != null)
+                    oldMastData.OldEgovNo = dto.OldEgovNo;
+
+                if (dto.OldPlotArea.HasValue)
+                    oldMastData.OldPlotArea = dto.OldPlotArea;
+
+                if (dto.OldPlotNo != null)
+                    oldMastData.OldPlotNo = dto.OldPlotNo;
+
+                if (dto.OldRV.HasValue)
+                    oldMastData.OldRV = dto.OldRV;
+
+                if (dto.OldALV.HasValue)
+                    oldMastData.OldALV = dto.OldALV;
+
+                if (dto.OldTotalTax.HasValue)
+                    oldMastData.OldTotalTax = dto.OldTotalTax;
+
+                if (dto.OldZoneNo != null)
+                    oldMastData.OldZoneNo = dto.OldZoneNo;
+
+                if (dto.OldConstructionArea != null)
+                    oldMastData.OldConstructionArea = dto.OldConstructionArea;
+
+                if (dto.OldGeneralTax != null)
+                    oldMastData.OldGeneralTax = dto.OldGeneralTax;
+
+                if (dto.OldCSN != null)
+                    oldMastData.OldCSN = dto.OldCSN;
+
+                oldMastData.UpdatedDate = DateTime.Now;
+            }
 
         // Step 4: Upsert PropertyDetailsOld
         var oldDetailsId = await _context.PropertyDetailsOld
@@ -779,40 +809,59 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             // UPDATE existing record
             var oldDetailsData = await _context.PropertyDetailsOld.FindAsync(new object[] { oldDetailsId }, cancellationToken);
 
-            if (oldDetailsData != null)
-            {
-                // Always update, even if null
-                oldDetailsData.OldConstructionYear = dto.OldConstructionYear;
-                oldDetailsData.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
-                oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
-                oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
-                oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
-                oldDetailsData.UpdatedDate = DateTime.Now;
+                if (oldDetailsData != null)
+                {
+                    if (dto.OldConstructionYear != null)
+                        oldDetailsData.OldConstructionYear = dto.OldConstructionYear;
+
+                    if (dto.OldCarpetAreaSqFeet.HasValue)
+                        oldDetailsData.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
+
+                    if (dto.OldCarpetAreaSqMeter.HasValue)
+                        oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
+
+                    if (dto.OldConstructionTypeId.HasValue)
+                        oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
+
+                    if (dto.OldTypeOfUseId.HasValue)
+                        oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
+
+                    if (dto.OldFloorId.HasValue)
+                        oldDetailsData.OldFloorId = dto.OldFloorId;
+
+                    oldDetailsData.UpdatedDate = DateTime.Now;
+                }
             }
-        }
-        else if (hasOldDetailsData)
-        {
-            // INSERT new record only if data is provided
-            var newOldDetailsData = new PropertyDetailsOldEntity
+            else if (hasOldDetailsData)
             {
-                PropertyMastOldId = propertyMastOldId,
-                OldConstructionYear = dto.OldConstructionYear,
-                OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
-                OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
-                OldConstructionTypeId = dto.OldConstructionTypeId,
-                OldTypeOfUseId = dto.OldTypeOfUseId,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.Now
-            };
-            await _context.PropertyDetailsOld.AddAsync(newOldDetailsData, cancellationToken);
-        }
+                // INSERT new record only if data is provided
+                var newOldDetailsData = new PropertyDetailsOldEntity
+                {
+                    PropertyMastOldId = propertyMastOldId,
+                    OldConstructionYear = dto.OldConstructionYear,
+                    OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
+                    OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
+                    OldConstructionTypeId = dto.OldConstructionTypeId,
+                    OldTypeOfUseId = dto.OldTypeOfUseId,
+                    OldFloorId = dto.OldFloorId,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = DateTime.Now
+                };
+                await _context.PropertyDetailsOld.AddAsync(newOldDetailsData, cancellationToken);
+            }
 
         // Step 4: Save all changes
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Step 5: Return updated data
-        return await GetOldDetailsAsync(propertyId, cancellationToken);
+            // Step 5: Return updated data
+            return await GetOldDetailsAsync(propertyId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // You can replace this with your specific logging logic (e.g., _logger.LogError)
+            throw new Exception($"An error occurred while updating old property details for Property ID: {propertyId}. Internal Error: {ex.Message}", ex);
+        }
     }
 public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {

@@ -11,6 +11,18 @@ public class UpdatePropertyOldDetailsDto
     [StringLength(10, ErrorMessage = "OldWardNo cannot exceed 10 characters.")]
     public string? OldWardNo { get; set; }
 
+    [Range(0, int.MaxValue, ErrorMessage = "OldFloorId must be a non-negative number.")]
+    public int? OldFloorId { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "OldGeneralTax cannot be negative.")]
+    public float? OldGeneralTax { get; set; }
+
+    [Range(0, double.MaxValue, ErrorMessage = "OldConstructionArea cannot be negative.")]
+    public float? OldConstructionArea { get; set; }
+
+    [StringLength(30, ErrorMessage = "OldCSN cannot exceed 30 characters.")]
+    public string? OldCSN { get; set; }
+
     [StringLength(10, ErrorMessage = "OldPropertyNo cannot exceed 10 characters.")]
     public string? OldPropertyNo { get; set; }
 

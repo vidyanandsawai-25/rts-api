@@ -356,7 +356,7 @@ public class PropertyOldDetailsComprehensiveTests
     public void TransMastOldEntity_MarkedForDeletion_CanBeSet()
     {
         // Arrange
-        var entity = new TransMastOldEntity { PropertyMastOldId = 100 };
+        var entity = new TransMastOldEntity { PropertyMastOldId = 100, RVorCV = "RV" };
         var deletionDate = DateTime.Now;
 
         // Act
@@ -661,6 +661,9 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal(111.48, dto.OldCarpetAreaSqMeter);
         Assert.Equal(2, dto.OldConstructionTypeId);
         Assert.Equal(3, dto.OldTypeOfUseId);
+        Assert.Equal(500.25, dto.OldConstructionArea);
+        Assert.Equal("98/440", dto.OldCSN);
+        Assert.Equal(5000.25, dto.OldGeneralTax);
     }
 
     [Fact]
@@ -686,6 +689,9 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Null(dto.OldCarpetAreaSqMeter);
         Assert.Null(dto.OldConstructionTypeId);
         Assert.Null(dto.OldTypeOfUseId);
+        Assert.Null(dto.OldConstructionArea);
+        Assert.Null(dto.OldCSN);
+        Assert.Null(dto.OldGeneralTax);
     }
 
     #endregion
@@ -699,6 +705,7 @@ public class PropertyOldDetailsComprehensiveTests
         var dto = new UpdatePropertyOldDetailsDto
         {
             OldWardNo = "1",
+            OldFloorId = 5,
             OldPropertyNo = "86",
             OldPartitionNo = "A",
             OldEgovNo = "MM1",
@@ -712,11 +719,15 @@ public class PropertyOldDetailsComprehensiveTests
             OldCarpetAreaSqFeet = 1200.50,
             OldCarpetAreaSqMeter = 111.48,
             OldConstructionTypeId = 2,
-            OldTypeOfUseId = 3
+            OldTypeOfUseId = 3,
+            OldConstructionArea = 5600f,
+            OldCSN = "98/440",
+            OldGeneralTax = 500f
         };
 
         // Assert
         Assert.Equal("1", dto.OldWardNo);
+        Assert.Equal(5, dto.OldFloorId);
         Assert.Equal("86", dto.OldPropertyNo);
         Assert.Equal("A", dto.OldPartitionNo);
         Assert.Equal("MM1", dto.OldEgovNo);
@@ -731,6 +742,9 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal(111.48, dto.OldCarpetAreaSqMeter);
         Assert.Equal(2, dto.OldConstructionTypeId);
         Assert.Equal(3, dto.OldTypeOfUseId);
+        Assert.Equal(5600f, dto.OldConstructionArea);
+        Assert.Equal("98/440", dto.OldCSN);
+        Assert.Equal(500f, dto.OldGeneralTax);
     }
 
     [Fact]
@@ -741,6 +755,7 @@ public class PropertyOldDetailsComprehensiveTests
 
         // Assert
         Assert.Null(dto.OldWardNo);
+        Assert.Null(dto.OldFloorId);
         Assert.Null(dto.OldPropertyNo);
         Assert.Null(dto.OldPartitionNo);
         Assert.Null(dto.OldEgovNo);
@@ -755,6 +770,9 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Null(dto.OldCarpetAreaSqMeter);
         Assert.Null(dto.OldConstructionTypeId);
         Assert.Null(dto.OldTypeOfUseId);
+        Assert.Null(dto.OldConstructionArea);
+        Assert.Null(dto.OldCSN);
+        Assert.Null(dto.OldGeneralTax);
     }
 
     #endregion
