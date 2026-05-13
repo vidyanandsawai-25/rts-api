@@ -771,9 +771,9 @@ namespace NtisPlatform.Tests.Application
                 ManagerMobileNo = "9876500001",
                 SecretaryMobileNo = "9876500002",
                 SocietyEmailId = "society@example.com",
-                LengthMtr = 15.5m,
-                WidthMtr = 10.0m,
-                TotalAreaSqMtr = 155.0m,
+                LengthMtr = (double?)15.5m,
+                WidthMtr = (double?)10.0m,
+                TotalAreaSqMtr = (double?)155.0m,
                 CreatedBy = 1,
                 CreatedDate = DateTime.UtcNow
             };

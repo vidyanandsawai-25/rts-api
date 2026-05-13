@@ -207,17 +207,14 @@ namespace NtisPlatform.Core.Models
         [StringLength(100, ErrorMessage = "ManagerEmailId cannot exceed 100 characters.")]
         public string? ManagerEmailId { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        [Range(0, 100000, ErrorMessage = "Length must be between 0 and 100000.")]
-        public decimal? LengthMtr { get; set; }
+      
+        public double? LengthMtr { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        [Range(0, 100000, ErrorMessage = "Width must be between 0 and 100000.")]
-        public decimal? WidthMtr { get; set; }
+ 
+        public double? WidthMtr { get; set; }
 
-        [Column(TypeName = "decimal(18,2)")]
-        [Range(0, 1000000, ErrorMessage = "Total Area must be between 0 and 1000000.")]
-        public decimal? TotalAreaSqMtr { get; set; }
+   
+        public double? TotalAreaSqMtr { get; set; }
 
         // -- Common fields ------------------------------------------------------
 

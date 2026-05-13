@@ -1,55 +1,39 @@
-using NtisPlatform.Core.Entities;
-using System.ComponentModel.DataAnnotations;
+﻿using NtisPlatform.Core.Interfaces;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
 
+namespace NtisPlatform.Core.Entities;
+
 [Table("RoomWiseSubmissionDetails", Schema = "PTIS")]
-public class RoomWiseSubmissionDetailsEntity : BaseEntity
+public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
 {
-    public int? PropertyId { get; set; }
+    public int PropertyDetailsId { get; set; }      // FK to PropertyDetails — required
+    public int? PropertyId { get; set; }             // FK to PropertyMast — optional reference
 
-    [Required]
-    public int PropertyDetailsId { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? LengthMtr { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? WidthMtr { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? AreaSqMtr { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? HeightMtr { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? Base1Mtr { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? Base2Mtr { get; set; }
-
+    public double? LengthMtr { get; set; }
+    public double? WidthMtr { get; set; }
+    public double? AreaSqMtr { get; set; }
+    public double? HeightMtr { get; set; }
+    public double? Base1Mtr { get; set; }
+    public double? Base2Mtr { get; set; }
     public int? NoOfRooms { get; set; }
-
-    [Column(TypeName = "decimal(18,2)")]
-    public decimal? TotalAreaSqMtr { get; set; }
-
-    [StringLength(25)]
+    public double? TotalAreaSqMtr { get; set; }
     public string? Shape { get; set; }
-
-    [StringLength(100)]
     public string? RoomNo { get; set; }
 
-    public bool? OuterYesNo { get; set; }
-
-    [StringLength(100)]
+    public bool OuterYesNo { get; set; } = false;
     public string? RoomType { get; set; }
-
-    [StringLength(100)]
     public string? SubmissionType { get; set; }
-
-    public bool? MinusYesNo { get; set; } = false;
-
-    public bool? MarkedForDeletion { get; set; } = false;
-
+    public bool MinusYesNo { get; set; } = false;
+    public bool MarkedForDeletion { get; set; } = false;
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
+
+    public virtual PropertyEntity? PropertyMast { get; set; }
+
+    public virtual ICollection<PropertyRoomMinusEntity> PropertyRoomMinus { get; set; } = new List<PropertyRoomMinusEntity>();
+
+
 }

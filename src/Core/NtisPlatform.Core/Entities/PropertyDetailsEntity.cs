@@ -9,7 +9,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("PropertyDetails", Schema = "PTIS")]
 public class PropertyDetailsEntity : BaseEntity
 {
-    [Key]    public int PropertyId { get; set; }
+    public int PropertyId { get; set; }
 
     public int FloorId { get; set; }
 
@@ -55,9 +55,30 @@ public class PropertyDetailsEntity : BaseEntity
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
 
-    // Navigation Properties
-    /// <summary>
-    /// Collection of renter details associated with this property detail
-    /// </summary>
+   
     public virtual ICollection<RenterMastEntity> Renters { get; set; } = new List<RenterMastEntity>();
+ 
+
+    [ForeignKey(nameof(PropertyId))]
+    public virtual PropertyEntity? Property { get; set; }
+
+    [ForeignKey(nameof(FloorId))]             
+    public virtual FloorEntity? Floor { get; set; }
+
+    [ForeignKey(nameof(SubFloorId))]         
+    public virtual SubFloorEntity? SubFloor { get; set; }
+
+    [ForeignKey(nameof(ConstructionTypeId))]
+    public virtual ConstructionTypeEntity? ConstructionType { get; set; }
+
+    [ForeignKey(nameof(TypeOfUseId))]
+    public virtual TypeOfUseEntity? TypeOfUse { get; set; }
+
+    [ForeignKey(nameof(SubTypeOfUseId))]
+    public virtual SubTypeOfUseEntity? SubTypeOfUse { get; set; }
+
+    
+    public virtual ICollection<RenterDetailEntity> RenterDetails { get; set; } = new List<RenterDetailEntity>();
+ 
+    public virtual ICollection<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = new List<RoomWiseSubmissionDetailsEntity>();
 }

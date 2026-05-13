@@ -75,6 +75,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    public DbSet<RenterDetailEntity> RenterDetails { get; set; } = null!;
+    public DbSet<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = null!;
+    public DbSet<PropertyRoomMinusEntity> PropertyMinusRooms { get; set; } = null!;
     public DbSet<UserDepartmentAllocationEntity> UserDepartmentAllocation { get; set; } = null!;
     public DbSet<UserModuleAllocationEntity> UserModuleAllocation { get; set; } = null!;
     public DbSet<UserRoleAllocationEntity> UserRoleAllocation { get; set; } = null!;
@@ -98,7 +101,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
-    public DbSet<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = null!;
+ 
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
     public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
@@ -655,7 +658,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
-            
+
             // Required unique properties
             entity.Property(e => e.ScreenCode)
                 .IsRequired()
@@ -663,7 +666,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ScreenName)
                 .IsRequired()
                 .HasMaxLength(200);
-            
+
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
@@ -1016,6 +1019,37 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.Id);
+
+            // Configure relationships
+            entity.HasOne(e => e.Property)
+                  .WithMany()
+                  .HasForeignKey(e => e.PropertyId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Floor)
+                  .WithMany()
+                  .HasForeignKey(e => e.FloorId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubFloor)
+                  .WithMany()
+                  .HasForeignKey(e => e.SubFloorId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ConstructionType)
+                  .WithMany()
+                  .HasForeignKey(e => e.ConstructionTypeId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TypeOfUse)
+                  .WithMany()
+                  .HasForeignKey(e => e.TypeOfUseId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubTypeOfUse)
+                  .WithMany()
+                  .HasForeignKey(e => e.SubTypeOfUseId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // PlotDetails configuration
@@ -1146,18 +1180,18 @@ public class ApplicationDbContext : DbContext
 
 
         modelBuilder.Entity<ConfigCategoryMasterEntity>(entity =>
-      {
-          entity.ToTable("ConfigCategoryMaster", "Core");
-          entity.HasKey(e => e.Id);
-          entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
-          entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
-          entity.Property(e => e.CreatedDate);
-          entity.Property(e => e.CreatedBy);
-          entity.Property(e => e.UpdatedDate);
-          entity.Property(e => e.UpdatedBy);
-          entity.HasIndex(e => e.CategoryCode).IsUnique();
+        {
+            entity.ToTable("ConfigCategoryMaster", "Core");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.CategoryCode).HasMaxLength(30).IsRequired();
+            entity.Property(e => e.CategoryName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.HasIndex(e => e.CategoryCode).IsUnique();
 
-      });
+        });
         modelBuilder.Entity<ConfigKeyMasterEntity>(entity =>
         {
             entity.ToTable("ConfigKeyMaster", "Core");
@@ -1429,6 +1463,124 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.UserId, e.DepartmentId }).IsUnique();
         });
 
+
+        modelBuilder.Entity<PropertyRoomMinusEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseMinusData", "PTIS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.Base1Mtr);
+            entity.Property(e => e.Base2Mtr);
+            entity.Property(e => e.Shape).HasMaxLength(100);
+
+            // Audit and soft delete configuration
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(e => e.RoomWiseSubmissionDetails)
+                  .WithMany(r => r.PropertyRoomMinus)
+                  .HasForeignKey(e => e.RoomWiseSubmissionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.RoomWiseSubmissionId);
+        });
+
+        modelBuilder.Entity<RenterDetailEntity>(entity =>
+        {
+            entity.ToTable("RenterDetails", "PTIS");
+
+            entity.HasKey(e => e.Id);
+
+
+            entity.Property(e => e.AgreementId).HasMaxLength(100);
+            entity.Property(e => e.IncrementFrequency).HasMaxLength(50);
+            entity.Property(e => e.IncrementType).HasMaxLength(50);
+            entity.Property(e => e.IncrementMethod).HasMaxLength(50);
+            entity.Property(e => e.IncrementValue);
+            entity.Property(e => e.RentAmount);
+            entity.Property(e => e.RentMonthly);
+            entity.Property(e => e.Increment);
+
+            // Custom increment fields
+            entity.Property(e => e.CustomFromDate);
+            entity.Property(e => e.CustomToDate);
+            entity.Property(e => e.CustomIncrementType).HasMaxLength(50);
+            entity.Property(e => e.CustomIncrementValue);
+            entity.Property(e => e.CustomMethod).HasMaxLength(50);
+
+            // Audit and soft delete configuration
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.HasOne(e => e.PropertyDetails)
+                  .WithMany(p => p.RenterDetails)
+                  .HasForeignKey(e => e.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for better query performance
+            entity.HasIndex(e => e.PropertyDetailsId);
+        });
+
+
+
+        modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.Base1Mtr);
+            entity.Property(e => e.Base2Mtr);
+            entity.Property(e => e.TotalAreaSqMtr);
+            entity.Property(e => e.Shape).HasMaxLength(100);
+            entity.Property(e => e.RoomNo).HasMaxLength(50);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.SubmissionType).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
+
+            // Audit and soft delete configuration
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.HasOne(e => e.PropertyDetails)
+                  .WithMany(p => p.RoomWiseSubmissionDetails)
+                  .HasForeignKey(e => e.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                  .WithMany()
+                  .HasForeignKey(e => e.PropertyId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for better query performance
+            entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+
+
         // ── UserModuleAllocation ─────────────────────────────────────────────
         modelBuilder.Entity<UserModuleAllocationEntity>(entity =>
         {
@@ -1569,7 +1721,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.WardId).IsRequired();
             entity.Property(e => e.BlockNo).IsRequired().HasMaxLength(20);
-                        // Foreign key relationship with WardMaster
+            // Foreign key relationship with WardMaster
             entity.HasOne<WardEntity>()
                 .WithMany()
                 .HasForeignKey(e => e.WardId)
@@ -1815,7 +1967,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.IsActive);
         });
-         // Common RemarkType configuration
+        // Common RemarkType configuration
         modelBuilder.Entity<CommonRemarkTypeMasterEntity>(entity =>
         {
             entity.ToTable("CommonRemarkTypeMaster", "CORE");
@@ -2101,38 +2253,6 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
-		
-		
-			modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
-        {
-            entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.PropertyId);
-            entity.Property(e => e.PropertyDetailsId).IsRequired();
-            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.NoOfRooms);
-            entity.Property(e => e.Shape).HasMaxLength(25);
-            entity.Property(e => e.RoomNo).HasMaxLength(100);
-            entity.Property(e => e.RoomType).HasMaxLength(100);
-            entity.Property(e => e.SubmissionType).HasMaxLength(100);
-            entity.Property(e => e.OuterYesNo);
-            entity.Property(e => e.MinusYesNo);
-            entity.Property(e => e.MarkedForDeletion);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy).IsRequired();
-            entity.Property(e => e.UpdatedBy);
-            entity.HasIndex(e => e.PropertyDetailsId);
-            entity.HasIndex(e => e.PropertyId);
-            entity.HasIndex(e => e.IsActive);
-        });
+		 
     }
 }
