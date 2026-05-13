@@ -2,6 +2,7 @@
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.Email;
 using NtisPlatform.Application.DTOs.Master.UserMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
@@ -26,6 +27,9 @@ public class UserService : BaseCommonCrudService<
     private readonly IRepository<UserRoleAllocationEntity, int> _roleAllocationRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordGeneratorService _passwordGenerator;
+    private readonly IEmailService _emailService;
+    private readonly IEmailTemplateService _emailTemplateService;
+    private readonly IEmailSettingsProvider _emailSettingsProvider;
 
     public UserService(
         IRepository<UserEntity, int> repository,
@@ -36,7 +40,10 @@ public class UserService : BaseCommonCrudService<
         IRepository<UserModuleAllocationEntity, int> moduleAccessRepository,
         IRepository<UserRoleAllocationEntity, int> roleAllocationRepository,
         IPasswordHasher passwordHasher,
-        IPasswordGeneratorService passwordGenerator)
+        IPasswordGeneratorService passwordGenerator,
+        IEmailService emailService,
+        IEmailTemplateService emailTemplateService,
+        IEmailSettingsProvider emailSettingsProvider)
         : base(repository, unitOfWork, mapper)
     {
         _logger = logger;
@@ -45,6 +52,9 @@ public class UserService : BaseCommonCrudService<
         _roleAllocationRepository = roleAllocationRepository;
         _passwordHasher = passwordHasher;
         _passwordGenerator = passwordGenerator;
+        _emailService = emailService;
+        _emailTemplateService = emailTemplateService;
+        _emailSettingsProvider = emailSettingsProvider;
     }
 
     // GET BY ID
@@ -115,13 +125,17 @@ public class UserService : BaseCommonCrudService<
     // CREATE
     // Password is auto-generated internally — never accepted from or returned to the client.
     // MustChangePassword is always forced true so the user must set their own password on first login.
+    // Sends welcome email with temporary password after successful user creation.
 
     public override async Task<UserDto> CreateAsync(CreateUserDto createDto, CancellationToken cancellationToken = default)
     {
         await ValidateDuplicateUserAsync(createDto.UserName, createDto.UserCode, excludeUserId: null, cancellationToken);
 
+        // Generate temporary password and hash it
+        var temporaryPassword = _passwordGenerator.Generate();
+        
         var userEntity = _mapper.Map<UserEntity>(createDto);
-        userEntity.PasswordHash = _passwordHasher.HashPassword(_passwordGenerator.Generate());
+        userEntity.PasswordHash = _passwordHasher.HashPassword(temporaryPassword);
         userEntity.MustChangePassword = true;
         userEntity.CreatedDate = DateTime.Now;
         userEntity.CreatedBy = createDto.CreatedBy;
@@ -139,6 +153,25 @@ public class UserService : BaseCommonCrudService<
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("User created: {UserId} - {UserName}", userEntity.Id, userEntity.UserName);
+
+        // Send welcome email with temporary password (only if email is provided)
+        if (!string.IsNullOrWhiteSpace(userEntity.Email))
+        {
+            try
+            {
+                await SendWelcomeEmailAsync(userEntity, temporaryPassword, cancellationToken);
+                _logger.LogInformation("Welcome email sent to {Email} for user {UserId}", userEntity.Email, userEntity.Id);
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't fail user creation if email fails
+                _logger.LogError(ex, "Failed to send welcome email to {Email} for user {UserId}", userEntity.Email, userEntity.Id);
+            }
+        }
+        else
+        {
+            _logger.LogWarning("No email address provided for user {UserId}, welcome email not sent", userEntity.Id);
+        }
 
         var dto = _mapper.Map<UserDto>(userEntity);
         await EnrichUserWithRelatedDataAsync(dto, cancellationToken);
@@ -577,5 +610,40 @@ public class UserService : BaseCommonCrudService<
 
         if (errors.Any())
             throw new InvalidOperationException(string.Join("; ", errors));
+    }
+
+    /// <summary>
+    /// Sends welcome email with temporary password to newly created user
+    /// </summary>
+    private async Task SendWelcomeEmailAsync(UserEntity user, string temporaryPassword, CancellationToken cancellationToken)
+    {
+        // Get email settings (includes LoginUrl from config)
+        var emailSettings = await _emailSettingsProvider.GetEmailSettingsAsync(cancellationToken);
+
+        // Prepare template placeholders
+        var placeholders = new Dictionary<string, string>
+        {
+            { "UserName", user.UserName },
+            { "Email", user.Email ?? string.Empty },
+            { "TemporaryPassword", temporaryPassword },
+            { "LoginUrl", emailSettings.LoginUrl ?? "#" },
+            { "CompanyName", "NTIS Platform" } // TODO: Get from config
+        };
+
+        // Load and process template
+        var emailBody = await _emailTemplateService.GetTemplateAsync("WelcomeEmail", placeholders, cancellationToken);
+
+        // Build email request
+        var emailRequest = new EmailRequest
+        {
+            ToEmail = user.Email!,
+            ToName = $"{user.FirstName} {user.LastName}".Trim(),
+            Subject = "Welcome to NTIS Platform - Your Account Details",
+            Body = emailBody,
+            IsHtml = true
+        };
+
+        // Send email
+        await _emailService.SendEmailAsync(emailRequest, cancellationToken);
     }
 }

@@ -1450,9 +1450,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-
-
+            entity.Property(e => e.UpdatedDate);             
             entity.HasOne(e => e.Department)
                   .WithMany()
                   .HasForeignKey(e => e.DepartmentId)

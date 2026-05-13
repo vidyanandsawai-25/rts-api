@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to NTIS Platform</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content h2 {
+            color: #667eea;
+            font-size: 22px;
+            margin-top: 0;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .info-box strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .credential {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .credential strong {
+            display: block;
+            color: #856404;
+            margin-bottom: 8px;
+        }
+        .credential .value {
+            font-size: 16px;
+            color: #000;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning strong {
+            color: #856404;
+        }
+        .btn {
+            display: inline-block;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 600;
+            text-align: center;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        ul li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to {{CompanyName}}</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hello {{UserName}}!</h2>
+            
+            <p>Your administrator has created an account for you on the NTIS Platform. We're excited to have you on board!</p>
+            
+            <div class="info-box">
+                <strong>Your Account Details:</strong>
+                <p><strong>Email:</strong> {{Email}}<br>
+                <strong>Username:</strong> {{UserName}}</p>
+            </div>
+            
+            <div class="credential">
+                <strong>🔐 Your Temporary Password:</strong>
+                <div class="value">{{TemporaryPassword}}</div>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Important Security Notice:</strong>
+                <p>For security reasons, you must change your password immediately after your first login. This temporary password is valid for one-time use only.</p>
+            </div>
+            
+            <p style="text-align: center; margin: 30px 0;">
+                <a href="{{LoginUrl}}" class="btn">Login to Your Account</a>
+            </p>
+            
+            <h3>Next Steps:</h3>
+            <ul>
+                <li>Click the "Login to Your Account" button above</li>
+                <li>Enter your username and temporary password</li>
+                <li>You will be prompted to create a new password</li>
+                <li>Choose a strong password that includes:
+                    <ul>
+                        <li>At least 12 characters</li>
+                        <li>Uppercase and lowercase letters</li>
+                        <li>Numbers</li>
+                        <li>Special characters</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <p style="margin-top: 30px;">If you did not expect this email or have any questions, please contact your system administrator immediately.</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>{{CompanyName}}</strong></p>
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p style="font-size: 12px; color: #999; margin-top: 15px;">
+                For security reasons, never share your password with anyone.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.DTOs.Email;
 using NtisPlatform.Application.DTOs.Master.UserMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
@@ -26,6 +27,9 @@ public class UserServiceTests
     private readonly Mock<IRepository<UserRoleAllocationEntity, int>> _roleAllocationRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IPasswordGeneratorService> _passwordGeneratorMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<IEmailTemplateService> _emailTemplateServiceMock;
+    private readonly Mock<IEmailSettingsProvider> _emailSettingsProviderMock;
     private readonly UserService _userService;
 
     public UserServiceTests()
@@ -39,6 +43,9 @@ public class UserServiceTests
         _roleAllocationRepositoryMock = new Mock<IRepository<UserRoleAllocationEntity, int>>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _passwordGeneratorMock = new Mock<IPasswordGeneratorService>();
+        _emailServiceMock = new Mock<IEmailService>();
+        _emailTemplateServiceMock = new Mock<IEmailTemplateService>();
+        _emailSettingsProviderMock = new Mock<IEmailSettingsProvider>();
 
         _userService = new UserService(
             _userRepositoryMock.Object,
@@ -49,7 +56,10 @@ public class UserServiceTests
             _moduleAccessRepositoryMock.Object,
             _roleAllocationRepositoryMock.Object,
             _passwordHasherMock.Object,
-            _passwordGeneratorMock.Object
+            _passwordGeneratorMock.Object,
+            _emailServiceMock.Object,
+            _emailTemplateServiceMock.Object,
+            _emailSettingsProviderMock.Object
         );
     }
 
@@ -1303,6 +1313,362 @@ public class UserServiceTests
 
         // Verify user deletion called after allocations deactivated
         _userRepositoryMock.Verify(r => r.DeleteAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region Email Tests
+
+    [Fact]
+    public async Task CreateAsync_WithValidEmail_SendsWelcomeEmail()
+    {
+        // Arrange
+        var createDto = new CreateUserDto
+        {
+            UserName = "testuser",
+            FirstName = "Test",
+            LastName = "User",
+            Email = "test@example.com",
+            CreatedBy = 1,
+            Departments = new List<UserDepartmentAllocationCreateDto>(),
+            ModuleAccess = new List<UserModuleAllocationCreateDto>(),
+            RoleAllocations = new List<UserRoleAllocationCreateDto>()
+        };
+
+        var userEntity = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            FirstName = "Test",
+            LastName = "User",
+            Email = "test@example.com",
+            PasswordHash = "$2a$12$hashedpassword",
+            MustChangePassword = true
+        };
+
+        var userDto = new UserDto
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = "test@example.com",
+            Departments = new List<UserDepartmentAllocationDto>(),
+            ModuleAccess = new List<UserModuleAllocationDto>(),
+            RoleAllocations = new List<UserRoleAllocationDto>()
+        };
+
+        var emailSettings = new EmailSettingsDto
+        {
+            SmtpHost = "smtp.test.com",
+            SmtpPort = 587,
+            SmtpUserName = "test",
+            SmtpPassword = "pass",
+            FromEmail = "noreply@test.com",
+            FromName = "Test",
+            SecureSocketOptions = "Auto",
+            LoginUrl = "https://app.test.com/login"
+        };
+
+        // Setup mocks
+        _passwordGeneratorMock.Setup(p => p.Generate()).Returns("TempPass123!");
+        _passwordHasherMock.Setup(p => p.HashPassword("TempPass123!")).Returns("$2a$12$hashedpassword");
+        _mapperMock.Setup(m => m.Map<UserEntity>(createDto)).Returns(userEntity);
+        _mapperMock.Setup(m => m.Map<UserDto>(userEntity)).Returns(userDto);
+        _mapperMock.Setup(m => m.Map<List<UserDepartmentAllocationDto>>(It.IsAny<List<UserDepartmentAllocationEntity>>()))
+            .Returns(new List<UserDepartmentAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserModuleAllocationDto>>(It.IsAny<List<UserModuleAllocationEntity>>()))
+            .Returns(new List<UserModuleAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserRoleAllocationDto>>(It.IsAny<List<UserRoleAllocationEntity>>()))
+            .Returns(new List<UserRoleAllocationDto>());
+
+        _userRepositoryMock.Setup(r => r.GetQueryable()).Returns(new List<UserEntity>().BuildMock());
+        _userRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity e, CancellationToken ct) => e);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        _departmentMapRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserDepartmentAllocationEntity>().BuildMock());
+        _moduleAccessRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserModuleAllocationEntity>().BuildMock());
+        _roleAllocationRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserRoleAllocationEntity>().BuildMock());
+
+        _emailSettingsProviderMock.Setup(e => e.GetEmailSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emailSettings);
+        _emailTemplateServiceMock.Setup(e => e.GetTemplateAsync(
+            "WelcomeEmail",
+            It.IsAny<Dictionary<string, string>>(),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync("<html>Welcome Email Body</html>");
+        _emailServiceMock.Setup(e => e.SendEmailAsync(It.IsAny<EmailRequest>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _userService.CreateAsync(createDto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("test@example.com", result.Email);
+
+        // Verify email was sent
+        _emailSettingsProviderMock.Verify(e => e.GetEmailSettingsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _emailTemplateServiceMock.Verify(e => e.GetTemplateAsync(
+            "WelcomeEmail",
+            It.Is<Dictionary<string, string>>(d =>
+                d["UserName"] == "testuser" &&
+                d["Email"] == "test@example.com" &&
+                d["TemporaryPassword"] == "TempPass123!" &&
+                d["LoginUrl"] == "https://app.test.com/login"),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _emailServiceMock.Verify(e => e.SendEmailAsync(
+            It.Is<EmailRequest>(r =>
+                r.ToEmail == "test@example.com" &&
+                r.ToName == "Test User" &&
+                r.Subject == "Welcome to NTIS Platform - Your Account Details" &&
+                r.IsHtml == true),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithoutEmail_SkipsWelcomeEmail()
+    {
+        // Arrange
+        var createDto = new CreateUserDto
+        {
+            UserName = "testuser",
+            FirstName = "Test",
+            LastName = "User",
+            Email = null, // No email provided
+            CreatedBy = 1,
+            Departments = new List<UserDepartmentAllocationCreateDto>(),
+            ModuleAccess = new List<UserModuleAllocationCreateDto>(),
+            RoleAllocations = new List<UserRoleAllocationCreateDto>()
+        };
+
+        var userEntity = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = null,
+            PasswordHash = "$2a$12$hashedpassword"
+        };
+
+        var userDto = new UserDto
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = null,
+            Departments = new List<UserDepartmentAllocationDto>(),
+            ModuleAccess = new List<UserModuleAllocationDto>(),
+            RoleAllocations = new List<UserRoleAllocationDto>()
+        };
+
+        // Setup mocks
+        _passwordGeneratorMock.Setup(p => p.Generate()).Returns("TempPass123!");
+        _passwordHasherMock.Setup(p => p.HashPassword("TempPass123!")).Returns("$2a$12$hashedpassword");
+        _mapperMock.Setup(m => m.Map<UserEntity>(createDto)).Returns(userEntity);
+        _mapperMock.Setup(m => m.Map<UserDto>(userEntity)).Returns(userDto);
+        _mapperMock.Setup(m => m.Map<List<UserDepartmentAllocationDto>>(It.IsAny<List<UserDepartmentAllocationEntity>>()))
+            .Returns(new List<UserDepartmentAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserModuleAllocationDto>>(It.IsAny<List<UserModuleAllocationEntity>>()))
+            .Returns(new List<UserModuleAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserRoleAllocationDto>>(It.IsAny<List<UserRoleAllocationEntity>>()))
+            .Returns(new List<UserRoleAllocationDto>());
+
+        _userRepositoryMock.Setup(r => r.GetQueryable()).Returns(new List<UserEntity>().BuildMock());
+        _userRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity e, CancellationToken ct) => e);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        _departmentMapRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserDepartmentAllocationEntity>().BuildMock());
+        _moduleAccessRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserModuleAllocationEntity>().BuildMock());
+        _roleAllocationRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserRoleAllocationEntity>().BuildMock());
+
+        // Act
+        var result = await _userService.CreateAsync(createDto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.Email);
+
+        // Verify email was NOT sent (no email address)
+        _emailSettingsProviderMock.Verify(e => e.GetEmailSettingsAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _emailTemplateServiceMock.Verify(e => e.GetTemplateAsync(
+            It.IsAny<string>(),
+            It.IsAny<Dictionary<string, string>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        _emailServiceMock.Verify(e => e.SendEmailAsync(
+            It.IsAny<EmailRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithEmptyEmail_SkipsWelcomeEmail()
+    {
+        // Arrange
+        var createDto = new CreateUserDto
+        {
+            UserName = "testuser",
+            Email = "   ", // Whitespace-only email
+            CreatedBy = 1,
+            Departments = new List<UserDepartmentAllocationCreateDto>(),
+            ModuleAccess = new List<UserModuleAllocationCreateDto>(),
+            RoleAllocations = new List<UserRoleAllocationCreateDto>()
+        };
+
+        var userEntity = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = "   ",
+            PasswordHash = "$2a$12$hashedpassword"
+        };
+
+        var userDto = new UserDto
+        {
+            Id = 1,
+            UserName = "testuser",
+            Departments = new List<UserDepartmentAllocationDto>(),
+            ModuleAccess = new List<UserModuleAllocationDto>(),
+            RoleAllocations = new List<UserRoleAllocationDto>()
+        };
+
+        // Setup mocks
+        _passwordGeneratorMock.Setup(p => p.Generate()).Returns("TempPass123!");
+        _passwordHasherMock.Setup(p => p.HashPassword("TempPass123!")).Returns("$2a$12$hashedpassword");
+        _mapperMock.Setup(m => m.Map<UserEntity>(createDto)).Returns(userEntity);
+        _mapperMock.Setup(m => m.Map<UserDto>(userEntity)).Returns(userDto);
+        _mapperMock.Setup(m => m.Map<List<UserDepartmentAllocationDto>>(It.IsAny<List<UserDepartmentAllocationEntity>>()))
+            .Returns(new List<UserDepartmentAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserModuleAllocationDto>>(It.IsAny<List<UserModuleAllocationEntity>>()))
+            .Returns(new List<UserModuleAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserRoleAllocationDto>>(It.IsAny<List<UserRoleAllocationEntity>>()))
+            .Returns(new List<UserRoleAllocationDto>());
+
+        _userRepositoryMock.Setup(r => r.GetQueryable()).Returns(new List<UserEntity>().BuildMock());
+        _userRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity e, CancellationToken ct) => e);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        _departmentMapRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserDepartmentAllocationEntity>().BuildMock());
+        _moduleAccessRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserModuleAllocationEntity>().BuildMock());
+        _roleAllocationRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserRoleAllocationEntity>().BuildMock());
+
+        // Act
+        var result = await _userService.CreateAsync(createDto);
+
+        // Assert
+        Assert.NotNull(result);
+
+        // Verify email was NOT sent (empty/whitespace email)
+        _emailServiceMock.Verify(e => e.SendEmailAsync(
+            It.IsAny<EmailRequest>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenEmailSendingFails_StillCreatesUser()
+    {
+        // Arrange
+        var createDto = new CreateUserDto
+        {
+            UserName = "testuser",
+            FirstName = "Test",
+            LastName = "User",
+            Email = "test@example.com",
+            CreatedBy = 1,
+            Departments = new List<UserDepartmentAllocationCreateDto>(),
+            ModuleAccess = new List<UserModuleAllocationCreateDto>(),
+            RoleAllocations = new List<UserRoleAllocationCreateDto>()
+        };
+
+        var userEntity = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "$2a$12$hashedpassword"
+        };
+
+        var userDto = new UserDto
+        {
+            Id = 1,
+            UserName = "testuser",
+            Email = "test@example.com",
+            Departments = new List<UserDepartmentAllocationDto>(),
+            ModuleAccess = new List<UserModuleAllocationDto>(),
+            RoleAllocations = new List<UserRoleAllocationDto>()
+        };
+
+        var emailSettings = new EmailSettingsDto
+        {
+            SmtpHost = "smtp.test.com",
+            SmtpPort = 587,
+            SmtpUserName = "test",
+            SmtpPassword = "pass",
+            FromEmail = "noreply@test.com",
+            FromName = "Test",
+            SecureSocketOptions = "Auto",
+            LoginUrl = "https://app.test.com/login"
+        };
+
+        // Setup mocks
+        _passwordGeneratorMock.Setup(p => p.Generate()).Returns("TempPass123!");
+        _passwordHasherMock.Setup(p => p.HashPassword("TempPass123!")).Returns("$2a$12$hashedpassword");
+        _mapperMock.Setup(m => m.Map<UserEntity>(createDto)).Returns(userEntity);
+        _mapperMock.Setup(m => m.Map<UserDto>(userEntity)).Returns(userDto);
+        _mapperMock.Setup(m => m.Map<List<UserDepartmentAllocationDto>>(It.IsAny<List<UserDepartmentAllocationEntity>>()))
+            .Returns(new List<UserDepartmentAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserModuleAllocationDto>>(It.IsAny<List<UserModuleAllocationEntity>>()))
+            .Returns(new List<UserModuleAllocationDto>());
+        _mapperMock.Setup(m => m.Map<List<UserRoleAllocationDto>>(It.IsAny<List<UserRoleAllocationEntity>>()))
+            .Returns(new List<UserRoleAllocationDto>());
+
+        _userRepositoryMock.Setup(r => r.GetQueryable()).Returns(new List<UserEntity>().BuildMock());
+        _userRepositoryMock.Setup(r => r.AddAsync(It.IsAny<UserEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity e, CancellationToken ct) => e);
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        _departmentMapRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserDepartmentAllocationEntity>().BuildMock());
+        _moduleAccessRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserModuleAllocationEntity>().BuildMock());
+        _roleAllocationRepositoryMock.Setup(r => r.GetQueryable())
+            .Returns(new List<UserRoleAllocationEntity>().BuildMock());
+
+        _emailSettingsProviderMock.Setup(e => e.GetEmailSettingsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(emailSettings);
+        _emailTemplateServiceMock.Setup(e => e.GetTemplateAsync(
+            It.IsAny<string>(),
+            It.IsAny<Dictionary<string, string>>(),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync("<html>Welcome Email Body</html>");
+        
+        // Email sending throws exception
+        _emailServiceMock.Setup(e => e.SendEmailAsync(It.IsAny<EmailRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("SMTP connection failed"));
+
+        // Act
+        var result = await _userService.CreateAsync(createDto);
+
+        // Assert - User should still be created successfully despite email failure
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Id);
+        Assert.Equal("testuser", result.UserName);
+        Assert.Equal("test@example.com", result.Email);
+
+        // Verify user was created (SaveChanges called)
+        _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        
+        // Verify email was attempted
+        _emailServiceMock.Verify(e => e.SendEmailAsync(
+            It.IsAny<EmailRequest>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

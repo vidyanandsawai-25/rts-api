@@ -108,6 +108,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
         services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
+        
+        // Email Services
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
+        services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();

@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.1.0" />
+    <PackageReference Include="MailKit" Version="4.9.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftPackageVersion)" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftPackageVersion)">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
