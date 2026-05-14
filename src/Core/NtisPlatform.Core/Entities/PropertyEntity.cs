@@ -100,6 +100,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
     /// </summary>
     public int? PropertyAssessmentStatusId { get; set; }
+    /// <summary>
+    /// Indicates whether the property is a combined property
+    /// </summary>
+    public bool IsCombineProperty { get; set; } = false;
 
     /// <summary>
     /// Foreign Key to PropertyMastOld.Id

@@ -18,14 +18,20 @@ namespace NtisPlatform.Core.Entities
         public int? CreatedBy { get; set; }
         public int? UpdatedBy { get; set; }
         public bool IsActive { get; set; } = true;
+        public bool MarkedForDeletion { get; set; } = false;
+        public DateTime? MarkedForDeletionDate { get; set; }
         public int PropertyDetailsId { get; set; }
         public int PropertyId { get; set; }
-         public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
+        public int? FinanceYearId { get; set; }
+        public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
 
         public int TaxId { get; set; }
 
         [ForeignKey(nameof(TaxId))]
         public virtual TaxMasterEntity? TaxMaster { get; set; }
+
+        [ForeignKey(nameof(FinanceYearId))]
+        public virtual YearMasterEntity? YearMaster { get; set; }
         
         
         [Column(TypeName = "decimal(18, 2)")]

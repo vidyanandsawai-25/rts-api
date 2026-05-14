@@ -23,6 +23,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
     public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
     public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
+    public DbSet<CombinePropertyHistoryEntity> CombinePropertyHistory { get; set; } = null!;
+
     public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
@@ -63,10 +65,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
-	public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
+    public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
-  
+
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
@@ -81,10 +83,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<FlagMasterEntity> FlagMaster { get; set; } = null!;
     public DbSet<CSNDetailsEntity> CSNDetails { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
-    
+
     public DbSet<RenterDetailEntity> RenterDetails { get; set; } = null!;
     public DbSet<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = null!;
-    public DbSet<PropertyRoomMinusEntity> PropertyMinusRooms { get; set; } = null!;
     public DbSet<UserDepartmentAllocationEntity> UserDepartmentAllocation { get; set; } = null!;
     public DbSet<UserModuleAllocationEntity> UserModuleAllocation { get; set; } = null!;
     public DbSet<UserRoleAllocationEntity> UserRoleAllocation { get; set; } = null!;
@@ -94,20 +95,20 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyCertificateTypeMasterEntity> PropertyCertificateTypeMasters { get; set; } = null!;
     public DbSet<FloorGroupMasterEntity> FloorGroupMaster { get; set; } = null!;
     public DbSet<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = null!;
- 
+
     public DbSet<BlockMasterEntity> BlockMasters { get; set; } = null!;
     public DbSet<PropertyCertificateEntity> PropertyCertificates { get; set; } = null!;
     public DbSet<DocumentEntity> Documents { get; set; } = null!;
     public DbSet<DocumentBindingEntity> DocumentBindings { get; set; } = null!;
     public DbSet<TaxPercentageMasterRV> TaxPercentageMasterRVs { get; set; } = null!;
-  
+
     public DbSet<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
- 
+
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
     public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
@@ -122,8 +123,8 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
-        
+
+
         modelBuilder.Entity<PolicyTaxDetailsEntity>(entity =>
         {
             entity.ToTable("PolicyTaxDetails", "PTIS");
@@ -144,9 +145,9 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        
 
-    
+
+
 
 
         // NatureFactorCVMaster configuration
@@ -172,7 +173,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.ConstructionTypeId, e.YearRangeCVId }).IsUnique();
         });
 
-       
 
 
         // ParkingTypeMaster configuration
@@ -207,7 +207,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description);
             entity.Property(e => e.SequenceNo);
             entity.Property(e => e.MaxFloorNo);
-            entity.Property(e => e.FloorGroupId) .HasColumnName("FloorGroupId");
+            entity.Property(e => e.FloorGroupId).HasColumnName("FloorGroupId");
         });
 
         modelBuilder.Entity<RateEntity>(entity =>
@@ -425,7 +425,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.TypeOfUseId);
 
         });
-        
+
         // UserRoleMaster configuration
         modelBuilder.Entity<UserRoleMasterEntity>(entity =>
         {
@@ -721,7 +721,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DesignationCode).IsUnique();
         });
 
-       
+
 
         // ActiveTaxes configuration
         modelBuilder.Entity<ActiveTaxesEntity>(entity =>
@@ -806,7 +806,114 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.UlbTypeId);
             entity.HasIndex(e => e.IsActive);
         });
+        // CombinePropertyHistory configuration
+        modelBuilder.Entity<CombinePropertyHistoryEntity>(entity =>
+        {
+            entity.ToTable("CombinePropertyHistory", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.MainPropertyId).IsRequired();
+            entity.Property(e => e.TargetPropertyId).IsRequired();
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.MainPropertyId);
+            entity.HasIndex(e => e.TargetPropertyId);
+        });
+        // TransMast configuration
+        modelBuilder.Entity<TransMastEntity>(entity =>
+        {
+            entity.ToTable("TransMast", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
 
+        // TaxPendingDetails configuration
+        modelBuilder.Entity<TaxPendingDetailsEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // RoomWiseSubmissionDetails configuration
+        modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.NoOfRooms);
+            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.RoomNo).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.SubmissionType).HasMaxLength(100);
+            entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.PropertyDetailsId);
+        });
+
+        // RoomWiseMinusData configuration
+        modelBuilder.Entity<RoomWiseMinusDataEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseMinusData", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomWiseSubmissionId).IsRequired();
+            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.RoomWiseSubmissionId);
+
+            // Configure FK relationship with navigation property to RoomWiseSubmissionDetails
+            entity.HasOne(e => e.RoomWiseSubmissionDetails)
+                  .WithMany(r => r.PropertyRoomMinus)
+                  .HasForeignKey(e => e.RoomWiseSubmissionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
         // PropertyDetailsReassessmentEntity configuration
         modelBuilder.Entity<PropertyDetailsReassessmentEntity>(entity =>
         {
@@ -973,6 +1080,25 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.SubTypeOfUseId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure the collection relationship with RoomWiseSubmissionDetails
+            // This ensures EF Core uses PropertyDetailsId as FK instead of creating shadow property
+            entity.HasMany(e => e.RoomWiseSubmissionDetails)
+                  .WithOne(r => r.PropertyDetails)
+                  .HasForeignKey(r => r.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure the collection relationship with RenterDetails
+            entity.HasMany(e => e.RenterDetails)
+                  .WithOne(r => r.PropertyDetails)
+                  .HasForeignKey(r => r.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure the collection relationship with Renters (RenterMast)
+            entity.HasMany(e => e.Renters)
+                  .WithOne(r => r.PropertyDetails)
+                  .HasForeignKey(r => r.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // PlotDetails configuration
@@ -1048,7 +1174,6 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyMast", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Id).IsRequired();
             entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.PartitionNo).HasMaxLength(10);
             entity.Property(e => e.Id);
@@ -1086,11 +1211,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Ignore(e => e.MarkedForDeletionDate);
-  
+
             entity.HasMany(e => e.SocietyDetailsMast)
               .WithOne(d => d.PropertyMast)
               .HasForeignKey(d => d.PropertyId)
               .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure PropertyMastDetails (PropertyAssessmentEntity) relationship
+            // This prevents EF Core from generating a shadow PropertyEntityId foreign key
+            entity.HasMany(e => e.PropertyMastDetails)
+                .WithOne()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(e => e.PropertyTaxCalculationCVResults)
                 .WithOne(d => d.PropertyMast)
@@ -1390,23 +1522,8 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyTaxCalculationCVResults", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-
-            // Unique constraint on (PropertyId, PropertyDetailsId, TaxId) to prevent duplicate tax calculations
-            // Filtered for active records only to allow historical/soft-deleted duplicates
-            entity.HasIndex(e => new { e.PropertyId, e.PropertyDetailsId, e.TaxId })
-                .IsUnique()
-                .HasFilter("[IsActive] = 1")
-                .HasDatabaseName("UQ_PropertyTaxCalculationCVResults_Property_PropertyDetails_Tax_Active");
-
-            // Non-unique index on RateCVMasterId for lookups and foreign key relationships
-            entity.HasIndex(e => e.RateCVMasterId)
-                .HasDatabaseName("IX_PropertyTaxCalculationCVResults_RateCVMasterId");
-
-            // Explicitly configure the TaxMaster relationship to use TaxId as the foreign key
-            entity.HasOne(e => e.TaxMaster)
-                .WithMany()
-                .HasForeignKey(e => e.TaxId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
         });
 
         // ── UserDepartmentAllocation ─────────────────────────────────────────
@@ -1421,7 +1538,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);             
+            entity.Property(e => e.UpdatedDate);
             entity.HasOne(e => e.Department)
                   .WithMany()
                   .HasForeignKey(e => e.DepartmentId)
@@ -1432,37 +1549,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.UserId, e.DepartmentId }).IsUnique();
         });
 
-
-        modelBuilder.Entity<PropertyRoomMinusEntity>(entity =>
-        {
-            entity.ToTable("RoomWiseMinusData", "PTIS");
-
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.LengthMtr);
-            entity.Property(e => e.WidthMtr);
-            entity.Property(e => e.AreaSqMtr);
-            entity.Property(e => e.HeightMtr);
-            entity.Property(e => e.Base1Mtr);
-            entity.Property(e => e.Base2Mtr);
-            entity.Property(e => e.Shape).HasMaxLength(100);
-
-            // Audit and soft delete configuration
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
-
-            entity.HasOne(e => e.RoomWiseSubmissionDetails)
-                  .WithMany(r => r.PropertyRoomMinus)
-                  .HasForeignKey(e => e.RoomWiseSubmissionId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(e => e.RoomWiseSubmissionId);
-        });
 
         modelBuilder.Entity<RenterDetailEntity>(entity =>
         {
@@ -1654,10 +1740,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
-            entity.HasIndex(e => new { e.PropertyId, e.PropertyDetailsId, e.TaxId }).HasFilter("[MarkedForDeletion] = 0").IsUnique();
-
         });
-        
+
 
         // UseFactorCVMaster configuration
         modelBuilder.Entity<UseFactorCVMasterEntity>(entity =>
@@ -1802,7 +1886,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.RateCVMasterId);
             entity.Property(e => e.MoujaId);
             entity.Property(e => e.CSN);
-         });  
+        });
 
 
         modelBuilder.Entity<GenderMasterEntity>(entity =>
@@ -1868,14 +1952,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PolicyReason);
             entity.Property(e => e.PolicyRVorCVvalue);
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.TaxAmount);
+            entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.MarkedForDeletion).HasDefaultValue(false).IsRequired();
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).HasDefaultValue(true).IsRequired();
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired();
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("getdate()").IsRequired();
+            entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
             entity.HasOne(e => e.PropertyMast)
                   .WithMany()
                   .HasForeignKey(e => e.PropertyId)
@@ -1896,20 +1980,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-
-            // Configure foreign key relationship with TaxMaster
-            entity.HasOne(e => e.TaxMaster)
-                .WithMany()
-                .HasForeignKey(e => e.TaxId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // Configure foreign key relationship with YearMaster
-            entity.HasOne(e => e.YearMaster)
-                .WithMany()
-                .HasForeignKey(e => e.FinanceYearId)
-                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // BlockMaster configuration
@@ -2305,8 +2375,8 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
         });
 
-            // WaterConnectionSizeMaster configuration
-            modelBuilder.Entity<WaterConnectionSizeEntity>(entity =>
+        // WaterConnectionSizeMaster configuration
+        modelBuilder.Entity<WaterConnectionSizeEntity>(entity =>
         {
             entity.ToTable("WaterConnectionSizeMaster", "PTIS");
             entity.HasKey(e => e.Id);
@@ -2452,6 +2522,5 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
-		 
     }
 }

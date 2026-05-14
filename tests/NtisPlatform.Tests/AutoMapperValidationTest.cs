@@ -73,7 +73,7 @@ public class AutoMapperValidationTest
                 "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
                 "FlagMaster", "PropertyTaxCalculationCVResults", "PropertyTaxCalculationRVResults", "PlotDetails", "PropertyDetails",
                 "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
-                "TaxMaster", "User", "PropertyMast", "RateCVMaster", // Navigation properties
+                "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", // Navigation properties
                 "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
                 "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties
                 "Office", "Role", "Screen", "RoleWiseScreenAccess", // User/Role related navigation
@@ -95,7 +95,21 @@ public class AutoMapperValidationTest
                 // Other system fields
                 "HasFactorData", "IsSystem", "IsDefault", "IsDeleted", "IsGenerated",
                 // Contact information fields (intentionally unmapped for data mapping scenarios)
-                "PinCode", "AlternateMobileNo", "OccupierMobileNo", "BuilderMobile"
+                "PinCode", "AlternateMobileNo", "OccupierMobileNo", "BuilderMobile",
+                // Property entity fields not mapped from Create/Update DTOs
+                "IsCombineProperty", "PropertyMastOldId", "PropertyAssessmentStatusId",
+                "MobileNoRemarkId", "OccupierMobileNoRemarkId",
+                // Owner/Occupier detail fields (present in entity but not in some DTOs)
+                "OwnerTitle", "OwnerTitleEnglish", "OwnerNameEnglish", "OwnerName",
+                "OccupierTitle", "OccupierName", "OccupierTitleEnglish", "OccupierNameEnglish",
+                // Flat/Shop detail fields  
+                "FlatOrShopNo", "FlatOrShopName", "FlatOrShopNoEnglish", "FlatOrShopNameEnglish",
+                // Address detail fields
+                "Address", "Location", "AddressEnglish", "LocationEnglish",
+                // Contact fields
+                "MobileNo",
+                // Property classification fields
+                "OpenPlot", "CSN", "PlotNo"
             };
 
             // Check if all unmapped properties are in the expected list

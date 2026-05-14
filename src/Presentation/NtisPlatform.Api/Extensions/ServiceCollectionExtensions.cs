@@ -123,7 +123,9 @@ public static class ServiceCollectionExtensions
 
         // API Layer - Helpers
         services.AddSingleton<NtisPlatform.Api.Helpers.FileValidationHelper>();
-
+        services.AddScoped<ICombinePropertyValidator, CombinePropertyValidator>();
+        services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
+        services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
@@ -143,7 +145,7 @@ public static class ServiceCollectionExtensions
  
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IRuleService, RuleService>();
-
+        services.AddScoped<ICombinePropertyService, CombinePropertyService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();

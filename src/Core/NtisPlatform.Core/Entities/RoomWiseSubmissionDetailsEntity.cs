@@ -8,7 +8,7 @@ namespace NtisPlatform.Core.Entities;
 [Table("RoomWiseSubmissionDetails", Schema = "PTIS")]
 public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
 {
-    public int PropertyDetailsId { get; set; }      // FK to PropertyDetails — required
+    public int? PropertyDetailsId { get; set; }      // FK to PropertyDetails — required
     public int? PropertyId { get; set; }             // FK to PropertyMast — optional reference
 
     public double? LengthMtr { get; set; }
@@ -33,7 +33,7 @@ public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
 
     public virtual PropertyEntity? PropertyMast { get; set; }
 
-    public virtual ICollection<PropertyRoomMinusEntity> PropertyRoomMinus { get; set; } = new List<PropertyRoomMinusEntity>();
+    public virtual ICollection<RoomWiseMinusDataEntity> PropertyRoomMinus { get; set; } = new List<RoomWiseMinusDataEntity>();
 
 
 }

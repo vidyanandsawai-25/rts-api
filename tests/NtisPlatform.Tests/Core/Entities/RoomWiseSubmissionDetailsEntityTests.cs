@@ -157,23 +157,23 @@ public class RoomWiseSubmissionDetailsEntityTests
             PropertyDetailsId = 100
         };
 
-        var minusEntity1 = new PropertyRoomMinusEntity
+        var minusEntity1 = new RoomWiseMinusDataEntity
         {
             Id = 1,
             RoomWiseSubmissionId = 1,
-            LengthMtr = 2.0,
-            WidthMtr = 1.5
+            LengthMtr = 2.0m,
+            WidthMtr = 1.5m
         };
 
-        var minusEntity2 = new PropertyRoomMinusEntity
+        var minusEntity2 = new RoomWiseMinusDataEntity
         {
             Id = 2,
             RoomWiseSubmissionId = 1,
-            LengthMtr = 1.0,
-            WidthMtr = 1.0
+            LengthMtr = 1.0m,
+            WidthMtr = 1.0m
         };
 
-        roomEntity.PropertyRoomMinus = new List<PropertyRoomMinusEntity> { minusEntity1, minusEntity2 };
+        roomEntity.PropertyRoomMinus = new List<RoomWiseMinusDataEntity> { minusEntity1, minusEntity2 };
 
         Assert.NotNull(roomEntity.PropertyRoomMinus);
         Assert.Equal(2, roomEntity.PropertyRoomMinus.Count);

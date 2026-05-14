@@ -1,0 +1,65 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Entities.Master;
+
+
+namespace NtisPlatform.Core.Entities;
+
+/// <summary>
+/// Represents transaction master data in the PTIS system
+/// </summary>
+[Table("TransMast", Schema = "PTIS")]
+public class TransMastEntity : BaseEntity
+{
+
+    public int PropertyId { get; set; }
+
+    /// <summary>
+    /// Foreign key to YearMaster (Finance Year)
+    /// </summary>
+    public int FinanceYearId { get; set; }
+
+    /// <summary>
+    /// Indicates whether this is Rateable Value (RV) or Capital Value (CV)
+    /// </summary>
+
+    public string RVorCV { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The calculated RV or CV value for this property
+    /// </summary>
+
+    public decimal RVorCVValue { get; set; }
+
+    /// <summary>
+    /// Foreign key to TaxMaster (type of tax)
+    /// </summary>
+
+    public int TaxId { get; set; }
+
+    /// <summary>
+    /// Calculated tax amount for this property, year, and tax type
+    /// </summary>
+
+    public decimal TaxAmount { get; set; }
+
+    // Navigation Properties
+
+    /// <summary>
+    /// Navigation property to the associated Property
+    /// </summary>
+    [ForeignKey(nameof(PropertyId))]
+    public virtual PropertyEntity? Property { get; set; }
+
+    /// <summary>
+    /// Navigation property to the Finance Year
+    /// </summary>
+    [ForeignKey(nameof(FinanceYearId))]
+    public virtual YearMasterEntity? FinanceYear { get; set; }
+
+    /// <summary>
+    /// Navigation property to the Tax Master (type of tax)
+    /// </summary>
+    [ForeignKey(nameof(TaxId))]
+    public virtual TaxMasterEntity? Tax { get; set; }
+}
