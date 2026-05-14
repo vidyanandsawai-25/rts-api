@@ -33,14 +33,14 @@ public class FloorController : ControllerBase
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
-    // create 
+    // create
     [HttpPost]
-    public Task<IActionResult> Create([FromBody] CreateFloorDto createDto, CancellationToken ct)
-        => this.ExecuteCreate(_service, createDto, _logger, ct);
+    public Task<IActionResult> Create([FromBody] CreateFloorDto dto, CancellationToken ct)
+        => this.ExecuteCreate(_service, dto, _logger, ct);
 
     [HttpPost("Range")]
     public Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateFloorDto> request, CancellationToken ct)
-    => this.ExecuteCreateFromRange(_service, request, _logger, ct);
+        => this.ExecuteCreateFromRange(_service, request, _logger, ct);
 
     [HttpPost("Bulk")]
     public Task<IActionResult> BulkCreate([FromBody] CreateFloorDto[] items, CancellationToken ct)

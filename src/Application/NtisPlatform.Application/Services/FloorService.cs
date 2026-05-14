@@ -67,9 +67,8 @@ public class FloorService : BaseCommonCrudService<FloorEntity, FloorDto, CreateF
         return await _referenceValidator.ValidateReferencesAsync<FloorEntity>(id, cancellationToken);
     }
 
-    public async Task<RangeResult<FloorDto>> CreateFromRangeAsync(RangeCreateRequest<CreateFloorDto> request, CancellationToken cancellationToken = default)
-    {
-        // Internal transformer logic as previously in the controller
+public async Task<RangeResult<FloorDto>> CreateFromRangeAsync(RangeCreateRequest<CreateFloorDto> request, CancellationToken cancellationToken = default)    {
+         // Internal transformer logic as previously in the controller
         Func<CreateFloorDto, string, int, CreateFloorDto> transformer = (template, rangeValue, sequenceNo) =>
             new CreateFloorDto
             {

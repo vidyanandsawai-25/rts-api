@@ -57,14 +57,14 @@ public class CreateRateDto: CreateBaseDtos
     [Range(1, 9999, ErrorMessage = "Rate_YearRangeRVId_1_9999")]
     public int? YearRangeRVId { get; set; }
 
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Rate_RateSquareMeter_Min_0")]
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
     public decimal? RateSquareMeter { get; set; }
 
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Rate_RateSquareFeet_Min_0")]
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
     public decimal? RateSquareFeet { get; set; }
     public int RateSectionId { get; set; } 
 
-    [StringLength(20, ErrorMessage = "RateRemark must be at most 20 characters")]
+    [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
     public string? RateRemark { get; set; } = string.Empty;
 }
 
@@ -86,13 +86,13 @@ public class UpdateRateDto: UpdateBaseDtos
     [Range(1, 9999, ErrorMessage = "Rate_YearRangeRVId_1_9999")]
     public int? YearRangeRVId { get; set; }
 
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Rate_RateSquareMeter_Min_0")]
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
     public decimal? RateSquareMeter { get; set; }
 
-    [Range(typeof(decimal), "0", "79228162514264337593543950335", ErrorMessage = "Rate_RateSquareFeet_Min_0")]
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
     public decimal? RateSquareFeet { get; set; }
     public int? RateSectionId { get; set; }
 
-    [StringLength(20, ErrorMessage = "RateRemark must be at most 20 characters")]
+    [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
     public string? RateRemark { get; set; } = string.Empty;
 }

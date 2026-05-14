@@ -17,20 +17,21 @@ public class CreateDepreciationDto : CreateBaseDtos
     public int ConstructionTypeId { get; set; }
 
     [Required(ErrorMessage = "MinYear_Required")]
-    [Range(0, 100, ErrorMessage = "MinYear_Range_0_9999")]
+    [Range(0, 900, ErrorMessage = "MinYear_Range_0_900")]
     public int MinYear { get; set; }
 
     [Required(ErrorMessage = "MaxYear_Required")]
-    [Range(0, 100, ErrorMessage = "MaxYear_Range_0_9999")]
+    [Range(0, 999, ErrorMessage = "MaxYear_Range_0_999")]
     public int MaxYear { get; set; }
 
     [Required(ErrorMessage = "Rate_Required")]
-    [Range(typeof(decimal), "0", "999999999999.99", ErrorMessage = "Rate_Range_0_999999999999_99")]
+    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Rate_Range_0_9999")]
     public decimal Rate { get; set; }
 
     [Required(ErrorMessage = "YearRangeRVId_Required")]
-    [Range(0, 9999, ErrorMessage = "YearRangeRVId_Range_0_9999")]
+    [Range(1, 9999, ErrorMessage = "YearRangeRVId_Range_1_9999")]
     public int YearRangeRVId { get; set; }
+
 }
 public class UpdateDepreciationDto : UpdateBaseDtos
 {
@@ -42,18 +43,18 @@ public class UpdateDepreciationDto : UpdateBaseDtos
     public int ConstructionTypeId { get; set; } = 0;
 
     [Required(ErrorMessage = "MinYear_Required")]
-    [Range(0, 100, ErrorMessage = "MinYear_Range_0_9999")]
+    [Range(0, 900, ErrorMessage = "MinYear_Range_0_900")]
     public int MinYear { get; set; }
 
     [Required(ErrorMessage = "MaxYear_Required")]
-    [Range(0, 100, ErrorMessage = "MaxYear_Range_0_9999")]
+    [Range(0, 999, ErrorMessage = "MaxYear_Range_0_999")]
     public int MaxYear { get; set; }
 
     [Required(ErrorMessage = "Rate_Required")]
-    [Range(typeof(decimal), "0", "999999999999.99", ErrorMessage = "Rate_Range_0_999999999999_99")]
+    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Rate_Range_0_9999")]
     public decimal Rate { get; set; }
 
     [Required(ErrorMessage = "YearRangeRVId_Required")]
-    [Range(0, 9999, ErrorMessage = "YearRangeRVId_Range_0_9999")]
+    [Range(1, 9999, ErrorMessage = "YearRangeRVId_Range_1_9999")]
     public int YearRangeRVId { get; set; }
 }
