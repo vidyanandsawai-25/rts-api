@@ -240,6 +240,62 @@ public class MultilingualTranslationServiceTests
     }
 
     [Fact]
+    public void IsAutoTranslationEnabled_ReturnsTrue_WhenOptionsIsActive()
+    {
+        // Arrange
+        _options.IsActive = true;
+
+        // Act
+        var result = _service.IsAutoTranslationEnabled();
+
+        // Assert
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void IsAutoTranslationEnabled_ReturnsFalse_WhenOptionsIsInactive()
+    {
+        // Arrange
+        _options.IsActive = false;
+
+        // Act
+        var result = _service.IsAutoTranslationEnabled();
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void IsAutoTranslationEnabled_ReflectsOptionsAcrossCalls()
+    {
+        // Arrange — start enabled (constructor set IsActive = true)
+        Assert.True(_service.IsAutoTranslationEnabled());
+
+        // Act — flip the underlying option
+        _options.IsActive = false;
+
+        // Assert — service reads the live value, no caching
+        Assert.False(_service.IsAutoTranslationEnabled());
+
+        // Flip back
+        _options.IsActive = true;
+        Assert.True(_service.IsAutoTranslationEnabled());
+    }
+
+    [Fact]
+    public void IsAutoTranslationEnabled_DoesNotHitRepository()
+    {
+        // Arrange — fresh mock to verify zero calls
+        _repositoryMock.Invocations.Clear();
+
+        // Act
+        _ = _service.IsAutoTranslationEnabled();
+
+        // Assert
+        _repositoryMock.Verify(x => x.GetQueryable(), Times.Never);
+    }
+
+    [Fact]
     public async Task GetAllAsync_TranslationFails_LogsErrorAndReturnsOriginalItems()
     {
         // Arrange

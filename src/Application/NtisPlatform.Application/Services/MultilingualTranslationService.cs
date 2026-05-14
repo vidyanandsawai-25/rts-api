@@ -109,6 +109,8 @@ public class MultilingualTranslationService : BaseCommonCrudService<Multilingual
             .ToListAsync(cancellationToken);
     }
 
+    public bool IsAutoTranslationEnabled() => _translateOptions.IsActive;
+
     /// <summary>
     /// Dynamically applies translations to items with missing translations in any target language.
     /// Uses reflection to discover language columns and the configured default language as source.

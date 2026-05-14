@@ -45,5 +45,14 @@ public class MultilingualTranslationController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// Returns whether the auto-translation feature is enabled on the server.
+    /// </summary>
+    [HttpGet("AutoTranslationConfig")]
+    public IActionResult GetAutoTranslationConfig()
+    {
+        return Ok(new { isEnabled = _service.IsAutoTranslationEnabled() });
+    }
+
 }
 
