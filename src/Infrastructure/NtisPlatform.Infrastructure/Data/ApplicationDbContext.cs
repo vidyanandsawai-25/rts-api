@@ -111,6 +111,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<RenterMastEntity> RenterMast { get; set; } = null!;
     public DbSet<CommonRemarkDetailsEntity> CommonRemarkDetails { get; set; } = null!;
+    public DbSet<PropertyMapMasterEntity> PropertyMapMasters { get; set; } = null!;
     public DbSet<RoomTypeMasterEntity> RoomTypeMasters { get; set; } = null!;
 
     public DbSet<WaterConnectionTypeEntity> WaterConnectionTypes { get; set; } = null!;
@@ -2340,6 +2341,44 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_CommonRemarkDetails_IsActive");
         });
 
+        // PropertyMapMaster configuration
+        modelBuilder.Entity<PropertyMapMasterEntity>(entity =>
+        {
+            entity.ToTable("PropertyMapMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ModuleId);
+            entity.Property(e => e.ParentPropertyMapId);
+            entity.Property(e => e.VersionNo).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.MappingCategory).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.ChangeReason).HasMaxLength(500);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Foreign key relationship with ModuleMaster
+            entity.HasOne<ModuleMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_PropertyMapMaster_ModuleMaster");
+
+            // Self-referencing foreign key relationship for ParentPropertyMapId
+            entity.HasOne<PropertyMapMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ParentPropertyMapId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_PropertyMapMaster_ParentPropertyMapId");
+
+            // Indexes
+            entity.HasIndex(e => e.ModuleId);
+            entity.HasIndex(e => e.ParentPropertyMapId);
+            entity.HasIndex(e => e.MappingCategory);
+            entity.HasIndex(e => e.IsActive);
+        });
         modelBuilder.Entity<RoomTypeMasterEntity>(entity =>
         {
             entity.ToTable("RoomTypeMaster", "PTIS");

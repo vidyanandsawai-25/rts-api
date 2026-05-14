@@ -207,6 +207,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
+        services.AddScoped<IPropertyMapMasterService, PropertyMapMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
 
         // Translation Management

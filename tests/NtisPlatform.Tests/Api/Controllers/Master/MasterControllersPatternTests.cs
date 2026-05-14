@@ -8,6 +8,7 @@ using NtisPlatform.Application.DTOs.Master.BlockMaster;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkDetails;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkTypeMaster;
 using NtisPlatform.Application.DTOs.Master.GenderMaster;
+using NtisPlatform.Application.DTOs.Master.PropertyMapMaster;
 using NtisPlatform.Application.DTOs.Master.RoomTypeMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
@@ -1358,6 +1359,7 @@ public class AllMasterControllersComprehensiveTests
 
     #endregion
 
+
     #region RoomTypeMasterController Tests
 
     [Fact]
@@ -1497,6 +1499,346 @@ public class AllMasterControllersComprehensiveTests
 
         Assert.IsType<OkObjectResult>(result);
         mockService.Verify(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region PropertyMapMaster Controller Tests
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var query = new PropertyMapQueryParameters();
+        var pagedResult = new PagedResult<PropertyMapMasterDtos>(new List<PropertyMapMasterDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetById_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var dto = new PropertyMapMasterDtos { Id = 1, ModuleId = 100, MappingCategory = "ONE_TO_ONE" };
+        mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        var result = await controller.GetById(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Create_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            VersionNo = 1,
+            MappingCategory = "ONE_TO_ONE",
+            ChangeReason = "Initial mapping"
+        };
+        var resultDto = new PropertyMapMasterDtos { Id = 1, ModuleId = 100, MappingCategory = "ONE_TO_ONE" };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Update_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            VersionNo = 2,
+            MappingCategory = "SPLIT",
+            ChangeReason = "Updated mapping"
+        };
+        var resultDto = new PropertyMapMasterDtos { Id = 1, ModuleId = 100, MappingCategory = "SPLIT" };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Delete_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetById_NotFound_ReturnsNotFound()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyMapMasterDtos?)null);
+
+        var result = await controller.GetById(999, CancellationToken.None);
+
+        Assert.IsType<NotFoundResult>(result);
+        mockService.Verify(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Update_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            VersionNo = 1,
+            MappingCategory = "ONE_TO_ONE"
+        };
+        mockService.Setup(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyMapMasterDtos?)null);
+
+        var result = await controller.Update(999, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Delete_NotFound_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        mockService.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.Delete(999, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetAll_WithFilters_ReturnsFilteredResults()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var query = new PropertyMapQueryParameters
+        {
+            ModuleId = 100,
+            MappingCategory = "ONE_TO_ONE",
+            VersionNo = 1,
+            IsActive = true
+        };
+        var pagedResult = new PagedResult<PropertyMapMasterDtos>(
+            new List<PropertyMapMasterDtos>
+            {
+       new() { Id = 1, ModuleId = 100, VersionNo = 1, MappingCategory = "ONE_TO_ONE", IsActive = true }
+            },
+            1, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResult = Assert.IsType<PagedResult<PropertyMapMasterDtos>>(okResult.Value);
+        Assert.Equal(1, returnedResult.TotalCount);
+        Assert.Single(returnedResult.Items);
+        mockService.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Create_ValidModel_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            VersionNo = 1,
+            MappingCategory = "ONE_TO_ONE",
+            ChangeReason = "Initial setup"
+        };
+        var resultDto = new PropertyMapMasterDtos
+        {
+            Id = 1,
+            ModuleId = 100,
+            VersionNo = 1,
+            MappingCategory = "ONE_TO_ONE"
+        };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetAll_EmptyResult_ReturnsEmptyPagedResult()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var query = new PropertyMapQueryParameters();
+        var pagedResult = new PagedResult<PropertyMapMasterDtos>(new List<PropertyMapMasterDtos>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResult = Assert.IsType<PagedResult<PropertyMapMasterDtos>>(okResult.Value);
+        Assert.Equal(0, returnedResult.TotalCount);
+        Assert.Empty(returnedResult.Items);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_Create_WithParentPropertyMapId_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var createDto = new CreatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            ParentPropertyMapId = 5,
+            VersionNo = 2,
+            MappingCategory = "SPLIT",
+            ChangeReason = "Child property map"
+        };
+        var resultDto = new PropertyMapMasterDtos
+        {
+            Id = 10,
+            ModuleId = 100,
+            ParentPropertyMapId = 5,
+            VersionNo = 2,
+            MappingCategory = "SPLIT"
+        };
+
+        mockService.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Create(createDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PropertyMapMasterController_GetAll_FilterByVersionNo_ReturnsFilteredResults()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var query = new PropertyMapQueryParameters
+        {
+            VersionNo = 2
+        };
+        var pagedResult = new PagedResult<PropertyMapMasterDtos>(
+            new List<PropertyMapMasterDtos>
+            {
+       new() { Id = 1, ModuleId = 100, VersionNo = 2, MappingCategory = "SPLIT" },
+       new() { Id = 2, ModuleId = 101, VersionNo = 2, MappingCategory = "MERGE" }
+            },
+            2, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedResult = Assert.IsType<PagedResult<PropertyMapMasterDtos>>(okResult.Value);
+        Assert.Equal(2, returnedResult.TotalCount);
+        Assert.All(returnedResult.Items, item => Assert.Equal(2, item.VersionNo));
+    }
+
+
+    [Fact]
+    public async Task PropertyMapMasterController_Update_ChangeMappingCategory_ReturnsOk()
+    {
+        var mockService = new Mock<IPropertyMapMasterService>();
+        var mockLogger = new Mock<ILogger<PropertyMapMasterController>>();
+        var controller = new PropertyMapMasterController(mockService.Object, mockLogger.Object);
+
+        var updateDto = new UpdatePropertyMapMasterDto
+        {
+            ModuleId = 100,
+            VersionNo = 1,
+            MappingCategory = "MERGE",
+            ChangeReason = "Changed from SPLIT to MERGE"
+        };
+        var resultDto = new PropertyMapMasterDtos
+        {
+            Id = 1,
+            ModuleId = 100,
+            MappingCategory = "MERGE",
+            ChangeReason = "Changed from SPLIT to MERGE"
+        };
+
+        mockService.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(resultDto);
+
+        var result = await controller.Update(1, updateDto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        mockService.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
