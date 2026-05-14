@@ -13,7 +13,7 @@ public class DepartmentLicenceDetailsEntity : BaseEntity
     /// </summary>    /// <summary>
     /// Foreign key to Department Master
     /// </summary>
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
 
     /// <summary>
     /// Licence start date

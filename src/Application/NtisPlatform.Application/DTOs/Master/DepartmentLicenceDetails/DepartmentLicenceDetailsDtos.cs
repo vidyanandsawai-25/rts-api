@@ -6,7 +6,7 @@ namespace NtisPlatform.Application.DTOs.Master.DepartmentLicenceDetails;
 public class DepartmentLicenceDetailsDto : BaseDtos
 {
     public int Id { get; set; }
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
     public DateTime? LicenceStartDate { get; set; }
     public DateTime? LicenceEndDate { get; set; }
     public string? LicenceDuration { get; set; } 
@@ -17,7 +17,7 @@ public class DepartmentLicenceDetailsDto : BaseDtos
 /// </summary>
 public class CreateDepartmentLicenceDetailsDto : CreateBaseDtos
 {
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
     public DateTime? LicenceStartDate { get; set; }
     public DateTime? LicenceEndDate { get; set; }
     public string? LicenceDuration { get; set; } 
@@ -28,7 +28,7 @@ public class CreateDepartmentLicenceDetailsDto : CreateBaseDtos
 /// </summary>
 public class UpdateDepartmentLicenceDetailsDto : UpdateBaseDtos
 {
-    public int? DepartmentMasterId { get; set; }
+    public int? DepartmentId { get; set; }
     public DateTime? LicenceStartDate { get; set; }
     public DateTime? LicenceEndDate { get; set; }
     public string? LicenceDuration { get; set; }     

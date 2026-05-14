@@ -688,7 +688,7 @@ public class ApplicationDbContext : DbContext
             // Configure relationship with DepartmentMaster
             entity.HasOne(e => e.Department)
                 .WithMany()
-                .HasForeignKey(e => e.DepartmentMasterId)
+                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<DepartmentMasterEntity>(entity =>
@@ -711,7 +711,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("DesignationMaster", "Core");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id)
-                .HasColumnName("DesignationId");
+                .HasColumnName("Id");
             entity.Property(e => e.DesignationCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DesignationName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DesignationLocal).HasMaxLength(200);
