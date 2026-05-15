@@ -39,13 +39,14 @@ public class RateSectionDetailsService : BaseCommonCrudService<RateSectionDetail
 
         // Get total count before pagination
         var totalCount = await query.CountAsync(cancellationToken);
-
-        // Apply pagination
-        var items = await query
-            .Skip((queryParameters.PageNumber - 1) * queryParameters.PageSize)
-            .Take(queryParameters.PageSize)
+     
+        // Apply pagination
+        var items = await query            
+            .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
             .ProjectTo<RateSectionDetailsDto>(_mapper.ConfigurationProvider)
             .ToListAsync(cancellationToken);
+
 
         return new PagedResult<RateSectionDetailsDto>(items, totalCount, queryParameters.PageNumber, queryParameters.PageSize);
     }
