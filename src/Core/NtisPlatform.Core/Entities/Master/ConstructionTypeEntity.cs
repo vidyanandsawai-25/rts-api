@@ -10,6 +10,6 @@ public class ConstructionTypeEntity :BaseEntity
      public string? ConstructionCode { get; set; } = string.Empty;
     public string? Description { get; set; } = string.Empty;
 
-    public string? SearchKey { get; set; } = string.Empty;
+ 
     public int? SearchSequence { get; set; } = 0;
 }
