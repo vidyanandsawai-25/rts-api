@@ -41,8 +41,12 @@ app.UseHttpsRedirection();
 // CORS must come before authentication
 app.UseCors("AllowAll");
 
-// Rate limiting - protects against brute force attacks
-app.UseRateLimiter();
+// Rate limiting - protects against brute force attacks (only if enabled in config)
+var rateLimitingEnabled = builder.Configuration.GetValue<bool>("RateLimiting:Enabled", false);
+if (rateLimitingEnabled)
+{
+    app.UseRateLimiter();
+}
 
 // Authentication & Authorization
 app.UseAuthentication();

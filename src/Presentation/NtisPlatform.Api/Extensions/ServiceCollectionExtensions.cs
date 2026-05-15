@@ -365,10 +365,14 @@ public static class ServiceCollectionExtensions
         });
 
         // Rate Limiting (ASP.NET Core 7+)
-        services.AddRateLimiter(options =>
+        // Only enabled if RateLimiting:Enabled is true (for production)
+        var rateLimitingEnabled = configuration.GetValue<bool>("RateLimiting:Enabled", false);
+        if (rateLimitingEnabled)
         {
-            // Read rate limiting configuration
-            var globalPermitLimit = configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 100);
+            services.AddRateLimiter(options =>
+            {
+                // Read rate limiting configuration
+                var globalPermitLimit = configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 100);
             var globalWindowMinutes = configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1);
             var loginPermitLimit = configuration.GetValue<int>("RateLimiting:Login:PermitLimit", 5);
             var loginWindowMinutes = configuration.GetValue<int>("RateLimiting:Login:WindowMinutes", 15);
@@ -430,7 +434,8 @@ public static class ServiceCollectionExtensions
                     retryAfter = retryAfterSeconds
                 }, cancellationToken);
             };
-        });
+            });
+        }
 
         // Caching
         services.AddMemoryCache();
