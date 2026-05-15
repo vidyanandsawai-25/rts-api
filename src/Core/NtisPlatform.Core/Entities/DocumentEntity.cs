@@ -560,18 +560,19 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     /// </summary>
     public void UpdateMetadata(string? title, string? description, string? category = null)
     {
-        if (!string.IsNullOrWhiteSpace(title) && title.Length > 500)
+        var trimmedTitle = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        var trimmedCategory = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
+
+        if (trimmedTitle != null && trimmedTitle.Length > 500)
             throw new ArgumentException("Document title cannot exceed 500 characters.", nameof(title));
 
-        if (!string.IsNullOrWhiteSpace(description) && description.Length > 2000)
+        if (trimmedDescription != null && trimmedDescription.Length > 2000)
             throw new ArgumentException("Description cannot exceed 2000 characters.", nameof(description));
 
-        DocumentTitle = title;
-        Description = description;
-        if (!string.IsNullOrWhiteSpace(category))
-        {
-            DocumentCategory = category;
-        }
+        DocumentTitle = trimmedTitle;
+        Description = trimmedDescription;
+        DocumentCategory = trimmedCategory;
     }
 
     /// <summary>
@@ -656,11 +657,20 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     {
         var validLevels = new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "SECRET" };
 
-        if (!string.IsNullOrWhiteSpace(level) && !validLevels.Contains(level.ToUpperInvariant()))
+        if (string.IsNullOrWhiteSpace(level))
+        {
+            ConfidentialityLevel = null;
+            IsPublic = false;
+            return;
+        }
+
+        var normalizedLevel = level.Trim().ToUpperInvariant();
+
+        if (!validLevels.Contains(normalizedLevel))
             throw new ArgumentException($"Invalid confidentiality level. Must be one of: {string.Join(", ", validLevels)}", nameof(level));
 
-        ConfidentialityLevel = level?.ToUpperInvariant();
-        IsPublic = level?.ToUpperInvariant() == "PUBLIC";
+        ConfidentialityLevel = normalizedLevel;
+        IsPublic = normalizedLevel == "PUBLIC";
     }
 
     /// <summary>
