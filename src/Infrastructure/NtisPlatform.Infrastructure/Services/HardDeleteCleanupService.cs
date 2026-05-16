@@ -421,11 +421,11 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
     }
 
     /// <summary>
-    /// Validates that a string is a localization key with the expected format: {Resource}_{EntityId}_{PropertyName}
+    /// Validates that a string is a localization key with the expected format: {Resource}_{GUID}_{PropertyName}
     /// </summary>
     private static bool IsLocalizationKey(string value, string resource)
     {
-        // Key format: {Resource}_{EntityId}_{PropertyName}
+        // Key format: {Resource}_{GUID}_{PropertyName}
         // Must start with {Resource}_
         if (value.Length <= resource.Length + 1
             || value[resource.Length] != '_'

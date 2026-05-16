@@ -32,7 +32,7 @@ public class LocalizationRepoServiceTests : IDisposable
     private static LocalizationEntry Entry(string resource, string entityId, string prop, string value, string language = "en") => new()
     {
         Resource = resource,
-        EntityId = entityId,
+        Key = $"{resource}_{entityId}_{prop}",
         PropertyName = prop,
         Value = value,
         Language = language

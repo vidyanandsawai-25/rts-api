@@ -54,11 +54,11 @@ public class RateSectionServiceTests : IDisposable
             .Returns(Task.CompletedTask);
 
         _mockLocalizationProcessor
-            .Setup(x => x.ProcessSaveAsync(It.IsAny<CreateRateSectionDto>(), It.IsAny<string>()))
+            .Setup(x => x.ProcessSaveAsync(It.IsAny<CreateRateSectionDto>(), It.IsAny<IReadOnlyDictionary<string, string>?>()))
             .Returns(Task.CompletedTask);
 
         _mockLocalizationProcessor
-            .Setup(x => x.ProcessSaveAsync(It.IsAny<UpdateRateSectionDto>(), It.IsAny<string>()))
+            .Setup(x => x.ProcessSaveAsync(It.IsAny<UpdateRateSectionDto>(), It.IsAny<IReadOnlyDictionary<string, string>?>()))
             .Returns(Task.CompletedTask);
 
         // Setup default UnitOfWork behavior

@@ -7,11 +7,9 @@ namespace NtisPlatform.Application.DTOs;
 [LocalizableEntity(typeof(RateSectionEntity))]
 public class RateSectionDto : BaseDtos
 {
-    public int Id { get; set; }
-
     public string RateSectionNo { get; set; } = string.Empty;
 
-    [IsLocalizable("RateSection", IdProperty = "Id")]
+    [IsLocalizable("RateSection")]
     public string Description { get; set; } = string.Empty;
 }
 public class CreateRateSectionDto : CreateBaseDtos
@@ -34,7 +32,7 @@ public class UpdateRateSectionDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "RateSection_Description_Required")]
     [StringLength(80, ErrorMessage = "RateSection_Description_MaxLen_80")]
-    [IsLocalizable("RateSection", IdProperty = "Id")]
+    [IsLocalizable("RateSection")]
     public string Description { get; set; } = string.Empty;
 
 }

@@ -29,29 +29,6 @@ public class IsLocalizableAttributeTests
     }
 
     [Fact]
-    public void IdProperty_DefaultValue_IsId()
-    {
-        // Arrange & Act
-        var attribute = new IsLocalizableAttribute("TestResource");
-
-        // Assert
-        Assert.Equal("Id", attribute.IdProperty);
-    }
-
-    [Fact]
-    public void IdProperty_CanBeSet_WorksCorrectly()
-    {
-        // Arrange
-        var attribute = new IsLocalizableAttribute("TestResource")
-        {
-            IdProperty = "CustomId"
-        };
-
-        // Act & Assert
-        Assert.Equal("CustomId", attribute.IdProperty);
-    }
-
-    [Fact]
     public void Attribute_HasCorrectAttributeUsage()
     {
         // Arrange
@@ -82,22 +59,6 @@ public class IsLocalizableAttributeTests
     }
 
     [Fact]
-    public void Attribute_WithCustomIdProperty_RetrievesCorrectly()
-    {
-        // Arrange
-        var type = typeof(TestClass);
-        var property = type.GetProperty(nameof(TestClass.Description));
-
-        // Act
-        var attribute = property?.GetCustomAttribute<IsLocalizableAttribute>(false);
-
-        // Assert
-        Assert.NotNull(attribute);
-        Assert.Equal("DescriptionResource", attribute.Resource);
-        Assert.Equal("EntityId", attribute.IdProperty);
-    }
-
-    [Fact]
     public void Attribute_IsAttributeType()
     {
         // Arrange & Act
@@ -118,43 +79,35 @@ public class IsLocalizableAttributeTests
     }
 
     [Fact]
-    public void Attribute_MultiplePropertiesWithDifferentConfigurations_WorkCorrectly()
+    public void Attribute_MultiplePropertiesWithDifferentResources_WorkCorrectly()
     {
         // Arrange
         var type = typeof(TestClass);
 
         // Act
-        var nameProperty = type.GetProperty(nameof(TestClass.Name));
-        var descProperty = type.GetProperty(nameof(TestClass.Description));
-        var titleProperty = type.GetProperty(nameof(TestClass.Title));
-
-        var nameAttr = nameProperty?.GetCustomAttribute<IsLocalizableAttribute>();
-        var descAttr = descProperty?.GetCustomAttribute<IsLocalizableAttribute>();
-        var titleAttr = titleProperty?.GetCustomAttribute<IsLocalizableAttribute>();
+        var nameAttr = type.GetProperty(nameof(TestClass.Name))?.GetCustomAttribute<IsLocalizableAttribute>();
+        var descAttr = type.GetProperty(nameof(TestClass.Description))?.GetCustomAttribute<IsLocalizableAttribute>();
+        var titleAttr = type.GetProperty(nameof(TestClass.Title))?.GetCustomAttribute<IsLocalizableAttribute>();
 
         // Assert
         Assert.NotNull(nameAttr);
         Assert.Equal("TestResource", nameAttr.Resource);
-        Assert.Equal("Id", nameAttr.IdProperty);
 
         Assert.NotNull(descAttr);
         Assert.Equal("DescriptionResource", descAttr.Resource);
-        Assert.Equal("EntityId", descAttr.IdProperty);
 
         Assert.NotNull(titleAttr);
         Assert.Equal("TitleResource", titleAttr.Resource);
-        Assert.Equal("Id", titleAttr.IdProperty);
     }
 
     private class TestClass
     {
         public int Id { get; set; }
-        public int EntityId { get; set; }
 
         [IsLocalizable("TestResource")]
         public string Name { get; set; } = string.Empty;
 
-        [IsLocalizable("DescriptionResource", IdProperty = "EntityId")]
+        [IsLocalizable("DescriptionResource")]
         public string Description { get; set; } = string.Empty;
 
         [IsLocalizable("TitleResource")]

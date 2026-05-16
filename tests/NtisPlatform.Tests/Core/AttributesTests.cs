@@ -24,33 +24,6 @@ public class AttributesTests
     }
 
     [Fact]
-    public void IsLocalizableAttribute_IdProperty_DefaultsToId()
-    {
-        // Arrange
-        var resource = "PropertyMaster";
-
-        // Act
-        var attribute = new IsLocalizableAttribute(resource);
-
-        // Assert
-        Assert.Equal("Id", attribute.IdProperty);
-    }
-
-    [Fact]
-    public void IsLocalizableAttribute_IdProperty_CanBeSet()
-    {
-        // Arrange
-        var resource = "PropertyMaster";
-        var attribute = new IsLocalizableAttribute(resource);
-
-        // Act
-        attribute.IdProperty = "CustomId";
-
-        // Assert
-        Assert.Equal("CustomId", attribute.IdProperty);
-    }
-
-    [Fact]
     public void IsLocalizableAttribute_HasCorrectAttributeUsage()
     {
         // Arrange

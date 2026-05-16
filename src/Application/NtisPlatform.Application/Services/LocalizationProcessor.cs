@@ -49,7 +49,17 @@ public class LocalizationProcessor
     // =======================
     // SAVE FLOW (Create/Update)
     // =======================
-    public virtual async Task ProcessSaveAsync<TDto>(TDto dto, string? entityId = null)
+    /// <summary>
+    /// Persists localizable property values for the given DTO.
+    ///
+    /// Key strategy:
+    ///   - If <paramref name="existingKeys"/> contains an entry for a property, that key is reused (UPDATE).
+    ///   - Otherwise a fresh key of the form {Resource}_{GUID:N}_{PropertyName} is generated (CREATE).
+    ///
+    /// This decouples key generation from the entity's primary key, removing the need to insert the
+    /// entity first to obtain an auto-generated ID before persisting localization rows.
+    /// </summary>
+    public virtual async Task ProcessSaveAsync<TDto>(TDto dto, IReadOnlyDictionary<string, string>? existingKeys = null)
     {
         if (dto == null)
             return;
@@ -64,7 +74,7 @@ public class LocalizationProcessor
             return;
 
         // Single loop: collect entries to save
-        var (entries, propsToUpdate) = CollectSaveEntries(dto, accessors, entityId, language);
+        var (entries, propsToUpdate) = CollectSaveEntries(dto, accessors, existingKeys, language);
 
         if (entries.Count == 0)
             return;
@@ -108,11 +118,13 @@ public class LocalizationProcessor
 
     /// <summary>
     /// Collects localization entries from a single DTO for saving. Single loop over properties.
+    /// Reuses a key from <paramref name="existingKeys"/> when present (UPDATE);
+    /// otherwise mints a new {Resource}_{GUID:N}_{PropertyName} key (CREATE).
     /// </summary>
     private static (List<LocalizationEntry> Entries, List<LocalizablePropertyAccessor> Props) CollectSaveEntries<TDto>(
         TDto dto,
         IReadOnlyList<LocalizablePropertyAccessor> accessors,
-        string? entityId,
+        IReadOnlyDictionary<string, string>? existingKeys,
         string language)
     {
         var entries = new List<LocalizationEntry>(accessors.Count);
@@ -126,14 +138,23 @@ public class LocalizationProcessor
             if (string.IsNullOrWhiteSpace(value) || IsLocalizationKey(value, accessor.Resource))
                 continue;
 
-            var id = entityId ?? GetEntityId(dto, accessor.IdProperty);
-            if (string.IsNullOrWhiteSpace(id))
-                id = Guid.NewGuid().ToString("N");
+            string key;
+            if (existingKeys != null
+                && existingKeys.TryGetValue(accessor.PropertyName, out var existing)
+                && !string.IsNullOrWhiteSpace(existing)
+                && IsLocalizationKey(existing, accessor.Resource))
+            {
+                key = existing;
+            }
+            else
+            {
+                key = $"{accessor.Resource}_{Guid.NewGuid():N}_{accessor.PropertyName}";
+            }
 
             entries.Add(new LocalizationEntry
             {
                 Resource = accessor.Resource,
-                EntityId = id,
+                Key = key,
                 PropertyName = accessor.PropertyName,
                 Value = value,
                 Language = language
@@ -294,7 +315,6 @@ public class LocalizationProcessor
     {
         public string PropertyName { get; }
         public string Resource { get; }
-        public string IdProperty { get; }
 
         private readonly Func<object, object?> _getter;
         private readonly Action<object, object?> _setter;
@@ -303,7 +323,6 @@ public class LocalizationProcessor
         {
             PropertyName = prop.Name;
             Resource = attr.Resource;
-            IdProperty = attr.IdProperty;
 
             // Compile getter: (object obj) => (object?)((TOwner)obj).Property
             var objParam = Expression.Parameter(typeof(object), "obj");
@@ -377,19 +396,9 @@ public class LocalizationProcessor
             $"Multiple localization resources found on {typeof(TDto).Name}: {string.Join(", ", resources)}");
     }
 
-    private static string? GetEntityId<TDto>(TDto dto, string idPropertyName)
-    {
-        var idProp = typeof(TDto).GetProperty(idPropertyName, BindingFlags.Public | BindingFlags.Instance);
-        if (idProp == null)
-            return null;
-
-        var value = idProp.GetValue(dto);
-        return value?.ToString();
-    }
-
     private static bool IsLocalizationKey(string value, string resource)
     {
-        // Key format: {Resource}_{EntityId}_{PropertyName}
+        // Key format: {Resource}_{GUID}_{PropertyName}
         // Must start with {Resource}_
         if (value.Length <= resource.Length + 1
             || value[resource.Length] != '_'

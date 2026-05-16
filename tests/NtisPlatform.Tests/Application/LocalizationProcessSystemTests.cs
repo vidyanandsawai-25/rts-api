@@ -42,10 +42,10 @@ public class LocalizationProcessSystemTests
 
     public class TestCreateDto
     {
-        [IsLocalizable("TestResource", IdProperty = "Id")]
+        [IsLocalizable("TestResource")]
         public string Name { get; set; } = string.Empty;
 
-        [IsLocalizable("TestResource", IdProperty = "Id")]
+        [IsLocalizable("TestResource")]
         public string Description { get; set; } = string.Empty;
     }
 
@@ -125,13 +125,15 @@ public class LocalizationProcessSystemTests
         };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "123");
+        await processor.ProcessSaveAsync(dto);
 
-        // Assert
+        // Assert: every entry uses a freshly-minted {Resource}_{GUID}_{PropertyName} key
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
             entries.Count() == 2 &&
-            entries.Any(e => e.PropertyName == "Name" && e.Value == "Test Name" && e.EntityId == "123") &&
-            entries.Any(e => e.PropertyName == "Description" && e.Value == "Test Description" && e.EntityId == "123")
+            entries.Any(e => e.PropertyName == "Name" && e.Value == "Test Name"
+                              && e.Key.StartsWith("TestResource_") && e.Key.EndsWith("_Name")) &&
+            entries.Any(e => e.PropertyName == "Description" && e.Value == "Test Description"
+                              && e.Key.StartsWith("TestResource_") && e.Key.EndsWith("_Description"))
         )), Times.Once);
     }
 
@@ -150,7 +152,7 @@ public class LocalizationProcessSystemTests
         };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "123");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert - Only Description should be saved
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
@@ -168,7 +170,7 @@ public class LocalizationProcessSystemTests
         var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
 
         // Act
-        await processor.ProcessSaveAsync<TestCreateDto>(null!, "123");
+        await processor.ProcessSaveAsync<TestCreateDto>(null!);
 
         // Assert
         mockLocalization.Verify(x => x.SaveBatchAsync(It.IsAny<IEnumerable<LocalizationEntry>>()), Times.Never);
@@ -189,7 +191,7 @@ public class LocalizationProcessSystemTests
         };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "123");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert
         mockLocalization.Verify(x => x.SaveBatchAsync(It.IsAny<IEnumerable<LocalizationEntry>>()), Times.Never);
@@ -210,14 +212,14 @@ public class LocalizationProcessSystemTests
         };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "1");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert
         mockLocalization.Verify(x => x.SaveBatchAsync(It.IsAny<IEnumerable<LocalizationEntry>>()), Times.Never);
     }
 
     [Fact]
-    public async Task ProcessSaveAsync_WithoutEntityId_GeneratesGuidId()
+    public async Task ProcessSaveAsync_WithoutExistingKeys_MintsGuidBasedKey()
     {
         // Arrange
         var mockLocalization = CreateMockLocalizationService();
@@ -227,11 +229,35 @@ public class LocalizationProcessSystemTests
         var dto = new TestCreateDto { Name = "Test Name" };
 
         // Act
-        await processor.ProcessSaveAsync(dto, null);
+        await processor.ProcessSaveAsync(dto);
 
-        // Assert
+        // Assert: fresh key minted with the {Resource}_{GUID}_{PropertyName} shape
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
-            entries.Any() && !string.IsNullOrEmpty(entries.First().EntityId)
+            entries.Any()
+            && !string.IsNullOrEmpty(entries.First().Key)
+            && entries.First().Key.StartsWith("TestResource_")
+            && entries.First().Key.EndsWith("_Name")
+        )), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessSaveAsync_WithExistingKeys_ReusesThemForUpdate()
+    {
+        // Arrange
+        var mockLocalization = CreateMockLocalizationService();
+        var mockHttpContext = CreateHttpContextAccessor();
+        var processor = new LocalizationProcessor(mockLocalization.Object, mockHttpContext.Object, CreateMockLocalizationOptions());
+
+        var dto = new TestCreateDto { Name = "Updated Name" };
+        const string existingKey = "TestResource_abc123def456_Name";
+        var existingKeys = new Dictionary<string, string> { ["Name"] = existingKey };
+
+        // Act
+        await processor.ProcessSaveAsync(dto, existingKeys);
+
+        // Assert: the existing key flowed through unchanged
+        mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
+            entries.Single().Key == existingKey
         )), Times.Once);
     }
 
@@ -246,7 +272,7 @@ public class LocalizationProcessSystemTests
         var dto = new TestCreateDto { Name = "Test Name" };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "123");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert - Save should always use default language "en", not the user's language "fr"
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
@@ -472,33 +498,33 @@ public class LocalizationProcessSystemTests
 
     #endregion
 
-    #region LocalizationEntry Key Format Tests
+    #region LocalizationEntry Key Tests
 
     [Fact]
-    public void LocalizationEntry_Key_FormatsCorrectly()
+    public void LocalizationEntry_Key_IsSettableAndReturnsValue()
     {
         // Arrange
         var entry = new LocalizationEntry
         {
             Resource = "TestResource",
-            EntityId = "123",
+            Key = "TestResource_abc123def456_Name",
             PropertyName = "Name",
             Value = "Test Value",
             Language = "en"
         };
 
         // Act & Assert
-        Assert.Equal("TestResource_123_Name", entry.Key);
+        Assert.Equal("TestResource_abc123def456_Name", entry.Key);
     }
 
     [Fact]
-    public void LocalizationEntry_Key_WithSpecialCharacters_FormatsCorrectly()
+    public void LocalizationEntry_Key_AcceptsArbitraryIdentifierSegment()
     {
         // Arrange
         var entry = new LocalizationEntry
         {
             Resource = "Master",
-            EntityId = "abc-def-123",
+            Key = "Master_abc-def-123_Description",
             PropertyName = "Description",
             Value = "Test",
             Language = "fr"
@@ -511,27 +537,6 @@ public class LocalizationProcessSystemTests
     #endregion
 
     #region IsLocalizableAttribute Tests
-
-    [Fact]
-    public void IsLocalizableAttribute_DefaultIdProperty_IsId()
-    {
-        // Arrange
-        var attr = new IsLocalizableAttribute("TestResource");
-
-        // Assert
-        Assert.Equal("TestResource", attr.Resource);
-        Assert.Equal("Id", attr.IdProperty);
-    }
-
-    [Fact]
-    public void IsLocalizableAttribute_CustomIdProperty_IsSet()
-    {
-        // Arrange
-        var attr = new IsLocalizableAttribute("TestResource") { IdProperty = "CustomId" };
-
-        // Assert
-        Assert.Equal("CustomId", attr.IdProperty);
-    }
 
     [Fact]
     public void IsLocalizableAttribute_OnProperty_IsDetectable()
@@ -707,7 +712,7 @@ public class LocalizationProcessSystemTests
         var dto = new TestCreateDto { Name = "Thai Name" };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "1");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert - Should save as default language "en", not the user's language "th"
         Assert.Single(savedEntries);
@@ -730,7 +735,7 @@ public class LocalizationProcessSystemTests
         var dto = new TestCreateDto { Name = longValue };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "1");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
@@ -750,7 +755,7 @@ public class LocalizationProcessSystemTests
         var dto = new TestCreateDto { Name = unicodeValue };
 
         // Act
-        await processor.ProcessSaveAsync(dto, "1");
+        await processor.ProcessSaveAsync(dto);
 
         // Assert
         mockLocalization.Verify(x => x.SaveBatchAsync(It.Is<IEnumerable<LocalizationEntry>>(entries =>
@@ -806,7 +811,7 @@ public class LocalizationProcessSystemTests
         var tasks = Enumerable.Range(1, 10).Select(i =>
         {
             var dto = new TestCreateDto { Name = $"Name {i}" };
-            return processor.ProcessSaveAsync(dto, i.ToString());
+            return processor.ProcessSaveAsync(dto);
         });
 
         await Task.WhenAll(tasks);
@@ -900,16 +905,22 @@ public class LocalizationProcessSystemTests
 
         // Act - CREATE
         var createDto = new TestCreateDto { Name = "Original Name", Description = "Original Description" };
-        await processor.ProcessSaveAsync(createDto, "1");
+        await processor.ProcessSaveAsync(createDto);
 
-        // Assert CREATE - Keys should be generated
-        Assert.Equal("TestResource_1_Name", createDto.Name);
-        Assert.Equal("TestResource_1_Description", createDto.Description);
+        // Assert CREATE - Keys should be generated with {Resource}_{GUID}_{PropertyName} shape
+        Assert.StartsWith("TestResource_", createDto.Name);
+        Assert.EndsWith("_Name", createDto.Name);
+        Assert.StartsWith("TestResource_", createDto.Description);
+        Assert.EndsWith("_Description", createDto.Description);
+
+        // Capture generated keys for the subsequent operations
+        var nameKey = createDto.Name;
+        var descKey = createDto.Description;
 
         // Act - READ
         var readDtos = new List<TestDto>
         {
-            new() { Id = 1, Name = "TestResource_1_Name", Description = "TestResource_1_Description" }
+            new() { Id = 1, Name = nameKey, Description = descKey }
         };
         await processor.ProcessGetAsync(readDtos);
 
@@ -917,21 +928,29 @@ public class LocalizationProcessSystemTests
         Assert.Equal("Original Name", readDtos[0].Name);
         Assert.Equal("Original Description", readDtos[0].Description);
 
-        // Act - UPDATE
+        // Act - UPDATE: reuse the entity's existing keys so the same rows get updated
         var updateDto = new TestCreateDto { Name = "Updated Name", Description = "Updated Description" };
-        await processor.ProcessSaveAsync(updateDto, "1");
+        var existingKeys = new Dictionary<string, string>
+        {
+            ["Name"] = nameKey,
+            ["Description"] = descKey
+        };
+        await processor.ProcessSaveAsync(updateDto, existingKeys);
+
+        Assert.Equal(nameKey, updateDto.Name);
+        Assert.Equal(descKey, updateDto.Description);
 
         // Assert UPDATE - Same keys, new values
         var readAfterUpdate = new List<TestDto>
         {
-            new() { Id = 1, Name = "TestResource_1_Name", Description = "TestResource_1_Description" }
+            new() { Id = 1, Name = nameKey, Description = descKey }
         };
         await processor.ProcessGetAsync(readAfterUpdate);
         Assert.Equal("Updated Name", readAfterUpdate[0].Name);
         Assert.Equal("Updated Description", readAfterUpdate[0].Description);
 
         // Act - DELETE
-        await processor.ProcessDeactivateAsync("TestResource", new[] { "TestResource_1_Name", "TestResource_1_Description" });
+        await processor.ProcessDeactivateAsync("TestResource", new[] { nameKey, descKey });
 
         // Assert DELETE - Translations should be removed
         Assert.Empty(storedTranslations);
@@ -955,7 +974,7 @@ public class LocalizationProcessSystemTests
         for (int i = 1; i <= 5; i++)
         {
             var dto = new TestCreateDto { Name = $"Name {i}", Description = $"Description {i}" };
-            await processor.ProcessSaveAsync(dto, i.ToString());
+            await processor.ProcessSaveAsync(dto);
         }
 
         // Assert

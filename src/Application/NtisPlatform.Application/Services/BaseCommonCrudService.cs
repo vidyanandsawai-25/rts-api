@@ -156,43 +156,39 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
     /// <summary>
     /// Creates a new entity from the given DTO.
+    /// Localization keys are minted up-front as {Resource}_{GUID}_{PropertyName},
+    /// so the entity is inserted exactly once (no follow-up UPDATE to stamp the key).
     /// </summary>
     public virtual async Task<TDto> CreateAsync(TCreateDto createDto, CancellationToken cancellationToken = default)
     {
         if (IsLocalizationEnabled)
         {
+            // 1. Map + validate FIRST (in memory). Validation runs against the entity with display
+            //    values, matching the legacy contract for ValidateForCreateAsync overrides.
+            //    If validation fails we never touch the DB.
+            var entity = _mapper.Map<TEntity>(createDto);
+
+            var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                throw new ValidationException("Validation failed for create operation", validationResult.ToDictionary(), OperationType.Create);
+            }
+
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
             {
-                // 1. Map DTO to entity (WITHOUT localization processing first)
-                var entity = _mapper.Map<TEntity>(createDto);
+                // 2. Mint localization keys (writes the loc rows + replaces DTO values with keys)
+                await PreSaveLocalizationAsync(createDto, existingKeys: null, cancellationToken);
 
-                // 2. Run validation before persisting
-                var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
-                if (!validationResult.IsValid)
-                {
-                    throw new ValidationException("Validation failed for create operation", validationResult.ToDictionary(), OperationType.Create);
-                }
-
-                // 3. Persist entity FIRST to get auto-generated ID
-                await _repository.AddAsync(entity, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                // 4. Get the real entity ID
-                var entityId = GetEntityId(entity);
-
-                // 5. NOW process localization with the REAL entity ID
-                await PreSaveLocalizationAsync(createDto, entityId, cancellationToken);
-
-                // 6. Re-map the DTO (now with localization keys) to update the entity
+                // 3. Apply the now-keyed DTO values back onto the already-validated entity
                 _mapper.Map(createDto, entity);
 
-                // 7. Update entity with localization keys
-                await _repository.UpdateAsync(entity, cancellationToken);
-
+                // 4. Single insert — entity and localization rows commit together
+                await _repository.AddAsync(entity, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                // 8. Map to response DTO and localize for read
+                // 5. Map to response DTO and localize for read
                 var dto = _mapper.Map<TDto>(entity);
                 await PostReadLocalizationAsync(new[] { dto }, cancellationToken);
 
@@ -221,25 +217,6 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         }
     }
 
-  
-    private static readonly Lazy<PropertyInfo?> _idPropertyCache = new(() =>
-        typeof(TEntity).GetProperty("Id")
-        ?? typeof(TEntity).GetProperty("ID")
-        ?? typeof(TEntity).GetProperty($"{typeof(TEntity).Name}Id"));
-
-    /// <summary>
-    /// Extracts the entity ID as a string. Override for custom ID types.
-    /// </summary>
-    protected virtual string? GetEntityId(TEntity entity)
-    {
-        var idProperty = _idPropertyCache.Value;
-        if (idProperty == null)
-            return null;
-
-        var value = idProperty.GetValue(entity);
-        return value?.ToString();
-    }
-
     // Validation order is consistent in both paths:
     // 1. (Localized only) PreSaveLocalizationAsync - transforms DTO values
     // 2. Map DTO → Entity
@@ -260,8 +237,10 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
             {
-                // Pre-save hook: converts display text to localization keys in updateDto
-                await PreSaveLocalizationAsync(updateDto, Convert.ToString(id), cancellationToken);
+                // Pre-save hook: reuses existing GUID-based keys from the entity so multi-language
+                // translations stay attached to the same row, and converts display text to keys in updateDto.
+                var existingKeys = ExtractLocalizationKeysByProperty(entity);
+                await PreSaveLocalizationAsync(updateDto, existingKeys, cancellationToken);
 
                 // Map AFTER localization processing
                 _mapper.Map(updateDto, entity);
@@ -505,79 +484,70 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
     /// <summary>
     /// Bulk create with localization support.
-    /// 
+    ///
     /// <para><b>Transaction Behavior:</b></para>
     /// <para>
-    /// This method uses a single transaction for both entity creation and localization.
-    /// If localization fails for ANY item, the entire transaction is rolled back - no entities are created.
-    /// This ensures data consistency between entities and their localization entries.
+    /// Single transaction wraps both localization rows and entity inserts. If localization fails
+    /// for any item, the entire transaction rolls back — no entities are created.
+    /// </para>
+    /// <para><b>Key Strategy:</b></para>
+    /// <para>
+    /// Localization is processed BEFORE the entity insert: each DTO gets {Resource}_{GUID}_{PropertyName}
+    /// keys, then the keys flow into the entity via the mapper. Entities are inserted exactly once.
     /// </para>
     /// </summary>
     private async Task<BulkResult<TDto>> BulkCreateWithLocalizationAsync(TCreateDto[] items, CancellationToken cancellationToken)
     {
-        var createdEntities = new List<TEntity>();
+        var pendingItems = new List<(TCreateDto Dto, TEntity Entity)>();
         var validationErrors = new List<string>();
         var validationFailedCount = 0;
-        var itemEntityMap = new List<(TCreateDto Dto, TEntity Entity, int Index)>();
+
+        // Step 1: Map + validate every item in memory BEFORE any DB writes. This guarantees we
+        // never persist localization rows for items that are about to be skipped — otherwise
+        // failed items would orphan their freshly-minted keys when the transaction commits for
+        // the survivors. Validation sees the entity with display values, matching legacy semantics.
+        for (int i = 0; i < items.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var entity = _mapper.Map<TEntity>(items[i]);
+
+            var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                validationFailedCount++;
+                var errorMessages = string.Join(", ", validationResult.Errors.Select(e =>
+                    string.IsNullOrEmpty(e.PropertyName) ? e.ErrorMessage : $"{e.PropertyName}: {e.ErrorMessage}"));
+                validationErrors.Add($"Item {i}: {errorMessages}");
+                continue;
+            }
+
+            pendingItems.Add((items[i], entity));
+        }
+
+        if (pendingItems.Count == 0)
+            return new BulkResult<TDto>(0, validationFailedCount, [], validationErrors.Count > 0 ? validationErrors : null);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Step 1: Map and validate all items
-            for (int i = 0; i < items.Length; i++)
+            // Step 2: Process localization for survivors only and re-apply minted keys to the entity.
+            // FAIL-FAST: any localization failure rolls back the whole transaction.
+            foreach (var (dto, entity) in pendingItems)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var entity = _mapper.Map<TEntity>(items[i]);
-
-                var validationResult = await ValidateForCreateAsync(entity, cancellationToken);
-                if (!validationResult.IsValid)
-                {
-                    validationFailedCount++;
-                    var errorMessages = string.Join(", ", validationResult.Errors.Select(e =>
-                        string.IsNullOrEmpty(e.PropertyName) ? e.ErrorMessage : $"{e.PropertyName}: {e.ErrorMessage}"));
-                    validationErrors.Add($"Item {i}: {errorMessages}");
-                    continue;
-                }
-
-                itemEntityMap.Add((items[i], entity, i));
-                createdEntities.Add(entity);
+                await PreSaveLocalizationAsync(dto, existingKeys: null, cancellationToken);
+                _mapper.Map(dto, entity); // overwrite localizable cols with the now-keyed DTO values
             }
 
-            if (createdEntities.Count == 0)
-            {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return new BulkResult<TDto>(0, validationFailedCount, [], validationErrors.Count > 0 ? validationErrors : null);
-            }
-
-            // Step 2: Persist entities FIRST to get auto-generated IDs
-            await _repository.AddRangeAsync(createdEntities.ToArray(), cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            // Step 3: Process localization for all items with REAL entity IDs
-            // FAIL-FAST: If any localization fails, rollback entire transaction
-            foreach (var (dto, entity, index) in itemEntityMap)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var entityId = GetEntityId(entity);
-                await PreSaveLocalizationAsync(dto, entityId, cancellationToken);
-
-                // Re-map the DTO (now with localization keys) to update the entity
-                _mapper.Map(dto, entity);
-            }
-
-            // Step 4: Update entities with localization keys
-            foreach (var entity in createdEntities)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await _repository.UpdateAsync(entity, cancellationToken);
-            }
-
+            // Step 3: Single batched insert — entities carry their localization keys already
+            var createdEntities = pendingItems.Select(p => p.Entity).ToArray();
+            await _repository.AddRangeAsync(createdEntities, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-            // Step 5: Map to response DTOs and localize for read
+            // Step 4: Map to response DTOs and localize for read
             var results = _mapper.Map<List<TDto>>(createdEntities);
             await PostReadLocalizationAsync(results, cancellationToken);
 
@@ -618,75 +588,54 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         if (rangeValues.Count == 0)
             return new RangeResult<TDto>(0, 0, []);
 
-        var createdEntities = new List<TEntity>();
-        var itemDtoMap = new List<(TCreateDto Dto, TEntity Entity)>();
+        var pendingItems = new List<(TCreateDto Dto, TEntity Entity)>();
         var errors = new List<string>();
         var sequenceNo = request.StartSequenceNo;
+
+        // Step 1: Transform + map every range value in memory FIRST. Failures here are recorded
+        // and skipped — no DB writes have happened yet, so a skipped item cannot orphan anything.
+        foreach (var rangeValue in rangeValues)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var createDto = transformer(request.Template, rangeValue, sequenceNo);
+                var entity = _mapper.Map<TEntity>(createDto);
+                pendingItems.Add((createDto, entity));
+                sequenceNo++;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Failed to create record for value '{rangeValue}': {ex.Message}");
+            }
+        }
+
+        if (pendingItems.Count == 0)
+            return new RangeResult<TDto>(0, errors.Count, [], errors.Count > 0 ? errors : null);
 
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            // Step 1: Create all entities
-            foreach (var rangeValue in rangeValues)
+            // Step 2: Process localization for survivors only and apply the minted keys.
+            if (IsLocalizationEnabled)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    var createDto = transformer(request.Template, rangeValue, sequenceNo);
-                    var entity = _mapper.Map<TEntity>(createDto);
-
-                    await _repository.AddAsync(entity, cancellationToken);
-                    createdEntities.Add(entity);
-
-                    if (IsLocalizationEnabled)
-                    {
-                        itemDtoMap.Add((createDto, entity));
-                    }
-
-                    sequenceNo++;
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Failed to create record for value '{rangeValue}': {ex.Message}");
-                }
-            }
-
-            if (createdEntities.Count == 0)
-            {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return new RangeResult<TDto>(0, errors.Count, [], errors.Count > 0 ? errors : null);
-            }
-
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            // Step 2: Process localization with real entity IDs (if enabled)
-            // FAIL-FAST: If any localization fails, rollback entire transaction
-            if (IsLocalizationEnabled && itemDtoMap.Count > 0)
-            {
-                foreach (var (dto, entity) in itemDtoMap)
+                foreach (var (dto, entity) in pendingItems)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-
-                    var entityId = GetEntityId(entity);
-                    await PreSaveLocalizationAsync(dto, entityId, cancellationToken);
+                    await PreSaveLocalizationAsync(dto, existingKeys: null, cancellationToken);
                     _mapper.Map(dto, entity);
                 }
-
-                // Update entities with localization keys
-                foreach (var entity in createdEntities)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await _repository.UpdateAsync(entity, cancellationToken);
-                }
-
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
+            // Step 3: Single batched insert
+            var createdEntities = pendingItems.Select(p => p.Entity).ToList();
+            await _repository.AddRangeAsync(createdEntities.ToArray(), cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
             var results = _mapper.Map<List<TDto>>(createdEntities);
@@ -706,7 +655,7 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
         catch (DbUpdateException ex)
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-            return new RangeResult<TDto>(0, createdEntities.Count, [], [$"Database error: {ex.InnerException?.Message ?? ex.Message}"]);
+            return new RangeResult<TDto>(0, pendingItems.Count, [], [$"Database error: {ex.InnerException?.Message ?? ex.Message}"]);
         }
         catch
         {
@@ -768,10 +717,12 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
                     continue;
                 }
 
-                // Validation passed — now safe to process localization and apply to tracked entity
+                // Validation passed — now safe to process localization and apply to tracked entity.
+                // Reuse the entity's existing GUID-based keys so multi-language translations are preserved.
                 if (IsLocalizationEnabled)
                 {
-                    await PreSaveLocalizationAsync(item.Data, Convert.ToString(item.Id), cancellationToken);
+                    var existingKeys = ExtractLocalizationKeysByProperty(entity);
+                    await PreSaveLocalizationAsync(item.Data, existingKeys, cancellationToken);
                 }
 
                 _mapper.Map(item.Data, entity);
@@ -1087,14 +1038,34 @@ public abstract class BaseCommonCrudService<TEntity, TDto, TCreateDto, TUpdateDt
 
     /// <summary>
     /// Pre-save hook: Processes localization before saving (converts values to keys).
+    /// Pass <paramref name="existingKeys"/> on UPDATE so existing GUID-based keys are reused;
+    /// pass <c>null</c> on CREATE to mint fresh {Resource}_{GUID}_{PropertyName} keys.
     /// </summary>
-    protected virtual async Task PreSaveLocalizationAsync<TInput>(TInput dto, string? entityId, CancellationToken cancellationToken)
+    protected virtual async Task PreSaveLocalizationAsync<TInput>(TInput dto, IReadOnlyDictionary<string, string>? existingKeys, CancellationToken cancellationToken)
         where TInput : class
     {
         if (_localizationProcessor != null)
         {
-            await _localizationProcessor.ProcessSaveAsync(dto, entityId);
+            await _localizationProcessor.ProcessSaveAsync(dto, existingKeys);
         }
+    }
+
+    /// <summary>
+    /// Reads the current localization keys stored on entity properties corresponding to
+    /// DTO properties marked with <c>[IsLocalizable]</c>, keyed by property name.
+    /// Used to keep keys stable across updates
+    /// </summary>
+    private Dictionary<string, string> ExtractLocalizationKeysByProperty(TEntity entity)
+    {
+        var result = new Dictionary<string, string>(_entityLocalizablePropsCache.Value.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var (propName, prop) in _entityLocalizablePropsCache.Value)
+        {
+            if (prop.GetValue(entity) is string keyValue && !string.IsNullOrWhiteSpace(keyValue))
+            {
+                result[propName] = keyValue;
+            }
+        }
+        return result;
     }
 
     /// <summary>
