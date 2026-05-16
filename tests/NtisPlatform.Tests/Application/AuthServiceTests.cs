@@ -499,4 +499,211 @@ public class AuthServiceTests
     }
 
     #endregion
+
+    #region ValidateSessionAsync Tests
+
+    [Fact]
+    public async Task ValidateSessionAsync_WithValidToken_ReturnsValid()
+    {
+        // Arrange
+        var request = new ValidateSessionRequestDto
+        {
+            AccessToken = "valid-jwt-token"
+        };
+
+        var tokenValidationResult = new JwtValidationResult
+        {
+            IsValid = true,
+            UserId = 123,
+            Username = "testuser",
+            ExpiresAt = DateTime.Now.AddMinutes(30)
+        };
+
+        _tokenServiceMock.Setup(x => x.ValidateToken("valid-jwt-token"))
+            .Returns(tokenValidationResult);
+
+        // Act
+        var result = await _authService.ValidateSessionAsync(request);
+
+        // Assert
+        Assert.True(result.IsValid);
+        Assert.Equal(123, result.UserId);
+        Assert.Equal("testuser", result.Username);
+        Assert.NotNull(result.ExpiresAt);
+        Assert.Equal("Token is valid", result.Message);
+    }
+
+    [Fact]
+    public async Task ValidateSessionAsync_WithInvalidToken_ReturnsInvalid()
+    {
+        // Arrange
+        var request = new ValidateSessionRequestDto
+        {
+            AccessToken = "invalid-jwt-token"
+        };
+
+        var tokenValidationResult = new JwtValidationResult
+        {
+            IsValid = false,
+            ErrorMessage = "Token has expired"
+        };
+
+        _tokenServiceMock.Setup(x => x.ValidateToken("invalid-jwt-token"))
+            .Returns(tokenValidationResult);
+
+        // Act
+        var result = await _authService.ValidateSessionAsync(request);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Equal("Token has expired", result.Message);
+    }
+
+    [Fact]
+    public async Task ValidateSessionAsync_WithMalformedToken_ReturnsInvalidWithDefaultMessage()
+    {
+        // Arrange
+        var request = new ValidateSessionRequestDto
+        {
+            AccessToken = "malformed-token"
+        };
+
+        var tokenValidationResult = new JwtValidationResult
+        {
+            IsValid = false,
+            ErrorMessage = null
+        };
+
+        _tokenServiceMock.Setup(x => x.ValidateToken("malformed-token"))
+            .Returns(tokenValidationResult);
+
+        // Act
+        var result = await _authService.ValidateSessionAsync(request);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Equal("Invalid token", result.Message);
+    }
+
+    #endregion
+
+    #region LogoutAsync Tests
+
+    [Fact]
+    public async Task LogoutAsync_WithValidRefreshToken_RevokesTokenSuccessfully()
+    {
+        // Arrange
+        var request = new LogoutRequestDto
+        {
+            RefreshToken = "valid-refresh-token"
+        };
+
+        var refreshTokenEntity = new RefreshTokenEntity
+        {
+            Id = 1,
+            UserId = 123,
+            Token = "hashed-refresh-token",
+            IsRevoked = false,
+            ExpiresAt = DateTime.Now.AddDays(7),
+            CreatedDate = DateTime.Now
+        };
+
+        _refreshTokenRepositoryMock.Setup(x => x.GetByTokenAsync("valid-refresh-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(refreshTokenEntity);
+        _refreshTokenRepositoryMock.Setup(x => x.RevokeTokenAsync("valid-refresh-token", It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _authService.LogoutAsync(request);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal("Logged out successfully", result.Message);
+        _refreshTokenRepositoryMock.Verify(x => x.RevokeTokenAsync("valid-refresh-token", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithInvalidRefreshToken_ReturnsFailure()
+    {
+        // Arrange
+        var request = new LogoutRequestDto
+        {
+            RefreshToken = "invalid-refresh-token"
+        };
+
+        _refreshTokenRepositoryMock.Setup(x => x.GetByTokenAsync("invalid-refresh-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RefreshTokenEntity?)null);
+
+        // Act
+        var result = await _authService.LogoutAsync(request);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal("Invalid refresh token", result.Message);
+        _refreshTokenRepositoryMock.Verify(x => x.RevokeTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithNullRefreshToken_ThrowsOrReturnsFailure()
+    {
+        // Arrange
+        var request = new LogoutRequestDto
+        {
+            RefreshToken = null!
+        };
+
+        _refreshTokenRepositoryMock.Setup(x => x.GetByTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RefreshTokenEntity?)null);
+
+        // Act & Assert - Test should handle both exception and graceful failure
+        try
+        {
+            var result = await _authService.LogoutAsync(request);
+            Assert.False(result.Success);
+        }
+        catch (ArgumentException)
+        {
+            Assert.True(true); // Expected if validation added
+        }
+    }
+
+    #endregion
+
+    #region MustChangePassword Tests
+
+    [Fact]
+    public async Task LoginAsync_WithMustChangePassword_ReturnsFailureWithFlag()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            MustChangePassword = true
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.True(result.RequiresPasswordChange);
+        Assert.Contains("must change your password", result.Message);
+        Assert.Null(result.Token);
+    }
+
+    #endregion
 }

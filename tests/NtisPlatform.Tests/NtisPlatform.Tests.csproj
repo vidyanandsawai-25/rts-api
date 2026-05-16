@@ -28,6 +28,7 @@
 		<ProjectReference Include="..\..\src\Application\NtisPlatform.Application\NtisPlatform.Application.csproj" />
 		<ProjectReference Include="..\..\src\Infrastructure\NtisPlatform.Infrastructure\NtisPlatform.Infrastructure.csproj" />
 		<ProjectReference Include="..\..\src\Presentation\NtisPlatform.Api\NtisPlatform.Api.csproj" />
+		<ProjectReference Include="..\..\src\Presentation\NtisPlatform.Worker\NtisPlatform.Worker.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

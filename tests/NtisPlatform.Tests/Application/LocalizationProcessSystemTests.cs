@@ -8,8 +8,6 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core;
 using NtisPlatform.Core.Constants;
 using System.Reflection;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Options;
 
 namespace NtisPlatform.Tests.Application.Services;
 
