@@ -82,8 +82,7 @@ public static class EntityTestHelpers
         int? documentBindingId = null,
         bool isEnabled = false,
         bool markedForDeletion = false,
-        DateTime? markedForDeletionDate = null,
-        bool? isActive = null)
+        DateTime? markedForDeletionDate = null)
     {
         var entity = new PropertyCertificateEntity(
             propertyId: propertyId,
@@ -95,7 +94,7 @@ public static class EntityTestHelpers
             markedForDeletion: markedForDeletion,
             markedForDeletionDate: markedForDeletionDate);
 
-        entity.IsActive = markedForDeletion ? false : (isActive ?? true);
+        entity.IsActive = !markedForDeletion;
         return entity;
     }
 

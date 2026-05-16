@@ -1,235 +1,617 @@
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using NtisPlatform.Core.Entities;
-using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Exceptions;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Tests.Helpers;
 using Xunit;
 
 namespace NtisPlatform.Tests.Infrastructure.Services;
 
+/// <summary>
+/// Comprehensive tests for PropertyCertificateService to achieve 100% line and branch coverage
+/// </summary>
 public class PropertyCertificateServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly Mock<IUnitOfWork> _unitOfWork;
+    private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly PropertyCertificateService _service;
 
     public PropertyCertificateServiceTests()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
+
         _context = new ApplicationDbContext(options);
-        _unitOfWork = new Mock<IUnitOfWork>();
-        _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .Returns<CancellationToken>(ct => _context.SaveChangesAsync(ct));
-        _service = new PropertyCertificateService(_context, _unitOfWork.Object);
+        _mockUnitOfWork = new Mock<IUnitOfWork>();
+
+        // Configure mock to actually call SaveChanges on the context
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(async (CancellationToken ct) => await _context.SaveChangesAsync(ct));
+
+        _service = new PropertyCertificateService(_context, _mockUnitOfWork.Object);
+
+        SeedTestData();
     }
 
-    public void Dispose() => _context.Dispose();
-
-    private async Task<int> SeedPropertyAsync(bool active = true)
+    private void SeedTestData()
     {
-        var property = new PropertyEntity { Id = 1, WardId = 1, IsActive = active };
+        var property = EntityTestHelpers.CreatePropertyEntity(id: 1);
+        var certificateType = EntityTestHelpers.CreatePropertyCertificateTypeMasterEntity(id: 1);
+
         _context.PropertyMast.Add(property);
-        await _context.SaveChangesAsync();
-        return property.Id;
+        _context.PropertyCertificateTypeMasters.Add(certificateType);
+        _context.SaveChanges();
     }
 
-    private async Task<int> SeedCertificateTypeAsync(bool active = true)
-    {
-        var type = new PropertyCertificateTypeMasterEntity { Id = 5, IsActive = active };
-        _context.PropertyCertificateTypeMasters.Add(type);
-        await _context.SaveChangesAsync();
-        return type.Id;
-    }
-
-    #region CreateAsync
+    #region Constructor Tests
 
     [Fact]
-    public async Task CreateAsync_Throws_WhenPropertyMissing()
+    public void Constructor_WithValidDependencies_CreatesInstance()
     {
-        await SeedCertificateTypeAsync();
-        await Assert.ThrowsAsync<PropertyNotFoundException>(() =>
-            _service.CreateAsync(99, 5, "CERT-1", DateTime.Now, 1));
-    }
+        // Arrange & Act
+        var service = new PropertyCertificateService(_context, _mockUnitOfWork.Object);
 
-    [Fact]
-    public async Task CreateAsync_Throws_WhenCertificateTypeMissing()
-    {
-        await SeedPropertyAsync();
-        await Assert.ThrowsAsync<CertificateTypeNotFoundException>(() =>
-            _service.CreateAsync(1, 99, "CERT-1", DateTime.Now, 1));
-    }
-
-    [Fact]
-    public async Task CreateAsync_CreatesEntity()
-    {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-
-        var id = await _service.CreateAsync(1, 5, "CERT-1", new DateTime(2024, 1, 1), 7);
-
-        var saved = await _context.PropertyCertificates.SingleAsync();
-        Assert.Equal(id, saved.Id);
-        Assert.Equal(7, saved.CreatedBy);
+        // Assert
+        Assert.NotNull(service);
     }
 
     #endregion
 
-    #region CreateWithDocumentAsync
+    #region CreateAsync Tests
 
     [Fact]
-    public async Task CreateWithDocumentAsync_Throws_WhenPropertyMissing()
+    public async Task CreateAsync_WithValidParameters_CreatesEntity()
     {
-        await SeedCertificateTypeAsync();
-        await Assert.ThrowsAsync<PropertyNotFoundException>(() =>
-            _service.CreateWithDocumentAsync(99, 5, 10, null, null, 1));
+        // Act
+        var result = await _service.CreateAsync(
+            propertyId: 1,
+            certificateTypeId: 1,
+            certificateNo: "CERT-001",
+            issueDate: DateTime.Now,
+            createdBy: 1);
+
+        // Assert
+        Assert.True(result > 0);
+        var entity = await _context.PropertyCertificates.FirstOrDefaultAsync(x => x.Id == result);
+        Assert.NotNull(entity);
+        Assert.Equal(1, entity.PropertyId);
+        Assert.Equal(1, entity.CertificateTypeId);
+        Assert.Equal("CERT-001", entity.CertificateNo);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task CreateWithDocumentAsync_Throws_WhenCertificateTypeMissing()
+    public async Task CreateAsync_WithInvalidPropertyId_ThrowsPropertyNotFoundException()
     {
-        await SeedPropertyAsync();
-        await Assert.ThrowsAsync<CertificateTypeNotFoundException>(() =>
-            _service.CreateWithDocumentAsync(1, 99, 10, null, null, 1));
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<PropertyNotFoundException>(() =>
+            _service.CreateAsync(
+                propertyId: 999,
+                certificateTypeId: 1,
+                certificateNo: "CERT-001",
+                issueDate: DateTime.Now,
+                createdBy: 1));
+
+        Assert.Contains("Property", exception.Message);
+        Assert.Equal(999, exception.EntityId);
     }
 
     [Fact]
-    public async Task CreateWithDocumentAsync_CreatesEntity()
+    public async Task CreateAsync_WithInvalidCertificateTypeId_ThrowsCertificateTypeNotFoundException()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<CertificateTypeNotFoundException>(() =>
+            _service.CreateAsync(
+                propertyId: 1,
+                certificateTypeId: 999,
+                certificateNo: "CERT-001",
+                issueDate: DateTime.Now,
+                createdBy: 1));
 
-        var id = await _service.CreateWithDocumentAsync(1, 5, 10, "CERT-1", new DateTime(2024, 1, 1), 7);
+        Assert.Contains("CertificateType", exception.Message);
+        Assert.Equal(999, exception.EntityId);
+    }
 
-        var saved = await _context.PropertyCertificates.SingleAsync();
-        Assert.Equal(id, saved.Id);
-        Assert.Equal(10, saved.DocumentBindingId);
+    [Fact]
+    public async Task CreateAsync_WithNullCertificateNo_CreatesEntity()
+    {
+        // Act
+        var result = await _service.CreateAsync(
+            propertyId: 1,
+            certificateTypeId: 1,
+            certificateNo: null,
+            issueDate: DateTime.Now,
+            createdBy: 1);
+
+        // Assert
+        Assert.True(result > 0);
+        var entity = await _context.PropertyCertificates.FirstOrDefaultAsync(x => x.Id == result);
+        Assert.NotNull(entity);
+        Assert.Null(entity.CertificateNo);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithNullIssueDate_CreatesEntity()
+    {
+        // Act
+        var result = await _service.CreateAsync(
+            propertyId: 1,
+            certificateTypeId: 1,
+            certificateNo: "CERT-001",
+            issueDate: null,
+            createdBy: 1);
+
+        // Assert
+        Assert.True(result > 0);
+        var entity = await _context.PropertyCertificates.FirstOrDefaultAsync(x => x.Id == result);
+        Assert.NotNull(entity);
+        Assert.Null(entity.IssueDate);
     }
 
     #endregion
 
-    #region UpdateDocumentBindingAsync
+    #region CreateWithDocumentAsync Tests
 
     [Fact]
-    public async Task UpdateDocumentBindingAsync_Throws_WhenCertificateMissing()
+    public async Task CreateWithDocumentAsync_WithValidParameters_CreatesEntity()
     {
+        // Act
+        var result = await _service.CreateWithDocumentAsync(
+            propertyId: 1,
+            certificateTypeId: 1,
+            documentBindingId: 100,
+            certificateNo: "CERT-002",
+            issueDate: DateTime.Now,
+            createdBy: 1);
+
+        // Assert
+        Assert.True(result > 0);
+        var entity = await _context.PropertyCertificates.FirstOrDefaultAsync(x => x.Id == result);
+        Assert.NotNull(entity);
+        Assert.Equal(100, entity.DocumentBindingId);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateWithDocumentAsync_WithInvalidPropertyId_ThrowsPropertyNotFoundException()
+    {
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<PropertyNotFoundException>(() =>
+            _service.CreateWithDocumentAsync(
+                propertyId: 999,
+                certificateTypeId: 1,
+                documentBindingId: 100,
+                certificateNo: "CERT-002",
+                issueDate: DateTime.Now,
+                createdBy: 1));
+
+        Assert.Contains("Property", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateWithDocumentAsync_WithInvalidCertificateTypeId_ThrowsCertificateTypeNotFoundException()
+    {
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<CertificateTypeNotFoundException>(() =>
+            _service.CreateWithDocumentAsync(
+                propertyId: 1,
+                certificateTypeId: 999,
+                documentBindingId: 100,
+                certificateNo: "CERT-002",
+                issueDate: DateTime.Now,
+                createdBy: 1));
+
+        Assert.Contains("CertificateType", exception.Message);
+    }
+
+    #endregion
+
+    #region UpdateDocumentBindingAsync Tests
+
+    [Fact]
+    public async Task UpdateDocumentBindingAsync_WithValidId_UpdatesBinding()
+    {
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .Returns(async (CancellationToken ct) => await _context.SaveChangesAsync(ct));
+
+        // Act
+        await _service.UpdateDocumentBindingAsync(entity.Id, 200, 1);
+
+        // Assert
+        var updatedEntity = await _context.PropertyCertificates.FirstOrDefaultAsync(x => x.Id == entity.Id);
+        Assert.NotNull(updatedEntity);
+        Assert.Equal(200, updatedEntity.DocumentBindingId);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateDocumentBindingAsync_WithInvalidId_ThrowsPropertyCertificateNotFoundException()
+    {
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<PropertyCertificateNotFoundException>(() =>
+            _service.UpdateDocumentBindingAsync(999, 200, 1));
+
+        Assert.Contains("PropertyCertificate", exception.Message);
+        Assert.Equal(999, exception.EntityId);
+    }
+
+    [Fact]
+    public async Task UpdateDocumentBindingAsync_WithInactiveEntity_ThrowsPropertyCertificateNotFoundException()
+    {
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        entity.IsActive = false;
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act & Assert
         await Assert.ThrowsAsync<PropertyCertificateNotFoundException>(() =>
-            _service.UpdateDocumentBindingAsync(99, 10, 1));
-    }
-
-    [Fact]
-    public async Task UpdateDocumentBindingAsync_UpdatesBinding()
-    {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        var id = await _service.CreateAsync(1, 5, "CERT-1", null, 7);
-
-        await _service.UpdateDocumentBindingAsync(id, 20, 8);
-
-        var updated = await _context.PropertyCertificates.SingleAsync();
-        Assert.Equal(20, updated.DocumentBindingId);
-        Assert.Equal(8, updated.UpdatedBy);
+            _service.UpdateDocumentBindingAsync(entity.Id, 200, 1));
     }
 
     #endregion
 
-    #region GetByIdAsync
+    #region GetByIdAsync Tests
 
     [Fact]
-    public async Task GetByIdAsync_ReturnsNull_WhenMissing()
+    public async Task GetByIdAsync_WithExistingId_ReturnsEntity()
     {
-        Assert.Null(await _service.GetByIdAsync(99));
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(entity.Id, result.Id);
     }
 
     [Fact]
-    public async Task GetByIdAsync_ReturnsEntity_WhenFound()
+    public async Task GetByIdAsync_WithNonExistentId_ReturnsNull()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        var id = await _service.CreateAsync(1, 5, "CERT-1", null, 7);
+        // Act
+        var result = await _service.GetByIdAsync(999);
 
-        var result = await _service.GetByIdAsync(id);
-
-        Assert.NotNull(result);
-        Assert.Equal(id, result!.Id);
+        // Assert
+        Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetByIdAsync_WithIncludeOptions_None_ReturnsEntity()
+    public async Task GetByIdAsync_WithInactiveEntity_ReturnsNull()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        var id = await _service.CreateAsync(1, 5, "CERT-1", null, 7);
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        entity.IsActive = false;
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
 
-        var result = await _service.GetByIdAsync(id, PropertyCertificateIncludeOptions.None);
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id);
 
-        Assert.NotNull(result);
+        // Assert
+        Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetByIdAsync_WithIncludeOptions_All_AppliesIncludes()
+    public async Task GetByIdAsync_WithMarkedForDeletion_ReturnsNull()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        var id = await _service.CreateAsync(1, 5, "CERT-1", null, 7);
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            markedForDeletion: true);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
 
-        var result = await _service.GetByIdAsync(id, PropertyCertificateIncludeOptions.CertificateType);
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id);
 
-        Assert.NotNull(result);
+        // Assert
+        Assert.Null(result);
     }
 
     #endregion
 
-    #region GetByPropertyIdAsync
+    #region GetByIdAsync with IncludeOptions Tests
 
     [Fact]
-    public async Task GetByPropertyIdAsync_ReturnsEmpty_WhenNoCertificates()
+    public async Task GetByIdAsync_WithIncludeNone_ReturnsEntityWithoutNavigationProperties()
     {
-        var result = await _service.GetByPropertyIdAsync(99);
-        Assert.Empty(result);
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id, PropertyCertificateIncludeOptions.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.CertificateType);
+        Assert.Null(result.DocumentBinding);
     }
 
     [Fact]
-    public async Task GetByPropertyIdAsync_ReturnsCertificatesForProperty()
+    public async Task GetByIdAsync_WithIncludeCertificateType_ReturnsEntityWithCertificateType()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        await _service.CreateAsync(1, 5, "CERT-1", null, 7);
-        await _service.CreateAsync(1, 5, "CERT-2", null, 7);
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
 
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id, PropertyCertificateIncludeOptions.CertificateType);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.CertificateType);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithIncludeDocumentBinding_ReturnsEntityWithDocumentBinding()
+    {
+        // Arrange
+        var binding = EntityTestHelpers.CreateDocumentBindingEntity(documentId: 1);
+        _context.DocumentBindings.Add(binding);
+        await _context.SaveChangesAsync();
+
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            documentBindingId: binding.Id);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id, PropertyCertificateIncludeOptions.DocumentBinding);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.DocumentBinding);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithIncludeDocument_ReturnsEntityWithDocumentBindingAndDocument()
+    {
+        // Arrange
+        var document = EntityTestHelpers.CreateDocumentEntity();
+        _context.Documents.Add(document);
+        await _context.SaveChangesAsync();
+
+        var binding = EntityTestHelpers.CreateDocumentBindingEntity(documentId: document.Id);
+        _context.DocumentBindings.Add(binding);
+        await _context.SaveChangesAsync();
+
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            documentBindingId: binding.Id);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByIdAsync(
+            entity.Id,
+            PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.DocumentBinding);
+        Assert.NotNull(result.DocumentBinding.Document);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithIncludeAll_ReturnsEntityWithAllNavigationProperties()
+    {
+        // Arrange
+        var document = EntityTestHelpers.CreateDocumentEntity();
+        _context.Documents.Add(document);
+        await _context.SaveChangesAsync();
+
+        var binding = EntityTestHelpers.CreateDocumentBindingEntity(documentId: document.Id);
+        _context.DocumentBindings.Add(binding);
+        await _context.SaveChangesAsync();
+
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            documentBindingId: binding.Id);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByIdAsync(entity.Id, PropertyCertificateIncludeOptions.All);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.CertificateType);
+        Assert.NotNull(result.DocumentBinding);
+        Assert.NotNull(result.DocumentBinding.Document);
+    }
+
+    #endregion
+
+    #region GetByPropertyIdAsync Tests
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WithExistingProperty_ReturnsEntities()
+    {
+        // Arrange
+        var entity1 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        var entity2 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.AddRange(entity1, entity2);
+        await _context.SaveChangesAsync();
+
+        // Act
         var result = await _service.GetByPropertyIdAsync(1);
 
+        // Assert
+        Assert.NotNull(result);
         Assert.Equal(2, result.Count);
     }
 
     [Fact]
-    public async Task GetByPropertyIdAsync_WithIncludeOptions_None_ReturnsAll()
+    public async Task GetByPropertyIdAsync_WithNoEntities_ReturnsEmptyList()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        await _service.CreateAsync(1, 5, "CERT-1", null, 7);
+        // Act
+        var result = await _service.GetByPropertyIdAsync(999);
 
-        var result = await _service.GetByPropertyIdAsync(1, PropertyCertificateIncludeOptions.None);
+        // Assert
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
 
+    [Fact]
+    public async Task GetByPropertyIdAsync_FiltersInactiveEntities()
+    {
+        // Arrange
+        var entity1 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        var entity2 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        entity2.IsActive = false;
+        _context.PropertyCertificates.AddRange(entity1, entity2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(1);
+
+        // Assert
+        Assert.NotNull(result);
         Assert.Single(result);
     }
 
     [Fact]
-    public async Task GetByPropertyIdAsync_WithIncludeOptions_All_AppliesIncludes()
+    public async Task GetByPropertyIdAsync_FiltersMarkedForDeletion()
     {
-        await SeedPropertyAsync();
-        await SeedCertificateTypeAsync();
-        await _service.CreateAsync(1, 5, "CERT-1", null, 7);
+        // Arrange
+        var entity1 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        var entity2 = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            markedForDeletion: true);
+        _context.PropertyCertificates.AddRange(entity1, entity2);
+        await _context.SaveChangesAsync();
 
-        var result = await _service.GetByPropertyIdAsync(1, PropertyCertificateIncludeOptions.All);
+        // Act
+        var result = await _service.GetByPropertyIdAsync(1);
 
+        // Assert
+        Assert.NotNull(result);
         Assert.Single(result);
     }
 
     #endregion
+
+    #region GetByPropertyIdAsync with IncludeOptions Tests
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WithIncludeNone_ReturnsEntitiesWithoutNavigationProperties()
+    {
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(1, PropertyCertificateIncludeOptions.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.Null(result[0].CertificateType);
+        Assert.Null(result[0].DocumentBinding);
+    }
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WithIncludeCertificateType_ReturnsEntitiesWithCertificateType()
+    {
+        // Arrange
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(1, PropertyCertificateIncludeOptions.CertificateType);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.NotNull(result[0].CertificateType);
+    }
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WithIncludeAll_ReturnsEntitiesWithAllNavigationProperties()
+    {
+        // Arrange
+        var document = EntityTestHelpers.CreateDocumentEntity();
+        _context.Documents.Add(document);
+        await _context.SaveChangesAsync();
+
+        var binding = EntityTestHelpers.CreateDocumentBindingEntity(documentId: document.Id);
+        _context.DocumentBindings.Add(binding);
+        await _context.SaveChangesAsync();
+
+        var entity = EntityTestHelpers.CreatePropertyCertificateEntity(
+            propertyId: 1,
+            certificateTypeId: 1,
+            documentBindingId: binding.Id);
+        _context.PropertyCertificates.Add(entity);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(1, PropertyCertificateIncludeOptions.All);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result);
+        Assert.NotNull(result[0].CertificateType);
+        Assert.NotNull(result[0].DocumentBinding);
+        Assert.NotNull(result[0].DocumentBinding!.Document);
+    }
+
+    #endregion
+
+    public void Dispose()
+    {
+        _context?.Database.EnsureDeleted();
+        _context?.Dispose();
+    }
 }
