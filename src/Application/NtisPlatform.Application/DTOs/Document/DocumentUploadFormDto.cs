@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace NtisPlatform.Api.DTOs;
+namespace NtisPlatform.Application.DTOs.Document;
 
 /// <summary>
 /// Form DTO for document upload

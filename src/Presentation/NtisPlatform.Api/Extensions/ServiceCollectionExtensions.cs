@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
- 
 using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Localization;
@@ -68,8 +67,9 @@ public static class ServiceCollectionExtensions
         services.AddHostedService<LocalizationWarmupHostedService>();
         // Replace RESX localizer with service-backed factory
         services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
-        // model data fill culture wise.
+        // Configure localization options from appsettings
         services.Configure<NtisPlatform.Application.Options.LocalizationOptions>(configuration.GetSection("Localization"));
+        // model data fill culture wise.
         services.AddScoped<LocalizationProcessor>();
 
         // Field-level localization (uses ILocalizationService for caching)
@@ -111,21 +111,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
         services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
-        
-        // Email Services
-        services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
-        services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IEmailTemplateService, EmailTemplateService>();
+        services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
 
-        // API Layer - Helpers
-        services.AddSingleton<NtisPlatform.Api.Helpers.FileValidationHelper>();
-        services.AddScoped<ICombinePropertyValidator, CombinePropertyValidator>();
-        services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
-        services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
+        // Translation Management
+        services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
+
+        // Google Translate Service
+        services.AddHttpClient<ITranslationService, TranslationService>();
+        services.Configure<TranslationServiceOptions>(configuration.GetSection("GoogleTranslate"));
+
+        // Application Layer - Helpers
+        services.AddSingleton<NtisPlatform.Application.Helpers.FileValidationHelper>();
+
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
@@ -142,10 +145,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IULBMasterService, ULBMasterService>();
         services.AddScoped<IPaymentModeService, PaymentModeService>();
         services.AddScoped<ICapitalValueService, CapitalValueService>();
- 
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IRuleService, RuleService>();
         services.AddScoped<ICombinePropertyService, CombinePropertyService>();
+        services.AddScoped<ICombinePropertyValidator, CombinePropertyValidator>();
+        services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
+        services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
+
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();
@@ -207,17 +213,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
-        services.AddScoped<IPropertyMapMasterService, PropertyMapMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
+        services.AddScoped<IPropertyMapMasterService, PropertyMapMasterService>();
 
-        // Translation Management
-        services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
-
-        // Google Translate Service
-        services.AddHttpClient<ITranslationService, TranslationService>();
-
-        services.Configure<TranslationServiceOptions>(
-                 configuration.GetSection("GoogleTranslate"));
         // Water Connection Services
         services.AddScoped<IWaterConnectionTypeService, WaterConnectionTypeService>();
         services.AddScoped<IWaterConnectionSizeService, WaterConnectionSizeService>();
@@ -263,7 +261,6 @@ public static class ServiceCollectionExtensions
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and your token. Example: \"Bearer eyJhbGc...\"",
- 
                 Name = "Authorization",
                 In = ParameterLocation.Header,
                 Type = SecuritySchemeType.Http,
@@ -456,4 +453,3 @@ public static class ServiceCollectionExtensions
         return services;
     }
 }
-

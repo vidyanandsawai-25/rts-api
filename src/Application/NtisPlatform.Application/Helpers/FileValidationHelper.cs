@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace NtisPlatform.Api.Helpers;
+namespace NtisPlatform.Application.Helpers;
 
 /// <summary>
 /// Service for file validation with configurable allowed types
@@ -12,7 +12,6 @@ public class FileValidationHelper
 
     public FileValidationHelper(IConfiguration configuration)
     {
-        // Load allowed MIME types from configuration with defaults
         var mimeTypes = configuration.GetSection("FileValidation:AllowedMimeTypes").Get<string[]>() ?? new[]
         {
             "application/pdf",
@@ -24,7 +23,6 @@ public class FileValidationHelper
         };
         _allowedMimeTypes = new HashSet<string>(mimeTypes, StringComparer.OrdinalIgnoreCase);
 
-        // Load allowed extensions from configuration with defaults
         var extensions = configuration.GetSection("FileValidation:AllowedExtensions").Get<string[]>() ?? new[]
         {
             ".pdf",

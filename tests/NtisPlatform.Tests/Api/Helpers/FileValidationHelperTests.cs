@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Moq;
-using NtisPlatform.Api.Helpers;
+using NtisPlatform.Application.Helpers;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Helpers;

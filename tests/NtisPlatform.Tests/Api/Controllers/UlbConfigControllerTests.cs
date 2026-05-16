@@ -10,56 +10,121 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class UlbConfigControllerTests
 {
-    private static UlbConfigController Create(out Mock<IUlbConfigService> service)
+    private readonly Mock<IUlbConfigService> _mockService;
+    private readonly Mock<ILogger<UlbConfigController>> _mockLogger;
+    private readonly UlbConfigController _controller;
+
+    public UlbConfigControllerTests()
     {
-        service = new Mock<IUlbConfigService>();
-        var logger = new Mock<ILogger<UlbConfigController>>();
-        return new UlbConfigController(service.Object, logger.Object);
+        _mockService = new Mock<IUlbConfigService>();
+        _mockLogger = new Mock<ILogger<UlbConfigController>>();
+        _controller = new UlbConfigController(_mockService.Object, _mockLogger.Object);
     }
 
     [Fact]
     public async Task GetConfig_ReturnsOk_WhenConfigExists()
     {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UlbConfigDto());
+        // Arrange
+        var expectedConfig = new UlbConfigDto
+        {
+            UlbId = 1,
+            UlbName = "Test ULB",
+            UlbCode = "TEST001"
+        };
 
-        var result = await controller.GetConfig(CancellationToken.None);
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedConfig);
 
-        Assert.IsType<OkObjectResult>(result);
+        // Act
+        var result = await _controller.GetConfig(CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(expectedConfig, okResult.Value);
     }
 
     [Fact]
-    public async Task GetConfig_ReturnsNotFound_WhenConfigMissing()
+    public async Task GetConfig_ReturnsNotFound_WhenConfigDoesNotExist()
     {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetUlbConfigAsync(It.IsAny<CancellationToken>())).ReturnsAsync((UlbConfigDto?)null);
+        // Arrange
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UlbConfigDto?)null);
 
-        var result = await controller.GetConfig(CancellationToken.None);
+        // Act
+        var result = await _controller.GetConfig(CancellationToken.None);
 
-        Assert.IsType<NotFoundObjectResult>(result);
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        Assert.NotNull(notFoundResult.Value);
     }
 
     [Fact]
-    public async Task GetConfig_PropagatesOperationCanceledException()
+    public async Task GetConfig_ReturnsInternalServerError_OnException()
     {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+        // Arrange
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.GetConfig(CancellationToken.None);
+
+        // Assert
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetConfig_ThrowsOperationCanceledException_WhenCancelled()
+    {
+        // Arrange
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new OperationCanceledException());
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => controller.GetConfig(CancellationToken.None));
+        // Act & Assert
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await _controller.GetConfig(CancellationToken.None));
     }
 
     [Fact]
-    public async Task GetConfig_Returns500_OnUnexpectedException()
+    public async Task GetConfig_LogsWarning_WhenConfigNotFound()
     {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
+        // Arrange
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UlbConfigDto?)null);
 
-        var result = await controller.GetConfig(CancellationToken.None);
+        // Act
+        await _controller.GetConfig(CancellationToken.None);
 
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
+        // Assert
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("No active ULB configuration found")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetConfig_LogsError_OnException()
+    {
+        // Arrange
+        var exception = new Exception("Database error");
+        _mockService.Setup(x => x.GetUlbConfigAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(exception);
+
+        // Act
+        await _controller.GetConfig(CancellationToken.None);
+
+        // Assert
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error retrieving ULB configuration")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
     }
 }

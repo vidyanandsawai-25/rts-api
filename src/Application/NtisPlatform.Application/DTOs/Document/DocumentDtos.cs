@@ -49,9 +49,9 @@ public class DocumentUploadResponseDto
     public Guid DocumentGuid { get; set; }
     public int DocumentId { get; set; }
     public int? DocumentBindingId { get; set; }
-    public string FileName { get; set; } = string.Empty;
+    public string? FileName { get; set; }
     public long FileSizeBytes { get; set; }
-    public string StoragePath { get; set; } = string.Empty;
+    public string? StoragePath { get; set; }
 }
 
 /// <summary>
@@ -63,15 +63,15 @@ public class DocumentDto
     public Guid DocumentGuid { get; set; }
     public int UploadedBy { get; set; }
     public int? OwnerUserId { get; set; }
-    public string FileName { get; set; } = string.Empty;
-    public string OriginalFileName { get; set; } = string.Empty;
-    public string FileExtension { get; set; } = string.Empty;
-    public string MimeType { get; set; } = string.Empty;
+    public string? FileName { get; set; }
+    public string? OriginalFileName { get; set; }
+    public string? FileExtension { get; set; }
+    public string? MimeType { get; set; }
     public long FileSizeBytes { get; set; }
-    public string StorageProvider { get; set; } = string.Empty;
-    public string StoragePath { get; set; } = string.Empty;
+    public string? StorageProvider { get; set; }
+    public string? StoragePath { get; set; }
     public string? DocumentType { get; set; }
-    public string UploadStatusCode { get; set; } = string.Empty;
+    public string? UploadStatusCode { get; set; }
     public int DownloadCount { get; set; }
     public DateTime? CreatedDate { get; set; }
     public bool IsActive { get; set; }

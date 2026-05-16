@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace NtisPlatform.Api.DTOs;
+namespace NtisPlatform.Application.DTOs.PropertyCertificate;
 
 /// <summary>
 /// Form DTO for uploading PropertyCertificate with file

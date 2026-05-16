@@ -2,38 +2,38 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
-using NtisPlatform.Application.DTOs.Master.PropertyCertificateType;
+using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
 
-public class PropertyCertificateTypeControllerTests
+public class OwnerTypeControllerTests
 {
-    private readonly Mock<IPropertyCertificateTypeService> _serviceMock;
-    private readonly Mock<ILogger<PropertyCertificateTypeController>> _loggerMock;
-    private readonly PropertyCertificateTypeController _controller;
+    private readonly Mock<IOwnerTypeService> _serviceMock;
+    private readonly Mock<ILogger<OwnerTypeController>> _loggerMock;
+    private readonly OwnerTypeController _controller;
 
-    public PropertyCertificateTypeControllerTests()
+    public OwnerTypeControllerTests()
     {
-        _serviceMock = new Mock<IPropertyCertificateTypeService>();
-        _loggerMock = new Mock<ILogger<PropertyCertificateTypeController>>();
-        _controller = new PropertyCertificateTypeController(_serviceMock.Object, _loggerMock.Object);
+        _serviceMock = new Mock<IOwnerTypeService>();
+        _loggerMock = new Mock<ILogger<OwnerTypeController>>();
+        _controller = new OwnerTypeController(_serviceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
     public async Task GetAll_ReturnsOkResult()
     {
-        var queryParams = new PropertyCertificateTypeQueryParameters();
-        var pagedResult = new PagedResult<PropertyCertificateTypeDto>
+        var queryParams = new OwnerTypeQueryParameters();
+        var pagedResult = new PagedResult<OwnerTypeDto>
         {
-            Items = new List<PropertyCertificateTypeDto> { new PropertyCertificateTypeDto { Id = 1 } },
+            Items = new List<OwnerTypeDto> { new OwnerTypeDto { Id = 1 } },
             TotalCount = 1,
             PageNumber = 1,
             PageSize = 10
         };
-        _serviceMock.Setup(s => s.GetAllAsync(It.IsAny<PropertyCertificateTypeQueryParameters>(), It.IsAny<CancellationToken>()))
+        _serviceMock.Setup(s => s.GetAllAsync(It.IsAny<OwnerTypeQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
 
         var result = await _controller.GetAll(queryParams, CancellationToken.None);
@@ -44,7 +44,7 @@ public class PropertyCertificateTypeControllerTests
     [Fact]
     public async Task GetById_WithValidId_ReturnsOkResult()
     {
-        var dto = new PropertyCertificateTypeDto { Id = 1 };
+        var dto = new OwnerTypeDto { Id = 1 };
         _serviceMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
@@ -57,7 +57,7 @@ public class PropertyCertificateTypeControllerTests
     public async Task GetById_WithInvalidId_ReturnsNotFound()
     {
         _serviceMock.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PropertyCertificateTypeDto?)null);
+            .ReturnsAsync((OwnerTypeDto?)null);
 
         var result = await _controller.GetById(999, CancellationToken.None);
 
@@ -67,9 +67,9 @@ public class PropertyCertificateTypeControllerTests
     [Fact]
     public async Task Create_WithValidDto_ReturnsOkResult()
     {
-        var createDto = new CreatePropertyCertificateTypeDto();
-        var createdDto = new PropertyCertificateTypeDto { Id = 1 };
-        _serviceMock.Setup(s => s.CreateAsync(It.IsAny<CreatePropertyCertificateTypeDto>(), It.IsAny<CancellationToken>()))
+        var createDto = new CreateOwnerTypeDto();
+        var createdDto = new OwnerTypeDto { Id = 1 };
+        _serviceMock.Setup(s => s.CreateAsync(It.IsAny<CreateOwnerTypeDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(createdDto);
 
         var result = await _controller.Create(createDto, CancellationToken.None);
@@ -80,9 +80,9 @@ public class PropertyCertificateTypeControllerTests
     [Fact]
     public async Task Update_WithValidData_ReturnsOkResult()
     {
-        var updateDto = new UpdatePropertyCertificateTypeDto();
-        var updatedDto = new PropertyCertificateTypeDto { Id = 1 };
-        _serviceMock.Setup(s => s.UpdateAsync(1, It.IsAny<UpdatePropertyCertificateTypeDto>(), It.IsAny<CancellationToken>()))
+        var updateDto = new UpdateOwnerTypeDto();
+        var updatedDto = new OwnerTypeDto { Id = 1 };
+        _serviceMock.Setup(s => s.UpdateAsync(1, It.IsAny<UpdateOwnerTypeDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(updatedDto);
 
         var result = await _controller.Update(1, updateDto, CancellationToken.None);
@@ -93,9 +93,9 @@ public class PropertyCertificateTypeControllerTests
     [Fact]
     public async Task Update_WithInvalidId_ReturnsOk()
     {
-        var updateDto = new UpdatePropertyCertificateTypeDto();
-        _serviceMock.Setup(s => s.UpdateAsync(999, It.IsAny<UpdatePropertyCertificateTypeDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PropertyCertificateTypeDto?)null);
+        var updateDto = new UpdateOwnerTypeDto();
+        _serviceMock.Setup(s => s.UpdateAsync(999, It.IsAny<UpdateOwnerTypeDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OwnerTypeDto?)null);
 
         var result = await _controller.Update(999, updateDto, CancellationToken.None);
 

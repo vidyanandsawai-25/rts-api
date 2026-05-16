@@ -63,9 +63,9 @@ public class DocumentDtoTests
         Assert.Equal(0, dto.Id);
         Assert.Equal(Guid.Empty, dto.DocumentGuid);
         Assert.Equal(0, dto.UploadedBy);
-        Assert.Equal(string.Empty, dto.FileName);
+        Assert.Null(dto.FileName);
         Assert.Equal(0, dto.FileSizeBytes);
-        Assert.Equal(string.Empty, dto.StoragePath);
+        Assert.Null(dto.StoragePath);
         Assert.False(dto.IsActive);
     }
 
@@ -196,9 +196,9 @@ public class DocumentDtoTests
         Assert.Equal(Guid.Empty, dto.DocumentGuid);
         Assert.Equal(0, dto.DocumentId);
         Assert.Null(dto.DocumentBindingId);
-        Assert.Equal(string.Empty, dto.FileName);
+        Assert.Null(dto.FileName);
         Assert.Equal(0, dto.FileSizeBytes);
-        Assert.Equal(string.Empty, dto.StoragePath);
+        Assert.Null(dto.StoragePath);
     }
 
     [Fact]
