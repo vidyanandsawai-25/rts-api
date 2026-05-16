@@ -120,6 +120,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<WaterRateMasterEntity> WaterRateMasters { get; set; } = null!;
     public DbSet<WaterConnectionMasterEntity> WaterConnectionMasters { get; set; } = null!;
     public DbSet<WaterConnectionDetailsEntity> WaterConnectionDetails { get; set; } = null!;
+    //Asset Start
+    public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
+    public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
+    public DbSet<InventoryItemConditionEntity> InventoryItemCondition { get; set; } = null!;
+    public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
+    public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
+    public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
+    public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -2561,5 +2569,236 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
+
+        //Asset Inventory Item Category configuration
+        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+        {
+            entity.ToTable("InventoryItemCategoryMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeCode).HasMaxLength(100);
+            entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.TypeCode);
+            entity.HasIndex(e => e.TypeName);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<InventoryItemNameEntity>(entity =>
+        {
+            entity.ToTable("InventoryItemNameMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
+            entity.Property(e => e.SubTypeCode).HasMaxLength(50);
+            entity.Property(e => e.SubTypeName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.InventoryItemCategoryId);
+            entity.HasIndex(e => e.SubTypeCode);
+            entity.HasIndex(e => e.SubTypeName);
+            entity.HasIndex(e => e.IsActive);
+
+            // Explicit foreign key relationship
+            entity.HasOne<InventoryItemCategoryEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.InventoryItemCategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryItemConditionEntity>(entity =>
+        {
+            entity.ToTable("InventoryItemConditionMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
+            entity.Property(e => e.ConditionName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.InventoryItemCategoryId);
+            entity.HasIndex(e => e.ConditionName);
+            entity.HasIndex(e => e.IsActive);
+
+            // Explicit foreign key relationship
+            entity.HasOne<InventoryItemCategoryEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.InventoryItemCategoryId)
+                  .OnDelete(DeleteBehavior.Restrict); // or .Cascade, .SetNull as per your requirement
+        });
+
+        modelBuilder.Entity<InventoryItemModelEntity>(entity =>
+        {
+            entity.ToTable("InventoryItemModelMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.InventoryItemNameId).IsRequired();
+            entity.Property(e => e.ModelName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.InventoryItemNameId);
+            entity.HasIndex(e => e.ModelName);
+            entity.HasIndex(e => e.IsActive);
+
+            // Explicit foreign key relationship
+            entity.HasOne<InventoryItemNameEntity>()
+                  .WithMany()
+                  .HasForeignKey(e => e.InventoryItemNameId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ScreenEntity>(entity =>
+        {
+            entity.ToTable("ScreenMaster", "AMS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ScreenName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.ScreenCode).IsRequired().HasMaxLength(200);
+            entity.HasIndex(e => e.ScreenCode).IsUnique();
+            entity.Property(e => e.ScreenNameLocal).HasMaxLength(200);
+            entity.Property(e => e.ScreenIcon).HasMaxLength(100);
+            entity.Property(e => e.RoutePath).HasMaxLength(500);
+            entity.Property(e => e.BaseRoutePath).HasMaxLength(500);
+            entity.Property(e => e.RouteParamPattern).HasMaxLength(500);
+            entity.Property(e => e.Purpose).HasMaxLength(100);
+            entity.Property(e => e.ComponentName).HasMaxLength(200);
+            entity.Property(e => e.AreaName).HasMaxLength(200);
+            entity.Property(e => e.ControllerName).HasMaxLength(200);
+            entity.Property(e => e.ActionName).HasMaxLength(200);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.IsAuthenticationRequired).HasDefaultValue(true);
+            entity.Property(e => e.IsMenuVisible).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Foreign key: ParentScreenId (self-reference)
+            entity.HasOne<ScreenEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ParentScreenId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ParentScreenId);
+        });
+
+        modelBuilder.Entity<ScreenFormSectionMasterEntity>(entity =>
+        {
+            entity.ToTable("ScreenFormSectionMaster", "AMS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.SectionType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.SectionName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SectionNameLocal).HasMaxLength(200);
+            entity.Property(e => e.SectionCode).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DisplayOrder).IsRequired();
+            entity.Property(e => e.ColumnCount).IsRequired().HasDefaultValue(2);
+            entity.Property(e => e.IsOptional).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsCollapsible).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsCollapsedByDefault).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsRepeatable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Foreign key: ScreenId
+            entity.HasOne<ScreenEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ScreenId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Foreign key: ParentSectionId (self-reference)
+            entity.HasOne<ScreenFormSectionMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ParentSectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ScreenId, e.SectionCode }).IsUnique();
+            entity.HasIndex(e => e.ScreenId);
+            entity.HasIndex(e => e.ParentSectionId);
+        });
+        modelBuilder.Entity<ScreenFormFieldMasterEntity>(entity =>
+        {
+            entity.ToTable("ScreenFormFieldMaster", "AMS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldLabelLocal).HasMaxLength(200);
+            entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ControlType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Placeholder).HasMaxLength(300);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.DisplayOrder).IsRequired();
+            entity.Property(e => e.ColumnSpan).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.CssClass).HasMaxLength(200);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsVisible).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsUnique).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.RegexPattern).HasMaxLength(500);
+            entity.Property(e => e.ValidationMessage).HasMaxLength(500);
+            entity.Property(e => e.StaticOptionsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsCascading).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsMultiSelect).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.VisibilityConditionJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ValidationJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ExtraConfigJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsSearchable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsFilterable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Foreign key: ScreenId
+            entity.HasOne<ScreenEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ScreenId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Foreign key: SectionId
+            entity.HasOne<ScreenFormSectionMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.SectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Foreign key: ParentFieldId (self-reference)
+            entity.HasOne<ScreenFormFieldMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ParentFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.ScreenId, e.FieldCode }).IsUnique();
+            entity.HasIndex(e => e.ScreenId);
+            entity.HasIndex(e => e.SectionId);
+            entity.HasIndex(e => e.ParentFieldId);
+        });
+
     }
 }

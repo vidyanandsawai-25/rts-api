@@ -227,6 +227,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
+        //Asset Start
+        services.AddScoped<IInventoryItemCategoryService, InventoryItemCategoryService>();
+        services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();
+        services.AddScoped<IInventoryItemConditionService, InventoryItemConditionService>();
+        services.AddScoped<IInventoryItemModelService, InventoryItemModelService>();
+        services.AddScoped<IScreenService, ScreenService>();
+        services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
+        services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
+
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

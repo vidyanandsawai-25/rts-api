@@ -103,6 +103,38 @@ public class ReferenceValidationService : IReferenceValidationService
         .CheckReferences(
            ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.SocietyDetailId == id).Cast<object>())
         );
+
+        // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
+        config.ForEntity<InventoryItemCategoryEntity>()
+         .CheckReferences(
+            ("Inventory Item Name Master", (ctx, id) => ctx.InventoryItemName.Where(i => i.InventoryItemCategoryId == id && i.IsActive).Cast<object>()),
+            ("Inventory Item Condition Master", (ctx, id) => ctx.InventoryItemCondition.Where(i => i.InventoryItemCategoryId == id && i.IsActive).Cast<object>())
+         );
+        // Inventory Item Name - referenced by InventoryItemModel
+        config.ForEntity<InventoryItemNameEntity>()
+          .CheckReferences(
+              ("Inventory Item Model Master", (ctx, id) => ctx.InventoryItemModelMaster.Where(i => i.InventoryItemNameId == id && i.IsActive).Cast<object>())
+          );
+
+        config.ForEntity<ScreenEntity>()
+        .CheckReferences(
+            ("Screen Form Section Master", (ctx, id) => ctx.ScreenFormSectionMaster.Where(s => s.ScreenId == id && s.IsActive).Cast<object>()),
+            ("Screen Form Field Master", (ctx, id) => ctx.ScreenFormFieldMaster.Where(f => f.ScreenId == id && f.IsActive).Cast<object>()),
+            ("Child Screens", (ctx, id) => ctx.AssetScreen.Where(s => s.ParentScreenId == id && s.IsActive).Cast<object>())
+        );
+
+        // ScreenFormSection - referenced by ScreenFormField and child sections
+        config.ForEntity<ScreenFormSectionMasterEntity>()
+            .CheckReferences(
+                ("Screen Form Field Master", (ctx, id) => ctx.ScreenFormFieldMaster.Where(f => f.SectionId == id && f.IsActive).Cast<object>()),
+                ("Child Sections", (ctx, id) => ctx.ScreenFormSectionMaster.Where(s => s.ParentSectionId == id && s.IsActive).Cast<object>())
+            );
+
+        // ScreenFormField - referenced by child fields
+        config.ForEntity<ScreenFormFieldMasterEntity>()
+            .CheckReferences(
+                ("Child Fields", (ctx, id) => ctx.ScreenFormFieldMaster.Where(f => f.ParentFieldId == id && f.IsActive).Cast<object>())
+            );
         _referenceConfig = config.Build();
     }
 
