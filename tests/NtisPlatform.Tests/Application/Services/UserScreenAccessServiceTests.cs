@@ -310,4 +310,189 @@ public class UserScreenAccessServiceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             service.GetUserScreenAccessAsync(new UserScreenAccessQueryParameters()));
     }
+
+    [Fact]
+    public async Task GetUserScreenAccessAsync_ExcludesInactiveScreens()
+    {
+        var data = SeedDefault();
+        // Add an inactive screen with valid permissions and allocations
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 31,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S2",
+            ScreenName = "Inactive Tax Screen",
+            ScreenNameLocal = "ITS",
+            ScreenIcon = "icon",
+            RoutePath = "/inactive",
+            IsMenu = true,
+            IsActive = false // Inactive!
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 51,
+            UserRoleId = 60,
+            ScreenId = 31,
+            CanView = true,
+            CanEdit = false,
+            CanDelete = false,
+            HaveFullAccess = false,
+            HaveNoAccess = false,
+            IsActive = true
+        });
+        var service = Build(data);
+
+        var result = await service.GetUserScreenAccessAsync(new UserScreenAccessQueryParameters { PageSize = 100 });
+
+        // Should only return the active screen, not the inactive one
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("Property Tax", result.Items.Single().ScreenName);
+        Assert.DoesNotContain(result.Items, item => item.ScreenName == "Inactive Tax Screen");
+    }
+
+    [Fact]
+    public async Task GetUserScreensByUserIdAsync_ExcludesInactiveScreens()
+    {
+        var data = SeedDefault();
+        // Add an inactive screen with valid permissions
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 31,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S2",
+            ScreenName = "Inactive Menu",
+            ScreenNameLocal = "IM",
+            ScreenIcon = "icon",
+            RoutePath = "/inactive-menu",
+            IsMenu = true,
+            IsActive = false // Inactive - should be excluded from user's accessible screens
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 51,
+            UserRoleId = 60,
+            ScreenId = 31,
+            CanView = true,
+            CanEdit = true,
+            CanDelete = false,
+            HaveFullAccess = false,
+            HaveNoAccess = false,
+            IsActive = true
+        });
+        var service = Build(data);
+
+        var result = (await service.GetUserScreensByUserIdAsync(80)).ToList();
+
+        // User should only see active screens in their menu
+        Assert.Single(result);
+        Assert.Equal("Property Tax", result.Single().ScreenName);
+        Assert.DoesNotContain(result, item => item.ScreenName == "Inactive Menu");
+    }
+
+    [Fact]
+    public async Task GetUserScreenAccessAsync_IncludesActiveScreensWhenBothActiveAndInactiveExist()
+    {
+        var data = SeedDefault();
+        // Add both active and inactive screens to verify filtering works correctly
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 31,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S2",
+            ScreenName = "Active Screen 2",
+            IsActive = true
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 51,
+            UserRoleId = 60,
+            ScreenId = 31,
+            CanView = true
+        });
+
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 32,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S3",
+            ScreenName = "Inactive Screen",
+            IsActive = false
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 52,
+            UserRoleId = 60,
+            ScreenId = 32,
+            CanView = true
+        });
+
+        var service = Build(data);
+
+        var result = await service.GetUserScreenAccessAsync(new UserScreenAccessQueryParameters { PageSize = 100 });
+
+        // Should return only the 2 active screens
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(2, result.Items.Count());
+        Assert.Contains(result.Items, item => item.ScreenName == "Property Tax");
+        Assert.Contains(result.Items, item => item.ScreenName == "Active Screen 2");
+        Assert.DoesNotContain(result.Items, item => item.ScreenName == "Inactive Screen");
+    }
+
+    [Fact]
+    public async Task GetUserScreensByUserIdAsync_IncludesOnlyActiveScreensInMenu()
+    {
+        var data = SeedDefault();
+        // Add multiple screens: some active, some inactive
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 31,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S2",
+            ScreenName = "Active Menu Item",
+            IsActive = true,
+            IsMenu = true
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 51,
+            UserRoleId = 60,
+            ScreenId = 31,
+            CanView = true,
+            HaveFullAccess = true
+        });
+
+        data.Screens.Add(new ScreenMasterEntity
+        {
+            Id = 32,
+            ModuleId = 20,
+            ScreenGroupId = 40,
+            ScreenCode = "S3",
+            ScreenName = "Deprecated Menu Item",
+            IsActive = false,
+            IsMenu = true
+        });
+        data.RoleAccess.Add(new RoleWiseScreenAccessMasterEntity
+        {
+            Id = 52,
+            UserRoleId = 60,
+            ScreenId = 32,
+            HaveFullAccess = true
+        });
+
+        var service = Build(data);
+
+        var result = (await service.GetUserScreensByUserIdAsync(80)).ToList();
+
+        // User menu should contain only active screens
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, item => item.ScreenName == "Property Tax");
+        Assert.Contains(result, item => item.ScreenName == "Active Menu Item");
+        Assert.DoesNotContain(result, item => item.ScreenName == "Deprecated Menu Item");
+    }
 }

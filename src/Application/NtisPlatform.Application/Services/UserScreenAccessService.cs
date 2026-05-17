@@ -176,10 +176,11 @@ public class UserScreenAccessService : IUserScreenAccessService
                             RoutePath = g.Key.RoutePath,
                             IsMenu = g.Key.IsMenu,
                             // Merge permissions with OR logic - if ANY role grants it, user has it
-                            CanView = g.Max(x => x.CanView),
-                            CanEdit = g.Max(x => x.CanEdit),
-                            CanDelete = g.Max(x => x.CanDelete),
-                            HaveFullAccess = g.Max(x => x.HaveFullAccess),
+                            // Use Any() instead of Max() for bool types (SQL Server doesn't support MAX on bit columns)
+                            CanView = g.Any(x => x.CanView),
+                            CanEdit = g.Any(x => x.CanEdit),
+                            CanDelete = g.Any(x => x.CanDelete),
+                            HaveFullAccess = g.Any(x => x.HaveFullAccess),
                             HaveNoAccess = false, // Always false - we filtered out HaveNoAccess=true records
                             ScreenGroupName = g.Key.ScreenGroupName
                         };
@@ -210,7 +211,7 @@ public class UserScreenAccessService : IUserScreenAccessService
         // AsNoTracking() improves performance for read-only queries
         var departments = _departmentRepository.GetQueryable().AsNoTracking();
         var modules = _moduleRepository.GetQueryable().AsNoTracking();
-        var screens = _screenRepository.GetQueryable().AsNoTracking();
+        var screens = _screenRepository.GetQueryable().AsNoTracking().Where(s => s.IsActive); // Only filter screens
         var roleAccess = _roleScreenAccessRepository.GetQueryable().AsNoTracking();
         var users = _userRepository.GetQueryable().AsNoTracking();
         var userRoleAllocations = _userRoleAllocationRepository.GetQueryable().AsNoTracking();
