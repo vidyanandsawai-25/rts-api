@@ -128,6 +128,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
+	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -154,11 +155,6 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-
-
-
-
-
         // NatureFactorCVMaster configuration
         modelBuilder.Entity<NatureFactorCVMasterEntity>(entity =>
         {
@@ -181,7 +177,6 @@ public class ApplicationDbContext : DbContext
             // Uniqueness constraint for ConstructionTypeId + YearRangeCVId
             entity.HasIndex(e => new { e.ConstructionTypeId, e.YearRangeCVId }).IsUnique();
         });
-
 
 
         // ParkingTypeMaster configuration
@@ -2800,5 +2795,24 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ParentFieldId);
         });
 
+	 modelBuilder.Entity<SocialAttributeEntity>(entity =>
+        {
+            entity.ToTable("SocialAttributeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.SocialAttributeCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SocialAttributeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.Unit).HasMaxLength(50);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.ParentAttributeId);
+            entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
     }
 }

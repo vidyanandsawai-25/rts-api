@@ -187,6 +187,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDesignationMasterService, DesignationMasterService>();
         services.AddScoped<IPropertyService, PropertyService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
+        services.AddScoped<ISocialAttributeService, SocialAttributeService>();
+
         // Localization (DB-backed)
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
