@@ -77,10 +77,10 @@ public class PropertyOldDetailsComprehensiveTests
         // Assert
         Assert.Equal(0, entity.Id);
         Assert.Equal(0, entity.PropertyMastOldId);
-        // Non-nullable int properties default to 0, not null
-        Assert.Equal(0, entity.OldFloorId);
-        Assert.Equal(0, entity.OldConstructionTypeId);
-        Assert.Equal(0, entity.OldTypeOfUseId);
+        // Nullable int properties default to null
+        Assert.Null(entity.OldFloorId);
+        Assert.Null(entity.OldConstructionTypeId);
+        Assert.Null(entity.OldTypeOfUseId);
         // Nullable properties
         Assert.Null(entity.OldSubFloorId);
         Assert.Null(entity.OldConstructionYear);

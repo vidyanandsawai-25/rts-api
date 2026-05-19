@@ -32,5 +32,5 @@ public class TaxMasterEntity : BaseEntity
 
     public bool AssessmentStatus { get; set; } = true;
 
-    public bool OldTaxStatus { get; set; } = false;
+    public bool OldTaxStatus { get; set; } = true;
 }

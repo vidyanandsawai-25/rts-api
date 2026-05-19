@@ -768,7 +768,7 @@ public class PropertyBasicDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Test Mouja", IsActive = true };
+            var mouja = new MoujaEntity { Id = 1, MoujaNo = "M2023", MoujaName = "Test Mouja", IsActive = true };
 
             var property = new PropertyEntity
             {
@@ -842,7 +842,7 @@ public class PropertyBasicDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Inactive Mouja", IsActive = false };
+            var mouja = new MoujaEntity { Id = 1, MoujaNo = "M2023", MoujaName = "Inactive Mouja", IsActive = false };
 
             var property = new PropertyEntity
             {
@@ -879,7 +879,7 @@ public class PropertyBasicDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var mouja = new MoujaEntity { Id = 2, Year = 2023, MoujaName = "New Mouja", IsActive = true };
+            var mouja = new MoujaEntity { Id = 2, MoujaNo = "M2023", MoujaName = "New Mouja", IsActive = true };
 
             var property = new PropertyEntity
             {
@@ -966,8 +966,8 @@ public class PropertyBasicDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var mouja1 = new MoujaEntity { Id = 1, Year = 2022, MoujaName = "Old Mouja", IsActive = true };
-            var mouja2 = new MoujaEntity { Id = 2, Year = 2023, MoujaName = "New Mouja", IsActive = true };
+            var mouja1 = new MoujaEntity { Id = 1, MoujaNo = "M2022", MoujaName = "Old Mouja", IsActive = true };
+            var mouja2 = new MoujaEntity { Id = 2, MoujaNo = "M2023", MoujaName = "New Mouja", IsActive = true };
 
             var property = new PropertyEntity
             {
@@ -1014,7 +1014,7 @@ public class PropertyBasicDetailsTests
 
             var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
-            var mouja = new MoujaEntity { Id = 1, Year = 2023, MoujaName = "Inactive Mouja", IsActive = false };
+            var mouja = new MoujaEntity { Id = 1, MoujaNo = "M2023", MoujaName = "Inactive Mouja", IsActive = false };
 
             var property = new PropertyEntity
             {
@@ -1059,7 +1059,7 @@ public class PropertyBasicDetailsTests
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "TZ", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
             var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
-            var mouja = new MoujaEntity { Id = 3, Year = 2023, MoujaName = "Complete Test Mouja", IsActive = true };
+            var mouja = new MoujaEntity { Id = 3, MoujaNo = "M2023", MoujaName = "Complete Test Mouja", IsActive = true };
 
             var property = new PropertyEntity
             {

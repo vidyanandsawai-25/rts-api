@@ -36,8 +36,6 @@ public class TransMastOldEntity : BaseEntity
 
     public DateTime? MarkedForDeletionDate { get; set; }
 
-    public int PropertyId { get; set; }
-
     [ForeignKey(nameof(TaxId))]
     public virtual TaxMasterEntity? TaxMaster { get; set; }
 

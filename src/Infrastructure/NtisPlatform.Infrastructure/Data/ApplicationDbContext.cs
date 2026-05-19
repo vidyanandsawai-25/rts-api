@@ -450,8 +450,10 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("MoujaMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Year);
-            entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.MoujaNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(100);
+            entity.HasIndex(e => e.MoujaNo).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaNo");
+            entity.HasIndex(e => e.MoujaName).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaName");
         });
 
         modelBuilder.Entity<BankMasterEntity>(entity =>
@@ -1202,7 +1204,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PlotNo).HasMaxLength(20);
             entity.Property(e => e.Id);
             entity.Property(e => e.Type).HasMaxLength(5);
-            entity.Property(e => e.PartType).HasMaxLength(20);
+            // PartType column does not exist in database - ignore it
+            entity.Ignore(e => e.PartType);
             entity.Property(e => e.OwnerTitle).HasMaxLength(20);
             entity.Property(e => e.OwnerName).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitle).HasMaxLength(20);
@@ -1222,13 +1225,21 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FlatOrShopNameEnglish).HasMaxLength(200);
             entity.Property(e => e.AddressEnglish).HasMaxLength(500);
             entity.Property(e => e.LocationEnglish).HasMaxLength(200);
+            entity.Property(e => e.PinCode).HasMaxLength(6).HasColumnType("varchar(6)");
+            entity.Property(e => e.MobileNoRemarkId);
+            entity.Property(e => e.AlternateMobileNo).HasMaxLength(13).HasColumnType("varchar(13)");
+            entity.Property(e => e.OccupierMobileNo).HasMaxLength(13).HasColumnType("varchar(13)");
+            entity.Property(e => e.OccupierMobileNoRemarkId);
+            entity.Property(e => e.PropertyAssessmentStatusId);
+            entity.Property(e => e.IsCombineProperty).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.PropertyMastOldId);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.Ignore(e => e.MarkedForDeletionDate);
 
             entity.HasMany(e => e.SocietyDetailsMast)
               .WithOne(d => d.PropertyMast)
@@ -1266,6 +1277,22 @@ public class ApplicationDbContext : DbContext
             entity.HasMany(e => e.PlotDetails)
                 .WithOne()
                 .HasForeignKey(pd => pd.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure foreign key relationships for the new columns
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.MobileNoRemarkId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.OccupierMobileNoRemarkId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PropertyMastOldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PropertyMastOldId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // PropertyDetailsOld does NOT have PropertyId in database - it's related to PropertyMastOld only
@@ -1528,12 +1555,12 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyMastOldId).IsRequired();
-            entity.Property(e => e.OldFloorId).IsRequired();
+            entity.Property(e => e.OldFloorId);
             entity.Property(e => e.OldSubFloorId);
             entity.Property(e => e.OldConstructionYear).HasMaxLength(4);
             entity.Property(e => e.OldAssessmentYear).HasMaxLength(4);
-            entity.Property(e => e.OldConstructionTypeId).IsRequired();
-            entity.Property(e => e.OldTypeOfUseId).IsRequired();
+            entity.Property(e => e.OldConstructionTypeId);
+            entity.Property(e => e.OldTypeOfUseId);
             entity.Property(e => e.OldSubTypeOfUseId);
             entity.Property(e => e.OldCarpetAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.OldCarpetAreaSqFeet).HasColumnType("float");

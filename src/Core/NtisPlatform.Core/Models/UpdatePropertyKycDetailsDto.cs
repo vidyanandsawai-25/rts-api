@@ -74,6 +74,6 @@ public class UpdatePropertyKycDetailsDto
     public string? MobileNo { get; set; }
 
     [StringLength(100, ErrorMessage = "EmailId cannot exceed 100 characters.")]
-    [EmailAddress(ErrorMessage = "EmailId must be a valid email address.")]
+    [RegularExpression(@"^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", ErrorMessage = "EmailId must be a valid email address.")]
     public string? EmailId { get; set; }
 }

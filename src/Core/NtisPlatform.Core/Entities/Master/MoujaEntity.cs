@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities;
 
 public class MoujaEntity : BaseEntity
 {
-    public int Year { get; set; } = 0;
+    public string MoujaNo { get; set; } = string.Empty;
 
     public string MoujaName { get; set; } = string.Empty;
 

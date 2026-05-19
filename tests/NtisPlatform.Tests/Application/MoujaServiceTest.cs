@@ -42,7 +42,7 @@ namespace NtisPlatform.Tests.Application
             var entity = new MoujaEntity
             {
                 Id = 1,
-                Year = 2024,
+                MoujaNo = "M2024",
                 MoujaName= "Mouja_A"
             };
 
@@ -53,7 +53,7 @@ namespace NtisPlatform.Tests.Application
                 .Returns((MoujaEntity e) => new MoujaDto
                 {
                     Id = e.Id,
-                    Year = e.Year,
+                    MoujaNo = e.MoujaNo,
                     MoujaName = e.MoujaName
                 });
 
@@ -61,7 +61,7 @@ namespace NtisPlatform.Tests.Application
 
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal(2024, result.Year);
+            Assert.Equal("M2024", result.MoujaNo);
             Assert.Equal("Mouja_A", result.MoujaName);
 
         }
@@ -82,8 +82,8 @@ namespace NtisPlatform.Tests.Application
         {
             var entities = new List<MoujaEntity>
             {
-                new() { Id = 1, Year = 2020, MoujaName = "Mouja-1"},
-                new() { Id = 2, Year = 2021, MoujaName = "Mouja-2"}
+                new() { Id = 1, MoujaNo = "M2020", MoujaName = "Mouja-1"},
+                new() { Id = 2, MoujaNo = "M2021", MoujaName = "Mouja-2"}
             };
 
             var mockQuery = entities.BuildMock();
@@ -124,7 +124,7 @@ namespace NtisPlatform.Tests.Application
         {
             var createDto = new CreateMoujaDto
             {
-                Year = 2022,
+                MoujaNo = "M2022",
                 MoujaName = "Mouja_B",
                 IsActive = true,
                 CreatedBy = 1
@@ -135,7 +135,7 @@ namespace NtisPlatform.Tests.Application
                 .Returns((CreateMoujaDto dto) => new MoujaEntity
                 {
                     Id= 1,
-                    Year=dto.Year,
+                    MoujaNo=dto.MoujaNo,
                     MoujaName=dto.MoujaName,
                     IsActive = dto.IsActive,
                     CreatedDate = DateTime.Now
@@ -151,7 +151,7 @@ namespace NtisPlatform.Tests.Application
                 .Returns((MoujaEntity e) => new MoujaDto
                 {
                     Id = e.Id,
-                    Year=e.Year,
+                    MoujaNo=e.MoujaNo,
                     MoujaName = e.MoujaName,
                     IsActive = e.IsActive,
                     CreatedDate = e.CreatedDate
@@ -162,7 +162,7 @@ namespace NtisPlatform.Tests.Application
 
             Assert.NotNull(result);
             Assert.Equal(1, result.Id);
-            Assert.Equal(2022, result.Year);
+            Assert.Equal("M2022", result.MoujaNo);
             Assert.Equal("Mouja_B", result.MoujaName);
             Assert.True(result.IsActive);
             Assert.NotNull(result.CreatedDate);
@@ -176,7 +176,7 @@ namespace NtisPlatform.Tests.Application
         {
             var updateDto = new UpdateMoujaDto
             {
-                Year =2025, 
+                MoujaNo ="M2025", 
                 MoujaName ="Mouja_C",
                 IsActive = true,
                 UpdatedBy = 2
@@ -185,7 +185,7 @@ namespace NtisPlatform.Tests.Application
             var existingEntity = new MoujaEntity
             {
                 Id = 1,
-                Year=2025, 
+                MoujaNo="M2025", 
                 MoujaName ="Mouja_C",
                 IsActive = true,
                 UpdatedBy = 2
@@ -205,7 +205,7 @@ namespace NtisPlatform.Tests.Application
                 .Callback((UpdateMoujaDto src, MoujaEntity dest) =>
                 {
 
-                    dest.Year = src.Year;
+                    dest.MoujaNo = src.MoujaNo;
                     dest.MoujaName = src.MoujaName;
                     dest.IsActive = src.IsActive;
                     dest.UpdatedBy = src.UpdatedBy;
@@ -220,7 +220,7 @@ namespace NtisPlatform.Tests.Application
 
 
             Assert.Equal(1, existingEntity.Id);
-            Assert.Equal(2025, existingEntity.Year);
+            Assert.Equal("M2025", existingEntity.MoujaNo);
             Assert.Equal("Mouja_C", existingEntity.MoujaName);
 
             Assert.True(existingEntity.IsActive);
@@ -231,7 +231,7 @@ namespace NtisPlatform.Tests.Application
         [Fact]
         public async Task UpdateAsync_NonExistingEntity_DoesNotUpdate()
         {
-            var updateDto = new UpdateMoujaDto { Year=2023, MoujaName="Mouja_D"};
+            var updateDto = new UpdateMoujaDto { MoujaNo="M2023", MoujaName="Mouja_D"};
 
             _mockRepository
                 .Setup(r => r.GetByIdAsync(99, It.IsAny<CancellationToken>()))
