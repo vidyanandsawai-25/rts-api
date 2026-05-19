@@ -12,8 +12,8 @@ public class UpdatePropertyKycDetailsDto
     [Range(1, int.MaxValue, ErrorMessage = "OwnerTypeId must be greater than 0.")]
     public int? OwnerTypeId { get; set; }
 
-    [StringLength(12, ErrorMessage = "AdharCardNo must be exactly 12 digits.")]
-    [RegularExpression(@"^\d{12}$", ErrorMessage = "AdharCardNo must be exactly 12 digits.")]
+    [StringLength(12, MinimumLength = 12, ErrorMessage = "AdharCardNo must be exactly 12 digits.")]
+    [RegularExpression(@"^$|^\d{12}$", ErrorMessage = "AdharCardNo must be exactly 12 digits or empty.")]
     public string? AdharCardNo { get; set; }
 
     // PropertyMast - Owner Information
@@ -74,6 +74,6 @@ public class UpdatePropertyKycDetailsDto
     public string? MobileNo { get; set; }
 
     [StringLength(100, ErrorMessage = "EmailId cannot exceed 100 characters.")]
-    [EmailAddress(ErrorMessage = "EmailId is not a valid email address.")]
+    [RegularExpression(@"^$|^[^@\s]+@[^@\s]+\.[^@\s]+$", ErrorMessage = "EmailId must be a valid email address or empty.")]
     public string? EmailId { get; set; }
 }
