@@ -449,6 +449,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         var dto = new UpdatePropertyOldDetailsDto
         {
+            OldFloorId = 1,  // Required field
             OldConstructionYear = "2018",
             OldCarpetAreaSqFeet = 1500,
             OldCarpetAreaSqMeter = 139.35,
@@ -1577,7 +1578,12 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         _context.PropertyMast.Add(property);
         await _context.SaveChangesAsync();
 
-        var dto = new AddPropertyDetailsOldDto { OldFloorId = 1 };
+        var dto = new AddPropertyDetailsOldDto
+        {
+            OldFloorId = 1,
+            OldConstructionTypeId = 1,  // Required field
+            OldTypeOfUseId = 1  // Required field
+        };
 
         // Act
         var result = await _repository.AddFloorDetailsOldAsync(50, dto, CancellationToken.None);
@@ -1850,7 +1856,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task AddFloorDetailsOldAsync_NullableFields_Success()
+    public async Task AddFloorDetailsOldAsync_WithOnlyRequiredFields_Success()
     {
         // Arrange
         var propertyMastOld = new PropertyMastOldEntity { Id = 57, IsActive = true, MarkedForDeletion = false };
@@ -1871,12 +1877,13 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         var dto = new AddPropertyDetailsOldDto
         {
-            OldFloorId = null,
+            OldFloorId = 1,  // Required
+            OldConstructionTypeId = 1,  // Required
+            OldTypeOfUseId = 1,  // Required
+            // All other fields are optional/nullable
             OldSubFloorId = null,
             OldConstructionYear = null,
             OldAssessmentYear = null,
-            OldConstructionTypeId = null,
-            OldTypeOfUseId = null,
             OldSubTypeOfUseId = null,
             OldCarpetAreaSqMeter = null,
             OldCarpetAreaSqFeet = null,
@@ -1890,9 +1897,11 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(58, result.PropertyId);
-        Assert.Null(result.OldFloorId);
-        Assert.Null(result.FloorDescription);
-        Assert.Null(result.OldSubFloorId);
+        Assert.Equal(1, result.OldFloorId);  // Required field
+        Assert.NotNull(result.FloorDescription);  // Will be populated from FloorMaster join
+        Assert.Equal(1, result.OldConstructionTypeId);
+        Assert.Equal(1, result.OldTypeOfUseId);
+        Assert.Null(result.OldSubFloorId);  // Nullable field
         Assert.Null(result.OldConstructionYear);
         Assert.Null(result.ConstructionYearValue);
     }
@@ -2164,6 +2173,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             Id = 103,
             PropertyMastOldId = 65,
             OldFloorId = 1,
+            OldConstructionTypeId = 1,  // Required field
+            OldTypeOfUseId = 1,  // Required field
             IsActive = true,
             MarkedForDeletion = false,
             CreatedDate = oldDate,
@@ -2172,7 +2183,12 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         _context.PropertyDetailsOld.Add(floor);
         await _context.SaveChangesAsync();
 
-        var dto = new UpdatePropertyDetailsOldDto { OldFloorId = 2 };
+        var dto = new UpdatePropertyDetailsOldDto
+        {
+            OldFloorId = 2,
+            OldConstructionTypeId = 1,  // Required field
+            OldTypeOfUseId = 1  // Required field
+        };
 
         // Act
         var result = await _repository.UpdateFloorDetailsOldAsync(66, 103, dto, CancellationToken.None);

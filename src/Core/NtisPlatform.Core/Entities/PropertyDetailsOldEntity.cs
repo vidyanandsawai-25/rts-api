@@ -18,7 +18,7 @@ public class PropertyDetailsOldEntity : BaseEntity
     /// <summary>
     /// Foreign Key to FloorMaster.Id
     /// </summary>
-    public int? OldFloorId { get; set; }
+    public int OldFloorId { get; set; }
 
     /// <summary>
     /// Foreign Key to SubFloorMaster.Id
@@ -40,12 +40,12 @@ public class PropertyDetailsOldEntity : BaseEntity
     /// <summary>
     /// Foreign Key to ConstructionTypeMaster.Id
     /// </summary>
-    public int? OldConstructionTypeId { get; set; }
+    public int OldConstructionTypeId { get; set; }
 
     /// <summary>
     /// Foreign Key to TypeOfUseMaster.Id
     /// </summary>
-    public int? OldTypeOfUseId { get; set; }
+    public int OldTypeOfUseId { get; set; }
 
     /// <summary>
     /// Foreign Key to SubTypeOfUseMaster.Id

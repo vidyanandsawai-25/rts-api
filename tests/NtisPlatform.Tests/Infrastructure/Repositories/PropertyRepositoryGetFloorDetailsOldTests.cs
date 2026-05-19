@@ -335,10 +335,10 @@ public class PropertyRepositoryGetFloorDetailsOldTests
         {
             Id = 500,
             PropertyMastOldId = 100,
-            OldFloorId = null,
+            OldFloorId = 1,  // Required field - use default value
             OldSubFloorId = null,
-            OldConstructionTypeId = null,
-            OldTypeOfUseId = null,
+            OldConstructionTypeId = 1,  // Required field - use default value
+            OldTypeOfUseId = 1,  // Required field - use default value
             OldSubTypeOfUseId = null,
             IsActive = true,
             MarkedForDeletion = false
@@ -353,15 +353,16 @@ public class PropertyRepositoryGetFloorDetailsOldTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(500, result.Id);
-        Assert.Null(result.OldFloorId);
+        // OldFloorId, OldConstructionTypeId, OldTypeOfUseId are now non-nullable (int) so they have default values
+        Assert.Equal(1, result.OldFloorId);  // Required field - defaults to 1 from test data
         Assert.Null(result.FloorDescription);
-        Assert.Null(result.OldSubFloorId);
+        Assert.Null(result.OldSubFloorId);  // This is still nullable
         Assert.Null(result.SubFloorDescription);
-        Assert.Null(result.OldConstructionTypeId);
+        Assert.Equal(1, result.OldConstructionTypeId);  // Required field - defaults to 1 from test data
         Assert.Null(result.ConstructionTypeDescription);
-        Assert.Null(result.OldTypeOfUseId);
+        Assert.Equal(1, result.OldTypeOfUseId);  // Required field - defaults to 1 from test data
         Assert.Null(result.TypeOfUseDescription);
-        Assert.Null(result.OldSubTypeOfUseId);
+        Assert.Null(result.OldSubTypeOfUseId);  // This is still nullable
         Assert.Null(result.SubTypeOfUseDescription);
     }
 

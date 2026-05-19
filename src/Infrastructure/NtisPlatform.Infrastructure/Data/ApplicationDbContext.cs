@@ -1268,6 +1268,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(pd => pd.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // PropertyDetailsOld does NOT have PropertyId in database - it's related to PropertyMastOld only
+            // Ignore this navigation to prevent shadow PropertyId/PropertyEntityId creation
+            entity.Ignore(e => e.PropertyDetailsOld);
+
+            // PropertyMastOld relationship is via PropertyMastOldId FK in PropertyEntity
+            // Ignore collection navigation to prevent confusion
+            entity.Ignore(e => e.PropertyMastOld);
+
             // Unique index on WardId, PropertyNo, PartitionNo
             entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })
                 .IsUnique()
@@ -1518,27 +1526,33 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyDetailsOld", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();  // Database auto-generates Id (IDENTITY)
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyMastOldId).IsRequired();
-            entity.Property(e => e.OldFloorId);  // int? FK to FloorMaster.Id
-            entity.Property(e => e.OldSubFloorId);  // int? FK to SubFloorMaster.Id
-            entity.Property(e => e.OldConstructionYear).HasMaxLength(4);  // varchar(4) - year string
-            entity.Property(e => e.OldAssessmentYear).HasMaxLength(4);  // nvarchar(4) - year string
-            entity.Property(e => e.OldConstructionTypeId);  // int? FK to ConstructionTypeMaster.Id
-            entity.Property(e => e.OldTypeOfUseId);  // int? FK to TypeOfUseMaster.Id
-            entity.Property(e => e.OldSubTypeOfUseId);  // int? FK to SubTypeOfUseMaster.Id
+            entity.Property(e => e.OldFloorId).IsRequired();
+            entity.Property(e => e.OldSubFloorId);
+            entity.Property(e => e.OldConstructionYear).HasMaxLength(4);
+            entity.Property(e => e.OldAssessmentYear).HasMaxLength(4);
+            entity.Property(e => e.OldConstructionTypeId).IsRequired();
+            entity.Property(e => e.OldTypeOfUseId).IsRequired();
+            entity.Property(e => e.OldSubTypeOfUseId);
             entity.Property(e => e.OldCarpetAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.OldCarpetAreaSqFeet).HasColumnType("float");
             entity.Property(e => e.OldBuiltupAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.OldBuiltupAreaSqFeet).HasColumnType("float");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyMastOldId);
+
+            // Configure FK relationship to PropertyMastOld
+            entity.HasOne<PropertyMastOldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PropertyMastOldId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PropertyTaxCalculationCVResultsEntity>(entity =>

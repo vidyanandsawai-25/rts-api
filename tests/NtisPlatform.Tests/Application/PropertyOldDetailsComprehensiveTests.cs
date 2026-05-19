@@ -77,12 +77,14 @@ public class PropertyOldDetailsComprehensiveTests
         // Assert
         Assert.Equal(0, entity.Id);
         Assert.Equal(0, entity.PropertyMastOldId);
-        Assert.Null(entity.OldFloorId);
+        // Non-nullable int properties default to 0, not null
+        Assert.Equal(0, entity.OldFloorId);
+        Assert.Equal(0, entity.OldConstructionTypeId);
+        Assert.Equal(0, entity.OldTypeOfUseId);
+        // Nullable properties
         Assert.Null(entity.OldSubFloorId);
         Assert.Null(entity.OldConstructionYear);
         Assert.Null(entity.OldAssessmentYear);
-        Assert.Null(entity.OldConstructionTypeId);
-        Assert.Null(entity.OldTypeOfUseId);
         Assert.Null(entity.OldSubTypeOfUseId);
         Assert.Null(entity.OldCarpetAreaSqMeter);
         Assert.Null(entity.OldCarpetAreaSqFeet);
@@ -93,32 +95,34 @@ public class PropertyOldDetailsComprehensiveTests
     }
 
     [Fact]
-    public void PropertyDetailsOldEntity_NullableFields_CanBeNull()
+    public void PropertyDetailsOldEntity_RequiredAndNullableFields_AreCorrect()
     {
         // Arrange & Act
         var entity = new PropertyDetailsOldEntity
         {
             PropertyMastOldId = 100,
-            OldFloorId = null,
-            OldSubFloorId = null,
+            OldFloorId = 1,  // Required field
+            OldSubFloorId = null,  // Nullable
             OldConstructionYear = null,
             OldAssessmentYear = null,
-            OldConstructionTypeId = null,
-            OldTypeOfUseId = null,
-            OldSubTypeOfUseId = null,
+            OldConstructionTypeId = 2,  // Required field
+            OldTypeOfUseId = 3,  // Required field
+            OldSubTypeOfUseId = null,  // Nullable
             OldCarpetAreaSqMeter = null,
             OldCarpetAreaSqFeet = null,
             OldBuiltupAreaSqMeter = null,
             OldBuiltupAreaSqFeet = null
         };
 
-        // Assert
-        Assert.Null(entity.OldFloorId);
+        // Assert - Required fields
+        Assert.Equal(1, entity.OldFloorId);
+        Assert.Equal(2, entity.OldConstructionTypeId);
+        Assert.Equal(3, entity.OldTypeOfUseId);
+
+        // Assert - Nullable fields
         Assert.Null(entity.OldSubFloorId);
         Assert.Null(entity.OldConstructionYear);
         Assert.Null(entity.OldAssessmentYear);
-        Assert.Null(entity.OldConstructionTypeId);
-        Assert.Null(entity.OldTypeOfUseId);
         Assert.Null(entity.OldSubTypeOfUseId);
         Assert.Null(entity.OldCarpetAreaSqMeter);
         Assert.Null(entity.OldCarpetAreaSqFeet);

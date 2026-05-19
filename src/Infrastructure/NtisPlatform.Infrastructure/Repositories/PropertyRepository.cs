@@ -821,19 +821,27 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                         oldDetailsData.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
 
                     if (dto.OldConstructionTypeId.HasValue)
-                        oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId;
+                        oldDetailsData.OldConstructionTypeId = dto.OldConstructionTypeId.Value;
 
                     if (dto.OldTypeOfUseId.HasValue)
-                        oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId;
+                        oldDetailsData.OldTypeOfUseId = dto.OldTypeOfUseId.Value;
 
                     if (dto.OldFloorId.HasValue)
-                        oldDetailsData.OldFloorId = dto.OldFloorId;
+                        oldDetailsData.OldFloorId = dto.OldFloorId.Value;
 
                     oldDetailsData.UpdatedDate = DateTime.Now;
                 }
             }
             else if (hasOldDetailsData)
             {
+                // Validate required fields before insert
+                if (!dto.OldFloorId.HasValue)
+                    throw new InvalidOperationException("OldFloorId is required.");
+                if (!dto.OldConstructionTypeId.HasValue)
+                    throw new InvalidOperationException("OldConstructionTypeId is required.");
+                if (!dto.OldTypeOfUseId.HasValue)
+                    throw new InvalidOperationException("OldTypeOfUseId is required.");
+
                 // INSERT new record only if data is provided
                 var newOldDetailsData = new PropertyDetailsOldEntity
                 {
@@ -841,9 +849,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     OldConstructionYear = dto.OldConstructionYear,
                     OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
                     OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
-                    OldConstructionTypeId = dto.OldConstructionTypeId,
-                    OldTypeOfUseId = dto.OldTypeOfUseId,
-                    OldFloorId = dto.OldFloorId,
+                    OldConstructionTypeId = dto.OldConstructionTypeId.Value,
+                    OldTypeOfUseId = dto.OldTypeOfUseId.Value,
+                    OldFloorId = dto.OldFloorId.Value,
                     IsActive = true,
                     MarkedForDeletion = false,
                     CreatedDate = DateTime.Now
@@ -857,9 +865,19 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             // Step 5: Return updated data
             return await GetOldDetailsAsync(propertyId, cancellationToken);
         }
+        catch (InvalidOperationException)
+        {
+            // Re-throw validation exceptions as-is (will be handled as 400 by controller)
+            throw;
+        }
+        catch (ArgumentException)
+        {
+            // Re-throw validation exceptions as-is (will be handled as 400 by controller)
+            throw;
+        }
         catch (Exception ex)
         {
-            // You can replace this with your specific logging logic (e.g., _logger.LogError)
+            // Wrap unexpected errors only
             throw new Exception($"An error occurred while updating old property details for Property ID: {propertyId}. Internal Error: {ex.Message}", ex);
         }
     }
@@ -1581,16 +1599,24 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             }
         }
 
-        // Step 4: Create new entity
+        // Step 4: Validate required fields
+        if (!dto.OldFloorId.HasValue)
+            throw new InvalidOperationException("OldFloorId is required.");
+        if (!dto.OldConstructionTypeId.HasValue)
+            throw new InvalidOperationException("OldConstructionTypeId is required.");
+        if (!dto.OldTypeOfUseId.HasValue)
+            throw new InvalidOperationException("OldTypeOfUseId is required.");
+
+        // Step 5: Create new entity
         var newEntity = new PropertyDetailsOldEntity
         {
             PropertyMastOldId = propertyMastOldId,
-            OldFloorId = dto.OldFloorId,
+            OldFloorId = dto.OldFloorId.Value,
             OldSubFloorId = dto.OldSubFloorId,
             OldConstructionYear = dto.OldConstructionYear,
             OldAssessmentYear = dto.OldAssessmentYear,
-            OldConstructionTypeId = dto.OldConstructionTypeId,
-            OldTypeOfUseId = dto.OldTypeOfUseId,
+            OldConstructionTypeId = dto.OldConstructionTypeId.Value,
+            OldTypeOfUseId = dto.OldTypeOfUseId.Value,
             OldSubTypeOfUseId = dto.OldSubTypeOfUseId,
             OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter,
             OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet,
@@ -1752,13 +1778,21 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             }
         }
 
-        // Step 4: Update the entity (always update, even if null)
-        existingRecord.OldFloorId = dto.OldFloorId;
+        // Step 4: Validate required fields
+        if (!dto.OldFloorId.HasValue)
+            throw new InvalidOperationException("OldFloorId is required.");
+        if (!dto.OldConstructionTypeId.HasValue)
+            throw new InvalidOperationException("OldConstructionTypeId is required.");
+        if (!dto.OldTypeOfUseId.HasValue)
+            throw new InvalidOperationException("OldTypeOfUseId is required.");
+
+        // Step 5: Update the entity
+        existingRecord.OldFloorId = dto.OldFloorId.Value;
         existingRecord.OldSubFloorId = dto.OldSubFloorId;
         existingRecord.OldConstructionYear = dto.OldConstructionYear;
         existingRecord.OldAssessmentYear = dto.OldAssessmentYear;
-        existingRecord.OldConstructionTypeId = dto.OldConstructionTypeId;
-        existingRecord.OldTypeOfUseId = dto.OldTypeOfUseId;
+        existingRecord.OldConstructionTypeId = dto.OldConstructionTypeId.Value;
+        existingRecord.OldTypeOfUseId = dto.OldTypeOfUseId.Value;
         existingRecord.OldSubTypeOfUseId = dto.OldSubTypeOfUseId;
         existingRecord.OldCarpetAreaSqMeter = dto.OldCarpetAreaSqMeter;
         existingRecord.OldCarpetAreaSqFeet = dto.OldCarpetAreaSqFeet;
