@@ -40,9 +40,6 @@ public class PropertyMastOldEntity : BaseEntity
     public string? OldZoneNo { get; set; }
 
     [Column(TypeName = "nvarchar(20)")]
-    public string? OldSubZoneNo { get; set; }
-
-    [Column(TypeName = "nvarchar(20)")]
     public string? OldPlotNo { get; set; }
 
     [Column(TypeName = "nvarchar(30)")]
