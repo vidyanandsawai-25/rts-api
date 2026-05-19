@@ -201,10 +201,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
+ 
+        services.AddScoped<IDataEntryService, DataEntryService>();
+        services.AddScoped<IRenterDetailService, RenterDetailService>();
+        services.AddScoped<IRenterMastService, RenterMastService>();
+        services.AddScoped<IRoomWiseMinusService, RoomWiseMinusService>();
+
+        services.AddScoped<IRoomWiseSubmissionDetailsService, RoomWiseSubmissionDetailsService>();
+
+
+ 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserScreenAccessService, UserScreenAccessService>();
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
+ 
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
         services.AddScoped<IBlockMasterService, BlockMasterService>();
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();

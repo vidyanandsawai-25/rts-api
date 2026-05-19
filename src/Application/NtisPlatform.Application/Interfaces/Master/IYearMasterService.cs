@@ -5,5 +5,7 @@ namespace NtisPlatform.Application.Interfaces.Master
 {
     public interface IYearMasterService : ICommonCrudService<YearMasterEntity, YearMasterDto, CreateYearMasterDto, UpdateYearMasterDto, YearMasterQueryParameters, int>
     {
+
     }
 }
+ 

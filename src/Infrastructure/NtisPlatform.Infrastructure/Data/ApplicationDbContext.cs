@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
@@ -866,14 +866,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthMtr) ;
+            entity.Property(e => e.WidthMtr) ;
+            entity.Property(e => e.AreaSqMtr) ;
+            entity.Property(e => e.HeightMtr) ;
+            entity.Property(e => e.Base1Mtr) ;
+            entity.Property(e => e.Base2Mtr) ;
             entity.Property(e => e.NoOfRooms);
-            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalAreaSqMtr) ;
             entity.Property(e => e.Shape).HasMaxLength(25);
             entity.Property(e => e.RoomNo).HasMaxLength(100);
             entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
@@ -898,12 +898,12 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.RoomWiseSubmissionId).IsRequired();
-            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.AreaSqMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.HeightMtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base1Mtr).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Base2Mtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.Base1Mtr);
+            entity.Property(e => e.Base2Mtr);
             entity.Property(e => e.Shape).HasMaxLength(25);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
@@ -1058,8 +1058,8 @@ public class ApplicationDbContext : DbContext
             // Configure relationships - explicitly specify the inverse navigation property
             // to prevent EF Core from generating shadow foreign key properties
             entity.HasOne(e => e.Property)
-                  .WithMany(p => p.PropertyDetails)
-                  .HasForeignKey(e => e.PropertyId)
+                   .WithMany(p => p.PropertyDetails)
+                    .HasForeignKey(e => e.PropertyId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Floor)
@@ -1343,7 +1343,7 @@ public class ApplicationDbContext : DbContext
 
             // Indexes
             entity.HasIndex(e => e.ConfigCode).IsUnique();
-            entity.HasIndex(e => e.Id);
+            entity.HasIndex(e => e.CategoryId);
             entity.HasIndex(e => e.IsActive);
         });
 
@@ -1582,6 +1582,38 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+
+        // RefreshToken configuration
+        modelBuilder.Entity<RefreshTokenEntity>(entity =>
+        {
+            entity.ToTable("RefreshToken", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Token).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.IsRevoked).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.ReplacedByTokenId);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Foreign key relationship
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => new { e.IsRevoked, e.ExpiresAt });
+        });
+
+
         modelBuilder.Entity<PropertyTaxCalculationCVResultsEntity>(entity =>
         {
             entity.ToTable("PropertyTaxCalculationCVResults", "PTIS");
@@ -1600,6 +1632,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UserId).IsRequired();
             entity.Property(e => e.DepartmentId).IsRequired();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);

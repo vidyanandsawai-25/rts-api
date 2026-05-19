@@ -116,8 +116,7 @@ public class SubFloorServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var mapperConfig = new MapperConfiguration(cfg =>
-        {
+        var mapperConfig = new MapperConfiguration(cfg => {
             cfg.CreateMap<SubFloorEntity, SubFloorDto>();
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 

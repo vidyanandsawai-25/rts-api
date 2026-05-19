@@ -72,13 +72,11 @@ public class PropertyAssessmentEntity : BaseEntity
 
     public int? NoOfCommercialToilets { get; set; }
 
-    /// <summary>
     /// Indicates whether the entity is marked for deletion
-    /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
-
-    /// <summary>
-    /// Date when marked for deletion
-    /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    // Navigation
+    [ForeignKey(nameof(PropertyId))]
+    public PropertyEntity? PropertyMast { get; set; }
 }

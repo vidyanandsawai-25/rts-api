@@ -16,13 +16,13 @@ public class RoomWiseMinusDataEntityTests
         {
             Id = 1,
             RoomWiseSubmissionId = 100,
-            LengthMtr = 2.5m,
-            WidthMtr = 1.5m,
-            AreaSqMtr = 3.75m,
-            HeightMtr = 0.5m,
+            LengthMtr = 2.5,
+            WidthMtr = 1.5,
+            AreaSqMtr = 3.75,
+            HeightMtr = 0.5,
             Shape = "Rectangle",
-            Base1Mtr = 1.0m,
-            Base2Mtr = 2.0m,
+            Base1Mtr = 1.0,
+            Base2Mtr = 2.0,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null,
             IsActive = true,
@@ -34,13 +34,13 @@ public class RoomWiseMinusDataEntityTests
 
         Assert.Equal(1, entity.Id);
         Assert.Equal(100, entity.RoomWiseSubmissionId);
-        Assert.Equal(2.5m, entity.LengthMtr);
-        Assert.Equal(1.5m, entity.WidthMtr);
-        Assert.Equal(3.75m, entity.AreaSqMtr);
-        Assert.Equal(0.5m, entity.HeightMtr);
+        Assert.Equal(2.5, entity.LengthMtr);
+        Assert.Equal(1.5, entity.WidthMtr);
+        Assert.Equal(3.75, entity.AreaSqMtr);
+        Assert.Equal(0.5, entity.HeightMtr);
         Assert.Equal("Rectangle", entity.Shape);
-        Assert.Equal(1.0m, entity.Base1Mtr);
-        Assert.Equal(2.0m, entity.Base2Mtr);
+        Assert.Equal(1.0, entity.Base1Mtr);
+        Assert.Equal(2.0, entity.Base2Mtr);
         Assert.False(entity.MarkedForDeletion);
         Assert.Null(entity.MarkedForDeletionDate);
         Assert.True(entity.IsActive);
@@ -105,16 +105,16 @@ public class RoomWiseMinusDataEntityTests
     {
         var entity = new RoomWiseMinusDataEntity
         {
-            LengthMtr = 3.0m,
-            WidthMtr = 2.0m,
-            AreaSqMtr = 6.0m,
-            HeightMtr = 1.0m
+            LengthMtr = 3.0,
+            WidthMtr = 2.0,
+            AreaSqMtr = 6.0,
+            HeightMtr = 1.0
         };
 
-        Assert.Equal(3.0m, entity.LengthMtr);
-        Assert.Equal(2.0m, entity.WidthMtr);
-        Assert.Equal(6.0m, entity.AreaSqMtr);
-        Assert.Equal(1.0m, entity.HeightMtr);
+        Assert.Equal(3.0, entity.LengthMtr);
+        Assert.Equal(2.0, entity.WidthMtr);
+        Assert.Equal(6.0, entity.AreaSqMtr);
+        Assert.Equal(1.0, entity.HeightMtr);
     }
 
     [Fact]
@@ -123,13 +123,13 @@ public class RoomWiseMinusDataEntityTests
         var entity = new RoomWiseMinusDataEntity
         {
             Shape = "Trapezoid",
-            Base1Mtr = 2.5m,
-            Base2Mtr = 3.5m
+            Base1Mtr = 2.5,
+            Base2Mtr = 3.5
         };
 
         Assert.Equal("Trapezoid", entity.Shape);
-        Assert.Equal(2.5m, entity.Base1Mtr);
-        Assert.Equal(3.5m, entity.Base2Mtr);
+        Assert.Equal(2.5, entity.Base1Mtr);
+        Assert.Equal(3.5, entity.Base2Mtr);
     }
 
     [Fact]
@@ -138,15 +138,15 @@ public class RoomWiseMinusDataEntityTests
         var entity = new RoomWiseMinusDataEntity
         {
             RoomWiseSubmissionId = 100,
-            LengthMtr = 5.0m,
-            WidthMtr = 4.0m,
+            LengthMtr = 5.0,
+            WidthMtr = 4.0,
             Shape = "Rectangle"
         };
 
         var calculatedArea = entity.LengthMtr * entity.WidthMtr;
         entity.AreaSqMtr = calculatedArea;
 
-        Assert.Equal(20.0m, entity.AreaSqMtr);
+        Assert.Equal(20.0, entity.AreaSqMtr);
     }
 
     [Fact]
@@ -156,9 +156,9 @@ public class RoomWiseMinusDataEntityTests
         {
             Id = 1,
             RoomWiseSubmissionId = 100,
-            LengthMtr = 1.0m,
-            WidthMtr = 1.0m,
-            AreaSqMtr = 1.0m,
+            LengthMtr = 1.0,
+            WidthMtr = 1.0,
+            AreaSqMtr = 1.0,
             Shape = "Square"
         };
 
@@ -166,15 +166,15 @@ public class RoomWiseMinusDataEntityTests
         {
             Id = 2,
             RoomWiseSubmissionId = 100,
-            LengthMtr = 2.0m,
-            WidthMtr = 1.5m,
-            AreaSqMtr = 3.0m,
+            LengthMtr = 2.0,
+            WidthMtr = 1.5,
+            AreaSqMtr = 3.0,
             Shape = "Rectangle"
         };
 
         Assert.Equal(100, minus1.RoomWiseSubmissionId);
         Assert.Equal(100, minus2.RoomWiseSubmissionId);
-        Assert.Equal(1.0m, minus1.AreaSqMtr);
-        Assert.Equal(3.0m, minus2.AreaSqMtr);
+        Assert.Equal(1.0, minus1.AreaSqMtr);
+        Assert.Equal(3.0, minus2.AreaSqMtr);
     }
 }

@@ -13,6 +13,8 @@ public class CreateBaseDtos
 {
     public bool IsActive { get; set; }
     public int? CreatedBy { get; set; }
+ 
+
 }
 public class UpdateBaseDtos
 {

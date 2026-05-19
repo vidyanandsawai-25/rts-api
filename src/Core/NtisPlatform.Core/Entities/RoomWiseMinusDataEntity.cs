@@ -12,17 +12,17 @@ public class RoomWiseMinusDataEntity : BaseEntity, IHardDeletable
 {
     public int RoomWiseSubmissionId { get; set; }
 
-    public decimal? LengthMtr { get; set; }
+    public double? LengthMtr { get; set; }
 
-    public decimal? WidthMtr { get; set; }
+    public double? WidthMtr { get; set; }
 
-    public decimal? AreaSqMtr { get; set; }
+    public double? AreaSqMtr { get; set; }
 
-    public decimal? HeightMtr { get; set; }
+    public double? HeightMtr { get; set; }
 
-    public decimal? Base1Mtr { get; set; }
+    public double? Base1Mtr { get; set; }
 
-    public decimal? Base2Mtr { get; set; }
+    public double? Base2Mtr { get; set; }
 
     public string? Shape { get; set; }
 

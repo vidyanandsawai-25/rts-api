@@ -8,9 +8,11 @@
 
  
 	<ItemGroup>
+		<PackageReference Include="AutoMapper" Version="16.1.1" />
 		<PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />
 		<PackageReference Include="FluentAssertions" Version="8.8.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.2" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="$(MicrosoftPackageVersion)" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="$(MicrosoftTestSdkVersion)" />
 		<PackageReference Include="MockQueryable.EntityFrameworkCore" Version="10.0.0" />
 		<PackageReference Include="MockQueryable.Moq" Version="10.0.0" />
