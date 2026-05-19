@@ -1311,7 +1311,7 @@ public class ApplicationDbContext : DbContext
             // Foreign Key Relationship
             entity.HasOne(e => e.Category)
                 .WithMany(c => c.ConfigKeys)
-                .HasForeignKey(e => e.Id)
+                .HasForeignKey(e => e.CategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Indexes
