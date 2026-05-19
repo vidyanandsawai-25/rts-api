@@ -13,48 +13,48 @@ public class DepreciationDtos : BaseDtos
 
 public class CreateDepreciationDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "ConstructionId_Required")]
+    [Required(ErrorMessage = "Depreciation_ConstructionId_Required")]
     public int ConstructionTypeId { get; set; }
 
-    [Required(ErrorMessage = "MinYear_Required")]
-    [Range(0, 900, ErrorMessage = "MinYear_Range_0_900")]
+    [Required(ErrorMessage = "Depreciation_MinYear_Required")]
+    [Range(0, 999, ErrorMessage = "Depreciation_MinYear_Range_0_999")]
     public int MinYear { get; set; }
 
-    [Required(ErrorMessage = "MaxYear_Required")]
-    [Range(0, 999, ErrorMessage = "MaxYear_Range_0_999")]
+    [Required(ErrorMessage = "Depreciation_MaxYear_Required")]
+    [Range(0, 999, ErrorMessage = "Depreciation_MaxYear_Range_0_999")]
     public int MaxYear { get; set; }
 
-    [Required(ErrorMessage = "Rate_Required")]
-    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Rate_Range_0_9999")]
+    [Required(ErrorMessage = "Depreciation_Rate_Required")]
+    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Depreciation_Rate_Range_0_9999")]
     public decimal Rate { get; set; }
 
-    [Required(ErrorMessage = "YearRangeRVId_Required")]
-    [Range(1, 9999, ErrorMessage = "YearRangeRVId_Range_1_9999")]
+    [Required(ErrorMessage = "Depreciation_YearRangeRVId_Required")]
+    [Range(1, 9999, ErrorMessage = "Depreciation_YearRangeRVId_Range_1_9999")]
     public int YearRangeRVId { get; set; }
 
 }
 public class UpdateDepreciationDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "ID_Required")]
+    [Required(ErrorMessage = "Depreciation_ID_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "ID_Min_1")]
     public int Id { get; set; }
 
-    [Required(ErrorMessage = "ConstructionId_Required")]
+    [Required(ErrorMessage = "Depreciation_ConstructionId_Required")]
     public int ConstructionTypeId { get; set; } = 0;
 
-    [Required(ErrorMessage = "MinYear_Required")]
-    [Range(0, 900, ErrorMessage = "MinYear_Range_0_900")]
+    [Required(ErrorMessage = "Depreciation_MinYear_Required")]
+    [Range(0, 999, ErrorMessage = "Depreciation_MinYear_Range_0_999")]
     public int MinYear { get; set; }
 
-    [Required(ErrorMessage = "MaxYear_Required")]
-    [Range(0, 999, ErrorMessage = "MaxYear_Range_0_999")]
+    [Required(ErrorMessage = "Depreciation_MaxYear_Required")]
+    [Range(0, 999, ErrorMessage = "Depreciation_MaxYear_Range_0_999")]
     public int MaxYear { get; set; }
 
-    [Required(ErrorMessage = "Rate_Required")]
-    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Rate_Range_0_9999")]
+    [Required(ErrorMessage = "Depreciation_Rate_Required")]
+    [Range(typeof(decimal), "0", "9999", ErrorMessage = "Depreciation_Rate_Range_0_9999")]
     public decimal Rate { get; set; }
 
-    [Required(ErrorMessage = "YearRangeRVId_Required")]
+    [Required(ErrorMessage = "Depreciation_YearRangeRVId_Required")]
     [Range(1, 9999, ErrorMessage = "YearRangeRVId_Range_1_9999")]
     public int YearRangeRVId { get; set; }
 }

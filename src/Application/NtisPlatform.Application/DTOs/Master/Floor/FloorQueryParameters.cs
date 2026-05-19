@@ -17,6 +17,10 @@ public class FloorQueryParameters : BaseQueryParameters
     public string? Description { get; set; }
 
     [Filterable]
+    [Sortable]
     public int? SequenceNo { get; set; }
 
+    [Filterable]
+    [Sortable]
+    public bool? IsActive { get; set; }
 }

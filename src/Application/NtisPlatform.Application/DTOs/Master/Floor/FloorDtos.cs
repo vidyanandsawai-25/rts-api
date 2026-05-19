@@ -21,14 +21,14 @@ public class CreateFloorDto: CreateBaseDtos
 
     // AllowEmptyStrings = true: range-create passes empty template values;
     // the service transformer overwrites FloorCode with the generated range value.
-    [Required(AllowEmptyStrings = true, ErrorMessage = "FloorCode_Required")]
-    [StringLength(10, ErrorMessage = "FloorCode_MaxLen_10")]
+    [Required(AllowEmptyStrings = true, ErrorMessage = "Floor_FloorCode_Required")]
+    [StringLength(5, ErrorMessage = "Floor_FloorCode_MaxLen_5")]
     public string FloorCode { get; set; } = string.Empty;
 
     // AllowEmptyStrings = true: range-create passes empty template description;
     // the service transformer auto-generates description from the range value.
     [Required(AllowEmptyStrings = true, ErrorMessage = "Floor_Description_Required")]
-    [StringLength(100, ErrorMessage = "Description_MaxLen_100")]
+    [StringLength(100, ErrorMessage = "Floor_Description_MaxLen_100")]
     public string Description { get; set; }
     public int? SequenceNo { get; set; }
     public int? MaxFloorNo { get; set; }
@@ -36,12 +36,12 @@ public class CreateFloorDto: CreateBaseDtos
 
 public class UpdateFloorDto :UpdateBaseDtos
 {
-    [Required(ErrorMessage = "FloorCode_Required")]
-    [StringLength(10, ErrorMessage = "FloorCode_MaxLen_10")]
+    [Required(ErrorMessage = "Floor_FloorCode_Required")]
+    [StringLength(5, ErrorMessage = "Floor_FloorCode_MaxLen_5")]
     public string FloorCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Floor_Description_Required")]
-    [StringLength(100, ErrorMessage = "Description_MaxLen_100")]
+    [StringLength(100, ErrorMessage = "Floor_Description_MaxLen_100")]
     public string Description { get; set; }
 
     public int? SequenceNo { get; set; }

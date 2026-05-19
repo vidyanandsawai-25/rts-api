@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +13,13 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class PropertyTypeMasterController : ControllerBase
 {
     private readonly IPropertyTypeMasterService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<PropertyTypeMasterController> _logger;
 
-    public PropertyTypeMasterController(IPropertyTypeMasterService service, ILogger<PropertyTypeMasterController> logger)
+    public PropertyTypeMasterController(IPropertyTypeMasterService service, IHardDeleteCleanupService cleanupService, ILogger<PropertyTypeMasterController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
         _logger = logger;
     }
 
@@ -39,4 +42,9 @@ public class PropertyTypeMasterController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+    => this.ExecuteForceDelete<PropertyTypeMasterEntity, int>(_cleanupService, id, _logger, ct);
 }

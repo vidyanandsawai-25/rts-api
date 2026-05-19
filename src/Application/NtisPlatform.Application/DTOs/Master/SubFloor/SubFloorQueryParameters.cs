@@ -21,5 +21,7 @@ public class SubFloorQueryParameters : BaseQueryParameters
     [Searchable]
     public string? SubFloorDescriptionEnglish { get; set; }
 
-
+    [Filterable]
+    [Sortable]
+    public bool? IsActive { get; set; }
 }

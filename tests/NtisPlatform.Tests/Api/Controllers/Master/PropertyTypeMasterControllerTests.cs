@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Entities.Master;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
@@ -12,14 +14,16 @@ namespace NtisPlatform.Tests.Api.Controllers.Master;
 public class PropertyTypeMasterControllerTests
 {
     private readonly Mock<IPropertyTypeMasterService> _serviceMock;
+    private readonly Mock<IHardDeleteCleanupService> _cleanupServiceMock;
     private readonly Mock<ILogger<PropertyTypeMasterController>> _loggerMock;
     private readonly PropertyTypeMasterController _controller;
 
     public PropertyTypeMasterControllerTests()
     {
         _serviceMock = new Mock<IPropertyTypeMasterService>();
+        _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
         _loggerMock = new Mock<ILogger<PropertyTypeMasterController>>();
-        _controller = new PropertyTypeMasterController(_serviceMock.Object, _loggerMock.Object);
+        _controller = new PropertyTypeMasterController(_serviceMock.Object, _cleanupServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]
@@ -122,5 +126,35 @@ public class PropertyTypeMasterControllerTests
         var result = await _controller.Delete(999, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Purge_WithValidId_CallsForceHardDeleteAndReturnsOk()
+    {
+        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _controller.Purge(1, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Contains("permanently deleted", response.Message, StringComparison.OrdinalIgnoreCase);
+        _cleanupServiceMock.Verify(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Purge_WithInvalidId_ReturnsOkWithFailureMessage()
+    {
+        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _controller.Purge(999, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("not found", response.Message, StringComparison.OrdinalIgnoreCase);
+        _cleanupServiceMock.Verify(s => s.ForceHardDeleteAsync<PropertyTypeMasterEntity, int>(999, It.IsAny<CancellationToken>()), Times.Once);
     }
 }
