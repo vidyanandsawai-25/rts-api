@@ -1,10 +1,12 @@
 using AutoMapper;
 using Moq;
 using MockQueryable;
+using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Master.WaterConnection;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -20,6 +22,8 @@ public class WaterConnectionServiceTests
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IRepository<WaterRateMasterEntity, int>> _mockRateRepository;
     private readonly Mock<IRepository<YearMasterEntity, int>> _mockYearRepository;
+    private readonly Mock<IWaterConnectionDetailsService> _mockDetailsService;
+    private readonly Mock<ILogger<WaterConnectionService>> _mockLogger;
     private readonly WaterConnectionService _service;
 
     public WaterConnectionServiceTests()
@@ -30,6 +34,8 @@ public class WaterConnectionServiceTests
         _mockMapper = new Mock<IMapper>();
         _mockRateRepository = new Mock<IRepository<WaterRateMasterEntity, int>>();
         _mockYearRepository = new Mock<IRepository<YearMasterEntity, int>>();
+        _mockDetailsService = new Mock<IWaterConnectionDetailsService>();
+        _mockLogger = new Mock<ILogger<WaterConnectionService>>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -41,7 +47,9 @@ public class WaterConnectionServiceTests
             _mockMapper.Object,
             _mockReferenceValidator.Object,
             _mockRateRepository.Object,
-            _mockYearRepository.Object);
+            _mockYearRepository.Object,
+            _mockDetailsService.Object,
+            _mockLogger.Object);
     }
 
     [Fact]
@@ -71,6 +79,24 @@ public class WaterConnectionServiceTests
         _mockMapper.Setup(m => m.Map<WaterConnectionDto>(It.IsAny<WaterConnectionMasterEntity>()))
             .Returns(new WaterConnectionDto { Id = 1, PropertyId = 10, ConnectionNo = "WC-001" });
 
+        // Mock the year repository to return an active financial year
+        var today = DateTime.Today;
+        var currentYear = new YearMasterEntity
+        {
+            Id = 1,
+            YearCode = "2024-25",
+            StartDate = today.AddMonths(-6),
+            EndDate = today.AddMonths(6),
+            IsActive = true
+        };
+        var mockYearQuery = new List<YearMasterEntity> { currentYear }.BuildMock();
+        _mockYearRepository.Setup(r => r.GetQueryable()).Returns(mockYearQuery);
+
+        // Mock GenerateBillAsync to return successfully
+        _mockDetailsService
+            .Setup(s => s.GenerateBillAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WaterConnectionDetailsDto { Id = 1, WaterConnectionId = 1, FinanceYearId = 1 });
+
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
 
         Assert.NotNull(result);
@@ -78,6 +104,7 @@ public class WaterConnectionServiceTests
         Assert.Equal(10, result.PropertyId);
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockDetailsService.Verify(s => s.GenerateBillAsync(1, 1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -272,5 +299,160 @@ public class WaterConnectionServiceTests
 
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_NoActiveFinancialYear_CreatesWithoutBillDetails()
+    {
+        var createDto = new CreateWaterConnectionDto
+        {
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-002",
+            ConnectionStartDate = new DateTime(2024, 4, 1)
+        };
+        var entity = new WaterConnectionMasterEntity
+        {
+            Id = 2,
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-002",
+            ConnectionStartDate = new DateTime(2024, 4, 1),
+            IsActive = true
+        };
+
+        _mockMapper.Setup(m => m.Map<WaterConnectionMasterEntity>(It.IsAny<CreateWaterConnectionDto>())).Returns(entity);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockMapper.Setup(m => m.Map<WaterConnectionDto>(It.IsAny<WaterConnectionMasterEntity>()))
+            .Returns(new WaterConnectionDto { Id = 2, PropertyId = 10, ConnectionNo = "WC-002" });
+
+        // Mock no active financial year
+        var mockYearQuery = new List<YearMasterEntity>().BuildMock();
+        _mockYearRepository.Setup(r => r.GetQueryable()).Returns(mockYearQuery);
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("WC-002", result.ConnectionNo);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // GenerateBillAsync should not be called when no active financial year exists
+        _mockDetailsService.Verify(s => s.GenerateBillAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_BillGenerationFails_StillCreatesConnection()
+    {
+        var createDto = new CreateWaterConnectionDto
+        {
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-003",
+            ConnectionStartDate = new DateTime(2024, 4, 1)
+        };
+        var entity = new WaterConnectionMasterEntity
+        {
+            Id = 3,
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-003",
+            ConnectionStartDate = new DateTime(2024, 4, 1),
+            IsActive = true
+        };
+
+        _mockMapper.Setup(m => m.Map<WaterConnectionMasterEntity>(It.IsAny<CreateWaterConnectionDto>())).Returns(entity);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockMapper.Setup(m => m.Map<WaterConnectionDto>(It.IsAny<WaterConnectionMasterEntity>()))
+            .Returns(new WaterConnectionDto { Id = 3, PropertyId = 10, ConnectionNo = "WC-003" });
+
+        // Mock active financial year with dynamic dates relative to today
+        var today = DateTime.Today;
+        var currentYear = new YearMasterEntity
+        {
+            Id = 1,
+            YearCode = "Current-FY",
+            StartDate = today.AddMonths(-6),
+            EndDate = today.AddMonths(6),
+            IsActive = true
+        };
+        var mockYearQuery = new List<YearMasterEntity> { currentYear }.BuildMock();
+        _mockYearRepository.Setup(r => r.GetQueryable()).Returns(mockYearQuery);
+
+        // Mock GenerateBillAsync to throw an exception
+        _mockDetailsService
+            .Setup(s => s.GenerateBillAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("No active rate found"));
+
+        // Should not throw - connection creation should succeed even if bill generation fails
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("WC-003", result.ConnectionNo);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        
+        // Verify that GenerateBillAsync was actually invoked (and failed)
+        _mockDetailsService.Verify(s => s.GenerateBillAsync(3, 1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_BillGenerationCancelled_PropagatesCancellation()
+    {
+        var createDto = new CreateWaterConnectionDto
+        {
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-004",
+            ConnectionStartDate = new DateTime(2024, 4, 1)
+        };
+        var entity = new WaterConnectionMasterEntity
+        {
+            Id = 4,
+            PropertyId = 10,
+            WaterConnectionTypeId = 1,
+            WaterConnectionSizeId = 1,
+            ConnectionNo = "WC-004",
+            ConnectionStartDate = new DateTime(2024, 4, 1),
+            IsActive = true
+        };
+
+        _mockMapper.Setup(m => m.Map<WaterConnectionMasterEntity>(It.IsAny<CreateWaterConnectionDto>())).Returns(entity);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockMapper.Setup(m => m.Map<WaterConnectionDto>(It.IsAny<WaterConnectionMasterEntity>()))
+            .Returns(new WaterConnectionDto { Id = 4, PropertyId = 10, ConnectionNo = "WC-004" });
+
+        // Mock active financial year with dynamic dates relative to today
+        var today = DateTime.Today;
+        var currentYear = new YearMasterEntity
+        {
+            Id = 1,
+            YearCode = "Current-FY",
+            StartDate = today.AddMonths(-6),
+            EndDate = today.AddMonths(6),
+            IsActive = true
+        };
+        var mockYearQuery = new List<YearMasterEntity> { currentYear }.BuildMock();
+        _mockYearRepository.Setup(r => r.GetQueryable()).Returns(mockYearQuery);
+
+        // Mock GenerateBillAsync to throw OperationCanceledException
+        _mockDetailsService
+            .Setup(s => s.GenerateBillAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException("Operation was cancelled"));
+
+        // Should propagate cancellation - not swallow it
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+
+        // Connection should still be created before bill generation
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<WaterConnectionMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        
+        // Verify that GenerateBillAsync was invoked before cancellation
+        _mockDetailsService.Verify(s => s.GenerateBillAsync(4, 1, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

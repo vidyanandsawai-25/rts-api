@@ -18,7 +18,6 @@ public class WaterConnectionQueryParameters : BaseQueryParameters
     [Sortable]
     public string? ConnectionNo { get; set; }
 
-    // Not filterable on the entity — used only to scope the rate/charges lookup
     public int? FinanceYearId { get; set; }
 }
 

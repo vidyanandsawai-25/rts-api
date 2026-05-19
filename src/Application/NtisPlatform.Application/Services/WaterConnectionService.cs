@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Master.WaterConnection;
 using NtisPlatform.Application.Interfaces;
@@ -17,6 +18,8 @@ public class WaterConnectionService
     private readonly IReferenceValidationService _referenceValidator;
     private readonly IRepository<WaterRateMasterEntity, int> _rateRepository;
     private readonly IRepository<YearMasterEntity, int> _yearRepository;
+    private readonly IWaterConnectionDetailsService _detailsService;
+    private readonly ILogger<WaterConnectionService> _logger;
 
     public WaterConnectionService(
         IRepository<WaterConnectionMasterEntity, int> repository,
@@ -24,12 +27,16 @@ public class WaterConnectionService
         IMapper mapper,
         IReferenceValidationService referenceValidator,
         IRepository<WaterRateMasterEntity, int> rateRepository,
-        IRepository<YearMasterEntity, int> yearRepository)
+        IRepository<YearMasterEntity, int> yearRepository,
+        IWaterConnectionDetailsService detailsService,
+        ILogger<WaterConnectionService> logger)
         : base(repository, unitOfWork, mapper)
     {
         _referenceValidator = referenceValidator;
         _rateRepository = rateRepository;
         _yearRepository = yearRepository;
+        _detailsService = detailsService;
+        _logger = logger;
     }
 
     protected override IQueryable<WaterConnectionMasterEntity> ApplyIncludes(
@@ -77,7 +84,7 @@ public class WaterConnectionService
     /// active rate rows in one query, then sets ApplicableRate and ApplicableCharges on every DTO.
     ///
     /// ApplicableRate  = WaterRateMaster.YearlyRate
-    /// ApplicableCharges = ROUND((YearlyRate / 12) * ChargeMonths, 2)
+    /// ApplicableCharges = CEILING((YearlyRate / 12) * ChargeMonths) - always rounds up to nearest whole number
     ///   where ChargeMonths counts months from MAX(ConnectionStartDate, FYStart)
     ///                                          to MIN(ConnectionStopDate ?? FYEnd, FYEnd) inclusive.
     /// </summary>
@@ -142,7 +149,7 @@ public class WaterConnectionService
                              + chargeEnd.Month - chargeStart.Month + 1;
 
             if (chargeMonths > 0)
-                dto.ApplicableCharges = Math.Round(rate.YearlyRate / 12m * chargeMonths, 2);
+                dto.ApplicableCharges = Math.Ceiling(rate.YearlyRate / 12m * chargeMonths);
         }
     }
 
@@ -163,5 +170,44 @@ public class WaterConnectionService
         CancellationToken cancellationToken = default)
     {
         return await _referenceValidator.ValidateReferencesAsync<WaterConnectionMasterEntity>(id, cancellationToken);
+    }
+
+    public override async Task<WaterConnectionDto> CreateAsync(CreateWaterConnectionDto createDto, CancellationToken cancellationToken = default)
+    {
+        var dto = await base.CreateAsync(createDto, cancellationToken);
+
+        // Automatically generate bill details for the current financial year
+        try
+        {
+            var today = DateTime.Today;
+            var currentYear = await _yearRepository.GetQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    y => y.IsActive && y.StartDate <= today && y.EndDate >= today,
+                    cancellationToken);
+
+            if (currentYear != null)
+            {
+                _logger.LogInformation("Generating WaterConnectionDetails for WaterConnectionId {WaterConnectionId} and FinanceYearId {FinanceYearId}", dto.Id, currentYear.Id);
+                await _detailsService.GenerateBillAsync(dto.Id, currentYear.Id, cancellationToken);
+                _logger.LogInformation("Successfully generated WaterConnectionDetails for WaterConnectionId {WaterConnectionId}", dto.Id);
+            }
+            else
+            {
+                _logger.LogWarning("No active financial year found for today's date. WaterConnectionDetails not generated for WaterConnectionId {WaterConnectionId}", dto.Id);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Re-throw cancellation to allow proper request cancellation handling
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Only swallow genuine bill-generation failures (not cancellation)
+            _logger.LogError(ex, "Failed to generate WaterConnectionDetails for WaterConnectionId {WaterConnectionId}. The bill can be generated later manually.", dto.Id);
+        }
+
+        return dto;
     }
 }

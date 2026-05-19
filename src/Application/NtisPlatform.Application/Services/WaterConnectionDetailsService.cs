@@ -53,7 +53,7 @@ public class WaterConnectionDetailsService
     ///   ChargeStartDate = MAX(ConnectionStartDate, FYStartDate)
     ///   ChargeEndDate   = MIN(ConnectionStopDate ?? FYEndDate, FYEndDate)
     ///   ChargeMonths    = inclusive month count (both start and end month counted)
-    ///   WaterBill       = ROUND((YearlyRate / 12) * ChargeMonths, 2)
+    ///   WaterBill       = CEILING((YearlyRate / 12) * ChargeMonths) - always rounds up to nearest whole number
     ///
     /// Returns null when no bill is applicable (connection stopped before FY starts,
     /// or connection not yet started by FY end).
@@ -113,7 +113,7 @@ public class WaterConnectionDetailsService
                 $"No active rate found for connection type {connection.WaterConnectionTypeId}, " +
                 $"size {connection.WaterConnectionSizeId}, finance year {financeYearId}.");
 
-        var waterBill = Math.Round(rate.YearlyRate / 12m * chargeMonths, 2);
+        var waterBill = Math.Ceiling(rate.YearlyRate / 12m * chargeMonths);
 
         // Upsert: recalculate if a bill already exists for this connection+year
         var existing = await _repository.GetQueryable()

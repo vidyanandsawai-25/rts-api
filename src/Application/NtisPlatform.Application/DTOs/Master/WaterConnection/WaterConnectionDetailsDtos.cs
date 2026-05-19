@@ -18,54 +18,54 @@ public class WaterConnectionDetailsDto : BaseDtos
 
 public class CreateWaterConnectionDetailsDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "WaterConnectionId_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_WaterConnectionId_Required")]
     public int WaterConnectionId { get; set; }
 
-    [Required(ErrorMessage = "FinanceYearId_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_FinanceYearId_Required")]
     public int FinanceYearId { get; set; }
 
-    [Required(ErrorMessage = "BillDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_BillDate_Required")]
     public DateTime BillDate { get; set; }
 
-    [Required(ErrorMessage = "FromDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_FromDate_Required")]
     public DateTime FromDate { get; set; }
 
-    [Required(ErrorMessage = "ToDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_ToDate_Required")]
     public DateTime ToDate { get; set; }
 
-    [Range(1, 12, ErrorMessage = "ChargeMonths_Range")]
+    [Range(1, 12, ErrorMessage = "WaterConnectionDetails_ChargeMonths_Range")]
     public int ChargeMonths { get; set; }
 
-    [Range(0, 9999999.99, ErrorMessage = "YearlyRate_Range")]
+    [Range(0, 10000000, ErrorMessage = "WaterConnectionDetails_YearlyRate_Range")]
     public decimal YearlyRate { get; set; }
 
-    [Range(0, 9999999.99, ErrorMessage = "WaterBill_Range")]
+    [Range(0, 10000000, ErrorMessage = "WaterConnectionDetails_WaterBill_Range")]
     public decimal WaterBill { get; set; }
 }
 
 public class UpdateWaterConnectionDetailsDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "WaterConnectionId_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_WaterConnectionId_Required")]
     public int WaterConnectionId { get; set; }
 
-    [Required(ErrorMessage = "FinanceYearId_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_FinanceYearId_Required")]
     public int FinanceYearId { get; set; }
 
-    [Required(ErrorMessage = "BillDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_BillDate_Required")]
     public DateTime BillDate { get; set; }
 
-    [Required(ErrorMessage = "FromDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_FromDate_Required")]
     public DateTime FromDate { get; set; }
 
-    [Required(ErrorMessage = "ToDate_Required")]
+    [Required(ErrorMessage = "WaterConnectionDetails_ToDate_Required")]
     public DateTime ToDate { get; set; }
 
-    [Range(1, 12, ErrorMessage = "ChargeMonths_Range")]
+    [Range(1, 12, ErrorMessage = "WaterConnectionDetails_ChargeMonths_Range")]
     public int ChargeMonths { get; set; }
 
-    [Range(0, 9999999.99, ErrorMessage = "YearlyRate_Range")]
+    [Range(0, 10000000, ErrorMessage = "WaterConnectionDetails_YearlyRate_Range")]
     public decimal YearlyRate { get; set; }
 
-    [Range(0, 9999999.99, ErrorMessage = "WaterBill_Range")]
+    [Range(0, 10000000, ErrorMessage = "WaterConnectionDetails_WaterBill_Range")]
     public decimal WaterBill { get; set; }
 }

@@ -15,32 +15,32 @@ public class WaterRateMasterDto : BaseDtos
 
 public class CreateWaterRateMasterDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "WaterConnectionTypeId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_WaterConnectionTypeId_Required")]
     public int WaterConnectionTypeId { get; set; }
 
-    [Required(ErrorMessage = "WaterConnectionSizeId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_WaterConnectionSizeId_Required")]
     public int WaterConnectionSizeId { get; set; }
 
-    [Required(ErrorMessage = "FinanceYearId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_FinanceYearId_Required")]
     public int FinanceYearId { get; set; }
 
-    [Required(ErrorMessage = "YearlyRate_Required")]
-    [Range(0, 9999999.99, ErrorMessage = "YearlyRate_Range")]
+    [Required(ErrorMessage = "WaterRateMaster_YearlyRate_Required")]
+    [Range(0, 10000000, ErrorMessage = "YearlyRate_Range")]
     public decimal YearlyRate { get; set; }
 }
 
 public class UpdateWaterRateMasterDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "WaterConnectionTypeId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_WaterConnectionTypeId_Required")]
     public int WaterConnectionTypeId { get; set; }
 
-    [Required(ErrorMessage = "WaterConnectionSizeId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_WaterConnectionSizeId_Required")]
     public int WaterConnectionSizeId { get; set; }
 
-    [Required(ErrorMessage = "FinanceYearId_Required")]
+    [Required(ErrorMessage = "WaterRateMaster_FinanceYearId_Required")]
     public int FinanceYearId { get; set; }
 
-    [Required(ErrorMessage = "YearlyRate_Required")]
-    [Range(0, 9999999.99, ErrorMessage = "YearlyRate_Range")]
+    [Required(ErrorMessage = "WaterRateMaster_YearlyRate_Required")]
+    [Range(0, 10000000, ErrorMessage = "WaterRateMaster_YearlyRate_Range")]
     public decimal YearlyRate { get; set; }
 }
