@@ -31,9 +31,11 @@ public class SocietyDetailsEntityComprehensiveTests
         Assert.Null(entity.ManagerNameEnglish);
         Assert.Null(entity.LandOwnerNameEnglish);
         Assert.Null(entity.BuilderNameEnglish);
-        Assert.Null(entity.BuilderMobileRemarkId);
-        Assert.Null(entity.BuilderMobile);
+        Assert.Null(entity.BuilderMobileNoRemarkId);
+        Assert.Null(entity.BuilderMobileNo);
         Assert.Null(entity.ManagerMobileNo);
+        Assert.Null(entity.ManagerMobileNoRemarkId);
+        Assert.Null(entity.SecretaryMobileNoRemarkId);
         Assert.Null(entity.SecretaryMobileNo);
         Assert.Null(entity.SocietyEmailId);
         Assert.Null(entity.SecretaryEmailId);
@@ -67,9 +69,11 @@ public class SocietyDetailsEntityComprehensiveTests
             ManagerNameEnglish = "Sanjay Sharma",
             LandOwnerNameEnglish = "Vijay Patil",
             BuilderNameEnglish = "Ramesh Builders",
-            BuilderMobileRemarkId = 1,
-            BuilderMobile = "9876543210",
+            BuilderMobileNoRemarkId = 1,
+            BuilderMobileNo = "9876543210",
             ManagerMobileNo = "9876543211",
+            ManagerMobileNoRemarkId = 2,
+            SecretaryMobileNoRemarkId = 3,
             SecretaryMobileNo = "9876543212",
             SocietyEmailId = "society@example.com",
             SecretaryEmailId = "secretary@example.com",
@@ -100,9 +104,11 @@ public class SocietyDetailsEntityComprehensiveTests
         Assert.Equal("Sanjay Sharma", entity.ManagerNameEnglish);
         Assert.Equal("Vijay Patil", entity.LandOwnerNameEnglish);
         Assert.Equal("Ramesh Builders", entity.BuilderNameEnglish);
-        Assert.Equal(1, entity.BuilderMobileRemarkId);
-        Assert.Equal("9876543210", entity.BuilderMobile);
+        Assert.Equal(1, entity.BuilderMobileNoRemarkId);
+        Assert.Equal("9876543210", entity.BuilderMobileNo);
         Assert.Equal("9876543211", entity.ManagerMobileNo);
+        Assert.Equal(2, entity.ManagerMobileNoRemarkId);
+        Assert.Equal(3, entity.SecretaryMobileNoRemarkId);
         Assert.Equal("9876543212", entity.SecretaryMobileNo);
         Assert.Equal("society@example.com", entity.SocietyEmailId);
         Assert.Equal("secretary@example.com", entity.SecretaryEmailId);
@@ -190,13 +196,13 @@ public class SocietyDetailsEntityComprehensiveTests
         // Act
         var entity = new SocietyDetailsEntity
         {
-            BuilderMobile = "9876543210",
+            BuilderMobileNo = "9876543210",
             ManagerMobileNo = "9876543211",
             SecretaryMobileNo = "9876543212"
         };
 
         // Assert
-        Assert.Equal("9876543210", entity.BuilderMobile);
+        Assert.Equal("9876543210", entity.BuilderMobileNo);
         Assert.Equal("9876543211", entity.ManagerMobileNo);
         Assert.Equal("9876543212", entity.SecretaryMobileNo);
     }
@@ -331,7 +337,7 @@ public class SocietyDetailsEntityComprehensiveTests
         // Act
         var entity = new SocietyDetailsEntity
         {
-            BuilderMobile = "1234567890",
+            BuilderMobileNo = "1234567890",
             ManagerMobileNo = "1234567891",
             SecretaryMobileNo = "1234567892",
             SocietyEmailId = "society@test.com",
@@ -340,7 +346,7 @@ public class SocietyDetailsEntityComprehensiveTests
         };
 
         // Assert
-        Assert.NotNull(entity.BuilderMobile);
+        Assert.NotNull(entity.BuilderMobileNo);
         Assert.NotNull(entity.ManagerMobileNo);
         Assert.NotNull(entity.SecretaryMobileNo);
         Assert.NotNull(entity.SocietyEmailId);
@@ -412,18 +418,71 @@ public class SocietyDetailsEntityComprehensiveTests
     }
 
     [Fact]
-    public void SocietyDetailsEntity_BuilderMobileRemarkId_CanBeSet()
+    public void SocietyDetailsEntity_BuilderMobileNoRemarkId_CanBeSet()
     {
         // Act
         var entity = new SocietyDetailsEntity
         {
-            BuilderMobileRemarkId = 5,
-            BuilderMobile = "9876543210"
+            BuilderMobileNoRemarkId = 5,
+            BuilderMobileNo = "9876543210"
         };
 
         // Assert
-        Assert.Equal(5, entity.BuilderMobileRemarkId);
-        Assert.Equal("9876543210", entity.BuilderMobile);
+        Assert.Equal(5, entity.BuilderMobileNoRemarkId);
+        Assert.Equal("9876543210", entity.BuilderMobileNo);
+    }
+
+    [Fact]
+    public void SocietyDetailsEntity_ManagerMobileNoRemarkId_CanBeSet()
+    {
+        // Act
+        var entity = new SocietyDetailsEntity
+        {
+            ManagerMobileNoRemarkId = 3,
+            ManagerMobileNo = "9876543211"
+        };
+
+        // Assert
+        Assert.Equal(3, entity.ManagerMobileNoRemarkId);
+        Assert.Equal("9876543211", entity.ManagerMobileNo);
+    }
+
+    [Fact]
+    public void SocietyDetailsEntity_SecretaryMobileNoRemarkId_CanBeSet()
+    {
+        // Act
+        var entity = new SocietyDetailsEntity
+        {
+            SecretaryMobileNoRemarkId = 4,
+            SecretaryMobileNo = "9876543212"
+        };
+
+        // Assert
+        Assert.Equal(4, entity.SecretaryMobileNoRemarkId);
+        Assert.Equal("9876543212", entity.SecretaryMobileNo);
+    }
+
+    [Fact]
+    public void SocietyDetailsEntity_AllMobileRemarkIds_CanBeSet()
+    {
+        // Act
+        var entity = new SocietyDetailsEntity
+        {
+            BuilderMobileNoRemarkId = 5,
+            BuilderMobileNo = "9876543210",
+            ManagerMobileNoRemarkId = 3,
+            ManagerMobileNo = "9876543211",
+            SecretaryMobileNoRemarkId = 4,
+            SecretaryMobileNo = "9876543212"
+        };
+
+        // Assert
+        Assert.Equal(5, entity.BuilderMobileNoRemarkId);
+        Assert.Equal("9876543210", entity.BuilderMobileNo);
+        Assert.Equal(3, entity.ManagerMobileNoRemarkId);
+        Assert.Equal("9876543211", entity.ManagerMobileNo);
+        Assert.Equal(4, entity.SecretaryMobileNoRemarkId);
+        Assert.Equal("9876543212", entity.SecretaryMobileNo);
     }
 
     [Fact]
@@ -435,7 +494,9 @@ public class SocietyDetailsEntityComprehensiveTests
             PropertyId = null,
             WingId = null,
             WingName = null,
-            BuilderMobileRemarkId = null,
+            BuilderMobileNoRemarkId = null,
+            ManagerMobileNoRemarkId = null,
+            SecretaryMobileNoRemarkId = null,
             MarkedForDeletionDate = null
         };
 
@@ -443,7 +504,9 @@ public class SocietyDetailsEntityComprehensiveTests
         Assert.Null(entity.PropertyId);
         Assert.Null(entity.WingId);
         Assert.Null(entity.WingName);
-        Assert.Null(entity.BuilderMobileRemarkId);
+        Assert.Null(entity.BuilderMobileNoRemarkId);
+        Assert.Null(entity.ManagerMobileNoRemarkId);
+        Assert.Null(entity.SecretaryMobileNoRemarkId);
         Assert.Null(entity.MarkedForDeletionDate);
     }
 }

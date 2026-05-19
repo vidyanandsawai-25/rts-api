@@ -1153,23 +1153,37 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.LandOwnerNameEnglish).HasMaxLength(200);
             entity.Property(e => e.BuilderNameEnglish).HasMaxLength(200);
             entity.Property(e => e.ManagerMobileNo).HasMaxLength(13);
+            entity.Property(e => e.ManagerMobileNoRemarkId);
             entity.Property(e => e.SecretaryMobileNo).HasMaxLength(13);
+            entity.Property(e => e.SecretaryMobileNoRemarkId);
+            entity.Property(e => e.BuilderMobileNo).HasMaxLength(13);
+            entity.Property(e => e.BuilderMobileNoRemarkId);
             entity.Property(e => e.SocietyEmailId).HasMaxLength(100);
             entity.Property(e => e.SecretaryEmailId).HasMaxLength(100);
             entity.Property(e => e.ManagerEmailId).HasMaxLength(100);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            //entity.Ignore(e => e.BHKType);
-            // SocietyDetailsMast table schema:
-            // ? MarkedForDeletion column EXISTS (mapped above)
-            // ? MarkedForDeletionDate column DOES NOT EXIST in database yet
-            // Entity has MarkedForDeletionDate property for IHardDeletable support,
-            // but we ignore it in EF Core to prevent SQL errors until column is added to database
-            entity.Ignore(e => e.MarkedForDeletionDate);
+
+            // Configure foreign key relationships
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ManagerMobileNoRemarkId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.SecretaryMobileNoRemarkId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<CommonRemarkTypeMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.BuilderMobileNoRemarkId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Property configuration
@@ -1247,6 +1261,12 @@ public class ApplicationDbContext : DbContext
               .WithOne(d => d.PropertyMast)
               .HasForeignKey(d => d.PropertyId)
               .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure PlotDetails relationship
+            entity.HasMany(e => e.PlotDetails)
+                .WithOne()
+                .HasForeignKey(pd => pd.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // Unique index on WardId, PropertyNo, PartitionNo
             entity.HasIndex(e => new { e.WardId, e.PropertyNo, e.PartitionNo })

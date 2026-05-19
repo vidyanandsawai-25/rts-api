@@ -53,16 +53,21 @@ public class SocietyDetailsEntity : BaseEntity
 
     [Column(TypeName = "nvarchar(200)")]
     public string? BuilderNameEnglish { get; set; }
-    public int? BuilderMobileRemarkId { get; set; }
-
-    [Column(TypeName = "varchar(13)")]
-    public string? BuilderMobile { get; set; }
 
     [Column(TypeName = "varchar(13)")]
     public string? ManagerMobileNo { get; set; }
 
+    public int? ManagerMobileNoRemarkId { get; set; }
+
     [Column(TypeName = "varchar(13)")]
     public string? SecretaryMobileNo { get; set; }
+
+    public int? SecretaryMobileNoRemarkId { get; set; }
+
+    [Column(TypeName = "varchar(13)")]
+    public string? BuilderMobileNo { get; set; }
+
+    public int? BuilderMobileNoRemarkId { get; set; }
 
     [Column(TypeName = "nvarchar(100)")]
     public string? SocietyEmailId { get; set; }
