@@ -16,12 +16,13 @@ public class SubTypeOfUseController : ControllerBase
     private readonly ISubTypeOfUseService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<SubTypeOfUseController> _logger;
-
-    public SubTypeOfUseController(ISubTypeOfUseService service, IHardDeleteCleanupService cleanupService, ILogger<SubTypeOfUseController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public SubTypeOfUseController(ISubTypeOfUseService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<SubTypeOfUseController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -47,6 +48,6 @@ public class SubTypeOfUseController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<SubTypeOfUseEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<SubTypeOfUseEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }
 

@@ -54,13 +54,14 @@ public class FloorFactorCVMasterServiceTests
 
         var floorEntities = new List<FloorEntity>
         {
-            new FloorEntity { Id = 1, FloorCode = "1", Description = "First Floor" },
-            new FloorEntity { Id = 2, FloorCode = "2", Description = "Second Floor" }
+            new FloorEntity { Id = 1, FloorCode = "1", Description = "First Floor", IsActive = true },
+            new FloorEntity { Id = 2, FloorCode = "2", Description = "Second Floor", IsActive = true }
         }.BuildMockDbSet();
         _mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorEntities.Object);
+
         var yearRangeEntities = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRangeEntities.Object);
 
@@ -84,13 +85,14 @@ public class FloorFactorCVMasterServiceTests
 
         var floorEntities = new List<FloorEntity>
         {
-            new FloorEntity { Id = 1, FloorCode = "1", Description = "First Floor" },
-            new FloorEntity { Id = 2, FloorCode = "2", Description = "Second Floor" }
+            new FloorEntity { Id = 1, FloorCode = "1", Description = "First Floor", IsActive = true },
+            new FloorEntity { Id = 2, FloorCode = "2", Description = "Second Floor", IsActive = true }
         }.BuildMockDbSet();
         _mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorEntities.Object);
+
         var yearRangeEntities = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRangeEntities.Object);
 
@@ -116,8 +118,8 @@ public class FloorFactorCVMasterServiceTests
             IsActive = true,
             CreatedDate = DateTime.Parse("2026-04-23T10:49:18.900")
         };
-        var floor = new FloorEntity { Id = 4, FloorCode = "F4", Description = "Fourth Floor" };
-        var yearRange = new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2020, ToYear = 2030 };
+        var floor = new FloorEntity { Id = 4, FloorCode = "F4", Description = "Fourth Floor", IsActive = true };
+        var yearRange = new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2020, ToYear = 2030, IsActive = true };
 
         var entityList = new List<FloorFactorCVMasterEntity> { entity };
         var floorList = new List<FloorEntity> { floor };
@@ -135,7 +137,7 @@ public class FloorFactorCVMasterServiceTests
         Assert.Equal(5, result.Id);
         Assert.Equal(4, result.FloorId);
         Assert.Equal("F4", result.FloorCode);
-        Assert.Equal("Fourth Floor", result.FloorDescription); 
+        Assert.Equal("Fourth Floor", result.FloorDescription);
         Assert.Equal(1.00m, result.FactorWithLift);
         Assert.Equal(1.00m, result.FactorWithoutLift);
         Assert.Equal(1, result.YearRangeCVId);

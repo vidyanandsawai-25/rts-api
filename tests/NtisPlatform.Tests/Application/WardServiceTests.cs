@@ -569,8 +569,9 @@ public class WardServiceTests
         // Arrange
         var mockService = new Mock<IWardService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<WardController>>();
-        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockReferenceValidationService.Object, mockLogger.Object);
 
         var request = new RangeCreateRequest<CreateWardDto>
         {
@@ -612,11 +613,16 @@ public class WardServiceTests
         // Arrange
         var mockService = new Mock<IWardService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<WardController>>();
-        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var controller = new WardController(mockService.Object, mockCleanupService.Object, mockReferenceValidationService.Object, mockLogger.Object);
 
         var ids = new[] { 1, 2, 3 };
         var bulkResult = new BulkResult<int>(3, 0, new List<int> { 1, 2, 3 });
+
+        // Mock validation to return no references for all IDs
+        mockReferenceValidationService.Setup(s => s.GetReferencingTablesWithDataAsync<WardEntity, int>(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
 
         mockCleanupService.Setup(s => s.BulkForceHardDeleteAsync<WardEntity, int>(ids, It.IsAny<CancellationToken>()))
             .ReturnsAsync(bulkResult);

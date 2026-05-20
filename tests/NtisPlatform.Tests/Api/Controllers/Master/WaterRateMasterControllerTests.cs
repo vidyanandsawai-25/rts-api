@@ -19,7 +19,8 @@ public class WaterRateMasterControllerTests
         service = new Mock<IWaterRateMasterService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
         var logger = new Mock<ILogger<WaterRateMasterController>>();
-        return new WaterRateMasterController(service.Object, cleanup.Object, logger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        return new WaterRateMasterController(service.Object, cleanup.Object, mockReferenceValidationService.Object, logger.Object);
     }
 
     [Fact]

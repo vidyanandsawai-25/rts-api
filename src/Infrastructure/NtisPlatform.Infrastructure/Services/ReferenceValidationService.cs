@@ -4,6 +4,8 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Infrastructure.Data;
+using System.Linq.Expressions;
+
 
 namespace NtisPlatform.Infrastructure.Services;
 
@@ -179,5 +181,131 @@ public class ReferenceValidationService : IReferenceValidationService
             return ValidationResult.Failure(errorMessage);
         }
         return ValidationResult.Success();
+    }
+
+    /// <summary>
+    /// retrieves all foreign key constraints for an entity.
+    /// </summary>    
+    
+    public async Task<List<string>> GetReferencingTablesWithDataAsync<TEntity, TKey>(
+    TKey referencedId,
+    string referencedColumnName = "Id",
+    CancellationToken cancellationToken = default) // Added cancellationToken parameter
+    where TEntity : class
+    {
+        var model = _context.Model;
+
+        var entityType = model.FindEntityType(typeof(TEntity));
+
+        if (entityType == null)
+        {
+            return new List<string>
+        {
+            $"Entity type '{typeof(TEntity).Name}' not found."
+        };
+        }
+
+        var referencingTables = new List<string>();
+
+        // Get all FK relationships referencing this entity
+        var foreignKeys = entityType.GetReferencingForeignKeys()
+            .Where(fk => fk.PrincipalKey.Properties
+                .Any(p => p.Name == referencedColumnName))
+            .ToList();
+
+        foreach (var fk in foreignKeys)
+        {
+            var dependentEntityType = fk.DeclaringEntityType;
+
+            var tableName = dependentEntityType.GetTableName();
+
+            if (string.IsNullOrWhiteSpace(tableName))
+                continue;
+
+            // FK property in child entity
+            var foreignKeyProperty = fk.Properties.Single();
+
+            var foreignKeyPropertyName = foreignKeyProperty.Name;
+
+            // CLR type of dependent entity
+            var clrType = dependentEntityType.ClrType;
+
+            // DbSet<TEntity>
+            var dbSet = (IQueryable)_context.GetType()
+                .GetMethod(nameof(DbContext.Set), Type.EmptyTypes)!
+                .MakeGenericMethod(clrType)
+                .Invoke(_context, null)!;
+
+            // x =>
+            // EF.Property<TProperty>(x, foreignKeyPropertyName) == referencedId
+
+            var parameter = Expression.Parameter(clrType, "x");
+
+            var propertyType =
+                Nullable.GetUnderlyingType(foreignKeyProperty.ClrType)
+                ?? foreignKeyProperty.ClrType;
+
+            var propertyMethod = typeof(EF)
+                .GetMethod(nameof(EF.Property))!
+                .MakeGenericMethod(foreignKeyProperty.ClrType);
+
+            var propertyExpression = Expression.Call(
+                propertyMethod,
+                parameter,
+                Expression.Constant(foreignKeyPropertyName));
+
+            // Convert the referencedId to the appropriate property type
+            var convertedId = Convert.ChangeType(
+                referencedId,
+                propertyType);
+
+            // Ensure the constant matches the exact FK CLR type
+            // If the FK property type is nullable, wrap the constant in Expression.Convert
+            var constantExpression = Expression.Constant(
+                convertedId,
+                propertyType); // Use the non-nullable propertyType here
+
+            // Wrap in Expression.Convert if the FK property type is nullable
+            var equalExpression = Expression.Equal(
+                propertyExpression,
+                foreignKeyProperty.ClrType.IsGenericType &&
+                foreignKeyProperty.ClrType.GetGenericTypeDefinition() == typeof(Nullable<>)
+                    ? Expression.Convert(constantExpression, foreignKeyProperty.ClrType) // Convert to nullable type if needed
+                    : constantExpression);
+
+            var lambda = Expression.Lambda(
+                equalExpression,
+                parameter);
+
+            // AnyAsync<TEntity>(source, predicate, cancellationToken)
+
+            var anyAsyncMethod = typeof(EntityFrameworkQueryableExtensions)
+                .GetMethods()
+                .First(m =>
+                    m.Name == nameof(EntityFrameworkQueryableExtensions.AnyAsync)
+                    && m.GetParameters().Length == 3)
+                .MakeGenericMethod(clrType);
+
+            var task = (Task<bool>)anyAsyncMethod.Invoke(
+                null,
+                new object[]
+                {
+                dbSet,
+                lambda,
+                cancellationToken 
+                })!;
+
+            var exists = await task;
+
+            if (exists)
+            {
+                referencingTables.Add(tableName);
+            }
+        }
+
+        return referencingTables
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
     }
 }

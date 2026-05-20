@@ -17,12 +17,13 @@ public class WardController : ControllerBase
     private readonly IWardService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<WardController> _logger;
-
-    public WardController(IWardService service, IHardDeleteCleanupService cleanupService, ILogger<WardController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public WardController(IWardService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<WardController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -65,12 +66,12 @@ public class WardController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<WardEntity, int>(_cleanupService, id, _logger, ct);    
+    => this.ExecuteForceDelete<WardEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);    
 
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-    => this.ExecuteBulkForceDelete<WardEntity, int>(_cleanupService, ids, _logger, ct);
+    => this.ExecuteBulkForceDelete<WardEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 
 
 }

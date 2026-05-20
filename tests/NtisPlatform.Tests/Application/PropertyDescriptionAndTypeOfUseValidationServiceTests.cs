@@ -22,6 +22,7 @@ public class PropertyDescriptionAndTypeOfUseValidationServiceTests
 
     private readonly Mock<IPropertyDescriptionAndTypeOfUseValidationService> _mockService;
     private readonly Mock<IHardDeleteCleanupService> _mockCleanupService;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidationService;
     private readonly Mock<ILogger<PropertyDescriptionAndTypeOfUseValidationController>> _mockLogger;
     private readonly PropertyDescriptionAndTypeOfUseValidationController _controller;
 
@@ -32,8 +33,9 @@ public class PropertyDescriptionAndTypeOfUseValidationServiceTests
         _mockMapper = new Mock<IMapper>();
         _mockService = new Mock<IPropertyDescriptionAndTypeOfUseValidationService>();
         _mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        _mockReferenceValidationService = new Mock<IReferenceValidationService>();
         _mockLogger = new Mock<ILogger<PropertyDescriptionAndTypeOfUseValidationController>>();
-        _controller = new PropertyDescriptionAndTypeOfUseValidationController(_mockService.Object, _mockCleanupService.Object, _mockLogger.Object);
+        _controller = new PropertyDescriptionAndTypeOfUseValidationController(_mockService.Object, _mockCleanupService.Object, _mockReferenceValidationService.Object, _mockLogger.Object);
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -191,6 +193,11 @@ public class PropertyDescriptionAndTypeOfUseValidationServiceTests
     {
         var ids = new[] { 1, 2 };
         var bulkResult = new NtisPlatform.Application.DTOs.Bulk.BulkResult<int>(2, 0, ids);
+
+        // Mock validation to return no references for all IDs
+        _mockReferenceValidationService.Setup(s => s.GetReferencingTablesWithDataAsync<PropertyDescriptionAndTypeOfUseValidationEntity, int>(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
         _mockCleanupService.Setup(s => s.BulkForceHardDeleteAsync<PropertyDescriptionAndTypeOfUseValidationEntity, int>(ids, It.IsAny<CancellationToken>())).ReturnsAsync(bulkResult);
         var result = await _controller.BulkPurge(ids, CancellationToken.None);
         var okResult = Assert.IsType<OkObjectResult>(result);

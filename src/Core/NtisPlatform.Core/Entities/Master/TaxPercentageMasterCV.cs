@@ -6,5 +6,6 @@ namespace NtisPlatform.Core.Entities.Master
     {
         public int YearRangeCVId { get; set; }
         public int TypeOfUseId { get; set; }
+        public virtual TypeOfUseEntity? TypeOfUse { get; set; }
     }
 }

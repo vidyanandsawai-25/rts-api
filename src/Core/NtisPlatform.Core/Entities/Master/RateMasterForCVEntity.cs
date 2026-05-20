@@ -1,4 +1,6 @@
-﻿namespace NtisPlatform.Core.Entities;
+﻿using NtisPlatform.Core.Entities.Master;
+
+namespace NtisPlatform.Core.Entities;
 
 public class RateMasterForCVEntity : BaseEntity
 {
@@ -13,5 +15,6 @@ public class RateMasterForCVEntity : BaseEntity
     public decimal RateAmount { get; set; }
 
     public virtual ICollection<CSNDetailsEntity> CSNDetails { get; set; } = new List<CSNDetailsEntity>();
+    public virtual AssessmentYearRangeCVEntity AssessmentYearRange { get; set; } = null!;
 
 }

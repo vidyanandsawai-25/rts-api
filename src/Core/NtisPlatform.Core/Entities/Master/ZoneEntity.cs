@@ -9,5 +9,7 @@ public class ZoneEntity : BaseEntity
     public string ZoneNo { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public int? SequenceNo { get; set; }
+    public ICollection<WardEntity> Ward { get; set; } = new List<WardEntity>();
+
 }
 

@@ -12,9 +12,7 @@ namespace NtisPlatform.Core.Entities.Master
     /// </summary>
     [Table("NatureFactorCVMaster", Schema = "PTIS")]
     public class NatureFactorCVMasterEntity : BaseEntity
-    {
-      
-
+    {     
         public int ConstructionTypeId { get; set; }
 
         public decimal Factor { get; set; }

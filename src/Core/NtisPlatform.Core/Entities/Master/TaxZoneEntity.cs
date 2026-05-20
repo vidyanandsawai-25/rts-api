@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
@@ -11,4 +12,6 @@ public class TaxZoneEntity : BaseEntity
     public string? TaxZoneType { get; set; }
 
     public string Remark { get; set; } = null!;
+    public ICollection<RateEntity> Rates { get; set; } = new List<RateEntity>();
+    public ICollection<PropertyEntity> Property { get; set; } = new List<PropertyEntity>();
 }

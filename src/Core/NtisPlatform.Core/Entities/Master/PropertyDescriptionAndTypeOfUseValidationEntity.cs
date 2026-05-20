@@ -13,6 +13,6 @@ public class PropertyDescriptionAndTypeOfUseValidationEntity : BaseEntity
     public int PropertyTypeId { get; set; }
     
     public int TypeOfUseId { get; set; }
-
+    public virtual TypeOfUseEntity? TypeOfUse { get; set; }
 
 }

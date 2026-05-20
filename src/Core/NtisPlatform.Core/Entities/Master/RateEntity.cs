@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities.Master;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -14,5 +15,11 @@ public class RateEntity : BaseEntity
     public int YearRangeRVId { get; set; }
     public decimal? RateSquareFeet { get; set; }
     public decimal? RateSquareMeter { get; set; }
+    public virtual ConstructionTypeEntity? ConstructionType { get; set; }
+    public virtual FloorEntity? Floor { get; set; }
+    public virtual RateSectionEntity? RateSection { get; set; }
+    public virtual TaxZoneEntity? TaxZone { get; set; }
+    public virtual TypeOfUseGroupEntity? TypeOfUseGroup { get; set; }
+    public virtual AssessmentYearRangeEntity? AssessmentYearRange { get; set; }
 }
 

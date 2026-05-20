@@ -17,12 +17,14 @@ public class PropertyDescriptionAndTypeOfUseValidationController : ControllerBas
     private readonly IPropertyDescriptionAndTypeOfUseValidationService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<PropertyDescriptionAndTypeOfUseValidationController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public PropertyDescriptionAndTypeOfUseValidationController(IPropertyDescriptionAndTypeOfUseValidationService service, IHardDeleteCleanupService cleanupService, ILogger<PropertyDescriptionAndTypeOfUseValidationController> logger)
+    public PropertyDescriptionAndTypeOfUseValidationController(IPropertyDescriptionAndTypeOfUseValidationService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<PropertyDescriptionAndTypeOfUseValidationController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -56,9 +58,9 @@ public class PropertyDescriptionAndTypeOfUseValidationController : ControllerBas
 
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<PropertyDescriptionAndTypeOfUseValidationEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<PropertyDescriptionAndTypeOfUseValidationEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-        => this.ExecuteBulkForceDelete<PropertyDescriptionAndTypeOfUseValidationEntity, int>(_cleanupService, ids, _logger, ct);
+        => this.ExecuteBulkForceDelete<PropertyDescriptionAndTypeOfUseValidationEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

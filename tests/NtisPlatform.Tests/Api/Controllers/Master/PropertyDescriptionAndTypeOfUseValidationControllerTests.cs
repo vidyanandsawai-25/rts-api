@@ -19,7 +19,8 @@ public class PropertyDescriptionAndTypeOfUseValidationControllerTests
         service = new Mock<IPropertyDescriptionAndTypeOfUseValidationService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
         var logger = new Mock<ILogger<PropertyDescriptionAndTypeOfUseValidationController>>();
-        return new PropertyDescriptionAndTypeOfUseValidationController(service.Object, cleanup.Object, logger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        return new PropertyDescriptionAndTypeOfUseValidationController(service.Object, cleanup.Object, mockReferenceValidationService.Object, logger.Object);
     }
 
     [Fact]

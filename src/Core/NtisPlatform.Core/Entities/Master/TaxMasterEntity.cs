@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -33,4 +34,8 @@ public class TaxMasterEntity : BaseEntity
     public bool AssessmentStatus { get; set; } = true;
 
     public bool OldTaxStatus { get; set; } = true;
+    public ICollection<TaxPercentageMasterCVEntity> TaxPercentageMasterCV { get; set; } = new List<TaxPercentageMasterCVEntity>();
+    public ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
+
 }
+

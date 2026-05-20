@@ -15,9 +15,7 @@ namespace NtisPlatform.Core.Entities.Master
 
     [Table("UseFactorCVMaster", Schema = "PTIS")]
     public class UseFactorCVMasterEntity : BaseEntity
-    {
-       
-
+    {    
         public int TypeOfUseId { get; set; }
 
         public int SubTypeOfUseId { get; set; }

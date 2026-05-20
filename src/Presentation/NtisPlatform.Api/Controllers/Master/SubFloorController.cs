@@ -15,12 +15,13 @@ public class SubFloorController : ControllerBase
     private readonly ISubFloorService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<SubFloorController> _logger;
-
-    public SubFloorController(ISubFloorService service, IHardDeleteCleanupService cleanupService, ILogger<SubFloorController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public SubFloorController(ISubFloorService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<SubFloorController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,5 +47,5 @@ public class SubFloorController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<SubFloorEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<SubFloorEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }

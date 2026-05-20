@@ -15,12 +15,13 @@ public class RetentionYearWiseController : ControllerBase
     private readonly IRetentionYearWiseService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RetentionYearWiseController> _logger;
-
-    public RetentionYearWiseController(IRetentionYearWiseService service, IHardDeleteCleanupService cleanupService, ILogger<RetentionYearWiseController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public RetentionYearWiseController(IRetentionYearWiseService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<RetentionYearWiseController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,5 +47,5 @@ public class RetentionYearWiseController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<RetentionYearWiseEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<RetentionYearWiseEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }

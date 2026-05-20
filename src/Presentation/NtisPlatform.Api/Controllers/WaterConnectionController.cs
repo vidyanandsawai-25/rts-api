@@ -17,11 +17,12 @@ public class WaterConnectionController : ControllerBase
     private readonly IWaterConnectionService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<WaterConnectionController> _logger;
-
-    public WaterConnectionController(IWaterConnectionService service, IHardDeleteCleanupService cleanupService, ILogger<WaterConnectionController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public WaterConnectionController(IWaterConnectionService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<WaterConnectionController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -67,5 +68,5 @@ public class WaterConnectionController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<WaterConnectionMasterEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<WaterConnectionMasterEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }

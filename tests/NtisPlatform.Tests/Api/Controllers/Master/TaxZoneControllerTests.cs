@@ -22,7 +22,8 @@ public class TaxZoneControllerTests
         _serviceMock = new Mock<ITaxZoneService>();
         _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
         _loggerMock = new Mock<ILogger<TaxZoneController>>();
-        _controller = new TaxZoneController(_serviceMock.Object, _cleanupServiceMock.Object, _loggerMock.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        _controller = new TaxZoneController(_serviceMock.Object, _cleanupServiceMock.Object, mockReferenceValidationService.Object, _loggerMock.Object);
     }
 
     [Fact]

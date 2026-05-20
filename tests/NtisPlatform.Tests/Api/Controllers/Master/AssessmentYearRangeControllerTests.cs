@@ -20,7 +20,9 @@ public class AssessmentYearRangeControllerTests
         service = new Mock<IAssessmentYearRangeService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
         var logger = new Mock<ILogger<AssessmentYearRangeController>>();
-        return new AssessmentYearRangeController(service.Object, cleanup.Object, logger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+
+        return new AssessmentYearRangeController(service.Object, cleanup.Object, mockReferenceValidationService.Object, logger.Object);
     }
 
     [Fact]

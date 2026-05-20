@@ -16,6 +16,7 @@ public static class CrudControllerExtensions
 {
     #region Single CRUD Operations
 
+
     public static async Task<IActionResult> ExecuteGetAllPaged<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey>(
         this ControllerBase controller,
         ICommonCrudService<TEntity, TDto, TCreateDto, TUpdateDto, TQueryParams, TKey> service,
@@ -222,95 +223,164 @@ public static class CrudControllerExtensions
     /// Logs actor identity for audit trail.
     /// </summary>
     public static async Task<IActionResult> ExecuteForceDelete<TEntity, TKey>(
-        this ControllerBase controller,
-        IHardDeleteCleanupService cleanupService,
-        TKey id,
-        ILogger logger,
-        CancellationToken cancellationToken = default)
-        where TEntity : class
+    this ControllerBase controller,
+    IHardDeleteCleanupService cleanupService,
+    IReferenceValidationService referenceValidationService,
+    TKey id,
+    ILogger logger,
+    CancellationToken cancellationToken = default)
+    where TEntity : class
     {
         var userName = controller.User?.Identity?.Name ?? "Anonymous";
+
         var userId = controller.User?.FindFirst("sub")?.Value ??
                      controller.User?.FindFirst("userId")?.Value ??
                      "Unknown";
 
         // Audit log: Track who is attempting permanent deletion
-        logger.LogWarning("PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
-            userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
+        logger.LogWarning(
+            "PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
+            userName,
+            userId,
+            typeof(TEntity).Name,
+            id,
+            DateTime.UtcNow);
 
         try
         {
-            var result = await cleanupService.ForceHardDeleteAsync<TEntity, TKey>(id, cancellationToken);
+            var result = await cleanupService
+                .ForceHardDeleteAsync<TEntity, TKey>(
+                    id,
+                    cancellationToken);
 
             if (result)
             {
                 // Audit log: Successful permanent deletion
-                logger.LogWarning("PURGE completed successfully by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
-                    userName, userId, typeof(TEntity).Name, id, DateTime.UtcNow);
+                logger.LogWarning(
+                    "PURGE completed successfully by User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId} at {Timestamp}",
+                    userName,
+                    userId,
+                    typeof(TEntity).Name,
+                    id,
+                    DateTime.UtcNow);
 
                 return controller.Ok(new ApiResponse<object>
                 {
                     Success = true,
-                    Message = "Record permanently deleted"
+                    Message = "Record permanently deleted successfully."
                 });
             }
-            else
-            {
-                // Audit log: Entity not found
-                logger.LogWarning("PURGE failed - entity not found. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
-                    userName, userId, typeof(TEntity).Name, id);
 
-                return controller.Ok(new ApiResponse<object>
-                {
-                    Success = false,
-                    Message = "Record not found"
-                });
-            }
-        }
-        catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
-        {
-            logger.LogWarning(ex, "PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
-                userName, userId, typeof(TEntity).Name, id);
+            // Audit log: Entity not found
+            logger.LogWarning(
+                "PURGE failed - entity not found. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
+                userName,
+                userId,
+                typeof(TEntity).Name,
+                id);
 
-            return controller.Conflict(new ApiResponse<object>
+            return controller.Ok(new ApiResponse<object>
             {
                 Success = false,
-                Message = "Cannot delete this record because it is still referenced by other entities. Please remove dependent records first."
+                Message = "Record not found."
             });
+        }
+        catch (DbUpdateException ex)
+        {
+            var (isForeignKey, referenceDetails) =
+                await IsForeignKeyViolationAsync<TEntity, TKey>(
+                    ex,
+                    referenceValidationService,
+                    id,
+                    cancellationToken);
+
+            // FOREIGN KEY violation
+            if (isForeignKey)
+            {
+                logger.LogWarning(
+                    ex,
+                    "PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType} with ID: {EntityId}",
+                    userName,
+                    userId,
+                    typeof(TEntity).Name,
+                    id);
+
+                return controller.Conflict(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message =
+                        $"Cannot delete this record because it is still referenced by other entities ({referenceDetails}). Please remove dependent records first."
+                });
+            }
+
+            // OTHER DATABASE ERRORS
+            logger.LogError(
+                ex,
+                "Database error while deleting {EntityType} with ID: {EntityId}",
+                typeof(TEntity).Name,
+                id);
+
+            return controller.StatusCode(500,
+                new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "An error occurred while processing your request."
+                });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId}",
-                userName, userId, typeof(TEntity).Name, id);
+            logger.LogError(
+                ex,
+                "PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType} with ID: {EntityId}",
+                userName,
+                userId,
+                typeof(TEntity).Name,
+                id);
 
-            return controller.StatusCode(500, new ApiResponse<object>
-            {
-                Success = false,
-                Message = "An error occurred while processing your request."
-            });
+            return controller.StatusCode(500,
+                new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "An error occurred while processing your request."
+                });
         }
     }
 
     /// <summary>
-    /// Determines if a DbUpdateException is caused by a foreign key constraint violation.
+    /// Determines if a DbUpdateException is caused by a foreign key constraint violation and extracts reference details.
     /// </summary>
-    private static bool IsForeignKeyViolation(DbUpdateException ex)
+    private static async Task<(bool IsForeignKey, string ReferenceDetails)>
+     IsForeignKeyViolationAsync<TEntity, TKey>(
+     DbUpdateException ex,
+     IReferenceValidationService referenceValidationService,
+     TKey id,
+     CancellationToken cancellationToken) // Added CancellationToken parameter
+ where TEntity : class
     {
-        // Check for SQL Server foreign key violation
-        if (ex.InnerException is SqlException sqlException)
+        // SQL Server FK violation
+        if (ex.InnerException is SqlException sqlException &&
+            sqlException.Number == 547)
         {
-            // SQL Server error codes:
-            // 547 = Foreign key constraint violation (DELETE/UPDATE)
-            return sqlException.Number == 547;
+            var references = await referenceValidationService
+              .GetReferencingTablesWithDataAsync<TEntity, TKey>(id, "Id", cancellationToken); 
+            return (true, string.Join(", ", references));
         }
 
-        // Fallback: check error message for common foreign key constraint patterns
+        // Fallback for other database errors
         var errorMessage = ex.InnerException?.Message ?? ex.Message;
-        return errorMessage.Contains("FOREIGN KEY constraint", StringComparison.OrdinalIgnoreCase) ||
-               errorMessage.Contains("REFERENCE constraint", StringComparison.OrdinalIgnoreCase) ||
-               errorMessage.Contains("conflicted with the FOREIGN KEY", StringComparison.OrdinalIgnoreCase);
-    }
 
+        if (errorMessage.Contains("FOREIGN KEY constraint",
+                StringComparison.OrdinalIgnoreCase) ||
+            errorMessage.Contains("REFERENCE constraint",
+                StringComparison.OrdinalIgnoreCase) ||
+            errorMessage.Contains("conflicted with the FOREIGN KEY",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return (true, "unknown reference");
+        }
+
+        return (false, string.Empty);
+    }
     #endregion
 
     #region Bulk Operations
@@ -614,74 +684,169 @@ public static class CrudControllerExtensions
     /// This is an irreversible operation and should be used with extreme caution.
     /// Routes through HardDeleteCleanupService to ensure consistent policy enforcement.
     /// Logs actor identity for audit trail.
-    /// </summary>
+    /// </summary>  
     public static async Task<IActionResult> ExecuteBulkForceDelete<TEntity, TKey>(
-        this ControllerBase controller,
-        IHardDeleteCleanupService cleanupService,
-        TKey[] ids,
-        ILogger logger,
-        CancellationToken cancellationToken = default)
-        where TEntity : class
+    this ControllerBase controller,
+    IHardDeleteCleanupService cleanupService,
+    IReferenceValidationService referenceValidationService,
+    TKey[] ids,
+    ILogger logger,
+    CancellationToken cancellationToken = default)
+    where TEntity : class
     {
         if (ids == null || ids.Length == 0)
         {
             return controller.BadRequest(new ApiResponse<BulkResult<TKey>>
             {
                 Success = false,
-                Message = "No IDs provided for Bulk purge."
+                Message = "No IDs provided for bulk purge."
             });
         }
 
         var userName = controller.User?.Identity?.Name ?? "Anonymous";
-        var userId = controller.User?.FindFirst("sub")?.Value ??
-                     controller.User?.FindFirst("userId")?.Value ??
-                     "Unknown";
 
-        // Audit log: Track who is attempting permanent bulk deletion
-        logger.LogWarning("BULK PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with {Count} IDs at {Timestamp}",
-            userName, userId, typeof(TEntity).Name, ids.Length, DateTime.UtcNow);
+        var userId = controller.User?.FindFirst("sub")?.Value ??
+                     controller.User?.FindFirst("userId")?.Value ?? "Unknown";
+
+        logger.LogWarning(
+            "BULK PURGE attempt by User: {UserName} (ID: {UserId}) on {EntityType} with {Count} IDs at {Timestamp}",
+            userName,
+            userId,
+            typeof(TEntity).Name,
+            ids.Length,
+            DateTime.UtcNow);
+
+        var failedEntities = new List<string>();
+        var deletableIds = new List<TKey>();
 
         try
         {
-            var result = await cleanupService.BulkForceHardDeleteAsync<TEntity, TKey>(ids, cancellationToken);
-
-            // Audit log: Bulk purge completed
-            logger.LogWarning("BULK PURGE completed by User: {UserName} (ID: {UserId}) on {EntityType}. Success: {SuccessCount}, Failed: {FailedCount} at {Timestamp}",
-                userName, userId, typeof(TEntity).Name, result.SuccessCount, result.FailedCount, DateTime.UtcNow);
-
-            return controller.Ok(new ApiResponse<BulkResult<TKey>>
+            // STEP 1: Validate references before delete
+            foreach (var id in ids)
             {
-                Success = result.AllSucceeded,
-                Message = result.HasFailures
-                    ? $"{result.SuccessCount} records permanently deleted, {result.FailedCount} failed"
-                    : $"{result.SuccessCount} records permanently deleted successfully",
-                Items = result,
-                Errors = result.Errors?.ToList()
-            });
+                try
+                {
+                    var references = await referenceValidationService.GetReferencingTablesWithDataAsync<TEntity, TKey>(
+                        id, "Id", cancellationToken);
+
+                    if (references.Any())
+                    {
+                        failedEntities.Add($"ID: {id}, References: {string.Join(", ", references)}");
+                    }
+                    else
+                    {
+                        deletableIds.Add(id);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Error validating references for ID {Id}",
+                        id);
+
+                    failedEntities.Add($"ID: {id}, Validation failed");
+                }
+            }
+
+            BulkResult<TKey>? result = null;
+
+            // STEP 2: Delete only safe IDs
+            if (deletableIds.Any())
+            {
+                result = await cleanupService
+                    .BulkForceHardDeleteAsync<TEntity, TKey>(
+                        deletableIds.ToArray(),
+                        cancellationToken);
+            }
+            else
+            {
+                result = new BulkResult<TKey>(
+                    SuccessCount: 0,
+                    FailedCount: failedEntities.Count,
+                    Results: new List<TKey>(),
+                    Errors: failedEntities);
+            }
+
+            logger.LogWarning(
+                "BULK PURGE completed by User: {UserName} (ID: {UserId}) on {EntityType}. Deleted: {DeletedCount}, Failed: {FailedCount}",
+                userName,
+                userId,
+                typeof(TEntity).Name,
+                result.SuccessCount,
+                failedEntities.Count);
+
+            // SOME RECORDS FAILED DURING REFERENCE VALIDATION
+            if (failedEntities.Any())
+            {
+                return controller.Conflict(
+                    new ApiResponse<BulkResult<TKey>>
+                    {
+                        Success = false,
+                        Message =
+                            "Some records cannot be deleted because they are still referenced by other entities.",
+                        Errors = failedEntities,
+                        Items = result
+                    });
+            }
+
+            // CHECK FOR FAILURES DURING CLEANUP
+            if (result.FailedCount > 0 || result.Errors?.Any() == true)
+            {
+                var cleanupErrors = result.Errors?.ToList() ?? new List<string>();
+                return controller.Conflict(
+                    new ApiResponse<BulkResult<TKey>>
+                    {
+                        Success = false,
+                        Message =
+                            "Some records could not be deleted during the cleanup process.",
+                        Errors = cleanupErrors,
+                        Items = result
+                    });
+            }
+
+            // ALL SUCCESS
+            return controller.Ok(
+                new ApiResponse<BulkResult<TKey>>
+                {
+                    Success = true,
+                    Message =
+                        $"{result.SuccessCount} records permanently deleted successfully.",
+                    Items = result
+                });
         }
-        catch (DbUpdateException ex) when (IsForeignKeyViolation(ex))
+        catch (DbUpdateException ex)
         {
-            logger.LogWarning(ex, "BULK PURGE blocked - FK constraint violation. User: {UserName} (ID: {UserId}) attempted to delete {EntityType}",
-                userName, userId, typeof(TEntity).Name);
+            logger.LogError(
+                ex,
+                "Database error during bulk purge for {EntityType}",
+                typeof(TEntity).Name);
 
-            return controller.Conflict(new ApiResponse<BulkResult<TKey>>
-            {
-                Success = false,
-                Message = "Cannot delete one or more records because they are still referenced by other entities. Please remove dependent records first."
-            });
+            return controller.StatusCode(
+                500,
+                new ApiResponse<BulkResult<TKey>>
+                {
+                    Success = false,
+                    Message =
+                        "An error occurred while processing the bulk delete operation."
+                });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "BULK PURGE failed with error. User: {UserName} (ID: {UserId}) on {EntityType}",
-                userName, userId, typeof(TEntity).Name);
+            logger.LogError(
+                ex,
+                "Unexpected error during bulk purge for {EntityType}",
+                typeof(TEntity).Name);
 
-            return controller.StatusCode(500, new ApiResponse<BulkResult<TKey>>
-            {
-                Success = false,
-                Message = "An error occurred while processing your request."
-            });
+            return controller.StatusCode(
+                500,
+                new ApiResponse<BulkResult<TKey>>
+                {
+                    Success = false,
+                    Message =
+                        "An error occurred while processing the bulk delete operation."
+                });
         }
     }
-
     #endregion
 }

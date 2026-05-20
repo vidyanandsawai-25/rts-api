@@ -14,6 +14,7 @@ public class MoujaControllerTests
 {
     private readonly Mock<IMoujaService> _serviceMock;
     private readonly Mock<IHardDeleteCleanupService> _cleanupServiceMock;
+    private readonly Mock<IReferenceValidationService> _referenceValidationServiceMock;
     private readonly Mock<ILogger<MoujaController>> _loggerMock;
     private readonly MoujaController _controller;
 
@@ -21,8 +22,9 @@ public class MoujaControllerTests
     {
         _serviceMock = new Mock<IMoujaService>();
         _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
+        _referenceValidationServiceMock = new Mock<IReferenceValidationService>();
         _loggerMock = new Mock<ILogger<MoujaController>>();
-        _controller = new MoujaController(_serviceMock.Object, _cleanupServiceMock.Object, _loggerMock.Object);
+        _controller = new MoujaController(_serviceMock.Object, _cleanupServiceMock.Object, _referenceValidationServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using NtisPlatform.Core.Entities.Master;
+
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
@@ -8,5 +10,5 @@ public class SubFloorEntity :BaseEntity
     public string? SubFloorCode { get; set; }
     public string? Description { get; set; }
     public decimal? SubFloorPercentage { get; set; }
-
+    public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
 }

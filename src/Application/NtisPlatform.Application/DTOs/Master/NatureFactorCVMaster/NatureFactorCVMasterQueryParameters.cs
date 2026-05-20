@@ -9,13 +9,27 @@ public class NatureFactorCVMasterQueryParameters : BaseQueryParameters
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]
+    [Searchable]
     public int? ConstructionTypeId { get; set; }
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]
+    [Searchable]
     public int? YearRangeCVId { get; set; }
 
     [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
     public bool? IsActive { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public string? ConstructionCode { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public string? ConstructionDescription { get; set; }
 
 }

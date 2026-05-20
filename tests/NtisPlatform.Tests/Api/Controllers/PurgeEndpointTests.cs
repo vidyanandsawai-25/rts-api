@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
-using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -70,28 +69,42 @@ public class PurgeEndpointTests
         // Arrange
         var mockService = new Mock<IRateSectionDetailsService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<RateSectionDetailsController>>();
 
         var controller = new RateSectionDetailsController(
             mockService.Object,
             mockCleanupService.Object,
+            mockReferenceValidationService.Object,
             mockLogger.Object);
 
-        // Simulate FK violation
-        var fkException = new Exception("The DELETE statement conflicted with the FOREIGN KEY constraint");
-        var dbException = new Microsoft.EntityFrameworkCore.DbUpdateException("FK error", fkException);
+        // Simulate FK violation with fallback message check
+        var innerException = new Exception("The DELETE statement conflicted with the FOREIGN KEY constraint");
+        var dbException = new Microsoft.EntityFrameworkCore.DbUpdateException(
+            "An error occurred while updating the entries.", innerException);
 
-        mockCleanupService.Setup(s => s.ForceHardDeleteAsync<RateSectionDetailsEntity, int>(1, It.IsAny<CancellationToken>()))
+        mockCleanupService
+            .Setup(s => s.ForceHardDeleteAsync<RateSectionDetailsEntity, int>(
+                1,
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(dbException);
+
+        // The mock for GetReferencingTablesWithDataAsync won't be called in this scenario
+        // because the code will use the fallback path (not SqlException with number 547)
 
         // Act
         var result = await controller.Purge(1, CancellationToken.None);
 
         // Assert
         var conflictResult = Assert.IsType<ConflictObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(conflictResult.Value);
+
+        var response = Assert.IsType<ApiResponse<object>>(
+            conflictResult.Value);
+
         Assert.False(response.Success);
-        Assert.Contains("referenced by other entities", response.Message);
+        Assert.Contains("Cannot delete this record", response.Message);
+        // When using fallback path, the message will contain "unknown reference"
+        Assert.Contains("unknown reference", response.Message);
     }
 
     #endregion
@@ -104,11 +117,13 @@ public class PurgeEndpointTests
         // Arrange
         var mockService = new Mock<IRateSectionDetailsService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<RateSectionDetailsController>>();
 
         var controller = new RateSectionDetailsController(
             mockService.Object,
             mockCleanupService.Object,
+            mockReferenceValidationService.Object,
             mockLogger.Object);
 
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
@@ -130,11 +145,13 @@ public class PurgeEndpointTests
         // Arrange
         var mockService = new Mock<IRateSectionDetailsService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<RateSectionDetailsController>>();
 
         var controller = new RateSectionDetailsController(
             mockService.Object,
             mockCleanupService.Object,
+            mockReferenceValidationService.Object,
             mockLogger.Object);
 
         mockCleanupService.Setup(s => s.ForceHardDeleteAsync<RateSectionDetailsEntity, int>(1, It.IsAny<CancellationToken>()))
@@ -156,11 +173,13 @@ public class PurgeEndpointTests
         // Arrange
         var mockService = new Mock<IRateSectionDetailsService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<RateSectionDetailsController>>();
 
         var controller = new RateSectionDetailsController(
             mockService.Object,
             mockCleanupService.Object,
+            mockReferenceValidationService.Object,
             mockLogger.Object);
 
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))

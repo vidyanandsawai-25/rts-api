@@ -16,12 +16,13 @@ public class ZoneController : ControllerBase
     private readonly IZoneService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<ZoneController> _logger;
-
-    public ZoneController(IZoneService service, IHardDeleteCleanupService cleanupService, ILogger<ZoneController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public ZoneController(IZoneService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<ZoneController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -47,7 +48,7 @@ public class ZoneController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<ZoneEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<ZoneEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     [HttpPost("Bulk")]
     public Task<IActionResult> BulkCreate([FromBody] CreateZoneDto[] items, CancellationToken ct)

@@ -16,7 +16,9 @@ public class PropertyDescriptionAndTypeOfUseValidationMappingProfileTests
             cfg.AddProfile<PropertyDescriptionAndTypeOfUseValidationMappingProfile>();
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
+        // Re-enable configuration validity assertion
         config.AssertConfigurationIsValid();
+
         _mapper = config.CreateMapper();
     }
 

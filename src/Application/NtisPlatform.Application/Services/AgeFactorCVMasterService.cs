@@ -29,13 +29,15 @@ public class AgeFactorCVMasterService : BaseCommonCrudService<AgeFactorCVMasterE
     }
 
     public override async Task<PagedResult<AgeFactorCVMasterDto>> GetAllAsync(
-        AgeFactorCVMasterQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+    AgeFactorCVMasterQueryParameters queryParameters,
+    CancellationToken cancellationToken = default)
     {
-        var constructionTypeQuery = _constructionTypeRepository.GetQueryable();
+        // Filter ConstructionType records to include only IsActive = 1
+        var constructionTypeQuery = _constructionTypeRepository.GetQueryable().Where(c => c.IsActive);
         if (queryParameters.ConstructionTypeId.HasValue)
             constructionTypeQuery = constructionTypeQuery.Where(c => c.Id == queryParameters.ConstructionTypeId.Value);
 
+        // Filter AssessmentYearRangeCV records to include only IsActive = 1
         var yearRangeQuery = _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive);
         if (queryParameters.YearRangeCVId.HasValue)
             yearRangeQuery = yearRangeQuery.Where(yr => yr.Id == queryParameters.YearRangeCVId.Value);
@@ -190,9 +192,11 @@ public class AgeFactorCVMasterService : BaseCommonCrudService<AgeFactorCVMasterE
         var query =
             from ageFactor in _repository.GetQueryable()
             where ageFactor.Id == id
-            join constructionType in _constructionTypeRepository.GetQueryable() on ageFactor.ConstructionTypeId equals constructionType.Id into constructionTypeGroup
+            join constructionType in _constructionTypeRepository.GetQueryable().Where(c => c.IsActive)
+                on ageFactor.ConstructionTypeId equals constructionType.Id into constructionTypeGroup
             from constructionType in constructionTypeGroup.DefaultIfEmpty()
-            join yearRange in _yearRangeCVRepository.GetQueryable() on ageFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
+            join yearRange in _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive)
+                on ageFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
             from yearRange in yearRangeGroup.DefaultIfEmpty()
             select new AgeFactorCVMasterDto
             {

@@ -14,13 +14,15 @@ public class MoujaController : ControllerBase
 {
     private readonly IMoujaService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
+       private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<MoujaController> _logger;
     
-    public MoujaController(IMoujaService service, IHardDeleteCleanupService cleanupService, ILogger<MoujaController> logger)
+    public MoujaController(IMoujaService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<MoujaController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -41,5 +43,5 @@ public class MoujaController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<MoujaEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<MoujaEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }

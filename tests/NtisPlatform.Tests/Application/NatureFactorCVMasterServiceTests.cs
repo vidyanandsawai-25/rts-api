@@ -52,14 +52,14 @@ public class NatureFactorCVMasterServiceTests
 
         var constructionTypes = new List<ConstructionTypeEntity>
         {
-            new ConstructionTypeEntity { Id = 1, ConstructionCode = "A", Description = "Type A" },
-            new ConstructionTypeEntity { Id = 2, ConstructionCode = "B", Description = "Type B" }
+            new ConstructionTypeEntity { Id = 1, ConstructionCode = "A", Description = "Type A", IsActive = true },
+            new ConstructionTypeEntity { Id = 2, ConstructionCode = "B", Description = "Type B", IsActive = true }
         }.BuildMockDbSet();
         _mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypes.Object);
 
         var yearRanges = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRanges.Object);
 
@@ -82,14 +82,14 @@ public class NatureFactorCVMasterServiceTests
 
         var constructionTypes = new List<ConstructionTypeEntity>
         {
-            new ConstructionTypeEntity { Id = 1, ConstructionCode = "A", Description = "Type A" },
-            new ConstructionTypeEntity { Id = 2, ConstructionCode = "B", Description = "Type B" }
+            new ConstructionTypeEntity { Id = 1, ConstructionCode = "A", Description = "Type A", IsActive = true },
+            new ConstructionTypeEntity { Id = 2, ConstructionCode = "B", Description = "Type B", IsActive = true }
         }.BuildMockDbSet();
         _mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypes.Object);
 
         var yearRanges = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRanges.Object);
 

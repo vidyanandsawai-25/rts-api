@@ -115,6 +115,9 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;
 
+    public virtual TaxZoneEntity? TaxZone { get; set; }
+    public virtual WardEntity? Ward { get; set; }
+    public virtual MoujaEntity? Mouja { get; set; }
     /// <summary>
     /// Date when the entity was marked for deletion
     /// </summary>

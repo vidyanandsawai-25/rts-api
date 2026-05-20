@@ -16,12 +16,14 @@ public class RateSectionController : ControllerBase
     private readonly IRateSectionService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RateSectionController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public RateSectionController(IRateSectionService service, IHardDeleteCleanupService cleanupService, ILogger<RateSectionController> logger)
+    public RateSectionController(IRateSectionService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<RateSectionController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -47,7 +49,7 @@ public class RateSectionController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<RateSectionEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<RateSectionEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 
 
     [HttpPost("Bulk")]

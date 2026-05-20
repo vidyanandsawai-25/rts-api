@@ -15,12 +15,13 @@ public class TaxZoneController : ControllerBase
     private readonly ITaxZoneService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<TaxZoneController> _logger;
-
-    public TaxZoneController(ITaxZoneService service, IHardDeleteCleanupService cleanupService, ILogger<TaxZoneController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public TaxZoneController(ITaxZoneService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<TaxZoneController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,5 +47,5 @@ public class TaxZoneController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<TaxZoneEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<TaxZoneEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }

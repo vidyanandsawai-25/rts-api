@@ -14,13 +14,15 @@ public class ConstructionTypeController : ControllerBase
 {
     private readonly IConstructionTypeService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<ConstructionTypeController> _logger;
 
-    public ConstructionTypeController(IConstructionTypeService service, IHardDeleteCleanupService cleanupService, ILogger<ConstructionTypeController> logger)
+    public ConstructionTypeController(IConstructionTypeService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<ConstructionTypeController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,5 +48,5 @@ public class ConstructionTypeController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<ConstructionTypeEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<ConstructionTypeEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }

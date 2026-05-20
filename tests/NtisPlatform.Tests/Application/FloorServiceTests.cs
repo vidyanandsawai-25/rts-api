@@ -798,7 +798,9 @@ public class FloorServiceTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockReferenceValidationService.Object, mockLogger.Object);
 
         var request = new RangeCreateRequest<CreateFloorDto>
         {
@@ -1016,7 +1018,8 @@ public class FloorServiceTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockReferenceValidationService.Object, mockLogger.Object);
 
         int[] ids = { 1, 2, 3 };
         var bulkResult = new BulkResult<int>(
@@ -1025,6 +1028,11 @@ public class FloorServiceTests
             new List<int> { 1, 2, 3 }, // Results
             null // Errors
         );
+
+        // Mock validation to return no references for all IDs
+        mockReferenceValidationService.Setup(s => s.GetReferencingTablesWithDataAsync<FloorEntity, int>(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
         mockCleanupService
             .Setup(s => s.BulkForceHardDeleteAsync<FloorEntity, int>(ids, It.IsAny<CancellationToken>()))
             .ReturnsAsync(bulkResult);
@@ -1047,7 +1055,8 @@ public class FloorServiceTests
         var mockService = new Mock<IFloorService>();
         var mockCleanupService = new Mock<IHardDeleteCleanupService>();
         var mockLogger = new Mock<ILogger<FloorController>>();
-        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockLogger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        var controller = new FloorController(mockService.Object, mockCleanupService.Object, mockReferenceValidationService.Object, mockLogger.Object);
 
         int[] ids = Array.Empty<int>();
 

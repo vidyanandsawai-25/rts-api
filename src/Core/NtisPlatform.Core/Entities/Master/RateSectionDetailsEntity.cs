@@ -9,5 +9,6 @@ public class RateSectionDetailsEntity : BaseEntity
 
     // Navigation properties
     public virtual WardEntity? Ward { get; set; }
+    public virtual RateSectionEntity? RateSection { get; set; }
 }
 

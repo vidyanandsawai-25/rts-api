@@ -14,6 +14,7 @@ public class SocietyDetailsControllerTests
 {
     private readonly Mock<ISocietyDetailsService> _serviceMock;
     private readonly Mock<IHardDeleteCleanupService> _cleanupServiceMock;
+    private readonly Mock<IReferenceValidationService> _referenceValidationServiceMock;
     private readonly Mock<ILogger<SocietyDetailsController>> _loggerMock;
     private readonly SocietyDetailsController _controller;
 
@@ -21,8 +22,9 @@ public class SocietyDetailsControllerTests
     {
         _serviceMock = new Mock<ISocietyDetailsService>();
         _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
+        _referenceValidationServiceMock = new Mock<IReferenceValidationService>();
         _loggerMock = new Mock<ILogger<SocietyDetailsController>>();
-        _controller = new SocietyDetailsController(_serviceMock.Object, _cleanupServiceMock.Object, _loggerMock.Object);
+        _controller = new SocietyDetailsController(_serviceMock.Object, _cleanupServiceMock.Object, _referenceValidationServiceMock.Object, _loggerMock.Object);
     }
 
     [Fact]

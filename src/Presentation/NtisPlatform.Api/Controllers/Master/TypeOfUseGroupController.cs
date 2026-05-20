@@ -15,12 +15,13 @@ public class TypeOfUseGroupController : ControllerBase
     private readonly ITypeOfUseGroupService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<TypeOfUseGroupController> _logger;
-
-    public TypeOfUseGroupController(ITypeOfUseGroupService service, IHardDeleteCleanupService cleanupService, ILogger<TypeOfUseGroupController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public TypeOfUseGroupController(ITypeOfUseGroupService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<TypeOfUseGroupController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -47,5 +48,5 @@ public class TypeOfUseGroupController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<TypeOfUseGroupEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<TypeOfUseGroupEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }

@@ -8,7 +8,7 @@ public class TaxPercentageMasterRVTests
     [Fact]
     public void Properties_RoundTrip()
     {
-        var entity = new TaxPercentageMasterRV
+        var entity = new TaxPercentageMasterRVEntity
         {
             Id = 1,
             YearRangeRVId = 4,

@@ -19,7 +19,8 @@ public class WaterConnectionTypeControllerTests
         service = new Mock<IWaterConnectionTypeService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
         var logger = new Mock<ILogger<WaterConnectionTypeController>>();
-        return new WaterConnectionTypeController(service.Object, cleanup.Object, logger.Object);
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
+        return new WaterConnectionTypeController(service.Object, cleanup.Object, mockReferenceValidationService.Object, logger.Object);
     }
 
     [Fact]

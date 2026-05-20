@@ -16,12 +16,14 @@ public class FloorController : ControllerBase
     private readonly IFloorService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<FloorController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public FloorController(IFloorService service, IHardDeleteCleanupService cleanupService, ILogger<FloorController> logger)
+    public FloorController(IFloorService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<FloorController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     // read
@@ -68,10 +70,10 @@ public class FloorController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<FloorEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<FloorEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-    => this.ExecuteBulkForceDelete<FloorEntity, int>(_cleanupService, ids, _logger, ct);
+    => this.ExecuteBulkForceDelete<FloorEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

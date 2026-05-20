@@ -55,21 +55,21 @@ public class UseFactorCVMasterServiceTests
 
         var typeOfUses = new List<TypeOfUseEntity>
         {
-            new TypeOfUseEntity { Id = 1, TypeOfUseCode = "A", Description = "Type A", Type = "T1", TypeOfUseGroupId = 1 },
-            new TypeOfUseEntity { Id = 2, TypeOfUseCode = "B", Description = "Type B", Type = "T2", TypeOfUseGroupId = 2 }
+            new TypeOfUseEntity { Id = 1, TypeOfUseCode = "A", Description = "Type A", Type = "T1", TypeOfUseGroupId = 1, IsActive = true },
+            new TypeOfUseEntity { Id = 2, TypeOfUseCode = "B", Description = "Type B", Type = "T2", TypeOfUseGroupId = 2, IsActive = true }
         }.BuildMockDbSet();
         _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typeOfUses.Object);
 
         var subTypeOfUses = new List<SubTypeOfUseEntity>
         {
-            new SubTypeOfUseEntity { Id = 1, TypeOfUseId = 1, Description = "Sub 1" },
-            new SubTypeOfUseEntity { Id = 2, TypeOfUseId = 2, Description = "Sub 2" }
+            new SubTypeOfUseEntity { Id = 1, TypeOfUseId = 1, Description = "Sub 1", IsActive = true },
+            new SubTypeOfUseEntity { Id = 2, TypeOfUseId = 2, Description = "Sub 2", IsActive = true }
         }.BuildMockDbSet();
         _mockSubTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(subTypeOfUses.Object);
 
         var yearRanges = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRanges.Object);
 
@@ -92,21 +92,21 @@ public class UseFactorCVMasterServiceTests
 
         var typeOfUses = new List<TypeOfUseEntity>
         {
-            new TypeOfUseEntity { Id = 1, TypeOfUseCode = "A", Description = "Type A", Type = "T1", TypeOfUseGroupId = 1 },
-            new TypeOfUseEntity { Id = 2, TypeOfUseCode = "B", Description = "Type B", Type = "T2", TypeOfUseGroupId = 2 }
+            new TypeOfUseEntity { Id = 1, TypeOfUseCode = "A", Description = "Type A", Type = "T1", TypeOfUseGroupId = 1, IsActive = true },
+            new TypeOfUseEntity { Id = 2, TypeOfUseCode = "B", Description = "Type B", Type = "T2", TypeOfUseGroupId = 2, IsActive = true }
         }.BuildMockDbSet();
         _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typeOfUses.Object);
 
         var subTypeOfUses = new List<SubTypeOfUseEntity>
         {
-            new SubTypeOfUseEntity { Id = 1, TypeOfUseId = 1, Description = "Sub 1" },
-            new SubTypeOfUseEntity { Id = 2, TypeOfUseId = 2, Description = "Sub 2" }
+            new SubTypeOfUseEntity { Id = 1, TypeOfUseId = 1, Description = "Sub 1", IsActive = true },
+            new SubTypeOfUseEntity { Id = 2, TypeOfUseId = 2, Description = "Sub 2", IsActive = true }
         }.BuildMockDbSet();
         _mockSubTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(subTypeOfUses.Object);
 
         var yearRanges = new List<AssessmentYearRangeCVEntity>
         {
-            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020 }
+            new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2020, IsActive = true }
         }.BuildMockDbSet();
         _mockYearRangeCVRepository.Setup(r => r.GetQueryable()).Returns(yearRanges.Object);
 

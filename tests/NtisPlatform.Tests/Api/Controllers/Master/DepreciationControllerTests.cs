@@ -17,8 +17,9 @@ public class DepreciationControllerTests
     {
         service = new Mock<IDepreciationService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
+        var referenceValidation = new Mock<IReferenceValidationService>();
         var logger = new Mock<ILogger<DepreciationController>>();
-        return new DepreciationController(service.Object, cleanup.Object, logger.Object);
+        return new DepreciationController(service.Object, cleanup.Object, referenceValidation.Object, logger.Object);
     }
 
     [Fact]

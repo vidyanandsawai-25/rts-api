@@ -16,11 +16,12 @@ public class AssessmentYearRangeCVController : ControllerBase
     private readonly IAssessmentYearRangeCVService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<AssessmentYearRangeCVController> _logger;
-
-    public AssessmentYearRangeCVController(IAssessmentYearRangeCVService service, IHardDeleteCleanupService cleanupService, ILogger<AssessmentYearRangeCVController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public AssessmentYearRangeCVController(IAssessmentYearRangeCVService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<AssessmentYearRangeCVController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -47,5 +48,5 @@ public class AssessmentYearRangeCVController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<AssessmentYearRangeCVEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<AssessmentYearRangeCVEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }

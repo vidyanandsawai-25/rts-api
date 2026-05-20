@@ -25,6 +25,7 @@ public class CrudControllerExtensionsComprehensiveTests
     private readonly Mock<ICommonCrudService<TestEntity, TestDto, TestCreateDto, TestUpdateDto, TestQueryParams, int>> _mockService;
     private readonly Mock<ILogger> _mockLogger;
     private readonly Mock<IHardDeleteCleanupService> _mockCleanupService;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidationService;
     private readonly TestController _controller;
 
     public CrudControllerExtensionsComprehensiveTests()
@@ -32,6 +33,7 @@ public class CrudControllerExtensionsComprehensiveTests
         _mockService = new Mock<ICommonCrudService<TestEntity, TestDto, TestCreateDto, TestUpdateDto, TestQueryParams, int>>();
         _mockLogger = new Mock<ILogger>();
         _mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        _mockReferenceValidationService = new Mock<IReferenceValidationService>();
         _controller = new TestController();
     }
 
@@ -46,7 +48,7 @@ public class CrudControllerExtensionsComprehensiveTests
             .ReturnsAsync(true);
 
         // Act
-        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, id, _mockLogger.Object);
+        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, id, _mockLogger.Object);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -64,7 +66,7 @@ public class CrudControllerExtensionsComprehensiveTests
             .ReturnsAsync(false);
 
         // Act
-        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, id, _mockLogger.Object);
+        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, id, _mockLogger.Object);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -82,7 +84,7 @@ public class CrudControllerExtensionsComprehensiveTests
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
-        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, id, _mockLogger.Object);
+        var result = await _controller.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, id, _mockLogger.Object);
 
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);
@@ -100,7 +102,7 @@ public class CrudControllerExtensionsComprehensiveTests
         var anonymousController = new TestController(false);
 
         // Act
-        var result = await anonymousController.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, id, _mockLogger.Object);
+        var result = await anonymousController.ExecuteForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, id, _mockLogger.Object);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -393,11 +395,16 @@ public class CrudControllerExtensionsComprehensiveTests
         var ids = new[] { 1, 2, 3 };
         var bulkResult = new BulkResult<int>(3, 0, new List<int> { 1, 2, 3 });
 
+        // Mock validation to return no references for all IDs
+        _mockReferenceValidationService
+            .Setup(s => s.GetReferencingTablesWithDataAsync<TestEntity, int>(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
         _mockCleanupService.Setup(x => x.BulkForceHardDeleteAsync<TestEntity, int>(ids, It.IsAny<CancellationToken>()))
             .ReturnsAsync(bulkResult);
 
         // Act
-        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, ids, _mockLogger.Object);
+        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, ids, _mockLogger.Object);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -410,7 +417,7 @@ public class CrudControllerExtensionsComprehensiveTests
     public async Task ExecuteBulkForceDelete_WithNullIds_ReturnsBadRequest()
     {
         // Act
-        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, null!, _mockLogger.Object);
+        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, null!, _mockLogger.Object);
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
@@ -422,7 +429,7 @@ public class CrudControllerExtensionsComprehensiveTests
     public async Task ExecuteBulkForceDelete_WithEmptyIds_ReturnsBadRequest()
     {
         // Act
-        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, Array.Empty<int>(), _mockLogger.Object);
+        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, Array.Empty<int>(), _mockLogger.Object);
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
@@ -431,27 +438,42 @@ public class CrudControllerExtensionsComprehensiveTests
     }
 
     [Fact]
-    public async Task ExecuteBulkForceDelete_WithPartialFailures_ReturnsOkWithErrors()
+    public async Task ExecuteBulkForceDelete_WithPartialFailures_ReturnsConflict()
     {
-        // Arrange
         var ids = new[] { 1, 2, 3 };
-        var bulkResult = new BulkResult<int>(
-            2, 
-            1, 
-            new List<int> { 1, 2 },
-            new List<string> { "Error deleting ID 3" });
 
-        _mockCleanupService.Setup(x => x.BulkForceHardDeleteAsync<TestEntity, int>(ids, It.IsAny<CancellationToken>()))
+        // Mock validation to return references for ID 3
+        _mockReferenceValidationService
+            .Setup(s => s.GetReferencingTablesWithDataAsync<TestEntity, int>(3, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "TableA", "TableB" });
+
+        // Mock validation to return no references for IDs 1 and 2
+        _mockReferenceValidationService
+            .Setup(s => s.GetReferencingTablesWithDataAsync<TestEntity, int>(It.Is<int>(id => id == 1 || id == 2), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
+        // Mock cleanup service to return partial success
+        var bulkResult = new BulkResult<int>(
+            SuccessCount: 2,
+            FailedCount: 1,
+            Results: new List<int> { 1, 2 },
+            Errors: new List<string> { "Failed to delete ID: 3" });
+
+        _mockCleanupService.Setup(x => x.BulkForceHardDeleteAsync<TestEntity, int>(new[] { 1, 2 }, It.IsAny<CancellationToken>()))
             .ReturnsAsync(bulkResult);
 
-        // Act
-        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, ids, _mockLogger.Object);
+        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(
+            _mockCleanupService.Object,
+            _mockReferenceValidationService.Object,
+            ids,
+            _mockLogger.Object);
 
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<BulkResult<int>>>(okResult.Value);
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkResult<int>>>(conflictResult.Value);
         Assert.False(response.Success);
-        Assert.Contains("failed", response.Message);
+        Assert.Contains("Some records cannot be deleted because they are still referenced by other entities.", response.Message);
+        Assert.NotNull(response.Errors);
+        Assert.Contains("ID: 3, References: TableA, TableB", response.Errors);
     }
 
     [Fact]
@@ -459,15 +481,27 @@ public class CrudControllerExtensionsComprehensiveTests
     {
         // Arrange
         var ids = new[] { 1, 2, 3 };
-        _mockCleanupService.Setup(x => x.BulkForceHardDeleteAsync<TestEntity, int>(ids, It.IsAny<CancellationToken>()))
+
+        // Mock validation to return no references
+        _mockReferenceValidationService
+            .Setup(s => s.GetReferencingTablesWithDataAsync<TestEntity, int>(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
+        // Mock cleanup service to throw a generic exception
+        _mockCleanupService
+            .Setup(x => x.BulkForceHardDeleteAsync<TestEntity, int>(ids, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
-        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, ids, _mockLogger.Object);
+        var result = await _controller.ExecuteBulkForceDelete<TestEntity, int>(_mockCleanupService.Object, _mockReferenceValidationService.Object, ids, _mockLogger.Object);
 
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, statusCodeResult.StatusCode);
+        // Assert - Generic exceptions during cleanup return 500
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+
+        var response = Assert.IsType<ApiResponse<BulkResult<int>>>(objectResult.Value);
+        Assert.False(response.Success);
+        Assert.Contains("An error occurred while processing the bulk delete operation", response.Message);
     }
 
     #endregion
@@ -676,6 +710,7 @@ public class CrudControllerExtensionsComprehensiveTests
         var conflictResult = Assert.IsType<ConflictObjectResult>(result);
         var response = Assert.IsType<ApiResponse<RangeResult<TestDto>>>(conflictResult.Value);
         Assert.False(response.Success);
+        Assert.Contains("already exists", response.Message);
     }
 
     [Fact]
@@ -699,6 +734,7 @@ public class CrudControllerExtensionsComprehensiveTests
         var conflictResult = Assert.IsType<ConflictObjectResult>(result);
         var response = Assert.IsType<ApiResponse<RangeResult<TestDto>>>(conflictResult.Value);
         Assert.False(response.Success);
+        Assert.Contains("already exists", response.Message);
     }
 
     [Fact]

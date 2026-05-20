@@ -32,10 +32,11 @@ public class UseFactorCVMasterService : BaseCommonCrudService<UseFactorCVMasterE
     }
 
     public override async Task<PagedResult<UseFactorCVMasterDto>> GetAllAsync(
-        UseFactorCVMasterQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+    UseFactorCVMasterQueryParameters queryParameters,
+    CancellationToken cancellationToken = default)
     {
-        var subTypeOfUseQuery = _subTypeOfUseRepository.GetQueryable();
+        // Filter SubTypeOfUse records to include only IsActive = 1
+        var subTypeOfUseQuery = _subTypeOfUseRepository.GetQueryable().Where(s => s.IsActive);
         if (queryParameters.TypeOfUseId.HasValue)
             subTypeOfUseQuery = subTypeOfUseQuery.Where(s => s.TypeOfUseId == queryParameters.TypeOfUseId.Value);
         if (queryParameters.SubTypeOfUseId.HasValue)
@@ -43,6 +44,7 @@ public class UseFactorCVMasterService : BaseCommonCrudService<UseFactorCVMasterE
         if (queryParameters.IsActive.HasValue)
             subTypeOfUseQuery = subTypeOfUseQuery.Where(s => s.IsActive == queryParameters.IsActive.Value);
 
+        // Filter AssessmentYearRangeCV records to include only IsActive = 1
         var yearRangeQuery = _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive);
         if (queryParameters.YearRangeCVId.HasValue)
             yearRangeQuery = yearRangeQuery.Where(yr => yr.Id == queryParameters.YearRangeCVId.Value);
@@ -89,19 +91,21 @@ public class UseFactorCVMasterService : BaseCommonCrudService<UseFactorCVMasterE
         return new PagedResult<UseFactorCVMasterDto>(items, totalCount, pageNumber, pageSize);
     }
 
+
     /// <summary>
     /// Returns placeholder UseFactorCVMasterDto rows for all (TypeOfUse, SubTypeOfUse, YearRange) combinations
     /// where no factor data exists in the database.
     /// </summary>
     private IQueryable<UseFactorCVMasterDto> GetYearRangesWithNoData(
-        IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
-        IQueryable<int> yearRangesWithData,
-        IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery)
+      IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
+      IQueryable<int> yearRangesWithData,
+      IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery)
     {
         return from yearRange in yearRangeQuery
                where !yearRangesWithData.Contains(yearRange.Id)
                from subTypeOfUse in subTypeOfUseQuery
-               join typeOfUse in _typeOfUseRepository.GetQueryable() on subTypeOfUse.TypeOfUseId equals typeOfUse.Id
+               join typeOfUse in _typeOfUseRepository.GetQueryable().Where(t => t.IsActive)
+                   on subTypeOfUse.TypeOfUseId equals typeOfUse.Id
                select new UseFactorCVMasterDto
                {
                    Id = 0,
@@ -127,17 +131,18 @@ public class UseFactorCVMasterService : BaseCommonCrudService<UseFactorCVMasterE
     /// where factor data exists in the database.
     /// </summary>
     private IQueryable<UseFactorCVMasterDto> GetCombinationsWithDataPerYear(
-        IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
-        IQueryable<int> yearRangesWithData,
-        IQueryable<UseFactorCVMasterEntity> useFactorQuery,
-        IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery)
+    IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
+    IQueryable<int> yearRangesWithData,
+    IQueryable<UseFactorCVMasterEntity> useFactorQuery,
+    IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery)
     {
         return from yearRange in yearRangeQuery
                where yearRangesWithData.Contains(yearRange.Id)
                join factor in useFactorQuery
                    on yearRange.Id equals factor.YearRangeCVId
                join subTypeOfUse in subTypeOfUseQuery on factor.SubTypeOfUseId equals subTypeOfUse.Id
-               join typeOfUse in _typeOfUseRepository.GetQueryable() on factor.TypeOfUseId equals typeOfUse.Id
+               join typeOfUse in _typeOfUseRepository.GetQueryable().Where(t => t.IsActive) // Add IsActive filter
+                   on factor.TypeOfUseId equals typeOfUse.Id
                select new UseFactorCVMasterDto
                {
                    Id = factor.Id,
@@ -163,13 +168,14 @@ public class UseFactorCVMasterService : BaseCommonCrudService<UseFactorCVMasterE
     /// that are missing factor data, but where the year range has at least some data for other combinations.
     /// </summary>
     private IQueryable<UseFactorCVMasterDto> GetCombinationsWithoutDataInActiveYears(
-        IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery,
-        IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
-        IQueryable<int> yearRangesWithData,
-        IQueryable<UseFactorCVMasterEntity> useFactorQuery)
+    IQueryable<SubTypeOfUseEntity> subTypeOfUseQuery,
+    IQueryable<AssessmentYearRangeCVEntity> yearRangeQuery,
+    IQueryable<int> yearRangesWithData,
+    IQueryable<UseFactorCVMasterEntity> useFactorQuery)
     {
         return from subTypeOfUse in subTypeOfUseQuery
-               join typeOfUse in _typeOfUseRepository.GetQueryable() on subTypeOfUse.TypeOfUseId equals typeOfUse.Id
+               join typeOfUse in _typeOfUseRepository.GetQueryable().Where(t => t.IsActive) // Add IsActive filter
+                   on subTypeOfUse.TypeOfUseId equals typeOfUse.Id
                from yearRange in yearRangeQuery
                where yearRangesWithData.Contains(yearRange.Id)
                join factor in useFactorQuery

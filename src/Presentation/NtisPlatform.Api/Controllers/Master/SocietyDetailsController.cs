@@ -14,11 +14,13 @@ public class SocietyDetailsController : ControllerBase
     private readonly ISocietyDetailsService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<SocietyDetailsController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public SocietyDetailsController(ISocietyDetailsService service, IHardDeleteCleanupService cleanupService, ILogger<SocietyDetailsController> logger)
+    public SocietyDetailsController(ISocietyDetailsService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<SocietyDetailsController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -41,5 +43,5 @@ public class SocietyDetailsController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<SocietyDetailsEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<SocietyDetailsEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }

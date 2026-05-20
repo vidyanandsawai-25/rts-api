@@ -16,11 +16,12 @@ public class WaterRateMasterController : ControllerBase
     private readonly IWaterRateMasterService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<WaterRateMasterController> _logger;
-
-    public WaterRateMasterController(IWaterRateMasterService service, IHardDeleteCleanupService cleanupService, ILogger<WaterRateMasterController> logger)
+    private readonly IReferenceValidationService _referenceValidationService;
+    public WaterRateMasterController(IWaterRateMasterService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<WaterRateMasterController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -47,5 +48,5 @@ public class WaterRateMasterController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<WaterRateMasterEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<WaterRateMasterEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }

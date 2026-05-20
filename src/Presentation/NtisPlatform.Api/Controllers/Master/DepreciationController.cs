@@ -14,13 +14,15 @@ public class DepreciationController : ControllerBase
 {
     private readonly IDepreciationService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<DepreciationController> _logger;
 
-    public DepreciationController(IDepreciationService service, IHardDeleteCleanupService cleanupService, ILogger<DepreciationController> logger)
+    public DepreciationController(IDepreciationService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<DepreciationController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
     // read
     [HttpGet]
@@ -61,12 +63,12 @@ public class DepreciationController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<DepreciationMasterEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<DepreciationMasterEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-        => this.ExecuteBulkForceDelete<DepreciationMasterEntity, int>(_cleanupService, ids, _logger, ct);
+        => this.ExecuteBulkForceDelete<DepreciationMasterEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 
 }
 

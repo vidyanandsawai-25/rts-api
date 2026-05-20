@@ -23,7 +23,8 @@ public class PropertyTypeMasterControllerTests
         _serviceMock = new Mock<IPropertyTypeMasterService>();
         _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
         _loggerMock = new Mock<ILogger<PropertyTypeMasterController>>();
-        _controller = new PropertyTypeMasterController(_serviceMock.Object, _cleanupServiceMock.Object, _loggerMock.Object);
+        var referenceValidation = new Mock<IReferenceValidationService>();
+        _controller = new PropertyTypeMasterController(_serviceMock.Object, _cleanupServiceMock.Object, referenceValidation.Object,_loggerMock.Object);
     }
 
     [Fact]

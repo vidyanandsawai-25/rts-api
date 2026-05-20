@@ -15,12 +15,14 @@ public class PropertyTypeMasterController : ControllerBase
     private readonly IPropertyTypeMasterService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<PropertyTypeMasterController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public PropertyTypeMasterController(IPropertyTypeMasterService service, IHardDeleteCleanupService cleanupService, ILogger<PropertyTypeMasterController> logger)
+    public PropertyTypeMasterController(IPropertyTypeMasterService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService,ILogger<PropertyTypeMasterController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,5 +48,5 @@ public class PropertyTypeMasterController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<PropertyTypeMasterEntity, int>(_cleanupService, id, _logger, ct);
+    => this.ExecuteForceDelete<PropertyTypeMasterEntity, int>(_cleanupService, _referenceValidationService, id ,_logger, ct);
 }

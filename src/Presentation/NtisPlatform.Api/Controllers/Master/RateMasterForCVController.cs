@@ -15,12 +15,14 @@ public class RateMasterForCVController : ControllerBase
     private readonly IRateMasterForCVService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RateMasterForCVController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public RateMasterForCVController(IRateMasterForCVService service, IHardDeleteCleanupService cleanupService, ILogger<RateMasterForCVController> logger)
+    public RateMasterForCVController(IRateMasterForCVService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<RateMasterForCVController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,7 +48,7 @@ public class RateMasterForCVController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<RateMasterForCVEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<RateMasterForCVEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     [HttpPost("Bulk")]
     public Task<IActionResult> BulkCreate([FromBody] CreateRateMasterForCVDto[] items, CancellationToken ct)
@@ -65,8 +67,6 @@ public class RateMasterForCVController : ControllerBase
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-        => this.ExecuteBulkForceDelete<RateMasterForCVEntity, int>(_cleanupService, ids, _logger, ct);
-
-
+        => this.ExecuteBulkForceDelete<RateMasterForCVEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }
 

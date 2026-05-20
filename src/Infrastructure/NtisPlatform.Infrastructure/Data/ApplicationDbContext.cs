@@ -100,7 +100,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyCertificateEntity> PropertyCertificates { get; set; } = null!;
     public DbSet<DocumentEntity> Documents { get; set; } = null!;
     public DbSet<DocumentBindingEntity> DocumentBindings { get; set; } = null!;
-    public DbSet<TaxPercentageMasterRV> TaxPercentageMasterRVs { get; set; } = null!;
+    public DbSet<TaxPercentageMasterRVEntity> TaxPercentageMasterRVs { get; set; } = null!;
 
     public DbSet<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
@@ -145,7 +145,7 @@ public class ApplicationDbContext : DbContext
 
             // Configure foreign key relationships
             entity.HasOne(e => e.TaxMaster)
-                .WithMany()
+                .WithMany(p => p.PolicyTaxDetails)
                 .HasForeignKey(e => e.TaxId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -176,6 +176,16 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive);
             // Uniqueness constraint for ConstructionTypeId + YearRangeCVId
             entity.HasIndex(e => new { e.ConstructionTypeId, e.YearRangeCVId }).IsUnique();
+
+            entity.HasOne(e => e.ConstructionType)
+             .WithMany(c => c.NatureFactorCVMaster)
+             .HasForeignKey(e => e.ConstructionTypeId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.YearRangeCV)
+           .WithMany(c => c.NatureFactorCVMaster)
+           .HasForeignKey(e => e.YearRangeCVId)
+           .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -188,6 +198,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TypeOfUseId).IsRequired();
             // Add other property configurations as needed
             entity.HasIndex(e => e.TypeOfUseId);
+
+            entity.HasOne(e => e.TypeOfUse)
+            .WithMany(c => c.ParkingTypeMaster)
+            .HasForeignKey(e => e.TypeOfUseId)
+            .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
@@ -201,6 +216,32 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+
+            // Configure relationships
+            entity.HasMany(e => e.Rates)
+                .WithOne(r => r.ConstructionType)
+                .HasForeignKey(r => r.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.NatureFactorCVMaster)
+                .WithOne(n => n.ConstructionType)
+                .HasForeignKey(n => n.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.AgeFactorCVMaster)
+                .WithOne(a => a.ConstructionType)
+                .HasForeignKey(a => a.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertyDetails)
+                .WithOne(p => p.ConstructionType)
+                .HasForeignKey(p => p.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.DepreciationMaster)
+                .WithOne(d => d.ConstructionType)
+                .HasForeignKey(d => d.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<FloorEntity>(entity =>
@@ -212,6 +253,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SequenceNo);
             entity.Property(e => e.MaxFloorNo);
             entity.Property(e => e.FloorGroupId).HasColumnName("FloorGroupId");
+
+            // Configure relationships
+            entity.HasMany(e => e.Rates)
+                .WithOne(r => r.Floor)
+                .HasForeignKey(r => r.FloorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.FloorFactorCVMaster)
+                .WithOne(n => n.Floor)
+                .HasForeignKey(n => n.FloorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertyDetails)
+                .WithOne(a => a.Floor)
+                .HasForeignKey(a => a.FloorId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RateEntity>(entity =>
@@ -228,6 +285,36 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id);
             entity.Property(e => e.RateRemark);
             entity.Property(e => e.IsActive);
+
+            entity.HasOne(e => e.ConstructionType)
+              .WithMany(c => c.Rates)
+              .HasForeignKey(e => e.ConstructionTypeId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Floor)
+              .WithMany(c => c.Rates)
+              .HasForeignKey(e => e.FloorId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RateSection)
+              .WithMany(c => c.Rates)
+              .HasForeignKey(e => e.RateSectionId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxZone)
+              .WithMany(c => c.Rates)
+              .HasForeignKey(e => e.TaxZoneId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TypeOfUseGroup)
+              .WithMany(c => c.Rates)
+              .HasForeignKey(e => e.TypeOfUseGroupId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AssessmentYearRange)
+            .WithMany(c => c.Rates)
+            .HasForeignKey(e => e.YearRangeRVId)
+            .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RetentionFactWiseEntity>(entity =>
@@ -258,6 +345,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive);
             // Unique constraint for FromYear-ToYear pair
             entity.HasIndex(e => new { e.FromYear, e.ToYear }).IsUnique();
+
+            // Configure relationships
+            entity.HasMany(e => e.Rates)
+                .WithOne(r => r.AssessmentYearRange)
+                .HasForeignKey(r => r.YearRangeRVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.DepreciationMaster)
+            .WithOne(r => r.AssessmentYearRange)
+            .HasForeignKey(r => r.YearRangeRVId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.TaxPercentageMasterRV)
+             .WithOne(r => r.AssessmentYearRange)
+              .HasForeignKey(r => r.YearRangeRVId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<AssessmentYearRangeCVEntity>(entity =>
         {
@@ -267,6 +370,37 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ToYear);
             entity.Property(e => e.IsActive);
             entity.HasIndex(e => new { e.FromYear, e.ToYear }).IsUnique();
+
+            // Configure relationships
+            entity.HasMany(e => e.FloorFactorCVMaster)
+                .WithOne(r => r.YearRangeCV)
+                .HasForeignKey(r => r.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.UseFactorCVMaster)
+            .WithOne(r => r.YearRangeCV)
+            .HasForeignKey(r => r.YearRangeCVId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.AgeFactorCVMaster)
+             .WithOne(r => r.YearRangeCV)
+               .HasForeignKey(r => r.YearRangeCVId)
+              .OnDelete(DeleteBehavior.Restrict);
+           
+            entity.HasMany(e => e.NatureFactorCVMaster)
+                .WithOne(r => r.YearRangeCV)
+                .HasForeignKey(r => r.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.RateMasterForCV)
+              .WithOne(r => r.AssessmentYearRange)
+               .HasForeignKey(r => r.AssessmentYearRangeId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.TaxPercentageMasterCV)
+             .WithOne(r => r.AssessmentYearRangeCV)
+             .HasForeignKey(r => r.YearRangeCVId)
+              .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<SubFloorEntity>(entity =>
         {
@@ -276,6 +410,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Description);
             entity.Property(e => e.SubFloorPercentage);
 
+            // Configure relationships
+            entity.HasMany(e => e.PropertyDetails)
+                .WithOne(r => r.SubFloor)
+                .HasForeignKey(r => r.SubFloorId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<WardEntity>(entity =>
         {
@@ -288,6 +427,27 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(x => x.WardNo).IsUnique();
+
+            entity.HasOne(e => e.Zone)
+              .WithMany(c => c.Ward)
+              .HasForeignKey(e => e.ZoneId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure relationships
+            entity.HasMany(e => e.BlockMaster)
+                .WithOne(r => r.Ward)
+                .HasForeignKey(r => r.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.RateSectionDetails)
+                .WithOne(n => n.Ward)
+                .HasForeignKey(n => n.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.Property)
+                .WithOne(a => a.Ward)
+                .HasForeignKey(a => a.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>
@@ -302,6 +462,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.CreatedDate);
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
+
+          entity.HasOne(e => e.TypeOfUse)
+            .WithMany(c => c.SubTypeOfUse)
+            .HasForeignKey(e => e.TypeOfUseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure relationships
+          entity.HasMany(e => e.PropertyDetails)
+                .WithOne(r => r.SubTypeOfUse)
+                .HasForeignKey(r => r.SubTypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+          entity.HasMany(e => e.UseFactorCVMaster)
+                .WithOne(r => r.SubTypeOfUse)
+                .HasForeignKey(r => r.SubTypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<TypeOfUseEntity>(entity =>
         {
@@ -318,9 +494,45 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.CreatedDate);
             entity.Property(x => x.UpdatedDate);
             entity.HasOne(e => e.TypeOfUseGroup)
-            .WithMany()
+            .WithMany(p => p.TypeOfUse)
             .HasForeignKey(e => e.TypeOfUseGroupId)
             .HasPrincipalKey(e => e.Id);
+
+            // Configure relationships
+            entity.HasMany(e => e.PropertyDetails)
+                .WithOne(r => r.TypeOfUse)
+                .HasForeignKey(r => r.TypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.UseFactorCVMaster)
+                .WithOne(r => r.TypeOfUse)
+                .HasForeignKey(r => r.TypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.ParkingTypeMaster)
+                .WithOne(r => r.TypeOfUse)
+                .HasForeignKey(r => r.TypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.TaxPercentageMasterCV)
+                .WithOne(r => r.TypeOfUse)
+                .HasForeignKey(r => r.TypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertyDescriptionAndTypeOfUseValidation)
+                 .WithOne(r => r.TypeOfUse)
+                 .HasForeignKey(r => r.TypeOfUseId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.SubTypeOfUse)
+                .WithOne(r => r.TypeOfUse)
+                .HasForeignKey(r => r.TypeOfUseId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.TaxPercentageMasterRV)
+             .WithOne(r => r.TypeOfUse)
+             .HasForeignKey(r => r.TypeOfUseId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<TypeOfUseGroupEntity>(entity =>
         {
@@ -335,6 +547,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
+
+            // Configure relationships
+            entity.HasMany(e => e.Rates)
+                .WithOne(r => r.TypeOfUseGroup)
+                .HasForeignKey(r => r.TypeOfUseGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.TypeOfUse)
+                .WithOne(n => n.TypeOfUseGroup)
+                .HasForeignKey(n => n.TypeOfUseGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ZoneEntity>(entity =>
@@ -346,6 +569,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.ZoneNo);
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Configure relationships
+            entity.HasMany(e => e.Ward)
+                .WithOne(r => r.Zone)
+                .HasForeignKey(r => r.ZoneId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -396,6 +625,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Rate).HasColumnType("money");
             entity.Property(e => e.YearRangeRVId);
             entity.Property(e => e.IsActive).HasDefaultValue(true);
+
+            entity.HasOne(e => e.ConstructionType)
+              .WithMany(c => c.DepreciationMaster)
+              .HasForeignKey(e => e.ConstructionTypeId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AssessmentYearRange)
+                 .WithMany(c => c.DepreciationMaster)
+               .HasForeignKey(e => e.YearRangeRVId)
+                 .OnDelete(DeleteBehavior.Restrict);
         });
         // TaxZone configuration
         modelBuilder.Entity<TaxZoneEntity>(entity =>
@@ -412,10 +651,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.TaxZoneNo).IsUnique().HasDatabaseName("UQ_TaxZoneMaster_TaxZoneNo");
+
+            entity.HasMany(e => e.Rates)
+              .WithOne(r => r.TaxZone)
+               .HasForeignKey(r => r.TaxZoneId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.Property)
+                .WithOne(n => n.TaxZone)
+                .HasForeignKey(n => n.TaxZoneId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // TaxPercentageMasterRV configuration
-        modelBuilder.Entity<TaxPercentageMasterRV>(entity =>
+        modelBuilder.Entity<TaxPercentageMasterRVEntity>(entity =>
         {
             entity.ToTable("TaxPercentageMasterRV", "PTIS");
             entity.HasKey(e => e.Id);
@@ -425,6 +674,16 @@ public class ApplicationDbContext : DbContext
             // Add other property configurations as needed
             entity.HasIndex(e => e.YearRangeRVId);
             entity.HasIndex(e => e.TypeOfUseId);
+
+            entity.HasOne(e => e.TypeOfUse)
+             .WithMany(c => c.TaxPercentageMasterRV)
+             .HasForeignKey(e => e.TypeOfUseId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AssessmentYearRange)
+             .WithMany(c => c.TaxPercentageMasterRV)
+             .HasForeignKey(e => e.YearRangeRVId)
+             .OnDelete(DeleteBehavior.Restrict);
 
         });
 
@@ -450,6 +709,11 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.MoujaNo).IsRequired().HasMaxLength(20);
             entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(100);
+                    // Configure relationships
+            entity.HasMany(e => e.Property)
+                .WithOne(r => r.Mouja)
+                .HasForeignKey(r => r.MoujaId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.MoujaNo).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaNo");
             entity.HasIndex(e => e.MoujaName).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaName");
         });
@@ -585,6 +849,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
 
+            entity.HasMany(e => e.Rates)
+               .WithOne(r => r.RateSection)
+               .HasForeignKey(r => r.RateSectionId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.RateSectionDetails)
+                .WithOne(n => n.RateSection)
+                .HasForeignKey(n => n.RateSectionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         });
         modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
@@ -598,6 +872,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
             entity.Property(x => x.IsActive);
+
+            entity.HasOne(e => e.Ward)
+              .WithMany(c => c.RateSectionDetails)
+              .HasForeignKey(e => e.WardId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+           entity.HasOne(e => e.RateSection)
+             .WithMany(c => c.RateSectionDetails)
+             .HasForeignKey(e => e.RateSectionId)
+              .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<ScreenMasterEntity>(entity =>
         {
@@ -1061,27 +1345,27 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.Floor)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.FloorId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.SubFloor)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.SubFloorId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.ConstructionType)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.ConstructionTypeId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.TypeOfUse)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.TypeOfUseId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.SubTypeOfUse)
-                  .WithMany()
+                  .WithMany(p => p.PropertyDetails)
                   .HasForeignKey(e => e.SubTypeOfUseId)
                   .OnDelete(DeleteBehavior.Restrict);
 
@@ -1306,6 +1590,21 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasFilter("[PropertyNo] IS NOT NULL AND [PartitionNo] IS NOT NULL")
                 .HasDatabaseName("UQ_Property_Ward_Property_Partition");
+
+            entity.HasOne(e => e.Ward)
+              .WithMany(c => c.Property)
+              .HasForeignKey(e => e.WardId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Mouja)
+             .WithMany(c => c.Property)
+             .HasForeignKey(e => e.MoujaId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxZone)
+             .WithMany(c => c.Property)
+             .HasForeignKey(e => e.TaxZoneId)
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -1822,6 +2121,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
 
+            entity.HasOne(e => e.TypeOfUse)
+              .WithMany(c => c.PropertyDescriptionAndTypeOfUseValidation)
+              .HasForeignKey(e => e.TypeOfUseId)
+              .OnDelete(DeleteBehavior.Restrict);
+
             // Unique constraint on PropertyTypeId and TypeOfUseId combination
             entity.HasIndex(e => new { e.PropertyTypeId, e.TypeOfUseId })
                 .IsUnique()
@@ -1856,17 +2160,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             entity.HasOne(e => e.TypeOfUse)
-                .WithMany()
+                .WithMany(p => p.UseFactorCVMaster)
                 .HasForeignKey(e => e.TypeOfUseId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.SubTypeOfUse)
-                .WithMany()
+                .WithMany(p => p.UseFactorCVMaster)
                 .HasForeignKey(e => e.SubTypeOfUseId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.YearRangeCV)
-                .WithMany()
+                .WithMany(p => p.UseFactorCVMaster)
                 .HasForeignKey(e => e.YearRangeCVId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -1892,12 +2196,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             entity.HasOne(e => e.ConstructionType)
-                .WithMany()
+                .WithMany(p => p.AgeFactorCVMaster)
                 .HasForeignKey(e => e.ConstructionTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.YearRangeCV)
-                .WithMany()
+                .WithMany(p => p.AgeFactorCVMaster)
                 .HasForeignKey(e => e.YearRangeCVId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -1922,12 +2226,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             entity.HasOne(e => e.Floor)
-                .WithMany()
+                .WithMany(p => p.FloorFactorCVMaster)
                 .HasForeignKey(e => e.FloorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.YearRangeCV)
-                .WithMany()
+                .WithMany(p => p.FloorFactorCVMaster)
                 .HasForeignKey(e => e.YearRangeCVId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -1962,9 +2266,19 @@ public class ApplicationDbContext : DbContext
 
             // Foreign key configuration
             entity.HasOne(e => e.TaxMaster)
-                .WithMany()
+                .WithMany(p => p.TaxPercentageMasterCV)
                 .HasForeignKey(e => e.TaxId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TypeOfUse)
+             .WithMany(c => c.TaxPercentageMasterCV)
+             .HasForeignKey(e => e.TypeOfUseId)
+             .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.AssessmentYearRangeCV)
+            .WithMany(c => c.TaxPercentageMasterCV)
+            .HasForeignKey(e => e.YearRangeCVId)
+            .OnDelete(DeleteBehavior.Restrict);
 
             // Unique constraint on natural key (TaxId, TypeOfUseId, YearRangeCVId) for active records
             // Prevents duplicate tax percentage configurations that could lead to ambiguous calculations
@@ -2098,7 +2412,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.BlockNo).IsRequired().HasMaxLength(20);
             // Foreign key relationship with WardMaster
             entity.HasOne<WardEntity>()
-                .WithMany()
+                .WithMany(p => p.BlockMaster)
                 .HasForeignKey(e => e.WardId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -2517,6 +2831,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.ConnectionTypeCode).IsUnique().HasDatabaseName("UQ_WaterConnectionTypeMaster_Code");
             entity.HasIndex(e => e.IsActive);
+
+            // Configure relationships
+            entity.HasMany(e => e.WaterConnectionMaster)
+                .WithOne(r => r.WaterConnectionType)
+                .HasForeignKey(r => r.WaterConnectionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.WaterRateMaster)
+                .WithOne(n => n.WaterConnectionType)
+                .HasForeignKey(n => n.WaterConnectionTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // WaterConnectionSizeMaster configuration
@@ -2533,6 +2858,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.IsActive);
+
+            // Configure relationships
+            entity.HasMany(e => e.WaterConnectionMaster)
+                .WithOne(r => r.WaterConnectionSize)
+                .HasForeignKey(r => r.WaterConnectionSizeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.WaterRateMaster)
+                .WithOne(n => n.WaterConnectionSize)
+                .HasForeignKey(n => n.WaterConnectionSizeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // WaterConnectionStatusMaster configuration
@@ -2549,6 +2885,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.StatusName).IsUnique().HasDatabaseName("UQ_WaterConnectionStatusMaster_Name");
             entity.HasIndex(e => e.IsActive);
+
+            // Configure relationships
+            entity.HasMany(e => e.WaterConnectionMaster)
+                .WithOne(r => r.WaterConnectionStatus)
+                .HasForeignKey(r => r.WaterConnectionStatusId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // WaterRateMaster configuration
@@ -2568,12 +2910,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
 
             entity.HasOne(e => e.WaterConnectionType)
-                .WithMany()
+                .WithMany(p => p.WaterRateMaster)
                 .HasForeignKey(e => e.WaterConnectionTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.WaterConnectionSize)
-                .WithMany()
+                .WithMany(p => p.WaterRateMaster)
                 .HasForeignKey(e => e.WaterConnectionSizeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -2608,17 +2950,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
 
             entity.HasOne(e => e.WaterConnectionType)
-                .WithMany()
+                .WithMany(p => p.WaterConnectionMaster)
                 .HasForeignKey(e => e.WaterConnectionTypeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.WaterConnectionSize)
-                .WithMany()
+                .WithMany(p => p.WaterConnectionMaster)
                 .HasForeignKey(e => e.WaterConnectionSizeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.WaterConnectionStatus)
-                .WithMany()
+                .WithMany(p => p.WaterConnectionMaster)
                 .HasForeignKey(e => e.WaterConnectionStatusId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(false);
@@ -2659,6 +3001,11 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.FinanceYear)
                 .WithMany()
                 .HasForeignKey(e => e.FinanceYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.WaterConnection)
+                .WithMany(p => p.Details)
+                .HasForeignKey(e => e.WaterConnectionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => new { e.WaterConnectionId, e.FinanceYearId })

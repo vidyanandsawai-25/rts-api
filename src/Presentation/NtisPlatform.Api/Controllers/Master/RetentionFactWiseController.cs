@@ -15,12 +15,14 @@ public class RetentionFactWiseController : ControllerBase
     private readonly IRetentionFactWiseService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RetentionFactWiseController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public RetentionFactWiseController(IRetentionFactWiseService service, IHardDeleteCleanupService cleanupService, ILogger<RetentionFactWiseController> logger)
+    public RetentionFactWiseController(IRetentionFactWiseService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<RetentionFactWiseController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -46,6 +48,6 @@ public class RetentionFactWiseController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-       => this.ExecuteForceDelete<RetentionFactWiseEntity, int>(_cleanupService, id, _logger, ct);
+       => this.ExecuteForceDelete<RetentionFactWiseEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 }
  

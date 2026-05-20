@@ -17,12 +17,14 @@ public class RateController : ControllerBase
     private readonly IRateService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RateController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
-    public RateController(IRateService service, IHardDeleteCleanupService cleanupService, ILogger<RateController> logger)
+    public RateController(IRateService service, IHardDeleteCleanupService cleanupService, IReferenceValidationService referenceValidationService, ILogger<RateController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     // Read operations
@@ -75,6 +77,7 @@ public class RateController : ControllerBase
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdateRateDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
+
     /// Updates multiple records in a single Bulk.
     [HttpPut("Bulk")]
     public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateDto>[] items, CancellationToken ct)
@@ -88,14 +91,16 @@ public class RateController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<RateEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<RateEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
+
     /// Deletes multiple records by IDs.
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
     /// Permanently deletes multiple records by IDs. This is an irreversible operation.
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-        => this.ExecuteBulkForceDelete<RateEntity, int>(_cleanupService, ids, _logger, ct);
+        => this.ExecuteBulkForceDelete<RateEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

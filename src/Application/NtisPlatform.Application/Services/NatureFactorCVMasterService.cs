@@ -29,13 +29,15 @@ public class NatureFactorCVMasterService : BaseCommonCrudService<NatureFactorCVM
     }
 
     public override async Task<PagedResult<NatureFactorCVMasterDto>> GetAllAsync(
-        NatureFactorCVMasterQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+     NatureFactorCVMasterQueryParameters queryParameters,
+     CancellationToken cancellationToken = default)
     {
-        var constructionTypeQuery = _constructionTypeRepository.GetQueryable();
+        // Filter ConstructionType records to include only IsActive = 1
+        var constructionTypeQuery = _constructionTypeRepository.GetQueryable().Where(c => c.IsActive);
         if (queryParameters.ConstructionTypeId.HasValue)
             constructionTypeQuery = constructionTypeQuery.Where(c => c.Id == queryParameters.ConstructionTypeId.Value);
 
+        // Filter AssessmentYearRangeCV records to include only IsActive = 1
         var yearRangeQuery = _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive);
         if (queryParameters.YearRangeCVId.HasValue)
             yearRangeQuery = yearRangeQuery.Where(yr => yr.Id == queryParameters.YearRangeCVId.Value);
@@ -180,9 +182,11 @@ public class NatureFactorCVMasterService : BaseCommonCrudService<NatureFactorCVM
         var query =
             from natureFactor in _repository.GetQueryable()
             where natureFactor.Id == id
-            join constructionType in _constructionTypeRepository.GetQueryable() on natureFactor.ConstructionTypeId equals constructionType.Id into constructionTypeGroup
+            join constructionType in _constructionTypeRepository.GetQueryable().Where(c => c.IsActive)
+                on natureFactor.ConstructionTypeId equals constructionType.Id into constructionTypeGroup
             from constructionType in constructionTypeGroup.DefaultIfEmpty()
-            join yearRange in _yearRangeCVRepository.GetQueryable() on natureFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
+            join yearRange in _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive)
+                on natureFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
             from yearRange in yearRangeGroup.DefaultIfEmpty()
             select new NatureFactorCVMasterDto
             {
@@ -201,5 +205,5 @@ public class NatureFactorCVMasterService : BaseCommonCrudService<NatureFactorCVM
 
         return await query.FirstOrDefaultAsync(cancellationToken);
     }
-   
+
 }

@@ -18,10 +18,11 @@ public class WaterConnectionDetailsControllerTests
         // Arrange
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
+        var referenceValidationMock = new Mock<IReferenceValidationService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
 
         // Act
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, referenceValidationMock.Object, loggerMock.Object);
 
         // Assert
         Assert.NotNull(controller);
@@ -33,13 +34,14 @@ public class WaterConnectionDetailsControllerTests
         // Arrange
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
+        var referenceValidationMock = new Mock<IReferenceValidationService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
 
         var dto = new WaterConnectionDetailsDto { Id = 1 };
         serviceMock.Setup(x => x.GenerateBillAsync(1, 2024, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, referenceValidationMock.Object, loggerMock.Object);
         var request = new GenerateBillRequest { WaterConnectionId = 1, FinanceYearId = 2024 };
 
         // Act
@@ -58,12 +60,13 @@ public class WaterConnectionDetailsControllerTests
         // Arrange
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
+        var referenceValidationMock = new Mock<IReferenceValidationService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
 
         serviceMock.Setup(x => x.GenerateBillAsync(1, 2024, It.IsAny<CancellationToken>()))
             .ReturnsAsync((WaterConnectionDetailsDto?)null);
 
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, referenceValidationMock.Object, loggerMock.Object);
         var request = new GenerateBillRequest { WaterConnectionId = 1, FinanceYearId = 2024 };
 
         // Act
@@ -80,11 +83,12 @@ public class WaterConnectionDetailsControllerTests
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
 
         serviceMock.Setup(x => x.GenerateBillAsync(1, 2024, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Connection is inactive"));
 
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, mockReferenceValidationService.Object, loggerMock.Object);
         var request = new GenerateBillRequest { WaterConnectionId = 1, FinanceYearId = 2024 };
 
         // Act
@@ -104,11 +108,12 @@ public class WaterConnectionDetailsControllerTests
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
 
         serviceMock.Setup(x => x.GenerateBillAsync(1, 2024, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Test exception"));
 
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, mockReferenceValidationService.Object, loggerMock.Object);
         var request = new GenerateBillRequest { WaterConnectionId = 1, FinanceYearId = 2024 };
 
         // Act
@@ -129,12 +134,12 @@ public class WaterConnectionDetailsControllerTests
         var serviceMock = new Mock<IWaterConnectionDetailsService>();
         var cleanupMock = new Mock<IHardDeleteCleanupService>();
         var loggerMock = new Mock<ILogger<WaterConnectionDetailsController>>();
-
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var dto = new WaterConnectionDetailsDto { Id = 1 };
         serviceMock.Setup(x => x.GenerateBillAsync(123, 2024, It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, loggerMock.Object);
+        var controller = new WaterConnectionDetailsController(serviceMock.Object, cleanupMock.Object, mockReferenceValidationService.Object, loggerMock.Object);
         var request = new GenerateBillRequest { WaterConnectionId = 123, FinanceYearId = 2024 };
 
         // Act

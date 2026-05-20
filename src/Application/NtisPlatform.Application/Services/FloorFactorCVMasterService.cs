@@ -34,13 +34,15 @@ public class FloorFactorCVMasterService : BaseCommonCrudService<FloorFactorCVMas
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Paged result of FloorFactorCVMasterDto.</returns>
     public override async Task<PagedResult<FloorFactorCVMasterDto>> GetAllAsync(
-        FloorFactorCVMasterQueryParameters queryParameters,
-        CancellationToken cancellationToken = default)
+     FloorFactorCVMasterQueryParameters queryParameters,
+     CancellationToken cancellationToken = default)
     {
-        var floorQuery = _floorRepository.GetQueryable();
+        // Filter FloorMaster records to include only IsActive = 1
+        var floorQuery = _floorRepository.GetQueryable().Where(f => f.IsActive);
         if (queryParameters.FloorId.HasValue)
             floorQuery = floorQuery.Where(f => f.Id == queryParameters.FloorId.Value);
 
+        // Filter AssessmentYearRangeCV records to include only IsActive = 1
         var yearRangeQuery = _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive);
         if (queryParameters.YearRangeCVId.HasValue)
             yearRangeQuery = yearRangeQuery.Where(yr => yr.Id == queryParameters.YearRangeCVId.Value);
@@ -187,9 +189,9 @@ public class FloorFactorCVMasterService : BaseCommonCrudService<FloorFactorCVMas
         var query =
             from floorFactor in _repository.GetQueryable()
             where floorFactor.Id == id
-            join floor in _floorRepository.GetQueryable() on floorFactor.FloorId equals floor.Id into floorGroup
+            join floor in _floorRepository.GetQueryable().Where(f => f.IsActive) on floorFactor.FloorId equals floor.Id into floorGroup
             from floor in floorGroup.DefaultIfEmpty()
-            join yearRange in _yearRangeCVRepository.GetQueryable() on floorFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
+            join yearRange in _yearRangeCVRepository.GetQueryable().Where(yr => yr.IsActive) on floorFactor.YearRangeCVId equals yearRange.Id into yearRangeGroup
             from yearRange in yearRangeGroup.DefaultIfEmpty()
             select new FloorFactorCVMasterDto
             {

@@ -18,15 +18,17 @@ public class WaterConnectionDetailsController : ControllerBase
     private readonly IWaterConnectionDetailsService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<WaterConnectionDetailsController> _logger;
-
+    private readonly IReferenceValidationService _referenceValidationService;
     public WaterConnectionDetailsController(
         IWaterConnectionDetailsService service,
         IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
         ILogger<WaterConnectionDetailsController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -52,7 +54,7 @@ public class WaterConnectionDetailsController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<WaterConnectionDetailsEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<WaterConnectionDetailsEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 
     /// <summary>
     /// Generates a pro-rata water bill for the specified connection and financial year.

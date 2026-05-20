@@ -12,9 +12,7 @@ namespace NtisPlatform.Core.Entities.Master
     /// </summary>
     [Table("AgeFactorCVMaster", Schema = "PTIS")]
     public class AgeFactorCVMasterEntity : BaseEntity
-    {
-       
-
+    {    
         public int ConstructionTypeId { get; set; }
 
         public int AgeFrom { get; set; }

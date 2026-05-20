@@ -16,15 +16,18 @@ public class RateSectionDetailsController : ControllerBase
     private readonly IRateSectionDetailsService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
     private readonly ILogger<RateSectionDetailsController> _logger;
+    private readonly IReferenceValidationService _referenceValidationService;
 
     public RateSectionDetailsController(
         IRateSectionDetailsService service, 
         IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
         ILogger<RateSectionDetailsController> logger)
     {
         _service = service;
         _cleanupService = cleanupService;
         _logger = logger;
+        _referenceValidationService = referenceValidationService;
     }
 
     [HttpGet]
@@ -58,12 +61,12 @@ public class RateSectionDetailsController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<RateSectionDetailsEntity, int>(_cleanupService, id, _logger, ct);
+        => this.ExecuteForceDelete<RateSectionDetailsEntity, int>(_cleanupService, _referenceValidationService,id, _logger, ct);
 
     [Authorize]
     [HttpDelete("Bulk/purge")]
     public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
-    => this.ExecuteBulkForceDelete<RateSectionDetailsEntity, int>(_cleanupService, ids, _logger, ct);
+    => this.ExecuteBulkForceDelete<RateSectionDetailsEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)

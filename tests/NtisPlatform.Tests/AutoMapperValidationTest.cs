@@ -40,7 +40,7 @@ public class AutoMapperValidationTest
             // These indicate serious configuration issues (missing type maps, constructor problems, etc.)
             if (otherErrors.Any())
             {
-                var errorDetails = string.Join("\n\n", otherErrors.Select((error, index) => 
+                var errorDetails = string.Join("\n\n", otherErrors.Select((error, index) =>
                     $"Error {index + 1}: {error}"));
 
                 // xUnit doesn't have Assert.Fail, use Assert.True(false, message) instead
@@ -64,53 +64,60 @@ public class AutoMapperValidationTest
             // Known intentionally unmapped properties that are expected
             var expectedUnmappedPatterns = new[]
             {
-                // Auto-generated IDs
-                "Id",
-                // Audit fields (populated by repository/interceptors)
-                "CreatedBy", "UpdatedBy", "CreatedDate", "UpdatedDate", "MarkedForDeletion",
-                // Navigation properties (managed by EF Core)
-                "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
-                "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
-                "FlagMaster", "PropertyTaxCalculationCVResults", "PropertyTaxCalculationRVResults", "PlotDetails", "PropertyDetails",
-                "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
-                "TaxMaster", "User", "PropertyMast", "RateCVMaster", "RateMasterForCV", "YearMaster",
-                "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
-                "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties
-                "Office", "Role", "Screen", "RoleWiseScreenAccess", // User/Role related navigation
-                "ULB", "Mouja", "Zone", "PropertyCategory", // Master data navigation
-                "TypeOfUse", "SubTypeOfUse", "PropertyType", // Type related navigation
-                "PolicyTaxDetails", "PolicyTaxDetailsCV", "TransMastOld", "TransMastCV", // Transaction navigation
-                // Computed/derived fields (populated from navigation properties)
-                "FloorFactorId", "NatureFactorId", "AgeFactorId", "UseFactorId",
-                "ConstructionCode", "ConstructionDescription", "FromYear", "ToYear",
-                "FloorCode", "FloorDescription",
-                "ZoneCode", "ZoneName", "WardCode", "WardName",
-                "TypeCode", "TypeName", "CategoryCode", "CategoryName",
-                "SubZoneNo", "SubZoneName", "TypeOfUseGroupName", "FloorGroupName",
-                "OpenPlotRate", "ResidentialRate", "OfficeRate", "ShopRate", "IndustrialRate",
-                "SDRR", "SearchKey", "Type", // Computed/search fields
-                // Collection navigation properties
-                "PropertyAssessments", "UserDepartmentAllocations", "UserModuleAllocations",
-                "UserRoleAllocations", "RuleScopes", "Taxes",
-                // Other system fields
-                "HasFactorData", "IsSystem", "IsDefault", "IsDeleted", "IsGenerated",
-                // Contact information fields (intentionally unmapped for data mapping scenarios)
-                "PinCode", "AlternateMobileNo", "OccupierMobileNo", "BuilderMobile",
-                // Property entity fields not mapped from Create/Update DTOs
-                "IsCombineProperty", "PropertyMastOldId", "PropertyAssessmentStatusId",
-                "MobileNoRemarkId", "OccupierMobileNoRemarkId",
-                // Owner/Occupier detail fields (present in entity but not in some DTOs)
-                "OwnerTitle", "OwnerTitleEnglish", "OwnerNameEnglish", "OwnerName",
-                "OccupierTitle", "OccupierName", "OccupierTitleEnglish", "OccupierNameEnglish",
-                // Flat/Shop detail fields  
-                "FlatOrShopNo", "FlatOrShopName", "FlatOrShopNoEnglish", "FlatOrShopNameEnglish",
-                // Address detail fields
-                "Address", "Location", "AddressEnglish", "LocationEnglish",
-                // Contact fields
-                "MobileNo",
-                // Property classification fields
-                "OpenPlot", "CSN", "PlotNo"
-            };
+              // Auto-generated IDs
+              "Id",
+              // Audit fields (populated by repository/interceptors)
+              "CreatedBy", "UpdatedBy", "CreatedDate", "UpdatedDate", "MarkedForDeletion",
+              // Navigation properties (managed by EF Core)
+              "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
+              "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
+              "FlagMaster", "PropertyTaxCalculationCVResults", "PropertyTaxCalculationRVResults", "PlotDetails", "PropertyDetails",
+              "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
+              "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", // Navigation properties
+              "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
+              "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties
+              "Office", "Role", "Screen", "RoleWiseScreenAccess", // User/Role related navigation
+              "ULB", "Mouja", "Zone", "PropertyCategory", // Master data navigation
+              "TypeOfUse", "SubTypeOfUse", "PropertyType", // Type related navigation
+              "PolicyTaxDetails", "PolicyTaxDetailsCV", "TransMastOld", "TransMastCV", // Transaction navigation
+              // Computed/derived fields (populated from navigation properties)
+              "FloorFactorId", "NatureFactorId", "AgeFactorId", "UseFactorId",
+              "ConstructionCode", "ConstructionDescription", "FromYear", "ToYear",
+              "FloorCode", "FloorDescription",
+              "ZoneCode", "ZoneName", "WardCode", "WardName",
+              "TypeCode", "TypeName", "CategoryCode", "CategoryName",
+              "SubZoneNo", "SubZoneName", "TypeOfUseGroupName", "FloorGroupName",
+              "OpenPlotRate", "ResidentialRate", "OfficeRate", "ShopRate", "IndustrialRate",
+              "SDRR", "SearchKey", "Type", // Computed/search fields
+              // Collection navigation properties
+              "PropertyAssessments", "UserDepartmentAllocations", "UserModuleAllocations",
+              "UserRoleAllocations", "RuleScopes", "Taxes",
+              // Other system fields
+              "HasFactorData", "IsSystem", "IsDefault", "IsDeleted", "IsGenerated",
+              // Contact information fields (intentionally unmapped for data mapping scenarios)
+              "PinCode", "AlternateMobileNo", "OccupierMobileNo", "BuilderMobile",
+              // Property entity fields not mapped from Create/Update DTOs
+              "IsCombineProperty", "PropertyMastOldId", "PropertyAssessmentStatusId",
+              "MobileNoRemarkId", "OccupierMobileNoRemarkId",
+              // Owner/Occupier detail fields (present in entity but not in some DTOs)
+              "OwnerTitle", "OwnerTitleEnglish", "OwnerNameEnglish", "OwnerName",
+              "OccupierTitle", "OccupierName", "OccupierTitleEnglish", "OccupierNameEnglish",
+              // Flat/Shop detail fields  
+              "FlatOrShopNo", "FlatOrShopName", "FlatOrShopNoEnglish", "FlatOrShopNameEnglish",
+              // Address detail fields
+              "Address", "Location", "AddressEnglish", "LocationEnglish",
+              // Contact fields
+              "MobileNo",
+              // Property classification fields
+              "OpenPlot", "CSN", "PlotNo",
+              // Newly added unmapped properties
+             "UseFactorCVMaster", "NatureFactorCVMaster", "AgeFactorCVMaster",
+             "RateMasterForCV", "TaxPercentageMasterCV", "Rates",
+             "TaxPercentageMasterRV", "DepreciationMaster",
+              "PropertyDetails", "PropertyMast", "Property", // Updated specific property names
+              "RateSection", "RateSectionDetails", "BlockMaster",
+              "WaterConnectionMaster", "WaterRateMaster"
+          };
 
             // Check if all unmapped properties are in the expected list
             var unexpectedUnmapped = unmappedMembers
