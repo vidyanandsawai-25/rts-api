@@ -551,20 +551,20 @@ namespace NtisPlatform.Application.Services
 
             // Rate masters
             var rateMasters = await (
-                from csnDetail in _CSNDetailsRepository.GetQueryable()
-                join rm in _rateRepository.GetQueryable().Where(x => x.IsActive)
-                    on csnDetail.RateCVMasterId equals rm.Id
-                where csnDetail.MoujaId == property.MoujaId && csnDetail.CSN == property.CSN
-                select new
-                {
-                    RateMasterCVId = rm.Id,
-                    rm.SubZoneId,
-                    rm.TypeOfUseGroupId,
-                    rm.FloorGroupId,
-                    rm.AssessmentYearRangeId,
-                    rm.RateAmount
-                }
-            ).ToListAsync(cancellationToken);
+            from csnDetail in _CSNDetailsRepository.GetQueryable()
+            join rm in _rateRepository.GetQueryable().Where(x => x.IsActive)
+            on csnDetail.RateMasterCVId equals rm.Id
+            where csnDetail.CSN == property.CSN
+            select new
+            {
+                RateMasterCVId = rm.Id,
+                rm.SubZoneId,
+                TypeOfUseGroupId = rm.TypeOfUseGroupCVId,
+                rm.FloorGroupId,
+                rm.AssessmentYearRangeId,
+                rm.RateAmount
+            }
+          ).ToListAsync(cancellationToken);
 
             if (!rateMasters.Any())
             {

@@ -257,50 +257,65 @@ public class CapitalValueServiceTests
         _propertyRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyEntity>
             {
-                new PropertyEntity { Id = propertyId, MoujaId = 1, CSN = "A1", IsActive = true }
+            new PropertyEntity
+            {
+                Id = propertyId,
+                MoujaId = 1,
+                CSN = "A1",
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _pdRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyDetailsEntity>
             {
-                new PropertyDetailsEntity {
-                    Id = 10, 
-                    PropertyId = propertyId, 
-                    AssessmentYear = "2020",
-                    ConstructionYear = "2015",
-                    TypeOfUseId = 1,
-                    TypeOfUse = new TypeOfUseEntity {  Id = 1,
-                        Type = "R",
-                        TypeOfUseGroupId = 1,
-                        TypeOfUseGroup = new TypeOfUseGroupEntity { Id = 1, IsActive = true },
-                        IsActive = true
+            new PropertyDetailsEntity
+            {
+                Id = 10,
+                PropertyId = propertyId,
+                AssessmentYear = "2020",
+                ConstructionYear = "2015",
+                TypeOfUseId = 1,
+                TypeOfUse = new TypeOfUseEntity
+                {
+                    Id = 1,
+                    Type = "R",
+                    TypeOfUseGroupId = 1,
+                    TypeOfUseGroup = new TypeOfUseGroupEntity
+                    {
+                        Id = 1,
+                        IsActive = true,
+                        IsFloorWiseRateApplicable = true
                     },
-                    ConstructionTypeId = 1,
-                    CarpetAreaSqMeter = 100,
-                    IsActive = true 
-                }
+                    IsActive = true
+                },
+                FloorId = 1,
+                Floor = new FloorEntity
+                {
+                    Id = 1,
+                    FloorGroupId = 0,
+                    IsActive = true
+                },
+                ConstructionTypeId = 1,
+                CarpetAreaSqMeter = 100,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
 
-        // Existing CV record for PropertyDetailsId=10, TaxId=1
         _cvRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyTaxCalculationCVResultsEntity>
             {
-                new PropertyTaxCalculationCVResultsEntity { 
-                    PropertyId = propertyId, 
-                    PropertyDetailsId = 10, 
-                    TaxId = 1,  // Tax 1 already exists
-                    IsActive = true 
-                }
+            new PropertyTaxCalculationCVResultsEntity
+            {
+                PropertyId = propertyId,
+                PropertyDetailsId = 10,
+                TaxId = 1,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _flagRepo.Setup(x => x.GetQueryable()).Returns(
             new List<FlagMasterEntity>().BuildMockDbSet().Object);
-
-
 
         _floorFactorRepo.Setup(x => x.GetQueryable()).Returns(
             new List<FloorFactorCVMasterEntity>().BuildMockDbSet().Object);
@@ -308,81 +323,88 @@ public class CapitalValueServiceTests
         _assessmentYearRepo.Setup(x => x.GetQueryable()).Returns(
             new List<AssessmentYearRangeCVEntity>
             {
-                new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2030, IsActive = true }
+            new AssessmentYearRangeCVEntity
+            {
+                Id = 1,
+                FromYear = 2000,
+                ToYear = 2030,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _natureRepo.Setup(x => x.GetQueryable()).Returns(
             new List<NatureFactorCVMasterEntity>().BuildMockDbSet().Object);
 
-
-
         _useRepo.Setup(x => x.GetQueryable()).Returns(
             new List<UseFactorCVMasterEntity>().BuildMockDbSet().Object);
-
-
 
         _ageRepo.Setup(x => x.GetQueryable()).Returns(
             new List<AgeFactorCVMasterEntity>().BuildMockDbSet().Object);
 
-
-
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1", RateCVMasterId = 1 }
+            new CSNDetailsEntity
+            {
+                Id = 1,
+                RateMasterCVId = 1,
+                CSN = "A1",
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _rateRepo.Setup(x => x.GetQueryable()).Returns(
             new List<RateMasterForCVEntity>
             {
-                new RateMasterForCVEntity {
-                    Id = 1,
-                    SubZoneId = 1,
-                    TypeOfUseGroupId = 1,
-                    FloorGroupId = null,
-                    AssessmentYearRangeId = 1,
-                    RateAmount = 10,
-                    IsActive = true
-                }
+            new RateMasterForCVEntity
+            {
+                Id = 1,
+                SubZoneId = 1,
+                TypeOfUseGroupCVId = 1,
+                FloorGroupId = 0,
+                AssessmentYearRangeId = 1,
+                RateAmount = 10,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _taxMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxMasterEntity>
             {
-                new TaxMasterEntity { Id = 1, TaxName = "Tax1", IsActive = true },
-                new TaxMasterEntity { Id = 2, TaxName = "Tax2", IsActive = true },  // Tax2 is new
-                new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }  // Required for CreateAsync
+            new TaxMasterEntity { Id = 1, TaxName = "Tax1", IsActive = true },
+            new TaxMasterEntity { Id = 2, TaxName = "Tax2", IsActive = true },
+            new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _taxPercentageRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxPercentageMasterCVEntity>
             {
-                new TaxPercentageMasterCVEntity { TaxId = 1, TypeOfUseId = 1, YearRangeCVId = 1, TaxPercentage = 10, IsActive = true },
-                new TaxPercentageMasterCVEntity { TaxId = 2, TypeOfUseId = 1, YearRangeCVId = 1, TaxPercentage = 5, IsActive = true }  // Tax2 is new
+            new TaxPercentageMasterCVEntity
+            {
+                TaxId = 1,
+                TypeOfUseId = 1,
+                YearRangeCVId = 1,
+                TaxPercentage = 10,
+                IsActive = true
+            },
+            new TaxPercentageMasterCVEntity
+            {
+                TaxId = 2,
+                TypeOfUseId = 1,
+                YearRangeCVId = 1,
+                TaxPercentage = 5,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _yearMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<YearMasterEntity>
             {
-                new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
+            new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _policyTaxDetailsCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PolicyTaxDetailsCVEntity>().BuildMockDbSet().Object);
-
-
 
         _transMastCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TransMastCVEntity>().BuildMockDbSet().Object);
@@ -391,20 +413,17 @@ public class CapitalValueServiceTests
 
         var result = await service.CreateAsync(new CreateCapitalValueDto { PropertyId = propertyId });
 
-        // Should insert only Tax2 (Tax1 already exists for this PropertyDetailsId), plus TaxTotal
+        Assert.NotNull(result);
         Assert.Single(result);
 
-        // Tax2 should be in the list (Tax1 already exists, so it's skipped)
         var tax2 = result[0].Taxes.FirstOrDefault(t => t.TaxId == 2);
         Assert.NotNull(tax2);
         Assert.Equal("Tax2", tax2.TaxName);
 
-        // Verify transaction methods were called
         _uow.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _uow.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _uow.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
-
     [Fact]
     public async Task CreateAsync_YearRangeNotFound_Throws()
     {
@@ -512,7 +531,13 @@ public class CapitalValueServiceTests
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1", RateCVMasterId = 1 }
+                new CSNDetailsEntity
+                {
+                    Id = 1,
+                    RateMasterCVId = 1,
+                    CSN = "A1",
+                    IsActive = true
+                }
             }.BuildMockDbSet().Object);
 
 
@@ -687,8 +712,6 @@ public class CapitalValueServiceTests
             new PropertyEntity { Id = propertyId, MoujaId = 1, CSN = "A1", IsActive = true }
             }.BuildMockDbSet().Object);
 
-
-
         _pdRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyDetailsEntity>
             {
@@ -699,11 +722,24 @@ public class CapitalValueServiceTests
                 AssessmentYear = "2020",
                 ConstructionYear = "2015",
                 TypeOfUseId = 1,
-                TypeOfUse = new TypeOfUseEntity {
+                TypeOfUse = new TypeOfUseEntity
+                {
                     Id = 1,
                     Type = "R",
                     TypeOfUseGroupId = 1,
-                    TypeOfUseGroup = new TypeOfUseGroupEntity { Id = 1, IsActive = true },
+                    TypeOfUseGroup = new TypeOfUseGroupEntity
+                    {
+                        Id = 1,
+                        IsActive = true,
+                        IsFloorWiseRateApplicable = true
+                    },
+                    IsActive = true
+                },
+                FloorId = 1,
+                Floor = new FloorEntity
+                {
+                    Id = 1,
+                    FloorGroupId = 0,
                     IsActive = true
                 },
                 ConstructionTypeId = 1,
@@ -718,25 +754,17 @@ public class CapitalValueServiceTests
             new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2030, IsActive = true }
             }.BuildMockDbSet().Object);
 
-
-
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-            new CSNDetailsEntity { MoujaId = 1, CSN = "A1",   RateCVMasterId = 1 }
+            new CSNDetailsEntity { Id = 1, RateMasterCVId = 1, CSN = "A1", IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _cvRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyTaxCalculationCVResultsEntity>().BuildMockDbSet().Object);
 
-
-
         _flagRepo.Setup(x => x.GetQueryable()).Returns(
             new List<FlagMasterEntity>().BuildMockDbSet().Object);
-
-
 
         _floorFactorRepo.Setup(x => x.GetQueryable()).Returns(
             new List<FloorFactorCVMasterEntity>().BuildMockDbSet().Object);
@@ -744,42 +772,33 @@ public class CapitalValueServiceTests
         _natureRepo.Setup(x => x.GetQueryable()).Returns(
             new List<NatureFactorCVMasterEntity>().BuildMockDbSet().Object);
 
-
-
         _useRepo.Setup(x => x.GetQueryable()).Returns(
             new List<UseFactorCVMasterEntity>().BuildMockDbSet().Object);
-
-
 
         _ageRepo.Setup(x => x.GetQueryable()).Returns(
             new List<AgeFactorCVMasterEntity>().BuildMockDbSet().Object);
 
-
-
         _rateRepo.Setup(x => x.GetQueryable()).Returns(
             new List<RateMasterForCVEntity>
             {
-            new RateMasterForCVEntity {
+            new RateMasterForCVEntity
+            {
                 Id = 1,
                 SubZoneId = 1,
-                TypeOfUseGroupId = 1,
-                FloorGroupId = null,
+                TypeOfUseGroupCVId = 1,
+                FloorGroupId = 0,
                 AssessmentYearRangeId = 1,
                 RateAmount = 10,
                 IsActive = true
             }
             }.BuildMockDbSet().Object);
 
-
-
         _taxMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxMasterEntity>
             {
             new TaxMasterEntity { Id = 1, TaxName = "Tax", IsActive = true },
-            new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }  // Required for CreateAsync
+            new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _taxPercentageRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxPercentageMasterCVEntity>
@@ -787,20 +806,14 @@ public class CapitalValueServiceTests
             new TaxPercentageMasterCVEntity { TaxId = 1, TypeOfUseId = 1, YearRangeCVId = 1, TaxPercentage = 10, IsActive = true }
             }.BuildMockDbSet().Object);
 
-
-
         _yearMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<YearMasterEntity>
             {
-                new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
+            new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _policyTaxDetailsCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PolicyTaxDetailsCVEntity>().BuildMockDbSet().Object);
-
-
 
         _transMastCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TransMastCVEntity>().BuildMockDbSet().Object);
@@ -812,137 +825,149 @@ public class CapitalValueServiceTests
         Assert.NotNull(result);
         Assert.Single(result);
 
-        // Verify transaction methods were called
         _uow.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _uow.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _uow.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
-
 
     [Fact]
     public async Task GetAsync_InsertsMissingPropertyDetails()
     {
         int propertyId = 1;
 
+        _propertyRepo.Setup(x => x.GetQueryable()).Returns(
+            new List<PropertyEntity>
+            {
+            new PropertyEntity
+            {
+                Id = propertyId,
+                MoujaId = 1,
+                CSN = "A1",
+                IsActive = true
+            }
+            }.BuildMockDbSet().Object);
+
         _pdRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PropertyDetailsEntity>
             {
-            new PropertyDetailsEntity {
-                Id = 10, 
-                PropertyId = propertyId, 
+            new PropertyDetailsEntity
+            {
+                Id = 10,
+                PropertyId = propertyId,
                 TypeOfUseId = 1,
-                TypeOfUse = new TypeOfUseEntity {
+                TypeOfUse = new TypeOfUseEntity
+                {
                     Id = 1,
                     Type = "R",
                     TypeOfUseGroupId = 1,
-                    TypeOfUseGroup = new TypeOfUseGroupEntity { Id = 1, IsActive = true },
+                    TypeOfUseGroup = new TypeOfUseGroupEntity
+                    {
+                        Id = 1,
+                        IsActive = true,
+                        IsFloorWiseRateApplicable = true
+                    },
+                    IsActive = true
+                },
+                FloorId = 1,
+                Floor = new FloorEntity
+                {
+                    Id = 1,
+                    FloorGroupId = 0,
                     IsActive = true
                 },
                 ConstructionTypeId = 1,
                 AssessmentYear = "2020",
                 ConstructionYear = "2015",
                 CarpetAreaSqMeter = 100,
-                IsActive = true 
+                IsActive = true
             }
             }.BuildMockDbSet().Object);
 
-
-
         _cvRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<PropertyTaxCalculationCVResultsEntity>().BuildMockDbSet().Object); // empty ? triggers insert
-
-        _propertyRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<PropertyEntity>
-            {
-                new PropertyEntity { Id = propertyId, MoujaId = 1, CSN = "A1", IsActive = true }
-            }.BuildMockDbSet().Object);
-
-
+            new List<PropertyTaxCalculationCVResultsEntity>().BuildMockDbSet().Object);
 
         _flagRepo.Setup(x => x.GetQueryable()).Returns(
             new List<FlagMasterEntity>().BuildMockDbSet().Object);
 
-
-
-        _floorFactorRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<FloorFactorCVMasterEntity>().BuildMockDbSet().Object);
-
         _assessmentYearRepo.Setup(x => x.GetQueryable()).Returns(
             new List<AssessmentYearRangeCVEntity>
             {
-                new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2000, ToYear = 2030, IsActive = true }
+            new AssessmentYearRangeCVEntity
+            {
+                Id = 1,
+                FromYear = 2000,
+                ToYear = 2030,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
-
-        _natureRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<NatureFactorCVMasterEntity>().BuildMockDbSet().Object);
-
-
-
-        _useRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<UseFactorCVMasterEntity>().BuildMockDbSet().Object);
-
-
-
-        _ageRepo.Setup(x => x.GetQueryable()).Returns(
-            new List<AgeFactorCVMasterEntity>().BuildMockDbSet().Object);
-
-
 
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1",   RateCVMasterId = 1 }
+            new CSNDetailsEntity
+            {
+                Id = 1,
+                RateMasterCVId = 1,
+                CSN = "A1",
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _rateRepo.Setup(x => x.GetQueryable()).Returns(
             new List<RateMasterForCVEntity>
             {
-                new RateMasterForCVEntity {
-                    Id = 1,
-                    SubZoneId = 1,
-                    TypeOfUseGroupId = 1,
-                    FloorGroupId = null,
-                    AssessmentYearRangeId = 1,
-                    RateAmount = 10,
-                    IsActive = true
-                }
+            new RateMasterForCVEntity
+            {
+                Id = 1,
+                SubZoneId = 1,
+                TypeOfUseGroupCVId = 1,
+                FloorGroupId = 0,
+                AssessmentYearRangeId = 1,
+                RateAmount = 10,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
-
-
 
         _taxMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxMasterEntity>
             {
-                new TaxMasterEntity { Id = 1, TaxName = "Tax", IsActive = true },
-                new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }  // Required for CreateAsync
+            new TaxMasterEntity { Id = 1, TaxName = "Tax", IsActive = true },
+            new TaxMasterEntity { Id = 999, TaxName = "TaxTotal", IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _taxPercentageRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TaxPercentageMasterCVEntity>
             {
-                new TaxPercentageMasterCVEntity { TaxId = 1, TypeOfUseId = 1, YearRangeCVId = 1, TaxPercentage = 10, IsActive = true }
+            new TaxPercentageMasterCVEntity
+            {
+                TaxId = 1,
+                TypeOfUseId = 1,
+                YearRangeCVId = 1,
+                TaxPercentage = 10,
+                IsActive = true
+            }
             }.BuildMockDbSet().Object);
 
+        _floorFactorRepo.Setup(x => x.GetQueryable()).Returns(
+            new List<FloorFactorCVMasterEntity>().BuildMockDbSet().Object);
 
+        _natureRepo.Setup(x => x.GetQueryable()).Returns(
+            new List<NatureFactorCVMasterEntity>().BuildMockDbSet().Object);
+
+        _useRepo.Setup(x => x.GetQueryable()).Returns(
+            new List<UseFactorCVMasterEntity>().BuildMockDbSet().Object);
+
+        _ageRepo.Setup(x => x.GetQueryable()).Returns(
+            new List<AgeFactorCVMasterEntity>().BuildMockDbSet().Object);
 
         _yearMasterRepo.Setup(x => x.GetQueryable()).Returns(
             new List<YearMasterEntity>
             {
-                new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
+            new YearMasterEntity { Id = 1, Year = 2024, IsActive = true }
             }.BuildMockDbSet().Object);
-
-
 
         _policyTaxDetailsCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<PolicyTaxDetailsCVEntity>().BuildMockDbSet().Object);
-
-
 
         _transMastCVRepo.Setup(x => x.GetQueryable()).Returns(
             new List<TransMastCVEntity>().BuildMockDbSet().Object);
@@ -952,6 +977,10 @@ public class CapitalValueServiceTests
         var result = await service.GetAsync(propertyId);
 
         Assert.NotNull(result);
+
+        _uow.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _uow.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _uow.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact(Skip = "Backfill logic requires EF Core includes that don't work with mocked DbSets. Use integration tests instead.")]
@@ -1040,7 +1069,8 @@ public class CapitalValueServiceTests
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1", RateCVMasterId = 1 }
+                new CSNDetailsEntity
+                {Id = 1,RateMasterCVId = 1,CSN = "A1",IsActive = true}
             }.BuildMockDbSet().Object);
 
 
@@ -1051,8 +1081,8 @@ public class CapitalValueServiceTests
                 new RateMasterForCVEntity {
                     Id = 1,
                     SubZoneId = 1,
-                    TypeOfUseGroupId = 1,
-                    FloorGroupId = null,
+                    TypeOfUseGroupCVId = 1,
+                    FloorGroupId = 0,
                     AssessmentYearRangeId = 1,
                     RateAmount = 10,
                     IsActive = true
@@ -1219,8 +1249,20 @@ public class CapitalValueServiceTests
         _csnDetailsRepo.Setup(x => x.GetQueryable()).Returns(
             new List<CSNDetailsEntity>
             {
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1",  RateCVMasterId = 1 },
-                new CSNDetailsEntity { MoujaId = 1, CSN = "A1",   RateCVMasterId = 2 }
+                new CSNDetailsEntity
+                {
+                    Id = 1,
+                    RateMasterCVId = 1,
+                    CSN = "A1",
+                    IsActive = true
+                },
+                new CSNDetailsEntity
+                {
+                    Id = 1,
+                    RateMasterCVId = 2,
+                    CSN = "A1",
+                    IsActive = true
+                }
             }.BuildMockDbSet().Object);
 
 
@@ -1231,8 +1273,8 @@ public class CapitalValueServiceTests
                 new RateMasterForCVEntity {
                     Id = 1,
                     SubZoneId = 1,
-                    TypeOfUseGroupId = 1, // For Residential
-                    FloorGroupId = null,
+                    TypeOfUseGroupCVId = 1,
+                    FloorGroupId = 0,
                     AssessmentYearRangeId = 1,
                     RateAmount = 10,
                     IsActive = true
@@ -1240,8 +1282,8 @@ public class CapitalValueServiceTests
                 new RateMasterForCVEntity {
                     Id = 2,
                     SubZoneId = 1,
-                    TypeOfUseGroupId = 2, // For Commercial
-                    FloorGroupId = null,
+                    TypeOfUseGroupCVId = 1,
+                    FloorGroupId = 0,
                     AssessmentYearRangeId = 2,
                     RateAmount = 15,
                     IsActive = true

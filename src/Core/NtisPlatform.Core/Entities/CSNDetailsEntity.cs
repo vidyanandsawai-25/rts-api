@@ -1,18 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Text;
-
-namespace NtisPlatform.Core.Entities
+﻿namespace NtisPlatform.Core.Entities
 {
-    public class CSNDetailsEntity 
+    public class CSNDetailsEntity : BaseEntity
     {
-        [Key]
-        public int Id { get; set; }
-        public int RateCVMasterId { get; set; }
-        public int MoujaId { get; set; }
-        public string? CSN { get; set; }
-        //public int YearRangeCVId { get; set; }
+        public int RateMasterCVId { get; set; }
+        public string CSN { get; set; } = string.Empty;
+
+        // NAVIGATION PROPERTY
+        public virtual RateMasterForCVEntity RateMasterForCV { get; set; } = null!;
 
     }
 }

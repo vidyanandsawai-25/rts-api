@@ -1,4 +1,6 @@
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

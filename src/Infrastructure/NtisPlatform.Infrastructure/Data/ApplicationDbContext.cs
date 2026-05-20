@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateEntity> RateEntity { get; set; } = null!;
     public DbSet<MultilingualResourceEntity> MultilingualResourceEntity { get; set; } = null!;
     public DbSet<RateMasterForCVEntity> RateMasterForCVs { get; set; } = null!;
+    public DbSet<CSNDetailsEntity> CSNDetails { get; set; } = null!;
     public DbSet<TaxZoneEntity> TaxZoneMaster { get; set; } = null!;
     public DbSet<AssessmentYearRangeEntity> AssessmentYearRangeEntities { get; set; } = null!;
     public DbSet<RetentionFactWiseEntity> RetentionFactWiseEntities { get; set; } = null!;
@@ -81,7 +82,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxPercentageMasterCVEntity> TaxPercentageMasterCVs { get; set; } = null!;
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
     public DbSet<FlagMasterEntity> FlagMaster { get; set; } = null!;
-    public DbSet<CSNDetailsEntity> CSNDetails { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
 
     public DbSet<RenterDetailEntity> RenterDetails { get; set; } = null!;
@@ -370,23 +370,21 @@ public class ApplicationDbContext : DbContext
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
         {
-            entity.ToTable("RateCVMaster", "PTIS");
+            entity.ToTable("RateMasterCV", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.SubZoneId).HasColumnName("SubZoneId").IsRequired();
-            entity.Property(e => e.TypeOfUseGroupId).HasColumnName("TypeOfUseGroupId");
-            entity.Property(e => e.FloorGroupId).HasColumnName("FloorGroupId");
-            entity.Property(e => e.RateAmount).HasColumnName("RateAmount").HasColumnType("decimal(18, 2)").IsRequired();
+            entity.Property(e => e.TypeOfUseGroupCVId).HasColumnName("TypeOfUseGroupCVId").IsRequired();
+            entity.Property(e => e.FloorGroupId).HasColumnName("FloorGroupId").IsRequired();
             entity.Property(e => e.AssessmentYearRangeId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.RateAmount).HasColumnName("RateAmount").HasColumnType("decimal(18, 2)").IsRequired();
             entity.Property(e => e.IsActive).HasColumnName("IsActive").HasDefaultValue(true).IsRequired();
             entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
             entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("getdate()").IsRequired();
             entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
             entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
-            entity.HasOne(e => e.AssessmentYearRange).WithMany().HasForeignKey(e => e.AssessmentYearRangeId).HasConstraintName("FK_RateCVMaster_AssessmentYearRangeMasterCV");
-            entity.HasOne(e => e.FloorGroup).WithMany().HasForeignKey(e => e.FloorGroupId).HasConstraintName("FK_RateCVMaster_FloorGroupMaster");
-            entity.HasOne(e => e.TypeOfUseGroup).WithMany().HasForeignKey(e => e.TypeOfUseGroupId).HasConstraintName("FK_RateCVMaster_TypeOfUseGroupMaster");
         });
+
 
         modelBuilder.Entity<DepreciationMasterEntity>(entity =>
         {
@@ -1979,13 +1977,23 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<CSNDetailsEntity>(entity =>
         {
-            entity.ToTable("csndetails", "PTIS");
+            entity.ToTable("CSNDetails", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.RateCVMasterId);
-            entity.Property(e => e.MoujaId);
-            entity.Property(e => e.CSN);
-        });
 
+            entity.Property(e => e.Id)
+                .HasColumnName("Id");
+
+            entity.Property(e => e.RateMasterCVId).HasColumnName("RateMasterCVId").IsRequired();
+            entity.Property(e => e.CSN).HasColumnName("CSN").HasMaxLength(200).IsRequired();
+            entity.Property(e => e.IsActive).HasColumnName("IsActive").HasDefaultValue(true).IsRequired();
+            entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
+            entity.HasOne(x => x.RateMasterForCV)
+            .WithMany(x => x.CSNDetails) 
+            .HasForeignKey(x => x.RateMasterCVId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<GenderMasterEntity>(entity =>
         {

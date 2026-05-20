@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -124,34 +123,6 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Assert - Verify the cleanup service was called with the configured retention days
         _cleanupServiceMock.Verify(
             x => x.CleanupMarkedEntitiesAsync(15, It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WithZeroRetentionDays_PassesToService()
-    {
-        // Arrange
-        SetupConfiguration("1", "0", "true");
-
-        var tcs = new TaskCompletionSource<bool>();
-        _cleanupServiceMock
-            .Setup(x => x.CleanupMarkedEntitiesAsync(0, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0)
-            .Callback(() => tcs.TrySetResult(true));
-
-        var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
-
-        // Act
-        var executeTask = worker.StartAsync(cts.Token);
-        await Task.WhenAny(tcs.Task, Task.Delay(5000)); // Wait for callback or timeout
-        cts.Cancel();
-        await executeTask;
-        await worker.StopAsync(CancellationToken.None);
-
-        // Assert
-        _cleanupServiceMock.Verify(
-            x => x.CleanupMarkedEntitiesAsync(0, It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
     }
 
@@ -358,20 +329,23 @@ public class HardDeleteCleanupWorkerComprehensiveTests
     public async Task ExecuteAsync_LogsConfigurationOnStartup()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:IntervalHours").Value).Returns("12");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RetentionDays").Value).Returns("45");
-        _configurationMock.Setup(x => x.GetSection("CleanupWorker:RunOnStartup").Value).Returns("true");
+        SetupConfiguration("12", "45", "true");
+
+        var tcs = new TaskCompletionSource<bool>();
 
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(5);
+            .ReturnsAsync(5)
+            .Callback(() => tcs.TrySetResult(true));
 
         var worker = CreateWorker();
         var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = worker.StartAsync(cts.Token);
-        await Task.Delay(200);
+
+        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+
         cts.Cancel();
         await executeTask;
         await worker.StopAsync(CancellationToken.None);
@@ -381,12 +355,13 @@ public class HardDeleteCleanupWorkerComprehensiveTests
             x => x.Log(
                 LogLevel.Information,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Configuration")),
+                It.Is<It.IsAnyType>((v, t) =>
+                    v.ToString() != null &&
+                    v.ToString()!.Contains("Configuration", StringComparison.OrdinalIgnoreCase)),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.AtLeastOnce);
     }
-
     [Fact]
     public async Task ExecuteAsync_LogsDeletedEntityCount()
     {

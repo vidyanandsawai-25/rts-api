@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 
@@ -9,7 +10,6 @@ namespace NtisPlatform.Api.Controllers.Master;
 
 [ApiController]
 [Route("api/[controller]")]
-
 public class RateMasterForCVController : ControllerBase
 {
     private readonly IRateMasterForCVService _service;
@@ -46,7 +46,27 @@ public class RateMasterForCVController : ControllerBase
     [Authorize]
     [HttpDelete("{id}/purge")]
     public Task<IActionResult> Purge(int id, CancellationToken ct)
-    => this.ExecuteForceDelete<RateMasterForCVEntity, int>(_cleanupService, id, _logger, ct);
-}
+        => this.ExecuteForceDelete<RateMasterForCVEntity, int>(_cleanupService, id, _logger, ct);
 
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateRateMasterForCVDto[] items, CancellationToken ct)
+    => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    /// Updates multiple records in a single Bulk.
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateRateMasterForCVDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    /// Deletes multiple records by IDs.
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<RateMasterForCVEntity, int>(_cleanupService, ids, _logger, ct);
+
+
+}
 

@@ -18,18 +18,10 @@ public static class AutoMapperTestHelper
         {
             // Map RateMasterForCVEntity to RateMasterForCVDto
             cfg.CreateMap<RateMasterForCVEntity, RateMasterForCVDto>()
-                .ForMember(dest => dest.RateMasterCVId, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
                 .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => src.CreatedDate))
                 .ForMember(dest => dest.UpdatedDate, opt => opt.MapFrom(src => src.UpdatedDate))
-                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
-                // Ignore computed/navigation properties that require joins
-                .ForMember(dest => dest.SubZoneNo, opt => opt.Ignore())
-                .ForMember(dest => dest.SubZoneName, opt => opt.Ignore())
-                .ForMember(dest => dest.TypeOfUseGroupName, opt => opt.Ignore())
-                .ForMember(dest => dest.FloorGroupName, opt => opt.Ignore())
-                .ForMember(dest => dest.FromYear, opt => opt.Ignore())
-                .ForMember(dest => dest.ToYear, opt => opt.Ignore());
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive));
 
             // Map CreateRateMasterForCVDto to RateMasterForCVEntity
             cfg.CreateMap<CreateRateMasterForCVDto, RateMasterForCVEntity>()
@@ -37,11 +29,11 @@ public static class AutoMapperTestHelper
                 .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+                .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore());
                 // Ignore navigation properties - managed by EF Core
-                .ForMember(dest => dest.AssessmentYearRange, opt => opt.Ignore())
-                .ForMember(dest => dest.FloorGroup, opt => opt.Ignore())
-                .ForMember(dest => dest.TypeOfUseGroup, opt => opt.Ignore());
+                //.ForMember(dest => dest.AssessmentYearRange, opt => opt.Ignore())
+                //.ForMember(dest => dest.FloorGroup, opt => opt.Ignore())
+                //.ForMember(dest => dest.TypeOfUseGroup, opt => opt.Ignore());
 
             // Map UpdateRateMasterForCVDto to RateMasterForCVEntity
             cfg.CreateMap<UpdateRateMasterForCVDto, RateMasterForCVEntity>()
@@ -49,11 +41,11 @@ public static class AutoMapperTestHelper
                 .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
                 .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
-                .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+                .ForMember(dest => dest.CreatedDate, opt => opt.Ignore());
                 // Ignore navigation properties - managed by EF Core
-                .ForMember(dest => dest.AssessmentYearRange, opt => opt.Ignore())
-                .ForMember(dest => dest.FloorGroup, opt => opt.Ignore())
-                .ForMember(dest => dest.TypeOfUseGroup, opt => opt.Ignore());
+                //.ForMember(dest => dest.AssessmentYearRange, opt => opt.Ignore())
+                //.ForMember(dest => dest.FloorGroup, opt => opt.Ignore())
+                //.ForMember(dest => dest.TypeOfUseGroup, opt => opt.Ignore());
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         config.AssertConfigurationIsValid();
