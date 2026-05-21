@@ -52,20 +52,24 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         CancellationToken cancellationToken = default)
     {
         if (!queryParams.WardId.HasValue ||
-            string.IsNullOrWhiteSpace(queryParams.PropertyNo) ||
-            string.IsNullOrWhiteSpace(queryParams.PartitionNo))
+            string.IsNullOrWhiteSpace(queryParams.PropertyNo))
         {
             return [];
         }
 
-        var partitionNumbers = FilterExpressionBuilder.Csv(queryParams.PartitionNo);
-        if (partitionNumbers.Count == 0)
+        var partitionNumbers = string.IsNullOrWhiteSpace(queryParams.PartitionNo)
+            ? []
+            : FilterExpressionBuilder.Csv(queryParams.PartitionNo);
+
+        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo) && partitionNumbers.Count == 0)
         {
             return [];
         }
 
         _logger.LogDebug("Fetching property details for WardId={WardId}, PropertyNo={PropertyNo}, Partitions={Partitions}",
-       queryParams.WardId, queryParams.PropertyNo, string.Join(",", partitionNumbers));
+            queryParams.WardId,
+            queryParams.PropertyNo,
+            partitionNumbers.Count > 0 ? string.Join(",", partitionNumbers) : "ALL");
 
         var ward = await _wardRepository.GetByIdAsync(queryParams.WardId.Value, cancellationToken);
         var wardNo = ward?.WardNo ?? string.Empty;
@@ -77,8 +81,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                     where pm.WardId == queryParams.WardId.Value &&
                           pm.PropertyNo == queryParams.PropertyNo &&
                           pm.PartitionNo != null &&
-                          partitionNumbers.Contains(pm.PartitionNo) &&
-                           pm.IsActive == true
+                          (partitionNumbers.Count == 0 || partitionNumbers.Contains(pm.PartitionNo)) &&
+                          pm.IsActive == true
                     select new
                     {
                         Property = pm,
@@ -318,9 +322,6 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             // Ensure main property records are active
             await _deactivator.EnsureMainPropertyRecordsActiveAsync(request.MainPropertyId, cancellationToken);
 
-            // Set IsCombineProperty flags
-            await UpdateMainPropertyCombineFlagAsync(request.MainPropertyId, combinePropertyIds, cancellationToken);
-
             // Insert history records
             await InsertCombineHistoryAsync(request.MainPropertyId, combinePropertyIds, request.Remark, request.CreatedBy, cancellationToken);
 
@@ -343,25 +344,6 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             _logger.LogError(ex, "Failed to combine properties for MainPropertyId={MainPropertyId}", request.MainPropertyId);
             throw;
-        }
-    }
-
-    private async Task UpdateMainPropertyCombineFlagAsync(int mainPropertyId, List<int> combinePropertyIds, CancellationToken cancellationToken)
-    {
-        var mainPropertyCount = await _repository.GetQueryable()
-          .Where(p => p.Id == mainPropertyId)
-          .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCombineProperty, true), cancellationToken);
-
-
-        var combinedPropertiesCount = await _repository.GetQueryable()
-            .Where(p => combinePropertyIds.Contains(p.Id))
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsCombineProperty, true), cancellationToken);
-
-
-        if (combinedPropertiesCount != combinePropertyIds.Count)
-        {
-            _logger.LogWarning("Mismatch in IsCombineProperty flag update: expected {ExpectedCount}, affected {ActualCount}",
-                combinePropertyIds.Count, combinedPropertiesCount);
         }
     }
 

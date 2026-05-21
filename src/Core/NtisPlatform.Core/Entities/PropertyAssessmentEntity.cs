@@ -31,9 +31,6 @@ public class PropertyAssessmentEntity : BaseEntity
     [Column(TypeName = "varchar(13)")]
     public string? RenterMobileNo { get; set; }
 
-    [Column(TypeName = "nvarchar(10)")]
-    public string? AssessmentNo { get; set; }
-
     public DateTime? PrarupYadiPublishDate { get; set; }
 
     public DateTime? AntimYadiPublishDate { get; set; }
@@ -52,8 +49,6 @@ public class PropertyAssessmentEntity : BaseEntity
 
     [Column(TypeName = "nvarchar(50)")]
     public string? WingNo { get; set; }
-
-    public int? UsageCategoryId { get; set; }
 
     [Column("AlternetivEmailId", TypeName = "varchar(100)")]
     public string? AlternativeEmailId { get; set; }
@@ -75,8 +70,4 @@ public class PropertyAssessmentEntity : BaseEntity
     /// Indicates whether the entity is marked for deletion
     public bool MarkedForDeletion { get; set; } = false;
     public DateTime? MarkedForDeletionDate { get; set; }
-
-    // Navigation
-    [ForeignKey(nameof(PropertyId))]
-    public PropertyEntity? PropertyMast { get; set; }
 }

@@ -1159,7 +1159,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Shape).HasMaxLength(25);
             entity.Property(e => e.RoomNo).HasMaxLength(100);
             entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.RoomType).HasMaxLength(100);
             entity.Property(e => e.SubmissionType).HasMaxLength(100);
             entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
@@ -1284,7 +1283,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CombPropRemark).HasMaxLength(400);
             entity.Property(e => e.AdharCardNo).HasMaxLength(12);
             entity.Property(e => e.RenterMobileNo).HasMaxLength(13);
-            entity.Property(e => e.AssessmentNo).HasMaxLength(10);
             entity.Property(e => e.PrarupYadiPublishDate);
             entity.Property(e => e.AntimYadiPublishDate);
             entity.Property(e => e.PropertyRegDate);
@@ -1512,7 +1510,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OccupierMobileNo).HasMaxLength(13).HasColumnType("varchar(13)");
             entity.Property(e => e.OccupierMobileNoRemarkId);
             entity.Property(e => e.PropertyAssessmentStatusId);
-            entity.Property(e => e.IsCombineProperty).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.PropertyMastOldId);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
@@ -2000,7 +1997,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TotalAreaSqMtr);
             entity.Property(e => e.Shape).HasMaxLength(100);
             entity.Property(e => e.RoomNo).HasMaxLength(50);
-            entity.Property(e => e.RoomType).HasMaxLength(100);
             entity.Property(e => e.SubmissionType).HasMaxLength(100);
             entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);

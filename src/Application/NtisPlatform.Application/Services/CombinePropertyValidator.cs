@@ -34,13 +34,6 @@ public class CombinePropertyValidator : ICombinePropertyValidator
             return (false, "MainPropertyId not found.", []);
         }
 
-        // Validate main property is not already a combined property
-        if (mainProperty.IsCombineProperty)
-        {
-            _logger.LogWarning("Attempted to combine properties using main property {MainPropertyId} which is already marked as combined", mainPropertyId);
-            return (false, "Main property is already part of a combined property. Cannot combine already-combined properties.", []);
-        }
-
         // Validate all CombinedPropertyIds exist
         var existingCombineProperties = await _propertyRepository.GetQueryable()
             .Where(p => combinePropertyIds.Contains(p.Id) && p.IsActive)
@@ -49,18 +42,6 @@ public class CombinePropertyValidator : ICombinePropertyValidator
         if (existingCombineProperties.Count != combinePropertyIds.Count)
         {
             return (false, "One or more CombinedPropertyIds not found.", []);
-        }
-
-        // Validate none of the properties to be combined are already marked as combined
-        var alreadyCombinedProperties = existingCombineProperties
-            .Where(p => p.IsCombineProperty)
-            .ToList();
-
-        if (alreadyCombinedProperties.Count > 0)
-        {
-            var combinedIds = string.Join(", ", alreadyCombinedProperties.Select(p => p.Id));
-            _logger.LogWarning("Attempted to combine properties that are already marked as combined: {CombinedPropertyIds}", combinedIds);
-            return (false, $"One or more properties are already part of a combined property (IDs: {combinedIds}). Cannot combine already-combined properties.", []);
         }
 
         // Validate OwnerName is same for main property and all combined properties

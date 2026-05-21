@@ -43,8 +43,7 @@ public class PropertyCombineDetailsQueryParameters : BaseQueryParameters
     public string? PropertyNo { get; set; }
 
     /// <summary>
-    /// Comma-separated partition numbers (e.g., "1,2,3")
+    /// Optional comma-separated partition numbers (e.g., "1,2,3")
     /// </summary>
-    [Required(ErrorMessage = "CombineProperty_PartitionNo_Required")]
     public string? PartitionNo { get; set; }
 }

@@ -23,7 +23,17 @@ public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
     public string? RoomNo { get; set; }
 
     public bool OuterYesNo { get; set; } = false;
-    public string? RoomType { get; set; }
+    
+    /// <summary>
+    /// FK to RoomTypeMaster
+    /// </summary>
+    public int? RoomTypeId { get; set; }
+    
+    /// <summary>
+    /// Legacy RoomType string column - mapped by ApplicationDbContext
+    /// </summary>
+  
+    
     public string? SubmissionType { get; set; }
     public bool MinusYesNo { get; set; } = false;
     public bool MarkedForDeletion { get; set; } = false;
@@ -34,6 +44,4 @@ public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
     public virtual PropertyEntity? PropertyMast { get; set; }
 
     public virtual ICollection<RoomWiseMinusDataEntity> PropertyRoomMinus { get; set; } = new List<RoomWiseMinusDataEntity>();
-
-
 }

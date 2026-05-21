@@ -47,7 +47,7 @@ public class CombinePropertyValidatorTests
     }
 
     [Fact]
-    public async Task ValidatePropertiesForCombinationAsync_MainPropertyAlreadyCombined_ReturnsFailure()
+    public async Task ValidatePropertiesForCombinationAsync_MainPropertyExists_ContinuesValidation()
     {
         // Arrange
         var mainPropertyId = 1;
@@ -58,43 +58,13 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = true, // Already combined
-            IsActive = true
-        };
-
-        _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
-
-        // Act
-        var result = await _validator.ValidatePropertiesForCombinationAsync(mainPropertyId, combinePropertyIds, default);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains("Main property is already part of a combined property", result.ErrorMessage);
-        Assert.Contains("Cannot combine already-combined properties", result.ErrorMessage);
-        Assert.Empty(result.ValidProperties);
-    }
-
-    [Fact]
-    public async Task ValidatePropertiesForCombinationAsync_MainPropertyNotCombined_ContinuesValidation()
-    {
-        // Arrange
-        var mainPropertyId = 1;
-        var combinePropertyIds = new List<int> { 2, 3 };
-
-        var mainProperty = new PropertyEntity
-        {
-            Id = mainPropertyId,
-            PropertyNo = "123",
-            OwnerName = "John Doe",
-            IsCombineProperty = false, // Not combined
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true },
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsActive = true },
+            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -128,7 +98,6 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = false,
             IsActive = true
         };
 
@@ -144,123 +113,6 @@ public class CombinePropertyValidatorTests
         // Assert
         Assert.False(result.IsValid);
         Assert.Equal("One or more CombinedPropertyIds not found.", result.ErrorMessage);
-        Assert.Empty(result.ValidProperties);
-    }
-
-    [Fact]
-    public async Task ValidatePropertiesForCombinationAsync_OneCombinePropertyAlreadyCombined_ReturnsFailure()
-    {
-        // Arrange
-        var mainPropertyId = 1;
-        var combinePropertyIds = new List<int> { 2, 3 };
-
-        var mainProperty = new PropertyEntity
-        {
-            Id = mainPropertyId,
-            PropertyNo = "123",
-            OwnerName = "John Doe",
-            IsCombineProperty = false,
-            IsActive = true
-        };
-
-        var combineProperties = new List<PropertyEntity>
-        {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = true, IsActive = true }, // Already combined
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
-        };
-
-        _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
-
-        _mockRepository.Setup(r => r.GetQueryable())
-            .Returns(combineProperties.BuildMock());
-
-        // Act
-        var result = await _validator.ValidatePropertiesForCombinationAsync(mainPropertyId, combinePropertyIds, default);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains("One or more properties are already part of a combined property", result.ErrorMessage);
-        Assert.Contains("IDs: 2", result.ErrorMessage);
-        Assert.Contains("Cannot combine already-combined properties", result.ErrorMessage);
-        Assert.Empty(result.ValidProperties);
-    }
-
-    [Fact]
-    public async Task ValidatePropertiesForCombinationAsync_MultipleCombinePropertiesAlreadyCombined_ReturnsFailureWithAllIds()
-    {
-        // Arrange
-        var mainPropertyId = 1;
-        var combinePropertyIds = new List<int> { 2, 3, 4 };
-
-        var mainProperty = new PropertyEntity
-        {
-            Id = mainPropertyId,
-            PropertyNo = "123",
-            OwnerName = "John Doe",
-            IsCombineProperty = false,
-            IsActive = true
-        };
-
-        var combineProperties = new List<PropertyEntity>
-        {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = true, IsActive = true }, // Already combined
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = true, IsActive = true }, // Already combined
-            new() { Id = 4, PropertyNo = "126", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
-        };
-
-        _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
-
-        _mockRepository.Setup(r => r.GetQueryable())
-            .Returns(combineProperties.BuildMock());
-
-        // Act
-        var result = await _validator.ValidatePropertiesForCombinationAsync(mainPropertyId, combinePropertyIds, default);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains("One or more properties are already part of a combined property", result.ErrorMessage);
-        Assert.Contains("IDs: 2, 3", result.ErrorMessage);
-        Assert.Contains("Cannot combine already-combined properties", result.ErrorMessage);
-        Assert.Empty(result.ValidProperties);
-    }
-
-    [Fact]
-    public async Task ValidatePropertiesForCombinationAsync_AllCombinePropertiesAlreadyCombined_ReturnsFailure()
-    {
-        // Arrange
-        var mainPropertyId = 1;
-        var combinePropertyIds = new List<int> { 2, 3 };
-
-        var mainProperty = new PropertyEntity
-        {
-            Id = mainPropertyId,
-            PropertyNo = "123",
-            OwnerName = "John Doe",
-            IsCombineProperty = false,
-            IsActive = true
-        };
-
-        var combineProperties = new List<PropertyEntity>
-        {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = true, IsActive = true },
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = true, IsActive = true }
-        };
-
-        _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
-
-        _mockRepository.Setup(r => r.GetQueryable())
-            .Returns(combineProperties.BuildMock());
-
-        // Act
-        var result = await _validator.ValidatePropertiesForCombinationAsync(mainPropertyId, combinePropertyIds, default);
-
-        // Assert
-        Assert.False(result.IsValid);
-        Assert.Contains("One or more properties are already part of a combined property", result.ErrorMessage);
-        Assert.Contains("IDs: 2, 3", result.ErrorMessage);
         Assert.Empty(result.ValidProperties);
     }
 
@@ -280,14 +132,13 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "Jane Smith", IsCombineProperty = false, IsActive = true }, // Different owner
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "Jane Smith", IsActive = true }, // Different owner
+            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -317,14 +168,13 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "JOHN DOE",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "john doe", IsCombineProperty = false, IsActive = true },
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "john doe", IsActive = true },
+            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -354,13 +204,12 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "  John Doe  ",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -390,13 +239,12 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = null,
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = null, IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = null, IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -430,15 +278,14 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true },
-            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true },
-            new() { Id = 4, PropertyNo = "126", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsActive = true },
+            new() { Id = 3, PropertyNo = "125", OwnerName = "John Doe", IsActive = true },
+            new() { Id = 4, PropertyNo = "126", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -454,7 +301,6 @@ public class CombinePropertyValidatorTests
         Assert.True(result.IsValid);
         Assert.Null(result.ErrorMessage);
         Assert.Equal(3, result.ValidProperties.Count);
-        Assert.All(result.ValidProperties, p => Assert.False(p.IsCombineProperty));
     }
 
     [Fact]
@@ -469,13 +315,12 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -509,13 +354,12 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "", IsCombineProperty = false, IsActive = true }
+            new() { Id = 2, PropertyNo = "124", OwnerName = "", IsActive = true }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
@@ -545,13 +389,12 @@ public class CombinePropertyValidatorTests
             Id = mainPropertyId,
             PropertyNo = "123",
             OwnerName = "John Doe",
-            IsCombineProperty = false,
             IsActive = true
         };
 
         var combineProperties = new List<PropertyEntity>
         {
-            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsCombineProperty = false, IsActive = true },
+            new() { Id = 2, PropertyNo = "124", OwnerName = "John Doe", IsActive = true },
             // Property 3 is inactive and won't be in the query result
         };
 

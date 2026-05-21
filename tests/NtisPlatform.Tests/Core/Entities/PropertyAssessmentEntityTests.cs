@@ -23,7 +23,6 @@ public class PropertyAssessmentEntityTests
             CombPropRemark = "Combined property remark",
             AdharCardNo = "123456789012",
             RenterMobileNo = "8765432109",
-            AssessmentNo = "A001",
             PrarupYadiPublishDate = now,
             AntimYadiPublishDate = now.AddDays(30),
             PropertyRegDate = now.AddDays(-365),
@@ -32,7 +31,6 @@ public class PropertyAssessmentEntityTests
             BHK = "3BHK",
             BlockNo = "B01",
             WingNo = "A",
-            UsageCategoryId = 1,
             AlternativeEmailId = "alt@example.com",
             TotalBuiltupAreaSqFeet = 1500.0,
             TotalBuiltupAreaSqMeter = 139.35,
@@ -58,7 +56,6 @@ public class PropertyAssessmentEntityTests
         Assert.Equal("Combined property remark", entity.CombPropRemark);
         Assert.Equal("123456789012", entity.AdharCardNo);
         Assert.Equal("8765432109", entity.RenterMobileNo);
-        Assert.Equal("A001", entity.AssessmentNo);
         Assert.Equal(now, entity.PrarupYadiPublishDate);
         Assert.Equal(now.AddDays(30), entity.AntimYadiPublishDate);
         Assert.Equal(now.AddDays(-365), entity.PropertyRegDate);
@@ -67,7 +64,6 @@ public class PropertyAssessmentEntityTests
         Assert.Equal("3BHK", entity.BHK);
         Assert.Equal("B01", entity.BlockNo);
         Assert.Equal("A", entity.WingNo);
-        Assert.Equal(1, entity.UsageCategoryId);
         Assert.Equal("alt@example.com", entity.AlternativeEmailId);
         Assert.Equal(1500.0, entity.TotalBuiltupAreaSqFeet);
         Assert.Equal(139.35, entity.TotalBuiltupAreaSqMeter);
@@ -100,7 +96,6 @@ public class PropertyAssessmentEntityTests
         Assert.Null(entity.CombPropRemark);
         Assert.Null(entity.AdharCardNo);
         Assert.Null(entity.RenterMobileNo);
-        Assert.Null(entity.AssessmentNo);
         Assert.Null(entity.PrarupYadiPublishDate);
         Assert.Null(entity.AntimYadiPublishDate);
         Assert.Null(entity.PropertyRegDate);
@@ -109,7 +104,6 @@ public class PropertyAssessmentEntityTests
         Assert.Null(entity.BHK);
         Assert.Null(entity.BlockNo);
         Assert.Null(entity.WingNo);
-        Assert.Null(entity.UsageCategoryId);
         Assert.Null(entity.AlternativeEmailId);
         Assert.Null(entity.TotalBuiltupAreaSqFeet);
         Assert.Null(entity.TotalBuiltupAreaSqMeter);
@@ -228,7 +222,6 @@ public class PropertyAssessmentEntityTests
             CombPropRemark = new string('D', 400),
             AdharCardNo = new string('1', 12),
             RenterMobileNo = new string('2', 13),
-            AssessmentNo = new string('3', 10),
             BHK = new string('4', 50),
             BlockNo = new string('5', 20),
             WingNo = new string('W', 50),
@@ -243,7 +236,6 @@ public class PropertyAssessmentEntityTests
         Assert.Equal(400, entity.CombPropRemark!.Length);
         Assert.Equal(12, entity.AdharCardNo!.Length);
         Assert.Equal(13, entity.RenterMobileNo!.Length);
-        Assert.Equal(10, entity.AssessmentNo!.Length);
         Assert.Equal(50, entity.BHK!.Length);
         Assert.Equal(20, entity.BlockNo!.Length);
         Assert.Equal(50, entity.WingNo!.Length);

@@ -113,6 +113,13 @@ public class CombinePropertyServiceTest
             PartitionNo = null
         };
 
+        _mockWardRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>().BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
         // Act
         var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
 
@@ -166,6 +173,13 @@ public class CombinePropertyServiceTest
             PropertyNo = "1",
             PartitionNo = ""
         };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyEntity>().BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
         var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
@@ -992,33 +1006,6 @@ public class CombinePropertyServiceTest
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task CombinePropertiesAsync_MainPropertyAlreadyCombined_ReturnsFailure()
-    {
-        // Arrange
-        var request = new CombinePropertiesRequestDto
-        {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,3",
-            Remark = "Test combining with already-combined main property"
-        };
-
-        // Setup repository to return a valid property for defensive check
-        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true, IsCombineProperty = true });
-
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((false, "Main property is already part of a combined property. Cannot combine already-combined properties.", new List<PropertyEntity>()));
-
-        // Act
-        var result = await _service.CombinePropertiesAsync(request, default);
-
-        // Assert
-        Assert.False(result.Success);
-        Assert.Contains("already part of a combined property", result.Message);
-        Assert.Contains("Cannot combine already-combined properties", result.Message);
-    }
-
     #endregion
 
     #region Response DTO Tests
@@ -1286,30 +1273,6 @@ public class CombinePropertyServiceTest
 
         // Assert
         Assert.Null(entity.PropertyMastOldId);
-    }
-
-    [Fact]
-    public void PropertyEntity_IsCombineProperty_DefaultIsFalse()
-    {
-        // Arrange & Act
-        var entity = new PropertyEntity();
-
-        // Assert
-        Assert.False(entity.IsCombineProperty);
-    }
-
-    [Fact]
-    public void PropertyEntity_IsCombineProperty_CanBeSetToTrue()
-    {
-        // Arrange & Act
-        var entity = new PropertyEntity
-        {
-            Id = 1,
-            IsCombineProperty = true
-        };
-
-        // Assert
-        Assert.True(entity.IsCombineProperty);
     }
 
     #endregion
