@@ -248,18 +248,7 @@ public class PropertyEntityTests
         Assert.Equal("Residential", entity.Type);
     }
 
-    [Fact]
-    public void PartType_CanBeSetAndGet()
-    {
-        // Arrange
-        var entity = new PropertyEntity();
-
-        // Act
-        entity.PartType = "PartTypeA";
-
-        // Assert
-        Assert.Equal("PartTypeA", entity.PartType);
-    }
+   
 
     #endregion
 
@@ -730,7 +719,6 @@ public class PropertyEntityTests
         entity.PlotNo = null;
         entity.CategoryId = null;
         entity.Type = null;
-        entity.PartType = null;
         entity.OwnerTitle = null;
         entity.OwnerName = null;
         entity.OwnerTitleEnglish = null;
@@ -772,7 +760,6 @@ public class PropertyEntityTests
         Assert.Null(entity.PlotNo);
         Assert.Null(entity.CategoryId);
         Assert.Null(entity.Type);
-        Assert.Null(entity.PartType);
         Assert.Null(entity.OwnerTitle);
         Assert.Null(entity.OwnerName);
         Assert.Null(entity.OwnerTitleEnglish);
@@ -821,8 +808,7 @@ public class PropertyEntityTests
             SubZoneNo = "SZ-001",
             PlotNo = "PLOT-001",
             CategoryId = 6,
-            Type = "Residential",
-            PartType = "PartA",
+            Type = "Residential",    
             OwnerTitle = "Mr.",
             OwnerName = "John Doe",
             OwnerTitleEnglish = "Mr.",
@@ -868,7 +854,6 @@ public class PropertyEntityTests
         Assert.Equal("PLOT-001", entity.PlotNo);
         Assert.Equal(6, entity.CategoryId);
         Assert.Equal("Residential", entity.Type);
-        Assert.Equal("PartA", entity.PartType);
         Assert.Equal("Mr.", entity.OwnerTitle);
         Assert.Equal("John Doe", entity.OwnerName);
         Assert.Equal("Mr.", entity.OwnerTitleEnglish);
@@ -955,7 +940,6 @@ public class PropertyEntityTests
         entity.SubZoneNo = "";
         entity.PlotNo = "";
         entity.Type = "";
-        entity.PartType = "";
         entity.OwnerTitle = "";
         entity.OwnerName = "";
         entity.OwnerTitleEnglish = "";
@@ -986,7 +970,6 @@ public class PropertyEntityTests
         Assert.Equal("", entity.SubZoneNo);
         Assert.Equal("", entity.PlotNo);
         Assert.Equal("", entity.Type);
-        Assert.Equal("", entity.PartType);
         Assert.Equal("", entity.OwnerTitle);
         Assert.Equal("", entity.OwnerName);
         Assert.Equal("", entity.OwnerTitleEnglish);

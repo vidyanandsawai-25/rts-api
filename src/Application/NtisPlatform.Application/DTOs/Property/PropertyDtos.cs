@@ -24,7 +24,6 @@ public class PropertyDto : BaseDtos
     public string? PlotNo { get; set; }
     public int? CategoryId { get; set; }
     public string? Type { get; set; }
-    public string? PartType { get; set; }
     
     // Owner Information
     public string? OwnerTitle { get; set; }
@@ -83,7 +82,6 @@ public class CreatePropertyDto : CreateBaseDtos
     private string? _subZoneNo;
     private string? _plotNo;
     private string? _type; 
-    private string? _partType;
     private string? _ownerTitle;
     private string? _ownerName;
     private string? _ownerTitleEnglish;
@@ -165,14 +163,6 @@ public class CreatePropertyDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Property_CategoryId_Invalid")]
     public int? CategoryId { get; set; }
 
-    // Removed: Type property and backing field from CreatePropertyDto
-
-    [StringLength(20, ErrorMessage = "Property_PartType_MaxLen_20")]
-    public string? PartType
-    {
-        get => _partType;
-        set => _partType = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
 
     // Owner Information
     [StringLength(20, ErrorMessage = "Property_OwnerTitle_MaxLen_20")]
@@ -327,7 +317,6 @@ public class UpdatePropertyDto : UpdateBaseDtos
     private string? _subZoneNo;
     private string? _plotNo;
     private string? _type;
-    private string? _partType;
     private string? _ownerTitle;
     private string? _ownerName;
     private string? _ownerTitleEnglish;
@@ -408,15 +397,6 @@ public class UpdatePropertyDto : UpdateBaseDtos
 
     [Range(1, int.MaxValue, ErrorMessage = "Property_CategoryId_Invalid")]
     public int? CategoryId { get; set; }
-
-    // Removed: Type property and backing field from UpdatePropertyDto
-
-    [StringLength(20, ErrorMessage = "Property_PartType_MaxLen_20")]
-    public string? PartType
-    {
-        get => _partType;
-        set => _partType = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    }
 
     // Owner Information
     [StringLength(20, ErrorMessage = "Property_OwnerTitle_MaxLen_20")]

@@ -36,7 +36,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 2, IsActive = true };
         var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Water Tax", TaxCode = "WATER", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
@@ -44,6 +45,7 @@ public class PropertyRepositoryTaxDetailsTests
         var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
         var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(tax1, tax2);
         context.YearMaster.Add(year);
@@ -81,7 +83,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
@@ -89,6 +92,7 @@ public class PropertyRepositoryTaxDetailsTests
         var rvInactive = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = false, MarkedForDeletion = false };
         var rvDeleted = new TransMastRVEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = true };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
@@ -114,14 +118,16 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property1 = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
-        var property2 = new PropertyEntity { Id = 2, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
         var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
         var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
@@ -148,7 +154,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var taxActive = new TaxMasterEntity { Id = 1, TaxName = "Active Tax", TaxCode = "A", DisplayOrder = 1, IsActive = true };
         var taxInactive = new TaxMasterEntity { Id = 2, TaxName = "Inactive Tax", TaxCode = "I", DisplayOrder = 2, IsActive = false };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
@@ -156,6 +163,7 @@ public class PropertyRepositoryTaxDetailsTests
         var rvActive = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
         var rvInactive = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(taxActive, taxInactive);
         context.YearMaster.Add(year);
@@ -169,6 +177,114 @@ public class PropertyRepositoryTaxDetailsTests
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
         Assert.Equal("Active Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsAsync_FiltersByPartType_ReturnsMatchingProperties()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType1 = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var propertyType2 = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Commercial", PartType = "Shop", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.AddRange(propertyType1, propertyType2);
+        context.PropertyMast.AddRange(property1, property2);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastRV.AddRange(rv1, rv2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
+        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Property Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsAsync_WithInactivePropertyType_ExcludesProperty()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyTypeActive = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var propertyTypeInactive = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Commercial", PartType = "Shop", IsActive = false };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.AddRange(propertyTypeActive, propertyTypeInactive);
+        context.PropertyMast.AddRange(property1, property2);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastRV.AddRange(rv1, rv2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto();
+        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsAsync_PartTypeFilterCaseInsensitive()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+        var rv = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastRV.Add(rv);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
+        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
         Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
     }
 
@@ -199,7 +315,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 2, IsActive = true };
         var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Education Cess", TaxCode = "EDU", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
@@ -207,6 +324,7 @@ public class PropertyRepositoryTaxDetailsTests
         var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
         var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(tax1, tax2);
         context.YearMaster.Add(year);
@@ -244,7 +362,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
@@ -252,6 +371,7 @@ public class PropertyRepositoryTaxDetailsTests
         var cvInactive = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = false, MarkedForDeletion = false };
         var cvDeleted = new TransMastCVEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = true };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax1);
         context.YearMaster.Add(year);
@@ -277,14 +397,16 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property1 = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
-        var property2 = new PropertyEntity { Id = 2, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
         var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
         var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
@@ -311,7 +433,8 @@ public class PropertyRepositoryTaxDetailsTests
 
         using var context = new ApplicationDbContext(options);
 
-        var property = new PropertyEntity { Id = 1, IsActive = true, MarkedForDeletion = false };
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var taxActive = new TaxMasterEntity { Id = 1, TaxName = "Active Tax", TaxCode = "A", DisplayOrder = 1, IsActive = true };
         var taxInactive = new TaxMasterEntity { Id = 2, TaxName = "Inactive Tax", TaxCode = "I", DisplayOrder = 2, IsActive = false };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
@@ -319,6 +442,7 @@ public class PropertyRepositoryTaxDetailsTests
         var cvActive = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
         var cvInactive = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
 
+        context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(taxActive, taxInactive);
         context.YearMaster.Add(year);
@@ -332,6 +456,114 @@ public class PropertyRepositoryTaxDetailsTests
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
         Assert.Equal("Active Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(2000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCVAsync_FiltersByPartType_ReturnsMatchingProperties()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType1 = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var propertyType2 = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Commercial", PartType = "Shop", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false, WardId = 1 };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.AddRange(propertyType1, propertyType2);
+        context.PropertyMast.AddRange(property1, property2);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastCV.AddRange(cv1, cv2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
+        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Capital Value Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(2000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCVAsync_WithInactivePropertyType_ExcludesProperty()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyTypeActive = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var propertyTypeInactive = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Commercial", PartType = "Shop", IsActive = false };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.AddRange(propertyTypeActive, propertyTypeInactive);
+        context.PropertyMast.AddRange(property1, property2);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastCV.AddRange(cv1, cv2);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto();
+        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal(2000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetApartmentPropertyTaxDetailsCVAsync_PartTypeFilterCaseInsensitive()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+        var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+        var cv = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.Add(property);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastCV.Add(cv);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
+        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
         Assert.Equal(2000m, result.TaxAmounts[0].TaxAmount);
     }
 

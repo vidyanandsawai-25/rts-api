@@ -107,7 +107,6 @@ public class PropertyDtoTests
             PlotNo = "PLOT123",
             CategoryId = 5,
             Type = "Residential",
-            PartType = "A",
             OwnerTitle = "Mr.",
             OwnerName = "John Doe",
             OwnerTitleEnglish = "Mr.",
@@ -143,7 +142,6 @@ public class PropertyDtoTests
         Assert.Equal("PLOT123", dto.PlotNo);
         Assert.Equal(5, dto.CategoryId);
         Assert.Equal("Residential", dto.Type);
-        Assert.Equal("A", dto.PartType);
         Assert.Equal("Mr.", dto.OwnerTitle);
         Assert.Equal("John Doe", dto.OwnerName);
         Assert.Equal("Mr.", dto.OwnerTitleEnglish);

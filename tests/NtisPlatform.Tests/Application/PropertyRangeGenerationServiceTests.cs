@@ -750,7 +750,6 @@ namespace NtisPlatform.Tests.Application
                 OpenPlot = false,
                 PlotNo = "Plot-42",
                 Type = "COM",
-                PartType = "Commercial Unit",
                 OwnerTitle = "Mr.",
                 OwnerTitleEnglish = "Mr.",
                 OwnerNameEnglish = "Rajesh Kumar",

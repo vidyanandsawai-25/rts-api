@@ -84,9 +84,6 @@ namespace NtisPlatform.Core.Models
         [StringLength(5, ErrorMessage = "Type cannot exceed 5 characters. Use short codes like 'COM'.")]
         public string? Type { get; set; }
 
-        [StringLength(50, ErrorMessage = "PartType cannot exceed 50 characters.")]
-        public string? PartType { get; set; }
-
         // -- Owner details ------------------------------------------------------
 
         [StringLength(20, ErrorMessage = "OwnerTitle cannot exceed 20 characters.")]

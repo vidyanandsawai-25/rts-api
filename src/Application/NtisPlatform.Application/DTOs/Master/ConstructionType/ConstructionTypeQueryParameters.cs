@@ -15,4 +15,14 @@ public class ConstructionTypeQueryParameters : BaseQueryParameters
     [Searchable]
     [Sortable]
     public string? Description { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public bool IsActive { get; set; }
+    [Filterable(FilterOperator.Equals)]
+
+    [Sortable]
+    [Searchable]
+    public int? SearchSequence { get; set; }
 }

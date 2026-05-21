@@ -1897,16 +1897,16 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     {
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
-        var propertyIds = await _context.PropertyMast
-            .AsNoTracking()
-            .Where(pm =>
-                (dto.WardId == null || pm.WardId == dto.WardId) &&
-                (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
-                (normalizedPartType == null || (pm.PartType != null && EF.Functions.Like(pm.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
-                (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
-                pm.IsActive && !pm.MarkedForDeletion)
-            .Select(pm => pm.Id)
-            .ToListAsync(cancellationToken);
+        var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+                                 join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
+                                 where (dto.WardId == null || pm.WardId == dto.WardId) &&
+                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
+                                       (normalizedPartType == null || (pt.PartType != null && EF.Functions.Like(pt.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                                       (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
+                                       pm.IsActive && !pm.MarkedForDeletion &&
+                                       pt.IsActive
+                                 select pm.Id)
+                                .ToListAsync(cancellationToken);
 
         if (propertyIds == null || !propertyIds.Any())
             return null;
@@ -1953,16 +1953,16 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     {
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
-        var propertyIds = await _context.PropertyMast
-            .AsNoTracking()
-            .Where(pm =>
-                (dto.WardId == null || pm.WardId == dto.WardId) &&
-                (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
-                (normalizedPartType == null || (pm.PartType != null && EF.Functions.Like(pm.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
-                (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
-                pm.IsActive && !pm.MarkedForDeletion)
-            .Select(pm => pm.Id)
-            .ToListAsync(cancellationToken);
+        var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
+                                 join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
+                                 where (dto.WardId == null || pm.WardId == dto.WardId) &&
+                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
+                                       (normalizedPartType == null || (pt.PartType != null && EF.Functions.Like(pt.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                                       (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
+                                       pm.IsActive && !pm.MarkedForDeletion &&
+                                       pt.IsActive
+                                 select pm.Id)
+                                .ToListAsync(cancellationToken);
 
         if (propertyIds == null || !propertyIds.Any())
             return null;
@@ -2006,7 +2006,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     }
 
 	
-	  public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
+    public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
     {
         int iFromFloor = 1;
         int iToFloor = 1;
@@ -2174,8 +2174,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
                 CSN = dto.CSN,
                 PlotNo = dto.PlotNo,
                 CategoryId = dto.CategoryId,
-                Type = dto.Type,
-                PartType = dto.PartType,
+                Type = dto.Type,            
                 OwnerTitle = dto.OwnerTitle,
                 OwnerTitleEnglish = dto.OwnerTitleEnglish,
                 OwnerName = dto.OwnerName,
@@ -2371,7 +2370,6 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         return values.Any(v =>
             source.Contains(v, StringComparison.OrdinalIgnoreCase));
     }
-
 
 }
 

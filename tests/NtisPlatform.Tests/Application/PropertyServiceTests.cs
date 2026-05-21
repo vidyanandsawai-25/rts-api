@@ -71,7 +71,6 @@ public class PropertyEntityTests
             PlotNo = "P123",
             CategoryId = 1,
             Type = "RES",
-            PartType = "FULL",
             OwnerTitle = "Mr",
             OwnerName = "John Doe",
             OwnerTitleEnglish = "Mr",
@@ -113,7 +112,6 @@ public class PropertyEntityTests
         Assert.Equal("P123", entity.PlotNo);
         Assert.Equal(1, entity.CategoryId);
         Assert.Equal("RES", entity.Type);
-        Assert.Equal("FULL", entity.PartType);
         Assert.Equal("Mr", entity.OwnerTitle);
         Assert.Equal("John Doe", entity.OwnerName);
         Assert.Equal("Mr", entity.OwnerTitleEnglish);

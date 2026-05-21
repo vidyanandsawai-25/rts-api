@@ -39,4 +39,15 @@ public class AgeFactorCVMasterQueryParameters : BaseQueryParameters
     [Sortable]
     [Searchable]
     public string? ConstructionDescription { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? FromYear { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? ToYear { get; set; }
+
 }

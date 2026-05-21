@@ -40,8 +40,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public string? Type { get; set; }
 
-    public string? PartType { get; set; }
-
     // Owner Information
     public string? OwnerTitle { get; set; }
 

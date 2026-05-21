@@ -1260,6 +1260,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Type).HasMaxLength(5);
             entity.Property(e => e.PropertyTypeGroup).HasMaxLength(50);
             entity.Property(e => e.SearchSequence);
+            entity.Property(e => e.PartType);
             entity.Property(e => e.PropertyTypeCategoryId);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
@@ -1485,9 +1486,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubZoneNo).HasMaxLength(20);
             entity.Property(e => e.PlotNo).HasMaxLength(20);
             entity.Property(e => e.Id);
-            entity.Property(e => e.Type).HasMaxLength(5);
-            // PartType column does not exist in database - ignore it
-            entity.Ignore(e => e.PartType);
+            entity.Property(e => e.Type).HasMaxLength(5);             
             entity.Property(e => e.OwnerTitle).HasMaxLength(20);
             entity.Property(e => e.OwnerName).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitle).HasMaxLength(20);

@@ -107,13 +107,6 @@ public class UpdatePropertyDtoTests
     }
 
     [Fact]
-    public void PartType_TrimsWhitespace()
-    {
-        var dto = new UpdatePropertyDto { PartType = "  TypeA  " };
-        Assert.Equal("TypeA", dto.PartType);
-    }
-
-    [Fact]
     public void OwnerTitle_TrimsWhitespace()
     {
         var dto = new UpdatePropertyDto { OwnerTitle = "  Mr.  " };
@@ -365,7 +358,6 @@ public class UpdatePropertyDtoTests
             CSN = "",
             SubZoneNo = "",
             PlotNo = "",
-            PartType = "",
             OwnerTitle = "",
             OwnerName = "",
             OwnerTitleEnglish = "",
@@ -392,7 +384,6 @@ public class UpdatePropertyDtoTests
         Assert.Null(dto.CSN);
         Assert.Null(dto.SubZoneNo);
         Assert.Null(dto.PlotNo);
-        Assert.Null(dto.PartType);
         Assert.Null(dto.OwnerTitle);
         Assert.Null(dto.OwnerName);
         Assert.Null(dto.OwnerTitleEnglish);

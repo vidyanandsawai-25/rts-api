@@ -52,4 +52,14 @@ public class UseFactorCVMasterQueryParameters : BaseQueryParameters
     [Searchable]
     public string? SubTypeOfUseDescription { get; set; }
 
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? FromYear { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? ToYear { get; set; }
+
 }

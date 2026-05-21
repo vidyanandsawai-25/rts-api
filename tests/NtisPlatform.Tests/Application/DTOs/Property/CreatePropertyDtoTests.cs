@@ -106,12 +106,12 @@ public class CreatePropertyDtoTests
         Assert.Equal("PLOT123", dto.PlotNo);
     }
 
-    [Fact]
-    public void PartType_TrimsWhitespace()
-    {
-        var dto = new CreatePropertyDto { PartType = "  TypeA  " };
-        Assert.Equal("TypeA", dto.PartType);
-    }
+    //[Fact]
+    //public void PartType_TrimsWhitespace()
+    //{
+    //    var dto = new CreatePropertyDto { PartType = "  TypeA  " };
+    //    Assert.Equal("TypeA", dto.PartType);
+    //}
 
     [Fact]
     public void OwnerTitle_TrimsWhitespace()
@@ -364,8 +364,7 @@ public class CreatePropertyDtoTests
             UPICId = "",
             CSN = "",
             SubZoneNo = "",
-            PlotNo = "",
-            PartType = "",
+            PlotNo = "",          
             OwnerTitle = "",
             OwnerName = "",
             OwnerTitleEnglish = "",
@@ -392,7 +391,6 @@ public class CreatePropertyDtoTests
         Assert.Null(dto.CSN);
         Assert.Null(dto.SubZoneNo);
         Assert.Null(dto.PlotNo);
-        Assert.Null(dto.PartType);
         Assert.Null(dto.OwnerTitle);
         Assert.Null(dto.OwnerName);
         Assert.Null(dto.OwnerTitleEnglish);

@@ -149,16 +149,7 @@ public class PropertyDtosTests
         // Assert
         Assert.Equal("PLOT123", dto.PlotNo);
     }
-
-    [Fact]
-    public void CreatePropertyDto_PartType_TrimsWhitespace()
-    {
-        // Arrange & Act
-        var dto = new CreatePropertyDto { PartType = "  TypeA  " };
-
-        // Assert
-        Assert.Equal("TypeA", dto.PartType);
-    }
+   
 
     [Fact]
     public void CreatePropertyDto_OwnerTitle_TrimsWhitespace()
@@ -425,16 +416,6 @@ public class PropertyDtosTests
     }
 
     [Fact]
-    public void UpdatePropertyDto_PartType_TrimsWhitespace()
-    {
-        // Arrange & Act
-        var dto = new UpdatePropertyDto { PartType = "  TypeA  " };
-
-        // Assert
-        Assert.Equal("TypeA", dto.PartType);
-    }
-
-    [Fact]
     public void UpdatePropertyDto_OwnerTitle_TrimsWhitespace()
     {
         // Arrange & Act
@@ -644,8 +625,7 @@ public class PropertyDtosTests
             CSN = "CSN123",
             SubZoneNo = "SZ123",
             PlotNo = "PLOT123",
-            CategoryId = 4,
-            PartType = "TypeA",
+            CategoryId = 4,          
             OwnerTitle = "Mr.",
             OwnerName = "John Doe",
             OwnerTitleEnglish = "Mr.",
@@ -679,8 +659,7 @@ public class PropertyDtosTests
         Assert.Equal("CSN123", dto.CSN);
         Assert.Equal("SZ123", dto.SubZoneNo);
         Assert.Equal("PLOT123", dto.PlotNo);
-        Assert.Equal(4, dto.CategoryId);
-        Assert.Equal("TypeA", dto.PartType);
+        Assert.Equal(4, dto.CategoryId);    
         Assert.Equal("Mr.", dto.OwnerTitle);
         Assert.Equal("John Doe", dto.OwnerName);
         Assert.Equal("Mr.", dto.OwnerTitleEnglish);
@@ -719,8 +698,7 @@ public class PropertyDtosTests
             CSN = "CSN123",
             SubZoneNo = "SZ123",
             PlotNo = "PLOT123",
-            CategoryId = 4,
-            PartType = "TypeA",
+            CategoryId = 4,          
             OwnerTitle = "Mr.",
             OwnerName = "John Doe",
             OwnerTitleEnglish = "Mr.",
@@ -754,8 +732,7 @@ public class PropertyDtosTests
         Assert.Equal("CSN123", dto.CSN);
         Assert.Equal("SZ123", dto.SubZoneNo);
         Assert.Equal("PLOT123", dto.PlotNo);
-        Assert.Equal(4, dto.CategoryId);
-        Assert.Equal("TypeA", dto.PartType);
+        Assert.Equal(4, dto.CategoryId);        
         Assert.Equal("Mr.", dto.OwnerTitle);
         Assert.Equal("John Doe", dto.OwnerName);
         Assert.Equal("Mr.", dto.OwnerTitleEnglish);

@@ -28,4 +28,14 @@ public class FloorFactorCVMasterQueryParameters : BaseQueryParameters
     [Sortable]
     [Searchable]
     public string? FloorDescription { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? FromYear { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    [Searchable]
+    public int? ToYear { get; set; }
 }

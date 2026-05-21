@@ -20,4 +20,6 @@ public class PropertyTypeMasterEntity : BaseEntity
     public int? SearchSequence { get; set; } = 0;
     
     public int? PropertyTypeCategoryId { get; set; }
+
+    public string? PartType { get; set; } = string.Empty;
 }
