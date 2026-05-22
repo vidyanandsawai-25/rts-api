@@ -120,6 +120,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<WaterRateMasterEntity> WaterRateMasters { get; set; } = null!;
     public DbSet<WaterConnectionMasterEntity> WaterConnectionMasters { get; set; } = null!;
     public DbSet<WaterConnectionDetailsEntity> WaterConnectionDetails { get; set; } = null!;
+    public DbSet<BulkUpdateMasterEntity> BulkUpdateMasters { get; set; } = null!;
+    public DbSet<BulkUpdateFieldConfigEntity> BulkUpdateFieldConfigs { get; set; } = null!;
+    public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
     //Asset Start
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
     public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
@@ -3007,6 +3010,92 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
+        });
+		 
+        modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
+            entity.Property(e => e.IconName).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
+            entity.Property(e => e.ApiRoute).HasMaxLength(300).IsUnicode(false);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasIndex(e => e.UpdateCode).IsUnique().HasDatabaseName("UQ_BulkUpdateMaster_UpdateCode");
+            entity.HasMany(e => e.FieldConfigs)
+                .WithOne(fc => fc.Master)
+                .HasForeignKey(fc => fc.BulkUpdateMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BulkUpdateFieldConfigEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateFieldConfig", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.DisplayName).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.DisplayNameMarathi).HasMaxLength(200);
+            entity.Property(e => e.ControlType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.DataType).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.Placeholder).HasMaxLength(500);
+            entity.Property(e => e.SequenceNo).HasDefaultValue(0);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.BindApi).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
+        });
+
+        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateHistory", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasOne<BulkUpdateMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.BulkUpdateMasterId)
+                .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateMaster")
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
+            // Note: IsActive, CreatedBy, CreatedDate exist in the DB table but are not yet on
+            // BulkUpdateHistoryEntity — add those properties to the entity to map them here.
+        });
+
+        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateHistory", "PTIS"); 
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.BulkUpdateMasterId).IsRequired();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");           
+            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
 
         //Asset Inventory Item Category configuration

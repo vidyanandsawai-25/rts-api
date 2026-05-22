@@ -134,6 +134,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUlbConfigService, UlbConfigService>();
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
+        services.AddScoped<ICommonDetailsService, CommonDetailsService>();
 
 
         // TODO: Add other providers when implemented
