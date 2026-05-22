@@ -146,6 +146,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IULBMasterService, ULBMasterService>();
         services.AddScoped<IPaymentModeService, PaymentModeService>();
         services.AddScoped<ICapitalValueService, CapitalValueService>();
+        services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
+        services.AddScoped<NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IRuleService, RuleService>();
         services.AddScoped<ICombinePropertyService, CombinePropertyService>();

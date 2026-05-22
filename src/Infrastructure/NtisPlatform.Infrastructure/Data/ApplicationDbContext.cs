@@ -128,12 +128,15 @@ public class ApplicationDbContext : DbContext
     public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
     public DbSet<InventoryItemConditionEntity> InventoryItemCondition { get; set; } = null!;
     public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
+    public DbSet<EducationTaxMasterEntity> EducationTaxMasters { get; set; } = null!;
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
 	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+ 	public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
 
+    public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -413,12 +416,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubFloorCode);
             entity.Property(e => e.Description);
             entity.Property(e => e.SubFloorPercentage);
-
-            // Configure relationships
-            entity.HasMany(e => e.PropertyDetails)
-                .WithOne(r => r.SubFloor)
-                .HasForeignKey(r => r.SubFloorId)
-                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<WardEntity>(entity =>
         {
@@ -3348,7 +3345,52 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
         });
+		 modelBuilder.Entity<EducationTaxMasterEntity>(entity =>
+        {
+            entity.ToTable("EducationTaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+        modelBuilder.Entity<EmploymentTaxMasterEntity>(entity =>
+        {
+            entity.ToTable("EmploymentTaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
 
+        modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertyOccupancyDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("Id");
+            entity.Property(e => e.PropertyDetailId).IsRequired();
+            entity.Property(e => e.OccupancyDate);
+            entity.Property(e => e.OccupancyNumber).HasColumnType("nvarchar(30)");
+            entity.Property(e => e.IssuedBy).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.Remarks).HasColumnType("nvarchar(250)");
+            entity.Property(e => e.MarkedForDeletion).IsRequired();
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.Property(e => e.IsActive).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired();
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+       });
         modelBuilder.Entity<PropertySocialDetailsEntity>(entity =>
         {
             entity.ToTable("PropertySocialDetails", "PTIS");

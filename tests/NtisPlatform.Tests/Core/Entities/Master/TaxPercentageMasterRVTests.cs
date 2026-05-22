@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using Xunit;
 

@@ -2,8 +2,10 @@
 
 namespace NtisPlatform.Core.Entities.Master
 {
-    public class TaxPercentageMasterRVEntity : BaseEntity
+    public class TaxPercentageMasterRV : BaseEntity
     {
+        public int TaxId { get; set; }
+        public int TaxPercentage { get; set; }
         public int YearRangeRVId { get; set; }
         public int TypeOfUseId { get; set; }
         public virtual TypeOfUseEntity? TypeOfUse { get; set; }
