@@ -80,6 +80,7 @@ public class AutoMapperValidationTest
               "ULB", "Mouja", "Zone", "PropertyCategory", // Master data navigation
               "TypeOfUse", "SubTypeOfUse", "PropertyType", // Type related navigation
               "PolicyTaxDetails", "PolicyTaxDetailsCV", "TransMastOld", "TransMastCV", // Transaction navigation
+              "PropertySocialDetails", // Property social details navigation property
               // Computed/derived fields (populated from navigation properties)
               "FloorFactorId", "NatureFactorId", "AgeFactorId", "UseFactorId",
               "ConstructionCode", "ConstructionDescription", "FromYear", "ToYear",

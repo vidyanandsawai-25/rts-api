@@ -21,32 +21,32 @@ public class SocialAttributeDto : BaseDtos
 }
 public class CreateSocialAttributeDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "Attribute code is required")]
-    [MinLength(3, ErrorMessage = "Attribute code must be at least 3 characters long")]
-    [MaxLength(100, ErrorMessage = "Attribute code cannot exceed 100 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9_-]+$", ErrorMessage = "Attribute code can only contain alphanumeric characters, underscores, and hyphens")]
+    [Required(ErrorMessage = "SocialAttribute_Code_Required")]
+    [MinLength(3, ErrorMessage = "SocialAttribute_Code_MinLength")]
+    [MaxLength(100, ErrorMessage = "SocialAttribute_Code_MaxLength")]
+    [RegularExpression(@"^[a-zA-Z0-9_-]+$", ErrorMessage = "SocialAttribute_Code_InvalidFormat")]
     public string SocialAttributeCode { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Attribute name is required")]
-    [MinLength(2, ErrorMessage = "Attribute name must be at least 2 characters long")]
-    [MaxLength(200, ErrorMessage = "Attribute name cannot exceed 200 characters")]
+    [Required(ErrorMessage = "SocialAttribute_Name_Required")]
+    [MinLength(2, ErrorMessage = "SocialAttribute_Name_MinLength")]
+    [MaxLength(200, ErrorMessage = "SocialAttribute_Name_MaxLength")]
     [RegularExpression(
-        @"^[a-zA-Z0-9\s\-\(\)&'\.]+$", ErrorMessage = "Attribute name can only contain alphanumeric characters, spaces, hyphens, parentheses, apostrophes, dots, and ampersands")]
+        @"^[a-zA-Z0-9\s\-\(\)&'\.]+$", ErrorMessage = "SocialAttribute_Name_InvalidFormat")]
     public string SocialAttributeName { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Data type is required")]
-    [MaxLength(30, ErrorMessage = "Data type cannot exceed 30 characters")]
-    [RegularExpression(@"^(string|int|integer|decimal|boolean|bool|datetime|date|double|float|long|guid)$",ErrorMessage = "Invalid data type. Allowed types are: string, int, integer, decimal, boolean, bool, datetime, date, double, float, long, guid")]
+    [Required(ErrorMessage = "SocialAttribute_DataType_Required")]
+    [MaxLength(30, ErrorMessage = "SocialAttribute_DataType_MaxLength")]
+    [RegularExpression(@"^(string|int|integer|decimal|boolean|bool|datetime|date|double|float|long|guid)$",ErrorMessage = "SocialAttribute_DataType_InvalidFormat")]
     public string DataType { get; set; } = string.Empty;
 
-    [MaxLength(50, ErrorMessage = "Unit cannot exceed 50 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\/%\-\.]*$", ErrorMessage = "Unit can only contain alphanumeric characters, spaces, forward slashes, percent signs, hyphens, and dots")]
+    [MaxLength(50, ErrorMessage = "SocialAttribute_Unit_MaxLength")]
+    [RegularExpression(@"^[a-zA-Z0-9\s\/%\-\.]*$", ErrorMessage = "SocialAttribute_Unit_InvalidFormat")]
     public string? Unit { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Display order must be greater than 0 ")]
+    [Range(1, int.MaxValue, ErrorMessage = "SocialAttribute_DisplayOrder_Range")]
     public int? DisplayOrder { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Parent Attribute ID must be greater than 0")]
+    [Range(1, int.MaxValue, ErrorMessage = "SocialAttribute_ParentAttributeId_Range")]
     public int? ParentAttributeId { get; set; }
 
     public bool IsRequiredWhenParentTrue { get; set; } = false;
@@ -56,31 +56,31 @@ public class CreateSocialAttributeDto : CreateBaseDtos
 
 public class UpdateSocialAttributeDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "Attribute code is required")]
-    [MinLength(3, ErrorMessage = "Attribute code must be at least 3 characters long")]
-    [MaxLength(100, ErrorMessage = "Attribute code cannot exceed 100 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9_-]+$", ErrorMessage = "Attribute code can only contain alphanumeric characters, underscores, and hyphens")]
+    [Required(ErrorMessage = "SocialAttribute_Code_Required")]
+    [MinLength(3, ErrorMessage = "SocialAttribute_Code_MinLength")]
+    [MaxLength(100, ErrorMessage = "SocialAttribute_Code_MaxLength")]
+    [RegularExpression(@"^[a-zA-Z0-9_-]+$", ErrorMessage = "SocialAttribute_Code_InvalidFormat")]
     public string SocialAttributeCode { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Attribute name is required")]
-    [MinLength(2, ErrorMessage = "Attribute name must be at least 2 characters long")]
-    [MaxLength(200, ErrorMessage = "Attribute name cannot exceed 200 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\-\(\)&'\.]+$", ErrorMessage = "Attribute name can only contain alphanumeric characters, spaces, hyphens, parentheses, apostrophes, dots, and ampersands")]
+    [Required(ErrorMessage = "SocialAttribute_Name_Required")]
+    [MinLength(2, ErrorMessage = "SocialAttribute_Name_MinLength")]
+    [MaxLength(200, ErrorMessage = "SocialAttribute_Name_MaxLength")]
+    [RegularExpression(@"^[a-zA-Z0-9\s\-\(\)&'\.]+$", ErrorMessage = "SocialAttribute_Name_InvalidFormat")]
     public string SocialAttributeName { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Data type is required")]
-    [MaxLength(30, ErrorMessage = "Data type cannot exceed 30 characters")]
-    [RegularExpression(@"^(string|int|integer|decimal|boolean|bool|datetime|date|double|float|long|guid)$", ErrorMessage = "Invalid data type. Allowed types are: string, int, integer, decimal, boolean, bool, datetime, date, double, float, long, guid")]
+    [Required(ErrorMessage = "SocialAttribute_DataType_Required")]
+    [MaxLength(30, ErrorMessage = "SocialAttribute_DataType_MaxLength")]
+    [RegularExpression(@"^(string|int|integer|decimal|boolean|bool|datetime|date|double|float|long|guid)$", ErrorMessage = "SocialAttribute_DataType_InvalidFormat")]
     public string DataType { get; set; } = string.Empty;
 
-    [MaxLength(50, ErrorMessage = "Unit cannot exceed 50 characters")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\/\-\.]*$", ErrorMessage = "Unit can only contain alphanumeric characters, spaces, forward slashes, hyphens, and dots")]
+    [MaxLength(50, ErrorMessage = "SocialAttribute_Unit_MaxLength")]
+    [RegularExpression(@"^[a-zA-Z0-9\s\/\-\.]*$", ErrorMessage = "SocialAttribute_Unit_InvalidFormat")]
     public string? Unit { get; set; }
 
-    [Range(1, 10000, ErrorMessage = "Display order must be between 1 and 10000")]
+    [Range(1, 10000, ErrorMessage = "SocialAttribute_DisplayOrder_Range")]
     public int? DisplayOrder { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Parent Attribute ID must be greater than 0")]
+    [Range(1, int.MaxValue, ErrorMessage = "SocialAttribute_ParentAttributeId_Range")]
     public int? ParentAttributeId { get; set; }
     public bool IsRequiredWhenParentTrue { get; set; }
     public bool IsDiscountApplicable { get; set; }

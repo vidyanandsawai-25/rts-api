@@ -132,6 +132,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
 	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+    public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -3346,6 +3347,42 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<PropertySocialDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertySocialDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.SocialAttributeId).IsRequired();
+            entity.Property(e => e.BitValue);
+            entity.Property(e => e.IntValue);
+            entity.Property(e => e.DecimalValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TextValue).HasMaxLength(500);
+            entity.Property(e => e.DateValue);
+            entity.Property(e => e.Remark).HasMaxLength(1000);
+            
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Configure relationships
+            entity.HasOne(e => e.Property)
+                .WithMany(p => p.PropertySocialDetails)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SocialAttribute)
+                .WithMany()
+                .HasForeignKey(e => e.SocialAttributeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.SocialAttributeId);
         });
     }
 }

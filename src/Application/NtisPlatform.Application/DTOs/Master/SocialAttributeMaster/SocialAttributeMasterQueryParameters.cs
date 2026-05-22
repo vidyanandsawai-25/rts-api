@@ -17,6 +17,12 @@ namespace NtisPlatform.Application.DTOs.Master.SocialAttributeMaster
         public string? SocialAttributeName { get; set; }
 
         [Filterable]
+        public bool? IsRequiredWhenParentTrue { get; set; }
+
+        [Filterable]
+        public bool? IsDiscountApplicable { get; set; }
+
+        [Filterable]
         public bool? IsActive { get; set; }
     }
 }

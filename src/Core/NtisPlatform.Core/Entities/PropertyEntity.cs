@@ -81,13 +81,11 @@ public class PropertyEntity : BaseEntity, IHardDeletable
 
     public string? EmailId { get; set; }
 
-    [Column(TypeName = "varchar(6)")]
     public string? PinCode { get; set; }
     public int? MobileNoRemarkId { get; set; }
 
-    [Column(TypeName = "varchar(13)")]
     public string? AlternateMobileNo { get; set; }
-    [Column(TypeName = "varchar(13)")]
+
     public string? OccupierMobileNo { get; set; }
     public int? OccupierMobileNoRemarkId { get; set; }
 
@@ -131,5 +129,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public ICollection<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = new List<PropertyAssessmentEntity>();
  
     public virtual ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
+    public ICollection<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = new List<PropertySocialDetailsEntity>();
  
 }
