@@ -132,10 +132,13 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
-	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
- 	public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
+    public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+    public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
-
+    public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
+    public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
+    public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
+    public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
     public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -393,7 +396,7 @@ public class ApplicationDbContext : DbContext
              .WithOne(r => r.YearRangeCV)
                .HasForeignKey(r => r.YearRangeCVId)
               .OnDelete(DeleteBehavior.Restrict);
-           
+
             entity.HasMany(e => e.NatureFactorCVMaster)
                 .WithOne(r => r.YearRangeCV)
                 .HasForeignKey(r => r.YearRangeCVId)
@@ -464,21 +467,21 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.UpdatedBy);
             entity.Property(x => x.UpdatedDate);
 
-          entity.HasOne(e => e.TypeOfUse)
-            .WithMany(c => c.SubTypeOfUse)
-            .HasForeignKey(e => e.TypeOfUseId)
-            .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.TypeOfUse)
+              .WithMany(c => c.SubTypeOfUse)
+              .HasForeignKey(e => e.TypeOfUseId)
+              .OnDelete(DeleteBehavior.Restrict);
 
             // Configure relationships
-          entity.HasMany(e => e.PropertyDetails)
-                .WithOne(r => r.SubTypeOfUse)
-                .HasForeignKey(r => r.SubTypeOfUseId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(e => e.PropertyDetails)
+                  .WithOne(r => r.SubTypeOfUse)
+                  .HasForeignKey(r => r.SubTypeOfUseId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
-          entity.HasMany(e => e.UseFactorCVMaster)
-                .WithOne(r => r.SubTypeOfUse)
-                .HasForeignKey(r => r.SubTypeOfUseId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasMany(e => e.UseFactorCVMaster)
+                  .WithOne(r => r.SubTypeOfUse)
+                  .HasForeignKey(r => r.SubTypeOfUseId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<TypeOfUseEntity>(entity =>
         {
@@ -710,7 +713,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.MoujaNo).IsRequired().HasMaxLength(20);
             entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(100);
-                    // Configure relationships
+            // Configure relationships
             entity.HasMany(e => e.Property)
                 .WithOne(r => r.Mouja)
                 .HasForeignKey(r => r.MoujaId)
@@ -879,10 +882,10 @@ public class ApplicationDbContext : DbContext
               .HasForeignKey(e => e.WardId)
               .OnDelete(DeleteBehavior.Restrict);
 
-           entity.HasOne(e => e.RateSection)
-             .WithMany(c => c.RateSectionDetails)
-             .HasForeignKey(e => e.RateSectionId)
-              .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RateSection)
+              .WithMany(c => c.RateSectionDetails)
+              .HasForeignKey(e => e.RateSectionId)
+               .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<ScreenMasterEntity>(entity =>
         {
@@ -1498,7 +1501,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubZoneNo).HasMaxLength(20);
             entity.Property(e => e.PlotNo).HasMaxLength(20);
             entity.Property(e => e.Id);
-            entity.Property(e => e.Type).HasMaxLength(5);             
+            entity.Property(e => e.Type).HasMaxLength(5);
             entity.Property(e => e.OwnerTitle).HasMaxLength(20);
             entity.Property(e => e.OwnerName).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitle).HasMaxLength(20);
@@ -1996,7 +1999,7 @@ public class ApplicationDbContext : DbContext
         });
 
 
-         
+
 
         // ── UserModuleAllocation ─────────────────────────────────────────────
         modelBuilder.Entity<UserModuleAllocationEntity>(entity =>
@@ -2272,7 +2275,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
             entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
             entity.HasOne(x => x.RateMasterForCV)
-            .WithMany(x => x.CSNDetails) 
+            .WithMany(x => x.CSNDetails)
             .HasForeignKey(x => x.RateMasterCVId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -2744,7 +2747,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
+
             // Foreign key relationship with ModuleMaster
             entity.HasOne<ModuleMasterEntity>()
                 .WithMany()
@@ -2980,7 +2983,7 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
-		 
+
         modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
         {
             entity.ToTable("BulkUpdateMaster", "PTIS");
@@ -3048,7 +3051,7 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
         {
-            entity.ToTable("BulkUpdateHistory", "PTIS"); 
+            entity.ToTable("BulkUpdateHistory", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.BulkUpdateMasterId).IsRequired();
@@ -3062,31 +3065,173 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");           
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
 
-        //Asset Inventory Item Category configuration
-        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+        modelBuilder.Entity<AssetCategoryEntity>(entity =>
         {
-            entity.ToTable("InventoryItemCategoryMaster", "AMS");
+            entity.ToTable("AssetCategoryMaster", "AMS");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
+
+
+            entity.Property(x => x.CategoryName).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.CategoryCode).HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate).HasColumnType("datetime");
+            entity.Property(x => x.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.MarkedForDeletionDate).HasColumnType("datetime");
+
+            // Unique constraints
+            entity.HasIndex(e => e.CategoryName).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryName");
+            entity.HasIndex(e => e.CategoryCode).IsUnique().HasFilter("[CategoryCode] IS NOT NULL").HasDatabaseName("UQ_AssetCategoryMaster_CategoryCode");
+        });
+
+        modelBuilder.Entity<AssetTypeEntity>(entity =>
+        {
+            entity.ToTable("AssetTypeMaster", "AMS");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd(); // Identity column
+
+            entity.Property(x => x.TypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(x => x.TypeName).IsRequired().HasMaxLength(200);
+            entity.Property(x => x.TypeNameLocal).HasMaxLength(200);
+            entity.Property(x => x.Description).HasMaxLength(500);
+            entity.Property(x => x.Icon).HasMaxLength(100);
+            entity.Property(x => x.CodeFormat).IsRequired().HasMaxLength(100);
+            entity.Property(x => x.LastSequence).IsRequired().HasDefaultValue(0);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate).HasColumnType("datetime");
+            entity.Property(x => x.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.MarkedForDeletionDate).HasColumnType("datetime");
+
+            // Unique constraints
+            entity.HasIndex(e => e.TypeCode).IsUnique().HasDatabaseName("UQ_AssetTypeMaster_TypeCode");
+            entity.HasIndex(e => e.TypeName).IsUnique().HasDatabaseName("UQ_AssetTypeMaster_TypeName");
+
+            // Configure foreign key relationship to AssetCategoryEntity
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(x => x.CategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetTypeMaster_AssetCategoryMaster");
+        });
+
+        modelBuilder.Entity<OwningDepartmentEntity>(entity =>
+        {
+            entity.ToTable("OwningDepartmentMaster", "AMS");
+
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.TypeCode).HasMaxLength(100);
-            entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.OwningDepartmentName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.Property(e => e.IsActive).IsRequired();
+
             entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
-            // Indexes for performance
-            entity.HasIndex(e => e.TypeCode);
-            entity.HasIndex(e => e.TypeName);
-            entity.HasIndex(e => e.IsActive);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            // Unique constraint on OwningDepartmentName
+            entity.HasIndex(e => e.OwningDepartmentName)
+                .IsUnique()
+                .HasDatabaseName("UQ_OwningDepartmentMaster_OwningDepartmentName");
+
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
+        modelBuilder.Entity<EducationTaxMasterEntity>(entity =>
+       {
+           entity.ToTable("EducationTaxMaster", "PTIS");
+           entity.HasKey(e => e.Id);
+           entity.Property(e => e.Id).ValueGeneratedOnAdd();
+           entity.Property(e => e.Type).HasMaxLength(50);
+           entity.Property(e => e.Year);
+           entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+           entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+           entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+           entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+           entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+       });
+        modelBuilder.Entity<EmploymentTaxMasterEntity>(entity =>
+        {
+            entity.ToTable("EmploymentTaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<OwnershipTypeEntity>(entity =>
+        {
+            entity.ToTable("OwnershipTypeMaster", "AMS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.OwnershipTypeName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.Property(e => e.IsActive).IsRequired();
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            // Unique constraint on OwnershipTypeName
+            entity.HasIndex(e => e.OwnershipTypeName)
+                .IsUnique()
+                .HasDatabaseName("UQ_OwnershipTypeMaster_OwnershipTypeName");
+
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+
+
+        });
+        //Asset Inventory Item Category configuration
+        modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
+            {
+                entity.ToTable("InventoryItemCategoryMaster", "AMS");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd();
+                entity.Property(e => e.TypeCode).HasMaxLength(100);
+                entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+                entity.Property(e => e.CreatedBy);
+                entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.UpdatedBy);
+                entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+                // Indexes for performance
+                entity.HasIndex(e => e.TypeCode);
+                entity.HasIndex(e => e.TypeName);
+                entity.HasIndex(e => e.IsActive);
+            });
 
         modelBuilder.Entity<InventoryItemNameEntity>(entity =>
         {
@@ -3297,51 +3442,25 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ParentFieldId);
         });
 
-	 modelBuilder.Entity<SocialAttributeEntity>(entity =>
-        {
-            entity.ToTable("SocialAttributeMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.SocialAttributeCode).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.SocialAttributeName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.DataType).IsRequired().HasMaxLength(30);
-            entity.Property(e => e.Unit).HasMaxLength(50);
-            entity.Property(e => e.DisplayOrder);
-            entity.Property(e => e.ParentAttributeId);
-            entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-        });
-		 modelBuilder.Entity<EducationTaxMasterEntity>(entity =>
-        {
-            entity.ToTable("EducationTaxMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Type).HasMaxLength(50);
-            entity.Property(e => e.Year);
-            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-        });
-        modelBuilder.Entity<EmploymentTaxMasterEntity>(entity =>
-        {
-            entity.ToTable("EmploymentTaxMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Type).HasMaxLength(50);
-            entity.Property(e => e.Year);
-            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-        });
+        modelBuilder.Entity<SocialAttributeEntity>(entity =>
+           {
+               entity.ToTable("SocialAttributeMaster", "PTIS");
+               entity.HasKey(e => e.Id);
+               entity.Property(e => e.Id).ValueGeneratedOnAdd();
+               entity.Property(e => e.SocialAttributeCode).IsRequired().HasMaxLength(100);
+               entity.Property(e => e.SocialAttributeName).IsRequired().HasMaxLength(200);
+               entity.Property(e => e.DataType).IsRequired().HasMaxLength(30);
+               entity.Property(e => e.Unit).HasMaxLength(50);
+               entity.Property(e => e.DisplayOrder);
+               entity.Property(e => e.ParentAttributeId);
+               entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
+               entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
+               entity.Property(e => e.CreatedBy);
+               entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+               entity.Property(e => e.UpdatedBy);
+               entity.Property(e => e.UpdatedDate);
+               entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+           });
 
         modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
         {
@@ -3361,13 +3480,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).IsRequired();
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-       });
+        });
         modelBuilder.Entity<PropertySocialDetailsEntity>(entity =>
         {
             entity.ToTable("PropertySocialDetails", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            
+
             entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.SocialAttributeId).IsRequired();
             entity.Property(e => e.BitValue);
@@ -3376,7 +3495,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TextValue).HasMaxLength(500);
             entity.Property(e => e.DateValue);
             entity.Property(e => e.Remark).HasMaxLength(1000);
-            
+
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
@@ -3399,3 +3518,4 @@ public class ApplicationDbContext : DbContext
         });
     }
 }
+

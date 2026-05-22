@@ -242,6 +242,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
+        services.AddScoped<IAssetCategoryService, AssetCategoryService>();
+        services.AddScoped<IAssetTypeService, AssetTypeService>();
+        services.AddScoped<IOwnershipTypeService, OwnershipTypeService>();
+        services.AddScoped<IOwningDepartmentService, OwningDepartmentService>();
         //Asset Start
         services.AddScoped<IInventoryItemCategoryService, InventoryItemCategoryService>();
         services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();

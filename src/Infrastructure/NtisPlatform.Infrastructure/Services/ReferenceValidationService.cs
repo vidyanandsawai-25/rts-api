@@ -106,6 +106,11 @@ public class ReferenceValidationService : IReferenceValidationService
            ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.SocietyDetailId == id).Cast<object>())
         );
 
+        config.ForEntity<AssetCategoryEntity>()
+        .CheckReferences(
+            ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.CategoryId == id).Cast<object>())
+        );
+
         // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
         config.ForEntity<InventoryItemCategoryEntity>()
          .CheckReferences(
