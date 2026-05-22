@@ -27,7 +27,7 @@ public class DataEntryMappingProfileTests
         _mapper = _configuration.CreateMapper();
     }
 
-    [Fact(Skip = "RoomWiseSubmissionDetails mapping has RoomType/RoomTypeId mismatch pending schema alignment")]
+    [Fact]
     public void DataEntryMappingProfile_Configuration_IsValid()
     {
         // Act & Assert

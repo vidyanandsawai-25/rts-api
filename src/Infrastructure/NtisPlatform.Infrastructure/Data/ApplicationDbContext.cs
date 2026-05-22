@@ -1144,33 +1144,46 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId);
         });
 
-        // RoomWiseSubmissionDetails configuration
         modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
         {
             entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
+
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.LengthMtr) ;
-            entity.Property(e => e.WidthMtr) ;
-            entity.Property(e => e.AreaSqMtr) ;
-            entity.Property(e => e.HeightMtr) ;
-            entity.Property(e => e.Base1Mtr) ;
-            entity.Property(e => e.Base2Mtr) ;
-            entity.Property(e => e.NoOfRooms);
-            entity.Property(e => e.TotalAreaSqMtr) ;
-            entity.Property(e => e.Shape).HasMaxLength(25);
-            entity.Property(e => e.RoomNo).HasMaxLength(100);
-            entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.Base1Mtr);
+            entity.Property(e => e.Base2Mtr);
+            entity.Property(e => e.TotalAreaSqMtr);
+            entity.Property(e => e.Shape).HasMaxLength(100);
+            entity.Property(e => e.RoomNo).HasMaxLength(50);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
             entity.Property(e => e.SubmissionType).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
+
+            // Audit and soft delete configuration
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyId);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.HasOne(e => e.PropertyDetails)
+                  .WithMany(p => p.RoomWiseSubmissionDetails)
+                  .HasForeignKey(e => e.PropertyDetailsId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                  .WithMany()
+                  .HasForeignKey(e => e.PropertyId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for better query performance
             entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.PropertyId);
         });
 
         // RoomWiseMinusData configuration
@@ -1983,49 +1996,7 @@ public class ApplicationDbContext : DbContext
         });
 
 
-
-        modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
-        {
-            entity.ToTable("RoomWiseSubmissionDetails", "PTIS");
-
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.LengthMtr);
-            entity.Property(e => e.WidthMtr);
-            entity.Property(e => e.AreaSqMtr);
-            entity.Property(e => e.HeightMtr);
-            entity.Property(e => e.Base1Mtr);
-            entity.Property(e => e.Base2Mtr);
-            entity.Property(e => e.TotalAreaSqMtr);
-            entity.Property(e => e.Shape).HasMaxLength(100);
-            entity.Property(e => e.RoomNo).HasMaxLength(50);
-            entity.Property(e => e.SubmissionType).HasMaxLength(100);
-            entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
-
-            // Audit and soft delete configuration
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
-            entity.HasOne(e => e.PropertyDetails)
-                  .WithMany(p => p.RoomWiseSubmissionDetails)
-                  .HasForeignKey(e => e.PropertyDetailsId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.PropertyMast)
-                  .WithMany()
-                  .HasForeignKey(e => e.PropertyId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            // Indexes for better query performance
-            entity.HasIndex(e => e.PropertyDetailsId);
-            entity.HasIndex(e => e.PropertyId);
-        });
-
-
+         
 
         // ── UserModuleAllocation ─────────────────────────────────────────────
         modelBuilder.Entity<UserModuleAllocationEntity>(entity =>

@@ -90,7 +90,7 @@ public class RoomWiseMinusDataEntityTests
             Id = 100,
             PropertyDetailsId = 200,
             RoomNo = "R-101",
-            RoomTypeId = 1
+            RoomType = "Bedroom"
         };
 
         minusEntity.RoomWiseSubmissionDetails = roomEntity;
