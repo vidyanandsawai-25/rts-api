@@ -736,7 +736,7 @@ namespace NtisPlatform.Application.Services
                 }
 
                 bool isFloorWiseRateApplicable = typeOfUseGroup.IsFloorWiseRateApplicable;
-                int? floorGroupId = null;
+                int? floorGroupId = 0;
 
                 if (isFloorWiseRateApplicable)
                 {
@@ -755,7 +755,7 @@ namespace NtisPlatform.Application.Services
                 var rateMaster = masterData.RateMasters.FirstOrDefault(x =>
                     x.AssessmentYearRangeId == yearRange.Id &&
                     x.TypeOfUseGroupId == typeOfUseGroupId.Value &&
-                    (isFloorWiseRateApplicable ? x.FloorGroupId == floorGroupId : x.FloorGroupId == null));
+                    (isFloorWiseRateApplicable ? x.FloorGroupId == floorGroupId : x.FloorGroupId == 0));
 
                 if (rateMaster == null)
                 {

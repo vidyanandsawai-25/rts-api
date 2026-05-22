@@ -1929,8 +1929,44 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyTaxCalculationCVResults", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            // Unique constraint on (PropertyId, PropertyDetailsId, TaxId) to prevent duplicate tax calculations
+            // Filtered for active records only to allow historical/soft-deleted duplicates
+            entity.HasIndex(e => new { e.PropertyId, e.PropertyDetailsId, e.TaxId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UQ_PropertyTaxCalculationCVResults_Property_PropertyDetails_Tax_Active");
+
+            // Non-unique index on RateCVMasterId for lookups and foreign key relationships
+            entity.HasIndex(e => e.RateCVMasterId)
+                .HasDatabaseName("IX_PropertyTaxCalculationCVResults_RateCVMasterId");
+
+            // Explicitly configure the TaxMaster relationship to use TaxId as the foreign key
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .HasPrincipalKey(t => t.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+             
+
+            // Explicitly configure the RateCVMaster relationship
+            entity.HasOne(e => e.RateCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.RateCVMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Explicitly configure the PropertyDetails relationship
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Explicitly configure the PropertyMast relationship
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyTaxCalculationCVResults)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // ── UserDepartmentAllocation ─────────────────────────────────────────
@@ -2367,9 +2403,40 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("TransMastCV", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.FinanceYearId).IsRequired();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.CapitalValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Configure foreign key relationships explicitly
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TransMastCV)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.YearMaster)
+                .WithMany()
+                .HasForeignKey(e => e.FinanceYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for performance
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId });
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.FinanceYearId);
+            entity.HasIndex(e => e.TaxId);
         });
 
         // BlockMaster configuration
