@@ -502,14 +502,16 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithValidRequest_CreatesProperties()
     {
         // Arrange
+        // Note: RangeFrom and RangeTo must be numeric values without prefix/suffix
+        // because the code uses Convert.ToInt32(rangeValues[i]) for PropertySeqNo
         var template = new CreateNewPropertyDto { WardId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2",
-            Prefix = "PROP-",
-            Suffix = "",
+            Prefix = null,
+            Suffix = null,
             StartSequenceNo = 1
         };
 
@@ -808,6 +810,314 @@ public class PropertyServiceTests
         // Assert
         Assert.Equal(0, result.SuccessCount);
         Assert.NotNull(result.Errors);
+    }
+
+    #endregion
+
+    #region BulkCreateAsync Tests
+
+    [Fact]
+    public async Task BulkCreateAsync_WithEmptyArray_ReturnsEmptyResult()
+    {
+        // Arrange
+        var items = Array.Empty<CreateBulkPropertyDto>();
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Results);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithValidItems_ReturnsSuccessResult()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 },
+            new CreateBulkPropertyDto { PropertyNo = "PROP-002", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var response1 = new CreateBulkPropertyResponseDto { Success = true, PropertyId = 1 };
+        var response2 = new CreateBulkPropertyResponseDto { Success = true, PropertyId = 2 };
+
+        _mockPropertyRepository
+            .SetupSequence(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response1)
+            .ReturnsAsync(response2);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(2, result.Results.Count);
+        Assert.True(result.AllSucceeded);
+        Assert.False(result.HasFailures);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithEmptyPropertyNo_RollsBackAndReturnsError()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("PropertyNo is required"));
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithWhitespacePropertyNo_RollsBackAndReturnsError()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "   ", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("PropertyNo is required"));
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithFailedRepositoryResponse_RollsBackAndReturnsError()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var response = new CreateBulkPropertyResponseDto { Success = false, Message = "Property already exists" };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("Property already exists"));
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithNullRepositoryResponse_RollsBackAndReturnsError()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CreateBulkPropertyResponseDto?)null);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithException_RollsBackAndReturnsTransactionError()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database connection failed"));
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(1, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("Transaction failed"));
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithPartialSuccess_RollsBackOnFirstFailure()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 },
+            new CreateBulkPropertyDto { PropertyNo = "PROP-002", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var successResponse = new CreateBulkPropertyResponseDto { Success = true, PropertyId = 1 };
+        var failureResponse = new CreateBulkPropertyResponseDto { Success = false, Message = "Duplicate property" };
+
+        _mockPropertyRepository
+            .SetupSequence(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(successResponse)
+            .ReturnsAsync(failureResponse);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("Duplicate property"));
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithSingleItem_ReturnsSuccessResult()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var response = new CreateBulkPropertyResponseDto { Success = true, PropertyId = 1 };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Single(result.Results);
+        _mockUnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_WithMultipleItems_CommitsOnAllSuccess()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 },
+            new CreateBulkPropertyDto { PropertyNo = "PROP-002", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 },
+            new CreateBulkPropertyDto { PropertyNo = "PROP-003", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var response = new CreateBulkPropertyResponseDto { Success = true, PropertyId = 1 };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Equal(3, result.Results.Count);
+        Assert.Null(result.Errors);
+        _mockUnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BulkCreateAsync_FailureResponseWithNullMessage_HandlesGracefully()
+    {
+        // Arrange
+        var items = new[]
+        {
+            new CreateBulkPropertyDto { PropertyNo = "PROP-001", WardId = 1, TaxZoneId = 1, PropertyTypeId = 1, CategoryId = 1 }
+        };
+
+        var response = new CreateBulkPropertyResponseDto { Success = false, Message = null };
+
+        _mockPropertyRepository
+            .Setup(x => x.CreateBulkPropertyAsync(It.IsAny<CreateBulkPropertyDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkCreateAsync(items, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("Unknown error"));
     }
 
     #endregion

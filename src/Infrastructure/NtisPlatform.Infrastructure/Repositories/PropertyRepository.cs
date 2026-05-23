@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
@@ -2142,7 +2142,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         // Null check for request body
         ArgumentNullException.ThrowIfNull(dto);
 
-        var propertyExists = await _context.PropertyMast.AnyAsync( x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId, cancellationToken);
+        var propertyExists = await _context.PropertyMast.AnyAsync( x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId || x.PartitionNo == dto.PartitionNo , cancellationToken);
 
         if (propertyExists)
             return new CreateNewPropertyResponseDto
@@ -2369,6 +2369,119 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     {
         return values.Any(v =>
             source.Contains(v, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public async Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
+    {
+        var propertyExists = await _context.PropertyMast.AnyAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo.Trim() && x.PartitionNo == dto.PartitionNo.Trim(), cancellationToken);
+
+        if (propertyExists)
+            return new CreateBulkPropertyResponseDto
+            {
+                Success = false,
+                Message = string.Join(" ", "PropertyNo already exists in our records.")
+            };
+
+        // Transaction
+        PropertyEntity? property = null;
+        PropertyAssessmentEntity? propertyMastDetails = null;
+        try
+        {
+            var category = await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == dto.CategoryId, cancellationToken);
+            var MainPropertyDetails = await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "", cancellationToken);
+            // Validate category exists and is not "apartment" type
+            if (category == null)
+            {
+                return new CreateBulkPropertyResponseDto
+                {
+                    Success = false,
+                    Message = "Invalid CategoryId - category not found."
+                };
+            }
+
+            if (category.PropertyCategoryName != null &&
+                category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (dto.SocietyDetailId == null || dto.SocietyDetailId == 0))
+            {
+                return new CreateBulkPropertyResponseDto
+                {
+                    Success = false,
+                    Message = "Society Wing Details is not Found"
+                };
+            }
+            bool OpenPlot = false;
+
+            if (category.PropertyCategoryName != null && category.PropertyCategoryName.Contains("plot", StringComparison.OrdinalIgnoreCase))
+            {
+                OpenPlot = true;
+            }
+
+            // Property insert
+            property = new PropertyEntity
+            {
+                TaxZoneId = dto.TaxZoneId,
+                WardId = dto.WardId,
+                PropertyNo = dto.PropertyNo.Trim(),
+                PartitionNo = dto.PartitionNo.Trim(),
+                PropertySeqNo = MainPropertyDetails?.PropertySeqNo,
+                PropertyTypeId = dto.PropertyTypeId,
+                CategoryId = dto.CategoryId,
+                OwnerTitle = string.Empty,
+                OwnerTitleEnglish = string.Empty,
+                OpenPlot = OpenPlot,
+                OwnerName = "धारक",
+                OwnerNameEnglish = "The Holder",
+                FlatOrShopNo = dto.FlatOrShopNo,
+                FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish,
+                Address = MainPropertyDetails?.Address,
+                AddressEnglish = MainPropertyDetails?.AddressEnglish,
+                Location = MainPropertyDetails?.Location,
+                LocationEnglish = MainPropertyDetails?.LocationEnglish,
+                SocietyDetailId = dto.SocietyDetailId,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedBy = dto.CreatedBy
+            };
+
+            _context.PropertyMast.Add(property);
+            var propertySaveResult = await _context.SaveChangesAsync(cancellationToken);
+
+            // Assessment insert 
+            propertyMastDetails = new PropertyAssessmentEntity
+            {
+                PropertyId = property.Id,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedBy = dto.CreatedBy
+            };
+
+            _context.PropertyMastDetails.Add(propertyMastDetails);
+            var assessmentSaveResult = await _context.SaveChangesAsync(cancellationToken);
+
+            return new CreateBulkPropertyResponseDto
+            {
+                PropertyId = property.Id,
+                Success = true,
+                Message = "Property generated successfully."
+            };
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Another user modified the same record mid-transaction
+            return new CreateBulkPropertyResponseDto
+            {
+                Success = false,
+                Message = $"A concurrency conflict occurred. Please retry. detail: {ex.Message}"
+            };
+        }
+        catch (Exception ex)
+        {
+            // Any unexpected error
+            return new CreateBulkPropertyResponseDto
+            {
+                Success = false,
+                Message = $"An unexpected error occurred : {ex.Message}"
+            };
+        }
     }
 
 }

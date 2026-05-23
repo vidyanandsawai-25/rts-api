@@ -1,3 +1,4 @@
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Core.Entities;
@@ -35,4 +36,5 @@ public interface IPropertyService
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct);
+	Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
 }

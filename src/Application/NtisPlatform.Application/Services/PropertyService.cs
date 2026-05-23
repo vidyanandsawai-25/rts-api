@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
@@ -162,15 +163,13 @@ public class PropertyService
                     } 
 
                     request.Template?.PropertyNo = $"{rangeValues[i]}";
+                    request.Template?.PropertySeqNo = Convert.ToInt32(rangeValues[i]);
 
                     if (request.Template == null)
                     {
                         errors.Add($"Row {i + 1}: Template is null.");
                         break;
                     }
-
-                    
-
 
                     var res = await _propertyRepository.CreateNewPropertyAsync(request.Template, ct);
                     processedCount++;
@@ -272,8 +271,67 @@ public class PropertyService
             );
         }
     }
+ public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
+    {
+        if (items.Length == 0)
+        {
+            return new BulkResult<CreateBulkPropertyResponseDto>(0, 0, []);
+        }
+
+        var results = new List<CreateBulkPropertyResponseDto>();
+        var errors = new List<string>();
+
+        await _unitOfWork.BeginTransactionAsync(ct);
+        try
+        {
+            for (int i = 0; i < items.Length; i++)
+            {
+                var item = items[i];
+
+                if (string.IsNullOrWhiteSpace(item.PropertyNo))
+                {
+                    await _unitOfWork.RollbackTransactionAsync(ct);
+                    return new BulkResult<CreateBulkPropertyResponseDto>(
+                        0,
+                        items.Length,
+                        [],
+                        [$"{i}: PropertyNo is required."]
+                    );
+                }
+                    var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
+                    if (res == null || !res.Success)
+                    {
+                        await _unitOfWork.RollbackTransactionAsync(ct);
+                        return new BulkResult<CreateBulkPropertyResponseDto>(
+                            0,
+                            items.Length,
+                            [],
+                            [$"{i}: {res?.Message ?? "Unknown error"}"]
+                        );
+                    }
+
+                    results.Add(res);
+                }
+            
+
+            await _unitOfWork.CommitTransactionAsync(ct);
+
+            return new BulkResult<CreateBulkPropertyResponseDto>(
+                results.Count,
+                0,
+                results,
+                null
+            );
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(ct);
+            return new BulkResult<CreateBulkPropertyResponseDto>(
+                0,
+                items.Length,
+                [],
+                [$"Transaction failed: {ex.Message}"]
+            );
+        }
+    }
 }
-
-
-
-

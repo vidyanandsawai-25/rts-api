@@ -192,4 +192,5 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default);
 
     Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId);
+	Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
 }
