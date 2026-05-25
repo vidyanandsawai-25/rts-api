@@ -4,8 +4,6 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
-
-[Table("PolicyTaxDetails", Schema = "PTIS")]
 public class PolicyTaxDetailsEntity : BaseEntity, IHardDeletable
 {
 
@@ -14,23 +12,17 @@ public class PolicyTaxDetailsEntity : BaseEntity, IHardDeletable
     
     public int PropertyId { get; set; }
     
-    [Required]
-    [StringLength(20)]
     public string PolicyCode { get; set; } = string.Empty;
     
     public DateTime? PolicyDate { get; set; }
     
-    public short? PolicyYear { get; set; }
-    
-    [StringLength(200)]
+    public short? PolicyYear { get; set; }   
     public string? PolicyReason { get; set; }
     
-    [Column(TypeName = "money")]
     public decimal? PolicyRVorCVvalue { get; set; }
     
     public int TaxId { get; set; }
     
-    [Column(TypeName = "money")]
     public decimal? TaxAmount { get; set; }
     
     public bool MarkedForDeletion { get; set; } = false;

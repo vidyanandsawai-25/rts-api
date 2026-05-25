@@ -1,40 +1,32 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
 /// Represents renter master data in the PTIS system
 /// </summary>
-[Table("RenterMast", Schema = "PTIS")]
-public class RenterMastEntity : BaseEntity
+public class RenterMastEntity : BaseEntity, IHardDeletable
 {
-    [Required]
     public int PropertyDetailsId { get; set; }
 
-    [Column(TypeName = "float")]
     public double? RentMonthly { get; set; }
 
-    [Column(TypeName = "float")]
     public double? FinalYearlyRent { get; set; }
 
-    [Column(TypeName = "nvarchar(4)")]
     public string? FinancialYear { get; set; }
 
     public DateTime? DurationFrom { get; set; }
 
     public DateTime? DurationTo { get; set; }
 
-    [Column(TypeName = "nvarchar(20)")]
     public string? TaxLiability { get; set; }
 
-    [Column(TypeName = "float")]
     public double? NonCalculateRentMonthly { get; set; }
 
-    [Column(TypeName = "nvarchar(500)")]
     public string? RenterNameEnglish { get; set; }
 
-    [Column(TypeName = "nvarchar(500)")]
     public string? RenterName { get; set; }
 
     public DateTime? AgreementDate { get; set; }

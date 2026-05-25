@@ -11,6 +11,8 @@ public class WaterConnectionMasterEntity : BaseEntity
     public DateTime ConnectionStartDate { get; set; }
     public DateTime? ConnectionStopDate { get; set; }
 
+    // Navigation property
+    public virtual PropertyEntity? PropertyMast { get; set; }
     public WaterConnectionTypeEntity WaterConnectionType { get; set; } = null!;
     public WaterConnectionSizeEntity WaterConnectionSize { get; set; } = null!;
     public WaterConnectionStatusEntity? WaterConnectionStatus { get; set; }

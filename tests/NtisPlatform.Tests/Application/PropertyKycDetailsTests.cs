@@ -1,7 +1,11 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -578,6 +582,7 @@ public class PropertyKycDetailsTests
             var mockUnitOfWork = new Mock<IUnitOfWork>();
             var mockMapper = new Mock<IMapper>();
             var mockPropertyRepo = new Mock<IPropertyRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
 
             var expectedDto = new PropertyKycDetailsDto
             {
@@ -590,7 +595,12 @@ public class PropertyKycDetailsTests
                 .Setup(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+            {
+                AllowPropertyDeletionWithoutPaymentValidation = true
+            });
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
 
             var result = await service.GetKycDetailsAsync(549357);
 
@@ -607,6 +617,7 @@ public class PropertyKycDetailsTests
             var mockUnitOfWork = new Mock<IUnitOfWork>();
             var mockMapper = new Mock<IMapper>();
             var mockPropertyRepo = new Mock<IPropertyRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
 
             var dto = new UpdatePropertyKycDetailsDto
             {
@@ -625,7 +636,12 @@ public class PropertyKycDetailsTests
                 .Setup(r => r.UpdateKycDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResult);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+            {
+                AllowPropertyDeletionWithoutPaymentValidation = true
+            });
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
 
             var result = await service.UpdateKycDetailsAsync(549357, dto);
 
@@ -642,6 +658,7 @@ public class PropertyKycDetailsTests
             var mockUnitOfWork = new Mock<IUnitOfWork>();
             var mockMapper = new Mock<IMapper>();
             var mockPropertyRepo = new Mock<IPropertyRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
 
             var dto = new UpdatePropertyKycDetailsDto
             {
@@ -652,7 +669,12 @@ public class PropertyKycDetailsTests
                 .Setup(r => r.UpdateKycDetailsAsync(999, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((PropertyKycDetailsDto?)null);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+            {
+                AllowPropertyDeletionWithoutPaymentValidation = true
+            });
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
 
             var result = await service.UpdateKycDetailsAsync(999, dto);
 

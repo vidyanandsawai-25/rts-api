@@ -8,13 +8,10 @@ using System.Text;
 
 namespace NtisPlatform.Core.Entities
 {
-    [Table("PropertyTaxCalculationRVResults", Schema = "PTIS")]
     public class PropertyTaxCalculationRVResultsEntity:BaseEntity, IHardDeletable
     {
-
-
-         public PropertyEntity PropertyMast { get; set; } = null!;
-
+        public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
+        public virtual PropertyEntity? PropertyMast { get; set; }
         public int PropertyId { get; set; }
         public int PropertyDetailsId { get; set; }
 

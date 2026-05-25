@@ -69,6 +69,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
         // Configure localization options from appsettings
         services.Configure<NtisPlatform.Application.Options.LocalizationOptions>(configuration.GetSection("Localization"));
+        // Configure feature flags from appsettings
+        services.Configure<NtisPlatform.Application.Options.FeatureFlagsOptions>(configuration.GetSection("FeatureFlags"));
         // model data fill culture wise.
         services.AddScoped<LocalizationProcessor>();
 

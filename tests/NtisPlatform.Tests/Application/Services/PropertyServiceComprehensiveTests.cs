@@ -1,6 +1,9 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -19,6 +22,8 @@ public class PropertyServiceComprehensiveTests
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IPropertyRepository> _mockPropertyRepository;
     private readonly PropertyService _service;
+    private readonly Mock<ILogger<PropertyService>> _mockLogger;
+    private readonly Mock<IOptions<FeatureFlagsOptions>> _mockFeatureFlags;
 
     public PropertyServiceComprehensiveTests()
     {
@@ -26,12 +31,22 @@ public class PropertyServiceComprehensiveTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
         _mockPropertyRepository = new Mock<IPropertyRepository>();
+        _mockLogger = new Mock<ILogger<PropertyService>>();
+        _mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+
+        // Setup feature flag to allow property deletion without payment validation
+        _mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+        {
+            AllowPropertyDeletionWithoutPaymentValidation = true
+        });
 
         _service = new PropertyService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
-            _mockPropertyRepository.Object);
+            _mockPropertyRepository.Object,
+            _mockLogger.Object,
+            _mockFeatureFlags.Object);
     }
 
     [Fact]

@@ -1,13 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
 /// Represents property assessment data in the PTIS system (PropertyMastDetails table)
 /// </summary>
-[Table("PropertyMastDetails", Schema = "PTIS")]
-public class PropertyAssessmentEntity : BaseEntity
+public class PropertyAssessmentEntity : BaseEntity, IHardDeletable
 {
      public int PropertyId { get; set; }
 
@@ -70,4 +70,6 @@ public class PropertyAssessmentEntity : BaseEntity
     /// Indicates whether the entity is marked for deletion
     public bool MarkedForDeletion { get; set; } = false;
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    public virtual PropertyEntity? PropertyMast { get; set; }
 }

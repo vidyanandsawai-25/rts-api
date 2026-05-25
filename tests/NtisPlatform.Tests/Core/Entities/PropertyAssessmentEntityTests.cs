@@ -265,4 +265,41 @@ public class PropertyAssessmentEntityTests
         Assert.Equal(date3, entity.PropertyRegDate);
         Assert.Equal(date4, entity.PartOCDate);
     }
+
+    [Fact]
+    public void PropertyAssessmentEntity_NavigationProperty_PropertyMast_CanBeSet()
+    {
+        var assessmentEntity = new PropertyAssessmentEntity
+        {
+            Id = 1,
+            PropertyId = 549357
+        };
+
+        var propertyEntity = new PropertyEntity
+        {
+            Id = 549357,
+            TaxZoneId = 1,
+            WardId = 5
+        };
+
+        assessmentEntity.PropertyMast = propertyEntity;
+
+        Assert.NotNull(assessmentEntity.PropertyMast);
+        Assert.Equal(549357, assessmentEntity.PropertyMast.Id);
+        Assert.Equal(1, assessmentEntity.PropertyMast.TaxZoneId);
+        Assert.Equal(5, assessmentEntity.PropertyMast.WardId);
+    }
+
+    [Fact]
+    public void PropertyAssessmentEntity_NavigationProperty_PropertyMast_CanBeNull()
+    {
+        var assessmentEntity = new PropertyAssessmentEntity
+        {
+            Id = 1,
+            PropertyId = 549357,
+            PropertyMast = null
+        };
+
+        Assert.Null(assessmentEntity.PropertyMast);
+    }
 }

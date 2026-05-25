@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Interfaces;
@@ -54,10 +55,56 @@ public partial class PropertyController : ControllerBase
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertyDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_propertyService, id, updateDto, _logger, ct);
 
+    [Authorize]
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_propertyService, id, _logger, ct);
 
+    /// <summary>
+    /// Deletes multiple property records by their IDs with transactional consistency.
+    /// Properties are soft-deleted by setting MarkedForDeletion=true and IsActive=false.
+    /// </summary>
+    /// <param name="ids">Array of property IDs to delete. Must not be null or empty.</param>
+    /// <param name="ct">Cancellation token to cancel the operation</param>
+    /// <returns>
+    /// 200 OK with BulkResult containing success count and any errors,
+    /// 400 Bad Request if ids array is null or empty,
+    /// 500 Internal Server Error if a critical failure occurs
+    /// </returns>
+    /// <response code="200">Returns bulk delete result with success/failure details for each property</response>
+    /// <response code="400">If the ids array is null, empty, or contains invalid values</response>
+    /// <response code="500">If a critical error occurs during the deletion process</response>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     DELETE /api/Property/Bulk
+    ///     [1, 2, 3, 4, 5]
+    ///     
+    /// **Transaction Behavior:**
+    /// - All database changes occur within a single database transaction
+    /// - If any property passes validation and is deleted, all those successful deletions are committed together
+    /// - If a critical error occurs (database error, system failure), ALL changes are rolled back
+    /// 
+    /// **Partial Success:**
+    /// This endpoint supports partial success where individual properties may be skipped (not deleted) due to:
+    /// - Property not found (404)
+    /// - Property already deleted
+    /// - Validation failures
+    /// - Business rule violations
+    /// 
+    /// Successfully deleted properties are committed even if others fail validation.
+    /// 
+    /// **Related Data:**
+    /// All related entities (PropertyDetails, PlotDetails, SocietyDetails, etc.) are also soft-deleted.
+    /// </remarks>
+    [Authorize]
+    [HttpDelete("Bulk")]
+    [ProducesResponseType(typeof(BulkResult<int>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_propertyService, ids, _logger, ct);
+        
     [HttpPost("Range")]
     public async Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
     {

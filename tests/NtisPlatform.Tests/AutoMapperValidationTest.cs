@@ -117,7 +117,12 @@ public class AutoMapperValidationTest
              "TaxPercentageMasterRV", "DepreciationMaster",
               "PropertyDetails", "PropertyMast", "Property", // Updated specific property names
               "RateSection", "RateSectionDetails", "BlockMaster",
-              "WaterConnectionMaster", "WaterRateMaster"
+              "WaterConnectionMaster", "WaterRateMaster", 
+              "PropertyAssessmentDetails", "PropertyCertificates", "PropertyTaxCalculationSection129Results",
+              "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
+              "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
+              "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup",
+             "TransMastRV"
           };
 
             // Check if all unmapped properties are in the expected list

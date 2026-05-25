@@ -4,7 +4,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities;
 
-[Table("RenterDetails", Schema = "PTIS")]
 public class RenterDetailEntity : BaseEntity, IHardDeletable
 {
     public int PropertyDetailsId { get; set; }

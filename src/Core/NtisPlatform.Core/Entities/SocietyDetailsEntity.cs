@@ -10,7 +10,6 @@ namespace NtisPlatform.Core.Entities;
 public class SocietyDetailsEntity : BaseEntity
 {
     public int? PropertyId { get; set; }
-
     public int? WingId { get; set; }
 
     [Column(TypeName = "nvarchar(30)")]
@@ -85,6 +84,5 @@ public class SocietyDetailsEntity : BaseEntity
     /// </summary>
     public DateTime? MarkedForDeletionDate { get; set; }
 
-
-    public PropertyEntity? PropertyMast { get; set; }
+    public virtual PropertyEntity? PropertyMast { get; set; }
 }

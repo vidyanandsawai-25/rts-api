@@ -7,7 +7,6 @@ namespace NtisPlatform.Core.Entities;
 /// Represents room-wise minus data in the PTIS system.
 /// Maps to PTIS.RoomWiseMinusData table.
 /// </summary>
-[Table("RoomWiseMinusData", Schema = "PTIS")]
 public class RoomWiseMinusDataEntity : BaseEntity, IHardDeletable
 {
     public int RoomWiseSubmissionId { get; set; }

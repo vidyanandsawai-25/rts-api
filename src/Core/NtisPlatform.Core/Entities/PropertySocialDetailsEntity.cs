@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Interfaces;
 ﻿using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Core.Entities;
@@ -13,7 +14,7 @@ public class PropertySocialDetailsEntity : BaseEntity
     public DateTime? DateValue { get; set; }
     public string? Remark { get; set; }
 
-    // Navigation properties
-    public PropertyEntity? Property { get; set; }
+   // Navigation property
+    public virtual PropertyEntity? PropertyMast { get; set; }
     public SocialAttributeEntity? SocialAttribute { get; set; }
 }

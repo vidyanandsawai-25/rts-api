@@ -1,6 +1,10 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -782,6 +786,7 @@ public class PropertySocietyDetailsTests
             var mockUnitOfWork = new Mock<IUnitOfWork>();
             var mockMapper = new Mock<IMapper>();
             var mockPropertyRepo = new Mock<IPropertyRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
 
             var expectedDto = new PropertySocietyDetailsDto
             {
@@ -794,7 +799,12 @@ public class PropertySocietyDetailsTests
                 .Setup(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+            {
+                AllowPropertyDeletionWithoutPaymentValidation = true
+            });
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
 
             var result = await service.GetSocietyDetailsAsync(549357);
 
@@ -812,6 +822,7 @@ public class PropertySocietyDetailsTests
             var mockUnitOfWork = new Mock<IUnitOfWork>();
             var mockMapper = new Mock<IMapper>();
             var mockPropertyRepo = new Mock<IPropertyRepository>();
+            var mockLogger = new Mock<ILogger<PropertyService>>();
 
             var dto = new UpdatePropertySocietyDetailsDto
             {
@@ -828,7 +839,12 @@ public class PropertySocietyDetailsTests
                 .Setup(r => r.UpdateSocietyDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResult);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+            {
+                AllowPropertyDeletionWithoutPaymentValidation = true
+            });
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
 
             var result = await service.UpdateSocietyDetailsAsync(549357, dto);
 

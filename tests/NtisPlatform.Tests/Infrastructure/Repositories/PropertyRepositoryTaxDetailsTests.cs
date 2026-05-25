@@ -10,11 +10,11 @@ namespace NtisPlatform.Tests.Infrastructure.Repositories;
 
 public class PropertyRepositoryTaxDetailsTests
 {
-    #region GetApartmentPropertyTaxDetailsAsync Tests
+    #region GetAggregatedPropertyTaxDetailsAsync Tests
 
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_NoMatchingProperties_ReturnsNull()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_NoMatchingProperties_ReturnsNull()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -23,12 +23,12 @@ public class PropertyRepositoryTaxDetailsTests
         using var context = new ApplicationDbContext(options);
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_WithTransMastRVRecords_ReturnsOrderedTaxAmountList()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_WithTransMastRVRecords_ReturnsOrderedTaxAmountList()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -54,7 +54,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyId);
@@ -75,7 +75,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_WithInactiveOrDeletedTransMastRV_ExcludesThem()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_WithInactiveOrDeletedTransMastRV_ExcludesThem()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -101,7 +101,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
@@ -110,7 +110,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_AggregatesAcrossMultipleProperties()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_AggregatesAcrossMultipleProperties()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -136,7 +136,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { WardId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(2, result.PropertyCount);
@@ -146,7 +146,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_RespectsTaxMasterIsActive()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_RespectsTaxMasterIsActive()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -172,7 +172,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
@@ -181,7 +181,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_FiltersByPartType_ReturnsMatchingProperties()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_FiltersByPartType_ReturnsMatchingProperties()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -210,7 +210,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);
@@ -220,7 +220,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_WithInactivePropertyType_ExcludesProperty()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_WithInactivePropertyType_ExcludesProperty()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -249,7 +249,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto();
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);
@@ -258,7 +258,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_PartTypeFilterCaseInsensitive()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_PartTypeFilterCaseInsensitive()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -281,7 +281,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
-        var result = await repository.GetApartmentPropertyTaxDetailsAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);
@@ -290,10 +290,10 @@ public class PropertyRepositoryTaxDetailsTests
 
     #endregion
 
-    #region GetApartmentPropertyTaxDetailsCVAsync Tests
+    #region GetAggregatedPropertyTaxDetailsCVAsync Tests
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_NoMatchingProperties_ReturnsNull()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_NoMatchingProperties_ReturnsNull()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -302,12 +302,12 @@ public class PropertyRepositoryTaxDetailsTests
         using var context = new ApplicationDbContext(options);
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_WithTransMastCVRecords_ReturnsOrderedTaxAmountList()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_WithTransMastCVRecords_ReturnsOrderedTaxAmountList()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -333,7 +333,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyId);
@@ -354,7 +354,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_WithInactiveOrDeletedTransMastCV_ExcludesThem()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_WithInactiveOrDeletedTransMastCV_ExcludesThem()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -380,7 +380,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
@@ -389,7 +389,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_AggregatesAcrossMultipleProperties()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_AggregatesAcrossMultipleProperties()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -415,7 +415,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { WardId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(2, result.PropertyCount);
@@ -425,7 +425,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_RespectsTaxMasterIsActive()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_RespectsTaxMasterIsActive()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -451,7 +451,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Single(result.TaxAmounts);
@@ -460,7 +460,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_FiltersByPartType_ReturnsMatchingProperties()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_FiltersByPartType_ReturnsMatchingProperties()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -489,7 +489,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);
@@ -499,7 +499,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_WithInactivePropertyType_ExcludesProperty()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_WithInactivePropertyType_ExcludesProperty()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -528,7 +528,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto();
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);
@@ -537,7 +537,7 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_PartTypeFilterCaseInsensitive()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_PartTypeFilterCaseInsensitive()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -560,7 +560,7 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
-        var result = await repository.GetApartmentPropertyTaxDetailsCVAsync(request);
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyCount);

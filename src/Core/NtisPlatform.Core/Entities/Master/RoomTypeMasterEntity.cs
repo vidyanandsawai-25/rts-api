@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Core.Entities.Master;
 
@@ -13,4 +14,5 @@ public class RoomTypeMasterEntity : BaseEntity
     
     [Column(TypeName = "nvarchar(50)")]
     public string RoomTypeCode { get; set; } = string.Empty;
+
 }

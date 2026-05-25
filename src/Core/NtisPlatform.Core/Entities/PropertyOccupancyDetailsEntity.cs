@@ -1,23 +1,17 @@
 using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities
 {
-    [Table("PropertyOccupancyDetails", Schema = "PTIS")]
-    public class PropertyOccupancyDetailsEntity :BaseEntity 
+    public class PropertyOccupancyDetailsEntity : BaseEntity, IHardDeletable
     {
-      
         public int PropertyDetailId { get; set; }
         public DateTime? OccupancyDate { get; set; }
-        [Column(TypeName = "nvarchar(30)")]
         public string? OccupancyNumber { get; set; }
-        [Column(TypeName = "nvarchar(100)")]
         public string? IssuedBy { get; set; }
-        [Column(TypeName = "nvarchar(250)")]
         public string? Remarks { get; set; }
         public bool MarkedForDeletion { get; set; }
         public DateTime? MarkedForDeletionDate { get; set; }
-     
+        public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
     }
 }

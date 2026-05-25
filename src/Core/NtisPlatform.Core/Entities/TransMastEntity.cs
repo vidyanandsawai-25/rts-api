@@ -1,15 +1,14 @@
+using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using NtisPlatform.Core.Entities.Master;
-
 
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
 /// Represents transaction master data in the PTIS system
 /// </summary>
-[Table("TransMast", Schema = "PTIS")]
-public class TransMastEntity : BaseEntity
+public class TransMastEntity : BaseEntity, IHardDeletable
 {
 
     public int PropertyId { get; set; }
@@ -62,4 +61,8 @@ public class TransMastEntity : BaseEntity
     /// </summary>
     [ForeignKey(nameof(TaxId))]
     public virtual TaxMasterEntity? Tax { get; set; }
+
+    public bool MarkedForDeletion { get; set; } = false;
+
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

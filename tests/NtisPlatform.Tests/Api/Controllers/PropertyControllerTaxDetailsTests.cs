@@ -230,7 +230,7 @@ public class PropertyControllerTaxDetailsTests
     {
         // Arrange
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyTaxApartmentDetailsDto?)null);
 
         // Act
@@ -253,7 +253,7 @@ public class PropertyControllerTaxDetailsTests
             TaxAmounts = new List<TaxAmountDto> { new TaxAmountDto { TaxName = "Property Tax", TaxAmount = 1000, DisplayOrder = 1 } }
         };
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
         // Act
@@ -273,7 +273,7 @@ public class PropertyControllerTaxDetailsTests
     {
         // Arrange
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
@@ -294,7 +294,7 @@ public class PropertyControllerTaxDetailsTests
         var query = new PropertyQueryParameters { WardId = 5, PropertyNo = "P123", PartType = "A", Type = "Flat", Id = 42 };
         PropertyApartmentTaxRequestDto? capturedDto = null;
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .Callback<PropertyApartmentTaxRequestDto, CancellationToken>((dto, ct) => capturedDto = dto)
             .ReturnsAsync(new PropertyTaxApartmentDetailsDto());
 
@@ -319,7 +319,7 @@ public class PropertyControllerTaxDetailsTests
     {
         // Arrange
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyTaxApartmentDetailsCVDto?)null);
 
         // Act
@@ -342,7 +342,7 @@ public class PropertyControllerTaxDetailsTests
             TaxAmounts = new List<TaxAmountDto> { new TaxAmountDto { TaxName = "CV Tax", TaxAmount = 2000, DisplayOrder = 1 } }
         };
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
         // Act
@@ -362,7 +362,7 @@ public class PropertyControllerTaxDetailsTests
     {
         // Arrange
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
@@ -383,7 +383,7 @@ public class PropertyControllerTaxDetailsTests
         var query = new PropertyQueryParameters { WardId = 7, PropertyNo = "P999", PartType = "B", Type = "Shop", Id = 99 };
         PropertyApartmentTaxRequestDto? capturedDto = null;
         _mockPropertyService
-            .Setup(s => s.GetApartmentPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.GetAggregatedPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
             .Callback<PropertyApartmentTaxRequestDto, CancellationToken>((dto, ct) => capturedDto = dto)
             .ReturnsAsync(new PropertyTaxApartmentDetailsCVDto());
 

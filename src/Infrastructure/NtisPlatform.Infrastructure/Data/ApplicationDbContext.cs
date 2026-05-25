@@ -69,7 +69,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
-
+    public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
@@ -134,12 +134,27 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
     public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
-    public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
+
+    // New child table entities with FK to PropertyMast
+    public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
+    public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
+    public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
     public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
+    public DbSet<PropertyImagesMastEntity> PropertyImagesMast { get; set; } = null!;
+    public DbSet<TaxPendingDetailsArchiveEntity> TaxPendingDetailsArchive { get; set; } = null!;
+    public DbSet<TaxPendingDetailsCVEntity> TaxPendingDetailsCV { get; set; } = null!;
+    public DbSet<TaxPendingDetailsLookupEntity> TaxPendingDetailsLookup { get; set; } = null!;
+    public DbSet<TaxPendingDetailsRetroEntity> TaxPendingDetailsRetro { get; set; } = null!;
+    public DbSet<TaxPendingDetailsRVEntity> TaxPendingDetailsRV { get; set; } = null!;
+    public DbSet<TaxPendingDetailsEntity> TaxPendingDetails { get; set; } = null!;
+    public DbSet<TransMastEntity> TransMast { get; set; } = null!;
+    public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
+    public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
+    public DbSet<RoomWiseMinusDataEntity> RoomWiseMinusData { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -149,6 +164,15 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PolicyTaxDetails", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.PolicyDate).HasColumnType("datetime");
+            entity.Property(e => e.PolicyYear);
+            entity.Property(e => e.PolicyReason).HasMaxLength(200);
+            entity.Property(e => e.PolicyRVorCVvalue).HasColumnType("money");
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.TaxAmount).HasColumnType("money");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
@@ -163,6 +187,10 @@ public class ApplicationDbContext : DbContext
                 .WithMany(p => p.PolicyTaxDetails)
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for better query performance
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.TaxId);
         });
 
         // NatureFactorCVMaster configuration
@@ -290,8 +318,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id);
             entity.Property(e => e.ConstructionTypeId);
             entity.Property(e => e.YearRangeRVId);
-            entity.Property(e => e.RateSquareMeter);
-            entity.Property(e => e.RateSquareFeet);
+            entity.Property(e => e.RateSquareMeter).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.RateSquareFeet).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Id);
             entity.Property(e => e.RateRemark);
             entity.Property(e => e.IsActive);
@@ -419,6 +447,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubFloorCode);
             entity.Property(e => e.Description);
             entity.Property(e => e.SubFloorPercentage);
+            // Configure relationships
+            entity.HasMany(e => e.PropertyDetails)
+                .WithOne(r => r.SubFloor)
+                .HasForeignKey(r => r.SubFloorId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
         modelBuilder.Entity<WardEntity>(entity =>
         {
@@ -426,7 +459,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Id).ValueGeneratedOnAdd();
             entity.Property(x => x.WardNo).IsRequired().HasMaxLength(10);
-            entity.Property(x => x.Id).IsRequired();
+            entity.Property(x => x.ZoneId).IsRequired();
             entity.Property(x => x.Description).HasMaxLength(50);
             entity.Property(x => x.SequenceNo);
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
@@ -1098,6 +1131,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.UlbTypeId);
             entity.HasIndex(e => e.IsActive);
         });
+
         // CombinePropertyHistory configuration
         modelBuilder.Entity<CombinePropertyHistoryEntity>(entity =>
         {
@@ -1122,13 +1156,23 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.RVorCVValue).HasColumnType("decimal(18,2)");
             entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.Property) 
+                    .WithMany(p => p.TransMast)
+                    .HasForeignKey(e => e.PropertyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(e => e.PropertyId);
+
         });
 
         // TaxPendingDetails configuration
@@ -1145,6 +1189,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyId);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(r => r.PropertyMast)
+                .WithMany(p => p.TaxPendingDetails)
+                .HasForeignKey(r => r.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>
@@ -1180,7 +1231,7 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.PropertyMast)
-                  .WithMany()
+                  .WithMany(p => p.RoomWiseSubmissionDetails)
                   .HasForeignKey(e => e.PropertyId)
                   .OnDelete(DeleteBehavior.Restrict);
 
@@ -1188,7 +1239,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyDetailsId);
             entity.HasIndex(e => e.PropertyId);
         });
-
+       
         // RoomWiseMinusData configuration
         modelBuilder.Entity<RoomWiseMinusDataEntity>(entity =>
         {
@@ -1319,16 +1370,14 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedDate);          
+            entity.Property(e => e.MarkedForDeletionDate);
             entity.HasIndex(e => e.PropertyId);
 
-            // Ignore columns that don't exist in database
-            // PropertyMastDetails table schema:
-            // ? MarkedForDeletion column EXISTS (mapped above)
-            // ? MarkedForDeletionDate column DOES NOT EXIST in database yet
-            // Entity has MarkedForDeletionDate property for IHardDeletable support,
-            // but we ignore it in EF Core to prevent SQL errors until column is added to database
-            entity.Ignore(e => e.MarkedForDeletionDate);
+            entity.HasOne(r => r.PropertyMast)
+                .WithMany(p => p.PropertyMastDetails)
+                .HasForeignKey(r => r.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // According to the actual database schema, WingNo does NOT exist in PropertyMastDetails table
             // WingNo is stored in SocietyDetailsMast table instead
@@ -1346,15 +1395,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.BuiltupAreaSqMeter).HasColumnType("float");
             entity.Property(e => e.CarpetAreaSqFeet).HasColumnType("float");
             entity.Property(e => e.BuiltupAreaSqFeet).HasColumnType("float");
+            entity.Property(e => e.ConstructionYear).HasColumnType("varchar(4)");
+            entity.Property(e => e.AssessmentYear).HasColumnType("nvarchar(4)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
             entity.HasIndex(e => e.Id);
 
-            // Configure relationships - explicitly specify the inverse navigation property
-            // to prevent EF Core from generating shadow foreign key properties
             entity.HasOne(e => e.Property)
                    .WithMany(p => p.PropertyDetails)
                     .HasForeignKey(e => e.PropertyId)
@@ -1385,20 +1436,16 @@ public class ApplicationDbContext : DbContext
                   .HasForeignKey(e => e.SubTypeOfUseId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Configure the collection relationship with RoomWiseSubmissionDetails
-            // This ensures EF Core uses PropertyDetailsId as FK instead of creating shadow property
             entity.HasMany(e => e.RoomWiseSubmissionDetails)
                   .WithOne(r => r.PropertyDetails)
                   .HasForeignKey(r => r.PropertyDetailsId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Configure the collection relationship with RenterDetails
             entity.HasMany(e => e.RenterDetails)
                   .WithOne(r => r.PropertyDetails)
                   .HasForeignKey(r => r.PropertyDetailsId)
                   .OnDelete(DeleteBehavior.Restrict);
 
-            // Configure the collection relationship with Renters (RenterMast)
             entity.HasMany(e => e.Renters)
                   .WithOne(r => r.PropertyDetails)
                   .HasForeignKey(r => r.PropertyDetailsId)
@@ -1411,18 +1458,34 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PlotDetails", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.Id).IsRequired();
+            entity.Property(e => e.PropertyId);
             entity.Property(e => e.PlotArea).HasColumnType("float");
-            entity.Property(e => e.PlotAreaFtLength).HasColumnType("float");
-            entity.Property(e => e.PlotAreaFtWidth).HasColumnType("float");
+            entity.Property(e => e.PlotTaxableAreaSqFt).HasColumnType("float");
+            entity.Property(e => e.OpenPlotType).HasMaxLength(10);
+            entity.Property(e => e.OpenPlotRenterName).HasMaxLength(1000);
+            entity.Property(e => e.OpenPlotLength).HasColumnType("float");
+            entity.Property(e => e.OpenPlotWidth).HasColumnType("float");
+            entity.Property(e => e.PlotTaxableAreaSqMtr).HasColumnType("float");
+            entity.Property(e => e.PlotAreaSqMtr).HasColumnType("float");
+            entity.Property(e => e.OpenPlotSubmissionType).HasColumnType("varchar(30)");
             entity.Property(e => e.PlotAreaMtrLength).HasColumnType("float");
             entity.Property(e => e.PlotAreaMtrWidth).HasColumnType("float");
+            entity.Property(e => e.PlotAreaFtLength).HasColumnType("float");
+            entity.Property(e => e.PlotAreaFtWidth).HasColumnType("float");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.Id);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                  .WithMany(p => p.PlotDetails)
+                  .HasForeignKey(e => e.PropertyId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
         });
 
         // SocietyDetails configuration
@@ -1470,6 +1533,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
 
             // Configure foreign key relationships
+            entity.HasOne(r => r.PropertyMast)
+             .WithMany(p => p.SocietyDetailsMast)
+             .HasForeignKey(r => r.PropertyId)
+             .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasOne<CommonRemarkTypeMasterEntity>()
                 .WithMany()
                 .HasForeignKey(e => e.ManagerMobileNoRemarkId)
@@ -1494,7 +1562,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.PartitionNo).HasMaxLength(10);
-            entity.Property(e => e.Id);
+           // entity.Property(e => e.Id);
             entity.Property(e => e.UPICId).HasMaxLength(30);
             entity.Property(e => e.OpenPlot);
             entity.Property(e => e.CSN).HasMaxLength(30);
@@ -1512,7 +1580,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Location).HasMaxLength(200);
             entity.Property(e => e.MobileNo).HasMaxLength(13);
             entity.Property(e => e.EmailId).HasMaxLength(100);
-            entity.Property(e => e.Id);
+           // entity.Property(e => e.Id);
             entity.Property(e => e.OwnerTitleEnglish).HasMaxLength(20);
             entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitleEnglish).HasMaxLength(20);
@@ -1544,8 +1612,8 @@ public class ApplicationDbContext : DbContext
             // Configure PropertyMastDetails (PropertyAssessmentEntity) relationship
             // This prevents EF Core from generating a shadow PropertyEntityId foreign key
             entity.HasMany(e => e.PropertyMastDetails)
-                .WithOne()
-                .HasForeignKey(e => e.PropertyId)
+                .WithOne(pmd => pmd.PropertyMast)
+                .HasForeignKey(pmd => pmd.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(e => e.PropertyTaxCalculationCVResults)
@@ -1570,7 +1638,7 @@ public class ApplicationDbContext : DbContext
 
             // Configure PlotDetails relationship
             entity.HasMany(e => e.PlotDetails)
-                .WithOne()
+                .WithOne(pd => pd.PropertyMast)
                 .HasForeignKey(pd => pd.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
@@ -1618,6 +1686,11 @@ public class ApplicationDbContext : DbContext
              .WithMany(c => c.Property)
              .HasForeignKey(e => e.TaxZoneId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertySocialDetails)
+                .WithOne(psd => psd.PropertyMast)
+                .HasForeignKey(psd => psd.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -1928,6 +2001,7 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyTaxCalculationCVResults", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
 
             // Unique constraint on (PropertyId, PropertyDetailsId, TaxId) to prevent duplicate tax calculations
@@ -1999,8 +2073,6 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("RenterDetails", "PTIS");
 
             entity.HasKey(e => e.Id);
-
-
             entity.Property(e => e.AgreementId).HasMaxLength(100);
             entity.Property(e => e.IncrementFrequency).HasMaxLength(50);
             entity.Property(e => e.IncrementType).HasMaxLength(50);
@@ -2143,9 +2215,33 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyTaxCalculationRVResults", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Depreciation).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Maintenance).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.RateableValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.REducationTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CEducationTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.REducationTaxPercentage).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CEducationTaxPercentage).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.REmploymentTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CEmploymentTax).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.REmploymentTaxPercentage).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CEmploymentTaxPercentage).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyTaxCalculationRVResults)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany(p => p.PropertyTaxCalculationRVResults)
+                .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -2250,11 +2346,26 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.FloorId, e.YearRangeCVId }).IsUnique();
         });
 
+        // FlagMaster configuration
         modelBuilder.Entity<FlagMasterEntity>(entity =>
         {
             entity.ToTable("FlagMaster", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.FlagMaster)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
         });
 
         modelBuilder.Entity<TaxPercentageMasterCVEntity>(entity =>
@@ -2264,7 +2375,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TaxId);
             entity.Property(e => e.TypeOfUseId);
             entity.Property(e => e.YearRangeCVId);
-            entity.Property(e => e.TaxPercentage);
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
@@ -2368,7 +2479,6 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PolicyTaxDetailsCVEntity>(entity =>
         {
             entity.ToTable("PolicyTaxDetailsCV", "PTIS");
-
             entity.HasKey(e => e.Id).HasName("PK_PolicyTaxDetailsCV");
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
@@ -2520,9 +2630,16 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("TransMastRV", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RateableValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(r => r.PropertyMast)
+              .WithMany(p => p.TransMastRV)
+             .HasForeignKey(r => r.PropertyId)
+            .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Document configuration
@@ -2986,6 +3103,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
 
+            entity.HasOne(r => r.PropertyMast)
+                 .WithMany(p => p.WaterConnectionMaster)
+                 .HasForeignKey(r => r.PropertyId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasOne(e => e.WaterConnectionType)
                 .WithMany(p => p.WaterConnectionMaster)
                 .HasForeignKey(e => e.WaterConnectionTypeId)
@@ -3137,6 +3259,281 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
 
+        // ApplyTaxesMaster configuration
+        modelBuilder.Entity<ApplyTaxesMasterEntity>(entity =>
+        {
+            entity.ToTable("ApplyTaxesMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.ApplyTaxesMaster)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PropertyAssessmentDetails configuration
+        modelBuilder.Entity<PropertyAssessmentDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertyAssessmentDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyAssessmentDetails)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+
+        // PropertyTaxCalculationSection129Results configuration
+        modelBuilder.Entity<PropertyTaxCalculationSection129ResultsEntity>(entity =>
+        {
+            entity.ToTable("PropertyTaxCalculationSection129Results", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PropertyDetailsId).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.MarkedForDeletion);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany(p => p.PropertyTaxCalculationSection129Results)
+                .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyTaxCalculationSection129Results)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // PropertyOccupancyDetails configuration
+        modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertyOccupancyDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyDetailId).IsRequired();
+            entity.Property(e => e.OccupancyDate);
+            entity.Property(e => e.OccupancyNumber).HasColumnType("nvarchar(30)");
+            entity.Property(e => e.IssuedBy).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.Remarks).HasColumnType("nvarchar(250)");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany(p => p.PropertyOccupancyDetails)
+                .HasForeignKey(e => e.PropertyDetailId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyDetailId);
+        });
+
+        // PropertyImagesMast configuration
+        modelBuilder.Entity<PropertyImagesMastEntity>(entity =>
+        {
+            entity.ToTable("PropertyImagesMast", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyImagesMast)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TaxPendingDetailsArchive configuration
+        modelBuilder.Entity<TaxPendingDetailsArchiveEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsArchive", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TaxPendingDetailsArchive)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TaxPendingDetailsCV configuration
+        modelBuilder.Entity<TaxPendingDetailsCVEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsCV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TaxPendingDetailsCV)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TaxPendingDetailsLookup configuration
+        modelBuilder.Entity<TaxPendingDetailsLookupEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsLookup", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TaxPendingDetailsLookup)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TaxPendingDetailsRetro configuration
+        modelBuilder.Entity<TaxPendingDetailsRetroEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsRetro", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TaxPendingDetailsRetro)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TaxPendingDetailsRV configuration
+        modelBuilder.Entity<TaxPendingDetailsRVEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsRV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TaxPendingDetailsRV)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TransMastArchive configuration
+        modelBuilder.Entity<TransMastArchiveEntity>(entity =>
+        {
+            entity.ToTable("TransMastArchive", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TransMastArchive)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        // TransMastLookup configuration
+        modelBuilder.Entity<TransMastLookupEntity>(entity =>
+        {
+            entity.ToTable("TransMastLookup", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.TransMastLookup)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+        });
+
+        //Asset Inventory Item Category configuration
         modelBuilder.Entity<AssetCategoryEntity>(entity =>
         {
             entity.ToTable("AssetCategoryMaster", "AMS");
@@ -3383,7 +3780,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ScreenMaster", "AMS");
             entity.HasKey(e => e.Id);
-
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.ScreenName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.ScreenCode).IsRequired().HasMaxLength(200);
@@ -3417,7 +3813,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("ScreenFormSectionMaster", "AMS");
             entity.HasKey(e => e.Id);
-
             entity.Property(e => e.SectionType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.SectionName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.SectionNameLocal).HasMaxLength(200);
@@ -3510,7 +3905,7 @@ public class ApplicationDbContext : DbContext
         });
 
         modelBuilder.Entity<SocialAttributeEntity>(entity =>
-           {
+        {
                entity.ToTable("SocialAttributeMaster", "PTIS");
                entity.HasKey(e => e.Id);
                entity.Property(e => e.Id).ValueGeneratedOnAdd();
@@ -3527,27 +3922,9 @@ public class ApplicationDbContext : DbContext
                entity.Property(e => e.UpdatedBy);
                entity.Property(e => e.UpdatedDate);
                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-           });
-
-        modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
-        {
-            entity.ToTable("PropertyOccupancyDetails", "PTIS");
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id).HasColumnName("Id");
-            entity.Property(e => e.PropertyDetailId).IsRequired();
-            entity.Property(e => e.OccupancyDate);
-            entity.Property(e => e.OccupancyNumber).HasColumnType("nvarchar(30)");
-            entity.Property(e => e.IssuedBy).HasColumnType("nvarchar(100)");
-            entity.Property(e => e.Remarks).HasColumnType("nvarchar(250)");
-            entity.Property(e => e.MarkedForDeletion).IsRequired();
-            entity.Property(e => e.MarkedForDeletionDate);
-            entity.Property(e => e.IsActive).IsRequired();
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired();
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
         });
+
+
         modelBuilder.Entity<PropertySocialDetailsEntity>(entity =>
         {
             entity.ToTable("PropertySocialDetails", "PTIS");
@@ -3570,7 +3947,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
 
             // Configure relationships
-            entity.HasOne(e => e.Property)
+            entity.HasOne(e => e.PropertyMast)
                 .WithMany(p => p.PropertySocialDetails)
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);

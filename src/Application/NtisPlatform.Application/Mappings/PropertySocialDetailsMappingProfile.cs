@@ -17,7 +17,7 @@ public class PropertySocialDetailsMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
-            .ForMember(dest => dest.Property, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyMast, opt => opt.Ignore())
             .ForMember(dest => dest.SocialAttribute, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
@@ -26,7 +26,7 @@ public class PropertySocialDetailsMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.Property, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyMast, opt => opt.Ignore())
             .ForMember(dest => dest.SocialAttribute, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }

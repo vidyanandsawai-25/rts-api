@@ -5,7 +5,6 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities
 {
-    [Table("TransMastCV", Schema = "PTIS")]
     public class TransMastCVEntity : BaseEntity, IHardDeletable
     {
         public int PropertyId { get; set; }

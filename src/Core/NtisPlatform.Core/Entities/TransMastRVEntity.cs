@@ -11,6 +11,7 @@ namespace NtisPlatform.Core.Entities
         public decimal TaxAmount { get; set; } = 0m;
         public bool MarkedForDeletion { get; set; } = false;
         public DateTime? MarkedForDeletionDate { get; set; } = null;
-        public PropertyEntity PropertyMast { get; set; } = null!;
+        public virtual PropertyEntity? PropertyMast { get; set; }
+        //public PropertyEntity PropertyMast { get; set; } = null!;
     }
 }

@@ -92,7 +92,7 @@ public partial class PropertyController
                 PropertyId = query.Id
             };
 
-            var result = await _propertyService.GetApartmentPropertyTaxDetailsAsync(dto, ct);
+            var result = await _propertyService.GetAggregatedPropertyTaxDetailsAsync(dto, ct);
 
             if (result == null)
             {
@@ -201,7 +201,7 @@ public partial class PropertyController
                 PropertyId = query.Id
             };
 
-            var result = await _propertyService.GetApartmentPropertyTaxDetailsCVAsync(dto, ct);
+            var result = await _propertyService.GetAggregatedPropertyTaxDetailsCVAsync(dto, ct);
 
             if (result == null)
             {

@@ -1,13 +1,19 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
+
 
 namespace NtisPlatform.Application.Services;
 
@@ -20,15 +26,21 @@ public class PropertyService
       IPropertyService
 {
     private readonly IPropertyRepository _propertyRepository;
+    private readonly ILogger<PropertyService> _logger;
+    private readonly FeatureFlagsOptions _featureFlags;
 
     public PropertyService(
         IRepository<PropertyEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        IPropertyRepository propertyRepository)
+        IPropertyRepository propertyRepository,
+        ILogger<PropertyService> logger,
+        IOptions<FeatureFlagsOptions> featureFlags)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
+        _logger = logger;
+        _featureFlags = featureFlags.Value;
     }
 
     public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
@@ -116,14 +128,14 @@ public class PropertyService
         return await _propertyRepository.DeleteFloorDetailsOldAsync(propertyId, floorId, cancellationToken);
     }
 
-    public async Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyTaxApartmentDetailsDto?> GetAggregatedPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
     {
-        return await _propertyRepository.GetApartmentPropertyTaxDetailsAsync(dto, cancellationToken);
+        return await _propertyRepository.GetAggregatedPropertyTaxDetailsAsync(dto, cancellationToken);
     }
 
-    public async Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyTaxApartmentDetailsCVDto?> GetAggregatedPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
     {
-        return await _propertyRepository.GetApartmentPropertyTaxDetailsCVAsync(dto, cancellationToken);
+        return await _propertyRepository.GetAggregatedPropertyTaxDetailsCVAsync(dto, cancellationToken);
     }
 
     public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
@@ -153,7 +165,6 @@ public class PropertyService
                     errors.Add($"Operation cancelled at Row {i + 1}.");
                     break;
                 }
-
                 try
                 {
                     if (string.IsNullOrWhiteSpace(rangeValues[i]))
@@ -221,7 +232,6 @@ public class PropertyService
                     break;
                 }
             }
-
             if (errors.Count > 0)
             {
                 try
@@ -271,6 +281,287 @@ public class PropertyService
             );
         }
     }
+    /// <summary>
+    /// Validates if a property can be safely deleted.
+    /// 
+    /// ⚠️ PAYMENT VALIDATION INCOMPLETE - Payment validation is a future feature pending BillTransactionDetails/BillTransactionDiscountDetails entities.
+    /// Feature flag acts as temporary ON/OFF gate, not real validation.
+    /// 
+    /// Feature Flag: AllowPropertyDeletionWithoutPaymentValidation
+    /// - false (production default): Blocks all deletions, safe for production
+    /// - true (dev only): Allows all deletions without checks, development/testing only
+    /// 
+    /// Implementation Steps: Create entities, add navigation properties, uncomment validation queries, update flag default, add tests.
+    /// Future Validation Roadmap: Phase 1 - Payment validation | Phase 2 - Assessments, tax calculations, property status, legal compliance, business rules
+    /// </summary>
+    protected override async Task<ValidationResult> ValidateForDeleteAsync(int id, PropertyEntity entity, CancellationToken cancellationToken = default)
+    {
+        // Check feature flag to determine if payment validation should be enforced
+        var allowDeletionWithoutPaymentValidation = _featureFlags.AllowPropertyDeletionWithoutPaymentValidation;
+
+        if (!allowDeletionWithoutPaymentValidation)
+        {
+            // PHASE 1: Payment validation
+            // Check for payment records that would prevent deletion
+            // TODO: Uncomment once BillTransactionDetails and BillTransactionDiscountDetails entities are created
+
+            // var billTransactionDetails = await _repository.GetQueryable()
+            //     .AsNoTracking()
+            //     .Where(p => p.Id == id)
+            //     .SelectMany(p => p.BillTransactionDetails)
+            //     .AnyAsync(cancellationToken);
+            //
+            // var billTransactionDiscountDetails = await _repository.GetQueryable()
+            //     .AsNoTracking()
+            //     .Where(p => p.Id == id)
+            //     .SelectMany(p => p.BillTransactionDiscountDetails)
+            //     .AnyAsync(cancellationToken);
+            //
+            // var hasPayments = billTransactionDetails || billTransactionDiscountDetails;
+            // if (hasPayments)
+            // {
+            //     return ValidationResult.Failure("This property cannot be deleted as it has payment transaction records.");
+            // }
+
+            // Log warning that payment validation is not yet implemented
+            _logger.LogWarning(
+                "Property deletion requested for PropertyId={PropertyId}, but payment validation is not yet implemented. " +
+                "Set FeatureFlags:AllowPropertyDeletionWithoutPaymentValidation=true to allow deletions without this check.",
+                id);
+
+            // Prevent deletion until payment validation is implemented
+            return ValidationResult.Failure(
+                "Property deletion is currently disabled. Payment transaction validation must be implemented before enabling this feature. " +
+                "Contact system administrator.");
+        }
+
+        // Feature flag is enabled - allow deletion without payment validation
+        _logger.LogWarning(
+            "Property deletion allowed for PropertyId={PropertyId} without payment validation. " +
+            "FeatureFlags:AllowPropertyDeletionWithoutPaymentValidation is set to true. " +
+            "This should only be enabled in development environments.",
+            id);
+
+        return ValidationResult.Success();
+    }
+
+    /// <summary>
+    /// Fetches and marks property details and their related entities for deletion.
+    /// 
+    /// ARCHITECTURE NOTE: This method handles entities with PropertyDetailsId (child-level relationships).
+    /// For entities with both PropertyId AND PropertyDetailsId, uses PropertyId-only queries (sufficient for deletion).
+    /// For entities with only PropertyDetailsId, uses PropertyDetailsId list queries.
+    /// 
+    /// NOTE: Queries are executed sequentially to avoid DbContext concurrency issues.
+    /// EF Core's DbContext is not thread-safe and cannot handle parallel queries on the same instance.
+    /// 
+    /// PERFORMANCE OPTIMIZATION: Consolidates multiple MarkEntitiesForDeletion calls by grouping related entities.
+    /// Reduces from 7 individual calls to 4 consolidated calls.
+    /// </summary>
+    private async Task MarkPropertyDetailsAndRelatedAsync(int propertyId, CancellationToken cancellationToken)
+    {
+        // STEP 1: Fetch and mark property details (required first for subsequent queries)
+        var propertyDetails = await _propertyRepository.GetPropertyDetailsByPropertyIdAsync(propertyId, cancellationToken);
+        var propertyDetailIds = propertyDetails.Select(x => x.Id).ToList();
+
+        // Call 1 of 4: Mark property details
+        _propertyRepository.MarkEntitiesForDeletion(propertyDetails);
+
+        // STEP 2: Fetch entities related by PropertyId (execute sequentially to avoid DbContext concurrency)
+        // PropertyId-only queries: For entities with BOTH PropertyId AND PropertyDetailsId columns
+        // PropertyId alone is sufficient because it's the primary FK relationship (guaranteed complete coverage)
+        // IMPORTANT: These queries must execute even if no PropertyDetails exist, because:
+        // - Entities CAN have PropertyId without PropertyDetailsId (property-level data, not floor-specific)
+        // - Historical data or partial data entry scenarios
+        // - Ensures complete cleanup even in edge cases
+        var rvResults = await _propertyRepository.GetRvResultsByPropertyIdAsync(propertyId, cancellationToken);
+        var section129Results = await _propertyRepository.GetSection129ResultsByPropertyIdAsync(propertyId, cancellationToken);
+        var roomWiseSubmissions = await _propertyRepository.GetRoomWiseSubmissionByPropertyIdAsync(propertyId, cancellationToken);
+
+        // Call 2 of 4: Mark all PropertyId-related entities in a single call
+        var allPropertyIdEntities = rvResults.Cast<IHardDeletable>()
+            .Concat(section129Results)
+            .Concat(roomWiseSubmissions);
+        _propertyRepository.MarkEntitiesForDeletion(allPropertyIdEntities);
+
+        // STEP 3: Fetch entities related by PropertyDetailsId (conditionally, only if PropertyDetails exist)
+        // PropertyDetailsId-based entities (occupancy, renters, renter details) cannot exist without PropertyDetails
+        // However, we must NOT return early here because RoomWiseMinusData (Step 4) needs to be
+        // processed even when PropertyDetails don't exist (since RoomWiseSubmissions can exist with
+        // PropertyId only and still have child minus-data records).
+        if (propertyDetailIds.Count > 0)
+        {
+            // PropertyDetailsId list queries: For entities with ONLY PropertyDetailsId column (no PropertyId)
+            var propertyOccupancy = await _propertyRepository.GetPropertyOccupancyByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
+            var renters = await _propertyRepository.GetRentersByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
+            var renterDetails = await _propertyRepository.GetRenterDetailsByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
+
+            // Call 3 of 4: Mark all PropertyDetailsId-related entities in a single call
+            var allPropertyDetailsIdEntities = propertyOccupancy.Cast<IHardDeletable>()
+                .Concat(renters)
+                .Concat(renterDetails);
+            _propertyRepository.MarkEntitiesForDeletion(allPropertyDetailsIdEntities);
+        }
+
+        // TODO: Uncomment when database table structure is finalized for PropertyTaxCalculationCVResultsEntity
+        // var cvResults = await _propertyRepository.GetCvResultsByPropertyIdAsync(propertyId, cancellationToken);
+        // Add cvResults to allPropertyDetailsIdEntities collection above
+
+        // STEP 4: Fetch and mark RoomWiseMinusData (child of RoomWiseSubmissionDetails)
+        // This entity only has RoomWiseSubmissionId FK (no PropertyId), so we query after fetching RoomWiseSubmissionDetails
+        // Must be separate because it depends on roomWiseSubmissions being fetched first
+        if (roomWiseSubmissions.Count > 0)
+        {
+            var roomWiseSubmissionIds = roomWiseSubmissions.Select(x => x.Id).ToList();
+            var roomWiseMinusData = await _propertyRepository.GetRoomWiseMinusBySubmissionIdsAsync(roomWiseSubmissionIds, cancellationToken);
+
+            // Call 4 of 4: Mark RoomWiseMinusData
+            _propertyRepository.MarkEntitiesForDeletion(roomWiseMinusData);
+        }
+
+        // STEP 5: Deactivate entities that extend BaseEntity but don't implement IHardDeletable
+        // These entities (PropertySocialDetails, WaterConnectionMaster) only get IsActive=false
+        // and UpdatedDate set, without MarkedForDeletion flags
+        var socialDetails = await _propertyRepository.GetPropertySocialDetailsByPropertyIdAsync(propertyId, cancellationToken);
+        var waterConnections = await _propertyRepository.GetWaterConnectionsByPropertyIdAsync(propertyId, cancellationToken);
+
+        var baseEntityOnly = socialDetails.Cast<BaseEntity>()
+            .Concat(waterConnections);
+
+        // Call 5: Deactivate BaseEntity-only entities (no MarkedForDeletion)
+        _propertyRepository.DeactivatePropertyEntities(baseEntityOnly);
+    }
+
+    /// <summary>
+    /// Fetches and marks all related entities for a property for deletion.
+    /// </summary>
+    private async Task MarkRelatedEntitiesForDeletionAsync(int propertyId, CancellationToken cancellationToken)
+    {
+        var relatedEntities = await _propertyRepository.GetRelatedEntitiesForDeletionAsync(propertyId, cancellationToken);
+        _propertyRepository.MarkEntitiesForDeletion(relatedEntities);
+    }
+
+    /// <summary>
+    /// Internal method containing the shared deletion logic for both single and bulk delete operations.
+    /// Performs soft-delete by marking entities with MarkedForDeletion flag and timestamp.
+    /// </summary>
+    /// <param name="propertyId">The ID of the property to delete</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>A tuple containing success status and optional error message</returns>
+    private async Task<(bool Success, string? ErrorMessage)> DeletePropertyInternalAsync(
+        int propertyId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Fetch parent property
+            var entity = await _repository.GetByIdAsync(propertyId, cancellationToken);
+
+            if (entity == null)
+            {
+                return (false, $"Property with ID {propertyId} does not exist.");
+            }
+
+            // Validation
+            var validationResult = await ValidateForDeleteAsync(propertyId, entity, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                return (false, validationResult.Errors.FirstOrDefault()?.ErrorMessage ?? "Validation failed.");
+            }
+
+            // Mark property details and their related entities
+            await MarkPropertyDetailsAndRelatedAsync(propertyId, cancellationToken);
+
+            // Mark all other related entities
+            await MarkRelatedEntitiesForDeletionAsync(propertyId, cancellationToken);
+
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Delete parent entity using repository method (applies soft deletion logic)
+            await _repository.DeleteAsync(entity, cancellationToken);
+
+            // Persist parent entity deletion
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete property with ID {PropertyId}", propertyId);
+            return (false, ex.Message);
+        }
+    }
+
+    public override async Task<bool> DeleteAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            var (success, errorMessage) = await DeletePropertyInternalAsync(propertyId, cancellationToken);
+
+            if (!success)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                _logger.LogWarning("Property deletion failed for ID {PropertyId}: {Error}", propertyId, errorMessage);
+                return false;
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError(ex, "Transaction failed for property deletion with ID {PropertyId}", propertyId);
+            return false;
+        }
+    }
+    public override async Task<BulkResult<int>> BulkDeleteAsync(
+    int[] ids,
+    CancellationToken cancellationToken = default)
+    {
+        if (ids.Length == 0)
+            return new BulkResult<int>(0, 0, []);
+
+        var deletedIds = new List<int>();
+        var errors = new List<string>();
+
+        foreach (var propertyId in ids)
+        {
+            // Each property gets its own transaction to prevent partial deletes
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+            try
+            {
+                var (success, errorMessage) = await DeletePropertyInternalAsync(propertyId, cancellationToken);
+
+                if (success)
+                {
+                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                    deletedIds.Add(propertyId);
+                }
+                else
+                {
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    errors.Add($"Property {propertyId}: {errorMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                errors.Add($"Property {propertyId}: {ex.Message}");
+                _logger.LogError(ex, "Bulk delete failed for property {PropertyId}", propertyId);
+            }
+        }
+
+        return new BulkResult<int>(
+            deletedIds.Count,
+            errors.Count,
+            deletedIds,
+            errors.Count > 0 ? errors : null);
+    }
+
  public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
     {
         if (items.Length == 0)

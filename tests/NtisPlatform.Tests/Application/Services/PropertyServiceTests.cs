@@ -9,6 +9,9 @@ using Xunit;
 using AutoMapper;
 using NtisPlatform.Application.DTOs.Range;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NtisPlatform.Application.Options;
 
 namespace NtisPlatform.Tests.Application.Services;
 
@@ -21,6 +24,8 @@ public class PropertyServiceTests
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IPropertyRepository> _mockPropertyRepository;
+    private readonly Mock<ILogger<PropertyService>> _mockLogger;
+    private readonly Mock<IOptions<FeatureFlagsOptions>> _mockFeatureFlags;
     private readonly PropertyService _service;
 
     public PropertyServiceTests()
@@ -29,12 +34,22 @@ public class PropertyServiceTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
         _mockPropertyRepository = new Mock<IPropertyRepository>();
+        _mockLogger = new Mock<ILogger<PropertyService>>();
+        _mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+
+        // Setup feature flag - allow deletion without payment validation in tests
+        _mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
+        {
+            AllowPropertyDeletionWithoutPaymentValidation = true
+        });
 
         _service = new PropertyService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
-            _mockPropertyRepository.Object);
+            _mockPropertyRepository.Object,
+            _mockLogger.Object,
+            _mockFeatureFlags.Object);
     }
 
     #region GetBasicDetailsAsync Tests
@@ -405,20 +420,20 @@ public class PropertyServiceTests
 
     #endregion
 
-    #region GetApartmentPropertyTaxDetailsAsync Tests
+    #region GetAggregatedPropertyTaxDetailsAsync Tests
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsAsync_ReturnsApartmentPropertyTaxDetails()
+    public async Task GetAggregatedPropertyTaxDetailsAsync_ReturnsApartmentPropertyTaxDetails()
     {
         // Arrange
         var dto = new PropertyApartmentTaxRequestDto();
         var expectedDto = new PropertyTaxApartmentDetailsDto();
         _mockPropertyRepository
-            .Setup(x => x.GetApartmentPropertyTaxDetailsAsync(dto, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAggregatedPropertyTaxDetailsAsync(dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
         // Act
-        var result = await _service.GetApartmentPropertyTaxDetailsAsync(dto);
+        var result = await _service.GetAggregatedPropertyTaxDetailsAsync(dto);
 
         // Assert
         Assert.Equal(expectedDto, result);
@@ -426,20 +441,20 @@ public class PropertyServiceTests
 
     #endregion
 
-    #region GetApartmentPropertyTaxDetailsCVAsync Tests
+    #region GetAggregatedPropertyTaxDetailsCVAsync Tests
 
     [Fact]
-    public async Task GetApartmentPropertyTaxDetailsCVAsync_ReturnsApartmentPropertyTaxDetailsCV()
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_ReturnsApartmentPropertyTaxDetailsCV()
     {
         // Arrange
         var dto = new PropertyApartmentTaxRequestDto();
         var expectedDto = new PropertyTaxApartmentDetailsCVDto();
         _mockPropertyRepository
-            .Setup(x => x.GetApartmentPropertyTaxDetailsCVAsync(dto, It.IsAny<CancellationToken>()))
+            .Setup(x => x.GetAggregatedPropertyTaxDetailsCVAsync(dto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedDto);
 
         // Act
-        var result = await _service.GetApartmentPropertyTaxDetailsCVAsync(dto);
+        var result = await _service.GetAggregatedPropertyTaxDetailsCVAsync(dto);
 
         // Assert
         Assert.Equal(expectedDto, result);

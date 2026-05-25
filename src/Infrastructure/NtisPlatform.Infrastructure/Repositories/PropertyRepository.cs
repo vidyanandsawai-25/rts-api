@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
@@ -15,7 +16,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     public PropertyRepository(ApplicationDbContext context) : base(context)
     {
     }
-
+    
     public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // DTO-only flow: Repository returns DTO directly
@@ -1893,15 +1894,15 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
         return true;
     }
-    public async Task<PropertyTaxApartmentDetailsDto?> GetApartmentPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyTaxApartmentDetailsDto?> GetAggregatedPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
     {
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
-                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
-                                       (normalizedPartType == null || (pt.PartType != null && EF.Functions.Like(pt.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
+                                       (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
                                        (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&
                                        pt.IsActive
@@ -1949,15 +1950,15 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         };
     }
 
-    public async Task<PropertyTaxApartmentDetailsCVDto?> GetApartmentPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
+    public async Task<PropertyTaxApartmentDetailsCVDto?> GetAggregatedPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
     {
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
-                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && EF.Functions.Like(pm.PropertyNo.ToLower(), $"%{normalizedPropertyNo}%"))) &&
-                                       (normalizedPartType == null || (pt.PartType != null && EF.Functions.Like(pt.PartType.ToLower(), $"%{normalizedPartType}%"))) &&
+                                       (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
+                                       (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
                                        (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&
                                        pt.IsActive
@@ -2369,6 +2370,292 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
     {
         return values.Any(v =>
             source.Contains(v, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Gets all RoomWiseMinusData entities by list of RoomWiseSubmissionId values.
+    /// Used during property deletion to mark all minus data records for deletion.
+    /// This entity only has RoomWiseSubmissionId column (no PropertyId), so we query by parent RoomWiseSubmissionDetails IDs.
+    /// </summary>
+    public async Task<List<RoomWiseMinusDataEntity>> GetRoomWiseMinusBySubmissionIdsAsync(List<int> roomWiseSubmissionIds, CancellationToken cancellationToken = default)
+    {
+        return await _context.RoomWiseMinusData
+            .Where(x => roomWiseSubmissionIds.Contains(x.RoomWiseSubmissionId))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets PropertyDetails entities for a property.
+    /// Used as the first step in property deletion to identify related PropertyDetailsId values.
+    /// </summary>
+    public async Task<List<PropertyDetailsEntity>> GetPropertyDetailsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyDetails
+            .Where(pd => pd.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    #region PropertyTaxCalculationRVResults - Entity has BOTH PropertyId AND PropertyDetailsId
+
+    /// <summary>
+    /// Gets all PropertyTaxCalculationRVResults for a property by PropertyId.
+    /// USED FOR DELETION: PropertyId alone is sufficient because it's the primary FK relationship.
+    /// All RV results for a property MUST have PropertyId, so this query guarantees complete coverage.
+    /// </summary>
+    public async Task<List<PropertyTaxCalculationRVResultsEntity>> GetRvResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyTaxCalculationRVResults
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region PropertyTaxCalculationSection129Results - Entity has BOTH PropertyId AND PropertyDetailsId
+
+    /// <summary>
+    /// Gets all PropertyTaxCalculationSection129Results for a property by PropertyId.
+    /// USED FOR DELETION: PropertyId alone is sufficient because it's the primary FK relationship.
+    /// All Section129 results for a property MUST have PropertyId, so this query guarantees complete coverage.
+    /// </summary>
+    public async Task<List<PropertyTaxCalculationSection129ResultsEntity>> GetSection129ResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyTaxCalculationSection129Results
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region Entities with ONLY PropertyDetailsId (no PropertyId column)
+
+    /// <summary>
+    /// Gets PropertyOccupancyDetails by PropertyDetailsId list.
+    /// This entity only has PropertyDetailId column (no PropertyId), so simple query is sufficient.
+    /// </summary>
+    public async Task<List<PropertyOccupancyDetailsEntity>> GetPropertyOccupancyByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyOccupancyDetails
+            .Where(x => propertyDetailIds.Contains(x.PropertyDetailId))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets RenterMast by PropertyDetailsId list.
+    /// This entity only has PropertyDetailsId column (no PropertyId), so simple query is sufficient.
+    /// </summary>
+    public async Task<List<RenterMastEntity>> GetRentersByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default)
+    {
+        return await _context.RenterMast
+            .Where(x => propertyDetailIds.Contains(x.PropertyDetailsId))
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region RoomWiseSubmissionDetails - Entity has BOTH PropertyId AND PropertyDetailsId (nullable)
+
+    /// <summary>
+    /// Gets all RoomWiseSubmissionDetails for a property by PropertyId.
+    /// USED FOR DELETION: PropertyId alone is sufficient to catch all records.
+    /// Catches all records regardless of PropertyDetailsId state (NULL, valid, or orphaned).
+    /// Use this method when deleting a property to ensure no orphaned records remain.
+    /// </summary>
+    public async Task<List<RoomWiseSubmissionDetailsEntity>> GetRoomWiseSubmissionByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.RoomWiseSubmissionDetails
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region Entities with ONLY PropertyId - BaseEntity only (no IHardDeletable)
+
+    /// <summary>
+    /// Gets PropertySocialDetails by PropertyId.
+    /// This entity extends BaseEntity but does NOT implement IHardDeletable.
+    /// Used for deactivation (IsActive=false) during property deletion.
+    /// </summary>
+    public async Task<List<PropertySocialDetailsEntity>> GetPropertySocialDetailsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<PropertySocialDetailsEntity>()
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets WaterConnectionMaster by PropertyId.
+    /// This entity extends BaseEntity but does NOT implement IHardDeletable.
+    /// Used for deactivation (IsActive=false) during property deletion.
+    /// </summary>
+    public async Task<List<WaterConnectionMasterEntity>> GetWaterConnectionsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<WaterConnectionMasterEntity>()
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    // TODO: Uncomment when database table structure is finalized for PropertyTaxCalculationCVResultsEntity
+    //public async Task<List<PropertyTaxCalculationCVResultsEntity>> GetCvResultsByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default)
+    //{
+    //    return await _context.PropertyTaxCalculationCVResults
+    //        .AsNoTracking()
+    //        .Where(x => propertyDetailIds.Contains(x.PropertyDetailsIds))
+    //        .ToListAsync(cancellationToken);
+    //}
+
+    /// <summary>
+    /// Gets RenterDetail entities by PropertyDetailsId list.
+    /// This entity only has PropertyDetailsId column (no PropertyId), so simple query is sufficient.
+    /// Used during property deletion to identify and mark all renter detail records.
+    /// </summary>
+    public async Task<List<RenterDetailEntity>> GetRenterDetailsByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default)
+    {
+        return await _context.RenterDetails
+            .AsNoTracking()
+            .Where(x => propertyDetailIds.Contains(x.PropertyDetailsId))
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets all related entities for a property that need to be marked for deletion.
+    /// Returns entities implementing IHardDeletable.
+    /// 
+    /// NOTE: Queries are executed sequentially to avoid DbContext concurrency issues.
+    /// EF Core's DbContext is not thread-safe and cannot handle parallel queries on the same instance.
+    /// </summary>
+    public async Task<List<IHardDeletable>> GetRelatedEntitiesForDeletionAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // Build the list of related entities
+        var relatedEntities = new List<IHardDeletable>();
+
+        // Execute queries sequentially to avoid DbContext concurrency issues
+        // Each query is independent but must run one at a time on the same DbContext
+
+        var applyTaxes = await _context.ApplyTaxesMaster.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(applyTaxes);
+
+        var flags = await _context.FlagMaster.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(flags);
+
+        var plots = await _context.PlotDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(plots);
+
+        var policyTax = await _context.PolicyTaxDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(policyTax);
+
+        var assessmentDetails = await _context.PropertyAssessmentDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(assessmentDetails);
+
+        var images = await _context.PropertyImagesMast.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(images);
+
+        // Note: PropertySocialDetails and WaterConnectionMaster do not implement IHardDeletable.
+        // These entities are now handled using DeactivatePropertyEntities() in PropertyService.MarkPropertyDetailsAndRelatedAsync().
+        // They only get IsActive=false and UpdatedDate set, without MarkedForDeletion flags.
+
+        // Note: PropertyTaxCalculationCVResultsEntity and RenterDetailEntity use PropertyDetailsId (not PropertyId).
+        // They are handled in PropertyService.MarkPropertyDetailsAndRelatedAsync() method with TODO comments there.
+
+        var taxPending = await _context.TaxPendingDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPending);
+
+        var taxPendingArchive = await _context.TaxPendingDetailsArchive.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPendingArchive);
+
+        var taxPendingCV = await _context.TaxPendingDetailsCV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPendingCV);
+
+        var taxPendingLookup = await _context.TaxPendingDetailsLookup.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPendingLookup);
+
+        var taxPendingRetro = await _context.TaxPendingDetailsRetro.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPendingRetro);
+
+        var taxPendingRV = await _context.TaxPendingDetailsRV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(taxPendingRV);
+
+        var transMast = await _context.TransMast.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(transMast);
+
+        var transMastArchive = await _context.TransMastArchive.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(transMastArchive);
+
+        var transMastLookup = await _context.TransMastLookup.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(transMastLookup);
+
+        var transMastRV = await _context.TransMastRV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(transMastRV);
+
+        var transMastCV = await _context.TransMastCV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(transMastCV);
+
+        // TODO: Uncomment when database table structure is finalized
+
+        //var propertyCertificates = await _context.PropertyCertificates.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        //relatedEntities.AddRange(propertyCertificates);
+
+        var propertyAssessments = await _context.PropertyMastDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        relatedEntities.AddRange(propertyAssessments);
+
+        //var societyDetails = await _context.SocietyDetails.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
+        //relatedEntities.AddRange(societyDetails);
+
+        return relatedEntities;
+    }
+
+    /// <summary>
+    /// Marks a collection of entities for soft deletion using the same logic as Repository.DeleteAsync.
+    /// Sets MarkedForDeletion to true, MarkedForDeletionDate to current time (if not already set),
+    /// IsActive to false, and UpdatedDate to current time for entities implementing BaseEntity.
+    /// This method ensures consistency with the deletion logic in the base Repository class.
+    /// </summary>
+    /// <typeparam name="T">Entity type that implements IHardDeletable</typeparam>
+    /// <param name="entities">The entities to mark for deletion</param>
+    public void MarkEntitiesForDeletion<T>(IEnumerable<T> entities) where T : class, IHardDeletable
+    {
+        var deletionTime = DateTime.Now;
+
+        foreach (var entity in entities)
+        {
+            // Set hard deletion flags
+            entity.MarkedForDeletion = true;
+
+            // Only set deletion date if not already set (preserves original deletion timestamp)
+            if (!entity.MarkedForDeletionDate.HasValue)
+            {
+                entity.MarkedForDeletionDate = deletionTime;
+            }
+
+            // Set IsActive and UpdatedDate if the entity is a BaseEntity
+            if (entity is BaseEntity baseEntity)
+            {
+                baseEntity.IsActive = false;
+                baseEntity.UpdatedDate = deletionTime;
+            }
+
+            // Mark entity as modified in EF Core
+            _context.Entry(entity).State = EntityState.Modified;
+        }
+    }
+    /// <summary>
+    /// Deactivates a collection of BaseEntity-derived entities by setting IsActive = false and UpdatedDate = now.
+    /// Does NOT touch MarkedForDeletion or MarkedForDeletionDate.
+    /// Used for entities that don't implement IHardDeletable (e.g., PropertySocialDetails, WaterConnectionMaster).
+    /// </summary>
+    /// <param name="entities">The entities to deactivate</param>
+    public void DeactivatePropertyEntities(IEnumerable<BaseEntity> entities)
+    {
+        var now = DateTime.Now;
+        foreach (var entity in entities)
+        {
+            entity.IsActive = false;
+            entity.UpdatedDate = now;
+            _context.Entry(entity).State = EntityState.Modified;
+        }
     }
 
     public async Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)

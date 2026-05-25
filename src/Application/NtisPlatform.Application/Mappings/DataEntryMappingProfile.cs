@@ -33,7 +33,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
-      
+
             .ForMember(dest => dest.Property, opt => opt.Ignore())
             .ForMember(dest => dest.Floor, opt => opt.Ignore())
             .ForMember(dest => dest.SubFloor, opt => opt.Ignore())
@@ -42,7 +42,11 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.SubTypeOfUse, opt => opt.Ignore())
             .ForMember(dest => dest.RenterDetails, opt => opt.Ignore())
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
-            .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore());
+            .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 
         // ── Update DTO → Entity ──────────────────────────────────────
         CreateMap<UpdatePropertyDetailsDto, PropertyDetailsEntity>()
@@ -52,7 +56,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
-            
+
             .ForMember(dest => dest.Property, opt => opt.Ignore())
             .ForMember(dest => dest.Floor, opt => opt.Ignore())
             .ForMember(dest => dest.SubFloor, opt => opt.Ignore())
@@ -61,7 +65,11 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.SubTypeOfUse, opt => opt.Ignore())
             .ForMember(dest => dest.RenterDetails, opt => opt.Ignore())
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
-            .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore());
+            .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 
         // ── Entity → Update DTO ──────────────────────────────────────
         CreateMap<PropertyDetailsEntity, UpdatePropertyDetailsDto>()
