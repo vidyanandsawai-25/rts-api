@@ -295,6 +295,64 @@ public class PropertyService
             );
         }
     }
+
+    public async Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default)
+    {
+        // Map query parameters to repository request DTO
+        var searchRequest = new PropertySearchRequestDto
+        {
+            DashboardFilter = queryParameters.DashboardFilter,
+            PropertyProcessFilter = queryParameters.PropertyProcessFilter,
+            PropertyTypeId = queryParameters.PropertyTypeId,
+            TypeOfUseId = queryParameters.TypeOfUseId,
+            ZoneId = queryParameters.ZoneId,
+            WardId = queryParameters.WardId,
+            CategoryId = queryParameters.CategoryId,
+            PropertyNoFrom = queryParameters.PropertyNoFrom,
+            PropertyNoTo = queryParameters.PropertyNoTo,
+            OldPropertyNo = queryParameters.OldPropertyNo,
+            UPICId = queryParameters.UPICId,
+            CSN = queryParameters.CSN,
+            SubZoneNo = queryParameters.SubZoneNo,
+            PlotNo = queryParameters.PlotNo,
+            PropertyAssessmentStatusId = queryParameters.PropertyAssessmentStatusId,
+            MobileNo = queryParameters.MobileNo,
+            OwnerName = queryParameters.OwnerName,
+            OccupierName = queryParameters.OccupierName,
+            FlatOrShopName = queryParameters.FlatOrShopName,
+            SocietyName = queryParameters.SocietyName,
+            Address = queryParameters.Address
+        };
+
+        var (totalCount, items) = await _propertyRepository.SearchPropertiesAsync(
+            searchRequest,
+            queryParameters.PageNumber,
+            queryParameters.PageSize,
+            cancellationToken);
+
+        var pageNumber = queryParameters.PageNumber;
+        var pageSize = queryParameters.PageSize;
+
+        if (queryParameters.PageSize == -1)
+        {
+            pageNumber = 1;
+            pageSize = Math.Max(1, totalCount);
+        }
+
+        return new PagedResult<PropertySearchResponseDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetPropertyDashboardStatsAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Validates if a property can be safely deleted.
     /// 
@@ -617,7 +675,7 @@ public class PropertyService
 
                     results.Add(res);
                 }
-            
+
 
             await _unitOfWork.CommitTransactionAsync(ct);
 

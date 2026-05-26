@@ -201,6 +201,23 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId);
 
     /// <summary>
+    /// Searches properties based on Quick Search or KYC Search criteria with pagination
+    /// </summary>
+    /// <param name="searchRequest">Search parameters from either Quick Search or KYC Search tab</param>
+    /// <param name="pageNumber">Page number for pagination</param>
+    /// <param name="pageSize">Page size for pagination</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Total count and list of properties matching search criteria</returns>
+    Task<(int TotalCount, List<PropertySearchResponseDto> Items)> SearchPropertiesAsync(PropertySearchRequestDto searchRequest, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets property dashboard statistics for the property search screen
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Dashboard statistics with various property counts</returns>
+    Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves all RoomWiseMinusData entities by list of RoomWiseSubmissionId values.
     /// Used during property deletion to mark all minus data records for deletion.
     /// This entity only has RoomWiseSubmissionId column (no PropertyId), so we query by parent RoomWiseSubmissionDetails IDs.

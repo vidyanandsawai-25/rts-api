@@ -1,6 +1,7 @@
-using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Range;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
 
@@ -42,15 +43,33 @@ public interface IPropertyService
     /// Gets the aggregated property tax CV details for the specified apartment tax request.
     /// </summary>
     /// <param name="dto">The apartment tax request parameters.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation, containing the aggregated property tax CV details if found.</returns>
-    Task<PropertyTaxApartmentDetailsCVDto?> GetAggregatedPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
+	/// <param name="cancellationToken">The cancellation token.</param>
+	/// <returns>A task representing the asynchronous operation, containing the aggregated property tax CV details if found.</returns>
+	Task<PropertyTaxApartmentDetailsCVDto?> GetAggregatedPropertyTaxDetailsCVAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default);
+
 	/// <summary>
-    /// Creates multiple properties based on a range request.
+	/// Creates multiple properties based on a range request.
+	/// </summary>
+	/// <param name="request">The range creation parameters.</param>
+	/// <param name="ct">The cancellation token.</param>
+	/// <returns>A task representing the asynchronous operation.</returns>
+	Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct);
+
+    /// <summary>
+    /// Searches properties based on Quick Search or KYC Search criteria.
     /// </summary>
-    /// <param name="request">The range creation parameters.</param>
-    /// <param name="ct">The cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct);
-	Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
+    /// <param name="queryParameters">Search query parameters with pagination</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paged list of properties matching search criteria</returns>
+    Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets property dashboard statistics for the property search screen.
+    /// Shows counts like Registered, Geo-Sequencing, Assessed, Unassessed, Survey properties.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Dashboard statistics</returns>
+    Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+
+    Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
 }
