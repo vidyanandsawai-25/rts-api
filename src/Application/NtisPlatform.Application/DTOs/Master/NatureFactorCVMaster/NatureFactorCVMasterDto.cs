@@ -29,7 +29,7 @@ namespace NtisPlatform.Application.DTOs.Master.NatureFactorCVMaster
         public int ConstructionTypeId { get; set; }
 
         [Required(ErrorMessage = "Factor_Required")]
-        [Range(0.01, 999.99, ErrorMessage = "Factor_Range")]
+        [Range(0, 999.99, ErrorMessage = "Factor_Range")]
         public decimal Factor { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "YearRangeCVId_Required")]
@@ -43,7 +43,7 @@ namespace NtisPlatform.Application.DTOs.Master.NatureFactorCVMaster
         public int ConstructionTypeId { get; set; }
 
         [Required(ErrorMessage = "Factor_Required")]
-        [Range(0.01, 999.99, ErrorMessage = "Factor_Range")]
+        [Range(0, 999.99, ErrorMessage = "Factor_Range")]
         public decimal Factor { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "YearRangeCVId_Required")]
@@ -65,7 +65,7 @@ namespace NtisPlatform.Application.DTOs.Master.NatureFactorCVMaster
         [Range(1, int.MaxValue, ErrorMessage = "ConstructionTypeId_Required")]
         public int? ConstructionTypeId { get; set; }
 
-        [Range(0.01, 999.99, ErrorMessage = "Factor_Range")]
+        [Range(0, 999.99, ErrorMessage = "Factor_Range")]
         public decimal? Factor { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "YearRangeCVId_Required")]
