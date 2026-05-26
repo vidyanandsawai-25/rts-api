@@ -2143,7 +2143,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         // Null check for request body
         ArgumentNullException.ThrowIfNull(dto);
 
-        var propertyExists = await _context.PropertyMast.AnyAsync( x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId || x.PartitionNo == dto.PartitionNo , cancellationToken);
+        var propertyExists = await _context.PropertyMast.AnyAsync( x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId && x.PartitionNo == "", cancellationToken);
 
         if (propertyExists)
             return new CreateNewPropertyResponseDto

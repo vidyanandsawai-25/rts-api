@@ -95,6 +95,11 @@ public class PropertyQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     public bool? MarkedForDeletion { get; set; }
 
+    /// <summary>
+    /// Sort by PropertySeqNo.
+    /// </summary>
+    [Sortable]
+    public int? PropertySeqNo { get; set; }
 
     /// <summary>
     /// Filter by IsActive status
