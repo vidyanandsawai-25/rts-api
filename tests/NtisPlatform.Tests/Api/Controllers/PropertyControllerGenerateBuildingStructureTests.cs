@@ -881,4 +881,174 @@ public class PropertyControllerGenerateBuildingStructureTests
     }
 
     #endregion
+
+    #region GetBuildingListAsync Tests
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithValidWardId_ReturnsOkWithItems()
+    {
+        // Arrange
+        var wardId = 1;
+        var expectedResult = new List<BuildingListDto>
+        {
+            new() { PropertyId = 1, WardNo = "W001", PropertyNo = "P001", CatPropertyCategoryName = "Residential", PartitionNo = "A" },
+            new() { PropertyId = 2, WardNo = "W001", PropertyNo = "P002", CatPropertyCategoryName = "Commercial", PartitionNo = "B" }
+        };
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ApiResponse<List<BuildingListDto>>>().Subject;
+        
+        response.Success.Should().BeTrue();
+        response.Message.Should().Be("Record fetched successfully");
+        response.Items.Should().NotBeNull();
+        response.Items.Should().HaveCount(2);
+        response.Items.Should().BeEquivalentTo(expectedResult);
+
+        _mockPropertyService.Verify(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithNonExistentWardId_ReturnsNotFound()
+    {
+        // Arrange
+        var wardId = 999;
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((List<BuildingListDto>?)null);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, CancellationToken.None);
+
+        // Assert
+        var notFoundResult = result.Should().BeOfType<NotFoundObjectResult>().Subject;
+        var response = notFoundResult.Value.Should().BeOfType<ApiResponse<BuildingListDto>>().Subject;
+        
+        response.Success.Should().BeFalse();
+        response.Message.Should().Contain("999");
+        response.Message.Should().Contain("not found");
+
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("999") && v.ToString()!.Contains("not found")),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithException_ReturnsInternalServerError()
+    {
+        // Arrange
+        var wardId = 1;
+        var expectedException = new Exception("Database connection failed");
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(expectedException);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, CancellationToken.None);
+
+        // Assert
+        var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
+        statusCodeResult.StatusCode.Should().Be(500);
+        
+        var response = statusCodeResult.Value.Should().BeOfType<ApiResponse<BuildingListDto>>().Subject;
+        response.Success.Should().BeFalse();
+        response.Message.Should().Contain("error");
+
+        _mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Error,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error retrieving building details")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithEmptyResult_ReturnsOkWithEmptyList()
+    {
+        // Arrange
+        var wardId = 1;
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ApiResponse<List<BuildingListDto>>>().Subject;
+        
+        response.Success.Should().BeTrue();
+        response.Items.Should().NotBeNull();
+        response.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithCancellationToken_PassesTokenToService()
+    {
+        // Arrange
+        var wardId = 1;
+        var cts = new CancellationTokenSource();
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, cts.Token))
+            .ReturnsAsync([]);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, cts.Token);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        _mockPropertyService.Verify(s => s.GetBuildingListAsync(wardId, cts.Token), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetBuildingListAsync_WithLargeDataset_ReturnsOkWithAllItems()
+    {
+        // Arrange
+        var wardId = 1;
+        var expectedResult = Enumerable.Range(1, 100)
+            .Select(i => new BuildingListDto
+            {
+                PropertyId = i,
+                WardNo = "W001",
+                PropertyNo = $"P{i:D3}",
+                CatPropertyCategoryName = i % 2 == 0 ? "Residential" : "Commercial",
+                PartitionNo = $"Part{i}"
+            })
+            .ToList();
+
+        _mockPropertyService
+            .Setup(s => s.GetBuildingListAsync(wardId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResult);
+
+        // Act
+        var result = await _controller.GetBuildingListAsync(wardId, CancellationToken.None);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<ApiResponse<List<BuildingListDto>>>().Subject;
+        
+        response.Success.Should().BeTrue();
+        response.Items.Should().HaveCount(100);
+    }
+
+    #endregion
 }

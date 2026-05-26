@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -198,7 +199,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         property.SubZoneNo = dto.SubZoneNo;
         property.MoujaId = dto.MoujaId;
         property.UpdatedDate = DateTime.Now;
-        
+
         // Step 4: Upsert PropertyMastDetails (assessment) - includes NoOfToilets fields only
         // Note: WingNo is NOT stored in PropertyMastDetails, it's stored in SocietyDetailsMast
         var assessmentId = await _context.PropertyMastDetails
@@ -417,6 +418,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         return result;
     }
+
+
 
     public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
     {
@@ -714,41 +717,41 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 .Select(p => new { p.Id, p.PropertyMastOldId })
                 .FirstOrDefaultAsync(cancellationToken);
 
-        if (property == null)
-            return null;
+            if (property == null)
+                return null;
 
-        int propertyMastOldId;
+            int propertyMastOldId;
 
-        // Step 2: Check if PropertyMastOld exists or create it
-        if (property.PropertyMastOldId.HasValue)
-        {
-            propertyMastOldId = property.PropertyMastOldId.Value;
-        }
-        else
-        {
-            // Create new PropertyMastOld record
-            var newPropertyMastOld = new PropertyMastOldEntity
+            // Step 2: Check if PropertyMastOld exists or create it
+            if (property.PropertyMastOldId.HasValue)
             {
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.Now
-            };
-            await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            propertyMastOldId = newPropertyMastOld.Id;
-
-            // Update PropertyMast with the new PropertyMastOldId
-            var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
-            if (propertyEntity != null)
-            {
-                propertyEntity.PropertyMastOldId = propertyMastOldId;
-                propertyEntity.UpdatedDate = DateTime.Now;
+                propertyMastOldId = property.PropertyMastOldId.Value;
             }
-        }
+            else
+            {
+                // Create new PropertyMastOld record
+                var newPropertyMastOld = new PropertyMastOldEntity
+                {
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = DateTime.Now
+                };
+                await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
 
-        // Step 3: Update PropertyMastOld fields
-        var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
+                propertyMastOldId = newPropertyMastOld.Id;
+
+                // Update PropertyMast with the new PropertyMastOldId
+                var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
+                if (propertyEntity != null)
+                {
+                    propertyEntity.PropertyMastOldId = propertyMastOldId;
+                    propertyEntity.UpdatedDate = DateTime.Now;
+                }
+            }
+
+            // Step 3: Update PropertyMastOld fields
+            var oldMastData = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
 
             if (oldMastData != null)
             {
@@ -794,21 +797,21 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 oldMastData.UpdatedDate = DateTime.Now;
             }
 
-        // Step 4: Upsert PropertyDetailsOld
-        var oldDetailsId = await _context.PropertyDetailsOld
-            .Where(x => x.PropertyMastOldId == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.Id)
-            .Select(x => x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+            // Step 4: Upsert PropertyDetailsOld
+            var oldDetailsId = await _context.PropertyDetailsOld
+                .Where(x => x.PropertyMastOldId == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
+                .OrderBy(x => x.Id)
+                .Select(x => x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        bool hasOldDetailsData = dto.OldConstructionYear != null || dto.OldCarpetAreaSqFeet.HasValue ||
-                                 dto.OldCarpetAreaSqMeter.HasValue ||
-                                 dto.OldConstructionTypeId.HasValue || dto.OldTypeOfUseId.HasValue;
+            bool hasOldDetailsData = dto.OldConstructionYear != null || dto.OldCarpetAreaSqFeet.HasValue ||
+                                     dto.OldCarpetAreaSqMeter.HasValue ||
+                                     dto.OldConstructionTypeId.HasValue || dto.OldTypeOfUseId.HasValue;
 
-        if (oldDetailsId > 0)
-        {
-            // UPDATE existing record
-            var oldDetailsData = await _context.PropertyDetailsOld.FindAsync(new object[] { oldDetailsId }, cancellationToken);
+            if (oldDetailsId > 0)
+            {
+                // UPDATE existing record
+                var oldDetailsData = await _context.PropertyDetailsOld.FindAsync(new object[] { oldDetailsId }, cancellationToken);
 
                 if (oldDetailsData != null)
                 {
@@ -860,8 +863,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 await _context.PropertyDetailsOld.AddAsync(newOldDetailsData, cancellationToken);
             }
 
-        // Step 4: Save all changes
-        await _context.SaveChangesAsync(cancellationToken);
+            // Step 4: Save all changes
+            await _context.SaveChangesAsync(cancellationToken);
 
             // Step 5: Return updated data
             return await GetOldDetailsAsync(propertyId, cancellationToken);
@@ -882,7 +885,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             throw new Exception($"An error occurred while updating old property details for Property ID: {propertyId}. Internal Error: {ex.Message}", ex);
         }
     }
-public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         var policies = await GetTaxDetailsPivotedAsync(
             propertyId,
@@ -963,7 +966,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         // Step 4: Group by PolicyCode and create pivoted structure
         var policies = taxData
             .GroupBy(x => x.Item1)
-            .Select(g => 
+            .Select(g =>
             {
                 var taxAmounts = g
                     .GroupBy(x => x.Item2)
@@ -973,9 +976,9 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
                         TaxAmount = tg.Sum(x => x.Item3 ?? 0)
                     })
                     .ToList();
-                
+
                 var taxTotal = taxAmounts.Sum(t => t.TaxAmount);
-                
+
                 return new PolicyTaxDetail
                 {
                     PolicyCode = g.Key,
@@ -1059,7 +1062,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         };
 
         // Find the tax with name "Interest" (case-insensitive)
-        var interestTaxId = oldTaxes.FirstOrDefault(t => 
+        var interestTaxId = oldTaxes.FirstOrDefault(t =>
             t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase))?.Id;
 
         foreach (var year in years)
@@ -1097,8 +1100,8 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             }
 
             // Get RVorCV and RVorCVValue from first transaction for this year
-            var firstTransaction = (hasYearTransactions && yearTransactionsDict != null && yearTransactionsDict.Any()) 
-                ? yearTransactionsDict.Values.First() 
+            var firstTransaction = (hasYearTransactions && yearTransactionsDict != null && yearTransactionsDict.Any())
+                ? yearTransactionsDict.Values.First()
                 : null;
 
             result.TaxYears.Add(new OldTaxYearDto
@@ -1145,7 +1148,7 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
 
         if (property == null)
             return null;
-    
+
 
         int propertyMastOldId;
 
@@ -2138,7 +2141,45 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
             .ToList();
 
     }
-	public async Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default)
+
+
+    public async Task<List<BuildingListDto>?> GetBuildingListAsync(int wardId, CancellationToken cancellationToken = default)
+    {
+        var WardDetails = await _context.WardMaster
+     .Where(p => p.Id == wardId && p.IsActive )
+     .Select(p => new { p.Id })
+     .FirstOrDefaultAsync(cancellationToken);
+
+        if (WardDetails == null)
+            return null;
+
+        // Step 1: Query builing list properties as per ward
+        var buildingProperties = await (from pm in _context.PropertyMast
+                                       join pcm in _context.PropertyCategoryMaster on pm.CategoryId equals pcm.Id
+                                       join wm in _context.WardMaster on pm.WardId equals wm.Id
+                                       where pm.WardId == wardId
+                                       && string.IsNullOrEmpty(pm.PartitionNo)
+                                        && pm.IsActive
+                                        && !pm.MarkedForDeletion
+                                        && wm.IsActive
+                                        && pcm.IsActive
+
+                                        select new BuildingListDto
+                                       {
+                                           PropertyId = pm.Id,
+                                           WardNo = wm.WardNo,
+                                           CatPropertyCategoryName = pcm.PropertyCategoryName,
+                                           PropertyNo = pm.PropertyNo,
+                                           PartitionNo = pm.PartitionNo
+                                       })
+                                      .ToListAsync(cancellationToken);
+
+
+        return buildingProperties;
+    }
+
+
+    public async Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default)
     {
         // Null check for request body
         ArgumentNullException.ThrowIfNull(dto);
@@ -2351,6 +2392,128 @@ public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, Can
         {
             return Failure($"An unexpected error occurred: {ex.Message}");
         }
+    }
+
+    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken cancellationToken = default)
+    {
+        var SocietyDetails = await _context.SocietyDetailsMast
+     .Where(p => p.Id == SocietyDetailId && p.IsActive && !p.MarkedForDeletion)
+     .Select(p => new { p.Id })
+     .FirstOrDefaultAsync(cancellationToken);
+
+        if (SocietyDetails == null)
+            return null;
+
+        // Step 1: Query amenity properties for this society with ward details - return flat list
+        var amenityProperties = await (from pm in _context.PropertyMast
+                                       join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
+                                       join wm in _context.WardMaster on pm.WardId equals wm.Id
+                                       join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
+                                       join we in _context.WingEntity on sdm.WingId equals we.Id
+                                       where pm.SocietyDetailId == SocietyDetailId
+                                       && !string.IsNullOrEmpty(pm.PartitionNo)
+                                       && ptm.PartType == PartType.Aminity
+
+                                       select new SocietyAminityDetailsDto
+                                       {
+                                           PropertyId = pm.Id,
+                                           SocietyDetailId = pm.SocietyDetailId ?? 0,
+                                           WardId = pm.WardId,
+                                           WardNo = wm.WardNo,
+                                           wingId = we.Id,
+                                           WingNo = we.WingNo,
+                                           WingName = sdm.WingName,
+                                           PropertyNo = pm.PropertyNo,
+                                           PartitionNo = pm.PartitionNo
+                                       })
+                                      .ToListAsync(cancellationToken);
+
+
+        return amenityProperties;
+    }
+
+
+
+
+    public async Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var property = await (
+        from p in _context.PropertyMast
+        join w in _context.WardMaster
+            on p.WardId equals w.Id
+        where p.Id == propertyId
+              && p.IsActive
+              && !p.MarkedForDeletion
+        select new
+        {
+            p.Id,
+            WardId = w.Id,
+            WardNo = w.WardNo,
+            PropertyNo=p.PropertyNo
+        }
+    ).FirstOrDefaultAsync(cancellationToken);
+
+
+        if (property == null)
+            return null;
+
+        var amenityProperties = await (
+      from sdm in _context.SocietyDetailsMast
+      join we in _context.WingEntity on sdm.WingId equals we.Id into wingJoin
+      from we in wingJoin.Where(x => x.IsActive).DefaultIfEmpty()
+      where sdm.PropertyId == property.Id
+            && sdm.IsActive
+            && !sdm.MarkedForDeletion
+      select new PropertySocietyDetailsDto
+      {
+          PropertyId = sdm.PropertyId,
+          SocietyDetailId = sdm.Id,
+          WingId = sdm.WingId,
+          WingNo = we != null ? we.WingNo : null,
+          WardNo =property.WardNo,
+          PropertyNo= property.PropertyNo,
+          WingName = sdm.WingName,
+          SocietyName = sdm.SocietyName,
+          SocietyAddress = sdm.SocietyAddress,
+          SecretaryName = sdm.SecretaryName,
+          ManagerName = sdm.ManagerName,
+          LandOwnerName = sdm.LandOwnerName,
+          BuilderName = sdm.BuilderName,
+          SocietyNameEnglish = sdm.SocietyNameEnglish,
+          SocietyAddressEnglish = sdm.SocietyAddressEnglish,
+          SecretaryNameEnglish = sdm.SecretaryNameEnglish,
+          ManagerNameEnglish = sdm.ManagerNameEnglish,
+          LandOwnerNameEnglish = sdm.LandOwnerNameEnglish,
+          BuilderNameEnglish = sdm.BuilderNameEnglish,
+          ManagerMobileNo = sdm.ManagerMobileNo,
+          SecretaryMobileNo = sdm.SecretaryMobileNo,
+          SocietyEmailId = sdm.SocietyEmailId,
+          SecretaryEmailId = sdm.SecretaryEmailId,
+          ManagerEmailId = sdm.ManagerEmailId,
+          PropertyCount = _context.PropertyMast
+              .Where(pm => pm.SocietyDetailId == sdm.Id
+                  && !string.IsNullOrEmpty(pm.PartitionNo)
+                  && pm.IsActive
+                  && !pm.MarkedForDeletion)
+              .Join(_context.PropertyTypeMasters,
+                  pm => pm.PropertyTypeId,
+                  ptm => ptm.Id,
+                  (pm, ptm) => ptm)
+              .Count(ptm => ptm.PartType != PartType.Aminity && ptm.IsActive),
+          AminityCount = _context.PropertyMast
+              .Where(pm => pm.SocietyDetailId == sdm.Id
+                  && !string.IsNullOrEmpty(pm.PartitionNo)
+                  && pm.IsActive
+                  && !pm.MarkedForDeletion)
+              .Join(_context.PropertyTypeMasters,
+                  pm => pm.PropertyTypeId,
+                  ptm => ptm.Id,
+                  (pm, ptm) => ptm)
+              .Count(ptm => ptm.PartType == PartType.Aminity && ptm.IsActive),
+      })
+      .AsNoTracking()
+      .ToListAsync(cancellationToken);
+        return amenityProperties;
     }
 
     public async Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId)

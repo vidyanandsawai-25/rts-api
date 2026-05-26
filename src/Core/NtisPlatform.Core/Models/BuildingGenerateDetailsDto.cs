@@ -45,4 +45,11 @@ public class BuildingGenerateStructureDto
     public string? GenerationType { get; set; } = string.Empty;
 }
 
-
+public class BuildingListDto
+{
+    public int PropertyId { get; set; }
+    public string? WardNo { get; set; } = string.Empty;
+    public string? PropertyNo { get; set; } = string.Empty;
+    public string? CatPropertyCategoryName { get; set; } = string.Empty;
+    public string? PartitionNo { get; set; } = string.Empty;
+}

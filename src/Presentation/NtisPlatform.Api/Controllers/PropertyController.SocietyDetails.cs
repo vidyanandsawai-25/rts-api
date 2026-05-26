@@ -57,6 +57,88 @@ public partial class PropertyController
         }
     }
 
+
+    [HttpGet("{SocietyDetailId}/society-Aminity-details")]
+    [ProducesResponseType(typeof(ApiResponse<List<SocietyAminityDetailsDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.GetSocietyAminityListAsync(SocietyDetailId, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Society with ID {SocietyDetailId} not found", SocietyDetailId);
+                return NotFound(new ApiResponse<SocietyAminityDetailsDto>
+                {
+                    Success = false,
+                    Message = $"Society with ID {SocietyDetailId} not found"
+                });
+            }
+
+            return Ok(new ApiResponse<List<SocietyAminityDetailsDto>>
+            {
+                Success = true,
+                Message = "Record fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving society details for society detail {SocietyDetailId}", SocietyDetailId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<SocietyAminityDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving property society details"
+                });
+        }
+    }
+
+
+    [HttpGet("{propertyId}/society-Wing-details")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertySocietyDetailsDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSocietyWingListAsync(int propertyId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.GetSocietyWingListAsync(propertyId, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("property with ID {propertyId} not found", propertyId);
+                return NotFound(new ApiResponse<PropertySocietyDetailsDto>
+                {
+                    Success = false,
+                    Message = $"property with ID {propertyId} not found"
+                });
+            }
+
+            return Ok(new ApiResponse<List<PropertySocietyDetailsDto>>
+            {
+                Success = true,
+                Message = "Record fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving society details for property {PropertyId}", propertyId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<PropertySocietyDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving property society details"
+                });
+        }
+    }
+
+
+
+
+
     /// <summary>
     /// Updates society details for a specific property.
     /// This endpoint is used to save the Society Details tab in the property form.

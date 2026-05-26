@@ -115,7 +115,7 @@ public class PropertySocietyDetailsTests
         {
             var dto = new PropertySocietyDetailsDto();
 
-            Assert.Equal(0, dto.PropertyId);
+            Assert.Null(dto.PropertyId);
             Assert.Null(dto.SocietyDetailId);
         }
     }

@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
-using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
@@ -57,6 +56,17 @@ public class PropertyService
     {
         return await _propertyRepository.GetSocietyDetailsAsync(propertyId, cancellationToken);
     }
+    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetSocietyAminityListAsync(SocietyDetailId, cancellationToken);
+    }
+    public async Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetSocietyWingListAsync(propertyId, cancellationToken);
+    }
+
+
+
 
     public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
     {
@@ -142,8 +152,12 @@ public class PropertyService
     {
         return await _propertyRepository.GetGenerateBuildingStructureAsync(dto, cancellationToken);
     }
-	
-	public async Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
+    public async Task<List<BuildingListDto>?> GetBuildingListAsync(int wardId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetBuildingListAsync(wardId, cancellationToken);
+    }
+
+    public async Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Template == null)

@@ -66,4 +66,45 @@ public partial class PropertyController
                 });
         }
     }
+
+
+
+    [HttpGet("{wardId}/Building-list")]
+    [ProducesResponseType(typeof(ApiResponse<List<BuildingListDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBuildingListAsync(int wardId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.GetBuildingListAsync(wardId, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Ward with ID {wardId} not found", wardId);
+                return NotFound(new ApiResponse<BuildingListDto>
+                {
+                    Success = false,
+                    Message = $"Ward with ID {wardId} not found"
+                });
+            }
+
+            return Ok(new ApiResponse<List<BuildingListDto>>
+            {
+                Success = true,
+                Message = "Record fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving building details for WardId {WardId}", wardId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<BuildingListDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving Ward Wise building details"
+                });
+        }
+    }
+
 }

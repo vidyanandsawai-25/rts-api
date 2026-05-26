@@ -6,12 +6,14 @@
 /// </summary>
 public class PropertySocietyDetailsDto
 {
-    public int PropertyId { get; set; }
+    public int? PropertyId { get; set; }
     public int? SocietyDetailId { get; set; }
 
     // Wing Information (from WingMaster)
     public int? WingId { get; set; }
     public string? WingNo { get; set; }
+    public string? WardNo { get; set; }
+    public string? PropertyNo { get; set; }
 
     // From SocietyDetailsMast
     public string? WingName { get; set; }
@@ -36,4 +38,7 @@ public class PropertySocietyDetailsDto
     public string? SocietyEmailId { get; set; }
     public string? SecretaryEmailId { get; set; }
     public string? ManagerEmailId { get; set; }
+    public int PropertyCount { get; set; } = 0;
+    public int AminityCount { get; set; } = 0;
+
 }
