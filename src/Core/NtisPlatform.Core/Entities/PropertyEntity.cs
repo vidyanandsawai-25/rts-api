@@ -118,6 +118,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public virtual TaxZoneEntity? TaxZone { get; set; }
     public virtual WardEntity? Ward { get; set; }
     public virtual MoujaEntity? Mouja { get; set; }
+    public virtual PropertyAssessmentStatusEntity? PropertyAssessmentStatus { get; set; }
 
     // ===== Child Entity Navigation Properties =====
     // 

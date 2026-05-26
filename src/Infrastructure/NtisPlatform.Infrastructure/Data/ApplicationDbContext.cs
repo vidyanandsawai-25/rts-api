@@ -144,6 +144,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
     public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
     public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
+    public DbSet<PropertyAssessmentStatusEntity> PropertyAssessmentStatuses { get; set; } = null!;
     public DbSet<PropertyImagesMastEntity> PropertyImagesMast { get; set; } = null!;
     public DbSet<TaxPendingDetailsArchiveEntity> TaxPendingDetailsArchive { get; set; } = null!;
     public DbSet<TaxPendingDetailsCVEntity> TaxPendingDetailsCV { get; set; } = null!;
@@ -1658,6 +1659,11 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyMastOldId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.PropertyAssessmentStatus)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyAssessmentStatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // PropertyDetailsOld does NOT have PropertyId in database - it's related to PropertyMastOld only
             // Ignore this navigation to prevent shadow PropertyId/PropertyEntityId creation
             entity.Ignore(e => e.PropertyDetailsOld);
@@ -3045,6 +3051,22 @@ public class ApplicationDbContext : DbContext
                 .WithOne(r => r.WaterConnectionStatus)
                 .HasForeignKey(r => r.WaterConnectionStatusId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // PropertyAssessmentStatusMaster configuration
+        modelBuilder.Entity<PropertyAssessmentStatusEntity>(entity =>
+        {
+            entity.ToTable("PropertyAssessmentStatusMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StatusName).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.StatusName).IsUnique().HasDatabaseName("UQ_PropertyAssessmentStatusMaster_StatusName");
+            entity.HasIndex(e => e.IsActive);
         });
 
         // WaterRateMaster configuration

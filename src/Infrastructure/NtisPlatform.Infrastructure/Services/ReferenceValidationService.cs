@@ -142,6 +142,12 @@ public class ReferenceValidationService : IReferenceValidationService
             .CheckReferences(
                 ("Child Fields", (ctx, id) => ctx.ScreenFormFieldMaster.Where(f => f.ParentFieldId == id && f.IsActive).Cast<object>())
             );
+
+        config.ForEntity<PropertyAssessmentStatusEntity>()
+            .CheckReferences(
+                ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.PropertyAssessmentStatusId == id).Cast<object>())
+            );
+
         _referenceConfig = config.Build();
     }
 
