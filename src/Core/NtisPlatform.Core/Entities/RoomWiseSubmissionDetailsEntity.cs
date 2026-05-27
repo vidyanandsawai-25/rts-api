@@ -17,12 +17,15 @@ public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
     public string? Shape { get; set; }
     public string? RoomNo { get; set; }
     public bool OuterYesNo { get; set; } = false;
-    public string? RoomType { get; set; }
+    public int? RoomTypeId { get; set; }
+
     public string? SubmissionType { get; set; }
     public bool MinusYesNo { get; set; } = false;
     public bool MarkedForDeletion { get; set; } = false;
     public DateTime? MarkedForDeletionDate { get; set; }
     public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
     public virtual PropertyEntity? PropertyMast { get; set; }
+    public virtual RoomTypeMasterEntity? RoomTypeMaster { get; set; }
+
     public virtual ICollection<RoomWiseMinusDataEntity> PropertyRoomMinus { get; set; } = new List<RoomWiseMinusDataEntity>();
 }

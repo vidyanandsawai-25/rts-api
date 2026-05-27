@@ -26,6 +26,11 @@ public class RoomWiseMinusDataEntity : BaseEntity, IHardDeletable
     public string? Shape { get; set; }
 
     /// <summary>
+    /// Indicates whether this is an offset (true or false)
+    /// </summary>
+    public bool IsOffset { get; set; } = false;
+
+    /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>
     public bool MarkedForDeletion { get; set; } = false;

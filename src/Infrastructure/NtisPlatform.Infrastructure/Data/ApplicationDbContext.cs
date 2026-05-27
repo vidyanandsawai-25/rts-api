@@ -1213,7 +1213,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TotalAreaSqMtr);
             entity.Property(e => e.Shape).HasMaxLength(100);
             entity.Property(e => e.RoomNo).HasMaxLength(50);
-            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.RoomTypeId);
             entity.Property(e => e.SubmissionType).HasMaxLength(100);
             entity.Property(e => e.OuterYesNo).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MinusYesNo).IsRequired().HasDefaultValue(false);
@@ -1235,10 +1235,14 @@ public class ApplicationDbContext : DbContext
                   .WithMany(p => p.RoomWiseSubmissionDetails)
                   .HasForeignKey(e => e.PropertyId)
                   .OnDelete(DeleteBehavior.Restrict);
-
+            entity.HasOne(e => e.RoomTypeMaster)
+                 .WithMany()
+                 .HasForeignKey(e => e.RoomTypeId)
+                 .OnDelete(DeleteBehavior.Restrict);
             // Indexes for better query performance
             entity.HasIndex(e => e.PropertyDetailsId);
             entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.RoomTypeId);
         });
        
         // RoomWiseMinusData configuration
@@ -1254,7 +1258,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.HeightMtr);
             entity.Property(e => e.Base1Mtr);
             entity.Property(e => e.Base2Mtr);
-            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.IsOffset).HasDefaultValue(false);
+             entity.Property(e => e.Shape).HasMaxLength(25);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);

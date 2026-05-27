@@ -46,102 +46,112 @@ public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseS
 
     public async Task UpdateRangeAsync( int propertyDetailsId, IEnumerable<UpdateRoomWiseSubmissionDetailsDto> dtos, CancellationToken cancellationToken = default)
     {
-        // Process each DTO - update only what's sent, don't delete orphans
         foreach (var dto in dtos)
         {
             if (dto.Id > 0)
             {
-                // UPDATE EXISTING RECORD
+                // UPDATE EXISTING PARENT RECORD
                 var existing = await _repository.GetQueryable()
                     .Include(x => x.PropertyRoomMinus)
                     .Where(x => x.Id == dto.Id && x.PropertyDetailsId == propertyDetailsId)
                     .FirstOrDefaultAsync(cancellationToken);
 
-                if (existing != null)
+                if (existing == null)
                 {
-                    // Map scalar fields from DTO to tracked entity
-                    _mapper.Map(dto, existing);
+                    continue;
+                }
 
-                    // Always preserve server-side parent FK
-                    existing.PropertyDetailsId = propertyDetailsId;
+                // Update parent fields
+                _mapper.Map(dto, existing);
+                existing.UpdatedDate = DateTime.Now;
+                // Always preserve server-side FK
+                existing.PropertyDetailsId = propertyDetailsId;
 
-                    // Handle child collection (PropertyRoomMinus) - SOFT DELETE pattern
-                    // Only process children if RoomWiseMinusData is explicitly provided (not null)
-                    // - null = no change (skip child processing)
-                    // - empty list = delete all children
-                    // - list with items = keep/update these, soft-delete others
+                /*
+                    Existing parent case:
 
-                    if (dto.RoomWiseMinusData is not null)
+                    RoomWiseMinusData == null
+                        => update parent only, do not touch child table
+
+                    RoomWiseMinusData == empty list
+                        => update parent only, do not touch child table
+
+                    Child Id > 0
+                        => update existing child
+
+                    Child Id == 0
+                        => insert new child under existing parent
+                */
+                if (dto.RoomWiseMinusData?.Any() == true)
+                {
+                    existing.PropertyRoomMinus ??= new List<RoomWiseMinusDataEntity>();
+
+                    foreach (var minusDto in dto.RoomWiseMinusData)
                     {
-                        var dtoMinusIds = dto.RoomWiseMinusData
-                            .Where(m => m.Id > 0)
-                            .Select(m => m.Id)
-                            .ToHashSet();
-
-                        // Soft-delete removed children (those that exist in DB but not in DTO)
-                        if (existing.PropertyRoomMinus?.Any() == true)
+                        if (minusDto.Id > 0)
                         {
-                            foreach (var existingMinus in existing.PropertyRoomMinus.Where(m => m.IsActive))
+                            // UPDATE EXISTING CHILD RECORD
+                            var existingChild = existing.PropertyRoomMinus
+                                .FirstOrDefault(m => m.Id == minusDto.Id);
+
+                            if (existingChild != null)
                             {
-                                if (!dtoMinusIds.Contains(existingMinus.Id))
-                                {
-                                    // Soft-delete: set flags instead of removing from collection
-                                    existingMinus.IsActive = false;
-                                    existingMinus.MarkedForDeletion = true;
-                                    existingMinus.MarkedForDeletionDate = DateTime.Now;
-                                }
+                                _mapper.Map(minusDto, existingChild);
+
+                                // FK should never change on update
+                                existingChild.RoomWiseSubmissionId = existing.Id;
+
+                                existingChild.UpdatedDate = DateTime.Now;
                             }
                         }
-
-                        // Update or add children
-                        if (dto.RoomWiseMinusData.Any())
+                        else
                         {
-                            foreach (var minusDto in dto.RoomWiseMinusData)
-                            {
-                                if (minusDto.Id > 0)
-                                {
-                                    // Update existing child
-                                    var existingChild = existing.PropertyRoomMinus?
-                                        .FirstOrDefault(m => m.Id == minusDto.Id);
+                            // INSERT NEW CHILD RECORD UNDER EXISTING PARENT
+                            var minus = _mapper.Map<RoomWiseMinusDataEntity>(minusDto);
 
-                                    if (existingChild != null)
-                                    {
-                                        _mapper.Map(minusDto, existingChild);
-                                        existingChild.UpdatedDate = DateTime.Now;
-                                    }
-                                }
-                                else
-                                {
-                                    // Add new child
-                                    var minus = _mapper.Map<RoomWiseMinusDataEntity>(minusDto);
-                                    minus.CreatedDate = DateTime.Now;
-                                    minus.IsActive = true;
-                                    minus.RoomWiseSubmissionId = existing.Id;
+                            minus.Id = 0;
+                            minus.RoomWiseSubmissionId = existing.Id;
+                            minus.CreatedDate = DateTime.Now;
+                            minus.IsActive = true;
 
-                                    existing.PropertyRoomMinus ??= new List<RoomWiseMinusDataEntity>();
-                                    existing.PropertyRoomMinus.Add(minus);
-                                }
-                            }
+                            existing.PropertyRoomMinus.Add(minus);
                         }
                     }
-
-                    await _repository.UpdateAsync(existing, cancellationToken);
                 }
+
+                await _repository.UpdateAsync(existing, cancellationToken);
             }
             else
             {
-                // ADD NEW RECORD (Id = 0 or not provided)
+                // INSERT NEW PARENT RECORD
                 var entity = _mapper.Map<RoomWiseSubmissionDetailsEntity>(dto);
+
+                entity.Id = 0;
+
+                // Use method parameter, not DTO PropertyDetailsId
                 entity.PropertyDetailsId = propertyDetailsId;
 
+                /*
+                    New parent case:
+
+                    RoomWiseMinusData == null
+                        => insert parent only
+
+                    RoomWiseMinusData == empty list
+                        => insert parent only
+
+                    RoomWiseMinusData has records
+                        => insert parent and insert child records
+                */
                 if (dto.RoomWiseMinusData?.Any() == true)
                 {
                     entity.PropertyRoomMinus = dto.RoomWiseMinusData
-                        .Select(m =>
+                        .Select(minusDto =>
                         {
-                            var minus = _mapper.Map<RoomWiseMinusDataEntity>(m);
-                            minus.CreatedDate = DateTime.Now;
+                            var minus = _mapper.Map<RoomWiseMinusDataEntity>(minusDto);
+                             minus.CreatedDate = DateTime.Now;
                             minus.IsActive = true;
+
                             return minus;
                         })
                         .ToList();
@@ -150,11 +160,8 @@ public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseS
                 await _repository.AddAsync(entity, cancellationToken);
             }
         }
-
-        // NOTE: We do NOT delete orphaned parent records here.
-        // Orphaned records should only be soft-deleted via explicit DeleteAsync call.
-        // This ensures update operations only modify what's sent, not delete what's missing.
     }
+
     public async Task DeleteByPropertyIdAsync( int propertyDetailsId, CancellationToken cancellationToken = default)
     {
         var existing = await _repository.GetQueryable()

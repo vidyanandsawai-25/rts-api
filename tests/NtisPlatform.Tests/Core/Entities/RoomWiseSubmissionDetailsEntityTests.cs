@@ -28,7 +28,7 @@ public class RoomWiseSubmissionDetailsEntityTests
             Shape = "Rectangle",
             RoomNo = "R-101",
             OuterYesNo = true,
-            RoomType = "Bedroom",
+            RoomTypeId = 1,
             SubmissionType = "Initial",
             MinusYesNo = true,
             MarkedForDeletion = false,
@@ -54,7 +54,7 @@ public class RoomWiseSubmissionDetailsEntityTests
         Assert.Equal("Rectangle", entity.Shape);
         Assert.Equal("R-101", entity.RoomNo);
         Assert.True(entity.OuterYesNo);
-        Assert.Equal("Bedroom", entity.RoomType);
+        Assert.Equal(1, entity.RoomTypeId);
         Assert.Equal("Initial", entity.SubmissionType);
         Assert.True(entity.MinusYesNo);
         Assert.False(entity.MarkedForDeletion);
@@ -86,7 +86,7 @@ public class RoomWiseSubmissionDetailsEntityTests
         Assert.Null(entity.TotalAreaSqMtr);
         Assert.Null(entity.Shape);
         Assert.Null(entity.RoomNo);
-        Assert.Null(entity.RoomType);
+        Assert.Null(entity.RoomTypeId);
         Assert.Null(entity.SubmissionType);
         Assert.Null(entity.MarkedForDeletionDate);
     }
@@ -217,13 +217,13 @@ public class RoomWiseSubmissionDetailsEntityTests
         var entity = new RoomWiseSubmissionDetailsEntity
         {
             RoomNo = "R-205",
-            RoomType = "Kitchen",
+            RoomTypeId = 2,
             NoOfRooms = 1,
             TotalAreaSqMtr = 150.0
         };
 
         Assert.Equal("R-205", entity.RoomNo);
-        Assert.Equal("Kitchen", entity.RoomType);
+        Assert.Equal(2, entity.RoomTypeId);
         Assert.Equal(1, entity.NoOfRooms);
         Assert.Equal(150.0, entity.TotalAreaSqMtr);
     }

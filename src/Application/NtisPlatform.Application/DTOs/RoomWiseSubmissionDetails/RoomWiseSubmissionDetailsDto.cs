@@ -14,7 +14,8 @@ namespace NtisPlatform.Application.DTOs.RoomWiseSubmissionDetails
         public int? NoOfRooms { get; set; }
         public double? TotalAreaSqMtr { get; set; }
         public string? RoomNo { get; set; }
-        public string? RoomType { get; set; }
+        public int? RoomTypeId { get; set; }
+        public string? RoomTypeDescription { get; set; }
         public string? Shape { get; set; }
         public bool OuterYesNo { get; set; }             // non-nullable — matches entity
         public bool MinusYesNo { get; set; }             // non-nullable — matches entity

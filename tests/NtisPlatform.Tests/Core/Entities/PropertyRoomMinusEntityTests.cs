@@ -23,6 +23,7 @@ public class RoomWiseMinusDataEntityTests
             Shape = "Rectangle",
             Base1Mtr = 1.0,
             Base2Mtr = 2.0,
+            IsOffset = true,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null,
             IsActive = true,
@@ -41,6 +42,7 @@ public class RoomWiseMinusDataEntityTests
         Assert.Equal("Rectangle", entity.Shape);
         Assert.Equal(1.0, entity.Base1Mtr);
         Assert.Equal(2.0, entity.Base2Mtr);
+        Assert.True(entity.IsOffset);
         Assert.False(entity.MarkedForDeletion);
         Assert.Null(entity.MarkedForDeletionDate);
         Assert.True(entity.IsActive);
@@ -77,6 +79,34 @@ public class RoomWiseMinusDataEntityTests
     }
 
     [Fact]
+    public void RoomWiseMinusDataEntity_IsOffset_DefaultsToFalse()
+    {
+        var entity = new RoomWiseMinusDataEntity();
+        Assert.False(entity.IsOffset);
+    }
+
+    [Fact]
+    public void RoomWiseMinusDataEntity_IsOffset_CanBeSetToTrue()
+    {
+        var entity = new RoomWiseMinusDataEntity
+        {
+            IsOffset = true
+        };
+        Assert.True(entity.IsOffset);
+    }
+
+    [Fact]
+    public void RoomWiseMinusDataEntity_IsOffset_CanBeSetToFalse()
+    {
+        var entity = new RoomWiseMinusDataEntity
+        {
+            IsOffset = true // Set to true first
+        };
+        entity.IsOffset = false; // Then set to false
+        Assert.False(entity.IsOffset);
+    }
+
+    [Fact]
     public void RoomWiseMinusDataEntity_NavigationProperty_RoomWiseSubmissionDetails_CanBeSet()
     {
         var minusEntity = new RoomWiseMinusDataEntity
@@ -90,7 +120,7 @@ public class RoomWiseMinusDataEntityTests
             Id = 100,
             PropertyDetailsId = 200,
             RoomNo = "R-101",
-            RoomType = "Bedroom"
+            RoomTypeId = 1
         };
 
         minusEntity.RoomWiseSubmissionDetails = roomEntity;

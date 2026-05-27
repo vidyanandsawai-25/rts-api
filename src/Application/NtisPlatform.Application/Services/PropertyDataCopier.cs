@@ -179,7 +179,7 @@ public class PropertyDataCopier : IPropertyDataCopier
                 rwsd.Shape,
                 rwsd.RoomNo,
                 rwsd.OuterYesNo,
-                rwsd.RoomType,
+                rwsd.RoomTypeId,
                 rwsd.SubmissionType,
                 rwsd.MinusYesNo
             })
@@ -226,7 +226,7 @@ public class PropertyDataCopier : IPropertyDataCopier
                 Shape = source.Shape,
                 RoomNo = source.RoomNo,
                 OuterYesNo = source.OuterYesNo,
-                RoomType = source.RoomType,
+                RoomTypeId = source.RoomTypeId,
                 SubmissionType = source.SubmissionType,
                 MinusYesNo = source.MinusYesNo,
                 MarkedForDeletion = false,
