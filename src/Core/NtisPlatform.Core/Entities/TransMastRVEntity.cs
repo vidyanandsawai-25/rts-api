@@ -1,4 +1,6 @@
-﻿using NtisPlatform.Core.Interfaces;
+﻿using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Interfaces;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NtisPlatform.Core.Entities
 {
@@ -11,7 +13,11 @@ namespace NtisPlatform.Core.Entities
         public decimal TaxAmount { get; set; } = 0m;
         public bool MarkedForDeletion { get; set; } = false;
         public DateTime? MarkedForDeletionDate { get; set; } = null;
+
+        [ForeignKey(nameof(PropertyId))]
         public virtual PropertyEntity? PropertyMast { get; set; }
-        //public PropertyEntity PropertyMast { get; set; } = null!;
+
+        [ForeignKey(nameof(TaxId))]
+        public virtual TaxMasterEntity? TaxMaster { get; set; }
     }
 }

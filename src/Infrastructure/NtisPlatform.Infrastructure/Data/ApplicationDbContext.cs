@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
@@ -2043,7 +2043,7 @@ public class ApplicationDbContext : DbContext
 
             // Explicitly configure the PropertyDetails relationship
             entity.HasOne(e => e.PropertyDetails)
-                .WithMany()
+                .WithMany(p => p.PropertyTaxCalculationCVResults)
                 .HasForeignKey(e => e.PropertyDetailsId)
                 .OnDelete(DeleteBehavior.Restrict);
 
