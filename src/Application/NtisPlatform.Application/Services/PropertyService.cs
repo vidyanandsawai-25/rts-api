@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
@@ -116,6 +117,39 @@ public class PropertyService
     public async Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         return await _propertyRepository.GetFloorDetailsOldAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PagedResult<PropertyDetailsOldDto>?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQueryParameters queryParameters, CancellationToken cancellationToken = default)
+    {
+        // Map FloorDetailsOldQueryParameters to FloorDetailsOldQuery
+        var query = new FloorDetailsOldQuery
+        {
+            PageNumber = queryParameters.PageNumber,
+            PageSize = queryParameters.PageSize,
+            SearchTerm = queryParameters.SearchTerm,
+            SortBy = queryParameters.SortBy,
+            SortOrder = queryParameters.SortOrder,
+            OldFloorId = queryParameters.OldFloorId,
+            OldSubFloorId = queryParameters.OldSubFloorId,
+            OldConstructionTypeId = queryParameters.OldConstructionTypeId,
+            OldTypeOfUseId = queryParameters.OldTypeOfUseId,
+            OldSubTypeOfUseId = queryParameters.OldSubTypeOfUseId,
+            OldConstructionYear = queryParameters.OldConstructionYear,
+            OldAssessmentYear = queryParameters.OldAssessmentYear
+        };
+
+        var result = await _propertyRepository.GetFloorDetailsOldPagedAsync(propertyId, query, cancellationToken);
+
+        if (result == null)
+            return null;
+
+        // Map FloorDetailsOldPagedResult to PagedResult<PropertyDetailsOldDto>
+        return new PagedResult<PropertyDetailsOldDto>(
+            result.Items,
+            result.TotalCount,
+            result.PageNumber,
+            result.PageSize
+        );
     }
 
     public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)

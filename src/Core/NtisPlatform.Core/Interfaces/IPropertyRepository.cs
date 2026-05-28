@@ -112,6 +112,15 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves paginated historical floor details for a property (PropertyDetailsOld records)
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="query">Query parameters for filtering, sorting, and pagination</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Paginated list of historical floor details or null if property not found</returns>
+    Task<FloorDetailsOldPagedResult?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQuery query, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Retrieves a single historical floor detail record by ID
     /// </summary>
     /// <param name="propertyId">The property identifier</param>

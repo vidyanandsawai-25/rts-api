@@ -1,4 +1,5 @@
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
@@ -12,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Options;
+using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Tests.Application.Services;
 
@@ -328,6 +330,139 @@ public class PropertyServiceTests
 
         // Assert
         Assert.Equal(expectedDto, result);
+    }
+
+    #endregion
+
+    #region GetFloorDetailsOldPagedAsync Tests
+
+    [Fact]
+    public async Task GetFloorDetailsOldPagedAsync_ReturnsPaginatedFloorDetailsOld()
+    {
+        // Arrange
+        var propertyId = 1;
+        var queryParameters = new NtisPlatform.Application.DTOs.PropertyDetails.FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            OldFloorId = 1
+        };
+
+        var repoResult = new FloorDetailsOldPagedResult
+        {
+            Items = new List<PropertyDetailsOldDto>
+            {
+                new PropertyDetailsOldDto { Id = 1, PropertyId = propertyId },
+                new PropertyDetailsOldDto { Id = 2, PropertyId = propertyId }
+            },
+            TotalCount = 2,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        _mockPropertyRepository
+            .Setup(x => x.GetFloorDetailsOldPagedAsync(
+                propertyId,
+                It.Is<FloorDetailsOldQuery>(q =>
+                    q.PageNumber == 1 &&
+                    q.PageSize == 10 &&
+                    q.OldFloorId == 1),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(repoResult);
+
+        // Act
+        var result = await _service.GetFloorDetailsOldPagedAsync(propertyId, queryParameters);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(1, result.PageNumber);
+        Assert.Equal(10, result.PageSize);
+        Assert.Equal(2, result.Items.Count());
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPagedAsync_WithNullResult_ReturnsNull()
+    {
+        // Arrange
+        var propertyId = 1;
+        var queryParameters = new NtisPlatform.Application.DTOs.PropertyDetails.FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        _mockPropertyRepository
+            .Setup(x => x.GetFloorDetailsOldPagedAsync(
+                propertyId,
+                It.IsAny<FloorDetailsOldQuery>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((FloorDetailsOldPagedResult?)null);
+
+        // Act
+        var result = await _service.GetFloorDetailsOldPagedAsync(propertyId, queryParameters);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPagedAsync_MapsAllQueryParameters()
+    {
+        // Arrange
+        var propertyId = 1;
+        var queryParameters = new NtisPlatform.Application.DTOs.PropertyDetails.FloorDetailsOldQueryParameters
+        {
+            PageNumber = 2,
+            PageSize = 20,
+            SearchTerm = "test",
+            SortBy = "OldFloorId",
+            SortOrder = "desc",
+            OldFloorId = 1,
+            OldSubFloorId = 2,
+            OldConstructionTypeId = 3,
+            OldTypeOfUseId = 4,
+            OldSubTypeOfUseId = 5,
+            OldConstructionYear = "2020",
+            OldAssessmentYear = "2021"
+        };
+
+        var repoResult = new FloorDetailsOldPagedResult
+        {
+            Items = new List<PropertyDetailsOldDto>(),
+            TotalCount = 0,
+            PageNumber = 2,
+            PageSize = 20
+        };
+
+        _mockPropertyRepository
+            .Setup(x => x.GetFloorDetailsOldPagedAsync(
+                propertyId,
+                It.Is<FloorDetailsOldQuery>(q =>
+                    q.PageNumber == 2 &&
+                    q.PageSize == 20 &&
+                    q.SearchTerm == "test" &&
+                    q.SortBy == "OldFloorId" &&
+                    q.SortOrder == "desc" &&
+                    q.OldFloorId == 1 &&
+                    q.OldSubFloorId == 2 &&
+                    q.OldConstructionTypeId == 3 &&
+                    q.OldTypeOfUseId == 4 &&
+                    q.OldSubTypeOfUseId == 5 &&
+                    q.OldConstructionYear == "2020" &&
+                    q.OldAssessmentYear == "2021"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(repoResult);
+
+        // Act
+        var result = await _service.GetFloorDetailsOldPagedAsync(propertyId, queryParameters);
+
+        // Assert
+        Assert.NotNull(result);
+        _mockPropertyRepository.Verify(x => x.GetFloorDetailsOldPagedAsync(
+            propertyId,
+            It.IsAny<FloorDetailsOldQuery>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion

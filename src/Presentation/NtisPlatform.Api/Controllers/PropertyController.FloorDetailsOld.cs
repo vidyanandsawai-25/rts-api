@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 
@@ -52,6 +53,55 @@ public partial class PropertyController
             _logger.LogError(ex, "Error retrieving floor details old for property {PropertyId}", propertyId);
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new ApiResponse<PropertyDetailsOldListDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving property floor details old"
+                });
+        }
+    }
+
+    /// <summary>
+    /// Retrieves paginated historical floor details for a property (PropertyDetailsOld table records).
+    /// This endpoint supports filtering, sorting, and pagination for the Historical Floor Information section.
+    /// Returns a paginated list of floor records with descriptive values from related master tables.
+    /// </summary>
+    /// <param name="propertyId">The unique identifier of the property</param>
+    /// <param name="queryParameters">Query parameters for filtering, sorting, and pagination</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Paginated list of historical floor details with related descriptive fields</returns>
+    /// <response code="200">Returns the paginated property historical floor details</response>
+    /// <response code="404">Property not found</response>
+    [HttpGet("{propertyId}/floor-details-old/paged")]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PropertyDetailsOldDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFloorDetailsOldPaged(int propertyId, [FromQuery] FloorDetailsOldQueryParameters queryParameters, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.GetFloorDetailsOldPagedAsync(propertyId, queryParameters, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Property with ID {PropertyId} not found", propertyId);
+                return NotFound(new ApiResponse<PagedResult<PropertyDetailsOldDto>>
+                {
+                    Success = false,
+                    Message = $"Property with ID {propertyId} not found"
+                });
+            }
+
+            return Ok(new ApiResponse<PagedResult<PropertyDetailsOldDto>>
+            {
+                Success = true,
+                Message = "Records fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving paginated floor details old for property {PropertyId}", propertyId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<PagedResult<PropertyDetailsOldDto>>
                 {
                     Success = false,
                     Message = "An error occurred while retrieving property floor details old"

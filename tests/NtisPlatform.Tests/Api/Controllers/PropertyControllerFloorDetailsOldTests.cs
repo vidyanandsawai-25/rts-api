@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 using Xunit;
 
@@ -95,6 +97,159 @@ public class PropertyControllerFloorDetailsOldTests
 
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, status.StatusCode);
+    }
+
+    #endregion
+
+    #region GetPaged
+
+    [Fact]
+    public async Task GetFloorDetailsOldPaged_ReturnsOk_WhenFound()
+    {
+        // Arrange
+        var controller = Create(out var service);
+        var queryParameters = new FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+        var pagedResult = new PagedResult<PropertyDetailsOldDto>(
+            new List<PropertyDetailsOldDto> { new PropertyDetailsOldDto { Id = 1 } },
+            1,
+            1,
+            10
+        );
+        service.Setup(s => s.GetFloorDetailsOldPagedAsync(1, It.IsAny<FloorDetailsOldQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await controller.GetFloorDetailsOldPaged(1, queryParameters, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPaged_ReturnsNotFound_WhenMissing()
+    {
+        // Arrange
+        var controller = Create(out var service);
+        var queryParameters = new FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+        service.Setup(s => s.GetFloorDetailsOldPagedAsync(99, It.IsAny<FloorDetailsOldQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PagedResult<PropertyDetailsOldDto>?)null);
+
+        // Act
+        var result = await controller.GetFloorDetailsOldPaged(99, queryParameters, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPaged_Returns500_OnException()
+    {
+        // Arrange
+        var controller = Create(out var service);
+        var queryParameters = new FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+        service.Setup(s => s.GetFloorDetailsOldPagedAsync(It.IsAny<int>(), It.IsAny<FloorDetailsOldQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        // Act
+        var result = await controller.GetFloorDetailsOldPaged(1, queryParameters, CancellationToken.None);
+
+        // Assert
+        var status = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, status.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPaged_ForwardsQueryParametersToService()
+    {
+        // Arrange
+        var controller = Create(out var service);
+        var queryParameters = new FloorDetailsOldQueryParameters
+        {
+            PageNumber = 2,
+            PageSize = 20,
+            SearchTerm = "test",
+            SortBy = "OldFloorId",
+            SortOrder = "desc",
+            OldFloorId = 1,
+            OldSubFloorId = 2,
+            OldConstructionTypeId = 3,
+            OldTypeOfUseId = 4,
+            OldSubTypeOfUseId = 5,
+            OldConstructionYear = "2020",
+            OldAssessmentYear = "2021"
+        };
+        var pagedResult = new PagedResult<PropertyDetailsOldDto>(
+            new List<PropertyDetailsOldDto>(),
+            0,
+            2,
+            20
+        );
+        service.Setup(s => s.GetFloorDetailsOldPagedAsync(
+                1,
+                It.Is<FloorDetailsOldQueryParameters>(q =>
+                    q.PageNumber == 2 &&
+                    q.PageSize == 20 &&
+                    q.SearchTerm == "test" &&
+                    q.SortBy == "OldFloorId" &&
+                    q.SortOrder == "desc" &&
+                    q.OldFloorId == 1 &&
+                    q.OldSubFloorId == 2 &&
+                    q.OldConstructionTypeId == 3 &&
+                    q.OldTypeOfUseId == 4 &&
+                    q.OldSubTypeOfUseId == 5 &&
+                    q.OldConstructionYear == "2020" &&
+                    q.OldAssessmentYear == "2021"),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await controller.GetFloorDetailsOldPaged(1, queryParameters, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        service.Verify(s => s.GetFloorDetailsOldPagedAsync(
+            1,
+            It.IsAny<FloorDetailsOldQueryParameters>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetFloorDetailsOldPaged_WithUnpagedMode_ReturnsOk()
+    {
+        // Arrange
+        var controller = Create(out var service);
+        var queryParameters = new FloorDetailsOldQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = -1 // Unpaged mode
+        };
+        var pagedResult = new PagedResult<PropertyDetailsOldDto>(
+            new List<PropertyDetailsOldDto> { new PropertyDetailsOldDto { Id = 1 }, new PropertyDetailsOldDto { Id = 2 } },
+            2,
+            1,
+            2 // Normalized
+        );
+        service.Setup(s => s.GetFloorDetailsOldPagedAsync(1, It.IsAny<FloorDetailsOldQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await controller.GetFloorDetailsOldPaged(1, queryParameters, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.NotNull(okResult.Value);
     }
 
     #endregion

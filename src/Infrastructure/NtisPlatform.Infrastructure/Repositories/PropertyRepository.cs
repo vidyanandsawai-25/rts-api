@@ -1421,6 +1421,183 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         };
     }
 
+    public async Task<FloorDetailsOldPagedResult?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQuery query, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get PropertyMastOldId from PropertyMast
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        if (!property.PropertyMastOldId.HasValue)
+        {
+            // Normalize metadata for empty result set with unpaged mode
+            var emptyPageSize = query.PageSize == -1 ? 1 : query.PageSize;
+            var emptyPageNumber = query.PageSize == -1 ? 1 : query.PageNumber;
+            return new FloorDetailsOldPagedResult 
+            { 
+                TotalCount = 0, 
+                PageNumber = emptyPageNumber, 
+                PageSize = emptyPageSize, 
+                Items = new List<PropertyDetailsOldDto>() 
+            };
+        }
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
+
+        // Step 2: Build base query with joins to master tables by ID
+        var baseQuery = from pd in _context.PropertyDetailsOld
+                    where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
+
+                    join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
+                    from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
+                    from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
+                    from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
+                    from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
+                    from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    select new
+                    {
+                        Id = pd.Id,
+                        PropertyId = propertyId,
+                        OldFloorId = pd.OldFloorId,
+                        FloorDescription = f != null ? f.Description : null,
+                        OldSubFloorId = pd.OldSubFloorId,
+                        SubFloorDescription = sf != null ? sf.Description : null,
+                        OldConstructionYear = pd.OldConstructionYear,
+                        OldAssessmentYear = pd.OldAssessmentYear,
+                        OldConstructionTypeId = pd.OldConstructionTypeId,
+                        ConstructionTypeDescription = ct != null ? ct.Description : null,
+                        OldTypeOfUseId = pd.OldTypeOfUseId,
+                        TypeOfUseDescription = tu != null ? tu.Description : null,
+                        OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
+                        SubTypeOfUseDescription = stu != null ? stu.Description : null,
+                        OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+                        OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+                        OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+                        OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                        MarkedForDeletion = pd.MarkedForDeletion,
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                    };
+
+        // Step 3: Apply filters
+        if (query.OldFloorId.HasValue)
+            baseQuery = baseQuery.Where(x => x.OldFloorId == query.OldFloorId.Value);
+
+        if (query.OldSubFloorId.HasValue)
+            baseQuery = baseQuery.Where(x => x.OldSubFloorId == query.OldSubFloorId.Value);
+
+        if (query.OldConstructionTypeId.HasValue)
+            baseQuery = baseQuery.Where(x => x.OldConstructionTypeId == query.OldConstructionTypeId.Value);
+
+        if (query.OldTypeOfUseId.HasValue)
+            baseQuery = baseQuery.Where(x => x.OldTypeOfUseId == query.OldTypeOfUseId.Value);
+
+        if (query.OldSubTypeOfUseId.HasValue)
+            baseQuery = baseQuery.Where(x => x.OldSubTypeOfUseId == query.OldSubTypeOfUseId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.OldConstructionYear))
+            baseQuery = baseQuery.Where(x => x.OldConstructionYear == query.OldConstructionYear);
+
+        if (!string.IsNullOrWhiteSpace(query.OldAssessmentYear))
+            baseQuery = baseQuery.Where(x => x.OldAssessmentYear == query.OldAssessmentYear);
+
+        // Step 4: Apply search term if provided
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.ToLower();
+            baseQuery = baseQuery.Where(x =>
+                (x.FloorDescription != null && x.FloorDescription.ToLower().Contains(searchTerm)) ||
+                (x.SubFloorDescription != null && x.SubFloorDescription.ToLower().Contains(searchTerm)) ||
+                (x.ConstructionTypeDescription != null && x.ConstructionTypeDescription.ToLower().Contains(searchTerm)) ||
+                (x.TypeOfUseDescription != null && x.TypeOfUseDescription.ToLower().Contains(searchTerm)) ||
+                (x.SubTypeOfUseDescription != null && x.SubTypeOfUseDescription.ToLower().Contains(searchTerm))
+            );
+        }
+
+        // Step 5: Apply sorting
+        var isDescending = query.SortOrder?.ToLower() == "desc";
+        var sortBy = query.SortBy?.ToLower();
+
+        baseQuery = sortBy switch
+        {
+            "id" => isDescending ? baseQuery.OrderByDescending(x => x.Id) : baseQuery.OrderBy(x => x.Id),
+            "oldfloorid" => isDescending ? baseQuery.OrderByDescending(x => x.OldFloorId) : baseQuery.OrderBy(x => x.OldFloorId),
+            "oldsubfloorid" => isDescending ? baseQuery.OrderByDescending(x => x.OldSubFloorId) : baseQuery.OrderBy(x => x.OldSubFloorId),
+            "oldconstructiontypeid" => isDescending ? baseQuery.OrderByDescending(x => x.OldConstructionTypeId) : baseQuery.OrderBy(x => x.OldConstructionTypeId),
+            "oldtypeofuseid" => isDescending ? baseQuery.OrderByDescending(x => x.OldTypeOfUseId) : baseQuery.OrderBy(x => x.OldTypeOfUseId),
+            "oldsubtypeofuseid" => isDescending ? baseQuery.OrderByDescending(x => x.OldSubTypeOfUseId) : baseQuery.OrderBy(x => x.OldSubTypeOfUseId),
+            "oldconstructionyear" => isDescending ? baseQuery.OrderByDescending(x => x.OldConstructionYear) : baseQuery.OrderBy(x => x.OldConstructionYear),
+            "oldassessmentyear" => isDescending ? baseQuery.OrderByDescending(x => x.OldAssessmentYear) : baseQuery.OrderBy(x => x.OldAssessmentYear),
+            _ => baseQuery.OrderBy(x => x.Id)
+        };
+
+        // Step 6: Get total count
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        // Step 7: Apply pagination
+        // Handle unpaged mode (PageSize == -1): return all records with normalized metadata
+        var returnAllRecords = query.PageSize == -1;
+        var pagedQuery = returnAllRecords
+            ? baseQuery
+            : baseQuery
+                .Skip((query.PageNumber - 1) * query.PageSize)
+                .Take(query.PageSize);
+
+        var queryResults = await pagedQuery.ToListAsync(cancellationToken);
+
+        // Step 8: Parse years in memory (cannot use TryParse in LINQ to Entities)
+        var floorDetails = queryResults.Select(x => new PropertyDetailsOldDto
+        {
+            Id = x.Id,
+            PropertyId = propertyId,
+            OldFloorId = x.OldFloorId,
+            FloorDescription = x.FloorDescription,
+            OldSubFloorId = x.OldSubFloorId,
+            SubFloorDescription = x.SubFloorDescription,
+            OldConstructionYear = x.OldConstructionYear,
+            ConstructionYearValue = !string.IsNullOrEmpty(x.OldConstructionYear) && int.TryParse(x.OldConstructionYear, out int cyear) ? cyear : (int?)null,
+            OldAssessmentYear = x.OldAssessmentYear,
+            AssessmentYearValue = !string.IsNullOrEmpty(x.OldAssessmentYear) && int.TryParse(x.OldAssessmentYear, out int ayear) ? ayear : (int?)null,
+            OldConstructionTypeId = x.OldConstructionTypeId,
+            ConstructionTypeDescription = x.ConstructionTypeDescription,
+            OldTypeOfUseId = x.OldTypeOfUseId,
+            TypeOfUseDescription = x.TypeOfUseDescription,
+            OldSubTypeOfUseId = x.OldSubTypeOfUseId,
+            SubTypeOfUseDescription = x.SubTypeOfUseDescription,
+            OldCarpetAreaSqMeter = x.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = x.OldCarpetAreaSqFeet,
+            OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter,
+            OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet,
+            MarkedForDeletion = x.MarkedForDeletion,
+            MarkedForDeletionDate = x.MarkedForDeletionDate
+        }).ToList();
+
+        // Normalize pagination metadata for unpaged mode to avoid division by zero in TotalPages calculation
+        // When PageSize == -1, set PageNumber = 1 and PageSize = max(1, totalCount) to ensure valid metadata
+        var normalizedPageNumber = returnAllRecords ? 1 : query.PageNumber;
+        var normalizedPageSize = returnAllRecords ? Math.Max(1, totalCount) : query.PageSize;
+
+        return new FloorDetailsOldPagedResult
+        {
+            Items = floorDetails,
+            TotalCount = totalCount,
+            PageNumber = normalizedPageNumber,
+            PageSize = normalizedPageSize
+        };
+    }
+
     public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
     {
         // Step 1: Get PropertyMastOldId from PropertyMast
