@@ -161,6 +161,53 @@ public class PropertySearchDtoTests
         Assert.Equal("Test Address", dto.Address);
     }
 
+    [Fact]
+    public void PropertySearchRequestDto_ValuesAndDuesProperties_DefaultValues_ShouldBeNull()
+    {
+        // Act
+        var dto = new PropertySearchRequestDto();
+
+        // Assert
+        Assert.Null(dto.RVorCV);
+        Assert.Null(dto.AmountFilterOperator);
+        Assert.Null(dto.AmountValue);
+        Assert.Null(dto.AmountTo);
+    }
+
+    [Fact]
+    public void PropertySearchRequestDto_ValuesAndDuesProperties_CanBeSet_AndRetrieved()
+    {
+        // Arrange
+        var dto = new PropertySearchRequestDto();
+
+        // Act
+        dto.RVorCV = "CV";
+        dto.AmountFilterOperator = "Between";
+        dto.AmountValue = 30000m;
+        dto.AmountTo = 60000m;
+
+        // Assert
+        Assert.Equal("CV", dto.RVorCV);
+        Assert.Equal("Between", dto.AmountFilterOperator);
+        Assert.Equal(30000m, dto.AmountValue);
+        Assert.Equal(60000m, dto.AmountTo);
+    }
+
+    [Fact]
+    public void PropertySearchRequestDto_AmountFilterOperator_CanStoreSwaggerNumericEnumValue()
+    {
+        // Arrange
+        var dto = new PropertySearchRequestDto();
+
+        // Act
+        dto.AmountFilterOperator = "0";
+        dto.AmountValue = 1224666m;
+
+        // Assert
+        Assert.Equal("0", dto.AmountFilterOperator);
+        Assert.Equal(1224666m, dto.AmountValue);
+    }
+
     #endregion
 
     #region PropertySearchResponseDto Tests

@@ -1,5 +1,6 @@
 using NtisPlatform.Application.DTOs.Property;
 using Xunit;
+using NtisPlatform.Application.Enums;
 
 namespace NtisPlatform.Tests.Application.DTOs.Property;
 
@@ -35,6 +36,10 @@ public class PropertySearchQueryParametersTests
         Assert.Null(parameters.FlatOrShopName);
         Assert.Null(parameters.SocietyName);
         Assert.Null(parameters.Address);
+        Assert.Null(parameters.RVorCV);
+        Assert.Null(parameters.AmountFilterOperator);
+        Assert.Null(parameters.AmountValue);
+        Assert.Null(parameters.AmountTo);
     }
 
     [Fact]
@@ -308,7 +313,11 @@ public class PropertySearchQueryParametersTests
             OccupierName = "Jane Smith",
             FlatOrShopName = "Shop A",
             SocietyName = "Green Valley",
-            Address = "123 Main Street"
+            Address = "123 Main Street",
+            RVorCV = "RV",
+            AmountFilterOperator = FilterOperator.GreaterThan,
+            AmountValue = 30000m,
+            AmountTo = 60000m
         };
 
         // Assert
@@ -331,6 +340,10 @@ public class PropertySearchQueryParametersTests
         Assert.Equal("Shop A", parameters.FlatOrShopName);
         Assert.Equal("Green Valley", parameters.SocietyName);
         Assert.Equal("123 Main Street", parameters.Address);
+        Assert.Equal("RV", parameters.RVorCV);
+        Assert.Equal(FilterOperator.GreaterThan, parameters.AmountFilterOperator);
+        Assert.Equal(30000m, parameters.AmountValue);
+        Assert.Equal(60000m, parameters.AmountTo);
     }
 
     [Fact]
@@ -367,5 +380,54 @@ public class PropertySearchQueryParametersTests
         Assert.Equal("", parameters.PropertyNoFrom);
         Assert.Equal("", parameters.MobileNo);
         Assert.Equal("", parameters.Address);
+    }
+
+    [Fact]
+    public void ValuesAndDuesProperties_DefaultValues_ShouldBeNull()
+    {
+        // Arrange & Act
+        var parameters = new PropertySearchQueryParameters();
+
+        // Assert
+        Assert.Null(parameters.RVorCV);
+        Assert.Null(parameters.AmountFilterOperator);
+        Assert.Null(parameters.AmountValue);
+        Assert.Null(parameters.AmountTo);
+    }
+
+    [Fact]
+    public void ValuesAndDuesProperties_CanBeSet_AndRetrieved()
+    {
+        // Arrange
+        var parameters = new PropertySearchQueryParameters();
+
+        // Act
+        parameters.RVorCV = "RV";
+        parameters.AmountFilterOperator = FilterOperator.GreaterThan;
+        parameters.AmountValue = 30000m;
+        parameters.AmountTo = 60000m;
+
+        // Assert
+        Assert.Equal("RV", parameters.RVorCV);
+        Assert.Equal(FilterOperator.GreaterThan, parameters.AmountFilterOperator);
+        Assert.Equal(30000m, parameters.AmountValue);
+        Assert.Equal(60000m, parameters.AmountTo);
+    }
+
+    [Fact]
+    public void AmountFilterOperator_CanBeSetToBetween()
+    {
+        // Arrange
+        var parameters = new PropertySearchQueryParameters();
+
+        // Act
+        parameters.AmountFilterOperator = FilterOperator.Between;
+        parameters.AmountValue = 10000m;
+        parameters.AmountTo = 50000m;
+
+        // Assert
+        Assert.Equal(FilterOperator.Between, parameters.AmountFilterOperator);
+        Assert.Equal(10000m, parameters.AmountValue);
+        Assert.Equal(50000m, parameters.AmountTo);
     }
 }

@@ -6,6 +6,7 @@ using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.Range;
+using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -13,6 +14,7 @@ using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
+using DataValidationException = System.ComponentModel.DataAnnotations.ValidationException;
 
 
 namespace NtisPlatform.Application.Services;
@@ -332,6 +334,26 @@ public class PropertyService
 
     public async Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
+        // Values & Dues validation
+        var op = queryParameters.AmountFilterOperator;
+        var from = queryParameters.AmountValue;
+        var to = queryParameters.AmountTo;
+
+        if (op.HasValue && !from.HasValue)
+        {
+            throw new DataValidationException("AmountValue is required when AmountFilterOperator is provided.");
+        }
+
+        if (op == FilterOperator.Between && !to.HasValue)
+        {
+            throw new DataValidationException("AmountTo is required when AmountFilterOperator is Between.");
+        }
+
+        if (op == FilterOperator.Between && from.HasValue && to.HasValue && from.Value > to.Value)
+        {
+            throw new DataValidationException("AmountValue cannot be greater than AmountTo.");
+        }
+
         // Map query parameters to repository request DTO
         var searchRequest = new PropertySearchRequestDto
         {
@@ -355,7 +377,11 @@ public class PropertyService
             OccupierName = queryParameters.OccupierName,
             FlatOrShopName = queryParameters.FlatOrShopName,
             SocietyName = queryParameters.SocietyName,
-            Address = queryParameters.Address
+            Address = queryParameters.Address,
+            RVorCV = queryParameters.RVorCV,
+            AmountFilterOperator = queryParameters.AmountFilterOperator?.ToString(),
+            AmountValue = queryParameters.AmountValue,
+            AmountTo = queryParameters.AmountTo
         };
 
         var (totalCount, items) = await _propertyRepository.SearchPropertiesAsync(

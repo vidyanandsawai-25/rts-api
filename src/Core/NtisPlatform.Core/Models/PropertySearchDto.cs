@@ -118,6 +118,31 @@ public class PropertySearchRequestDto
     /// Search by Address
     /// </summary>
     public string? Address { get; set; }
+
+
+    // Values & Dues Search Tab Parameters
+
+    /// <summary>
+    /// Filter by RV or CV type. Allowed values: RV, CV.
+    /// </summary>
+    public string? RVorCV { get; set; }
+
+    /// <summary>
+    /// Filter operator for calculated Total Tax amount.
+    /// Supported values: Equals, GreaterThan, LessThan, Between.
+    /// </summary>
+    public string? AmountFilterOperator { get; set; }
+
+    /// <summary>
+    /// Amount value used for Total Tax filtering.
+    /// For Between filter, this is the starting amount.
+    /// </summary>
+    public decimal? AmountValue { get; set; }
+
+    /// <summary>
+    /// Ending amount used only when AmountFilterOperator is Between.
+    /// </summary>
+    public decimal? AmountTo { get; set; }
 }
 
 /// <summary>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
+using DataValidationException = System.ComponentModel.DataAnnotations.ValidationException;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -84,6 +85,14 @@ public partial class PropertyController
                     ? $"{result.TotalCount} record(s) found" 
                     : "No records found matching the search criteria",
                 Items = result
+            });
+        }
+        catch (DataValidationException ex)
+        {
+            return BadRequest(new ApiResponse<PagedResult<PropertySearchResponseDto>>
+            {
+                Success = false,
+                Message = ex.Message
             });
         }
         catch (Exception ex)

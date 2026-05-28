@@ -14,5 +14,6 @@ public enum FilterOperator
     IsNull,
     IsNotNull,
     NotIn,
-    NotEquals
+    NotEquals,
+    Between
 }

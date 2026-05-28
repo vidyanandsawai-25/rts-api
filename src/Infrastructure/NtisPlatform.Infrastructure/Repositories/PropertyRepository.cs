@@ -6,6 +6,7 @@ using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
+using NtisPlatform.Application.Enums;
 
 namespace NtisPlatform.Infrastructure.Repositories;
 
@@ -2894,6 +2895,67 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         {
             query = query.Where(x => (x.Property.Address != null && x.Property.Address.Contains(searchRequest.Address)) ||
                                    (x.Property.AddressEnglish != null && x.Property.AddressEnglish.Contains(searchRequest.Address)));
+        }
+
+        // Apply Values & Dues Search Filters
+        if (searchRequest.RVorCV != null && searchRequest.RVorCV.Trim().Length > 0)
+        {
+            var rvOrCv = searchRequest.RVorCV.Trim().ToUpper();
+
+            query = query.Where(x => _context.TransMast.Any(t => t.PropertyId == x.Property.Id && t.IsActive && !t.MarkedForDeletion &&
+                    t.RVorCV == rvOrCv));
+        }
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.AmountFilterOperator) && searchRequest.AmountValue.HasValue)
+        {
+            if (!Enum.TryParse<FilterOperator>(searchRequest.AmountFilterOperator.Trim(),ignoreCase: true,out var op) ||
+                !Enum.IsDefined(typeof(FilterOperator), op))
+            {
+                return (0, new List<PropertySearchResponseDto>());
+            }
+
+            var amount = searchRequest.AmountValue.Value;
+            var applyAmountFilter = true;
+
+            var taxQuery = _context.TransMast
+                .Where(t => t.IsActive && !t.MarkedForDeletion)
+                .GroupBy(t => t.PropertyId)
+                .Select(g => new
+                {
+                    PropertyId = g.Key,
+                    TotalTax = g.Sum(x => x.TaxAmount)
+                });
+
+            if (op == FilterOperator.Equals)
+            {
+                taxQuery = taxQuery.Where(t => t.TotalTax == amount);
+            }
+            else if (op == FilterOperator.GreaterThan)
+            {
+                taxQuery = taxQuery.Where(t => t.TotalTax > amount);
+            }
+            else if (op == FilterOperator.LessThan)
+            {
+                taxQuery = taxQuery.Where(t => t.TotalTax < amount);
+            }
+            else if (op == FilterOperator.Between && searchRequest.AmountTo.HasValue)
+            {
+                var toAmount = searchRequest.AmountTo.Value;
+
+                taxQuery = taxQuery.Where(t =>
+                    t.TotalTax >= amount &&
+                    t.TotalTax <= toAmount);
+            }
+            else
+            {
+                applyAmountFilter = false;
+            }
+
+            if (applyAmountFilter)
+            {
+                query = query.Where(x =>
+                    taxQuery.Any(t => t.PropertyId == x.Property.Id));
+            }
         }
 
         // Get total count before pagination
