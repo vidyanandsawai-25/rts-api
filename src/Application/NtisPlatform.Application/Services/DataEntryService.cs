@@ -243,10 +243,10 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         // UpdateRangeAsync internally does delete-then-insert (full replace)
         // Only touch a collection if the caller actually sent it
         if (updateDto.RenterDetails is not null)
-            await _renterDetailService.UpdateRangeAsync(propertyDetailsId, updateDto.RenterDetails, cancellationToken);
+            await _renterDetailService.UpdateRangeAsync(propertyDetailsId, updateDto.RenterDetails, updateDto.IsRenter ?? false, cancellationToken);
 
         if (updateDto.Renters is not null)
-            await _renterMastService.UpdateRangeAsync(propertyDetailsId, updateDto.Renters, cancellationToken);
+            await _renterMastService.UpdateRangeAsync(propertyDetailsId, updateDto.Renters, updateDto.IsRenter ?? false, cancellationToken);
 
         if (updateDto.RoomWiseSubmissionDetails is not null)
             await _roomWiseService.UpdateRangeAsync(propertyDetailsId, updateDto.RoomWiseSubmissionDetails, cancellationToken);

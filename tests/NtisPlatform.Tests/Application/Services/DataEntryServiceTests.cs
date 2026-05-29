@@ -513,6 +513,7 @@ public class DataEntryServiceTests
             s => s.UpdateRangeAsync(
                 It.Is<int>(id => id == entityId),
                 It.IsAny<IEnumerable<UpdateRenterDetailsDto>>(),
+                It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -543,10 +544,10 @@ public class DataEntryServiceTests
 
         // Assert
         _mockRenterDetailService.Verify(
-            s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRenterDetailsDto>>(), It.IsAny<CancellationToken>()),
+            s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRenterDetailsDto>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _mockRenterMastService.Verify(
-            s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRenterMastDto>>(), It.IsAny<CancellationToken>()),
+            s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRenterMastDto>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _mockRoomWiseService.Verify(
             s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRoomWiseSubmissionDetailsDto>>(), It.IsAny<CancellationToken>()),

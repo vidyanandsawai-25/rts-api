@@ -24,34 +24,59 @@ public class RenterDetailService : BaseCommonCrudService<RenterDetailEntity, Ren
         }
     }
 
-    public async Task UpdateRangeAsync( int propertyDetailsId, IEnumerable<UpdateRenterDetailsDto> dtos, CancellationToken cancellationToken = default)
+    public async Task UpdateRangeAsync( int propertyDetailsId, IEnumerable<UpdateRenterDetailsDto> dtos, bool isRenter = false, CancellationToken cancellationToken = default)
     {
         var dtoList = dtos.ToList();
         if (!dtoList.Any())
             return;
 
-        var dtoIds = dtoList.Select(d => d.Id).ToList();
-
-        // Load all entities in a single query
-        var entities = await _repository.GetQueryable()
-            .Where(x => x.PropertyDetailsId == propertyDetailsId && dtoIds.Contains(x.Id))
-            .ToListAsync(cancellationToken);
-
-        var entityDict = entities.ToDictionary(e => e.Id);
-
-        foreach (var dto in dtoList)
+        // Separate DTOs into updates (Id > 0) and inserts (Id == 0)
+        if (dtoList.Any(d => d.Id < 0))
         {
-            if (!entityDict.TryGetValue(dto.Id, out var entity))
+            throw new ArgumentException("Renter detail Id must be greater than or equal to 0.", nameof(dtos));
+        }
+
+        // Separate DTOs into updates (Id > 0) and inserts (Id == 0)
+        var dtosToUpdate = dtoList.Where(d => d.Id > 0).ToList();
+        var dtosToInsert = dtoList.Where(d => d.Id == 0).ToList();
+
+        // Handle updates for existing entries
+        if (dtosToUpdate.Any())
+        {
+            var dtoIds = dtosToUpdate.Select(d => d.Id).ToList();
+
+            // Load all entities in a single query
+            var entities = await _repository.GetQueryable()
+                .Where(x => x.PropertyDetailsId == propertyDetailsId && dtoIds.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            var entityDict = entities.ToDictionary(e => e.Id);
+
+            foreach (var dto in dtosToUpdate)
             {
-                throw new KeyNotFoundException(
-                    $"Renter detail with Id {dto.Id} was not found for PropertyDetailsId {propertyDetailsId}.");
+                if (!entityDict.TryGetValue(dto.Id, out var entity))
+                {
+                    throw new KeyNotFoundException(
+                        $"Renter detail with Id {dto.Id} was not found for PropertyDetailsId {propertyDetailsId}.");
+                }
+
+                _mapper.Map(dto, entity);
+
+                entity.PropertyDetailsId = propertyDetailsId;
+
+                await _repository.UpdateAsync(entity, cancellationToken);
             }
+        }
 
-            _mapper.Map(dto, entity);
-
-            entity.PropertyDetailsId = propertyDetailsId;
-
-            await _repository.UpdateAsync(entity, cancellationToken);
+        // Handle inserts for new entries when IsRenter is true and Id is 0
+        if (isRenter && dtosToInsert.Any())
+        {
+            foreach (var dto in dtosToInsert)
+            {
+                var entity = _mapper.Map<RenterDetailEntity>(dto);
+                entity.PropertyDetailsId = propertyDetailsId;
+                await _repository.AddAsync(entity, cancellationToken);
+            }
         }
     }
 
