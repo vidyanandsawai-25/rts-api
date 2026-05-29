@@ -117,4 +117,78 @@ public partial class PropertyController
                 });
         }
     }
+
+    /// <summary>
+    /// Creates or inserts old taxes details for a property across multiple finance years.
+    /// This endpoint is used to create new Old Taxes Details records.
+    /// This is a create-only operation that will return 409 Conflict if records already exist.
+    /// </summary>
+    /// <param name="propertyId">The unique identifier of the property</param>
+    /// <param name="dto">The data containing tax information for multiple years to insert</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Success response with created data</returns>
+    /// <response code="201">Property old taxes details created successfully</response>
+    /// <response code="404">Property not found</response>
+    /// <response code="409">Conflict - Records already exist for the specified year-tax combinations</response>
+    /// <response code="400">Invalid data - Validation error</response>
+    [HttpPost("{propertyId}/old-taxes-details")]
+    [ProducesResponseType(typeof(ApiResponse<PropertyOldTaxesDetailsDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateOldTaxesDetails(int propertyId, [FromBody] UpdatePropertyOldTaxesDetailsDto dto, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _propertyService.CreateOldTaxesDetailsAsync(propertyId, dto, ct);
+
+            if (result == null)
+            {
+                _logger.LogWarning("Property with ID {PropertyId} not found for creation", propertyId);
+                return NotFound(new ApiResponse<PropertyOldTaxesDetailsDto>
+                {
+                    Success = false,
+                    Message = $"Property with ID {propertyId} not found"
+                });
+            }
+
+            return CreatedAtAction(
+                nameof(GetOldTaxesDetails),
+                new { propertyId },
+                new ApiResponse<PropertyOldTaxesDetailsDto>
+                {
+                    Success = true,
+                    Message = "Record created successfully",
+                    Items = result
+                });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("already exist"))
+        {
+            _logger.LogWarning(ex, "Conflict creating old taxes details for property {PropertyId}", propertyId);
+            return Conflict(new ApiResponse<PropertyOldTaxesDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Validation error creating old taxes details for property {PropertyId}", propertyId);
+            return BadRequest(new ApiResponse<PropertyOldTaxesDetailsDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating old taxes details for property {PropertyId}", propertyId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<PropertyOldTaxesDetailsDto>
+                {
+                    Success = false,
+                    Message = "An error occurred while creating property old taxes details"
+                });
+        }
+    }
 }

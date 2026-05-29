@@ -1004,18 +1004,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (property == null)
             return null;
 
-        if (!property.PropertyMastOldId.HasValue)
-        {
-            // Return empty result if no PropertyMastOld is linked
-            return new PropertyOldTaxesDetailsDto
-            {
-                PropertyId = propertyId,
-                TaxYears = new List<OldTaxYearDto>()
-            };
-        }
-
-        var propertyMastOldId = property.PropertyMastOldId.Value;
-
         // Step 2: Get all active old taxes from TaxMaster where OldTaxStatus = true
         var oldTaxes = await _context.TaxMaster
             .Where(t => t.IsActive && t.OldTaxStatus)
@@ -1033,22 +1021,48 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
         }
 
-        // Step 3: Get all TransMastOld records for this PropertyMastOldId
+        // Step 3: Check if PropertyMastOld exists
+        if (!property.PropertyMastOldId.HasValue)
+        {
+            // No PropertyMastOld linked - return empty list with all taxes available for insert
+            // UI can add new years from YearMaster dropdown
+            return new PropertyOldTaxesDetailsDto
+            {
+                PropertyId = propertyId,
+                TaxYears = new List<OldTaxYearDto>()
+            };
+        }
+
+        var propertyMastOldId = property.PropertyMastOldId.Value;
+
+        // Step 4: Get all TransMastOld records for this PropertyMastOldId
         var transMastOldData = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == propertyMastOldId && t.IsActive && !t.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        // Step 4: Get unique finance years from the transactions
+        // Step 5: Get unique finance years from the transactions
         var financeYearIds = transMastOldData.Select(t => t.FinanceYearId).Distinct().ToList();
 
-        // Step 5: Get year details from YearMaster
+        // Step 6: Check if there are any existing transactions
+        if (!financeYearIds.Any())
+        {
+            // PropertyMastOld exists but no TransMastOld records
+            // Return empty list with all taxes available for insert
+            return new PropertyOldTaxesDetailsDto
+            {
+                PropertyId = propertyId,
+                TaxYears = new List<OldTaxYearDto>()
+            };
+        }
+
+        // Step 7: Get year details from YearMaster
         var years = await _context.YearMaster
             .Where(y => financeYearIds.Contains(y.Id) && y.IsActive)
             .OrderByDescending(y => y.Year)
             .Select(y => new { y.Id, y.Year, y.YearCode })
             .ToListAsync(cancellationToken);
 
-        // Step 6: Build lookup dictionary for O(1) access (FinanceYearId, TaxId) -> Transaction
+        // Step 8: Build lookup dictionary for O(1) access (FinanceYearId, TaxId) -> Transaction
         var transactionLookup = transMastOldData
             .GroupBy(t => t.FinanceYearId)
             .ToDictionary(
@@ -1056,7 +1070,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 g => g.ToDictionary(t => t.TaxId, t => t)
             );
 
-        // Step 7: Build the result
+        // Step 9: Build the result
         var result = new PropertyOldTaxesDetailsDto
         {
             PropertyId = propertyId,
@@ -1139,6 +1153,217 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             PropertyId = propertyId,
             Policies = policies
         };
+    }
+
+    public async Task<PropertyOldTaxesDetailsDto?> CreateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Verify property exists (no changes yet)
+        var property = await _context.PropertyMast
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (property == null)
+            return null;
+
+        // Step 2: Validate finance years exist (no changes yet)
+        var requestedFinanceYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).ToList();
+        var financeYearIds = requestedFinanceYearIds.Distinct().ToList();
+
+        if (requestedFinanceYearIds.Count != financeYearIds.Count)
+        {
+            throw new InvalidOperationException("Duplicate finance years are not allowed in the request");
+        }
+
+        var validYearIds = await _context.YearMaster
+            .Where(y => financeYearIds.Contains(y.Id) && y.IsActive)
+            .Select(y => y.Id)
+            .ToListAsync(cancellationToken);
+
+        if (validYearIds.Count != financeYearIds.Count)
+        {
+            throw new InvalidOperationException("One or more finance years are invalid or inactive");
+        }
+
+        // Step 3: Validate all tax IDs exist in TaxMaster and have OldTaxStatus = true (no changes yet)
+        var allTaxIds = dto.TaxYears
+            .SelectMany(ty => ty.Taxes.Select(t => t.TaxId))
+            .Distinct()
+            .ToList();
+
+        var validTaxIds = await _context.TaxMaster
+            .Where(t => allTaxIds.Contains(t.Id) && t.IsActive && t.OldTaxStatus)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+
+        if (validTaxIds.Count != allTaxIds.Count)
+        {
+            throw new InvalidOperationException("One or more tax types are invalid, inactive, or not configured for old taxes");
+        }
+
+        // Step 4: Validate per-year uniqueness of TaxId (no changes yet)
+        foreach (var yearDto in dto.TaxYears)
+        {
+            var duplicateTaxIds = yearDto.Taxes
+                .GroupBy(t => t.TaxId)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicateTaxIds.Any())
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate TaxId(s) found for year {yearDto.FinanceYearId}: {string.Join(", ", duplicateTaxIds)}. " +
+                    "Each tax can only appear once per finance year.");
+            }
+
+            // Validate and normalize RVorCV format
+            var normalizedRVorCV = string.IsNullOrWhiteSpace(yearDto.RVorCV) ? "RV" : yearDto.RVorCV.Trim();
+            if (normalizedRVorCV.Length > 2)
+            {
+                throw new InvalidOperationException(
+                    $"RVorCV must be 2 characters or less for year {yearDto.FinanceYearId}. " +
+                    $"Received: '{normalizedRVorCV}' ({normalizedRVorCV.Length} characters)");
+            }
+        }
+
+        // Step 5: Check for existing active transactions IF PropertyMastOld exists (no changes yet)
+        if (property.PropertyMastOldId.HasValue)
+        {
+            var requestedYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).Distinct().ToList();
+            var requestedYearTaxCombinations = dto.TaxYears
+                .SelectMany(ty => ty.Taxes.Select(t => new { YearId = ty.FinanceYearId, TaxId = t.TaxId }))
+                .ToList();
+
+            var existingActiveTransactions = await _context.TransMastOld
+                .Where(t => t.PropertyMastOldId == property.PropertyMastOldId.Value &&
+                           requestedYearIds.Contains(t.FinanceYearId) &&
+                           t.IsActive &&
+                           !t.MarkedForDeletion)
+                .Select(t => new { t.FinanceYearId, t.TaxId })
+                .ToListAsync(cancellationToken);
+
+            var conflicts = requestedYearTaxCombinations
+                .Where(req => existingActiveTransactions.Any(exist => 
+                    exist.FinanceYearId == req.YearId && exist.TaxId == req.TaxId))
+                .ToList();
+
+            if (conflicts.Any())
+            {
+                // Find which year-tax combinations already exist
+
+                var yearNames = await _context.YearMaster
+                    .Where(y => conflicts.Select(c => c.YearId).Distinct().Contains(y.Id))
+                    .Select(y => new { y.Id, y.YearCode })
+                    .ToListAsync(cancellationToken);
+
+                var taxNames = await _context.TaxMaster
+                    .Where(t => conflicts.Select(c => c.TaxId).Distinct().Contains(t.Id))
+                    .Select(t => new { t.Id, t.TaxName })
+                    .ToListAsync(cancellationToken);
+
+                var conflictDetails = conflicts
+                    .Select(c => 
+                    {
+                        var year = yearNames.FirstOrDefault(y => y.Id == c.YearId)?.YearCode ?? c.YearId.ToString();
+                        var tax = taxNames.FirstOrDefault(t => t.Id == c.TaxId)?.TaxName ?? c.TaxId.ToString();
+                        return $"{year} - {tax}";
+                    })
+                    .ToList();
+
+                throw new InvalidOperationException(
+                    $"Cannot create records - the following year-tax combinations already exist: {string.Join(", ", conflictDetails)}. " +
+                    "Use PUT endpoint to update existing records.");
+            }
+        }
+
+        // ALL VALIDATIONS PASSED - Now begin transaction for atomic database changes
+        // Use execution strategy for resilience
+        var strategy = _context.Database.CreateExecutionStrategy();
+
+        return await strategy.ExecuteAsync(async () =>
+        {
+            // Try to begin a transaction (will be ignored by InMemory provider in tests)
+            using var transaction = _context.Database.CurrentTransaction == null
+                ? await _context.Database.BeginTransactionAsync(cancellationToken)
+                : null;
+
+            try
+            {
+                int propertyMastOldId;
+
+                // Step 6: Create PropertyMastOld if needed (inside transaction)
+                if (property.PropertyMastOldId.HasValue)
+                {
+                    propertyMastOldId = property.PropertyMastOldId.Value;
+                }
+                else
+                {
+                    // Create new PropertyMastOld record
+                    var newPropertyMastOld = new PropertyMastOldEntity
+                    {
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        CreatedDate = DateTime.Now
+                    };
+                    await _context.PropertyMastOld.AddAsync(newPropertyMastOld, cancellationToken);
+                    await _context.SaveChangesAsync(cancellationToken);
+
+                    propertyMastOldId = newPropertyMastOld.Id;
+
+                    // Update PropertyMast with the new PropertyMastOldId
+                    var propertyEntity = await _context.PropertyMast.FindAsync(new object[] { propertyId }, cancellationToken);
+                    if (propertyEntity != null)
+                    {
+                        propertyEntity.PropertyMastOldId = propertyMastOldId;
+                        propertyEntity.UpdatedDate = DateTime.Now;
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
+                }
+
+                // Step 7: Insert new transactions only (Create-Only operation)
+                foreach (var yearDto in dto.TaxYears)
+                {
+                    // Get normalized RVorCV (validated above)
+                    var normalizedRVorCV = string.IsNullOrWhiteSpace(yearDto.RVorCV) ? "RV" : yearDto.RVorCV.Trim();
+
+                    // Process each tax in the create DTO
+                    foreach (var taxDto in yearDto.Taxes)
+                    {
+                        // INSERT new transaction
+                        var newTransaction = new TransMastOldEntity
+                        {
+                            PropertyMastOldId = propertyMastOldId,
+                            FinanceYearId = yearDto.FinanceYearId,
+                            TaxId = taxDto.TaxId,
+                            TaxAmount = taxDto.TaxAmount,
+                            RVorCV = normalizedRVorCV,
+                            RVorCVValue = yearDto.RVorCVValue ?? 0,
+                            IsActive = true,
+                            MarkedForDeletion = false,
+                            CreatedDate = DateTime.Now
+                        };
+
+                        await _context.TransMastOld.AddAsync(newTransaction, cancellationToken);
+                    }
+                }
+
+                // Step 8: Save all changes
+                await _context.SaveChangesAsync(cancellationToken);
+
+                // Commit transaction if we created one
+                transaction?.Commit();
+
+                // Step 9: Return created data
+                return await GetOldTaxesDetailsAsync(propertyId, cancellationToken);
+            }
+            catch
+            {
+                // Rollback transaction on any error (if transaction exists)
+                transaction?.Rollback();
+                throw;
+            }
+        });
     }
 
     public async Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)

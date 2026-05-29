@@ -95,7 +95,19 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates old taxes details for a property across multiple finance years
+    /// Creates new old taxes details for a property across multiple finance years.
+    /// This is a create-only operation that will fail if any records already exist for the specified years and taxes.
+    /// </summary>
+    /// <param name="propertyId">The property identifier</param>
+    /// <param name="dto">The data containing tax information for multiple years to create</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Created PropertyOldTaxesDetailsDto if property was found and records created, null otherwise</returns>
+    /// <exception cref="InvalidOperationException">Thrown when records already exist for any of the specified year-tax combinations</exception>
+    Task<PropertyOldTaxesDetailsDto?> CreateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates old taxes details for a property across multiple finance years.
+    /// This is an upsert operation that will create new records or update existing ones.
     /// </summary>
     /// <param name="propertyId">The property identifier</param>
     /// <param name="dto">The update data containing tax information for multiple years</param>

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Models;
@@ -21,6 +22,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         _context = new ApplicationDbContext(options);
@@ -901,6 +903,481 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         var interest = year.Taxes.First(t => t.TaxId == 3);
         Assert.Equal(0m, interest.TaxAmount); // Marked for deletion
+    }
+
+    #endregion
+
+    #region CreateOldTaxesDetailsAsync Tests
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_PropertyNotFound_ReturnsNull()
+    {
+        // Arrange
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>()
+        };
+
+        // Act
+        var result = await _repository.CreateOldTaxesDetailsAsync(99999, dto, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_NoPropertyMastOldId_CreatesNewPropertyMastOldAndTransactions()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 100,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE100",
+            PropertyMastOldId = null,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 1000m },
+                        new() { TaxId = 2, TaxAmount = 500m }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = await _repository.CreateOldTaxesDetailsAsync(100, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(100, result.PropertyId);
+
+        // Verify PropertyMast was updated
+        var updatedProperty = await _context.PropertyMast.FindAsync(100);
+        Assert.NotNull(updatedProperty);
+        Assert.NotNull(updatedProperty.PropertyMastOldId);
+
+        // Verify PropertyMastOld was created
+        var createdPropertyMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        Assert.NotNull(createdPropertyMastOld);
+
+        // Verify transactions were created
+        var transactions = await _context.TransMastOld
+            .Where(t => t.PropertyMastOldId == updatedProperty.PropertyMastOldId)
+            .ToListAsync();
+        Assert.Equal(2, transactions.Count);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_ExistingRecords_ThrowsConflict()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 100, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 101,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE101",
+            PropertyMastOldId = 100,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+
+        // Add existing transaction
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 100,
+            FinanceYearId = 1,
+            TaxId = 1,
+            TaxAmount = 1000m,
+            RVorCV = "RV",
+            RVorCVValue = 50000m,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 2000m } // Trying to create existing year-tax combination
+                    }
+                }
+            }
+        };
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _repository.CreateOldTaxesDetailsAsync(101, dto, CancellationToken.None));
+
+        Assert.Contains("already exist", exception.Message);
+        Assert.Contains("Use PUT endpoint to update", exception.Message);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_PartialConflict_ThrowsConflictWithDetails()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 101, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 102,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE102",
+            PropertyMastOldId = 101,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+
+        // Add existing transaction for Tax 1 only
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 101,
+            FinanceYearId = 1,
+            TaxId = 1,
+            TaxAmount = 1000m,
+            RVorCV = "RV",
+            RVorCVValue = 50000m,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 2000m }, // Conflict
+                        new() { TaxId = 2, TaxAmount = 500m }   // New, but should fail due to conflict
+                    }
+                }
+            }
+        };
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _repository.CreateOldTaxesDetailsAsync(102, dto, CancellationToken.None));
+
+        Assert.Contains("already exist", exception.Message);
+        Assert.Contains("2020-21", exception.Message); // Year name in error
+        Assert.Contains("Property Tax", exception.Message); // Tax name in error
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_SoftDeletedRecords_Succeeds()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 102, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 103,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE103",
+            PropertyMastOldId = 102,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+
+        // Add soft-deleted transaction (should NOT cause conflict in CREATE)
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 102,
+            FinanceYearId = 1,
+            TaxId = 1,
+            TaxAmount = 1000m,
+            RVorCV = "RV",
+            RVorCVValue = 50000m,
+            IsActive = false,
+            MarkedForDeletion = true
+        });
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 2000m } // Should succeed as existing is soft-deleted
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = await _repository.CreateOldTaxesDetailsAsync(103, dto, CancellationToken.None);
+
+        // Assert - Should succeed because soft-deleted records don't count as "existing"
+        Assert.NotNull(result);
+        Assert.Equal(103, result.PropertyId);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_NewRecordsOnly_Success()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 103, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 104,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE104",
+            PropertyMastOldId = 103,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 1000m },
+                        new() { TaxId = 2, TaxAmount = 500m },
+                        new() { TaxId = 3, TaxAmount = 100m }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = await _repository.CreateOldTaxesDetailsAsync(104, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(104, result.PropertyId);
+
+        var transactions = await _context.TransMastOld
+            .Where(t => t.PropertyMastOldId == 103)
+            .ToListAsync();
+
+        Assert.Equal(3, transactions.Count);
+        Assert.All(transactions, t =>
+        {
+            Assert.True(t.IsActive);
+            Assert.False(t.MarkedForDeletion);
+        });
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_MultipleYears_Success()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 104, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 105,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE105",
+            PropertyMastOldId = 104,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 1000m }
+                    }
+                },
+                new()
+                {
+                    FinanceYearId = 2,
+                    RVorCV = "CV",
+                    RVorCVValue = 60000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 1100m }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = await _repository.CreateOldTaxesDetailsAsync(105, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.TaxYears.Count);
+
+        var transactions = await _context.TransMastOld
+            .Where(t => t.PropertyMastOldId == 104)
+            .ToListAsync();
+
+        Assert.Equal(2, transactions.Count);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_ValidationFailsAfterNoPropertyMastOld_RemainsAtomic()
+    {
+        // Arrange - Property without PropertyMastOldId
+        var property = new PropertyEntity
+        {
+            Id = 106,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE106",
+            PropertyMastOldId = null,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // DTO with invalid year (will fail validation)
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 99999, // Invalid year ID - will fail validation
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 1000m }
+                    }
+                }
+            }
+        };
+
+        // Act & Assert - Should throw validation error
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _repository.CreateOldTaxesDetailsAsync(106, dto, CancellationToken.None));
+
+        // Verify atomicity: PropertyMast should NOT have PropertyMastOldId set
+        var propertyAfterError = await _context.PropertyMast.FindAsync(106);
+        Assert.NotNull(propertyAfterError);
+        Assert.Null(propertyAfterError.PropertyMastOldId); // Should remain null due to validation failure
+
+        // Verify no orphaned PropertyMastOld record was created
+        var orphanedPropertyMastOld = await _context.PropertyMastOld
+            .Where(pmo => !_context.PropertyMast.Any(p => p.PropertyMastOldId == pmo.Id))
+            .ToListAsync();
+        Assert.Empty(orphanedPropertyMastOld);
+    }
+
+    [Fact]
+    public async Task CreateOldTaxesDetailsAsync_ValidationFailsWithInvalidTax_RemainsAtomic()
+    {
+        // Arrange - Property without PropertyMastOldId
+        var property = new PropertyEntity
+        {
+            Id = 107,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "CREATE107",
+            PropertyMastOldId = null,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // DTO with invalid tax (will fail validation)
+        var dto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    RVorCV = "RV",
+                    RVorCVValue = 50000m,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 99999, TaxAmount = 1000m } // Invalid tax ID
+                    }
+                }
+            }
+        };
+
+        // Act & Assert - Should throw validation error
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _repository.CreateOldTaxesDetailsAsync(107, dto, CancellationToken.None));
+
+        // Verify atomicity: PropertyMast should NOT have PropertyMastOldId set
+        var propertyAfterError = await _context.PropertyMast.FindAsync(107);
+        Assert.NotNull(propertyAfterError);
+        Assert.Null(propertyAfterError.PropertyMastOldId); // Should remain null
+
+        // Verify no orphaned records
+        var orphanedPropertyMastOld = await _context.PropertyMastOld
+            .Where(pmo => !_context.PropertyMast.Any(p => p.PropertyMastOldId == pmo.Id))
+            .ToListAsync();
+        Assert.Empty(orphanedPropertyMastOld);
     }
 
     #endregion
