@@ -258,6 +258,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
+        services.AddScoped<ITaxMasterService, TaxMasterService>();
 
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
