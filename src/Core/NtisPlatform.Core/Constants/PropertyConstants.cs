@@ -9,12 +9,19 @@ public static class PropertyConstants
     };
     
 }
-public static class PartType
+public static class PartTypeConstants
 {
     /// <summary>
     /// Name of the property part type used in PropertyTypeMaster
     /// </summary>
-    public const string Aminity = "Aminity";
+    public const string Amenity = "Amenity";
     public const string Residential = "R";
     public const string Commercial   = "C";
+}
+public static class PartitionNoConstants
+{
+    /// <summary>
+    /// Name of the property part type used in PropertyTypeMaster
+    /// </summary>
+    public const string AmenityPartitionNo = "AM";
 }

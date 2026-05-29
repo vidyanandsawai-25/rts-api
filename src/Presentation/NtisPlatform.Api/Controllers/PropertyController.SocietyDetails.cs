@@ -57,15 +57,17 @@ public partial class PropertyController
         }
     }
 
-
-    [HttpGet("{SocietyDetailId}/society-Aminity-details")]
+    [HttpGet("{SocietyDetailId}/{isAmenity}/society-amenity-details")] // lowercase alias, optional
     [ProducesResponseType(typeof(ApiResponse<List<SocietyAminityDetailsDto>>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken ct)
+    [ProducesResponseType(typeof(ApiResponse<SocietyAminityDetailsDto>), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSocietyAmenityDetailsAsync(
+    int SocietyDetailId,
+    bool isAmenity = false,
+    CancellationToken ct = default)
     {
         try
         {
-            var result = await _propertyService.GetSocietyAminityListAsync(SocietyDetailId, ct);
+            var result = await _propertyService.GetSocietyAmenityDetailsAsync(SocietyDetailId, isAmenity, ct);
 
             if (result == null)
             {

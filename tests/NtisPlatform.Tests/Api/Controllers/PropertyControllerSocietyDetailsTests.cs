@@ -113,10 +113,10 @@ public class PropertyControllerSocietyDetailsTests
 
     #endregion
 
-    #region GetSocietyAminityListAsync Tests
+    #region GetSocietyAmenityDetailsAsync Tests
 
     [Fact]
-    public async Task GetSocietyAminityListAsync_ReturnsOk_WhenFound()
+    public async Task GetSocietyAmenityDetailsAsync_ReturnsOk_WhenFound()
     {
         var controller = Create(out var service);
         var expectedList = new List<SocietyAminityDetailsDto>
@@ -124,10 +124,10 @@ public class PropertyControllerSocietyDetailsTests
             new() { SocietyDetailId = 1, PropertyId = 1, wingId = 1, WingNo = "A", WingName = "Wing A" },
             new() { SocietyDetailId = 1, PropertyId = 1, wingId = 2, WingNo = "B", WingName = "Wing B" }
         };
-        service.Setup(s => s.GetSocietyAminityListAsync(1, It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetSocietyAmenityDetailsAsync(1,true, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedList);
 
-        var result = await controller.GetSocietyAminityListAsync(1, CancellationToken.None);
+        var result = await controller.GetSocietyAmenityDetailsAsync(1, true, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<ApiResponse<List<SocietyAminityDetailsDto>>>(okResult.Value);
@@ -137,13 +137,13 @@ public class PropertyControllerSocietyDetailsTests
     }
 
     [Fact]
-    public async Task GetSocietyAminityListAsync_ReturnsNotFound_WhenMissing()
+    public async Task GetSocietyAmenityDetailsAsync_ReturnsNotFound_WhenMissing()
     {
         var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyAminityListAsync(99, It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetSocietyAmenityDetailsAsync(99, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((List<SocietyAminityDetailsDto>?)null);
 
-        var result = await controller.GetSocietyAminityListAsync(99, CancellationToken.None);
+        var result = await controller.GetSocietyAmenityDetailsAsync(99, true, CancellationToken.None);
 
         var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
         var response = Assert.IsType<ApiResponse<SocietyAminityDetailsDto>>(notFoundResult.Value);
@@ -152,13 +152,13 @@ public class PropertyControllerSocietyDetailsTests
     }
 
     [Fact]
-    public async Task GetSocietyAminityListAsync_Returns500_OnException()
+    public async Task GetSocietyAmenityDetailsAsync_Returns500_OnException()
     {
         var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyAminityListAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetSocietyAmenityDetailsAsync(It.IsAny<int>(), true, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
-        var result = await controller.GetSocietyAminityListAsync(1, CancellationToken.None);
+        var result = await controller.GetSocietyAmenityDetailsAsync(1, true, CancellationToken.None);
 
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, status.StatusCode);
@@ -167,13 +167,13 @@ public class PropertyControllerSocietyDetailsTests
     }
 
     [Fact]
-    public async Task GetSocietyAminityListAsync_ReturnsOk_WithEmptyList()
+    public async Task GetSocietyAmenityDetailsAsync_ReturnsOk_WithEmptyList()
     {
         var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyAminityListAsync(1, It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetSocietyAmenityDetailsAsync(1, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
-        var result = await controller.GetSocietyAminityListAsync(1, CancellationToken.None);
+        var result = await controller.GetSocietyAmenityDetailsAsync(1, true, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         var response = Assert.IsType<ApiResponse<List<SocietyAminityDetailsDto>>>(okResult.Value);

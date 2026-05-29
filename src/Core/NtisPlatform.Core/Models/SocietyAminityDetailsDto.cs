@@ -13,6 +13,7 @@ public class SocietyAminityDetailsDto
     public int WardId { get; set; }
     public string WardNo { get; set; } = string.Empty;
     public string PropertyNo { get; set; } = string.Empty;
-    public string PartitionNo { get; set; }=string.Empty;
-    
+    public string PartitionNo { get; set; } = string.Empty;
+    public string PartType { get; set; } = string.Empty;
+
 }

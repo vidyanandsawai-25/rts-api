@@ -204,7 +204,7 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// - Failure response with meaningful error message otherwise
     /// </summary>
     Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default);
-    Task<List<SocietyAminityDetailsDto>?> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken cancellationToken = default);
+    Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default);
     Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int SocietyDetailId, CancellationToken cancellationToken = default);
     Task<List<BuildingListDto>?> GetBuildingListAsync(int WardId, CancellationToken cancellationToken = default);
     Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId);

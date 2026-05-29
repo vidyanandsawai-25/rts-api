@@ -19,7 +19,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     public PropertyRepository(ApplicationDbContext context) : base(context)
     {
     }
-    
+
     public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // DTO-only flow: Repository returns DTO directly
@@ -2099,7 +2099,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              join ym in _context.YearMaster on tmrv.FinanceYearId equals ym.Id
                              where propertyIds.Contains(tmrv.PropertyId)
                                 && tmrv.IsActive && !tmrv.MarkedForDeletion
-                                && tm.IsActive 
+                                && tm.IsActive
                                 && ym.IsActive
                              orderby tm.DisplayOrder
                              select new
@@ -2188,13 +2188,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         };
     }
 
-	
+
     public async Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default)
     {
         int iFromFloor = 1;
         int iToFloor = 1;
         int number;
-       
+
 
         if (dto.GenerationType.ToLower() == "HC".ToLower() & dto.FromFloor != dto.ToFloor)
         {
@@ -2219,7 +2219,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         else
         {
-           
+
             if (dto.GenerationType.ToLower() != "hc" && dto.GenerationType.ToLower() != "vc")
             {
                 throw new InvalidOperationException("Select horizontal custom or vertical custom for generation");
@@ -2237,7 +2237,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             throw new InvalidOperationException("No Of Flat On One Floor must be greater than zero");
         }
 
-        if (dto.Prifix != ""&& dto.Prifix != null)
+        if (dto.Prifix != "" && dto.Prifix != null)
         {
             dto.Prifix = dto.Prifix + "-";
         }
@@ -2325,7 +2325,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     public async Task<List<BuildingListDto>?> GetBuildingListAsync(int wardId, CancellationToken cancellationToken = default)
     {
         var WardDetails = await _context.WardMaster
-     .Where(p => p.Id == wardId && p.IsActive )
+     .Where(p => p.Id == wardId && p.IsActive)
      .Select(p => new { p.Id })
      .FirstOrDefaultAsync(cancellationToken);
 
@@ -2334,23 +2334,23 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         // Step 1: Query builing list properties as per ward
         var buildingProperties = await (from pm in _context.PropertyMast
-                                       join pcm in _context.PropertyCategoryMaster on pm.CategoryId equals pcm.Id
-                                       join wm in _context.WardMaster on pm.WardId equals wm.Id
-                                       where pm.WardId == wardId
-                                       && string.IsNullOrEmpty(pm.PartitionNo)
-                                        && pm.IsActive
-                                        && !pm.MarkedForDeletion
-                                        && wm.IsActive
-                                        && pcm.IsActive
+                                        join pcm in _context.PropertyCategoryMaster on pm.CategoryId equals pcm.Id
+                                        join wm in _context.WardMaster on pm.WardId equals wm.Id
+                                        where pm.WardId == wardId
+                                        && string.IsNullOrEmpty(pm.PartitionNo)
+                                         && pm.IsActive
+                                         && !pm.MarkedForDeletion
+                                         && wm.IsActive
+                                         && pcm.IsActive
 
                                         select new BuildingListDto
-                                       {
-                                           PropertyId = pm.Id,
-                                           WardNo = wm.WardNo,
-                                           CatPropertyCategoryName = pcm.PropertyCategoryName,
-                                           PropertyNo = pm.PropertyNo,
-                                           PartitionNo = pm.PartitionNo
-                                       })
+                                        {
+                                            PropertyId = pm.Id,
+                                            WardNo = wm.WardNo,
+                                            CatPropertyCategoryName = pcm.PropertyCategoryName,
+                                            PropertyNo = pm.PropertyNo,
+                                            PartitionNo = pm.PartitionNo
+                                        })
                                       .ToListAsync(cancellationToken);
 
 
@@ -2363,7 +2363,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // Null check for request body
         ArgumentNullException.ThrowIfNull(dto);
 
-        var propertyExists = await _context.PropertyMast.AnyAsync( x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId && x.PartitionNo == "", cancellationToken);
+        var propertyExists = await _context.PropertyMast.AnyAsync(x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId && x.PartitionNo == "", cancellationToken);
 
         if (propertyExists)
             return new CreateNewPropertyResponseDto
@@ -2395,7 +2395,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 CSN = dto.CSN,
                 PlotNo = dto.PlotNo,
                 CategoryId = dto.CategoryId,
-                Type = dto.Type,            
+                Type = dto.Type,
                 OwnerTitle = dto.OwnerTitle,
                 OwnerTitleEnglish = dto.OwnerTitleEnglish,
                 OwnerName = dto.OwnerName,
@@ -2428,7 +2428,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
 
             _context.PropertyMast.Add(property);
-           await _context.SaveChangesAsync(cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
 
             // ============ STEP 1: Society (Apartment only) ============
 
@@ -2465,7 +2465,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                 _context.SocietyDetailsMast.Add(society);
                 await _context.SaveChangesAsync(cancellationToken);
-               
+
 
                 // ============ STEP 3: Link society to property ============
                 property.SocietyDetailId = society.Id;
@@ -2551,7 +2551,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 var m when ContainsAny(m, "duplicate", "unique")
                     => Failure("PropertyNo already exists. A duplicate was detected at the Records level."),
 
-                var m when m.Contains("FK_RoomWiseSubmissionDetails_PropertyDetails",StringComparison.OrdinalIgnoreCase)
+                var m when m.Contains("FK_RoomWiseSubmissionDetails_PropertyDetails", StringComparison.OrdinalIgnoreCase)
                     => Failure("PropertyDetailsId is invalid. PropertyDetails record does not exist for this Property."),
 
                 var m when m.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)
@@ -2573,40 +2573,38 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         }
     }
 
-    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAminityListAsync(int SocietyDetailId, CancellationToken cancellationToken = default)
+    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
     {
-        var SocietyDetails = await _context.SocietyDetailsMast
-     .Where(p => p.Id == SocietyDetailId && p.IsActive && !p.MarkedForDeletion)
-     .Select(p => new { p.Id })
-     .FirstOrDefaultAsync(cancellationToken);
+        var amenityProperties = await (
+        from pm in _context.PropertyMast
+        join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
+        join wm in _context.WardMaster on pm.WardId equals wm.Id
+        join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
+        join we in _context.WingEntity on sdm.WingId equals we.Id
+        where pm.SocietyDetailId == SocietyDetailId
+              && !string.IsNullOrEmpty(pm.PartitionNo)
+              && pm.PartitionNo != we.WingNo
+              && (
+                    isAmenity
+                        ? ptm.PartType == PartTypeConstants.Amenity
+                        : ptm.PartType != PartTypeConstants.Amenity
+                 )
+        orderby pm.Id descending
 
-        if (SocietyDetails == null)
-            return null;
-
-        // Step 1: Query amenity properties for this society with ward details - return flat list
-        var amenityProperties = await (from pm in _context.PropertyMast
-                                       join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
-                                       join wm in _context.WardMaster on pm.WardId equals wm.Id
-                                       join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
-                                       join we in _context.WingEntity on sdm.WingId equals we.Id
-                                       where pm.SocietyDetailId == SocietyDetailId
-                                       && !string.IsNullOrEmpty(pm.PartitionNo)
-                                       && ptm.PartType == PartType.Aminity
-
-                                       select new SocietyAminityDetailsDto
-                                       {
-                                           PropertyId = pm.Id,
-                                           SocietyDetailId = pm.SocietyDetailId ?? 0,
-                                           WardId = pm.WardId,
-                                           WardNo = wm.WardNo,
-                                           wingId = we.Id,
-                                           WingNo = we.WingNo,
-                                           WingName = sdm.WingName,
-                                           PropertyNo = pm.PropertyNo,
-                                           PartitionNo = pm.PartitionNo
-                                       })
-                                      .ToListAsync(cancellationToken);
-
+        select new SocietyAminityDetailsDto
+        {
+            PropertyId = pm.Id,
+            SocietyDetailId = pm.SocietyDetailId ?? 0,
+            WardId = pm.WardId,
+            WardNo = wm.WardNo,
+            wingId = we.Id,
+            WingNo = we.WingNo,
+            WingName = sdm.WingName,
+            PropertyNo = pm.PropertyNo,
+            PartitionNo = pm.PartitionNo,
+            PartType = ptm.PartType
+        })
+        .ToListAsync(cancellationToken);
 
         return amenityProperties;
     }
@@ -2628,7 +2626,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             p.Id,
             WardId = w.Id,
             WardNo = w.WardNo,
-            PropertyNo=p.PropertyNo
+            PropertyNo = p.PropertyNo
         }
     ).FirstOrDefaultAsync(cancellationToken);
 
@@ -2649,8 +2647,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
           SocietyDetailId = sdm.Id,
           WingId = sdm.WingId,
           WingNo = we != null ? we.WingNo : null,
-          WardNo =property.WardNo,
-          PropertyNo= property.PropertyNo,
+          WardNo = property.WardNo,
+          PropertyNo = property.PropertyNo,
           WingName = sdm.WingName,
           SocietyName = sdm.SocietyName,
           SocietyAddress = sdm.SocietyAddress,
@@ -2678,7 +2676,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                   pm => pm.PropertyTypeId,
                   ptm => ptm.Id,
                   (pm, ptm) => ptm)
-              .Count(ptm => ptm.PartType != PartType.Aminity && ptm.IsActive),
+              .Count(ptm => ptm.PartType != PartTypeConstants.Amenity && ptm.IsActive),
           AminityCount = _context.PropertyMast
               .Where(pm => pm.SocietyDetailId == sdm.Id
                   && !string.IsNullOrEmpty(pm.PartitionNo)
@@ -2688,7 +2686,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                   pm => pm.PropertyTypeId,
                   ptm => ptm.Id,
                   (pm, ptm) => ptm)
-              .Count(ptm => ptm.PartType == PartType.Aminity && ptm.IsActive),
+              .Count(ptm => ptm.PartType == PartTypeConstants.Amenity && ptm.IsActive),
       })
       .AsNoTracking()
       .ToListAsync(cancellationToken);
@@ -2807,13 +2805,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) && !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
         {
-            query = query.Where(x => x.Property.PropertyNo != null && 
+            query = query.Where(x => x.Property.PropertyNo != null &&
                                    string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoFrom) >= 0 &&
                                    string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoTo) <= 0);
         }
         else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom))
         {
-            query = query.Where(x => x.Property.PropertyNo != null && 
+            query = query.Where(x => x.Property.PropertyNo != null &&
                                    string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoFrom) >= 0);
         }
         else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
@@ -2824,32 +2822,32 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         if (!string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo))
         {
-            query = query.Where(x => x.OldProperty != null && 
-                                   x.OldProperty.OldPropertyNo != null && 
+            query = query.Where(x => x.OldProperty != null &&
+                                   x.OldProperty.OldPropertyNo != null &&
                                    x.OldProperty.OldPropertyNo.Contains(searchRequest.OldPropertyNo));
         }
 
         if (!string.IsNullOrWhiteSpace(searchRequest.UPICId))
         {
-            query = query.Where(x => x.Property.UPICId != null && 
+            query = query.Where(x => x.Property.UPICId != null &&
                                    x.Property.UPICId.Contains(searchRequest.UPICId));
         }
 
         if (!string.IsNullOrWhiteSpace(searchRequest.CSN))
         {
-            query = query.Where(x => x.Property.CSN != null && 
+            query = query.Where(x => x.Property.CSN != null &&
                                    x.Property.CSN.Contains(searchRequest.CSN));
         }
 
         if (!string.IsNullOrWhiteSpace(searchRequest.SubZoneNo))
         {
-            query = query.Where(x => x.Property.SubZoneNo != null && 
+            query = query.Where(x => x.Property.SubZoneNo != null &&
                                    x.Property.SubZoneNo.Contains(searchRequest.SubZoneNo));
         }
 
         if (!string.IsNullOrWhiteSpace(searchRequest.PlotNo))
         {
-            query = query.Where(x => x.Property.PlotNo != null && 
+            query = query.Where(x => x.Property.PlotNo != null &&
                                    x.Property.PlotNo.Contains(searchRequest.PlotNo));
         }
 
@@ -2985,9 +2983,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var rvValues = await _context.TransMastRV
             .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
             .GroupBy(t => t.PropertyId)
-            .Select(g => new 
-            { 
-                PropertyId = g.Key, 
+            .Select(g => new
+            {
+                PropertyId = g.Key,
                 RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.RateableValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
@@ -2996,9 +2994,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var cvValues = await _context.TransMastCV
             .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
             .GroupBy(t => t.PropertyId)
-            .Select(g => new 
-            { 
-                PropertyId = g.Key, 
+            .Select(g => new
+            {
+                PropertyId = g.Key,
                 CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CapitalValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
@@ -3007,9 +3005,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var totalTaxAmounts = await _context.TransMast
             .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
             .GroupBy(t => t.PropertyId)
-            .Select(g => new 
-            { 
-                PropertyId = g.Key, 
+            .Select(g => new
+            {
+                PropertyId = g.Key,
                 TotalTax = g.Sum(x => x.TaxAmount)
             })
             .ToListAsync(cancellationToken);
@@ -3020,7 +3018,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var totalTaxDictionary = totalTaxAmounts.ToDictionary(x => x.PropertyId, x => x.TotalTax);
 
         // Map to response DTOs
-        var result = propertyResults.Select(pr => 
+        var result = propertyResults.Select(pr =>
         {
             rvDictionary.TryGetValue(pr.Property.Id, out var rv);
             cvDictionary.TryGetValue(pr.Property.Id, out var cv);
@@ -3436,7 +3434,23 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             {
                 OpenPlot = true;
             }
+            if (!string.IsNullOrEmpty(dto.PartitionNo) &&
+                 dto.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
+            {
+                var propertyType = await _context.PropertyTypeMasters
+                .FirstOrDefaultAsync(x => x.PartType == PartTypeConstants.Amenity, cancellationToken);
 
+                if (propertyType == null)
+                {
+                    return new CreateBulkPropertyResponseDto
+                    {
+                        Success = false,
+                        Message = "Amenity property type not found"
+                    };
+                }
+
+                dto.PropertyTypeId = propertyType.Id;
+            }
             // Property insert
             property = new PropertyEntity
             {
