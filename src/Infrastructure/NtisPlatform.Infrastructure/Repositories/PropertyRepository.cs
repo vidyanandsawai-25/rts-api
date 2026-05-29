@@ -137,15 +137,15 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             WingNo = wingNo,
             NoOfResidentialToilets = assessment?.NoOfResidentialToilets,
             NoOfCommercialToilets = assessment?.NoOfCommercialToilets,
-            TotalCarpetAreaSqMeter = detailsSum?.TotalCarpetAreaSqMeter ?? 0,
-            TotalBuiltupAreaSqMeter = detailsSum?.TotalBuiltupAreaSqMeter ?? 0,
-            TotalCarpetAreaSqFeet = detailsSum?.TotalCarpetAreaSqFeet,
-            TotalBuiltupAreaSqFeet = detailsSum?.TotalBuiltupAreaSqFeet,
-            PlotArea = plot?.PlotArea,
-            PlotAreaFtLength = plot?.PlotAreaFtLength,
-            PlotAreaFtWidth = plot?.PlotAreaFtWidth,
-            PlotAreaMtrLength = plot?.PlotAreaMtrLength,
-            PlotAreaMtrWidth = plot?.PlotAreaMtrWidth,
+            TotalCarpetAreaSqMeter = Math.Round(detailsSum?.TotalCarpetAreaSqMeter ?? 0, 2),
+            TotalBuiltupAreaSqMeter = Math.Round(detailsSum?.TotalBuiltupAreaSqMeter ?? 0, 2),
+            TotalCarpetAreaSqFeet = detailsSum?.TotalCarpetAreaSqFeet != null ? Math.Round(detailsSum.TotalCarpetAreaSqFeet.Value, 2) : null,
+            TotalBuiltupAreaSqFeet = detailsSum?.TotalBuiltupAreaSqFeet != null ? Math.Round(detailsSum.TotalBuiltupAreaSqFeet.Value, 2) : null,
+            PlotArea = plot?.PlotArea != null ? Math.Round(plot.PlotArea.Value, 2) : null,
+            PlotAreaFtLength = plot?.PlotAreaFtLength != null ? Math.Round(plot.PlotAreaFtLength.Value, 2) : null,
+            PlotAreaFtWidth = plot?.PlotAreaFtWidth != null ? Math.Round(plot.PlotAreaFtWidth.Value, 2) : null,
+            PlotAreaMtrLength = plot?.PlotAreaMtrLength != null ? Math.Round(plot.PlotAreaMtrLength.Value, 2) : null,
+            PlotAreaMtrWidth = plot?.PlotAreaMtrWidth != null ? Math.Round(plot.PlotAreaMtrWidth.Value, 2) : null,
             WingId = society?.WingId,
             WingName = society?.WingName
         };
@@ -691,19 +691,19 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             OldPropertyNo = oldMastData?.OldPropertyNo,
             OldPartitionNo = oldMastData?.OldPartitionNo,
             OldEgovNo = oldMastData?.OldEgovNo,
-            OldPlotArea = oldMastData?.OldPlotArea,
+            OldPlotArea = oldMastData?.OldPlotArea != null ? Math.Round(oldMastData.OldPlotArea.Value, 2) : null,
             OldPlotNo = oldMastData?.OldPlotNo,
-            OldRV = oldMastData?.OldRV,
-            OldALV = oldMastData?.OldALV,
-            OldTotalTax = oldMastData?.OldTotalTax,
+            OldRV = oldMastData?.OldRV != null ? Math.Round(oldMastData.OldRV.Value, 2) : null,
+            OldALV = oldMastData?.OldALV != null ? Math.Round(oldMastData.OldALV.Value, 2) : null,
+            OldTotalTax = oldMastData?.OldTotalTax != null ? Math.Round(oldMastData.OldTotalTax.Value, 2) : null,
             OldZoneNo = oldMastData?.OldZoneNo,
-            OldGeneralTax = oldMastData?.OldGeneralTax,
+            OldGeneralTax = oldMastData?.OldGeneralTax != null ? Math.Round(oldMastData.OldGeneralTax.Value, 2) : null,
             OldCSN = oldMastData?.OldCSN,
-            OldConstructionArea = oldMastData?.OldConstructionArea,
+            OldConstructionArea = oldMastData?.OldConstructionArea != null ? Math.Round(oldMastData.OldConstructionArea.Value, 2) : null,
             // From PropertyDetailsOld
             OldConstructionYear = oldDetailsData?.OldConstructionYear,
-            OldCarpetAreaSqFeet = oldDetailsData?.OldCarpetAreaSqFeet,
-            OldCarpetAreaSqMeter = oldDetailsData?.OldCarpetAreaSqMeter,
+            OldCarpetAreaSqFeet = oldDetailsData?.OldCarpetAreaSqFeet != null ? Math.Round(oldDetailsData.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldCarpetAreaSqMeter = oldDetailsData?.OldCarpetAreaSqMeter != null ? Math.Round(oldDetailsData.OldCarpetAreaSqMeter.Value, 2) : null,
             OldConstructionTypeId = oldDetailsData?.OldConstructionTypeId,
             OldTypeOfUseId = oldDetailsData?.OldTypeOfUseId
         };
@@ -1063,9 +1063,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TaxYears = new List<OldTaxYearDto>()
         };
 
-        // Find the tax with name "Interest" (case-insensitive)
+        // Find the tax with name "Interest" (case-insensitive) or alias "Interest"
         var interestTaxId = oldTaxes.FirstOrDefault(t =>
-            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase))?.Id;
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
 
         foreach (var year in years)
         {
@@ -1271,6 +1272,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             );
 
         // Step 6: Process each year's tax data
+        // All taxes (including Interest if configured) are now treated equally
         foreach (var yearDto in dto.TaxYears)
         {
             // Get normalized RVorCV (validated above)
@@ -1407,10 +1409,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TypeOfUseDescription = x.TypeOfUseDescription,
             OldSubTypeOfUseId = x.OldSubTypeOfUseId,
             SubTypeOfUseDescription = x.SubTypeOfUseDescription,
-            OldCarpetAreaSqMeter = x.OldCarpetAreaSqMeter,
-            OldCarpetAreaSqFeet = x.OldCarpetAreaSqFeet,
-            OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter,
-            OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet,
+            OldCarpetAreaSqMeter = x.OldCarpetAreaSqMeter.HasValue ? Math.Round(x.OldCarpetAreaSqMeter.Value, 2) : null,
+            OldCarpetAreaSqFeet = x.OldCarpetAreaSqFeet.HasValue ? Math.Round(x.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter.HasValue ? Math.Round(x.OldBuiltupAreaSqMeter.Value, 2) : null,
+            OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet.HasValue ? Math.Round(x.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = x.MarkedForDeletion,
             MarkedForDeletionDate = x.MarkedForDeletionDate
         }).ToList();
@@ -1577,10 +1579,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TypeOfUseDescription = x.TypeOfUseDescription,
             OldSubTypeOfUseId = x.OldSubTypeOfUseId,
             SubTypeOfUseDescription = x.SubTypeOfUseDescription,
-            OldCarpetAreaSqMeter = x.OldCarpetAreaSqMeter,
-            OldCarpetAreaSqFeet = x.OldCarpetAreaSqFeet,
-            OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter,
-            OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet,
+            OldCarpetAreaSqMeter = x.OldCarpetAreaSqMeter.HasValue ? Math.Round(x.OldCarpetAreaSqMeter.Value, 2) : null,
+            OldCarpetAreaSqFeet = x.OldCarpetAreaSqFeet.HasValue ? Math.Round(x.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter.HasValue ? Math.Round(x.OldBuiltupAreaSqMeter.Value, 2) : null,
+            OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet.HasValue ? Math.Round(x.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = x.MarkedForDeletion,
             MarkedForDeletionDate = x.MarkedForDeletionDate
         }).ToList();
@@ -1680,10 +1682,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TypeOfUseDescription = result.TypeOfUseDescription,
             OldSubTypeOfUseId = result.OldSubTypeOfUseId,
             SubTypeOfUseDescription = result.SubTypeOfUseDescription,
-            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
-            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
-            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
-            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter.HasValue ? Math.Round(result.OldCarpetAreaSqMeter.Value, 2) : null,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet.HasValue ? Math.Round(result.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
             MarkedForDeletionDate = result.MarkedForDeletionDate
         };
@@ -1870,10 +1872,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TypeOfUseDescription = result.TypeOfUseDescription,
             OldSubTypeOfUseId = result.OldSubTypeOfUseId,
             SubTypeOfUseDescription = result.SubTypeOfUseDescription,
-            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
-            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
-            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
-            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter.HasValue ? Math.Round(result.OldCarpetAreaSqMeter.Value, 2) : null,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet.HasValue ? Math.Round(result.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
             MarkedForDeletionDate = result.MarkedForDeletionDate
         };
@@ -2034,10 +2036,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             TypeOfUseDescription = result.TypeOfUseDescription,
             OldSubTypeOfUseId = result.OldSubTypeOfUseId,
             SubTypeOfUseDescription = result.SubTypeOfUseDescription,
-            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter,
-            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet,
-            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter,
-            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet,
+            OldCarpetAreaSqMeter = result.OldCarpetAreaSqMeter.HasValue ? Math.Round(result.OldCarpetAreaSqMeter.Value, 2) : null,
+            OldCarpetAreaSqFeet = result.OldCarpetAreaSqFeet.HasValue ? Math.Round(result.OldCarpetAreaSqFeet.Value, 2) : null,
+            OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
+            OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
             MarkedForDeletionDate = result.MarkedForDeletionDate
         };

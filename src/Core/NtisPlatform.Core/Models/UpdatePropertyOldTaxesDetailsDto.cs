@@ -22,7 +22,7 @@ public class UpdateOldTaxYearDto
     public decimal? RVorCVValue { get; set; }
 
     /// <summary>
-    /// List of taxes to update with their amounts
+    /// List of taxes to update with their amounts (includes Interest if configured in TaxMaster)
     /// </summary>
     [Required]
     public List<UpdateTaxDetailDto> Taxes { get; init; } = new();
