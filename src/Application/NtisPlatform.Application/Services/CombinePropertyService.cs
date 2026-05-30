@@ -5,7 +5,9 @@ using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
@@ -17,6 +19,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<CombinePropertyHistoryEntity> _combineHistoryRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeMasterRepository;
+    private readonly IRepository<PropertyCategoryEntity, int> _categoryRepository;
     private readonly ICombinePropertyValidator _validator;
     private readonly IPropertyDataCopier _dataCopier;
     private readonly IPropertyDeactivator _deactivator;
@@ -29,6 +33,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<CombinePropertyHistoryEntity> combineHistoryRepository,
          IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
+         IRepository<PropertyTypeMasterEntity, int> propertyTypeMasterRepository,
+        IRepository<PropertyCategoryEntity, int> categoryRepository,
         ICombinePropertyValidator validator,
         IPropertyDataCopier dataCopier,
         IPropertyDeactivator deactivator,
@@ -41,6 +47,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         _taxPendingRepository = taxPendingRepository;
         _combineHistoryRepository = combineHistoryRepository;
         _propertyMastOldRepository = propertyMastOldRepository;
+        _propertyTypeMasterRepository = propertyTypeMasterRepository;
+        _categoryRepository = categoryRepository;
         _validator = validator;
         _dataCopier = dataCopier;
         _deactivator = deactivator;
@@ -51,42 +59,78 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         PropertyCombineDetailsQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
-        if (!queryParams.WardId.HasValue ||
-            string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+        if (!queryParams.WardId.HasValue)
         {
             return [];
         }
 
+        // Parse comma-separated PropertyNo values
+        var propertyNumbers = string.IsNullOrWhiteSpace(queryParams.PropertyNo)
+            ? []
+            : FilterExpressionBuilder.Csv(queryParams.PropertyNo);
+
+        // Parse comma-separated PartitionNo values
+        // Special handling: "0" represents empty/blank partition numbers (main property with no partition)
         var partitionNumbers = string.IsNullOrWhiteSpace(queryParams.PartitionNo)
             ? []
             : FilterExpressionBuilder.Csv(queryParams.PartitionNo);
 
-        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo) && partitionNumbers.Count == 0)
+        // Check if "0" is present in the partition filter (represents empty partitions / main property)
+        var includeEmptyPartitions = partitionNumbers.Contains("0");
+
+        // Remove "0" from the list as it's a special placeholder, not an actual partition value
+        if (includeEmptyPartitions)
+        {
+            partitionNumbers = partitionNumbers.Where(p => p != "0").ToList();
+        }
+
+        // If partition filter was provided but results in empty list and no "0" flag, return empty
+        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo) && partitionNumbers.Count == 0 && !includeEmptyPartitions)
         {
             return [];
         }
 
-        _logger.LogDebug("Fetching property details for WardId={WardId}, PropertyNo={PropertyNo}, Partitions={Partitions}",
+        _logger.LogDebug("Fetching property details for WardId={WardId}, PropertyNo={PropertyNo}, Partitions={Partitions}, IncludeEmpty={IncludeEmpty}",
             queryParams.WardId,
-            queryParams.PropertyNo,
-            partitionNumbers.Count > 0 ? string.Join(",", partitionNumbers) : "ALL");
+            propertyNumbers.Count > 0 ? string.Join(",", propertyNumbers) : "ALL",
+            partitionNumbers.Count > 0 ? string.Join(",", partitionNumbers) : (includeEmptyPartitions ? "EMPTY_ONLY" : "ALL"),
+            includeEmptyPartitions);
 
         var ward = await _wardRepository.GetByIdAsync(queryParams.WardId.Value, cancellationToken);
         var wardNo = ward?.WardNo ?? string.Empty;
+
+        // Determine if partition filter is active
+        var hasPartitionFilter = partitionNumbers.Count > 0 || includeEmptyPartitions;
 
         var query = from pm in _repository.GetQueryable()
                     join pmo in _propertyMastOldRepository.GetQueryable()
                         on pm.PropertyMastOldId equals pmo.Id into pmoJoin
                     from pmo in pmoJoin.DefaultIfEmpty()
+                    join ptm in _propertyTypeMasterRepository.GetQueryable()
+                        on pm.PropertyTypeId equals (int?)ptm.Id into ptmJoin
+                    from ptm in ptmJoin.DefaultIfEmpty()
                     where pm.WardId == queryParams.WardId.Value &&
-                          pm.PropertyNo == queryParams.PropertyNo &&
-                          pm.PartitionNo != null &&
-                          (partitionNumbers.Count == 0 || partitionNumbers.Contains(pm.PartitionNo)) &&
-                          pm.IsActive == true
+                          pm.IsActive == true &&
+                          // PropertyNo filter is optional, supports comma-separated values
+                          (propertyNumbers.Count == 0 || (pm.PropertyNo != null && propertyNumbers.Contains(pm.PropertyNo!))) &&
+                          // PartitionNo filter logic - EXACT MATCH on specified partitions:
+                          // - If no partition filter: return all properties
+                          // - If partitions specified (e.g., "A1,A2,A3"): return ONLY those exact partitions
+                          // - If "0" included (e.g., "0,A1,A2"): also include properties with empty/null partition (main property)
+                          (
+                              // No partition filter - return all properties
+                              !hasPartitionFilter ||
+                              // Exact match on specified partition numbers (e.g., A1, A2, A3)
+                              (partitionNumbers.Count > 0 && pm.PartitionNo != null && partitionNumbers.Contains(pm.PartitionNo!)) ||
+                              // Include empty/null partitions when "0" is specified (main property)
+                              (includeEmptyPartitions && string.IsNullOrWhiteSpace(pm.PartitionNo))
+                          )
                     select new
                     {
                         Property = pm,
-                        OldPropertyNo = pmo != null && pmo.IsActive == true && pmo.MarkedForDeletion != true ? pmo.OldPropertyNo : null
+                        OldPropertyNo = pmo != null && pmo.IsActive == true && pmo.MarkedForDeletion != true ? pmo.OldPropertyNo : null,
+                        PropertyTypeId = ptm != null && ptm.IsActive == true ? (int?)ptm.Id : null,
+                        PropertyDescription = ptm != null && ptm.IsActive == true ? ptm.PropertyDescription : null
                     };
 
         var propertiesData = await query.ToListAsync(cancellationToken);
@@ -113,6 +157,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 OldPropertyNo = x.OldPropertyNo ?? string.Empty,
                 OwnerName = x.Property.OwnerName ?? string.Empty,
                 OccupierName = x.Property.OccupierName ?? string.Empty,
+                CategoryId = x.Property.CategoryId,
+                PropertyTypeId = x.PropertyTypeId,
+                PropertyDescription = x.PropertyDescription ?? string.Empty,
                 TaxAmount = taxInfo.TaxAmount,
                 PendingAmount = taxInfo.PendingAmount
             };
@@ -165,10 +212,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .Where(x => x.PropertyNo != null && x.IsActive == true);
 
         // Apply filters in SQL
-        query = ApplyFilters(query, queryParams);
-
-        // Filter out null/empty PartitionNo before grouping
-        query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
+        query = await ApplyFiltersAsync(query, queryParams, cancellationToken);
 
         // Group by the de-duplication key (remove Id so grouping actually deduplicates rows)
         // Surface a representative PropertyId using Max(Id) (assumes higher Id is the preferred record)
@@ -179,7 +223,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 PropertyId = g.Max(p => p.Id),
                 g.Key.WardId,
                 g.Key.PropertyNo,
-                g.Key.PartitionNo
+                g.Key.PartitionNo,
+                CategoryId = g.FirstOrDefault()!.CategoryId,
+                SocietyDetailId = g.FirstOrDefault()!.SocietyDetailId
             });
 
         // Get total count before paging (executes COUNT query in SQL)
@@ -218,7 +264,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             WardNo = wardLookup.TryGetValue(x.WardId, out var wn) ? wn : null,
             PropertyNo = x.PropertyNo,
             FromProperty = x.PartitionNo ?? string.Empty,
-            ToProperty = x.PartitionNo ?? string.Empty
+            ToProperty = x.PartitionNo ?? string.Empty,
+            CategoryId = x.CategoryId,
+            SocietyDetailId = x.SocietyDetailId
         });
 
         return new PagedResult<CombinePropertyDto>(dtos, totalCount, effectivePageNumber, effectivePageSize);
@@ -258,10 +306,10 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         CancellationToken cancellationToken = default)
     {
 
-        var combinePropertyIds = ParsePropertyIds(request.CombinePropertyIds);
-        // Remove MainPropertyId from the list to prevent self-combination
+        var combinePropertyIds = ParsePropertyIds(request.CombinedPropertyIds);
+        // Remove SourcePropertyId from the list to prevent self-combination
         combinePropertyIds = combinePropertyIds
-            .Where(id => id != request.MainPropertyId)
+            .Where(id => id != request.SourcePropertyId)
             .Distinct()
             .ToList();
 
@@ -272,27 +320,48 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             {
                 Success = false,
                 Message = "No valid property IDs provided to combine",
-                MainPropertyId = request.MainPropertyId
+                SourcePropertyId = request.SourcePropertyId
             };
         }
 
-        // Defensive check: Verify main property exists before validation
-        var mainProperty = await _repository.GetByIdAsync(request.MainPropertyId, cancellationToken);
-        if (mainProperty == null)
+        // Prevent duplicate combine entries: CombinedPropertyId should not already exist in active history
+        var duplicateCombinedPropertyIds = await _combineHistoryRepository.GetQueryable()
+            .Where(h => h.IsActive && combinePropertyIds.Contains(h.CombinedPropertyId))
+            .Select(h => h.CombinedPropertyId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (duplicateCombinedPropertyIds.Count > 0)
         {
-            _logger.LogWarning("MainPropertyId {MainPropertyId} not found", request.MainPropertyId);
+            _logger.LogWarning("Duplicate combine request detected for active CombinedPropertyIds: {CombinedPropertyIds}",
+                string.Join(",", duplicateCombinedPropertyIds));
+
             return new CombinePropertiesResponseDto
             {
                 Success = false,
-                Message = "MainPropertyId not found.",
-                MainPropertyId = request.MainPropertyId
+                Message = $"Properties already combined: {string.Join(", ", duplicateCombinedPropertyIds)}",
+                SourcePropertyId = request.SourcePropertyId
+            };
+        }
+
+        // Defensive check: Verify source property exists before validation
+        var sourceProperty = await _repository.GetByIdAsync(request.SourcePropertyId, cancellationToken);
+        if (sourceProperty == null)
+        {
+            _logger.LogWarning("SourcePropertyId {SourcePropertyId} not found", request.SourcePropertyId);
+            return new CombinePropertiesResponseDto
+            {
+                Success = false,
+                Message = "SourcePropertyId not found.",
+                SourcePropertyId = request.SourcePropertyId
             };
         }
 
         // Validate using validator service
         var (isValid, errorMessage, _) = await _validator.ValidatePropertiesForCombinationAsync(
-            request.MainPropertyId,
+            request.SourcePropertyId,
             combinePropertyIds,
+            request.OverrideOwnerNameMismatch,
             cancellationToken);
 
         if (!isValid)
@@ -300,8 +369,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             return new CombinePropertiesResponseDto
             {
                 Success = false,
-                Message = errorMessage,
-                MainPropertyId = request.MainPropertyId
+                Message = errorMessage ?? string.Empty,
+                SourcePropertyId = request.SourcePropertyId
             };
         }
 
@@ -310,20 +379,24 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         try
         {
             // Copy property data using data copier service
+            // Pass OverrideOwnerNameMismatch flag to merge owner names when they are different
+            // Pass PropertyTypeId to update on main property
             await _dataCopier.CopyPropertyDataAsync(
-                request.MainPropertyId,
+                request.SourcePropertyId,
                 combinePropertyIds,
                 request.CreatedBy,
+                request.OverrideOwnerNameMismatch,
+                request.PropertyTypeId,
                 cancellationToken);
 
             // Deactivate combined properties using deactivator service
             await _deactivator.DeactivateCombinedPropertiesAsync(combinePropertyIds, cancellationToken);
 
-            // Ensure main property records are active
-            await _deactivator.EnsureMainPropertyRecordsActiveAsync(request.MainPropertyId, cancellationToken);
+            // Ensure source property records are active
+            await _deactivator.EnsureMainPropertyRecordsActiveAsync(request.SourcePropertyId, cancellationToken);
 
             // Insert history records
-            await InsertCombineHistoryAsync(request.MainPropertyId, combinePropertyIds, request.Remark, request.CreatedBy, cancellationToken);
+            await InsertCombineHistoryAsync(request.SourcePropertyId, combinePropertyIds, request.CombineReason, request.CreatedBy, cancellationToken);
 
             // Single consolidated SaveChanges - persists all pending changes before commit
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -334,7 +407,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             return new CombinePropertiesResponseDto
             {
                 Success = true,
-                MainPropertyId = request.MainPropertyId,
+                SourcePropertyId = request.SourcePropertyId,
                 CombinedPropertyIds = combinePropertyIds,
                 Message = "Properties combined successfully."
             };
@@ -342,31 +415,29 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         catch (Exception ex)
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-            _logger.LogError(ex, "Failed to combine properties for MainPropertyId={MainPropertyId}", request.MainPropertyId);
+            _logger.LogError(ex, "Failed to combine properties for SourcePropertyId={SourcePropertyId}", request.SourcePropertyId);
             throw;
         }
     }
 
     private async Task InsertCombineHistoryAsync(
-       int mainPropertyId,
-       List<int> combinePropertyIds,
-       string? remark,
+       int sourcePropertyId,
+       List<int> combinedPropertyIds,
+       string combineReason,
        int? createdBy,
        CancellationToken cancellationToken)
     {
         var historyRecords = new List<CombinePropertyHistoryEntity>();
-
-        foreach (var targetPropertyId in combinePropertyIds)
+        foreach (var combinedPropertyId in combinedPropertyIds)
         {
             var historyRecord = new CombinePropertyHistoryEntity
             {
-                MainPropertyId = mainPropertyId,
-                TargetPropertyId = targetPropertyId,
-                Remark = remark,
+                SourcePropertyId = sourcePropertyId,
+                CombinedPropertyId = combinedPropertyId,
+                CombineReason = combineReason,
                 IsActive = true,
                 CreatedBy = createdBy
             };
-
             historyRecords.Add(historyRecord);
         }
 
@@ -386,17 +457,69 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .ToList();
     }
 
-    private static IQueryable<PropertyEntity> ApplyFilters(IQueryable<PropertyEntity> query, CombinePropertyQueryParameters queryParams)
+    private async Task<IQueryable<PropertyEntity>> ApplyFiltersAsync(
+        IQueryable<PropertyEntity> query, 
+        CombinePropertyQueryParameters queryParams,
+        CancellationToken cancellationToken)
     {
-        if (queryParams.WardId.HasValue)
-            query = query.Where(x => x.WardId == queryParams.WardId);
+        // Check if category is apartment-related (Apartment or Multi Commercial Apartment)
+        bool isApartmentCategory = false;
+        if (queryParams.CategoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(queryParams.CategoryId.Value, cancellationToken);
+            if (category != null && !string.IsNullOrEmpty(category.PropertyCategoryName))
+            {
+                // Check if category name contains "Apartment" (case-insensitive)
+                isApartmentCategory = category.PropertyCategoryName.Contains(
+                    CapitalValueConstants.PropertyCategory.ApartmentKeyword, 
+                    StringComparison.OrdinalIgnoreCase);
+            }
 
-        if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
-            query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo));
+            // Filter by CategoryId - only return properties matching the selected category
+            query = query.Where(x => x.CategoryId == queryParams.CategoryId);
+        }
 
+        // Conditional filtering based on category
+        if (queryParams.CategoryId.HasValue)
+        {
+            if (isApartmentCategory)
+            {
+                // For Apartment/Multi Commercial Apartment: Filter by WardId AND PropertyNo
+                if (queryParams.WardId.HasValue)
+                    query = query.Where(x => x.WardId == queryParams.WardId);
+
+                if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+                    query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo));
+
+                // Exclude main property (no partition) for apartments - only show wing properties
+                query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
+
+                // Filter by SocietyDetailId (wing) for apartments to show only combinable properties
+                if (queryParams.SocietyDetailId.HasValue)
+                    query = query.Where(x => x.SocietyDetailId == queryParams.SocietyDetailId);
+            }
+            else
+            {
+                // For Non-Apartment: Filter by WardId only
+                if (queryParams.WardId.HasValue)
+                    query = query.Where(x => x.WardId == queryParams.WardId);
+            }
+        }
+        else
+        {
+            // No CategoryId provided: Apply standard filters
+            if (queryParams.WardId.HasValue)
+                query = query.Where(x => x.WardId == queryParams.WardId);
+
+            if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+                query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo));
+        }
+
+        // Apply PartitionNo filter (always applies regardless of category)
         if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo))
-            query = query.Where(x => x.PartitionNo != null && x.PartitionNo.Contains(queryParams.PartitionNo));
+            query = query.Where(x => string.IsNullOrWhiteSpace(x.PartitionNo) || (x.PartitionNo != null && x.PartitionNo.Contains(queryParams.PartitionNo)));
 
+        // Apply SearchTerm filter (always applies regardless of category)
         if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
         {
             var term = queryParams.SearchTerm.Trim();

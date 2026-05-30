@@ -6,6 +6,7 @@ using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
 
@@ -19,6 +20,8 @@ public class CombinePropertyServiceTest
     private readonly Mock<IRepository<TaxPendingDetailsEntity>> _mockTaxPendingRepository;
     private readonly Mock<IRepository<CombinePropertyHistoryEntity>> _mockCombineHistoryRepository;
     private readonly Mock<IRepository<PropertyMastOldEntity, int>> _mockPropertyMastOldRepository;
+    private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _mockPropertyTypeMasterRepository;
+    private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
     private readonly Mock<ICombinePropertyValidator> _mockValidator;
     private readonly Mock<IPropertyDataCopier> _mockDataCopier;
     private readonly Mock<IPropertyDeactivator> _mockDeactivator;
@@ -35,6 +38,8 @@ public class CombinePropertyServiceTest
         _mockTaxPendingRepository = new Mock<IRepository<TaxPendingDetailsEntity>>();
         _mockCombineHistoryRepository = new Mock<IRepository<CombinePropertyHistoryEntity>>();
         _mockPropertyMastOldRepository = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        _mockPropertyTypeMasterRepository = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
+        _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
         _mockValidator = new Mock<ICombinePropertyValidator>();
         _mockDataCopier = new Mock<IPropertyDataCopier>();
         _mockDeactivator = new Mock<IPropertyDeactivator>();
@@ -48,6 +53,14 @@ public class CombinePropertyServiceTest
         _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
+        // Default empty history setup for duplicate checks
+        _mockCombineHistoryRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<CombinePropertyHistoryEntity>().BuildMock());
+
+        // Default empty property type setup for combine details lookup
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+
         _service = new CombinePropertyService(
             _mockRepository.Object,
             _mockWardRepository.Object,
@@ -55,6 +68,8 @@ public class CombinePropertyServiceTest
             _mockTaxPendingRepository.Object,
             _mockCombineHistoryRepository.Object,
             _mockPropertyMastOldRepository.Object,
+            _mockPropertyTypeMasterRepository.Object,
+            _mockCategoryRepository.Object,
             _mockValidator.Object,
             _mockDataCopier.Object,
             _mockDeactivator.Object,
@@ -85,21 +100,34 @@ public class CombinePropertyServiceTest
     }
 
     [Fact]
-    public async Task GetPropertyCombineDetailsAsync_PropertyNoNull_ReturnsEmptyList()
+    public async Task GetPropertyCombineDetailsAsync_PropertyNoNull_ReturnsAllPropertiesInWard()
     {
         // Arrange
         var queryParams = new PropertyCombineDetailsQueryParameters
         {
             WardId = 1,
             PropertyNo = null,
-            PartitionNo = "A"
+            PartitionNo = null
         };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "1", PartitionNo = "A", OwnerName = "John", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B", OwnerName = "Jane", IsActive = true }
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
         var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
 
-        // Assert
-        Assert.Empty(result);
+        // Assert - PropertyNo is now optional, so it should return all properties in ward
+        Assert.Equal(2, result.Count);
     }
 
     [Fact]
@@ -146,21 +174,33 @@ public class CombinePropertyServiceTest
     }
 
     [Fact]
-    public async Task GetPropertyCombineDetailsAsync_EmptyPropertyNo_ReturnsEmptyList()
+    public async Task GetPropertyCombineDetailsAsync_EmptyPropertyNo_ReturnsAllPropertiesInWard()
     {
         // Arrange
         var queryParams = new PropertyCombineDetailsQueryParameters
         {
             WardId = 1,
             PropertyNo = "",
-            PartitionNo = "A"
+            PartitionNo = null
         };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "1", PartitionNo = "A", OwnerName = "John", IsActive = true }
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
         var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
 
-        // Assert
-        Assert.Empty(result);
+        // Assert - PropertyNo is now optional, so it should return all properties in ward
+        Assert.Single(result);
     }
 
     [Fact]
@@ -202,12 +242,17 @@ public class CombinePropertyServiceTest
         var ward = new WardEntity { Id = 60, WardNo = "WARD60", IsActive = true };
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", PropertyMastOldId = 1, IsActive = true },
-            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = "B", OwnerName = "Owner B", IsActive = true }
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", PropertyMastOldId = 1, PropertyTypeId = 101, IsActive = true },
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = "B", OwnerName = "Owner B", PropertyTypeId = 102, IsActive = true }
         };
         var propertyMastOld = new List<PropertyMastOldEntity>
         {
             new() { Id = 1, OldPropertyNo = "OLD-1", IsActive = true, MarkedForDeletion = false }
+        };
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 101, PropertyDescription = "??????", IsActive = true },
+            new() { Id = 102, PropertyDescription = "??????????", IsActive = true }
         };
         var transMast = new List<TransMastEntity>
         {
@@ -222,6 +267,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(propertyMastOld.BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
         _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(transMast.BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(taxPending.BuildMock());
 
@@ -233,6 +279,7 @@ public class CombinePropertyServiceTest
         Assert.Equal(2, result.Count);
         Assert.Equal("WARD60", result[0].WardNo);
         Assert.Equal("Owner A", result[0].OwnerName);
+        Assert.Equal("??????", result[0].PropertyDescription);
     }
 
     [Fact]
@@ -589,6 +636,182 @@ public class CombinePropertyServiceTest
         Assert.Contains(result, r => r.PartitionNo == "C");
     }
 
+    [Fact]
+    public async Task GetPropertyCombineDetailsAsync_WithSpecificPartitionNo_ExcludesNullPartitions()
+    {
+        // Arrange - When filtering by specific partition, null partitions should NOT be included
+        var queryParams = new PropertyCombineDetailsQueryParameters
+        {
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = "A"
+        };
+
+        var ward = new WardEntity { Id = 60, WardNo = "WARD60", IsActive = true };
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", PropertyTypeId = 101, IsActive = true },
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = null, OwnerName = "Owner B", PropertyTypeId = 101, IsActive = true }
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
+
+        // Assert - Only partition "A" should be returned, not null partition
+        Assert.Single(result);
+        Assert.Equal("A", result[0].PartitionNo);
+    }
+
+    [Fact]
+    public async Task GetPropertyCombineDetailsAsync_WithoutPartitionNoFilter_IncludesNullPartitions()
+    {
+        // Arrange - When NO partition filter is specified, null partitions SHOULD be included
+        var queryParams = new PropertyCombineDetailsQueryParameters
+        {
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = null  // No partition filter
+        };
+
+        var ward = new WardEntity { Id = 60, WardNo = "WARD60", IsActive = true };
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", PropertyTypeId = 101, IsActive = true },
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = null, OwnerName = "Owner B", PropertyTypeId = 101, IsActive = true }
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
+
+        // Assert - Both partitions should be returned when no filter is specified
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, r => r.PartitionNo == "A");
+        Assert.Contains(result, r => r.PartitionNo == null);
+    }
+
+    [Fact]
+    public async Task GetPropertyCombineDetailsAsync_WithZeroPlaceholder_IncludesEmptyPartitions()
+    {
+        // Arrange - "0" represents empty/blank partition numbers
+        var queryParams = new PropertyCombineDetailsQueryParameters
+        {
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = "0,A,A1,A2"  // "0" = empty partition
+        };
+
+        var ward = new WardEntity { Id = 60, WardNo = "WARD60", IsActive = true };
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "", OwnerName = "Owner Empty", IsActive = true },  // Empty partition
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = null, OwnerName = "Owner Null", IsActive = true },  // Null partition
+            new() { Id = 3, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", IsActive = true },
+            new() { Id = 4, WardId = 60, PropertyNo = "1", PartitionNo = "A1", OwnerName = "Owner A1", IsActive = true },
+            new() { Id = 5, WardId = 60, PropertyNo = "1", PartitionNo = "A2", OwnerName = "Owner A2", IsActive = true },
+            new() { Id = 6, WardId = 60, PropertyNo = "1", PartitionNo = "B", OwnerName = "Owner B", IsActive = true }  // Should NOT be included
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
+
+        // Assert - Should return empty/null partitions + A, A1, A2 (but NOT B)
+        Assert.Equal(5, result.Count);
+        Assert.Contains(result, r => string.IsNullOrWhiteSpace(r.PartitionNo));  // Empty or null
+        Assert.Contains(result, r => r.PartitionNo == "A");
+        Assert.Contains(result, r => r.PartitionNo == "A1");
+        Assert.Contains(result, r => r.PartitionNo == "A2");
+        Assert.DoesNotContain(result, r => r.PartitionNo == "B");
+    }
+
+    [Fact]
+    public async Task GetPropertyCombineDetailsAsync_WithOnlyZeroPlaceholder_ReturnsOnlyEmptyPartitions()
+    {
+        // Arrange - Only "0" means only empty partitions
+        var queryParams = new PropertyCombineDetailsQueryParameters
+        {
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = "0"  // Only empty partitions
+        };
+
+        var ward = new WardEntity { Id = 60, WardNo = "WARD60", IsActive = true };
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "", OwnerName = "Owner Empty", IsActive = true },
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = null, OwnerName = "Owner Null", IsActive = true },
+            new() { Id = 3, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", IsActive = true }  // Should NOT be included
+        };
+
+        _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPropertyCombineDetailsAsync(queryParams, default);
+
+        // Assert - Should only return properties with empty/null partitions
+        Assert.Equal(2, result.Count);
+        Assert.All(result, r => Assert.True(string.IsNullOrWhiteSpace(r.PartitionNo)));
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithNullPartitionNo_IncludedInResults()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, WardId = 60, PropertyNo = "1", PartitionNo = null, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Contains(items, x => x.FromProperty == "A");
+        Assert.Contains(items, x => x.FromProperty == string.Empty);
+    }
+
     #endregion
 
     #region CombinePropertiesAsync Tests
@@ -599,9 +822,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "",
+            CombineReason = "Test"
         };
 
         // Act
@@ -618,9 +841,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "   ",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "   ",
+            CombineReason = "Test"
         };
 
         // Act
@@ -637,9 +860,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "abc,xyz",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "abc,xyz",
+            CombineReason = "Test"
         };
 
         // Act
@@ -656,12 +879,12 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 999,
-            CombinePropertyIds = "2,3",
-            Remark = "Test"
+            SourcePropertyId = 999,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test"
         };
 
-        // Setup repository to return null for main property (defensive check)
+        // Setup repository to return null for source property (defensive check)
         _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyEntity?)null);
 
@@ -670,11 +893,11 @@ public class CombinePropertyServiceTest
 
         // Assert
         Assert.False(result.Success);
-        Assert.Contains("MainPropertyId not found", result.Message);
-        Assert.Equal(999, result.MainPropertyId);
-        
+        Assert.Contains("SourcePropertyId not found", result.Message);
+        Assert.Equal(999, result.SourcePropertyId);
+
         // Verify validator was never called because defensive check caught it first
-        _mockValidator.Verify(v => v.ValidatePropertiesForCombinationAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockValidator.Verify(v => v.ValidatePropertiesForCombinationAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -683,9 +906,9 @@ public class CombinePropertyServiceTest
         // Arrange - Test the validator path (when defensive check passes but validator fails)
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 888,
-            CombinePropertyIds = "2,3",
-            Remark = "Test"
+            SourcePropertyId = 888,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test"
         };
 
         // Setup repository to return a valid property for defensive check
@@ -693,15 +916,15 @@ public class CombinePropertyServiceTest
             .ReturnsAsync(new PropertyEntity { Id = 888, OwnerName = "Test Owner", IsActive = true });
 
         // But validator still reports not found (e.g., different repository instance)
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(888, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((false, "MainPropertyId not found.", new List<PropertyEntity>()));
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(888, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((false, "SourcePropertyId not found.", new List<PropertyEntity>()));
 
         // Act
         var result = await _service.CombinePropertiesAsync(request, default);
 
         // Assert
         Assert.False(result.Success);
-        Assert.Contains("MainPropertyId not found", result.Message);
+        Assert.Contains("SourcePropertyId not found", result.Message);
     }
 
     [Fact]
@@ -710,16 +933,16 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "999,998",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "999,998",
+            CombineReason = "Test"
         };
 
         // Setup repository to return a valid property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true });
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, "One or more CombinedPropertyIds not found.", new List<PropertyEntity>()));
 
         // Act
@@ -736,16 +959,16 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,3",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test"
         };
 
         // Setup repository to return a valid property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true });
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, "Owner name must match for all properties.", new List<PropertyEntity>()));
 
         // Act
@@ -762,9 +985,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "1,1,1",
-            Remark = "Test",
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "1,1,1",
+            CombineReason = "Test",
             CreatedBy = 100
         };
 
@@ -782,9 +1005,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "-1,-2,-3",
-            Remark = "Test negative IDs"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "-1,-2,-3",
+            CombineReason = "Test negative IDs"
         };
 
         // Act
@@ -801,9 +1024,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "0,0,0",
-            Remark = "Test zero IDs"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "0,0,0",
+            CombineReason = "Test zero IDs"
         };
 
         // Act
@@ -820,16 +1043,16 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,3",
-            Remark = "Test"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test"
         };
 
         // Setup repository to return a valid property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true });
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, "One or more CombinedPropertyIds not found.", new List<PropertyEntity>()));
 
         // Act
@@ -846,23 +1069,22 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,abc,3,-5,0",
-            Remark = "Test mixed IDs"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,abc,3,-5,0",
+            CombineReason = "Test mixed IDs"
         };
 
         // Setup repository to return a valid property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true });
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, "Owner name must match for all properties.", new List<PropertyEntity>()));
 
         // Act
         var result = await _service.CombinePropertiesAsync(request, default);
 
-        // Assert
-        // Should fail because owner name mismatch, but validates that valid IDs (2,3) were processed
+        // Assert - Should fail because owner name mismatch, but validates that valid IDs (2,3) were processed
         Assert.False(result.Success);
         Assert.Contains("Owner name must match for all properties.", result.Message);
     }
@@ -873,16 +1095,16 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,2,2,3,3",
-            Remark = "Test duplicate IDs"
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,2,2,3,3",
+            CombineReason = "Test duplicate IDs"
         };
 
         // Setup repository to return a valid property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Test Owner", IsActive = true });
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((false, "Owner name must match for all properties.", new List<PropertyEntity>()));
 
         // Act
@@ -899,27 +1121,27 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,3",
-            Remark = "Combining adjacent properties",
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Combining adjacent properties",
             CreatedBy = 100
         };
 
-        var mainProperty = new PropertyEntity { Id = 1, OwnerName = "John Doe", IsActive = true };
+        var sourceProperty = new PropertyEntity { Id = 1, OwnerName = "John Doe", IsActive = true };
         var combineProperties = new List<PropertyEntity> 
         { 
             new() { Id = 2, OwnerName = "John Doe", PropertyMastOldId = 10, IsActive = true },
             new() { Id = 3, OwnerName = "John Doe", PropertyMastOldId = 11, IsActive = true }
         };
 
-        // Setup repository to return main property for defensive check
+        // Setup repository to return source property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
+            .ReturnsAsync(sourceProperty);
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((true, null, combineProperties));
 
-        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(1, It.IsAny<List<int>>(), 100, It.IsAny<CancellationToken>()))
+        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(1, It.IsAny<List<int>>(), 100, It.IsAny<bool>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockDeactivator.Setup(d => d.DeactivateCombinedPropertiesAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
@@ -941,7 +1163,7 @@ public class CombinePropertyServiceTest
 
         // Assert - Verify success response
         Assert.True(result.Success, $"Expected success but got: {result.Message}");
-        Assert.Equal(1, result.MainPropertyId);
+        Assert.Equal(1, result.SourcePropertyId);
         Assert.Equal(2, result.CombinedPropertyIds.Count);
         Assert.Contains(2, result.CombinedPropertyIds);
         Assert.Contains(3, result.CombinedPropertyIds);
@@ -951,9 +1173,9 @@ public class CombinePropertyServiceTest
         Assert.Equal(2, insertedHistory.Count);
         Assert.All(insertedHistory, h =>
         {
-            Assert.Equal(1, h.MainPropertyId);
-            Assert.Contains(h.TargetPropertyId, new[] { 2, 3 });
-            Assert.Equal("Combining adjacent properties", h.Remark);
+            Assert.Equal(1, h.SourcePropertyId);
+            Assert.Contains(h.CombinedPropertyId, new[] { 2, 3 });
+            Assert.Equal("Combining adjacent properties", h.CombineReason);
             Assert.True(h.IsActive);
             Assert.Equal(100, h.CreatedBy);
         });
@@ -964,8 +1186,8 @@ public class CombinePropertyServiceTest
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
         // Verify helper services were called
-        _mockValidator.Verify(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()), Times.Once);
-        _mockDataCopier.Verify(d => d.CopyPropertyDataAsync(1, It.IsAny<List<int>>(), 100, It.IsAny<CancellationToken>()), Times.Once);
+        _mockValidator.Verify(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockDataCopier.Verify(d => d.CopyPropertyDataAsync(1, It.IsAny<List<int>>(), 100, It.IsAny<bool>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockDeactivator.Verify(d => d.DeactivateCombinedPropertiesAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockDeactivator.Verify(d => d.EnsureMainPropertyRecordsActiveAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -976,24 +1198,24 @@ public class CombinePropertyServiceTest
         // Arrange
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2",
-            Remark = "Test rollback",
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2",
+            CombineReason = "Test rollback",
             CreatedBy = 100
         };
 
-        var mainProperty = new PropertyEntity { Id = 1, OwnerName = "John Doe", IsActive = true };
+        var sourceProperty = new PropertyEntity { Id = 1, OwnerName = "John Doe", IsActive = true };
         var combineProperty = new PropertyEntity { Id = 2, OwnerName = "John Doe", IsActive = true };
 
-        // Setup repository to return main property for defensive check
+        // Setup repository to return source property for defensive check
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(mainProperty);
+            .ReturnsAsync(sourceProperty);
 
-        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((true, null, new List<PropertyEntity> { combineProperty }));
 
         // Setup data copier to throw exception
-        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<int?>(), It.IsAny<bool>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .Throws(new InvalidOperationException("Database error"));
 
         // Act & Assert
@@ -1004,6 +1226,37 @@ public class CombinePropertyServiceTest
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CombinePropertiesAsync_DuplicateCombinedPropertyInHistory_ReturnsFailure()
+    {
+        // Arrange
+        var request = new CombinePropertiesRequestDto
+        {
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test"
+        };
+
+        var historyRecords = new List<CombinePropertyHistoryEntity>
+        {
+            new() { Id = 1, SourcePropertyId = 10, CombinedPropertyId = 2, CombineReason = "Old combine", IsActive = true }
+        };
+
+        _mockCombineHistoryRepository.Setup(r => r.GetQueryable())
+            .Returns(historyRecords.BuildMock());
+
+        // Act
+        var result = await _service.CombinePropertiesAsync(request, default);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("Properties already combined", result.Message);
+        Assert.Contains("2", result.Message); // Should include the duplicate property ID
+
+        _mockValidator.Verify(v => v.ValidatePropertiesForCombinationAsync(It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion
@@ -1017,14 +1270,14 @@ public class CombinePropertyServiceTest
         var response = new CombinePropertiesResponseDto
         {
             Success = true,
-            MainPropertyId = 1,
+            SourcePropertyId = 1,
             CombinedPropertyIds = new List<int> { 2, 3, 4 },
             Message = "Properties combined successfully."
         };
 
         // Assert
         Assert.True(response.Success);
-        Assert.Equal(1, response.MainPropertyId);
+        Assert.Equal(1, response.SourcePropertyId);
         Assert.Equal(3, response.CombinedPropertyIds.Count);
         Assert.Contains(2, response.CombinedPropertyIds);
         Assert.Contains(3, response.CombinedPropertyIds);
@@ -1039,14 +1292,14 @@ public class CombinePropertyServiceTest
         var response = new CombinePropertiesResponseDto
         {
             Success = false,
-            MainPropertyId = 1,
+            SourcePropertyId = 1,
             CombinedPropertyIds = new List<int>(),
             Message = "No valid property IDs provided"
         };
 
         // Assert
         Assert.False(response.Success);
-        Assert.Equal(1, response.MainPropertyId);
+        Assert.Equal(1, response.SourcePropertyId);
         Assert.Empty(response.CombinedPropertyIds);
         Assert.Contains("No valid property IDs provided", response.Message);
     }
@@ -1059,7 +1312,7 @@ public class CombinePropertyServiceTest
 
         // Assert
         Assert.False(response.Success);
-        Assert.Equal(0, response.MainPropertyId);
+        Assert.Equal(0, response.SourcePropertyId);
         Assert.NotNull(response.CombinedPropertyIds);
         Assert.Empty(response.CombinedPropertyIds);
         Assert.Equal(string.Empty, response.Message);
@@ -1075,16 +1328,16 @@ public class CombinePropertyServiceTest
         // Arrange & Act
         var request = new CombinePropertiesRequestDto
         {
-            MainPropertyId = 1,
-            CombinePropertyIds = "2,3,4",
-            Remark = "Test remark",
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3,4",
+            CombineReason = "Test reason",
             CreatedBy = 100
         };
 
         // Assert
-        Assert.Equal(1, request.MainPropertyId);
-        Assert.Equal("2,3,4", request.CombinePropertyIds);
-        Assert.Equal("Test remark", request.Remark);
+        Assert.Equal(1, request.SourcePropertyId);
+        Assert.Equal("2,3,4", request.CombinedPropertyIds);
+        Assert.Equal("Test reason", request.CombineReason);
         Assert.Equal(100, request.CreatedBy);
     }
 
@@ -1276,5 +1529,298 @@ public class CombinePropertyServiceTest
     }
 
     #endregion
+
+    #region CategoryId Filtering Tests
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithApartmentCategoryId_FiltersCorrectly()
+    {
+        // Arrange - Apartment category (ID=6) should filter by CategoryId, WardId, AND PropertyNo
+        var apartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 6,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            // Apartment properties with PropertyNo=1
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A1", IsActive = true },
+            new() { Id = 3, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A2", IsActive = true },
+            // Apartment property with different PropertyNo (should be filtered out)
+            new() { Id = 4, CategoryId = 6, WardId = 60, PropertyNo = "2", PartitionNo = "B", IsActive = true },
+            // Non-apartment property with same PropertyNo (should be filtered out by CategoryId)
+            new() { Id = 5, CategoryId = 5, WardId = 60, PropertyNo = "1", PartitionNo = null, IsActive = true },
+            // Apartment property in different ward (should be filtered out)
+            new() { Id = 6, CategoryId = 6, WardId = 61, PropertyNo = "1", PartitionNo = "C", IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 6,
+            WardId = 60,
+            PropertyNo = "1",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(3, items.Count); // Should return only apartment properties with CategoryId=6, WardId=60, PropertyNo=1
+        Assert.All(items, item =>
+        {
+            Assert.Equal(6, item.CategoryId);
+            Assert.Equal(60, item.WardId);
+            Assert.Equal("1", item.PropertyNo);
+        });
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithNonApartmentCategoryId_FiltersCorrectly()
+    {
+        // Arrange - Non-apartment category (ID=5) should filter by CategoryId and WardId only (ignore PropertyNo)
+        var residentialCategory = new PropertyCategoryEntity
+        {
+            Id = 5,
+            PropertyCategoryName = "Residential",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            // Non-apartment properties in WardId=60
+            new() { Id = 1, CategoryId = 5, WardId = 60, PropertyNo = "1", PartitionNo = null, IsActive = true },
+            new() { Id = 2, CategoryId = 5, WardId = 60, PropertyNo = "2", PartitionNo = null, IsActive = true },
+            new() { Id = 3, CategoryId = 5, WardId = 60, PropertyNo = "3", PartitionNo = null, IsActive = true },
+            // Apartment property with same WardId (should be filtered out by CategoryId)
+            new() { Id = 4, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            // Non-apartment property in different ward (should be filtered out)
+            new() { Id = 5, CategoryId = 5, WardId = 61, PropertyNo = "1", PartitionNo = null, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(residentialCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 5,
+            WardId = 60,
+            PropertyNo = "1", // Should be ignored for non-apartment
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(3, items.Count); // Should return ALL non-apartment properties in WardId=60 (PropertyNo ignored)
+        Assert.All(items, item =>
+        {
+            Assert.Equal(5, item.CategoryId);
+            Assert.Equal(60, item.WardId);
+        });
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithMultiCommercialApartmentCategory_FiltersCorrectly()
+    {
+        // Arrange - Multi Commercial Apartment should be treated as apartment category
+        var multiCommercialApartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 7,
+            PropertyCategoryName = "Multi Commercial Apartment",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            // Multi Commercial Apartment properties
+            new() { Id = 1, CategoryId = 7, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, CategoryId = 7, WardId = 60, PropertyNo = "1", PartitionNo = "B", IsActive = true },
+            // Different PropertyNo (should be filtered out)
+            new() { Id = 3, CategoryId = 7, WardId = 60, PropertyNo = "2", PartitionNo = "C", IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(7, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(multiCommercialApartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 7,
+            WardId = 60,
+            PropertyNo = "1",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count); // Should filter by CategoryId, WardId, AND PropertyNo
+        Assert.All(items, item =>
+        {
+            Assert.Equal(7, item.CategoryId);
+            Assert.Equal(60, item.WardId);
+            Assert.Equal("1", item.PropertyNo);
+        });
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithoutCategoryId_UsesStandardFiltering()
+    {
+        // Arrange - No CategoryId means standard filtering (both WardId and PropertyNo)
+        var properties = new List<PropertyEntity>
+        {
+            // Mixed categories
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, CategoryId = 5, WardId = 60, PropertyNo = "1", PartitionNo = null, IsActive = true },
+            new() { Id = 3, CategoryId = 6, WardId = 60, PropertyNo = "2", PartitionNo = "B", IsActive = true },
+            new() { Id = 4, CategoryId = 5, WardId = 61, PropertyNo = "1", PartitionNo = null, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = null, // No category filter
+            WardId = 60,
+            PropertyNo = "1",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count); // Should return both categories with WardId=60 and PropertyNo=1
+        Assert.Contains(items, i => i.CategoryId == 6);
+        Assert.Contains(items, i => i.CategoryId == 5);
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithInvalidCategoryId_ReturnsEmpty()
+    {
+        // Arrange - CategoryId that doesn't exist
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 999,
+            WardId = 60,
+            PropertyNo = "1",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.Empty(result.Items); // Should return empty because no properties match CategoryId=999
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_WithCategoryIdOnly_FiltersAllPropertiesOfThatCategory()
+    {
+        // Arrange - Only CategoryId provided, no WardId or PropertyNo
+        var apartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 6,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, CategoryId = 6, WardId = 61, PropertyNo = "2", PartitionNo = "B", IsActive = true },
+            new() { Id = 3, CategoryId = 5, WardId = 60, PropertyNo = "3", PartitionNo = null, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true },
+            new() { Id = 61, WardNo = "WARD61", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 6,
+            WardId = null,
+            PropertyNo = null,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count); // Should return all apartment properties
+        Assert.All(items, item => Assert.Equal(6, item.CategoryId));
+    }
+
+    #endregion
 }
+
 

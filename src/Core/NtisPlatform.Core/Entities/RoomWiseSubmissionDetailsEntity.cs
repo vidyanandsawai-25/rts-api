@@ -18,7 +18,6 @@ public class RoomWiseSubmissionDetailsEntity : BaseEntity, IHardDeletable
     public string? RoomNo { get; set; }
     public bool OuterYesNo { get; set; } = false;
     public int? RoomTypeId { get; set; }
-
     public string? SubmissionType { get; set; }
     public bool MinusYesNo { get; set; } = false;
     public bool MarkedForDeletion { get; set; } = false;

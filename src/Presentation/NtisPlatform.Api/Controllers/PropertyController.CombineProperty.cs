@@ -72,12 +72,12 @@ public partial class PropertyController
     }
 
     /// <summary>
-    /// Combine multiple properties into a main property.
+    /// Combine multiple properties into a source property.
     /// This operation creates history records and updates property relationships.
-    /// The main property retains its identity while combined properties are linked to it.
+    /// The source property retains its identity while combined properties are linked to it.
     /// </summary>
     /// <param name="combinePropertyService">Injected service for combine operations (scoped to this endpoint)</param>
-    /// <param name="request">Request containing MainPropertyId and comma-separated CombinePropertyIds</param>
+    /// <param name="request">Request containing SourcePropertyId and comma-separated CombinedPropertyIds</param>
     /// <param name="ct">Cancellation token</param>
     /// <returns>Response with success status and combined property IDs</returns>
     /// <response code="200">Properties combined successfully</response>
@@ -113,7 +113,7 @@ public partial class PropertyController
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error combining properties for MainPropertyId: {MainPropertyId}", request.MainPropertyId);
+            _logger.LogError(ex, "Error combining properties for SourcePropertyId: {SourcePropertyId}", request.SourcePropertyId);
             return StatusCode(StatusCodes.Status500InternalServerError,
                 new ApiResponse<CombinePropertiesResponseDto>
                 {

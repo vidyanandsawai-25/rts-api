@@ -65,7 +65,7 @@ public class PropertyControllerCombinePropertyTests
     {
         var controller = CreateController();
         var combineService = new Mock<ICombinePropertyService>();
-        var request = new CombinePropertiesRequestDto { MainPropertyId = 1 };
+        var request = new CombinePropertiesRequestDto { SourcePropertyId = 1 };
         combineService.Setup(s => s.CombinePropertiesAsync(request, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CombinePropertiesResponseDto { Success = true, Message = "ok" });
 
@@ -79,7 +79,7 @@ public class PropertyControllerCombinePropertyTests
     {
         var controller = CreateController();
         var combineService = new Mock<ICombinePropertyService>();
-        var request = new CombinePropertiesRequestDto { MainPropertyId = 1 };
+        var request = new CombinePropertiesRequestDto { SourcePropertyId = 1 };
         combineService.Setup(s => s.CombinePropertiesAsync(request, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CombinePropertiesResponseDto { Success = false, Message = "validation failed" });
 
@@ -96,7 +96,7 @@ public class PropertyControllerCombinePropertyTests
         combineService.Setup(s => s.CombinePropertiesAsync(It.IsAny<CombinePropertiesRequestDto>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("boom"));
 
-        var result = await controller.CombineProperties(combineService.Object, new CombinePropertiesRequestDto { MainPropertyId = 1 }, CancellationToken.None);
+        var result = await controller.CombineProperties(combineService.Object, new CombinePropertiesRequestDto { SourcePropertyId = 1 }, CancellationToken.None);
 
         var status = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, status.StatusCode);

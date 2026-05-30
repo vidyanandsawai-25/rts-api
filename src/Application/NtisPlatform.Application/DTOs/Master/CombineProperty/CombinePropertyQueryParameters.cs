@@ -24,6 +24,21 @@ public class CombinePropertyQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     public string? PartitionNo { get; set; }
+
+    /// <summary>
+    /// Category ID for filtering. When set to Apartment or Multi Commercial Apartment,
+    /// filters by both WardId and PropertyNo. For non-apartment, filters by WardId only.
+    /// </summary>
+    [Filterable]
+    public int? CategoryId { get; set; }
+
+    /// <summary>
+    /// Society Detail ID for filtering apartments by wing.
+    /// Only applicable for apartment categories to show properties from the same wing.
+    /// Ignored for non-apartment categories.
+    /// </summary>
+    [Filterable]
+    public int? SocietyDetailId { get; set; }
 }
 
 /// <summary>
@@ -37,13 +52,15 @@ public class PropertyCombineDetailsQueryParameters : BaseQueryParameters
     [Range(1, int.MaxValue, ErrorMessage = "CombineProperty_WardId_Invalid")]
     public int? WardId { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
-    [Required(ErrorMessage = "CombineProperty_PropertyNo_Required")]
-    [StringLength(10, ErrorMessage = "CombineProperty_PropertyNo_MaxLen_10")]
+    /// <summary>
+    /// Optional comma-separated property numbers (e.g., "1,2,3")
+    /// </summary>
+    [Filterable(FilterOperator.Contains)]  
+    [StringLength(100, ErrorMessage = "CombineProperty_PropertyNo_MaxLen_100")]
     public string? PropertyNo { get; set; }
 
     /// <summary>
-    /// Optional comma-separated partition numbers (e.g., "1,2,3")
+    /// Optional comma-separated partition numbers (e.g., "A,B,C")
     /// </summary>
     public string? PartitionNo { get; set; }
 }

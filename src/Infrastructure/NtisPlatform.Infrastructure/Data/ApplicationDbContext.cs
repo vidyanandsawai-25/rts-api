@@ -1139,16 +1139,16 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("CombinePropertyHistory", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.MainPropertyId).IsRequired();
-            entity.Property(e => e.TargetPropertyId).IsRequired();
-            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.SourcePropertyId).IsRequired();
+            entity.Property(e => e.CombinedPropertyId).IsRequired();
+            entity.Property(e => e.CombineReason).IsRequired().HasMaxLength(500);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.MainPropertyId);
-            entity.HasIndex(e => e.TargetPropertyId);
+            entity.HasIndex(e => e.SourcePropertyId);
+            entity.HasIndex(e => e.CombinedPropertyId);
         });
         // TransMast configuration
         modelBuilder.Entity<TransMastEntity>(entity =>
@@ -1163,7 +1163,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 

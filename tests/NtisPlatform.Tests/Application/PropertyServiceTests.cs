@@ -956,7 +956,7 @@ public class PropertyServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_NonExistingEntity_ReturnsFalse_DoesNotSave()
+    public async Task DeleteAsync_NonExistingEntity_ThrowsValidationException_DoesNotSave()
     {
         var idToDelete = 999;
 
@@ -969,9 +969,12 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var result = await _service.DeleteAsync(idToDelete, CancellationToken.None);
+        // Act & Assert - Now throws ValidationException instead of returning false
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.DeleteAsync(idToDelete, CancellationToken.None));
 
-        Assert.False(result);
+        Assert.Contains("999", ex.Message);
+        Assert.Contains("does not exist", ex.Message);
 
         _mockRepository.Verify(r => r.GetByIdAsync(idToDelete, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -1083,7 +1086,7 @@ public class PropertyServiceTests
     }
 
     [Fact]
-    public async Task DeleteAsync_NonExistingProperty_ReturnsFalse()
+    public async Task DeleteAsync_NonExistingProperty_ThrowsValidationException()
     {
         // Arrange
         var propertyId = 999;
@@ -1097,11 +1100,12 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.DeleteAsync(propertyId);
+        // Act & Assert - Now throws ValidationException instead of returning false
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.DeleteAsync(propertyId));
 
-        // Assert
-        Assert.False(result);
+        Assert.Contains("999", ex.Message);
+        Assert.Contains("does not exist", ex.Message);
         _mockRepository.Verify(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -1112,6 +1116,10 @@ public class PropertyServiceTests
         // Arrange
         var propertyIds = new[] { 1, 2 };
         var entities = propertyIds.Select(id => new PropertyEntity { Id = id, IsActive = true }).ToList();
+
+        // Setup GetQueryable for upfront entity fetch
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(entities.BuildMock());
 
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -1146,49 +1154,27 @@ public class PropertyServiceTests
     }
 
     [Fact]
-    public async Task BulkDeleteAsync_InvalidId_SkipsAndLogsError()
+    public async Task BulkDeleteAsync_SomeIdsNotFound_ReturnsErrorBeforeProcessing()
     {
-        // Arrange
+        // Arrange - When some IDs don't exist, the new implementation returns error before processing
         var propertyIds = new[] { 1, 999 }; // 999 does not exist
         var entities = new List<PropertyEntity> { new() { Id = 1, IsActive = true } };
 
-        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int id, CancellationToken _) => entities.FirstOrDefault(e => e.Id == id));
-
-        // Setup all repository mocks for delete
-        SetupDeleteRepositoryMocks();
-
-        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        // Setup GetQueryable - will only return entity with Id=1
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(entities.BuildMock());
 
         // Act
         var result = await _service.BulkDeleteAsync(propertyIds);
 
-        // Assert
+        // Assert - New behavior: Returns error immediately if some IDs not found
         Assert.NotNull(result);
-        Assert.Equal(1, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
         Assert.NotNull(result.Errors);
         Assert.Single(result.Errors);
-        Assert.Contains("999", result.Errors[0]);
-        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length)); // Once per property
-        _mockRepository.Verify(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length));
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Exactly(2)); // Twice for the one successful deletion (children + parent)
-        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once); // Once for successful property
-        _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once); // Once for failed property
+        Assert.Contains("999", result.Errors[0]); // Should mention the missing ID
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -1209,42 +1195,33 @@ public class PropertyServiceTests
     }
 
     [Fact]
-    public async Task BulkDeleteAsync_AllInvalidIds_ReturnsAllFailures()
+    public async Task BulkDeleteAsync_AllInvalidIds_ReturnsErrorBeforeProcessing()
     {
-        // Arrange
+        // Arrange - All IDs don't exist, returns error before any processing
         var propertyIds = new[] { 998, 999 };
+        var emptyList = new List<PropertyEntity>();
 
-        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PropertyEntity?)null);
-
-        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
-
-        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        // Setup GetQueryable to return empty list (no matching IDs)
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(emptyList.BuildMock());
 
         // Act
         var result = await _service.BulkDeleteAsync(propertyIds);
 
-        // Assert
+        // Assert - New behavior: Returns error immediately if IDs not found
         Assert.NotNull(result);
         Assert.Equal(0, result.SuccessCount);
         Assert.Equal(propertyIds.Length, result.FailedCount);
         Assert.NotNull(result.Errors);
-        Assert.Equal(propertyIds.Length, result.Errors.Count);
-        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length)); // Once per property
+        Assert.Single(result.Errors); // One error message listing all missing IDs
+        Assert.Contains("998", result.Errors[0]);
+        Assert.Contains("999", result.Errors[0]);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
-        _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Exactly(propertyIds.Length)); // Once per failed property
+        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task DeleteAsync_WithException_ReturnsFalse()
+    public async Task DeleteAsync_WithException_ThrowsException()
     {
         // Arrange
         var propertyId = 1;
@@ -1263,13 +1240,451 @@ public class PropertyServiceTests
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        // Act & Assert - Now throws ValidationException with error message
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.DeleteAsync(propertyId));
+
+        Assert.Contains("Delete operation failed", ex.Message);
+        _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #region Partition Deletion Validation Tests
+
+    [Fact]
+    public async Task DeleteAsync_PropertyWithPartition_HighestPropertyId_DeletesSuccessfully()
+    {
+        // Arrange - Property with highest ID in partition group should delete
+        var propertyId = 552380; // A7 - highest
+        var entity = new PropertyEntity 
+        { 
+            Id = propertyId, 
+            WardId = 60, 
+            PropertyNo = "1", 
+            PartitionNo = "A7", 
+            IsActive = true,
+            MarkedForDeletion = false 
+        };
+
+        var relatedProperties = new List<PropertyEntity>
+        {
+            new() { Id = 552380, WardId = 60, PropertyNo = "1", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 552379, WardId = 60, PropertyNo = "1", PartitionNo = "A6", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 552378, WardId = 60, PropertyNo = "1", PartitionNo = "A5", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(relatedProperties.BuildMock());
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         // Act
         var result = await _service.DeleteAsync(propertyId);
 
         // Assert
-        Assert.False(result);
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_PropertyWithPartition_NotHighestPropertyId_ThrowsValidationException()
+    {
+        // Arrange - Property with lower ID when higher ID exists should fail
+        var propertyId = 552378; // A5 - not highest (552380/A7 is highest)
+        var entity = new PropertyEntity 
+        { 
+            Id = propertyId, 
+            WardId = 60, 
+            PropertyNo = "1", 
+            PartitionNo = "A5", 
+            IsActive = true,
+            MarkedForDeletion = false 
+        };
+
+        var relatedProperties = new List<PropertyEntity>
+        {
+            new() { Id = 552380, WardId = 60, PropertyNo = "1", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 552379, WardId = 60, PropertyNo = "1", PartitionNo = "A6", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 552378, WardId = 60, PropertyNo = "1", PartitionNo = "A5", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(relatedProperties.BuildMock());
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.DeleteAsync(propertyId));
+
+        // Error message now uses partition numbers only, not PropertyIds
+        Assert.Contains("A5", ex.Message); // The partition being deleted
+        Assert.Contains("A7", ex.Message); // The highest partition that should be deleted first
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task DeleteAsync_PropertyWithPartition_AfterHigherDeleted_DeletesSuccessfully()
+    {
+        // Arrange - Property becomes highest after higher one is marked for deletion
+        var propertyId = 552379; // A6 - becomes highest after A7 (552380) is deleted
+        var entity = new PropertyEntity 
+        { 
+            Id = propertyId, 
+            WardId = 60, 
+            PropertyNo = "1", 
+            PartitionNo = "A6", 
+            IsActive = true,
+            MarkedForDeletion = false 
+        };
+
+        // 552380 (A7) is already marked for deletion, so 552379 (A6) is now highest
+        var relatedProperties = new List<PropertyEntity>
+        {
+            new() { Id = 552380, WardId = 60, PropertyNo = "1", PartitionNo = "A7", IsActive = true, MarkedForDeletion = true }, // Already deleted
+            new() { Id = 552379, WardId = 60, PropertyNo = "1", PartitionNo = "A6", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 552378, WardId = 60, PropertyNo = "1", PartitionNo = "A5", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(relatedProperties.BuildMock());
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.DeleteAsync(propertyId);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_PropertyWithoutPartition_DeletesSuccessfully()
+    {
+        // Arrange - Property without partition number should delete without partition validation
+        var propertyId = 1;
+        var entity = new PropertyEntity 
+        { 
+            Id = propertyId, 
+            WardId = 60, 
+            PropertyNo = "100", 
+            PartitionNo = null, // No partition
+            IsActive = true,
+            MarkedForDeletion = false 
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.DeleteAsync(propertyId);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_PartitionsInDescendingOrder_DeletesAll()
+    {
+        // Arrange - Properties in correct descending order [A10, A9, A8] should all delete
+        var propertyIds = new[] { 560669, 560668, 560667 };
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false }
+        };
+
+        // All active properties in the group (for validation query)
+        var allActiveProperties = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(allActiveProperties.BuildMock());
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => entities.FirstOrDefault(e => e.Id == id));
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.True(result.Errors == null || result.Errors.Count == 0);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_PartitionsWithGaps_FailsValidation()
+    {
+        // Arrange - Properties with gaps [A10, A8, A6] should fail (missing A9, A7)
+        var propertyIds = new[] { 560669, 560667, 560665 };
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560665, WardId = 17, PropertyNo = "3", PartitionNo = "A6", IsActive = true, MarkedForDeletion = false }
+        };
+
+        // All active properties (includes the ones being skipped)
+        var allActiveProperties = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560665, WardId = 17, PropertyNo = "3", PartitionNo = "A6", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(allActiveProperties.BuildMock());
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(3, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        Assert.Contains("gap", result.Errors[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_PartitionsNotStartingFromHighest_FailsValidation()
+    {
+        // Arrange - Properties not starting from highest [A9, A8, A7] when A10 exists should fail
+        var propertyIds = new[] { 560668, 560667, 560666 };
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false }
+        };
+
+        // All active properties (includes A10 which is highest)
+        var allActiveProperties = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(allActiveProperties.BuildMock());
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(3, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Single(result.Errors);
+        // Error message now uses partition numbers only, not PropertyIds
+        Assert.Contains("A10", result.Errors[0]); // Should mention the highest partition
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_PartitionsAfterHigherDeleted_DeletesAll()
+    {
+        // Arrange - After A10 is deleted, [A9, A8, A7] should delete successfully
+        var propertyIds = new[] { 560668, 560667, 560666 };
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false }
+        };
+
+        // A10 is already marked for deletion, so it's excluded from validation
+        var allActiveProperties = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = true }, // Already deleted
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560667, WardId = 17, PropertyNo = "3", PartitionNo = "A8", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560666, WardId = 17, PropertyNo = "3", PartitionNo = "A7", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(allActiveProperties.BuildMock());
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => entities.FirstOrDefault(e => e.Id == id));
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_MixedPropertiesWithAndWithoutPartitions_DeletesAllValid()
+    {
+        // Arrange - Mix of partitioned and non-partitioned properties
+        var propertyIds = new[] { 560669, 1 }; // 560669 has partition, 1 does not
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 1, WardId = 60, PropertyNo = "100", PartitionNo = null, IsActive = true, MarkedForDeletion = false }
+        };
+
+        // All properties including non-partitioned and other partitioned properties
+        var allActiveProperties = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 560668, WardId = 17, PropertyNo = "3", PartitionNo = "A9", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 1, WardId = 60, PropertyNo = "100", PartitionNo = null, IsActive = true, MarkedForDeletion = false } // Non-partitioned property
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(allActiveProperties.BuildMock());
+
+        _mockRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((int id, CancellationToken _) => entities.FirstOrDefault(e => e.Id == id));
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SetupDeleteRepositoryMocks();
+
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_PropertiesNotFound_ReturnsError()
+    {
+        // Arrange - Some properties don't exist
+        var propertyIds = new[] { 560669, 999999 };
+        var entities = new List<PropertyEntity>
+        {
+            new() { Id = 560669, WardId = 17, PropertyNo = "3", PartitionNo = "A10", IsActive = true, MarkedForDeletion = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(entities.BuildMock());
+
+        // Act
+        var result = await _service.BulkDeleteAsync(propertyIds);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
+        Assert.NotNull(result.Errors);
+        Assert.Contains("999999", result.Errors[0]);
+    }
+
+    #endregion
 #endregion
 
     #region PropertyBasicDetailsDto Tests

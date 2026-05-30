@@ -1,4 +1,4 @@
-namespace NtisPlatform.Core.Constants;
+﻿namespace NtisPlatform.Core.Constants;
 
 /// <summary>
 /// Constants used in Capital Value calculation and processing
@@ -36,5 +36,42 @@ public static class CapitalValueConstants
         /// Value indicating all property details (when PropertyDetailsId is not specified)
         /// </summary>
         public const int AllPropertyDetails = 0;
+    }
+
+    /// <summary>
+    /// Property category related constants
+    /// </summary>
+    public static class PropertyCategory
+    {
+        /// <summary>
+        /// Keyword for Apartment property category
+        /// </summary>
+        public const string ApartmentKeyword = "Apartment";
+    }
+
+    /// <summary>
+    /// Restricted owner names that cannot be combined
+    /// </summary>
+    public static class RestrictedOwnerNames
+    {
+        /// <summary>
+        /// "The Holder" placeholder name
+        /// </summary>
+        public const string TheHolder = "The Holder";
+
+        /// <summary>
+        /// "Holder" placeholder name
+        /// </summary>
+        public const string Holder = "Holder";
+
+        /// <summary>
+        /// "धारक" (Holder in Hindi/Marathi) placeholder name
+        /// </summary>
+        public const string HolderMarathi = "धारक";
+
+        /// <summary>
+        /// List of all restricted owner names
+        /// </summary>
+        public static readonly string[] All = [TheHolder, Holder, HolderMarathi];
     }
 }

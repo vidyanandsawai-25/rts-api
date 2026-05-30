@@ -2800,38 +2800,43 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         }
     }
 
-    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
+    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(
+    int SocietyDetailId,
+    bool isAmenity,
+    CancellationToken cancellationToken = default)
     {
         var amenityProperties = await (
-        from pm in _context.PropertyMast
-        join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
-        join wm in _context.WardMaster on pm.WardId equals wm.Id
-        join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
-        join we in _context.WingEntity on sdm.WingId equals we.Id
-        where pm.SocietyDetailId == SocietyDetailId
-              && !string.IsNullOrEmpty(pm.PartitionNo)
-              && pm.PartitionNo != we.WingNo
-              && (
-                    isAmenity
-                        ? ptm.PartType == PartTypeConstants.Amenity
-                        : ptm.PartType != PartTypeConstants.Amenity
-                 )
-        orderby pm.Id descending
+            from pm in _context.PropertyMast
+            join ptm in _context.PropertyTypeMasters on pm.PropertyTypeId equals ptm.Id
+            join wm in _context.WardMaster on pm.WardId equals wm.Id
+            join sdm in _context.SocietyDetailsMast on pm.SocietyDetailId equals sdm.Id
+            join we in _context.WingEntity on sdm.WingId equals we.Id
+            where pm.SocietyDetailId == SocietyDetailId
+    && !string.IsNullOrEmpty(pm.PartitionNo)
+    && pm.PartitionNo != we.WingNo
+    && pm.MarkedForDeletion != true
+    && pm.IsActive == true
+    && (
+                        isAmenity
+                            ? ptm.PartType == PartTypeConstants.Amenity
+                            : ptm.PartType != PartTypeConstants.Amenity
+                     )
+            orderby pm.Id descending
 
-        select new SocietyAminityDetailsDto
-        {
-            PropertyId = pm.Id,
-            SocietyDetailId = pm.SocietyDetailId ?? 0,
-            WardId = pm.WardId,
-            WardNo = wm.WardNo,
-            wingId = we.Id,
-            WingNo = we.WingNo,
-            WingName = sdm.WingName,
-            PropertyNo = pm.PropertyNo,
-            PartitionNo = pm.PartitionNo,
-            PartType = ptm.PartType
-        })
-        .ToListAsync(cancellationToken);
+            select new SocietyAminityDetailsDto
+            {
+                PropertyId = pm.Id,
+                SocietyDetailId = pm.SocietyDetailId ?? 0,
+                WardId = pm.WardId,
+                WardNo = wm.WardNo,
+                wingId = we.Id,
+                WingNo = we.WingNo,
+                WingName = sdm.WingName,
+                PropertyNo = pm.PropertyNo,
+                PartitionNo = pm.PartitionNo,
+                PartType = ptm.PartType
+            })
+            .ToListAsync(cancellationToken);
 
         return amenityProperties;
     }

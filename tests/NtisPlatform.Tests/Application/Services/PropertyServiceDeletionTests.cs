@@ -1,7 +1,9 @@
 using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
@@ -342,6 +344,10 @@ public class PropertyServiceDeletionTests
         var propertyIds = new[] { 1, 2, 3 };
         var entities = propertyIds.Select(id => new PropertyEntity { Id = id, IsActive = true }).ToList();
 
+        // Setup GetQueryable to return async-compatible mock
+        var mockQueryable = entities.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         foreach (var entity in entities)
@@ -378,6 +384,10 @@ public class PropertyServiceDeletionTests
             new() { Id = 2, IsActive = true }
         };
 
+        // Setup GetQueryable to return only existing entities (id 1 and 2)
+        var mockQueryable = entities.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -394,10 +404,10 @@ public class PropertyServiceDeletionTests
         // Act
         var result = await _service.BulkDeleteAsync(propertyIds);
 
-        // Assert
+        // Assert - When entities count doesn't match requested ids, BulkDeleteAsync returns error for all
         Assert.NotNull(result);
-        Assert.Equal(2, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(3, result.FailedCount);
         Assert.NotNull(result.Errors);
         Assert.Single(result.Errors);
         Assert.Contains("999", result.Errors[0]);
@@ -409,6 +419,10 @@ public class PropertyServiceDeletionTests
         // Arrange
         var propertyIds = new[] { 1, 2 };
         var entities = propertyIds.Select(id => new PropertyEntity { Id = id, IsActive = true }).ToList();
+
+        // Setup GetQueryable to return async-compatible mock
+        var mockQueryable = entities.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
 
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
@@ -455,11 +469,10 @@ public class PropertyServiceDeletionTests
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await _service.DeleteAsync(propertyId);
-
-        // Assert
-        Assert.False(result);
+        // Act & Assert - DeletePropertyInternalAsync catches the exception, returns (false, errorMessage),
+        // then DeleteAsync wraps it in a ValidationException
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => _service.DeleteAsync(propertyId));
+        Assert.Equal("Database error", exception.Message);
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -495,7 +508,7 @@ public class PropertyServiceDeletionTests
     #region Validation Tests
 
     [Fact]
-    public async Task DeleteAsync_WhenFeatureFlagDisabled_ReturnsFalse()
+    public async Task DeleteAsync_WhenFeatureFlagDisabled_ThrowsValidationException()
     {
         // Arrange
         var propertyId = 1;
@@ -523,11 +536,9 @@ public class PropertyServiceDeletionTests
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
-        // Act
-        var result = await serviceWithDisabledFlag.DeleteAsync(propertyId);
-
-        // Assert
-        Assert.False(result);
+        // Act & Assert - DeleteAsync now throws ValidationException instead of returning false
+        var exception = await Assert.ThrowsAsync<ValidationException>(() => serviceWithDisabledFlag.DeleteAsync(propertyId));
+        Assert.Contains("Property deletion is currently disabled", exception.Message);
         _mockUnitOfWork.Verify(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

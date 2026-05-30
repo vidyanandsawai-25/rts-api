@@ -13,6 +13,8 @@ public class CombinePropertyDto : BaseDtos
     public string? PropertyNo { get; set; }
     public string? FromProperty { get; set; }
     public string? ToProperty { get; set; }
+    public int? CategoryId { get; set; }
+    public int? SocietyDetailId { get; set; }
 }
 
 /// <summary>
@@ -70,6 +72,9 @@ public class PropertyCombineDetailsDto
     public string? OldPropertyNo { get; set; }
     public string? OwnerName { get; set; }
     public string? OccupierName { get; set; }
+    public int? CategoryId { get; set; }
+    public int? PropertyTypeId { get; set; }
+    public string? PropertyDescription { get; set; }
     public decimal? TaxAmount { get; set; }
     public decimal? PendingAmount { get; set; }
 }
@@ -79,17 +84,32 @@ public class PropertyCombineDetailsDto
 /// </summary>
 public class CombinePropertiesRequestDto
 {
-    [Required(ErrorMessage = "CombineProperty_MainPropertyId_Required")]
-    [Range(1, int.MaxValue, ErrorMessage = "CombineProperty_MainPropertyId_Invalid")]
-    public int MainPropertyId { get; set; }
+    [Required(ErrorMessage = "CombineProperty_SourcePropertyId_Required")]
+    [Range(1, int.MaxValue, ErrorMessage = "CombineProperty_SourcePropertyId_Invalid")]
+    public int SourcePropertyId { get; set; }
 
-    [Required(ErrorMessage = "CombineProperty_CombinePropertyIds_Required")]
-    public string CombinePropertyIds { get; set; } = string.Empty;
+    [Required(ErrorMessage = "CombineProperty_CombinedPropertyIds_Required")]
+    public string CombinedPropertyIds { get; set; } = string.Empty;
 
-    [StringLength(500, ErrorMessage = "CombineProperty_Remark_MaxLen_500")]
-    public string? Remark { get; set; }
+    [Required(ErrorMessage = "CombineProperty_Reason_Required")]
+    [StringLength(500, ErrorMessage = "CombineProperty_Reason_MaxLen_500")]
+    public string CombineReason { get; set; } = string.Empty;
 
     public int? CreatedBy { get; set; }
+
+    /// <summary>
+    /// Set to true to allow combining properties even when owner names are different.
+    /// Default is false. When false and owner names differ, the API returns an error message.
+    /// When user confirms (clicks Yes), resend the request with this flag set to true to proceed with combine.
+    /// </summary>
+    public bool OverrideOwnerNameMismatch { get; set; } = false;
+
+    /// <summary>
+    /// The PropertyTypeId to set on the main/source property after combining.
+    /// This value will be updated in the PropertyMast table.
+    /// </summary>
+    [Range(1, int.MaxValue, ErrorMessage = "CombineProperty_PropertyTypeId_Invalid")]
+    public int? PropertyTypeId { get; set; }
 }
 
 /// <summary>
@@ -99,6 +119,6 @@ public class CombinePropertiesResponseDto
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
-    public int MainPropertyId { get; set; }
+    public int SourcePropertyId { get; set; }
     public List<int> CombinedPropertyIds { get; set; } = new();
 }

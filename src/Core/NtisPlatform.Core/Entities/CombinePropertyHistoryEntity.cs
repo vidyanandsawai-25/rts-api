@@ -9,15 +9,18 @@ namespace NtisPlatform.Core.Entities;
 public class CombinePropertyHistoryEntity : BaseEntity
 {
 
-    [ForeignKey(nameof(MainProperty))]
-    public int MainPropertyId { get; set; }
+    [ForeignKey(nameof(SourceProperty))]
+    [Column("SourcePropertyId")]
+    public int SourcePropertyId { get; set; }
 
+    [ForeignKey(nameof(CombinedProperty))]
+    [Column("CombinedPropertyId")]
+    public int CombinedPropertyId { get; set; }
 
-    [ForeignKey(nameof(TargetProperty))]
-    public int TargetPropertyId { get; set; }
+    [Required]
+    [StringLength(500)]
+    public string CombineReason { get; set; } = string.Empty;
 
-    public string? Remark { get; set; }
-
-    public virtual PropertyEntity? MainProperty { get; set; }
-    public virtual PropertyEntity? TargetProperty { get; set; }
+    public virtual PropertyEntity? SourceProperty { get; set; }
+    public virtual PropertyEntity? CombinedProperty { get; set; }
 }
