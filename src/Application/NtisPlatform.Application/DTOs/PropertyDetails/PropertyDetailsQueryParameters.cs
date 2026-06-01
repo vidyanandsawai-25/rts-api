@@ -1,4 +1,3 @@
-
 using NtisPlatform.Application.DTOs.Queries;
 
 namespace NtisPlatform.Application.DTOs.PropertyDetails

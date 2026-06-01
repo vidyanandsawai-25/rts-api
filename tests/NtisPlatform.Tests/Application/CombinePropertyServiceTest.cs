@@ -1821,6 +1821,237 @@ public class CombinePropertyServiceTest
     }
 
     #endregion
+
+    #region ApplyFiltersAsync Multi-Unit vs Standalone Apartment Tests
+
+    /// <summary>
+    /// NOTE: GetAllAsync tests are skipped because EF.Property requires a real EF context.
+    /// The following tests document the expected behavior for both multi-unit and standalone
+    /// apartment filtering paths in ApplyFiltersAsync.
+    /// 
+    /// Multi-unit apartment path:
+    /// - Triggered when multiple properties exist with same (CategoryId, WardId, PropertyNo) and at least one has PartitionNo
+    /// - Filters: CategoryId, WardId, PropertyNo, SocietyDetailId (if provided)
+    /// - Excludes main property (empty partition) - only shows wing properties
+    /// - Does NOT filter by PartitionNo to return all properties from the wing
+    /// 
+    /// Standalone apartment path:
+    /// - Triggered when no other partitioned properties exist for the same (CategoryId, WardId, PropertyNo)
+    /// - Filters: CategoryId, WardId ONLY (PropertyNo is NOT used)
+    /// - Does NOT require SocietyDetailId matching
+    /// 
+    /// Non-apartment path (Individual, Plot, etc.):
+    /// - Filters: CategoryId, WardId ONLY (PropertyNo is NOT used)
+    /// </summary>
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_MultiUnitApartment_ReturnsAllPropertiesFromWing()
+    {
+        // Arrange - Multi-unit apartment scenario with multiple properties having same PropertyNo and partitions
+        var apartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 6,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+
+        // Multiple properties with same PropertyNo = 1, different partitions (A1, A2, A3, etc.)
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A1", SocietyDetailId = 24, IsActive = true },
+            new() { Id = 2, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A2", SocietyDetailId = 24, IsActive = true },
+            new() { Id = 3, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A3", SocietyDetailId = 24, IsActive = true },
+            new() { Id = 4, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A4", SocietyDetailId = 24, IsActive = true },
+            new() { Id = 5, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A5", SocietyDetailId = 24, IsActive = true },
+            // Different wing (different SocietyDetailId)
+            new() { Id = 6, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "B1", SocietyDetailId = 25, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 6,
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = "A1", // Should be IGNORED for multi-unit apartments
+            SocietyDetailId = 24,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert - Should return ALL properties from SocietyDetailId=24 (A1, A2, A3, A4, A5)
+        // NOT just A1 - the PartitionNo filter should be ignored for multi-unit apartments
+        var items = result.Items.ToList();
+        Assert.Equal(5, items.Count);
+        Assert.All(items, item =>
+        {
+            Assert.Equal(6, item.CategoryId);
+            Assert.Equal(60, item.WardId);
+            Assert.Equal("1", item.PropertyNo);
+            Assert.Equal(24, item.SocietyDetailId);
+        });
+        Assert.DoesNotContain(items, i => i.FromProperty == "B1"); // Different wing excluded
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_StandaloneApartment_FiltersByWardIdOnly()
+    {
+        // Arrange - Standalone apartment scenario (single property, no other partitions exist)
+        // Standalone apartments filter by WardId only - PropertyNo is NOT used
+        var apartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 6,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+
+        // Single properties with no partition - standalone apartments
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "100", PartitionNo = null, SocietyDetailId = null, IsActive = true },
+            new() { Id = 2, CategoryId = 6, WardId = 60, PropertyNo = "101", PartitionNo = null, SocietyDetailId = null, IsActive = true },
+            new() { Id = 3, CategoryId = 6, WardId = 61, PropertyNo = "100", PartitionNo = null, SocietyDetailId = null, IsActive = true } // Different ward
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 6,
+            WardId = 60,
+            PropertyNo = "100", // Should be IGNORED for standalone apartments
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert - Should return ALL properties in WardId=60 (PropertyNo is ignored for standalone)
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count); // Both PropertyNo 100 and 101 in Ward 60
+        Assert.All(items, item => Assert.Equal(60, item.WardId));
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_NonApartmentCategory_FiltersByWardIdOnly()
+    {
+        // Arrange - Non-apartment category (e.g., Individual, Plot) filters by WardId only
+        // PropertyNo is NOT used for non-apartments
+        var individualCategory = new PropertyCategoryEntity
+        {
+            Id = 4,
+            PropertyCategoryName = "Individual",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, CategoryId = 4, WardId = 60, PropertyNo = "100", PartitionNo = null, IsActive = true },
+            new() { Id = 2, CategoryId = 4, WardId = 60, PropertyNo = "101", PartitionNo = null, IsActive = true },
+            new() { Id = 3, CategoryId = 4, WardId = 60, PropertyNo = "102", PartitionNo = null, IsActive = true },
+            new() { Id = 4, CategoryId = 4, WardId = 61, PropertyNo = "100", PartitionNo = null, IsActive = true } // Different ward
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(4, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(individualCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 4,
+            WardId = 60,
+            PropertyNo = "100", // Should be IGNORED for non-apartment
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert - Should return ALL properties in WardId=60 (PropertyNo is ignored)
+        var items = result.Items.ToList();
+        Assert.Equal(3, items.Count); // All three properties in Ward 60
+        Assert.All(items, item => Assert.Equal(60, item.WardId));
+    }
+
+    [Fact(Skip = "GetAllAsync uses EF.Property which requires real EF context, not in-memory mock")]
+    public async Task GetAllAsync_MultiUnitApartment_ExcludesMainProperty()
+    {
+        // Arrange - Multi-unit apartment should exclude main property (empty partition)
+        var apartmentCategory = new PropertyCategoryEntity
+        {
+            Id = 6,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            // Main property (no partition)
+            new() { Id = 1, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = null, SocietyDetailId = 24, IsActive = true },
+            new() { Id = 2, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "", SocietyDetailId = 24, IsActive = true },
+            // Wing properties
+            new() { Id = 3, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A1", SocietyDetailId = 24, IsActive = true },
+            new() { Id = 4, CategoryId = 6, WardId = 60, PropertyNo = "1", PartitionNo = "A2", SocietyDetailId = 24, IsActive = true }
+        };
+
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 60, WardNo = "WARD60", IsActive = true }
+        };
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(6, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(apartmentCategory);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = 6,
+            WardId = 60,
+            PropertyNo = "1",
+            SocietyDetailId = 24,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert - Should return only wing properties (A1, A2), NOT main property
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.All(items, item => Assert.False(string.IsNullOrWhiteSpace(item.FromProperty)));
+        Assert.DoesNotContain(items, i => string.IsNullOrWhiteSpace(i.FromProperty));
+    }
+
+    #endregion
 }
 
 

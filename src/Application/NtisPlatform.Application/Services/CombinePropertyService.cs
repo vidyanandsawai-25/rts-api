@@ -462,6 +462,15 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         CombinePropertyQueryParameters queryParams,
         CancellationToken cancellationToken)
     {
+        // Track if we're dealing with standalone properties (standalone apartments or non-apartments)
+        // For these, we only filter by WardId and skip additional filters
+        bool isStandaloneProperty = false;
+
+        // Track if we're dealing with multi-unit apartments
+        // For multi-unit apartments, we filter by WardId, PropertyNo, SocietyDetailId, CategoryId
+        // but do NOT filter by PartitionNo so all properties from that wing are returned
+        bool isMultiUnitApartment = false;
+
         // Check if category is apartment-related (Apartment or Multi Commercial Apartment)
         bool isApartmentCategory = false;
         if (queryParams.CategoryId.HasValue)
@@ -484,25 +493,69 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         {
             if (isApartmentCategory)
             {
-                // For Apartment/Multi Commercial Apartment: Filter by WardId AND PropertyNo
-                if (queryParams.WardId.HasValue)
+                // For apartments: Check if this is a multi-unit apartment with wings
+                // Multi-unit apartments have multiple properties with:
+                // - Same PropertyNo
+                // - Same SocietyDetailId (indicates they belong to the same wing/building)
+                // - Different PartitionNo values
+                //
+                // Standalone apartments may have PartitionNo but either:
+                // - No SocietyDetailId (NULL)
+                // - Different SocietyDetailIds (independent units)
+                bool hasWingsForProperty = false;
+
+                if (queryParams.WardId.HasValue && !string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+                {
+                    // Check if there are OTHER properties with same PropertyNo AND same SocietyDetailId
+                    // This indicates a true multi-unit apartment building with wings
+                    hasWingsForProperty = await _repository.GetQueryable()
+                        .Where(x => x.CategoryId == queryParams.CategoryId &&
+                                    x.WardId == queryParams.WardId &&
+                                    x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo!) &&
+                                    x.IsActive == true &&
+                                    !string.IsNullOrWhiteSpace(x.PartitionNo) &&
+                                    x.SocietyDetailId.HasValue) // Must have SocietyDetailId to be considered a wing
+                        .GroupBy(x => new { x.PropertyNo, x.SocietyDetailId })
+                        .AnyAsync(g => g.Count() > 1, cancellationToken); // Multiple properties with same PropertyNo+SocietyDetailId
+                }
+
+                if (hasWingsForProperty)
+                {
+                    // Multi-unit apartment: Filter by WardId AND PropertyNo, exclude main property
                     query = query.Where(x => x.WardId == queryParams.WardId);
+                    query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo!));
 
-                if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
-                    query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo));
+                    // Exclude main property (no partition) - only show wing properties
+                    query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
 
-                // Exclude main property (no partition) for apartments - only show wing properties
-                query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
+                    // Filter by SocietyDetailId (wing) for apartments to show only combinable properties
+                    if (queryParams.SocietyDetailId.HasValue)
+                        query = query.Where(x => x.SocietyDetailId == queryParams.SocietyDetailId);
 
-                // Filter by SocietyDetailId (wing) for apartments to show only combinable properties
-                if (queryParams.SocietyDetailId.HasValue)
-                    query = query.Where(x => x.SocietyDetailId == queryParams.SocietyDetailId);
+                    // Mark as multi-unit apartment - skip PartitionNo filter to return all properties from the wing
+                    isMultiUnitApartment = true;
+                    isStandaloneProperty = false;
+                }
+                else
+                {
+                    // Standalone apartment (no partitions): Filter by WardId only
+                    // PropertyNo is NOT used for standalone apartments - user selects from all properties in ward
+                    if (queryParams.WardId.HasValue)
+                        query = query.Where(x => x.WardId == queryParams.WardId);
+
+                    // Mark as standalone - skip additional filters
+                    isStandaloneProperty = true;
+                }
             }
             else
             {
-                // For Non-Apartment: Filter by WardId only
+                // For Non-Apartment (Individual, Plot, etc.): Filter by WardId only
+                // PropertyNo is NOT used for non-apartments - user selects from all properties in ward
                 if (queryParams.WardId.HasValue)
                     query = query.Where(x => x.WardId == queryParams.WardId);
+
+                // Mark as standalone - skip additional filters
+                isStandaloneProperty = true;
             }
         }
         else
@@ -513,19 +566,28 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
 
             if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
                 query = query.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo));
+
+            // When no category is specified, allow additional filters
+            isStandaloneProperty = false;
         }
 
-        // Apply PartitionNo filter (always applies regardless of category)
-        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo))
-            query = query.Where(x => string.IsNullOrWhiteSpace(x.PartitionNo) || (x.PartitionNo != null && x.PartitionNo.Contains(queryParams.PartitionNo)));
-
-        // Apply SearchTerm filter (always applies regardless of category)
-        if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
+        // Only apply additional filters when no category is specified
+        // For standalone apartments and non-apartments, skip these filters (only WardId should apply)
+        // For multi-unit apartments, skip PartitionNo filter to return all properties from the wing
+        if (!isStandaloneProperty && !isMultiUnitApartment)
         {
-            var term = queryParams.SearchTerm.Trim();
-            query = query.Where(x =>
-                (x.PropertyNo != null && x.PropertyNo.Contains(term)) ||
-                (x.PartitionNo != null && x.PartitionNo.Contains(term)));
+            // Apply PartitionNo filter (only when no category is specified)
+            if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo))
+                query = query.Where(x => string.IsNullOrWhiteSpace(x.PartitionNo) || (x.PartitionNo != null && x.PartitionNo.Contains(queryParams.PartitionNo)));
+
+            // Apply SearchTerm filter (only when no category is specified)
+            if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
+            {
+                var term = queryParams.SearchTerm.Trim();
+                query = query.Where(x =>
+                    (x.PropertyNo != null && x.PropertyNo.Contains(term)) ||
+                    (x.PartitionNo != null && x.PartitionNo.Contains(term)));
+            }
         }
 
         return query;

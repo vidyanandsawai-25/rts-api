@@ -234,36 +234,105 @@ public class CombinePropertyValidator : ICombinePropertyValidator
             .Where(c => combineCategoryIds.Contains(c.Id))
             .ToListAsync(cancellationToken);
 
-        // Validate source property has SocietyDetailId for wing validation
-        if (!mainProperty.SocietyDetailId.HasValue)
+        // Determine if this is a TRUE multi-unit apartment (multiple properties with same PropertyNo)
+        // A standalone apartment may have a PartitionNo (flat number) but only exists as a single property
+        // A multi-unit apartment has multiple properties (wings) with the same PropertyNo
+        //
+        // More reliable approach: For each distinct (CategoryId, WardId, PropertyNo) across source+combined properties,
+        // treat it as multi-unit if there is more than one active row in that group and at least one row has a non-empty PartitionNo
+        bool hasPartitions = false;
+
+        // Collect all properties being combined (source + combined)
+        var allPropertyIds = new List<int> { mainProperty.Id };
+        allPropertyIds.AddRange(combineProperties.Select(p => p.Id));
+
+        // Get distinct property groups (CategoryId, WardId, PropertyNo) from source and combined properties
+        var allProperties = new List<PropertyEntity> { mainProperty };
+        allProperties.AddRange(combineProperties);
+
+        var propertyGroups = allProperties
+            .Where(p => p.CategoryId.HasValue && !string.IsNullOrWhiteSpace(p.PropertyNo))
+            .Select(p => new { p.CategoryId, p.WardId, p.PropertyNo })
+            .Distinct()
+            .ToList();
+
+        // For each group, check if it's a multi-unit apartment
+        foreach (var group in propertyGroups)
         {
-            return (false, "Source property's society details not found.");
+            // Check if there are multiple active properties in this group with at least one having a partition
+            var groupProperties = await _propertyRepository.GetQueryable()
+                .Where(x => x.CategoryId == group.CategoryId &&
+                            x.WardId == group.WardId &&
+                            x.PropertyNo == group.PropertyNo &&
+                            x.IsActive == true)
+                .Select(x => new { x.Id, x.PartitionNo })
+                .ToListAsync(cancellationToken);
+
+            // Multi-unit if: more than one property in group AND at least one has a non-empty PartitionNo
+            if (groupProperties.Count > 1 && groupProperties.Any(p => !string.IsNullOrWhiteSpace(p.PartitionNo)))
+            {
+                hasPartitions = true;
+                break;
+            }
         }
 
-        foreach (var property in combineProperties)
+        if (hasPartitions)
         {
-            var category = property.CategoryId.HasValue
-                ? combineCategories.FirstOrDefault(c => c.Id == property.CategoryId.Value)
-                : null;
-            if (category == null || category.PropertyCategoryName == null ||
-                category.PropertyCategoryName.IndexOf(CapitalValueConstants.PropertyCategory.ApartmentKeyword, System.StringComparison.OrdinalIgnoreCase) < 0)
+            // Multi-unit apartment validation (has wings)
+            // Validate source property has SocietyDetailId for wing validation
+            if (!mainProperty.SocietyDetailId.HasValue)
             {
-                return (false, "All properties must be of Apartment category to combine.");
+                return (false, "Source property's society details not found.");
             }
 
-            // Wing validation: Properties with same SocietyDetailId are from the same wing
-            // This is the ONLY requirement for apartment combining - partition format doesn't matter
-            if (property.SocietyDetailId != mainProperty.SocietyDetailId)
+            foreach (var property in combineProperties)
             {
-                return (false, "All properties must be from the same Wing.");
-            }
+                var category = property.CategoryId.HasValue
+                    ? combineCategories.FirstOrDefault(c => c.Id == property.CategoryId.Value)
+                    : null;
+                if (category == null || category.PropertyCategoryName == null ||
+                    category.PropertyCategoryName.IndexOf(CapitalValueConstants.PropertyCategory.ApartmentKeyword, System.StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    return (false, "All properties must be of Apartment category to combine.");
+                }
 
-            // Zone, Ward, PropertyNo check
-            if (property.TaxZoneId != mainProperty.TaxZoneId ||
-                property.WardId != mainProperty.WardId ||
-                property.PropertyNo != mainProperty.PropertyNo)
+                // Wing validation: Properties with same SocietyDetailId are from the same wing
+                // This is the ONLY requirement for apartment combining - partition format doesn't matter
+                if (property.SocietyDetailId != mainProperty.SocietyDetailId)
+                {
+                    return (false, "All properties must be from the same Wing.");
+                }
+
+                // Zone, Ward, PropertyNo check
+                if (property.TaxZoneId != mainProperty.TaxZoneId ||
+                    property.WardId != mainProperty.WardId ||
+                    property.PropertyNo != mainProperty.PropertyNo)
+                {
+                    return (false, "All properties must be from the same Zone, Ward, and PropertyNo.");
+                }
+            }
+        }
+        else
+        {
+            // Standalone apartment validation (no wings/partitions)
+            // No SocietyDetailId or PropertyNo validation required - only Zone and Ward
+            foreach (var property in combineProperties)
             {
-                return (false, "All properties must be from the same Zone, Ward, and PropertyNo.");
+                var category = property.CategoryId.HasValue
+                    ? combineCategories.FirstOrDefault(c => c.Id == property.CategoryId.Value)
+                    : null;
+                if (category == null || category.PropertyCategoryName == null ||
+                    category.PropertyCategoryName.IndexOf(CapitalValueConstants.PropertyCategory.ApartmentKeyword, System.StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    return (false, "All properties must be of Apartment category to combine.");
+                }
+
+                // Zone and Ward must match for standalone apartments
+                if (property.TaxZoneId != mainProperty.TaxZoneId ||
+                    property.WardId != mainProperty.WardId)
+                {
+                    return (false, "All properties must be from the same Zone and Ward.");
+                }
             }
         }
 
