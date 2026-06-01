@@ -682,6 +682,64 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .OrderBy(x => x.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Step 4: Calculate OldTotalTax and OldGeneralTax from TransMastOld if exists, otherwise use PropertyMastOld values
+        double? oldTotalTax = null;
+        double? oldGeneralTax = null;
+        var transMastOldExists = await _context.TransMastOld
+            .AnyAsync(t => t.PropertyMastOldId == propertyMastOldId && t.IsActive && !t.MarkedForDeletion, cancellationToken);
+
+        if (transMastOldExists)
+        {
+            // Get all taxes to identify Interest and General Tax
+            var oldTaxes = await _context.TaxMaster
+                .Where(t => t.IsActive && t.OldTaxStatus)
+                .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+                .ToListAsync(cancellationToken);
+
+            var interestTaxId = oldTaxes.FirstOrDefault(t =>
+                t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+                (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+            var generalTaxId = oldTaxes.FirstOrDefault(t =>
+                t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
+                (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                                            t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
+
+            // Calculate Total Tax (excluding Interest)
+            var totalTaxFromTransMastOld = await _context.TransMastOld
+                .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                           t.IsActive && 
+                           !t.MarkedForDeletion &&
+                           (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+
+            oldTotalTax = totalTaxFromTransMastOld;
+
+            // Calculate General Tax
+            if (generalTaxId.HasValue)
+            {
+                var generalTaxFromTransMastOld = await _context.TransMastOld
+                    .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                               t.IsActive && 
+                               !t.MarkedForDeletion &&
+                               t.TaxId == generalTaxId.Value)
+                    .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+
+                oldGeneralTax = generalTaxFromTransMastOld;
+            }
+            else
+            {
+                // If General Tax is not configured in TaxMaster, use PropertyMastOld value
+                oldGeneralTax = oldMastData?.OldGeneralTax;
+            }
+        }
+        else
+        {
+            oldTotalTax = oldMastData?.OldTotalTax;
+            oldGeneralTax = oldMastData?.OldGeneralTax;
+        }
+
         // Build and return DTO
         return new PropertyOldDetailsDto
         {
@@ -695,9 +753,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             OldPlotNo = oldMastData?.OldPlotNo,
             OldRV = oldMastData?.OldRV != null ? Math.Round(oldMastData.OldRV.Value, 2) : null,
             OldALV = oldMastData?.OldALV != null ? Math.Round(oldMastData.OldALV.Value, 2) : null,
-            OldTotalTax = oldMastData?.OldTotalTax != null ? Math.Round(oldMastData.OldTotalTax.Value, 2) : null,
+            OldTotalTax = oldTotalTax != null ? Math.Round(oldTotalTax.Value, 2) : null,
             OldZoneNo = oldMastData?.OldZoneNo,
-            OldGeneralTax = oldMastData?.OldGeneralTax != null ? Math.Round(oldMastData.OldGeneralTax.Value, 2) : null,
+            OldGeneralTax = oldGeneralTax != null ? Math.Round(oldGeneralTax.Value, 2) : null,
             OldCSN = oldMastData?.OldCSN,
             OldConstructionArea = oldMastData?.OldConstructionArea != null ? Math.Round(oldMastData.OldConstructionArea.Value, 2) : null,
             // From PropertyDetailsOld
@@ -1348,13 +1406,63 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     }
                 }
 
-                // Step 8: Save all changes
+                // Persist newly added TransMastOld rows so the totals reflect the current request
+                await _context.SaveChangesAsync(cancellationToken);
+
+                // Step 8: Update PropertyMastOld.OldTotalTax and OldGeneralTax with sum from TransMastOld
+                var oldTaxes = await _context.TaxMaster
+                    .Where(t => t.IsActive && t.OldTaxStatus)
+                    .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+                    .ToListAsync(cancellationToken);
+
+                var interestTaxId = oldTaxes.FirstOrDefault(t =>
+                    t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+                    (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+                var generalTaxId = oldTaxes.FirstOrDefault(t =>
+                    t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                    t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
+                    (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                                                t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
+
+                // Calculate Total Tax (excluding Interest)
+                var totalTaxFromTransMastOld = await _context.TransMastOld
+                    .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                               t.IsActive && 
+                               !t.MarkedForDeletion &&
+                               (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                    .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+
+                // Calculate General Tax
+                double? generalTaxFromTransMastOld = null;
+                if (generalTaxId.HasValue)
+                {
+                    generalTaxFromTransMastOld = await _context.TransMastOld
+                        .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                                   t.IsActive && 
+                                   !t.MarkedForDeletion &&
+                                   t.TaxId == generalTaxId.Value)
+                        .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+                }
+
+                var propertyMastOldEntity = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
+                if (propertyMastOldEntity != null)
+                {
+                    propertyMastOldEntity.OldTotalTax = totalTaxFromTransMastOld;
+                    if (generalTaxId.HasValue)
+                    {
+                        propertyMastOldEntity.OldGeneralTax = generalTaxFromTransMastOld;
+                    }
+                    propertyMastOldEntity.UpdatedDate = DateTime.Now;
+                }
+
+                // Step 9: Save all changes
                 await _context.SaveChangesAsync(cancellationToken);
 
                 // Commit transaction if we created one
                 transaction?.Commit();
 
-                // Step 9: Return created data
+                // Step 10: Return created data
                 return await GetOldTaxesDetailsAsync(propertyId, cancellationToken);
             }
             catch
@@ -1546,10 +1654,60 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             }
         }
 
-        // Step 7: Save all changes
+        // Persist transaction changes so the totals are computed from the latest values
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Step 8: Return updated data
+        // Step 7: Update PropertyMastOld.OldTotalTax and OldGeneralTax with sum from TransMastOld
+        var oldTaxes = await _context.TaxMaster
+            .Where(t => t.IsActive && t.OldTaxStatus)
+            .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+            .ToListAsync(cancellationToken);
+
+        var interestTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        var generalTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+            t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                                        t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
+
+        // Calculate Total Tax (excluding Interest)
+        var totalTaxFromTransMastOld = await _context.TransMastOld
+            .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                       t.IsActive && 
+                       !t.MarkedForDeletion &&
+                       (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+            .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+
+        // Calculate General Tax
+        double? generalTaxFromTransMastOld = null;
+        if (generalTaxId.HasValue)
+        {
+            generalTaxFromTransMastOld = await _context.TransMastOld
+                .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                           t.IsActive && 
+                           !t.MarkedForDeletion &&
+                           t.TaxId == generalTaxId.Value)
+                .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+        }
+
+        var propertyMastOldEntity = await _context.PropertyMastOld.FindAsync(new object[] { propertyMastOldId }, cancellationToken);
+        if (propertyMastOldEntity != null)
+        {
+            propertyMastOldEntity.OldTotalTax = totalTaxFromTransMastOld;
+            if (generalTaxId.HasValue)
+            {
+                propertyMastOldEntity.OldGeneralTax = generalTaxFromTransMastOld;
+            }
+            propertyMastOldEntity.UpdatedDate = DateTime.Now;
+        }
+
+        // Step 8: Save all changes
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Step 9: Return updated data
         return await GetOldTaxesDetailsAsync(propertyId, cancellationToken);
     }
 
