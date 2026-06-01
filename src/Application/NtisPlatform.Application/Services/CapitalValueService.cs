@@ -257,16 +257,16 @@ namespace NtisPlatform.Application.Services
 
                         dto.PropertyId = firstCv.PropertyId;
                         dto.CapitalValue = firstCv.CapitalValue ?? 0;
-                        dto.FloorFactor = firstCv.FloorFactor;
+                        dto.FloorFactor = firstCv.FloorFactorId;
 
                         // SDRR validation - ensure rate master exists
                         dto.SDRR = firstCv.RateCVMaster != null
                             ? (double)firstCv.RateCVMaster.RateAmount
                             : 0;
 
-                        dto.UseFactor = firstCv.UseFactor;
-                        dto.NTBFactor = firstCv.NTBFactor;
-                        dto.AgeFactor = firstCv.AgeFactor;
+                        dto.UseFactor = firstCv.UseFactorId;
+                        dto.NTBFactor = firstCv.NatureFactorId;
+                        dto.AgeFactor = firstCv.AgeFactorId;
                         dto.BaseValue = firstCv.BaseValue;
 
                         // Safely handle navigation properties with null coalescing
@@ -896,10 +896,10 @@ namespace NtisPlatform.Application.Services
                             RateCVMasterId = rateMasterCVId,
                             BaseValue = (double)baseValue,
                             CapitalValue = capitalValue,
-                            NTBFactor = (double)ntb,
-                            UseFactor = (double)use,
-                            AgeFactor = (double)age,
-                            FloorFactor = (double)floorFactor,
+                            NatureFactorId = (int)ntb,
+                            UseFactorId = (int)use,
+                            AgeFactorId = (int)age,
+                            FloorFactorId = (int)floorFactor,
                             CreatedBy = dto.CreatedBy,
                             CreatedDate = System.DateTime.Now
                         }, cancellationToken);
@@ -953,10 +953,10 @@ namespace NtisPlatform.Application.Services
                         RateCVMasterId = rateMasterCVId,
                         BaseValue = (double)baseValue,
                         CapitalValue = capitalValue,
-                        NTBFactor = (double)ntb,
-                        UseFactor = (double)use,
-                        AgeFactor = (double)age,
-                        FloorFactor = (double)floorFactor,
+                        NatureFactorId = (int)ntb,
+                        UseFactorId = (int)use,
+                        AgeFactorId = (int)age,
+                        FloorFactorId = (int)floorFactor,
                         CreatedBy = dto.CreatedBy,
                         CreatedDate = System.DateTime.Now
                     }, cancellationToken);

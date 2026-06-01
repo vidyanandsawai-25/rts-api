@@ -107,6 +107,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
 
         // Infrastructure Layer - Services
         services.AddScoped<ITokenService, JwtTokenService>();
@@ -127,6 +128,7 @@ public static class ServiceCollectionExtensions
         // Google Translate Service
         services.AddHttpClient<ITranslationService, TranslationService>();
         services.Configure<TranslationServiceOptions>(configuration.GetSection("GoogleTranslate"));
+        services.Configure<NtisPlatform.Application.Options.ApartmentQCOptions>(configuration.GetSection(NtisPlatform.Application.Options.ApartmentQCOptions.Section));
 
         // Application Layer - Helpers
         services.AddSingleton<NtisPlatform.Application.Helpers.FileValidationHelper>();
@@ -152,7 +154,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
         services.AddScoped<NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
         services.AddScoped<ITaxZoningService, TaxZoningService>();
-        services.AddScoped<IRuleService, RuleService>();
+        services.AddScoped<IPolicyConfigurationService, PolicyConfigurationService>();
         services.AddScoped<ICombinePropertyService, CombinePropertyService>();
         services.AddScoped<ICombinePropertyValidator, CombinePropertyValidator>();
         services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
@@ -192,6 +194,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleWiseScreenAccessMasterService, RoleWiseScreenAccessMasterService>();
         services.AddScoped<IDesignationMasterService, DesignationMasterService>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
         services.AddScoped<IPropertySocialDetailsService, PropertySocialDetailsService>();

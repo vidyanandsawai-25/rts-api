@@ -10,6 +10,7 @@ namespace NtisPlatform.Core.Entities;
 public class TaxPendingDetailsEntity : BaseEntity, IHardDeletable
 {
     public int PropertyId { get; set; }
+    public int PendingYearId { get; set; }
 
     public decimal? PendingAmount { get; set; }
 

@@ -24,6 +24,9 @@ namespace NtisPlatform.Api.Controllers
             _logger = logger;
         }
 
+        [HttpGet]
+        public Task<IActionResult> GetAll([FromQuery] PropertyDetailsQueryParameters queryParameters, CancellationToken ct)
+            => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
         [HttpPost]
         public Task<IActionResult> Create([FromBody] CreateRoomWiseSubmissionDetailsDto createDto, CancellationToken ct)

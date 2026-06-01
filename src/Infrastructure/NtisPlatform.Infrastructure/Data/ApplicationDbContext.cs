@@ -30,7 +30,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
-    public DbSet<RuleEntity> RuleMaster { get; set; } = null!;
+    public DbSet<PolicyConfigurationEntity> PolicyConfiguration { get; set; } = null!;
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
@@ -778,16 +778,21 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BankName);
             entity.HasIndex(e => e.IsActive);
         });
-        modelBuilder.Entity<RuleEntity>(entity =>
+        modelBuilder.Entity<PolicyConfigurationEntity>(entity =>
         {
-            entity.ToTable("RuleMaster", "PTIS");
+            entity.ToTable("PolicyConfiguration", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.PolicyCode).IsUnique();
             entity.Property(e => e.Category).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.DataType).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.DefaultValue).HasMaxLength(50);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(20).HasDefaultValue("bit");
+            entity.Property(e => e.PolicyValue).HasMaxLength(500);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.Unit).HasMaxLength(30);
+            entity.Property(e => e.EffectiveFrom);
+            entity.Property(e => e.EffectiveTo);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
         });
 
@@ -3434,6 +3439,8 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("TaxPendingDetailsCV", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PendingYearId).IsRequired();
+            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -3500,6 +3507,8 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("TaxPendingDetailsRV", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PendingYearId).IsRequired();
+            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);

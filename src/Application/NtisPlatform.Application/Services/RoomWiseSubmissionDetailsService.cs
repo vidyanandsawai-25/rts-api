@@ -1,9 +1,13 @@
 // Application/Services/RoomWiseSubmissionDetailsService.cs
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.RoomWiseSubmissionDetails;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 
@@ -16,6 +20,38 @@ public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseS
     {
     }
 
+   public override async Task<PagedResult<RoomWiseSubmissionDetailsDto>> GetAllAsync(
+         PropertyDetailsQueryParameters queryParameters,
+         CancellationToken cancellationToken = default)
+    {
+        var query = _repository.GetQueryable()
+                .Where(x => !x.MarkedForDeletion)
+                .AsQueryable();  // Convert back to IQueryable<T>
+
+        // Apply filters
+        query = query.ApplyFilters(queryParameters);
+
+        // Apply search
+        query = query.ApplySearch(queryParameters);
+
+        // Apply sorting
+        query = query.ApplySort(queryParameters);
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply pagination
+        var items = await query
+            .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
+            .ProjectTo<RoomWiseSubmissionDetailsDto>(_mapper.ConfigurationProvider)
+            .ToListAsync(cancellationToken);
+        // Normalize pagination metadata for unpaged results (PageSize = -1)
+        var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+        var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+        return new PagedResult<RoomWiseSubmissionDetailsDto>(items, totalCount, pageNumber, pageSize); ;
+    }
     
 
     public async Task CreateRangeAsync( int propertyDetailsId, IEnumerable<CreateRoomWiseSubmissionDetailsDto> dtos, CancellationToken cancellationToken = default)

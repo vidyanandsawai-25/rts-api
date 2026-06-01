@@ -61,6 +61,7 @@ public class PropertyMastOldEntity : BaseEntity
 
     [Column(TypeName = "float")]
     public double? OldConstructionArea { get; set; }
+    public string? OldConstructionYear { get; set; }
 
     [Column(TypeName = "nvarchar(1000)")]
     public string? OldOwnerName { get; set; }

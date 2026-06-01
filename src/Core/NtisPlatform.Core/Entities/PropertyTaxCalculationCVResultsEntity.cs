@@ -43,10 +43,13 @@ namespace NtisPlatform.Core.Entities
 
         public int? RateCVMasterId { get; set; }
         public double? BaseValue { get; set; }
-        public double? FloorFactor { get; set; }
-        public double? AgeFactor { get; set; }
-        public double? NTBFactor { get; set; }
-        public double? UseFactor { get; set; }
+        public int? FloorFactorId { get; set; }
+        public int? AgeFactorId { get; set; }
+        public int? NatureFactorId { get; set; }
+        public int? UseFactorId { get; set; }
+
+        [Column(TypeName = "decimal(18, 2)")]
+        public decimal? SDRR { get; set; }
         public PropertyEntity PropertyMast { get; set; } = null!;
         public virtual RateMasterForCVEntity? RateCVMaster { get; set; }
 
