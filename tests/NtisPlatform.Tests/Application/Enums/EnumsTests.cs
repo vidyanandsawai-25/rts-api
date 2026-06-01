@@ -22,6 +22,8 @@ public class EnumsTests
         Assert.Equal(10, (int)FilterOperator.IsNotNull);
         Assert.Equal(11, (int)FilterOperator.NotIn);
         Assert.Equal(12, (int)FilterOperator.NotEquals);
+        Assert.Equal(13, (int)FilterOperator.Between);
+        Assert.Equal(14, (int)FilterOperator.Top);
     }
 
     [Fact]
@@ -59,6 +61,8 @@ public class EnumsTests
     [InlineData(FilterOperator.IsNotNull)]
     [InlineData(FilterOperator.NotIn)]
     [InlineData(FilterOperator.NotEquals)]
+    [InlineData(FilterOperator.Between)]
+    [InlineData(FilterOperator.Top)]
     public void FilterOperator_AllValuesDefined(FilterOperator op)
     {
         // Assert

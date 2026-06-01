@@ -151,10 +151,17 @@ public class PropertySearchQueryParameters : BaseQueryParameters
     public string? RVorCV { get; set; }
 
     /// <summary>
-    /// Filter operator used for calculated Total Tax filtering.
-    /// Supported values: Equals, GreaterThan, LessThan, Between.
+    /// Filter operator for Total Tax amount filtering.
+    /// <para><b>Valid values for tax filtering:</b></para>
+    /// <para>• <b>Equals</b> - Find properties with exact tax amount (requires AmountValue)</para>
+    /// <para>• <b>GreaterThan</b> - Find properties with tax greater than amount (requires AmountValue)</para>
+    /// <para>• <b>LessThan</b> - Find properties with tax less than amount (requires AmountValue)</para>
+    /// <para>• <b>Between</b> - Find properties with tax between two amounts (requires AmountValue and AmountTo)</para>
+    /// <para>• <b>Top</b> - Get top N properties with highest tax (requires TopCount, ignores AmountValue)</para>
+    /// <para><b>Example:</b> "Top" to get highest tax properties</para>
     /// </summary>
-    public FilterOperator? AmountFilterOperator { get; set; }
+    /// <example>Top</example>
+    public string? AmountFilterOperator { get; set; }
 
     /// <summary>
     /// Amount value used for Total Tax filtering.
@@ -166,4 +173,10 @@ public class PropertySearchQueryParameters : BaseQueryParameters
     /// Ending amount used only when AmountFilterOperator is Between.
     /// </summary>
     public decimal? AmountTo { get; set; }
+
+    /// <summary>
+    /// Number of top properties to return when AmountFilterOperator is Top.
+    /// Returns properties with highest total tax values.
+    /// </summary>
+    public int? TopCount { get; set; }
 }

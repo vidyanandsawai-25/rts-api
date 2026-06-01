@@ -41,13 +41,13 @@ namespace NtisPlatform.Tests.Application.Services
         {
             var queryParameters = new PropertySearchQueryParameters
             {
-                AmountFilterOperator = FilterOperator.GreaterThan
+                AmountFilterOperator = "GreaterThan"
             };
 
             var ex = await Assert.ThrowsAsync<DataValidationException>(() =>
                 _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
 
-            Assert.Equal("AmountValue is required when AmountFilterOperator is provided.", ex.Message);
+            Assert.Equal("AmountValue is required when AmountFilterOperator is 'GreaterThan'.", ex.Message);
         }
 
         [Fact]
@@ -55,7 +55,7 @@ namespace NtisPlatform.Tests.Application.Services
         {
             var queryParameters = new PropertySearchQueryParameters
             {
-                AmountFilterOperator = FilterOperator.Between,
+                AmountFilterOperator = "Between",
                 AmountValue = 10000m
             };
 
@@ -70,7 +70,7 @@ namespace NtisPlatform.Tests.Application.Services
         {
             var queryParameters = new PropertySearchQueryParameters
             {
-                AmountFilterOperator = FilterOperator.Between,
+                AmountFilterOperator = "Between",
                 AmountValue = 60000m,
                 AmountTo = 30000m
             };
@@ -79,6 +79,67 @@ namespace NtisPlatform.Tests.Application.Services
                 _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
 
             Assert.Equal("AmountValue cannot be greater than AmountTo.", ex.Message);
+        }
+
+        [Fact]
+        public async Task SearchPropertiesAsync_ShouldThrowValidationException_WhenTopOperatorWithoutTopCount()
+        {
+            var queryParameters = new PropertySearchQueryParameters
+            {
+                AmountFilterOperator = "Top"
+            };
+
+            var ex = await Assert.ThrowsAsync<DataValidationException>(() =>
+                _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
+
+            Assert.Equal("TopCount must be a positive number when AmountFilterOperator is Top.", ex.Message);
+        }
+
+        [Fact]
+        public async Task SearchPropertiesAsync_ShouldThrowValidationException_WhenTopCountIsZero()
+        {
+            var queryParameters = new PropertySearchQueryParameters
+            {
+                AmountFilterOperator = "Top",
+                TopCount = 0
+            };
+
+            var ex = await Assert.ThrowsAsync<DataValidationException>(() =>
+                _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
+
+            Assert.Equal("TopCount must be a positive number when AmountFilterOperator is Top.", ex.Message);
+        }
+
+        [Fact]
+        public async Task SearchPropertiesAsync_ShouldThrowValidationException_WhenInvalidOperator()
+        {
+            var queryParameters = new PropertySearchQueryParameters
+            {
+                AmountFilterOperator = "InvalidOperator",
+                AmountValue = 10000m
+            };
+
+            var ex = await Assert.ThrowsAsync<DataValidationException>(() =>
+                _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
+
+            Assert.Contains("Invalid AmountFilterOperator value", ex.Message);
+        }
+
+        [Fact]
+        public async Task SearchPropertiesAsync_ShouldThrowValidationException_WhenUnsupportedButDefinedOperator()
+        {
+            // Test for operators that exist in FilterOperator enum but are not supported for tax filtering
+            var queryParameters = new PropertySearchQueryParameters
+            {
+                AmountFilterOperator = "Contains",  // Valid enum value but not supported for tax filtering
+                AmountValue = 10000m
+            };
+
+            var ex = await Assert.ThrowsAsync<DataValidationException>(() =>
+                _service.SearchPropertiesAsync(queryParameters, CancellationToken.None));
+
+            Assert.Contains("Invalid AmountFilterOperator value", ex.Message);
+            Assert.Contains("Valid values are: Equals, GreaterThan, LessThan, Between, Top", ex.Message);
         }
     }
 }

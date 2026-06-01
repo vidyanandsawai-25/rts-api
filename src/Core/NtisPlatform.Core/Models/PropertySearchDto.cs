@@ -129,7 +129,7 @@ public class PropertySearchRequestDto
 
     /// <summary>
     /// Filter operator for calculated Total Tax amount.
-    /// Supported values: Equals, GreaterThan, LessThan, Between.
+    /// Supported values: Equals, GreaterThan, LessThan, Between, Top.
     /// </summary>
     public string? AmountFilterOperator { get; set; }
 
@@ -143,6 +143,12 @@ public class PropertySearchRequestDto
     /// Ending amount used only when AmountFilterOperator is Between.
     /// </summary>
     public decimal? AmountTo { get; set; }
+
+    /// <summary>
+    /// Number of top properties to return when AmountFilterOperator is Top.
+    /// Returns properties with highest total tax values.
+    /// </summary>
+    public int? TopCount { get; set; }
 }
 
 /// <summary>

@@ -315,7 +315,7 @@ public class PropertySearchQueryParametersTests
             SocietyName = "Green Valley",
             Address = "123 Main Street",
             RVorCV = "RV",
-            AmountFilterOperator = FilterOperator.GreaterThan,
+            AmountFilterOperator = "GreaterThan",
             AmountValue = 30000m,
             AmountTo = 60000m
         };
@@ -341,7 +341,7 @@ public class PropertySearchQueryParametersTests
         Assert.Equal("Green Valley", parameters.SocietyName);
         Assert.Equal("123 Main Street", parameters.Address);
         Assert.Equal("RV", parameters.RVorCV);
-        Assert.Equal(FilterOperator.GreaterThan, parameters.AmountFilterOperator);
+        Assert.Equal("GreaterThan", parameters.AmountFilterOperator);
         Assert.Equal(30000m, parameters.AmountValue);
         Assert.Equal(60000m, parameters.AmountTo);
     }
@@ -403,13 +403,13 @@ public class PropertySearchQueryParametersTests
 
         // Act
         parameters.RVorCV = "RV";
-        parameters.AmountFilterOperator = FilterOperator.GreaterThan;
+        parameters.AmountFilterOperator = "GreaterThan";
         parameters.AmountValue = 30000m;
         parameters.AmountTo = 60000m;
 
         // Assert
         Assert.Equal("RV", parameters.RVorCV);
-        Assert.Equal(FilterOperator.GreaterThan, parameters.AmountFilterOperator);
+        Assert.Equal("GreaterThan", parameters.AmountFilterOperator);
         Assert.Equal(30000m, parameters.AmountValue);
         Assert.Equal(60000m, parameters.AmountTo);
     }
@@ -421,13 +421,38 @@ public class PropertySearchQueryParametersTests
         var parameters = new PropertySearchQueryParameters();
 
         // Act
-        parameters.AmountFilterOperator = FilterOperator.Between;
+        parameters.AmountFilterOperator = "Between";
         parameters.AmountValue = 10000m;
         parameters.AmountTo = 50000m;
 
         // Assert
-        Assert.Equal(FilterOperator.Between, parameters.AmountFilterOperator);
+        Assert.Equal("Between", parameters.AmountFilterOperator);
         Assert.Equal(10000m, parameters.AmountValue);
         Assert.Equal(50000m, parameters.AmountTo);
+    }
+
+    [Fact]
+    public void AmountFilterOperator_CanBeSetToTop_WithTopCount()
+    {
+        // Arrange
+        var parameters = new PropertySearchQueryParameters();
+
+        // Act
+        parameters.AmountFilterOperator = "Top";
+        parameters.TopCount = 10;
+
+        // Assert
+        Assert.Equal("Top", parameters.AmountFilterOperator);
+        Assert.Equal(10, parameters.TopCount);
+    }
+
+    [Fact]
+    public void TopCount_DefaultValue_ShouldBeNull()
+    {
+        // Arrange & Act
+        var parameters = new PropertySearchQueryParameters();
+
+        // Assert
+        Assert.Null(parameters.TopCount);
     }
 }

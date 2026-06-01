@@ -341,20 +341,55 @@ public class PropertyService
         var op = queryParameters.AmountFilterOperator;
         var from = queryParameters.AmountValue;
         var to = queryParameters.AmountTo;
+        var topCount = queryParameters.TopCount;
 
-        if (op.HasValue && !from.HasValue)
+        // Validate AmountFilterOperator if provided
+        if (!string.IsNullOrWhiteSpace(op))
         {
-            throw new DataValidationException("AmountValue is required when AmountFilterOperator is provided.");
-        }
+            var opTrimmed = op.Trim();
 
-        if (op == FilterOperator.Between && !to.HasValue)
-        {
-            throw new DataValidationException("AmountTo is required when AmountFilterOperator is Between.");
-        }
+            // Check if operator is valid for tax filtering
+            if (!Enum.TryParse<FilterOperator>(opTrimmed, ignoreCase: true, out var parsedOp) ||
+                !Enum.IsDefined(typeof(FilterOperator), parsedOp) ||
+                (parsedOp != FilterOperator.Equals &&
+                 parsedOp != FilterOperator.GreaterThan &&
+                 parsedOp != FilterOperator.LessThan &&
+                 parsedOp != FilterOperator.Between &&
+                 parsedOp != FilterOperator.Top))
+            {
+                throw new DataValidationException($"Invalid AmountFilterOperator value: '{opTrimmed}'. Valid values are: Equals, GreaterThan, LessThan, Between, Top");
+            }
 
-        if (op == FilterOperator.Between && from.HasValue && to.HasValue && from.Value > to.Value)
-        {
-            throw new DataValidationException("AmountValue cannot be greater than AmountTo.");
+            // Validate required fields based on operator
+            if (parsedOp == FilterOperator.Top)
+            {
+                if (!topCount.HasValue || topCount.Value <= 0)
+                {
+                    throw new DataValidationException("TopCount must be a positive number when AmountFilterOperator is Top.");
+                }
+            }
+            else
+            {
+                // For all other operators (Equals, GreaterThan, LessThan, Between), AmountValue is required
+                if (!from.HasValue)
+                {
+                    throw new DataValidationException($"AmountValue is required when AmountFilterOperator is '{opTrimmed}'.");
+                }
+
+                // Between operator requires AmountTo
+                if (parsedOp == FilterOperator.Between)
+                {
+                    if (!to.HasValue)
+                    {
+                        throw new DataValidationException("AmountTo is required when AmountFilterOperator is Between.");
+                    }
+
+                    if (from.Value > to.Value)
+                    {
+                        throw new DataValidationException("AmountValue cannot be greater than AmountTo.");
+                    }
+                }
+            }
         }
 
         // Map query parameters to repository request DTO
@@ -382,9 +417,10 @@ public class PropertyService
             SocietyName = queryParameters.SocietyName,
             Address = queryParameters.Address,
             RVorCV = queryParameters.RVorCV,
-            AmountFilterOperator = queryParameters.AmountFilterOperator?.ToString(),
+            AmountFilterOperator = queryParameters.AmountFilterOperator,
             AmountValue = queryParameters.AmountValue,
-            AmountTo = queryParameters.AmountTo
+            AmountTo = queryParameters.AmountTo,
+            TopCount = queryParameters.TopCount
         };
 
         var (totalCount, items) = await _propertyRepository.SearchPropertiesAsync(

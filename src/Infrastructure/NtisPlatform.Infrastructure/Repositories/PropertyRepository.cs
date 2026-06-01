@@ -3246,15 +3246,31 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     t.RVorCV == rvOrCv));
         }
 
-        if (!string.IsNullOrWhiteSpace(searchRequest.AmountFilterOperator) && searchRequest.AmountValue.HasValue)
+        // Track if we're using Top operator for ordering later
+        var isTopOperator = false;
+        Dictionary<int, decimal>? topTaxLookup = null;
+
+        if (!string.IsNullOrWhiteSpace(searchRequest.AmountFilterOperator))
         {
-            if (!Enum.TryParse<FilterOperator>(searchRequest.AmountFilterOperator.Trim(),ignoreCase: true,out var op) ||
+            var opTrimmed = searchRequest.AmountFilterOperator.Trim();
+
+            if (!Enum.TryParse<FilterOperator>(opTrimmed, ignoreCase: true, out var op) ||
                 !Enum.IsDefined(typeof(FilterOperator), op))
             {
                 return (0, new List<PropertySearchResponseDto>());
             }
 
-            var amount = searchRequest.AmountValue.Value;
+            // Validate that only supported operators for tax filtering are used
+            if (op != FilterOperator.Equals &&
+                op != FilterOperator.GreaterThan &&
+                op != FilterOperator.LessThan &&
+                op != FilterOperator.Between &&
+                op != FilterOperator.Top)
+            {
+                // Unsupported operator - return empty result instead of silently ignoring
+                return (0, new List<PropertySearchResponseDto>());
+            }
+
             var applyAmountFilter = true;
 
             var taxQuery = _context.TransMast
@@ -3266,42 +3282,74 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     TotalTax = g.Sum(x => x.TaxAmount)
                 });
 
-            if (op == FilterOperator.Equals)
+            if (op == FilterOperator.Top)
             {
-                taxQuery = taxQuery.Where(t => t.TotalTax == amount);
-            }
-            else if (op == FilterOperator.GreaterThan)
-            {
-                taxQuery = taxQuery.Where(t => t.TotalTax > amount);
-            }
-            else if (op == FilterOperator.LessThan)
-            {
-                taxQuery = taxQuery.Where(t => t.TotalTax < amount);
-            }
-            else if (op == FilterOperator.Between && searchRequest.AmountTo.HasValue)
-            {
-                var toAmount = searchRequest.AmountTo.Value;
-
-                taxQuery = taxQuery.Where(t =>
-                    t.TotalTax >= amount &&
-                    t.TotalTax <= toAmount);
-            }
-            else
-            {
+                // For Top operator, get properties with highest total tax
                 applyAmountFilter = false;
-            }
+                isTopOperator = true;
 
-            if (applyAmountFilter)
+                // Validate TopCount
+                if (!searchRequest.TopCount.HasValue || searchRequest.TopCount.Value <= 0)
+                {
+                    // Invalid TopCount - return empty result
+                    return (0, new List<PropertySearchResponseDto>());
+                }
+
+                var topCount = searchRequest.TopCount.Value;
+                var topTaxData = await taxQuery
+                    .OrderByDescending(t => t.TotalTax)
+                    .Take(topCount)
+                    .ToListAsync(cancellationToken);
+
+                var topPropertyIds = topTaxData.Select(t => t.PropertyId).ToList();
+
+                // Store tax amounts for ordering later
+                topTaxLookup = topTaxData.ToDictionary(t => t.PropertyId, t => t.TotalTax);
+
+                query = query.Where(x => topPropertyIds.Contains(x.Property.Id));
+            }
+            else if (searchRequest.AmountValue.HasValue)
             {
-                query = query.Where(x =>
-                    taxQuery.Any(t => t.PropertyId == x.Property.Id));
+                var amount = searchRequest.AmountValue.Value;
+
+                if (op == FilterOperator.Equals)
+                {
+                    taxQuery = taxQuery.Where(t => t.TotalTax == amount);
+                }
+                else if (op == FilterOperator.GreaterThan)
+                {
+                    taxQuery = taxQuery.Where(t => t.TotalTax > amount);
+                }
+                else if (op == FilterOperator.LessThan)
+                {
+                    taxQuery = taxQuery.Where(t => t.TotalTax < amount);
+                }
+                else if (op == FilterOperator.Between && searchRequest.AmountTo.HasValue)
+                {
+                    var toAmount = searchRequest.AmountTo.Value;
+
+                    taxQuery = taxQuery.Where(t =>
+                        t.TotalTax >= amount &&
+                        t.TotalTax <= toAmount);
+                }
+                else
+                {
+                    applyAmountFilter = false;
+                }
+
+                if (applyAmountFilter)
+                {
+                    query = query.Where(x =>
+                        taxQuery.Any(t => t.PropertyId == x.Property.Id));
+                }
             }
         }
 
         // Get total count before pagination
         var totalCount = await query.CountAsync(cancellationToken);
 
-        // Apply deterministic ordering before pagination to ensure stable paging
+        // Apply ordering before pagination
+        // For Top operator, we'll sort in-memory after fetching to maintain tax order
         var orderedQuery = query.OrderBy(x => x.Property.Id);
 
         // Apply pagination
@@ -3317,6 +3365,14 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (!propertyResults.Any())
         {
             return (totalCount, new List<PropertySearchResponseDto>());
+        }
+
+        // For Top operator, sort the results by TotalTax descending in-memory
+        if (isTopOperator && topTaxLookup != null)
+        {
+            propertyResults = propertyResults
+                .OrderByDescending(x => topTaxLookup.ContainsKey(x.Property.Id) ? topTaxLookup[x.Property.Id] : 0m)
+                .ToList();
         }
 
         var propertyIds = propertyResults.Select(x => x.Property.Id).ToList();
