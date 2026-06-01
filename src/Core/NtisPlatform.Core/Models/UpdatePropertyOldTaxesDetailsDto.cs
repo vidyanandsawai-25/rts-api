@@ -18,8 +18,6 @@ public class UpdatePropertyOldTaxesDetailsDto
 public class UpdateOldTaxYearDto
 {
     public int FinanceYearId { get; set; }
-    public string? RVorCV { get; set; }
-    public decimal? RVorCVValue { get; set; }
 
     /// <summary>
     /// List of taxes to update with their amounts (includes Interest if configured in TaxMaster)

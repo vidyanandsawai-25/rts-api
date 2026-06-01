@@ -18,28 +18,11 @@ public class OldTaxYearDto
     public int FinanceYearId { get; set; }
     public int Year { get; set; }
     public string? YearCode { get; set; }
-    public string? RVorCV { get; set; }
-    public decimal? RVorCVValue { get; set; }
 
     /// <summary>
     /// List of taxes with their names and amounts
     /// </summary>
     public List<TaxDetailDto> Taxes { get; set; } = new();
-
-    /// <summary>
-    /// Calculated: Sum of all taxes excluding Interest
-    /// </summary>
-    public decimal TaxTotal { get; set; }
-
-    /// <summary>
-    /// Interest amount (if exists in taxes)
-    /// </summary>
-    public decimal Interest { get; set; }
-
-    /// <summary>
-    /// Calculated: Tax Total + Interest
-    /// </summary>
-    public decimal NetTotal { get; set; }
 }
 
 /// <summary>

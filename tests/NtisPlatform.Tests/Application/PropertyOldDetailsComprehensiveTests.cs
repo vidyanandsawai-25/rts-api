@@ -838,25 +838,15 @@ public class PropertyOldDetailsComprehensiveTests
             FinanceYearId = 1,
             Year = 2020,
             YearCode = "2020-21",
-            RVorCV = "RV",
-            RVorCVValue = 50000.50m,
-            Taxes = taxes,
-            TaxTotal = 1500.75m,
-            Interest = 100.50m,
-            NetTotal = 1601.25m
+            Taxes = taxes
         };
 
         // Assert
         Assert.Equal(1, dto.FinanceYearId);
         Assert.Equal(2020, dto.Year);
         Assert.Equal("2020-21", dto.YearCode);
-        Assert.Equal("RV", dto.RVorCV);
-        Assert.Equal(50000.50m, dto.RVorCVValue);
         Assert.NotNull(dto.Taxes);
         Assert.Equal(2, dto.Taxes.Count);
-        Assert.Equal(1500.75m, dto.TaxTotal);
-        Assert.Equal(100.50m, dto.Interest);
-        Assert.Equal(1601.25m, dto.NetTotal);
     }
 
     [Fact]
@@ -869,13 +859,8 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal(0, dto.FinanceYearId);
         Assert.Equal(0, dto.Year);
         Assert.Null(dto.YearCode);
-        Assert.Null(dto.RVorCV);
-        Assert.Null(dto.RVorCVValue);
         Assert.NotNull(dto.Taxes);
         Assert.Empty(dto.Taxes);
-        Assert.Equal(0m, dto.TaxTotal);
-        Assert.Equal(0m, dto.Interest);
-        Assert.Equal(0m, dto.NetTotal);
     }
 
     #endregion
@@ -888,8 +873,8 @@ public class PropertyOldDetailsComprehensiveTests
         // Arrange & Act
         var taxYears = new List<UpdateOldTaxYearDto>
         {
-            new() { FinanceYearId = 1, RVorCV = "RV", RVorCVValue = 50000.50m },
-            new() { FinanceYearId = 2, RVorCV = "CV", RVorCVValue = 60000.75m }
+            new() { FinanceYearId = 1 },
+            new() { FinanceYearId = 2 }
         };
 
         var dto = new UpdatePropertyOldTaxesDetailsDto
@@ -932,15 +917,11 @@ public class PropertyOldDetailsComprehensiveTests
         var dto = new UpdateOldTaxYearDto
         {
             FinanceYearId = 1,
-            RVorCV = "RV",
-            RVorCVValue = 50000.50m,
             Taxes = taxes
         };
 
         // Assert
         Assert.Equal(1, dto.FinanceYearId);
-        Assert.Equal("RV", dto.RVorCV);
-        Assert.Equal(50000.50m, dto.RVorCVValue);
         Assert.NotNull(dto.Taxes);
         Assert.Equal(2, dto.Taxes.Count);
         Assert.Equal(1, dto.Taxes[0].TaxId);
@@ -955,8 +936,6 @@ public class PropertyOldDetailsComprehensiveTests
 
         // Assert
         Assert.Equal(0, dto.FinanceYearId);
-        Assert.Null(dto.RVorCV);
-        Assert.Null(dto.RVorCVValue);
         Assert.NotNull(dto.Taxes);
         Assert.Empty(dto.Taxes);
     }
