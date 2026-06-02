@@ -3,7 +3,6 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs;
-using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.RoomWiseSubmissionDetails;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
@@ -13,20 +12,20 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseSubmissionDetailsEntity, RoomWiseSubmissionDetailsDto, CreateRoomWiseSubmissionDetailsDto, UpdateRoomWiseSubmissionDetailsDto, PropertyDetailsQueryParameters, int>, IRoomWiseSubmissionDetailsService
+public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseSubmissionDetailsEntity, RoomWiseSubmissionDetailsDto, CreateRoomWiseSubmissionDetailsDto, UpdateRoomWiseSubmissionDetailsDto, RoomWiseSubmissionQueryParameters, int>, IRoomWiseSubmissionDetailsService
 {
      
     public RoomWiseSubmissionDetailsService( IRepository<RoomWiseSubmissionDetailsEntity, int> repository, IUnitOfWork unitOfWork,  IMapper mapper) : base(repository, unitOfWork, mapper)
     {
-    }
+    } 
 
    public override async Task<PagedResult<RoomWiseSubmissionDetailsDto>> GetAllAsync(
-         PropertyDetailsQueryParameters queryParameters,
+         RoomWiseSubmissionQueryParameters queryParameters,
          CancellationToken cancellationToken = default)
     {
         var query = _repository.GetQueryable()
-                .Where(x => !x.MarkedForDeletion)
-                .AsQueryable();  // Convert back to IQueryable<T>
+            .Where(x => !x.MarkedForDeletion && x.PropertyDetailsId == queryParameters.PropertyDetailsId)
+            .AsQueryable();
 
         // Apply filters
         query = query.ApplyFilters(queryParameters);
@@ -50,7 +49,7 @@ public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseS
         var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
         var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
 
-        return new PagedResult<RoomWiseSubmissionDetailsDto>(items, totalCount, pageNumber, pageSize); ;
+        return new PagedResult<RoomWiseSubmissionDetailsDto>(items, totalCount, pageNumber, pageSize);
     }
     
 

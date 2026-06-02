@@ -3,10 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Extensions;
-using NtisPlatform.Application.DTOs.PropertyDetails;
-using NtisPlatform.Application.DTOs.RenterDetails;
 using NtisPlatform.Application.DTOs.RoomWiseSubmissionDetails;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Api.Controllers
 {
@@ -25,8 +24,11 @@ namespace NtisPlatform.Api.Controllers
         }
 
         [HttpGet]
-        public Task<IActionResult> GetAll([FromQuery] PropertyDetailsQueryParameters queryParameters, CancellationToken ct)
-            => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
+        [ProducesResponseType(typeof(PagedResult<RoomWiseSubmissionDetailsDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public Task<IActionResult> GetAll([FromQuery] RoomWiseSubmissionQueryParameters query, CancellationToken ct)
+            => this.ExecuteGetAllPaged(_service, query, _logger, ct);
 
         [HttpPost]
         public Task<IActionResult> Create([FromBody] CreateRoomWiseSubmissionDetailsDto createDto, CancellationToken ct)
