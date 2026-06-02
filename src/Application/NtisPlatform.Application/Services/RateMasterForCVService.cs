@@ -73,14 +73,14 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
                     {
                         var csnDetail = _mapper.Map<CSNDetailsEntity>(csnDto);
                         csnDetail.CSN = csn.Trim();
-                        csnDetail.RateMasterCVId = savedEntity.Id;
+                        csnDetail.RateCVMasterId = savedEntity.Id;
                         await _csnDetailsRepository.AddAsync(csnDetail, cancellationToken);
                     }
                 }
                 else
                 {
                     var csnDetail = _mapper.Map<CSNDetailsEntity>(csnDto);
-                    csnDetail.RateMasterCVId = savedEntity.Id;
+                    csnDetail.RateCVMasterId = savedEntity.Id;
                     await _csnDetailsRepository.AddAsync(csnDetail, cancellationToken);
                 }
             }
@@ -109,7 +109,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
 
         // Get existing CSNDetails separately, not through parent Include
         var existingCsnDetails = await _csnDetailsRepository.GetQueryable()
-            .Where(x => x.RateMasterCVId == id)
+            .Where(x => x.RateCVMasterId == id)
             .ToListAsync(cancellationToken);
 
         foreach (var csnDetail in existingCsnDetails)
@@ -139,7 +139,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
 
                     newCsnDetail.Id = 0;
                     newCsnDetail.CSN = csn;
-                    newCsnDetail.RateMasterCVId = id;
+                    newCsnDetail.RateCVMasterId = id;
                     newCsnDetail.UpdatedBy = updateDto.UpdatedBy;
 
                     await _csnDetailsRepository.AddAsync(newCsnDetail, cancellationToken);
@@ -168,7 +168,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
     public override async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var csnDetails = await _csnDetailsRepository.GetQueryable()
-            .Where(x => x.RateMasterCVId == id)
+            .Where(x => x.RateCVMasterId == id)
             .ToListAsync(cancellationToken);
 
         foreach (var csnDetail in csnDetails)
@@ -221,7 +221,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
                             var csnDetail = new CSNDetailsEntity
                             {
                                 CSN = csn,
-                                RateMasterCVId = parentId,
+                                RateCVMasterId = parentId,
                                 IsActive = true,
                                 CreatedBy = entity.CreatedBy
                             };
@@ -286,7 +286,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
 
                     // 2. Get existing CSNDetails
                     var existingCsnDetails = await _csnDetailsRepository.GetQueryable()
-                        .Where(x => x.RateMasterCVId == item.Id)
+                        .Where(x => x.RateCVMasterId == item.Id)
                         .ToListAsync(cancellationToken);
 
                     foreach (var csnDetail in existingCsnDetails)
@@ -313,7 +313,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
                                 {
                                     var newCsnDetail = _mapper.Map<CSNDetailsEntity>(csnDto);
                                     newCsnDetail.CSN = csn;
-                                    newCsnDetail.RateMasterCVId = item.Id;
+                                    newCsnDetail.RateCVMasterId = item.Id;
 
                                     await _csnDetailsRepository.AddAsync(newCsnDetail, cancellationToken);
                                 }
@@ -375,7 +375,7 @@ public class RateMasterForCVService : BaseCommonCrudService<RateMasterForCVEntit
                     }
 
                     var csnDetails = await _csnDetailsRepository.GetQueryable()
-                        .Where(x => x.RateMasterCVId == id)
+                        .Where(x => x.RateCVMasterId == id)
                         .ToListAsync(cancellationToken);
 
                     foreach (var csnDetail in csnDetails)

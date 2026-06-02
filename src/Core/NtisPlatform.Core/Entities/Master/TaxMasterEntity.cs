@@ -36,6 +36,7 @@ public class TaxMasterEntity : BaseEntity
     public bool OldTaxStatus { get; set; } = true;
     public ICollection<TaxPercentageMasterCVEntity> TaxPercentageMasterCV { get; set; } = new List<TaxPercentageMasterCVEntity>();
     public ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
+    public ICollection<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = new List<PolicyTaxDetailsCVEntity>();
 
 }
 

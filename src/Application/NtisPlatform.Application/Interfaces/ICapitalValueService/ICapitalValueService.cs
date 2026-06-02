@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace NtisPlatform.Application.Interfaces
+namespace NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService
 {
     public interface ICapitalValueService
     {

@@ -132,7 +132,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
-    public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+    public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;
+ 
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
@@ -525,6 +527,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Description);
             entity.Property(x => x.Type);
             entity.Property(x => x.TypeOfUseGroupId);
+            entity.Property(x => x.TypeOfUseGroupCVId);
             entity.Property(x => x.SearchSequence);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
@@ -535,6 +538,11 @@ public class ApplicationDbContext : DbContext
             .WithMany(p => p.TypeOfUse)
             .HasForeignKey(e => e.TypeOfUseGroupId)
             .HasPrincipalKey(e => e.Id);
+
+            entity.HasOne(e => e.TypeOfUseGroupCV)
+           .WithMany(p => p.TypeOfUse)
+           .HasForeignKey(e => e.TypeOfUseGroupCVId)
+           .HasPrincipalKey(e => e.Id);
 
             // Configure relationships
             entity.HasMany(e => e.PropertyDetails)
@@ -579,7 +587,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.TypeOfUseGroupCode);
             entity.Property(x => x.GroupName);
             entity.Property(x => x.GroupIcon);
-            entity.Property(e => e.IsFloorWiseRateApplicable);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.CreatedDate);
             entity.Property(x => x.UpdatedBy);
@@ -637,20 +644,21 @@ public class ApplicationDbContext : DbContext
         });
         modelBuilder.Entity<RateMasterForCVEntity>(entity =>
         {
-            entity.ToTable("RateMasterCV", "PTIS");
+            entity.ToTable("RateCVMaster", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasColumnName("Id");
-            entity.Property(e => e.SubZoneId).HasColumnName("SubZoneId").IsRequired();
-            entity.Property(e => e.TypeOfUseGroupCVId).HasColumnName("TypeOfUseGroupCVId").IsRequired();
-            entity.Property(e => e.FloorGroupId).HasColumnName("FloorGroupId").IsRequired();
-            entity.Property(e => e.AssessmentYearRangeId).HasColumnName("AssessmentYearRangeId").IsRequired();
-            entity.Property(e => e.RateAmount).HasColumnName("RateAmount").HasColumnType("decimal(18, 2)").IsRequired();
-            entity.Property(e => e.IsActive).HasColumnName("IsActive").HasDefaultValue(true).IsRequired();
-            entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
-            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("getdate()").IsRequired();
-            entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
-            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
-        });
+            entity.Property(e => e.Id);
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.TypeOfUseGroupCVId);
+            entity.Property(e => e.FloorGroupId);
+            entity.Property(e => e.RateAmount);
+            entity.Property(e => e.AssessmentYearRangeId);
+            entity.Property(e => e.IsActive);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()").IsRequired();
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+             entity.HasOne(e => e.FloorGroup).WithMany().HasForeignKey(e => e.FloorGroupId).HasConstraintName("FK_RateCVMaster_FloorGroupMaster");
+         });
 
 
         modelBuilder.Entity<DepreciationMasterEntity>(entity =>
@@ -2020,44 +2028,70 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
-            // Unique constraint on (PropertyId, PropertyDetailsId, TaxId) to prevent duplicate tax calculations
-            // Filtered for active records only to allow historical/soft-deleted duplicates
-            entity.HasIndex(e => new { e.PropertyId, e.PropertyDetailsId, e.TaxId })
-                .IsUnique()
-                .HasFilter("[IsActive] = 1")
-                .HasDatabaseName("UQ_PropertyTaxCalculationCVResults_Property_PropertyDetails_Tax_Active");
-
-            // Non-unique index on RateCVMasterId for lookups and foreign key relationships
-            entity.HasIndex(e => e.RateCVMasterId)
-                .HasDatabaseName("IX_PropertyTaxCalculationCVResults_RateCVMasterId");
-
-            // Explicitly configure the TaxMaster relationship to use TaxId as the foreign key
-            entity.HasOne(e => e.TaxMaster)
-                .WithMany()
-                .HasForeignKey(e => e.TaxId)
-                .HasPrincipalKey(t => t.Id)
+            // Relationship to Property - Restrict delete to preserve CV history
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PropertyTaxCalculationCVResults)
+                .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-             
-
-            // Explicitly configure the RateCVMaster relationship
-            entity.HasOne(e => e.RateCVMaster)
-                .WithMany()
-                .HasForeignKey(e => e.RateCVMasterId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // Explicitly configure the PropertyDetails relationship
+            // Relationship to PropertyDetails - Restrict delete to preserve CV history
             entity.HasOne(e => e.PropertyDetails)
                 .WithMany(p => p.PropertyTaxCalculationCVResults)
                 .HasForeignKey(e => e.PropertyDetailsId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Explicitly configure the PropertyMast relationship
-            entity.HasOne(e => e.PropertyMast)
-                .WithMany(p => p.PropertyTaxCalculationCVResults)
-                .HasForeignKey(e => e.PropertyId)
+            // Relationship to RateCVMaster - Restrict delete to preserve CV history
+            entity.HasOne(e => e.RateCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.RateCVMasterId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Relationship to TaxMaster - Restrict delete
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relationship to FloorFactorCVMaster - Restrict delete
+            entity.HasOne(e => e.FloorFactorCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.FloorFactorCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relationship to AgeFactorCVMaster - Restrict delete
+            entity.HasOne(e => e.AgeFactorCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.AgeFactorCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relationship to NatureFactorCVMaster - Restrict delete
+            entity.HasOne(e => e.NatureFactorCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.NatureFactorCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Relationship to UseFactorCVMaster - Restrict delete
+            entity.HasOne(e => e.UseFactorCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.UseFactorCVId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => new { e.PropertyId, e.PropertyDetailsId, e.TaxId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1")
+                .HasDatabaseName("UQ_PropertyTaxCalculationCVResults_Property_PropertyDetails_Tax_Active");
+            entity.HasIndex(e => e.RateCVMasterId)
+                .HasDatabaseName("IX_PropertyTaxCalculationCVResults_RateCVMasterId");
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.MarkedForDeletion);
         });
 
         // ── UserDepartmentAllocation ─────────────────────────────────────────
@@ -2427,20 +2461,22 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("CSNDetails", "PTIS");
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.RateCVMasterId);
+            entity.Property(e => e.MoujaId);
+            entity.Property(e => e.CSN).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
 
-            entity.Property(e => e.Id)
-                .HasColumnName("Id");
+            entity.HasOne<RateMasterForCVEntity>()
+                .WithMany(x => x.CSNDetails)
+                .HasForeignKey(x => x.RateCVMasterId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            entity.Property(e => e.RateMasterCVId).HasColumnName("RateMasterCVId").IsRequired();
-            entity.Property(e => e.CSN).HasColumnName("CSN").HasMaxLength(200).IsRequired();
-            entity.Property(e => e.IsActive).HasColumnName("IsActive").HasDefaultValue(true).IsRequired();
-            entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
-            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
-            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
-            entity.HasOne(x => x.RateMasterForCV)
-            .WithMany(x => x.CSNDetails)
-            .HasForeignKey(x => x.RateMasterCVId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(e => e.RateCVMasterId);
+            entity.HasIndex(e => e.IsActive);
         });
 
         modelBuilder.Entity<GenderMasterEntity>(entity =>
@@ -2513,14 +2549,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("getdate()").IsRequired();
             entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
             entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
+
+            // Configure foreign key relationships explicitly
             entity.HasOne(e => e.PropertyMast)
-                  .WithMany()
+                  .WithMany(p => p.PolicyTaxDetailsCV)
                   .HasForeignKey(e => e.PropertyId)
                   .HasConstraintName("FK_PolicyTaxDetailsCV_PropertyMast_PropertyId")
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.TaxMaster)
-                  .WithMany()
+                  .WithMany(t => t.PolicyTaxDetailsCV)
                   .HasForeignKey(e => e.TaxId)
                   .HasConstraintName("FK_PolicyTaxDetailsCV_TaxMaster_TaxId")
                   .OnDelete(DeleteBehavior.Restrict);
@@ -2532,38 +2570,28 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.FinanceYearId).IsRequired();
-            entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.CapitalValue).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             // Configure foreign key relationships explicitly
             entity.HasOne(e => e.PropertyMast)
-                .WithMany(p => p.TransMastCV)
-                .HasForeignKey(e => e.PropertyId)
-                .OnDelete(DeleteBehavior.Restrict);
+                  .WithMany(p => p.TransMastCV)
+                  .HasForeignKey(e => e.PropertyId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.TaxMaster)
-                .WithMany()
-                .HasForeignKey(e => e.TaxId)
-                .OnDelete(DeleteBehavior.Restrict);
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.YearMaster)
-                .WithMany()
-                .HasForeignKey(e => e.FinanceYearId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // Indexes for performance
-            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId });
-            entity.HasIndex(e => e.PropertyId);
-            entity.HasIndex(e => e.FinanceYearId);
-            entity.HasIndex(e => e.TaxId);
+                  .WithMany()
+                  .HasForeignKey(e => e.FinanceYearId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // BlockMaster configuration
@@ -4005,6 +4033,35 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertySocialDetails_DocumentBindingId");
             entity.HasIndex(e => new { e.PropertyId, e.SocialAttributeId }).IsUnique().HasDatabaseName("UQ_PropertySocialDetails").HasFilter("[IsActive] = 1");
         });
+
+
+        // TypeOfUseGroupMasterCV configuration
+        modelBuilder.Entity<TypeOfUseGroupCVEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseGroupMasterCV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
+            entity.Property(e => e.TypeOfUseGroupCVCode).IsRequired().HasMaxLength(10).HasColumnType("varchar(10)");
+            entity.Property(e => e.GroupName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.GroupIcon).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsFloorWiseRateApplicable);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            // Unique constraints
+            entity.HasIndex(e => e.TypeOfUseGroupCVCode).IsUnique().HasDatabaseName("UQ_TypeOfUseGroupMasterCV_TypeOfUseGroupCVCode");
+            entity.HasIndex(e => e.GroupName).IsUnique().HasDatabaseName("UQ_TypeOfUseGroupMasterCV_GroupName");
+            entity.HasIndex(e => e.IsActive);
+
+
+            entity.HasMany(e => e.TypeOfUse)
+           .WithOne(n => n.TypeOfUseGroupCV)
+           .HasForeignKey(n => n.TypeOfUseGroupCVId)
+           .OnDelete(DeleteBehavior.Restrict);
+        });
+
     }
 }
 

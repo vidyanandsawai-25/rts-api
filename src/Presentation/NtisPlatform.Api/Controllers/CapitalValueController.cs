@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 
 namespace NtisPlatform.Api.Controllers
 {

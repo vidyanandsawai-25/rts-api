@@ -22,9 +22,6 @@ namespace NtisPlatform.Application.DTOs.CapitalValue
         public double? CarpetAreaSqMeter { get; set; }
         public double? BuiltupAreaSqMeter { get; set; }
         public double? BuiltupAreaSqFeet { get; set; }
-        public bool? RenterYesNo { get; set; }
-        public string? RenterName { get; set; }
-        public double? RentMonthly { get; set; }
         public double? SDRR { get; set; }
         public double? BaseValue { get; set; }
         public double? FloorFactor { get; set; }
@@ -38,45 +35,14 @@ namespace NtisPlatform.Application.DTOs.CapitalValue
     }
     public class CreateCapitalValueDto
     {
-        /// <summary>
-        /// The ID of the property for which to calculate capital value.
-        /// </summary>
-        public int PropertyId { get; set; }
-
-        /// <summary>
-        /// Optional: Specific PropertyDetails ID to calculate. If 0 or not provided, all property details will be calculated.
-        /// </summary>
-        public int PropertyDetailsId { get; set; }
-
-        /// <summary>
-        /// Policy code to be used in PolicyTaxDetailsCV records. Defaults to "NETTAX".
-        /// </summary>
-        public string? PolicyCode { get; set; } = "NETTAX";
-
-        /// <summary>
-        /// Policy date for PolicyTaxDetailsCV records. If not provided, current date will be used.
-        /// </summary>
-        public DateTime? PolicyDate { get; set; }
-
-        /// <summary>
-        /// Policy year for PolicyTaxDetailsCV records. If not provided, current year will be used.
-        /// </summary>
-        public int? PolicyYear { get; set; }
-
-        /// <summary>
-        /// Optional policy reason/description for PolicyTaxDetailsCV records.
-        /// </summary>
-        public string? PolicyReason { get; set; }
-
-        /// <summary>
-        /// Finance year for TransMastCV records. If not provided, active finance year will be used.
-        /// </summary>
-        public int? FinanceYear { get; set; }
-
-        /// <summary>
-        /// User ID creating the capital value calculation.
-        /// </summary>
-        public int? CreatedBy { get; set; }
+         public int PropertyId { get; set; }
+         public int PropertyDetailsId { get; set; }
+         public string? PolicyCode { get; set; } = "NETTAX";
+         public DateTime? PolicyDate { get; set; }
+         public int? PolicyYear { get; set; }
+         public string? PolicyReason { get; set; }
+         public int? FinanceYear { get; set; }
+         public int? CreatedBy { get; set; }
 
         // NOTE: This operation will automatically create/update:
         // - PropertyTaxCalculationCVResults (tax calculation details per property detail)

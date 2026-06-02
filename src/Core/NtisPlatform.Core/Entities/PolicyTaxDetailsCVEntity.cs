@@ -37,6 +37,5 @@ public class PolicyTaxDetailsCVEntity : BaseEntity, IHardDeletable
     
     public DateTime? MarkedForDeletionDate { get; set; }
     
-    // Navigation properties
-   
+    
 }

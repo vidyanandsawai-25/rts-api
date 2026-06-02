@@ -9,11 +9,23 @@ using Microsoft.OpenApi.Models;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Api.Localization;
 using NtisPlatform.Api.Middleware;
+using NtisPlatform.Application.Configuration;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.ICapitalValueService;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.CapitalValue;
+using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
+using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
+using NtisPlatform.Application.Services.CapitalValue.DataLoader;
+using NtisPlatform.Application.Services.CapitalValue.MasterDataProviders;
+using NtisPlatform.Application.Services.CapitalValueService;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
@@ -150,6 +162,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IULBMasterService, ULBMasterService>();
         services.AddScoped<IPaymentModeService, PaymentModeService>();
         services.AddScoped<ICapitalValueService, CapitalValueService>();
+        services.AddScoped<IPropertyTaxCalculationCVResultsService, PropertyTaxCalculationCVResultsService>();
+        services.AddScoped<IPolicyTaxDetailsService, PolicyTaxDetailsService>();
+        services.AddScoped<ITransMastService, TransMastService>();
+        // Capital Value Supporting Services - Data Loaders
+        services.AddScoped<IPropertyDataLoader, PropertyDataLoader>();
+        services.AddScoped<ICapitalValueMasterDataProvider, CapitalValueMasterDataProvider>();
+        // Capital Value Supporting Services - Calculators
+        services.AddScoped<ICapitalValueCalculator, CapitalValueCalculatorService>();
+        // Capital Value Supporting Services - Persistence
+        services.AddScoped<ICapitalValuePersistenceService, CapitalValuePersistenceService>();
+        // Capital Value Configuration Options
+        services.Configure<CapitalValueOptions>(configuration.GetSection(CapitalValueOptions.SectionName));
         services.AddScoped<IDualMethodService, DualMethodService>();
         services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
         services.AddScoped<NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();

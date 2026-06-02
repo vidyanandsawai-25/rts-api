@@ -153,6 +153,9 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public ICollection<PropertyMastOldEntity> PropertyMastOld { get; set; } = new List<PropertyMastOldEntity>();
     public ICollection<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = new List<SocietyDetailsEntity>();
     public ICollection<PropertyAssessmentEntity> PropertyMastDetails { get; set; } = new List<PropertyAssessmentEntity>();
+
+    public virtual ICollection<PolicyTaxDetailsCVEntity> PolicyTaxDetailsCV { get; set; } = new List<PolicyTaxDetailsCVEntity>();
+
     public virtual ICollection<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = new List<PolicyTaxDetailsEntity>();
 
     // Tax & Financial

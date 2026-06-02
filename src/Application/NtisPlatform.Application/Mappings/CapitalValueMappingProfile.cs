@@ -19,11 +19,12 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.PropertyDetailsId, opt => opt.MapFrom(src => src.PropertyDetailsId))
             .ForMember(dest => dest.CapitalValue, opt => opt.MapFrom(src => src.CapitalValue))
             .ForMember(dest => dest.BaseValue, opt => opt.MapFrom(src => src.BaseValue))
-           
-            .ForMember(dest => dest.FloorFactor, opt => opt.MapFrom(src => src.FloorFactorId))
-            .ForMember(dest => dest.AgeFactor, opt => opt.MapFrom(src => src.AgeFactorId))
-            .ForMember(dest => dest.NTBFactor, opt => opt.MapFrom(src => src.NatureFactorId))
-            .ForMember(dest => dest.UseFactor, opt => opt.MapFrom(src => src.UseFactorId))
+
+            // Factor values are populated separately from related entities, not from entity fields
+            .ForMember(dest => dest.FloorFactor, opt => opt.Ignore())
+            .ForMember(dest => dest.AgeFactor, opt => opt.Ignore())
+            .ForMember(dest => dest.NTBFactor, opt => opt.Ignore())
+            .ForMember(dest => dest.UseFactor, opt => opt.Ignore())
             .ForMember(dest => dest.Taxes, opt => opt.Ignore()) // Populated separately
             .ForMember(dest => dest.FloorDescription, opt => opt.Ignore())
             .ForMember(dest => dest.SubFloorDescription, opt => opt.Ignore())
@@ -37,10 +38,7 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.CarpetAreaSqMeter, opt => opt.Ignore())
             .ForMember(dest => dest.BuiltupAreaSqMeter, opt => opt.Ignore())
             .ForMember(dest => dest.BuiltupAreaSqFeet, opt => opt.Ignore())
-            .ForMember(dest => dest.RenterYesNo, opt => opt.Ignore())
-            .ForMember(dest => dest.RenterName, opt => opt.Ignore())
-            .ForMember(dest => dest.RentMonthly, opt => opt.Ignore())
-            .ForMember(dest => dest.YearRangeCVId, opt => opt.Ignore());
+             .ForMember(dest => dest.YearRangeCVId, opt => opt.Ignore());
 
         // PropertyDetailsEntity -> CapitalValueDto (for detail info)
         CreateMap<PropertyDetailsEntity, CapitalValueDto>()
@@ -54,14 +52,11 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.CarpetAreaSqMeter, opt => opt.MapFrom(src => src.CarpetAreaSqMeter))
             .ForMember(dest => dest.BuiltupAreaSqMeter, opt => opt.MapFrom(src => src.BuiltupAreaSqMeter))
             .ForMember(dest => dest.BuiltupAreaSqFeet, opt => opt.MapFrom(src => src.BuiltupAreaSqFeet))
-            .ForMember(dest => dest.RenterYesNo, opt => opt.MapFrom(src => src.IsRenter))
-            .ForMember(dest => dest.RenterName, opt => opt.Ignore())
-            .ForMember(dest => dest.RentMonthly, opt => opt.Ignore())
-            .ForMember(dest => dest.FloorDescription, opt => opt.Ignore())
-            .ForMember(dest => dest.SubFloorDescription, opt => opt.Ignore())
-            .ForMember(dest => dest.ConstructionTypeDescription, opt => opt.Ignore())
-            .ForMember(dest => dest.TypeOfUseDescription, opt => opt.Ignore())
-            .ForMember(dest => dest.SubTypeOfUseDescription, opt => opt.Ignore())
+             .ForMember(dest => dest.FloorDescription, opt => opt.MapFrom(src => src.Floor != null ? src.Floor.Description : null))
+            .ForMember(dest => dest.SubFloorDescription, opt => opt.MapFrom(src => src.SubFloor != null ? src.SubFloor.Description : null))
+            .ForMember(dest => dest.ConstructionTypeDescription, opt => opt.MapFrom(src => src.ConstructionType != null ? src.ConstructionType.Description : null))
+            .ForMember(dest => dest.TypeOfUseDescription, opt => opt.MapFrom(src => src.TypeOfUse != null ? src.TypeOfUse.Description : null))
+            .ForMember(dest => dest.SubTypeOfUseDescription, opt => opt.MapFrom(src => src.SubTypeOfUse != null ? src.SubTypeOfUse.Description : null))
             .ForMember(dest => dest.SDRR, opt => opt.Ignore())
             .ForMember(dest => dest.BaseValue, opt => opt.Ignore())
             .ForMember(dest => dest.FloorFactor, opt => opt.Ignore())
@@ -86,14 +81,17 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.PropertyDetailsId, opt => opt.MapFrom(src => src.PropertyDetailsId))
             .ForMember(dest => dest.CapitalValue, opt => opt.MapFrom(src => src.CapitalValue))
             .ForMember(dest => dest.BaseValue, opt => opt.MapFrom(src => src.BaseValue))
-             
-            .ForMember(dest => dest.FloorFactorId, opt => opt.MapFrom(src => src.FloorFactor))
-            .ForMember(dest => dest.AgeFactorId, opt => opt.MapFrom(src => src.AgeFactor))
-            .ForMember(dest => dest.NatureFactorId, opt => opt.MapFrom(src => src.NTBFactor))
-            .ForMember(dest => dest.UseFactorId, opt => opt.MapFrom(src => src.UseFactor))
+
+            // Factor IDs are set separately, not from DTO
+            .ForMember(dest => dest.FloorFactorCVId, opt => opt.Ignore())
+            .ForMember(dest => dest.AgeFactorCVId, opt => opt.Ignore())
+            .ForMember(dest => dest.NatureFactorCVId, opt => opt.Ignore())
+            .ForMember(dest => dest.UseFactorCVId, opt => opt.Ignore())
             .ForMember(dest => dest.TaxId, opt => opt.Ignore())
             .ForMember(dest => dest.TaxPercentage, opt => opt.Ignore())
             .ForMember(dest => dest.TaxAmount, opt => opt.Ignore())
+            .ForMember(dest => dest.CVInputHash, opt => opt.Ignore()) // Set separately during CV calculation
+            .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(_ => false))
             .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
@@ -101,8 +99,16 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(_ => true))
             .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore())
             .ForMember(dest => dest.TaxMaster, opt => opt.Ignore()) // Navigation property - ignore in reverse mapping
-
-            .ForMember(dest => dest.PropertyMast, opt => opt.Ignore());
+            .ForMember(dest => dest.PropertyMast, opt => opt.Ignore())
+            .ForMember(dest => dest.RateCVMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.FloorFactorCVMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.AgeFactorCVMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.NatureFactorCVMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.UseFactorCVMaster, opt => opt.Ignore());
 
     }
+
+    
+
 }
+

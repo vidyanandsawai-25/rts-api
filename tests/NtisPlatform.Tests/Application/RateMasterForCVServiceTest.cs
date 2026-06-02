@@ -83,14 +83,14 @@ namespace NtisPlatform.Tests.Application
                     new()
                     {
                         Id = 101,
-                        RateMasterCVId = 43,
+                        RateCVMasterId = 43,
                         CSN = "COM-004",
                         IsActive = true
                     },
                     new()
                     {
                         Id = 102,
-                        RateMasterCVId = 43,
+                        RateCVMasterId = 43,
                         CSN = "COM-005",
                         IsActive = true
                     }
@@ -107,19 +107,19 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive,
-                    CSNDetails = e.CSNDetails.Select(c => new CSNDetailsDto
+                    CSNDetails = e.CSNDetails?.Select(c => new CSNDetailsDto
                     {
                         Id = c.Id,
-                        RateMasterCVId = c.RateMasterCVId,
+                        RateCVMasterId = c.RateCVMasterId,
                         CSN = c.CSN ?? string.Empty,
                         IsActive = c.IsActive
-                    }).ToList()
+                    }).ToList() ?? new List<CSNDetailsDto>()
                 });
 
             var result = await _service.GetByIdAsync(43, CancellationToken.None);
@@ -219,8 +219,8 @@ namespace NtisPlatform.Tests.Application
                 RateAmount = 6850.75m,
                 CSNDetails = new List<CSNDetailsEntity>
                 {
-                    new() { Id = 1, RateMasterCVId = 43, CSN = "COM-001", IsActive = true },
-                    new() { Id = 2, RateMasterCVId = 43, CSN = "COM-002", IsActive = true }
+                    new() { Id = 1, RateCVMasterId = 43, CSN = "COM-001", IsActive = true },
+                    new() { Id = 2, RateCVMasterId = 43, CSN = "COM-002", IsActive = true }
                 }
             };
 
@@ -233,19 +233,19 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive,
-                    CSNDetails = e.CSNDetails.Select(c => new CSNDetailsDto
+                    CSNDetails = e.CSNDetails?.Select(c => new CSNDetailsDto
                     {
                         Id = c.Id,
-                        RateMasterCVId = c.RateMasterCVId,
+                        RateCVMasterId = c.RateCVMasterId,
                         CSN = c.CSN ?? string.Empty,
                         IsActive = c.IsActive
-                    }).ToList()
+                    }).ToList() ?? new List<CSNDetailsDto>()
                 });
 
             var result = await _service.CreateAsync(createDto, CancellationToken.None);
@@ -265,13 +265,13 @@ namespace NtisPlatform.Tests.Application
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-001"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-001"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-002"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-002"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -295,8 +295,8 @@ namespace NtisPlatform.Tests.Application
                 RateAmount = 5000.00m,
                 CSNDetails = new List<CSNDetailsEntity>
                 {
-                    new() { Id = 201, RateMasterCVId = 43, CSN = "OLD-COM-001", IsActive = true },
-                    new() { Id = 202, RateMasterCVId = 43, CSN = "OLD-COM-002", IsActive = true }
+                    new() { Id = 201, RateCVMasterId = 43, CSN = "OLD-COM-001", IsActive = true },
+                    new() { Id = 202, RateCVMasterId = 43, CSN = "OLD-COM-002", IsActive = true }
                 }
             };
 
@@ -315,7 +315,7 @@ namespace NtisPlatform.Tests.Application
                     {
                         IsActive = true,
                         UpdatedBy = 1,
-                        RateMasterCVId = 43,
+                        RateCVMasterId = 43,
                         CSN = "COM-004, COM-005"
                     }
                 }
@@ -362,11 +362,11 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive
                 });
 
@@ -397,13 +397,13 @@ namespace NtisPlatform.Tests.Application
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-004"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-004"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-005"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-005"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -458,8 +458,8 @@ namespace NtisPlatform.Tests.Application
 
             var csnDetails = new List<CSNDetailsEntity>
             {
-                new() { Id = 301, RateMasterCVId = rateMasterId, CSN = "COM-004", IsActive = true },
-                new() { Id = 302, RateMasterCVId = rateMasterId, CSN = "COM-005", IsActive = true }
+                new() { Id = 301, RateCVMasterId = rateMasterId, CSN = "COM-004", IsActive = true },
+                new() { Id = 302, RateCVMasterId = rateMasterId, CSN = "COM-005", IsActive = true }
             };
 
             _mockCsnDetailsRepository
@@ -559,11 +559,11 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive
                 });
 
@@ -652,11 +652,11 @@ namespace NtisPlatform.Tests.Application
                 .Returns((RateMasterForCVEntity e) => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive
                 });
 
@@ -708,7 +708,7 @@ namespace NtisPlatform.Tests.Application
                     {
                         IsActive = true,
                         UpdatedBy = 1,
-                        RateMasterCVId = 43,
+                        RateCVMasterId = 43,
                         CSN = "COM-004, COM-004"
                     }
                 }
@@ -765,11 +765,11 @@ namespace NtisPlatform.Tests.Application
                 .Returns((List<RateMasterForCVEntity> list) => list.Select(e => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive
                 }).ToList());
 
@@ -783,7 +783,7 @@ namespace NtisPlatform.Tests.Application
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-004"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-004"),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
@@ -806,14 +806,14 @@ namespace NtisPlatform.Tests.Application
             {
                 IsActive = true,
                 UpdatedBy = 1,
-                RateMasterCVId = 43,
+                RateCVMasterId = 43,
                 CSN = "COM-004"
             },
             new()
             {
                 IsActive = true,
                 UpdatedBy = 1,
-                RateMasterCVId = 43,
+                RateCVMasterId = 43,
                 CSN = "COM-004"
             }
         }
@@ -870,11 +870,11 @@ namespace NtisPlatform.Tests.Application
                 .Returns((List<RateMasterForCVEntity> list) => list.Select(e => new RateMasterForCVDto
                 {
                     Id = e.Id,
-                    SubZoneId = e.SubZoneId,
-                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId,
-                    FloorGroupId = e.FloorGroupId,
-                    AssessmentYearRangeId = e.AssessmentYearRangeId,
-                    RateAmount = e.RateAmount,
+                    SubZoneId = e.SubZoneId ?? 0,
+                    TypeOfUseGroupCVId = e.TypeOfUseGroupCVId ?? 0,
+                    FloorGroupId = e.FloorGroupId ?? 0,
+                    AssessmentYearRangeId = e.AssessmentYearRangeId ?? 0,
+                    RateAmount = e.RateAmount ?? 0,
                     IsActive = e.IsActive
                 }).ToList());
 
@@ -886,7 +886,7 @@ namespace NtisPlatform.Tests.Application
 
             _mockCsnDetailsRepository.Verify(
                 r => r.AddAsync(It.Is<CSNDetailsEntity>(x =>
-                    x.RateMasterCVId == 43 && x.CSN == "COM-004"),
+                    x.RateCVMasterId == 43 && x.CSN == "COM-004"),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
         }
@@ -898,9 +898,9 @@ namespace NtisPlatform.Tests.Application
 
             var csnDetails = new List<CSNDetailsEntity>
             {
-                new() { Id = 401, RateMasterCVId = 43, CSN = "COM-004", IsActive = true },
-                new() { Id = 402, RateMasterCVId = 43, CSN = "COM-005", IsActive = true },
-                new() { Id = 403, RateMasterCVId = 44, CSN = "RES-101", IsActive = true }
+                new() { Id = 401, RateCVMasterId = 43, CSN = "COM-004", IsActive = true },
+                new() { Id = 402, RateCVMasterId = 43, CSN = "COM-005", IsActive = true },
+                new() { Id = 403, RateCVMasterId = 44, CSN = "RES-101", IsActive = true }
             };
 
             _mockRepository

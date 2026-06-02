@@ -734,13 +734,13 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         {
             var cvCalcList = await (
                 from pd in _context.PropertyTaxCalculationCVResults.AsNoTracking()
-                join f  in _context.FloorFactorCVMasters.AsNoTracking()   on pd.FloorFactorId   equals f.Id  into ffm
+                join f  in _context.FloorFactorCVMasters.AsNoTracking()   on pd.FloorFactorCVId equals f.Id  into ffm
                 from floorFactor   in ffm.DefaultIfEmpty()
-                join fa in _context.AgeFactorCVMasters.AsNoTracking()     on pd.AgeFactorId     equals fa.Id into afm
+                join fa in _context.AgeFactorCVMasters.AsNoTracking()     on pd.AgeFactorCVId equals fa.Id into afm
                 from ageFactor     in afm.DefaultIfEmpty()
-                join fn in _context.NatureFactorCVMasters.AsNoTracking()  on pd.NatureFactorId  equals fn.Id into nfm
+                join fn in _context.NatureFactorCVMasters.AsNoTracking()  on pd.NatureFactorCVId equals fn.Id into nfm
                 from natureFactor  in nfm.DefaultIfEmpty()
-                join fu in _context.UseFactorCVMaster.AsNoTracking()      on pd.UseFactorId     equals fu.Id into ufm
+                join fu in _context.UseFactorCVMaster.AsNoTracking()      on pd.UseFactorCVId equals fu.Id into ufm
                 from useFactor     in ufm.DefaultIfEmpty()
                 where propertyDetailIds.Contains(pd.PropertyDetailsId) && pd.IsActive
                 group new { pd, floorFactor, ageFactor, natureFactor, useFactor }
@@ -753,11 +753,11 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     grp.Max(x => x.natureFactor.Factor),
                     grp.Max(x => x.useFactor.Factor),
                     grp.Max(x => x.pd.CapitalValue),
-                    grp.Max(x => x.pd.FloorFactorId),
-                    grp.Max(x => x.pd.AgeFactorId),
-                    grp.Max(x => x.pd.NatureFactorId),
-                    grp.Max(x => x.pd.UseFactorId),
-                    grp.Max(x => x.pd.SDRR))
+                    grp.Max(x => x.pd.FloorFactorCVId),
+                    grp.Max(x => x.pd.AgeFactorCVId),
+                    grp.Max(x => x.pd.NatureFactorCVId),
+                    grp.Max(x => x.pd.UseFactorCVId),
+                    grp.Max(x => x.pd.RateCVMasterId))
             ).ToListAsync(cancellationToken);
             cvCalc = cvCalcList.ToDictionary(x => x.PropertyDetailsId);
         }

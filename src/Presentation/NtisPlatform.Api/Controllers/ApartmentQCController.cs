@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.DTOs.CapitalValue;
 using NtisPlatform.Application.DTOs.Property.ApartmentQC;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services.TaxEngine;

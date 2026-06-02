@@ -30,7 +30,8 @@ public class RateMasterForCVMappingProfile : Profile
 
         CreateMap<CreateCSNDetailsDto, CSNDetailsEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.RateMasterCVId, opt => opt.Ignore())
+            .ForMember(dest => dest.RateCVMasterId, opt => opt.Ignore())
+            .ForMember(dest => dest.MoujaId, opt => opt.MapFrom(src => src.MoujaId))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
@@ -38,7 +39,8 @@ public class RateMasterForCVMappingProfile : Profile
 
         CreateMap<UpdateCSNDetailsDto, CSNDetailsEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.RateMasterCVId, opt => opt.Ignore())
+            .ForMember(dest => dest.RateCVMasterId, opt => opt.Ignore())
+            .ForMember(dest => dest.MoujaId, opt => opt.MapFrom(src => src.MoujaId))
             .ForMember(dest => dest.CSN, opt => opt.MapFrom(src => src.CSN))
             .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive))
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
