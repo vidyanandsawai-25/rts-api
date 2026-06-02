@@ -15,4 +15,9 @@ public interface ICombinePropertyService : ICommonCrudService<PropertyEntity, Co
     /// </summary>
     Task<CombinePropertiesResponseDto> CombinePropertiesAsync(CombinePropertiesRequestDto request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Get all combined property history for a given SourcePropertyId.
+    /// If SourcePropertyId is null, returns all combine property history records.
+    /// </summary>
+    Task<List<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(int? sourcePropertyId, CancellationToken cancellationToken = default);
 }

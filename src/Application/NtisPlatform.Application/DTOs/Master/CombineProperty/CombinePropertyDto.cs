@@ -122,3 +122,41 @@ public class CombinePropertiesResponseDto
     public int SourcePropertyId { get; set; }
     public List<int> CombinedPropertyIds { get; set; } = new();
 }
+
+/// <summary>
+/// DTO for combine property history response - returns all CombinedPropertyId data for a given SourcePropertyId
+/// </summary>
+public class CombinePropertyHistoryDto
+{
+    public int PropertyId { get; set; }
+    public int? WardId { get; set; }
+    public string? WardNo { get; set; }
+    public string? PropertyNo { get; set; }
+    public string? PartitionNo { get; set; }
+    public string? OldPropertyNo { get; set; }
+    public string? OwnerName { get; set; }
+    public string? OccupierName { get; set; }
+    public int? CategoryId { get; set; }
+    public int? PropertyTypeId { get; set; }
+    public string? PropertyDescription { get; set; }
+    public decimal? TaxAmount { get; set; }
+    public decimal? PendingAmount { get; set; }
+    
+    /// <summary>
+    /// The reason for combining properties from PTIS.CombinePropertyHistory table.
+    /// This will be null for the source property and populated for combined properties.
+    /// </summary>
+    public string? CombineReason { get; set; }
+}
+
+/// <summary>
+/// Query parameters for getting combine property history
+/// </summary>
+public class CombinePropertyHistoryQueryParameters
+{
+    /// <summary>
+    /// The source property ID to get all combined property history for.
+    /// This parameter is optional.
+    /// </summary>
+    public int? SourcePropertyId { get; set; }
+}

@@ -72,6 +72,46 @@ public partial class PropertyController
     }
 
     /// <summary>
+    /// Get combine property history for a given SourcePropertyId.
+    /// Returns all CombinedPropertyId data from PTIS.CombinePropertyHistory table.
+    /// If SourcePropertyId is not provided, returns all combine property history records.
+    /// </summary>
+    /// <param name="combinePropertyService">Injected service for combine operations (scoped to this endpoint)</param>
+    /// <param name="queryParams">Query parameters containing optional SourcePropertyId</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>List of combined property details including ward, property info, owner, and tax amounts</returns>
+    /// <response code="200">Returns the list of combined property history</response>
+    [HttpGet("combine-properties-history")]
+    [ProducesResponseType(typeof(ApiResponse<List<CombinePropertyHistoryDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCombinePropertyHistory(
+        [FromServices] ICombinePropertyService combinePropertyService,
+        [FromQuery] CombinePropertyHistoryQueryParameters queryParams,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await combinePropertyService.GetCombinePropertyHistoryAsync(queryParams.SourcePropertyId, ct);
+            
+            return Ok(new ApiResponse<List<CombinePropertyHistoryDto>>
+            {
+                Success = true,
+                Message = "Combine property history fetched successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving combine property history for SourcePropertyId: {SourcePropertyId}", queryParams.SourcePropertyId);
+            return StatusCode(StatusCodes.Status500InternalServerError,
+                new ApiResponse<List<CombinePropertyHistoryDto>>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving combine property history"
+                });
+        }
+    }
+
+    /// <summary>
     /// Combine multiple properties into a source property.
     /// This operation creates history records and updates property relationships.
     /// The source property retains its identity while combined properties are linked to it.

@@ -71,7 +71,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
 
         // Parse comma-separated PartitionNo values
         // Special handling: "0" represents empty/blank partition numbers (main property with no partition)
-        var partitionNumbers = string.IsNullOrWhiteSpace(queryParams.PartitionNo)
+        // Note: Empty string "" is different from null - empty string means explicit empty filter
+        var partitionNumbers = queryParams.PartitionNo == null
             ? []
             : FilterExpressionBuilder.Csv(queryParams.PartitionNo);
 
@@ -84,8 +85,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             partitionNumbers = partitionNumbers.Where(p => p != "0").ToList();
         }
 
-        // If partition filter was provided but results in empty list and no "0" flag, return empty
-        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo) && partitionNumbers.Count == 0 && !includeEmptyPartitions)
+        // If partition filter was provided (not null) but results in empty list and no "0" flag, return empty
+        // This handles cases like PartitionNo="" or PartitionNo="   ,  ,  " (whitespace only)
+        if (queryParams.PartitionNo != null && partitionNumbers.Count == 0 && !includeEmptyPartitions)
         {
             return [];
         }
@@ -457,6 +459,139 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .ToList();
     }
 
+    /// <summary>
+    /// Get combined property history.
+    /// - If SourcePropertyId is NOT provided: Returns list of distinct source properties that have combined history (with CombineReason from first history record).
+    /// - If SourcePropertyId IS provided: Returns ONLY the combined properties for that source (excludes the source property itself).
+    /// </summary>
+    public async Task<List<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(
+        int? sourcePropertyId,
+        CancellationToken cancellationToken = default)
+    {
+        // Step 1: Get history data from combine history table
+        var historyQuery = _combineHistoryRepository.GetQueryable()
+            .Where(h => h.IsActive);
+
+        // Apply SourcePropertyId filter only if provided
+        if (sourcePropertyId.HasValue)
+        {
+            historyQuery = historyQuery.Where(h => h.SourcePropertyId == sourcePropertyId.Value);
+        }
+
+        var historyData = await historyQuery
+            .Select(h => new { h.SourcePropertyId, h.CombinedPropertyId, h.CombineReason })
+            .ToListAsync(cancellationToken);
+
+        // If no history data found, return empty list
+        if (historyData.Count == 0)
+        {
+            return [];
+        }
+
+        // Step 2: Determine which property IDs to fetch based on the scenario
+        List<int> propertyIdsToFetch;
+        Dictionary<int, string?> combineReasonLookup;
+
+        if (sourcePropertyId.HasValue)
+        {
+            // Scenario: SourcePropertyId IS provided
+            // Return ONLY the CombinedPropertyIds (exclude the source property)
+            propertyIdsToFetch = historyData
+                .Select(h => h.CombinedPropertyId)
+                .Distinct()
+                .ToList();
+
+            // Create lookup for CombineReason by CombinedPropertyId
+            combineReasonLookup = historyData
+                .GroupBy(h => h.CombinedPropertyId)
+                .ToDictionary(g => g.Key, g => g.First().CombineReason);
+        }
+        else
+        {
+            // Scenario: SourcePropertyId is NOT provided
+            // Return ONLY the distinct SourcePropertyIds (list of properties that have combined history)
+            propertyIdsToFetch = historyData
+                .Select(h => h.SourcePropertyId)
+                .Distinct()
+                .ToList();
+
+            // For source properties, get the CombineReason from the first history record for each source
+            // This shows why properties were combined into this source
+            combineReasonLookup = historyData
+                .GroupBy(h => h.SourcePropertyId)
+                .ToDictionary(g => g.Key, g => g.First().CombineReason);
+        }
+
+        // If no property IDs to fetch, return empty list
+        if (propertyIdsToFetch.Count == 0)
+        {
+            return [];
+        }
+
+        // Step 3: Get property details for the selected properties
+        var propertiesQuery = from pm in _repository.GetQueryable()
+                              join pmo in _propertyMastOldRepository.GetQueryable()
+                                  on pm.PropertyMastOldId equals pmo.Id into pmoJoin
+                              from pmo in pmoJoin.DefaultIfEmpty()
+                              join ptm in _propertyTypeMasterRepository.GetQueryable()
+                                  on pm.PropertyTypeId equals (int?)ptm.Id into ptmJoin
+                              from ptm in ptmJoin.DefaultIfEmpty()
+                              where propertyIdsToFetch.Contains(pm.Id)
+                              select new
+                              {
+                                  Property = pm,
+                                  OldPropertyNo = pmo != null && pmo.IsActive == true && pmo.MarkedForDeletion != true ? pmo.OldPropertyNo : null,
+                                  PropertyTypeId = ptm != null && ptm.IsActive == true ? (int?)ptm.Id : null,
+                                  PropertyDescription = ptm != null && ptm.IsActive == true ? ptm.PropertyDescription : null
+                              };
+
+        var propertiesData = await propertiesQuery.ToListAsync(cancellationToken);
+
+        // Step 4: Get ward information
+        var wardIds = propertiesData.Select(p => p.Property.WardId).Distinct().ToList();
+        var wards = await _wardRepository.GetQueryable()
+            .Where(w => wardIds.Contains(w.Id) && w.IsActive)
+            .Select(w => new { w.Id, w.WardNo })
+            .ToListAsync(cancellationToken);
+
+        var wardLookup = wards.ToDictionary(w => w.Id, w => w.WardNo);
+
+        // Step 5: Get tax data for all properties
+        var propertyIds = propertiesData.Select(p => p.Property.Id).Distinct().ToList();
+        var taxData = await GetTaxDataAsync(propertyIds, cancellationToken);
+
+        // Step 6: Map to DTOs
+        var result = propertiesData
+            .OrderBy(x => x.Property.Id)
+            .Select(x =>
+            {
+                var taxInfo = taxData.TryGetValue(x.Property.Id, out var info) ? info : (TaxAmount: 0m, PendingAmount: 0m);
+                
+                // Get CombineReason - now available for both source and combined properties
+                var combineReason = combineReasonLookup.TryGetValue(x.Property.Id, out var reason) ? reason : null;
+
+                return new CombinePropertyHistoryDto
+                {
+                    PropertyId = x.Property.Id,
+                    WardId = x.Property.WardId,
+                    WardNo = wardLookup.TryGetValue(x.Property.WardId, out var wardNo) ? wardNo : null,
+                    PropertyNo = x.Property.PropertyNo,
+                    PartitionNo = x.Property.PartitionNo,
+                    OldPropertyNo = x.OldPropertyNo ?? string.Empty,
+                    OwnerName = x.Property.OwnerName ?? string.Empty,
+                    OccupierName = x.Property.OccupierName ?? string.Empty,
+                    CategoryId = x.Property.CategoryId,
+                    PropertyTypeId = x.PropertyTypeId,
+                    PropertyDescription = x.PropertyDescription ?? string.Empty,
+                    TaxAmount = taxInfo.TaxAmount,
+                    PendingAmount = taxInfo.PendingAmount,
+                    CombineReason = combineReason
+                };
+            }).ToList();
+
+        return result;
+    }
+
     private async Task<IQueryable<PropertyEntity>> ApplyFiltersAsync(
         IQueryable<PropertyEntity> query, 
         CombinePropertyQueryParameters queryParams,
@@ -593,5 +728,52 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         return query;
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
