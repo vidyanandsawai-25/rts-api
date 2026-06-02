@@ -778,6 +778,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BankName);
             entity.HasIndex(e => e.IsActive);
         });
+
         modelBuilder.Entity<PolicyConfigurationEntity>(entity =>
         {
             entity.ToTable("PolicyConfiguration", "PTIS");
@@ -3974,7 +3975,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DecimalValue).HasColumnType("decimal(18,2)");
             entity.Property(e => e.TextValue).HasMaxLength(500);
             entity.Property(e => e.DateValue);
-            entity.Property(e => e.Remark).HasMaxLength(1000);
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.Remark).HasMaxLength(500);
 
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -3993,8 +3995,15 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.SocialAttributeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.SocialAttributeId);
+            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertySocialDetails_DocumentBindingId");
+            entity.HasIndex(e => new { e.PropertyId, e.SocialAttributeId }).IsUnique().HasDatabaseName("UQ_PropertySocialDetails").HasFilter("[IsActive] = 1");
         });
     }
 }

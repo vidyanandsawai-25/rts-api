@@ -3,6 +3,7 @@ using Moq;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
 
@@ -14,6 +15,7 @@ namespace NtisPlatform.Tests.Application;
 public class PropertySocialDetailsServiceTests
 {
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _mockRepository;
+    private readonly Mock<IRepository<SocialAttributeEntity>> _mockSocialAttributeRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertySocialDetailsService _service;
@@ -21,6 +23,7 @@ public class PropertySocialDetailsServiceTests
     public PropertySocialDetailsServiceTests()
     {
         _mockRepository = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
+        _mockSocialAttributeRepository = new Mock<IRepository<SocialAttributeEntity>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -30,6 +33,7 @@ public class PropertySocialDetailsServiceTests
 
         _service = new PropertySocialDetailsService(
             _mockRepository.Object,
+            _mockSocialAttributeRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object
         );
