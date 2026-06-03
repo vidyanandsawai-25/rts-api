@@ -269,7 +269,6 @@ public static class EntityTestHelpers
     {
         var entity = new RateSectionEntity
         {
-            RateSectionNo = $"RS{id:D4}",
             Description = $"Rate Section {id}",
             IsActive = true
         };

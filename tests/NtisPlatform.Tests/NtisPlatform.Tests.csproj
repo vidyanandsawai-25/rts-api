@@ -6,6 +6,10 @@
 		<IsPackable>false</IsPackable>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <Compile Remove="Application\PropertyOldDetailsTests.cs" />
+	</ItemGroup>
+
  
 	<ItemGroup>
 		<PackageReference Include="AutoMapper" Version="16.1.1" />

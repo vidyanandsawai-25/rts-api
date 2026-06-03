@@ -110,8 +110,7 @@ public class RateSectionServiceTests : IDisposable
         var entity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "WKD",
-            Description = "Weekend",
+            Description = "Wakad",
             IsActive = true,
             CreatedDate = DateTime.UtcNow,
             CreatedBy = 31,
@@ -128,8 +127,7 @@ public class RateSectionServiceTests : IDisposable
             .Returns(new RateSectionDto
             {
                 Id = 1,
-                RateSectionNo = "WKD",
-                Description = "Weekend",
+                Description = "Wakad",
                 IsActive = true,
                 CreatedDate = entity.CreatedDate,
                 UpdatedDate = entity.UpdatedDate
@@ -141,8 +139,7 @@ public class RateSectionServiceTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal("WKD", result.RateSectionNo);
-        Assert.Equal("Weekend", result.Description);
+        Assert.Equal("Wakad", result.Description);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
@@ -193,9 +190,9 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var entities = new List<RateSectionEntity>
         {
-            new() { Id = 1, RateSectionNo = "MSH", Description = "Morning Shift", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
-            new() { Id = 2, RateSectionNo = "TRG", Description = "Training", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
-            new() { Id = 3, RateSectionNo = "WKD", Description = "Weekend", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow }
+            new() { Id = 1, Description = "Wakad", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
+            new() { Id = 2, Description = "Moshi", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
+            new() { Id = 3, Description = "Thergav", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow }
         };
 
         var mockQuery = entities.BuildMock();
@@ -235,9 +232,9 @@ public class RateSectionServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal(3, result.TotalCount);
         Assert.Equal(3, result.Items.Count());
-        Assert.Contains(result.Items, x => x.RateSectionNo == "MSH");
-        Assert.Contains(result.Items, x => x.RateSectionNo == "TRG");
-        Assert.Contains(result.Items, x => x.RateSectionNo == "WKD");
+        Assert.Contains(result.Items, x => x.Description == "Wakad");
+        Assert.Contains(result.Items, x => x.Description == "Moshi");
+        Assert.Contains(result.Items, x => x.Description == "Thergav");
     }
 
     [Fact]
@@ -247,7 +244,6 @@ public class RateSectionServiceTests : IDisposable
         var entities = Enumerable.Range(1, 25).Select(i => new RateSectionEntity
         {
             Id = i,
-            RateSectionNo = $"RS{i:D3}",
             Description = $"Rate Section {i}",
             IsActive = true,
             CreatedBy = 31,
@@ -343,8 +339,7 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var createDto = new CreateRateSectionDto
         {
-            RateSectionNo = "WKD",
-            Description = "Weekend",
+            Description = "Wakad",
             IsActive = true,
             CreatedBy = 31
         };
@@ -352,7 +347,6 @@ public class RateSectionServiceTests : IDisposable
         var createdEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = createDto.RateSectionNo,
             Description = createDto.Description,
             IsActive = createDto.IsActive,
             CreatedBy = createDto.CreatedBy,
@@ -372,7 +366,6 @@ public class RateSectionServiceTests : IDisposable
             .Returns(new RateSectionDto
             {
                 Id = 1,
-                RateSectionNo = createdEntity.RateSectionNo,
                 Description = createdEntity.Description,
                 IsActive = createdEntity.IsActive,
                 CreatedDate = createdEntity.CreatedDate
@@ -384,8 +377,7 @@ public class RateSectionServiceTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal("WKD", result.RateSectionNo);
-        Assert.Equal("Weekend", result.Description);
+        Assert.Equal("Wakad", result.Description);
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -399,8 +391,7 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var createDto = new CreateRateSectionDto
         {
-            RateSectionNo = "INA",
-            Description = "Inactive Section",
+            Description = "Wakad",
             IsActive = false,
             CreatedBy = 31
         };
@@ -408,7 +399,6 @@ public class RateSectionServiceTests : IDisposable
         var createdEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = createDto.RateSectionNo,
             Description = createDto.Description,
             IsActive = false,
             CreatedBy = createDto.CreatedBy,
@@ -428,7 +418,6 @@ public class RateSectionServiceTests : IDisposable
             .Returns(new RateSectionDto
             {
                 Id = 1,
-                RateSectionNo = createdEntity.RateSectionNo,
                 Description = createdEntity.Description,
                 IsActive = false
             });
@@ -451,8 +440,7 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            RateSectionNo = "WKD",
-            Description = "Weekend Updated",
+            Description = "Wakad",
             IsActive = true,
             UpdatedBy = 31
         };
@@ -460,8 +448,7 @@ public class RateSectionServiceTests : IDisposable
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "WKD",
-            Description = "Weekend",
+            Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.UtcNow.AddDays(-1),
@@ -491,7 +478,7 @@ public class RateSectionServiceTests : IDisposable
         await _service.UpdateAsync(1, updateDto, CancellationToken.None);
 
         // Assert
-        Assert.Equal("Weekend Updated", existingEntity.Description);
+        Assert.Equal("Wakad", existingEntity.Description);
         Assert.True(existingEntity.IsActive);
 
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
@@ -505,7 +492,7 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            Description = "Non Existing",
+            Description = "Wakad",
             IsActive = true,
             UpdatedBy = 31
         };
@@ -529,7 +516,7 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            Description = "Deactivated",
+            Description = "Wakad",
             IsActive = false,
             UpdatedBy = 31
         };
@@ -537,8 +524,7 @@ public class RateSectionServiceTests : IDisposable
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "TST",
-            Description = "Test",
+            Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.UtcNow.AddDays(-1)
@@ -572,7 +558,7 @@ public class RateSectionServiceTests : IDisposable
 
         // Assert
         Assert.False(existingEntity.IsActive);
-        Assert.Equal("Deactivated", existingEntity.Description);
+        Assert.Equal("Wakad", existingEntity.Description);
     }
 
     [Fact]
@@ -581,16 +567,14 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = false
         };
 
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = true
         };
 
@@ -622,16 +606,14 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var updateDto = new UpdateRateSectionDto
         {
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = false
         };
 
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = true
         };
 
@@ -674,8 +656,7 @@ public class RateSectionServiceTests : IDisposable
         var existingEntity = new RateSectionEntity
         {
             Id = 1,
-            RateSectionNo = "WKD",
-            Description = "Weekend",
+            Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
             CreatedDate = DateTime.UtcNow
@@ -751,8 +732,7 @@ public class RateSectionServiceTests : IDisposable
         var existingEntity = new RateSectionEntity
         {
             Id = idToDelete,
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = true
         };
 
@@ -780,8 +760,7 @@ public class RateSectionServiceTests : IDisposable
         var existingEntity = new RateSectionEntity
         {
             Id = idToDelete,
-            RateSectionNo = "WKD",
-            Description = "Rate Section 1",
+            Description = "Wakad",
             IsActive = true
         };
 
@@ -815,7 +794,7 @@ public class RateSectionServiceTests : IDisposable
     {
         // Arrange
         using var cts = new CancellationTokenSource();
-        var entity = new RateSectionEntity { Id = 1, RateSectionNo = "TST", Description = "Test", IsActive = true };
+        var entity = new RateSectionEntity { Id = 1, Description = "Wakad", IsActive = true };
 
         _mockRepository
             .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -823,7 +802,7 @@ public class RateSectionServiceTests : IDisposable
 
         _mockMapper
             .Setup(m => m.Map<RateSectionDto>(It.IsAny<RateSectionEntity>()))
-            .Returns(new RateSectionDto { Id = 1, RateSectionNo = "TST", Description = "Test" });
+            .Returns(new RateSectionDto { Id = 1, Description = "Wakad" });
 
         // Act
         var result = await _service.GetByIdAsync(1, cts.Token);

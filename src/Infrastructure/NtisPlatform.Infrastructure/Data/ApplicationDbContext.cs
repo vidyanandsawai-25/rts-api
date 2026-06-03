@@ -898,7 +898,6 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("RateSectionMaster", "PTIS");
             entity.HasKey(x => x.Id);
-            entity.Property(x => x.RateSectionNo);
             entity.Property(x => x.Description);
 
             entity.HasMany(e => e.Rates)
@@ -910,8 +909,8 @@ public class ApplicationDbContext : DbContext
                 .WithOne(n => n.RateSection)
                 .HasForeignKey(n => n.RateSectionId)
                 .OnDelete(DeleteBehavior.Restrict);
-
         });
+
         modelBuilder.Entity<RateSectionDetailsEntity>(entity =>
         {
             entity.ToTable("RateSectionDetails", "PTIS");

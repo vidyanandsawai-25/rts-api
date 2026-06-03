@@ -7,7 +7,7 @@ public class RateSectionQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     [Searchable]
-    public string? RateSectionNo { get; set; }
+    public int? Id { get; set; }
 
     [Filterable]
     [Sortable]
