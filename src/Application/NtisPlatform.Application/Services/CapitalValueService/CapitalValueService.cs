@@ -153,8 +153,6 @@ namespace NtisPlatform.Application.Services.CapitalValue
         {
             try
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
                 // Step 1: Load all necessary data in as few calls as possible to optimize performance
                 var property = await _propertyDataLoader.LoadPropertyAsync(dto.PropertyId, cancellationToken);
                 var propertyDetailsList = await _propertyDataLoader.LoadPropertyDetailsAsync(dto.PropertyId, dto.PropertyDetailsId, cancellationToken);
@@ -181,7 +179,6 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 {
                      // Use AutoMapper to create blank DTOs - cleaner and more maintainable
                     var blankResults = propertyDetailsList .Select(pd =>  CreateBlankCapitalValueDto(pd, dto.PropertyId, _mapper)) .ToList();
-                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
                      return blankResults;
                 }
 
@@ -262,13 +259,12 @@ namespace NtisPlatform.Application.Services.CapitalValue
                     await _persistenceService.PersistAggregatedDataAsync(dto.PropertyId,financeYear,aggregatedTaxes, existingPolicies,existingTransMast,dto.PolicyCode ?? _options.DefaultPolicyCode,dto.PolicyDate ?? DateTime.Now,dto.PolicyYear ?? financeYear.Year,dto.PolicyReason,dto.CreatedBy ?? 0,cancellationToken);
                 }
 
-                await _unitOfWork.CommitTransactionAsync(cancellationToken);
                  return results;
             }
             catch (Exception ex)
             {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                _logger.LogError(ex, "Error creating CV for PropertyId: {PropertyId}", dto.PropertyId); throw;
+                _logger.LogError(ex, "Error creating CV for PropertyId: {PropertyId}", dto.PropertyId); 
+                throw;
             }
         }
     
