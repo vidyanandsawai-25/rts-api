@@ -183,6 +183,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICombinePropertyValidator, CombinePropertyValidator>();
         services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
         services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
+        services.AddScoped<ICombinePropertyTaxService, CombinePropertyTaxService>();
 
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();

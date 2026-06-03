@@ -24,6 +24,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     private readonly ICombinePropertyValidator _validator;
     private readonly IPropertyDataCopier _dataCopier;
     private readonly IPropertyDeactivator _deactivator;
+    private readonly ICombinePropertyTaxService _taxService;
     private readonly ILogger<CombinePropertyService> _logger;
 
     public CombinePropertyService(
@@ -38,6 +39,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         ICombinePropertyValidator validator,
         IPropertyDataCopier dataCopier,
         IPropertyDeactivator deactivator,
+        ICombinePropertyTaxService taxService,
         IUnitOfWork unitOfWork,
         IMapper mapper,
         ILogger<CombinePropertyService> logger) : base(repository, unitOfWork, mapper)
@@ -52,9 +54,10 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         _validator = validator;
         _dataCopier = dataCopier;
         _deactivator = deactivator;
+        _taxService = taxService;
         _logger = logger;
     }
-    
+
     public async Task<List<PropertyCombineDetailsDto>> GetPropertyCombineDetailsAsync(
         PropertyCombineDetailsQueryParameters queryParams,
         CancellationToken cancellationToken = default)
@@ -380,7 +383,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
 
         try
         {
-            // Copy property data using data copier service
+            // Step 1: Copy property data using data copier service
             // Pass OverrideOwnerNameMismatch flag to merge owner names when they are different
             // Pass PropertyTypeId to update on main property
             await _dataCopier.CopyPropertyDataAsync(
@@ -391,14 +394,28 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 request.PropertyTypeId,
                 cancellationToken);
 
-            // Deactivate combined properties using deactivator service
+            // Step 2: Deactivate combined properties using deactivator service
             await _deactivator.DeactivateCombinedPropertiesAsync(combinePropertyIds, cancellationToken);
 
-            // Ensure source property records are active
+            // Step 3: Ensure source property records are active
             await _deactivator.EnsureMainPropertyRecordsActiveAsync(request.SourcePropertyId, cancellationToken);
 
-            // Insert history records
+            // Step 4: Insert history records
             await InsertCombineHistoryAsync(request.SourcePropertyId, combinePropertyIds, request.CombineReason, request.CreatedBy, cancellationToken);
+
+            // Step 5: Process tax handling for combine property
+            // - Aggregate pending taxes from combined properties (year-wise, tax-wise)
+            // - Recalculate current year RV tax
+            // - Check if bill is distributed (placeholder for future TransMast sync)
+            var taxProcessingSucceeded = await _taxService.ProcessCombinePropertyTaxesAsync(
+                request.SourcePropertyId,
+                combinePropertyIds,
+                request.CreatedBy,
+                cancellationToken);
+            if (!taxProcessingSucceeded)
+            {
+                _logger.LogWarning("Combine-property tax processing reported failure for SourcePropertyId={SourcePropertyId}", request.SourcePropertyId);
+            }
 
             // Single consolidated SaveChanges - persists all pending changes before commit
             await _unitOfWork.SaveChangesAsync(cancellationToken);

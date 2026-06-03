@@ -71,23 +71,13 @@ public class PropertyDataCopier : IPropertyDataCopier
         // Step 6: Copy RoomWiseMinusData with proper ID mapping
         await CopyRoomWiseMinusDataAsync(roomWiseSubmissionMap, createdBy, cancellationToken);
 
-        // TODO: Step 7: Update pending taxes on main property
-        // Aggregate pending tax amounts from combined properties (TaxPendingDetails table)
-        // and add them to the main property's pending tax amount and also update flag.
-        // Implementation: await UpdateMainPropertyPendingTaxesAsync(mainPropertyId, combinePropertyIds, cancellationToken);
+        // NOTE: Tax handling (pending taxes, current year recalculation, TransMast sync) is now handled
+        // by ICombinePropertyTaxService.ProcessCombinePropertyTaxesAsync() which is called separately
+        // from CombinePropertyService after property data copy is complete.
 
-        // TODO: Step 8: Add taxes demand
-        // Transfer or aggregate current demand taxes from combined properties to main property.
-        // This involves updating TransMast records for current financial year demand.
-        // Implementation: await AddCurrentDemandTaxesAsync(mainPropertyId, combinePropertyIds, cancellationToken);
-
-        // TODO: Step 9: Add audit/history records for all updates
-        // When updating PropertyMast, TaxPendingDetails, or TransMast tables,
-        // insert corresponding records into history/audit tables to maintain change tracking.
-        // Tables to audit:
-        //   - PropertyMast changes -> PropertyMastHistory/PropertyMastAudit
-        //   - TaxPendingDetails changes -> TaxPendingDetailsHistory/TaxPendingDetailsAudit
-        //   - TransMast changes -> TransMastHistory/TransMastAudit
+        // TODO: Add audit/history records for all updates
+        // When updating PropertyMast tables, insert corresponding records into history/audit tables
+        // to maintain change tracking.
         // Implementation: await InsertAuditRecordsAsync(mainPropertyId, combinePropertyIds, createdBy, cancellationToken);
     }
 

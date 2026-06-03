@@ -1196,7 +1196,10 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PendingYearId).IsRequired();
+            entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PendingFixed).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -1210,6 +1213,18 @@ public class ApplicationDbContext : DbContext
                 .WithMany(p => p.TaxPendingDetails)
                 .HasForeignKey(r => r.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PendingYear)
+                .WithMany()
+                .HasForeignKey(e => e.PendingYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Tax)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.PropertyId, e.PendingYearId, e.TaxId });
         });
 
         modelBuilder.Entity<RoomWiseSubmissionDetailsEntity>(entity =>

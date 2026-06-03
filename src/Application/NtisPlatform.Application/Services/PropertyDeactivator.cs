@@ -137,11 +137,15 @@ public class PropertyDeactivator : IPropertyDeactivator
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsActive, false), cancellationToken);
         _logger.LogInformation("Deactivated {Count} TransMast records", transMastCount);
 
-        // 8. TaxPendingDetails - Set IsActive=0
-        var taxPendingCount = await _taxPendingRepository.GetQueryable()
-            .Where(tpd => propertyIds.Contains(tpd.PropertyId))
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.IsActive, false), cancellationToken);
-        _logger.LogInformation("Deactivated {Count} TaxPendingDetails records", taxPendingCount);
+        // 8. TaxPendingDetails - Do NOT set IsActive=0
+        // TaxPendingDetails records are handled by CombinePropertyTaxService.AggregatePendingTaxesAsync()
+        // which zeroes out the PendingAmount and sets PendingFixed=true, but keeps IsActive=1
+        //
+        // FUTURE WORK NOTE:
+        // - Currently, only Rateable Value (RV) taxes are calculated and updated during property combination
+        //   using RateableValueService.CalculateAndSaveAsync()
+        // - Capital Value (CV) tax calculation and update will be implemented in a future PR
+        _logger.LogInformation("TaxPendingDetails records will be handled by CombinePropertyTaxService (IsActive kept as 1)");
 
         _logger.LogInformation("Completed deactivation for {Count} properties", propertyIds.Count);
     }

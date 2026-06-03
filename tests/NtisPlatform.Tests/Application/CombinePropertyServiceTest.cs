@@ -25,6 +25,7 @@ public class CombinePropertyServiceTest
     private readonly Mock<ICombinePropertyValidator> _mockValidator;
     private readonly Mock<IPropertyDataCopier> _mockDataCopier;
     private readonly Mock<IPropertyDeactivator> _mockDeactivator;
+    private readonly Mock<ICombinePropertyTaxService> _mockCombinePropertyTaxService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<ILogger<CombinePropertyService>> _mockLogger;
@@ -43,6 +44,7 @@ public class CombinePropertyServiceTest
         _mockValidator = new Mock<ICombinePropertyValidator>();
         _mockDataCopier = new Mock<IPropertyDataCopier>();
         _mockDeactivator = new Mock<IPropertyDeactivator>();
+        _mockCombinePropertyTaxService = new Mock<ICombinePropertyTaxService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
         _mockLogger = new Mock<ILogger<CombinePropertyService>>();
@@ -61,6 +63,11 @@ public class CombinePropertyServiceTest
         _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable())
             .Returns(new List<PropertyTypeMasterEntity>().BuildMock());
 
+        // Default CombinePropertyTaxService setup
+        _mockCombinePropertyTaxService.Setup(t => t.ProcessCombinePropertyTaxesAsync(
+            It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _service = new CombinePropertyService(
             _mockRepository.Object,
             _mockWardRepository.Object,
@@ -73,6 +80,7 @@ public class CombinePropertyServiceTest
             _mockValidator.Object,
             _mockDataCopier.Object,
             _mockDeactivator.Object,
+            _mockCombinePropertyTaxService.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
             _mockLogger.Object
