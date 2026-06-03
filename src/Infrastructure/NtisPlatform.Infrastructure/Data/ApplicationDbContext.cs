@@ -1889,8 +1889,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsRevoked).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.RevokedAt);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
-            entity.Property(e => e.UserAgent).HasMaxLength(500);
-            entity.Property(e => e.ReplacedByTokenId);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);           
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
