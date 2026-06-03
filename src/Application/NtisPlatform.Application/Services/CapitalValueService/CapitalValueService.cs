@@ -121,7 +121,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
             if (hasAnyHashChanged)
             {
                 await _policyTaxService.DeactivateByPropertyIdAsync(propertyId, null, cancellationToken);
-                await _transMastService.DeactivateByPropertyIdAsync(propertyId, null, cancellationToken);
+                await _transMastService.DeactivateByPropertyIdAsync(propertyId, "CV", null, cancellationToken);
             }
 
             // Step 3: Auto-calculate for missing or changed PropertyDetailsIds if enabled
@@ -197,7 +197,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 {
                     var policies = await _policyTaxService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
                     existingPolicies = policies.GroupBy(p => p.TaxId).ToDictionary(g => g.Key, g => g.First());
-                    var transMasts = await _transMastService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
+                    var transMasts = await _transMastService.GetByPropertyIdAsync(dto.PropertyId, "CV", cancellationToken);
                     existingTransMast = transMasts.GroupBy(t => (t.PropertyId, t.FinanceYearId, t.TaxId)).ToDictionary(g => g.Key, g => g.First());
                 }
 
@@ -510,7 +510,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 // Load existing PolicyTaxDetailsCV and TransMastCV for update
                 var existingPolicies = await _policyTaxService.GetByPropertyIdAsync(propertyId, cancellationToken);
                 var existingPoliciesDict = existingPolicies .GroupBy(p => p.TaxId) .ToDictionary(g => g.Key, g => g.First());
-                var existingTransMast = await _transMastService.GetByPropertyIdAsync(propertyId, cancellationToken);
+                var existingTransMast = await _transMastService.GetByPropertyIdAsync(propertyId, "CV", cancellationToken);
                 var existingTransMastDict = existingTransMast.ToDictionary(t => (t.PropertyId, t.FinanceYearId, t.TaxId), t => t);
 
                 // Update PolicyTaxDetailsCV and TransMastCV with new aggregated totals

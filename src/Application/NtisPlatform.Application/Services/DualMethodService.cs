@@ -21,7 +21,7 @@ namespace NtisPlatform.Application.Services
     /// </summary>
     public class DualMethodService : IDualMethodService
     {
-        private readonly IRepository<TransMastCVEntity, long> _transCVRepository;
+        private readonly IRepository<TransMastEntity, long> _transMastRepository;
         private readonly IRepository<TransMastRVEntity, long> _transRVRepository;
         private readonly IRepository<TransMastOldEntity, int> _oldTaxRepository;
         private readonly IRepository<PropertyEntity, int> _propertyRepository;
@@ -29,14 +29,14 @@ namespace NtisPlatform.Application.Services
         private readonly ILogger<DualMethodService> _logger;
 
         public DualMethodService(
-            IRepository<TransMastCVEntity, long> transCVRepository,
+            IRepository<TransMastEntity, long> transMastRepository,
             IRepository<TransMastRVEntity, long> transRVRepository,
             IRepository<TransMastOldEntity, int> oldTaxRepository,
             IRepository<PropertyEntity, int> propertyRepository,
             IMapper mapper,
             ILogger<DualMethodService> logger)
         {
-            _transCVRepository = transCVRepository ?? throw new ArgumentNullException(nameof(transCVRepository));
+            _transMastRepository = transMastRepository ?? throw new ArgumentNullException(nameof(transMastRepository));
             _transRVRepository = transRVRepository ?? throw new ArgumentNullException(nameof(transRVRepository));
             _oldTaxRepository = oldTaxRepository ?? throw new ArgumentNullException(nameof(oldTaxRepository));
             _propertyRepository = propertyRepository ?? throw new ArgumentNullException(nameof(propertyRepository));
@@ -48,16 +48,17 @@ namespace NtisPlatform.Application.Services
         /// Query CV tax data with proper filters and eager loading
         /// Uses AutoMapper ProjectTo for optimized SQL generation
         /// </summary>
-        private IQueryable<TransMastCVEntity> QueryCVTaxesWithIncludes(int propertyId)
+        private IQueryable<TransMastEntity> QueryCVTaxesWithIncludes(int propertyId)
         {
-            return _transCVRepository.GetQueryable()
+            return _transMastRepository.GetQueryable()
                 .Where(x => x.PropertyId == propertyId
+                    && x.RVorCV == "CV"
                     && x.IsActive
                     && !x.MarkedForDeletion
                     && x.TaxId != 0
-                    && x.TaxMaster != null
-                    && x.TaxMaster.IsActive)
-                .Include(x => x.TaxMaster)
+                    && x.Tax != null
+                    && x.Tax.IsActive)
+                .Include(x => x.Tax)
                 .AsNoTracking();
         }
 
@@ -153,8 +154,7 @@ namespace NtisPlatform.Application.Services
             }
         }
 
-        #region Private Query Methods
-
+ 
         /// <summary>
         /// Retrieves PropertyMastOldId for a given property
         /// Returns null if property not found or doesn't have old data
@@ -259,10 +259,8 @@ namespace NtisPlatform.Application.Services
             }
         }
 
-        #endregion
-
-        #region Private Business Logic Methods
-
+ 
+ 
         /// <summary>
         /// Builds a tax dictionary from tax data with proper aggregation and naming
         /// Handles:
@@ -352,8 +350,7 @@ namespace NtisPlatform.Application.Services
             return baseKey;
         }
 
-        #endregion
-
+ 
         /// <summary>
         /// Constants for tax-related operations
         /// </summary>

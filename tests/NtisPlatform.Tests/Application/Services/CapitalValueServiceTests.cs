@@ -275,7 +275,7 @@ public class CapitalValueServiceTests
         _policyTaxService.Setup(x => x.DeactivateByPropertyIdAsync(propertyId, null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _transMastService.Setup(x => x.DeactivateByPropertyIdAsync(propertyId, null, It.IsAny<CancellationToken>()))
+        _transMastService.Setup(x => x.DeactivateByPropertyIdAsync(propertyId, "CV", null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var service = new CapitalValueService(
@@ -304,7 +304,7 @@ public class CapitalValueServiceTests
         // Verify PolicyTaxDetails and TransMast are also deactivated when hash changes
         _policyTaxService.Verify(x => x.DeactivateByPropertyIdAsync(propertyId, null, It.IsAny<CancellationToken>()), Times.Once,
             "Should deactivate PolicyTaxDetails records when CV hash changes");
-        _transMastService.Verify(x => x.DeactivateByPropertyIdAsync(propertyId, null, It.IsAny<CancellationToken>()), Times.Once,
+        _transMastService.Verify(x => x.DeactivateByPropertyIdAsync(propertyId, "CV", null, It.IsAny<CancellationToken>()), Times.Once,
             "Should deactivate TransMast records when CV hash changes");
     }
 
@@ -436,7 +436,7 @@ public class CapitalValueServiceTests
         _policyTaxService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PolicyTaxDetailsDto>());
 
-        _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
+        _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, "CV", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TransMastDto>());
 
         var service = GetService();
@@ -902,7 +902,7 @@ public class CapitalValueServiceTests
         _policyTaxService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PolicyTaxDetailsDto>());
 
-        _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
+        _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, "CV", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TransMastDto>());
 
         _persistenceService.Setup(x => x.PersistCVResultsAsync(

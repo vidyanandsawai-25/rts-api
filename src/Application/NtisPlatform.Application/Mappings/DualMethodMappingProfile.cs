@@ -12,6 +12,15 @@ namespace NtisPlatform.Application.Mappings
     {
         public DualMethodMappingProfile()
         {
+            // TransMastEntity to TaxDataDto (unified approach for CV data)
+            CreateMap<TransMastEntity, TaxDataDto>()
+                .ForMember(dest => dest.TaxId, opt => opt.MapFrom(src => src.TaxId))
+                .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => 
+                    src.Tax != null && !string.IsNullOrWhiteSpace(src.Tax.TaxName) 
+                        ? src.Tax.TaxName 
+                        : $"Tax_{src.TaxId}"))
+                .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount));
+
             // TransMastCVEntity to TaxDataDto
             CreateMap<TransMastCVEntity, TaxDataDto>()
                 .ForMember(dest => dest.TaxId, opt => opt.MapFrom(src => src.TaxId))
