@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Constants;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -7,11 +8,11 @@ namespace NtisPlatform.Core.Entities;
 /// Links documents to any entity in any module
 /// Rich domain model with validation and business logic
 /// </summary>
-public class DocumentBindingEntity : BaseEntity
+public class DocumentBindingEntity : BaseEntity, IHardDeletable
 {
     // Private backing fields for encapsulation
-    private string _moduleCode = string.Empty;
     private string _referenceTableName = string.Empty;
+    private string _referencePropertyName = string.Empty;
 
     /// <summary>
     /// Protected constructor for EF Core
@@ -23,16 +24,20 @@ public class DocumentBindingEntity : BaseEntity
     /// </summary>
     internal DocumentBindingEntity(
         int documentId,
-        string moduleCode,
+        int departmentId,
+        int moduleId,
         string referenceTableName,
+        string referencePropertyName,
         int? referenceTableId = null,
         Guid? referenceTableIdGuid = null,
         string? bindingPurpose = null,
         bool isPrimaryDocument = false)
     {
         DocumentId = documentId;
-        _moduleCode = moduleCode.ToUpperInvariant();
+        DepartmentId = departmentId;
+        ModuleId = moduleId;
         _referenceTableName = referenceTableName;
+        _referencePropertyName = referencePropertyName;
         ReferenceTableId = referenceTableId;
         ReferenceTableIdGuid = referenceTableIdGuid;
         BindingPurpose = bindingPurpose;
@@ -46,19 +51,27 @@ public class DocumentBindingEntity : BaseEntity
     /// </summary>
     public static DocumentBindingEntity CreateWithIntReference(
         int documentId,
-        string moduleCode,
+        int departmentId,
+        int moduleId,
         string referenceTableName,
         int referenceTableId,
+        string referencePropertyName,
         string? bindingPurpose = null)
     {
         if (documentId <= 0)
             throw new ArgumentException("Document ID must be greater than zero.", nameof(documentId));
 
-        if (string.IsNullOrWhiteSpace(moduleCode))
-            throw new ArgumentException("Module code cannot be empty.", nameof(moduleCode));
+        if (departmentId <= 0)
+            throw new ArgumentException("Department ID must be greater than zero.", nameof(departmentId));
+
+        if (moduleId <= 0)
+            throw new ArgumentException("Module ID must be greater than zero.", nameof(moduleId));
 
         if (string.IsNullOrWhiteSpace(referenceTableName))
             throw new ArgumentException("Reference table name cannot be empty.", nameof(referenceTableName));
+
+        if (string.IsNullOrWhiteSpace(referencePropertyName))
+            throw new ArgumentException("Reference property name cannot be empty.", nameof(referencePropertyName));
 
         if (referenceTableId <= 0)
             throw new ArgumentException("Reference table ID must be greater than zero.", nameof(referenceTableId));
@@ -66,13 +79,16 @@ public class DocumentBindingEntity : BaseEntity
         var binding = new DocumentBindingEntity
         {
             DocumentId = documentId,
-            _moduleCode = moduleCode.ToUpperInvariant(),
+            DepartmentId = departmentId,
+            ModuleId = moduleId,
             _referenceTableName = referenceTableName,
+            _referencePropertyName = referencePropertyName,
             ReferenceTableId = referenceTableId,
             ReferenceTableIdGuid = null,
             IsPrimaryDocument = false,
             IsReferenceValid = true,
-            IsActive = true
+            IsActive = true,
+            _markedForDeletion = false
         };
 
         if (!string.IsNullOrWhiteSpace(bindingPurpose))
@@ -88,19 +104,27 @@ public class DocumentBindingEntity : BaseEntity
     /// </summary>
     public static DocumentBindingEntity CreateWithGuidReference(
         int documentId,
-        string moduleCode,
+        int departmentId,
+        int moduleId,
         string referenceTableName,
         Guid referenceTableIdGuid,
+        string referencePropertyName,
         string? bindingPurpose = null)
     {
         if (documentId <= 0)
             throw new ArgumentException("Document ID must be greater than zero.", nameof(documentId));
 
-        if (string.IsNullOrWhiteSpace(moduleCode))
-            throw new ArgumentException("Module code cannot be empty.", nameof(moduleCode));
+        if (departmentId <= 0)
+            throw new ArgumentException("Department ID must be greater than zero.", nameof(departmentId));
+
+        if (moduleId <= 0)
+            throw new ArgumentException("Module ID must be greater than zero.", nameof(moduleId));
 
         if (string.IsNullOrWhiteSpace(referenceTableName))
             throw new ArgumentException("Reference table name cannot be empty.", nameof(referenceTableName));
+
+        if (string.IsNullOrWhiteSpace(referencePropertyName))
+            throw new ArgumentException("Reference property name cannot be empty.", nameof(referencePropertyName));
 
         if (referenceTableIdGuid == Guid.Empty)
             throw new ArgumentException("Reference table GUID cannot be empty.", nameof(referenceTableIdGuid));
@@ -108,13 +132,16 @@ public class DocumentBindingEntity : BaseEntity
         var binding = new DocumentBindingEntity
         {
             DocumentId = documentId,
-            _moduleCode = moduleCode.ToUpperInvariant(),
+            DepartmentId = departmentId,
+            ModuleId = moduleId,
             _referenceTableName = referenceTableName,
+            _referencePropertyName = referencePropertyName,
             ReferenceTableId = null,
             ReferenceTableIdGuid = referenceTableIdGuid,
             IsPrimaryDocument = false,
             IsReferenceValid = true,
-            IsActive = true
+            IsActive = true,
+            _markedForDeletion = false
         };
 
         if (!string.IsNullOrWhiteSpace(bindingPurpose))
@@ -127,18 +154,20 @@ public class DocumentBindingEntity : BaseEntity
 
     public int DocumentId { get; private set; }
 
-    // Polymorphic Reference
     /// <summary>
-    /// Module code: PROPERTY, WATER_TAX, etc.
+    /// FK to CORE.DepartmentMaster(Id). Top-level grouping (e.g. PTIS, Water).
+    /// Example: 3 (DepartmentMaster.Id for 'PTIS')
     /// </summary>
-    public string ModuleCode
-    {
-        get => _moduleCode;
-        private set => _moduleCode = value?.ToUpperInvariant() ?? throw new ArgumentNullException(nameof(ModuleCode));
-    }
+    public int DepartmentId { get; private set; }
 
     /// <summary>
-    /// Table name: PropertyCertificate, WaterConnection, etc.
+    /// FK to CORE.ModuleMaster(Id). Specific module under the department.
+    /// Example: 12 (ModuleMaster.Id for 'PropertyCertificate')
+    /// </summary>
+    public int ModuleId { get; private set; }
+
+    /// <summary>
+    /// Table name: PropertyCertificates, WaterConnection, etc.
     /// </summary>
     public string ReferenceTableName
     {
@@ -158,13 +187,22 @@ public class DocumentBindingEntity : BaseEntity
     /// </summary>
     public Guid? ReferenceTableIdGuid { get; private set; }
 
+    /// <summary>
+    /// Name of the column in [ReferenceTableName] that holds the PK value.
+    /// Lets generic code build joins/links without hardcoding per module.
+    /// Example: 'Id', 'PropertyCertificateId', 'WaterConnectionId'
+    /// </summary>
+    public string ReferencePropertyName
+    {
+        get => _referencePropertyName;
+        private set => _referencePropertyName = value ?? throw new ArgumentNullException(nameof(ReferencePropertyName));
+    }
+
     // Binding Metadata
     /// <summary>
     /// Purpose: MainCertificate, SupportingDocument, etc.
     /// </summary>
     public string? BindingPurpose { get; private set; }
-
-    public int? DisplayOrder { get; private set; }
 
     public bool IsPrimaryDocument { get; private set; } = false;
 
@@ -173,32 +211,48 @@ public class DocumentBindingEntity : BaseEntity
     // Access Control
     public string? AccessPermission { get; private set; }
 
-    public DateTime? ExpiryDate { get; private set; }
-
     // Auth Reference
     /// <summary>
-    /// Authorization module code (e.g., PROPERTY)
-    /// Used for permission check - check if user can access this module's entity
+    /// FK to CORE.DepartmentMaster(Id). Department against which authorization
+    /// is resolved (parent-entity authorization model).
+    /// Example: 3 (DepartmentMaster.Id for 'PTIS')
     /// </summary>
-    public string? AuthModuleCode { get; private set; }
+    public int? AuthDepartmentId { get; private set; }
 
     /// <summary>
-    /// Authorization reference ID (e.g., PropertyId)
-    /// Used for permission check - check if user can access entity with this ID
+    /// PK of the row in the auth module that grants access.
+    /// Together with AuthDepartmentId, answers "who owns this for permission checks".
+    /// Example: 1001 (Property.Id used for property-level auth)
     /// </summary>
     public int? AuthReferenceId { get; private set; }
 
     // Validation
     public bool IsReferenceValid { get; private set; } = true;
 
-    public DateTime? LastValidatedDate { get; private set; }
+    // IHardDeletable (soft delete) - Explicit interface implementation
+    private bool _markedForDeletion = false;
+    private DateTime? _markedForDeletionDate;
 
-    public string? ValidationError { get; private set; }
+    public bool MarkedForDeletion => _markedForDeletion;
+    public DateTime? MarkedForDeletionDate => _markedForDeletionDate;
+
+    // Explicit interface implementation for setters
+    bool IHardDeletable.MarkedForDeletion
+    {
+        get => _markedForDeletion;
+        set => _markedForDeletion = value;
+    }
+
+    DateTime? IHardDeletable.MarkedForDeletionDate
+    {
+        get => _markedForDeletionDate;
+        set => _markedForDeletionDate = value;
+    }
 
     public byte[]? RowVersion { get; set; }
 
     // Navigation Properties
-    public DocumentEntity Document { get; private set; } = null!;
+    public DocumentEntity? Document { get; private set; }
 
     // ========== Domain Methods ==========
 
@@ -213,43 +267,26 @@ public class DocumentBindingEntity : BaseEntity
 
         if (!hasIntReference && !hasGuidReference)
         {
-            ValidationError = "Binding must have either ReferenceTableId or ReferenceTableIdGuid.";
             IsReferenceValid = false;
             return false;
         }
 
         if (hasIntReference && hasGuidReference)
         {
-            ValidationError = "Binding cannot have both ReferenceTableId and ReferenceTableIdGuid.";
             IsReferenceValid = false;
             return false;
         }
 
-        // Check expiry
-        if (ExpiryDate.HasValue && ExpiryDate.Value <= DateTime.Now)
-        {
-            ValidationError = "Document binding has expired.";
-            IsReferenceValid = false;
-            return false;
-        }
-
-        ValidationError = null;
         IsReferenceValid = true;
-        LastValidatedDate = DateTime.Now;
         return true;
     }
 
     /// <summary>
-    /// Mark reference as invalid with reason
+    /// Mark reference as invalid
     /// </summary>
-    public void MarkAsInvalid(string reason)
+    public void MarkAsInvalid()
     {
-        if (string.IsNullOrWhiteSpace(reason))
-            throw new ArgumentException("Reason cannot be empty.", nameof(reason));
-
         IsReferenceValid = false;
-        ValidationError = reason;
-        LastValidatedDate = DateTime.Now;
     }
 
     /// <summary>
@@ -258,8 +295,6 @@ public class DocumentBindingEntity : BaseEntity
     public void MarkAsValid()
     {
         IsReferenceValid = true;
-        ValidationError = null;
-        LastValidatedDate = DateTime.Now;
     }
 
     /// <summary>
@@ -282,7 +317,6 @@ public class DocumentBindingEntity : BaseEntity
     public void MarkAsPrimary()
     {
         IsPrimaryDocument = true;
-        DisplayOrder = 0; // Primary documents shown first
     }
 
     /// <summary>
@@ -291,17 +325,6 @@ public class DocumentBindingEntity : BaseEntity
     public void UnmarkAsPrimary()
     {
         IsPrimaryDocument = false;
-    }
-
-    /// <summary>
-    /// Set display order
-    /// </summary>
-    public void SetDisplayOrder(int order)
-    {
-        if (order < 0)
-            throw new ArgumentException("Display order cannot be negative.", nameof(order));
-
-        DisplayOrder = order;
     }
 
     /// <summary>
@@ -319,36 +342,17 @@ public class DocumentBindingEntity : BaseEntity
     }
 
     /// <summary>
-    /// Set expiry date for the binding
-    /// </summary>
-    public void SetExpiryDate(DateTime expiryDate)
-    {
-        if (expiryDate <= DateTime.Now)
-            throw new ArgumentException("Expiry date must be in the future.", nameof(expiryDate));
-
-        ExpiryDate = expiryDate;
-    }
-
-    /// <summary>
-    /// Check if binding is expired
-    /// </summary>
-    public bool IsExpired()
-    {
-        return ExpiryDate.HasValue && ExpiryDate.Value <= DateTime.Now;
-    }
-
-    /// <summary>
     /// Set authorization context for permission checks
     /// </summary>
-    public void SetAuthorizationContext(string authModuleCode, int authReferenceId)
+    public void SetAuthorizationContext(int authDepartmentId, int authReferenceId)
     {
-        if (string.IsNullOrWhiteSpace(authModuleCode))
-            throw new ArgumentException("Authorization module code cannot be empty.", nameof(authModuleCode));
+        if (authDepartmentId <= 0)
+            throw new ArgumentException("Authorization department ID must be greater than zero.", nameof(authDepartmentId));
 
         if (authReferenceId <= 0)
             throw new ArgumentException("Authorization reference ID must be greater than zero.", nameof(authReferenceId));
 
-        AuthModuleCode = authModuleCode.ToUpperInvariant();
+        AuthDepartmentId = authDepartmentId;
         AuthReferenceId = authReferenceId;
     }
 
@@ -357,7 +361,7 @@ public class DocumentBindingEntity : BaseEntity
     /// </summary>
     public bool IsActiveAndValid()
     {
-        return IsActive && IsReferenceValid && !IsExpired();
+        return IsActive && IsReferenceValid && !_markedForDeletion;
     }
 
     /// <summary>
@@ -386,5 +390,31 @@ public class DocumentBindingEntity : BaseEntity
             throw new InvalidOperationException("Cannot update reference table GUID for an INT-based binding.");
 
         ReferenceTableIdGuid = newReferenceTableIdGuid;
+    }
+
+    /// <summary>
+    /// Mark binding for soft deletion
+    /// </summary>
+    public void MarkForDeletion()
+    {
+        if (_markedForDeletion)
+            throw new InvalidOperationException("Binding is already marked for deletion.");
+
+        _markedForDeletion = true;
+        _markedForDeletionDate = DateTime.Now;
+        IsActive = false;
+    }
+
+    /// <summary>
+    /// Restore binding from soft deletion
+    /// </summary>
+    public void RestoreFromDeletion()
+    {
+        if (!_markedForDeletion)
+            throw new InvalidOperationException("Binding is not marked for deletion.");
+
+        _markedForDeletion = false;
+        _markedForDeletionDate = null;
+        IsActive = true;
     }
 }

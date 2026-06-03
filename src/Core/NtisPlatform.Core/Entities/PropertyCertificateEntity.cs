@@ -3,7 +3,7 @@ using NtisPlatform.Core.Interfaces;
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
-/// Property certificate business table (PTIS.PropertyCertificate)
+/// Property certificate business table (PTIS.PropertyCertificates)
 /// Stores certificate records for properties with link to document storage
 /// Rich domain model with validation and business logic
 /// </summary>
@@ -23,7 +23,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         string? certificateNo = null,
         DateTime? issueDate = null,
         int? documentBindingId = null,
-        bool isEnabled = false,
         bool markedForDeletion = false,
         DateTime? markedForDeletionDate = null)
     {
@@ -32,7 +31,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         CertificateNo = certificateNo;
         IssueDate = issueDate;
         DocumentBindingId = documentBindingId;
-        IsEnabled = isEnabled;
         _markedForDeletion = markedForDeletion;
         _markedForDeletionDate = markedForDeletionDate;
     }
@@ -69,12 +67,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             IsActive = true,
             _markedForDeletion = false
         };
-
-        // Auto-enable if both certificate number and issue date are provided
-        if (issueDate.HasValue && !string.IsNullOrWhiteSpace(certificateNo))
-        {
-            certificate.IsEnabled = true;
-        }
 
         return certificate;
     }
@@ -116,12 +108,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             _markedForDeletion = false
         };
 
-        // Auto-enable if both certificate number and issue date are provided
-        if (issueDate.HasValue && !string.IsNullOrWhiteSpace(certificateNo))
-        {
-            certificate.IsEnabled = true;
-        }
-
         return certificate;
     }
 
@@ -150,11 +136,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// </summary>
     public int? DocumentBindingId { get; private set; }
 
-    /// <summary>
-    /// Certificate enabled/disabled status
-    /// </summary>
-    public bool IsEnabled { get; private set; } = false;
-
     // IHardDeletable - Explicit interface implementation
     private bool _markedForDeletion = false;
     private DateTime? _markedForDeletionDate;
@@ -174,6 +155,12 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         get => _markedForDeletionDate;
         set => _markedForDeletionDate = value;
     }
+
+    /// <summary>
+    /// Concurrency token for optimistic concurrency control.
+    /// Automatically updated by EF Core on each save.
+    /// </summary>
+    public byte[]? RowVersion { get; set; }
 
     // Navigation Properties
     public Master.PropertyCertificateTypeMasterEntity? CertificateType { get; private set; }
@@ -230,7 +217,7 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     }
 
     /// <summary>
-    /// Enable the certificate
+    /// Enable the certificate (sets IsActive to true)
     /// </summary>
     public void Enable()
     {
@@ -243,16 +230,15 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         if (string.IsNullOrWhiteSpace(CertificateNo))
             throw new InvalidOperationException("Cannot enable certificate without a certificate number.");
 
-        IsEnabled = true;
         IsActive = true;
     }
 
     /// <summary>
-    /// Disable the certificate
+    /// Disable the certificate (sets IsActive to false)
     /// </summary>
     public void Disable()
     {
-        IsEnabled = false;
+        IsActive = false;
     }
 
     /// <summary>
@@ -265,7 +251,6 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
 
         _markedForDeletion = true;
         _markedForDeletionDate = DateTime.Now;
-        IsEnabled = false;
         IsActive = false;
     }
 

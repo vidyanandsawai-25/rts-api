@@ -22,7 +22,6 @@ public static class EntityTestHelpers
         long fileSizeBytes = 1024,
         string storagePath = "/uploads/test.pdf",
         string? storageProvider = null,
-        int? ownerUserId = null,
         string? documentType = null,
         string? uploadStatusCode = null,
         int downloadCount = 0)
@@ -37,7 +36,6 @@ public static class EntityTestHelpers
             fileSizeBytes: fileSizeBytes,
             storagePath: storagePath,
             storageProvider: storageProvider,
-            ownerUserId: ownerUserId,
             documentType: documentType,
             uploadStatusCode: uploadStatusCode,
             downloadCount: downloadCount);
@@ -54,8 +52,10 @@ public static class EntityTestHelpers
     /// </summary>
     public static DocumentBindingEntity CreateDocumentBindingEntity(
         int documentId = 1,
-        string moduleCode = "TEST",
+        int departmentId = 1,
+        int moduleId = 1,
         string referenceTableName = "TestTable",
+        string referencePropertyName = "Id",
         int? referenceTableId = 1,
         Guid? referenceTableIdGuid = null,
         string? bindingPurpose = null,
@@ -63,8 +63,10 @@ public static class EntityTestHelpers
     {
         return new DocumentBindingEntity(
             documentId: documentId,
-            moduleCode: moduleCode,
+            departmentId: departmentId,
+            moduleId: moduleId,
             referenceTableName: referenceTableName,
+            referencePropertyName: referencePropertyName,
             referenceTableId: referenceTableId,
             referenceTableIdGuid: referenceTableIdGuid,
             bindingPurpose: bindingPurpose,
@@ -80,7 +82,6 @@ public static class EntityTestHelpers
         string? certificateNo = null,
         DateTime? issueDate = null,
         int? documentBindingId = null,
-        bool isEnabled = false,
         bool markedForDeletion = false,
         DateTime? markedForDeletionDate = null)
     {
@@ -90,7 +91,6 @@ public static class EntityTestHelpers
             certificateNo: certificateNo,
             issueDate: issueDate,
             documentBindingId: documentBindingId,
-            isEnabled: isEnabled,
             markedForDeletion: markedForDeletion,
             markedForDeletionDate: markedForDeletionDate);
 
@@ -129,13 +129,7 @@ public static class EntityTestHelpers
         var entity = new PropertyCertificateTypeMasterEntity
         {
             CertificateTypeName = $"Certificate Type {id}",
-            CertificateTypeCode = $"CT{id:D3}",
-            FieldCode = $"FIELD{id}",
-            SectionCode = $"SEC{id}",
-            DocumentTypeCode = $"DOC{id}",
-            DisplayLabel = $"Display Label {id}",
             DisplayOrder = id,
-            IsMandatory = false,
             IsActive = true,
             CreatedBy = 1,
             CreatedDate = DateTime.Now

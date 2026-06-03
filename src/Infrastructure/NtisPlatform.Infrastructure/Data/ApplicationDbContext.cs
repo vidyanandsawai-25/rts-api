@@ -1730,6 +1730,12 @@ public class ApplicationDbContext : DbContext
                 .WithOne(psd => psd.PropertyMast)
                 .HasForeignKey(psd => psd.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure PropertyCertificates relationship to prevent shadow PropertyEntityId FK
+            entity.HasMany(e => e.PropertyCertificates)
+                .WithOne()
+                .HasForeignKey(pc => pc.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -2513,19 +2519,15 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyCertificateTypeMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.SectionCode).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.DisplayLabel).HasMaxLength(200);
-            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
-            entity.Property(e => e.IsMandatory).HasDefaultValue(false);
+            entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.CertificateTypeName).IsUnique().HasDatabaseName("UQ_PropertyCertificateTypeMaster_Name");
         });
 
         modelBuilder.Entity<FloorGroupMasterEntity>(entity =>
@@ -2709,38 +2711,51 @@ public class ApplicationDbContext : DbContext
             // DocumentGuid is generated application-side in DocumentEntity.Create() factory method
             // This ensures consistent behavior across all environments and improves testability
             entity.Property(e => e.DocumentGuid).IsRequired();
-            entity.Property(e => e.UploadedByUserId).IsRequired().HasColumnName("UploadedBy");
-            entity.Property(e => e.OwnerUserId);
-            entity.Property(e => e.FileName).IsRequired().HasMaxLength(500).HasColumnType("varchar(500)");
-            entity.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.DepartmentId);
+            entity.Property(e => e.DepartmentEntityId);
+            entity.Property(e => e.UploadedByUserId).IsRequired().HasColumnName("CreatedBy");
+
+            // Ignore BaseEntity.CreatedBy since we're using UploadedByUserId mapped to CreatedBy column
+            entity.Ignore(e => e.CreatedBy);
+
+            entity.Property(e => e.FileName).IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.OriginalFileName).IsRequired().HasMaxLength(500).HasColumnType("nvarchar(500)");
             entity.Property(e => e.FileExtension).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.MimeType).IsRequired().HasMaxLength(200).HasColumnType("varchar(200)");
             entity.Property(e => e.FileSizeBytes).IsRequired();
             entity.Property(e => e.StorageProvider).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)").HasDefaultValue("FOLDER");
-            entity.Property(e => e.StoragePath).IsRequired().HasMaxLength(1000).HasColumnType("varchar(1000)");
-            entity.Property(e => e.ThumbnailPath).HasMaxLength(1000).HasColumnType("varchar(1000)");
+            entity.Property(e => e.StoragePath).IsRequired().HasMaxLength(1000).HasColumnType("nvarchar(1000)");
+            entity.Property(e => e.ThumbnailPath).HasMaxLength(1000).HasColumnType("nvarchar(1000)");
             entity.Property(e => e.ChecksumSha256).HasMaxLength(64).HasColumnType("varchar(64)");
             entity.Property(e => e.ScanStatusCode).HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.ScanCompletedDate).HasColumnType("datetime");
+            entity.Property(e => e.ScanDetails).HasMaxLength(4000).HasColumnType("nvarchar(4000)");
             entity.Property(e => e.UploadStatusCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)").HasDefaultValue("ACTIVE");
-            entity.Property(e => e.DocumentTitle).HasMaxLength(500).HasColumnType("varchar(500)");
-            entity.Property(e => e.Description).HasMaxLength(2000).HasColumnType("varchar(2000)");
-            entity.Property(e => e.DocumentType).HasMaxLength(100).HasColumnType("varchar(100)");
-            entity.Property(e => e.DocumentCategory).HasMaxLength(100).HasColumnType("varchar(100)");
+            entity.Property(e => e.DocumentTitle).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.Description).HasMaxLength(2000).HasColumnType("nvarchar(2000)");
+            entity.Property(e => e.DocumentType).HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.DocumentCategory).HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.Tags).HasMaxLength(2000).HasColumnType("nvarchar(2000)");
             entity.Property(e => e.Language).HasMaxLength(10).HasColumnType("varchar(10)");
             entity.Property(e => e.Version).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.ParentDocumentId);
             entity.Property(e => e.IsLatestVersion).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.IsPublic).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.InheritPermissions).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.ConfidentialityLevel).HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.PageCount);
+            entity.Property(e => e.SearchableText).HasMaxLength(4000).HasColumnType("nvarchar(4000)");
             entity.Property(e => e.ExtractionStatus).HasMaxLength(50).HasColumnType("varchar(50)");
             entity.Property(e => e.EncryptionKeyId).HasMaxLength(100).HasColumnType("varchar(100)");
             entity.Property(e => e.IsEncrypted).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.DownloadCount).IsRequired().HasDefaultValue(0);
-            entity.Property(e => e.LastAccessedBy).HasColumnName("LastAccessedByUserId");
             entity.Property(e => e.SourceSystem).HasMaxLength(100).HasColumnType("varchar(100)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             // RowVersion for optimistic concurrency - database-generated timestamp
             entity.Property(e => e.RowVersion)
@@ -2748,18 +2763,16 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("rowversion")
                 .ValueGeneratedOnAddOrUpdate();
 
-            entity.HasIndex(e => e.DocumentGuid).IsUnique().HasDatabaseName("UQ_Document_Guid");
-            entity.HasIndex(e => new { e.UploadedByUserId, e.IsActive }).HasDatabaseName("IX_Document_UploadedBy");
-            entity.HasIndex(e => e.DocumentType).HasDatabaseName("IX_Document_Type").HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
+            entity.HasIndex(e => e.DocumentGuid).IsUnique().HasDatabaseName("UQ_Document_DocumentGuid");
+            entity.HasIndex(e => e.ParentDocumentId).HasDatabaseName("IX_Document_ParentDocumentId");
+            entity.HasIndex(e => e.DepartmentId).HasDatabaseName("IX_Document_DepartmentId").HasFilter("[DepartmentId] IS NOT NULL");
+            entity.HasIndex(e => new { e.DepartmentId, e.DepartmentEntityId }).HasDatabaseName("IX_Document_Department_Entity")
+                .HasFilter("[DepartmentId] IS NOT NULL AND [DepartmentEntityId] IS NOT NULL");
 
+            // Self-referencing FK for versioning
             entity.HasOne(d => d.ParentDocument)
                 .WithMany()
                 .HasForeignKey(d => d.ParentDocumentId)
-                .OnDelete(DeleteBehavior.NoAction);
-
-            entity.HasOne(d => d.ReplacedByDocument)
-                .WithMany()
-                .HasForeignKey(d => d.ReplacedByDocumentId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -2770,19 +2783,26 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.DocumentId).IsRequired();
-            entity.Property(e => e.ModuleCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.ModuleId).IsRequired();
             entity.Property(e => e.ReferenceTableName).IsRequired().HasMaxLength(100).HasColumnType("varchar(100)");
             entity.Property(e => e.ReferenceTableId);
             entity.Property(e => e.ReferenceTableIdGuid);
+            entity.Property(e => e.ReferencePropertyName).IsRequired().HasMaxLength(100).HasColumnType("varchar(100)");
             entity.Property(e => e.BindingPurpose).HasMaxLength(200).HasColumnType("varchar(200)");
             entity.Property(e => e.IsPrimaryDocument).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.Notes).HasMaxLength(1000).HasColumnType("varchar(1000)");
+            entity.Property(e => e.Notes).HasMaxLength(1000).HasColumnType("nvarchar(1000)");
             entity.Property(e => e.AccessPermission).HasMaxLength(50).HasColumnType("varchar(50)");
-            entity.Property(e => e.AuthModuleCode).HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.AuthDepartmentId);
+            entity.Property(e => e.AuthReferenceId);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.IsReferenceValid).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.ValidationError).HasMaxLength(500).HasColumnType("varchar(500)");
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.IsReferenceValid).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             // RowVersion for optimistic concurrency - database-generated timestamp
             entity.Property(e => e.RowVersion)
@@ -2795,50 +2815,47 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(db => db.DocumentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            entity.HasIndex(e => new { e.ReferenceTableName, e.ReferenceTableId, e.IsActive })
-                .HasDatabaseName("IX_DocumentBinding_ReferenceInt")
-                .IncludeProperties(e => new { e.DocumentId, e.ModuleCode, e.BindingPurpose, e.IsPrimaryDocument, e.DisplayOrder });
+            entity.HasIndex(e => e.DocumentId).HasDatabaseName("IX_DocumentBinding_DocumentId");
+            entity.HasIndex(e => e.DepartmentId).HasDatabaseName("IX_DocumentBinding_DepartmentId");
+            entity.HasIndex(e => e.ModuleId).HasDatabaseName("IX_DocumentBinding_ModuleId");
 
-            entity.HasIndex(e => new { e.ReferenceTableName, e.ReferenceTableIdGuid, e.IsActive })
+            entity.HasIndex(e => new { e.DepartmentId, e.ModuleId, e.ReferenceTableName, e.ReferenceTableId })
+                .HasDatabaseName("IX_DocumentBinding_Reference")
+                .HasFilter("[ReferenceTableId] IS NOT NULL");
+
+            entity.HasIndex(e => new { e.DepartmentId, e.ModuleId, e.ReferenceTableName, e.ReferenceTableIdGuid })
                 .HasDatabaseName("IX_DocumentBinding_ReferenceGuid")
-                .HasFilter("[ReferenceTableIdGuid] IS NOT NULL")
-                .IncludeProperties(e => new { e.DocumentId, e.ModuleCode, e.BindingPurpose, e.IsPrimaryDocument, e.DisplayOrder });
+                .HasFilter("[ReferenceTableIdGuid] IS NOT NULL");
 
-            // Optimized covering index for GetDocumentsByReferenceAsync query with complex ordering
-            // Supports: WHERE ReferenceTableName + ReferenceTableId + IsActive
-            //           ORDER BY IsPrimaryDocument DESC, DisplayOrder ASC, CreatedDate DESC
-            entity.HasIndex(e => new { e.ReferenceTableName, e.ReferenceTableId, e.IsActive, e.IsPrimaryDocument, e.DisplayOrder, e.CreatedDate })
-                .HasDatabaseName("IX_DocumentBinding_ReferenceInt_Ordered")
-                .IncludeProperties(e => new { e.DocumentId, e.ModuleCode });
-
-            // Optimized covering index for GetDocumentsByReferenceAsync query with GUID reference
-            entity.HasIndex(e => new { e.ReferenceTableName, e.ReferenceTableIdGuid, e.IsActive, e.IsPrimaryDocument, e.DisplayOrder, e.CreatedDate })
-                .HasDatabaseName("IX_DocumentBinding_ReferenceGuid_Ordered")
-                .HasFilter("[ReferenceTableIdGuid] IS NOT NULL")
-                .IncludeProperties(e => new { e.DocumentId, e.ModuleCode });
-
-            entity.HasIndex(e => new { e.DocumentId, e.IsActive })
-                .HasDatabaseName("IX_DocumentBinding_Document")
-                .IncludeProperties(e => new { e.ReferenceTableName, e.ReferenceTableId, e.ReferenceTableIdGuid, e.ModuleCode });
-
-            entity.HasIndex(e => new { e.ModuleCode, e.IsActive })
-                .HasDatabaseName("IX_DocumentBinding_Module")
-                .IncludeProperties(e => new { e.DocumentId, e.ReferenceTableName, e.ReferenceTableId });
+            entity.HasIndex(e => new { e.AuthDepartmentId, e.AuthReferenceId })
+                .HasDatabaseName("IX_DocumentBinding_AuthDepartment")
+                .HasFilter("[AuthDepartmentId] IS NOT NULL AND [AuthReferenceId] IS NOT NULL");
         });
 
         // PropertyCertificate configuration
         modelBuilder.Entity<PropertyCertificateEntity>(entity =>
         {
-            entity.ToTable("PropertyCertificate", "PTIS");
+            entity.ToTable("PropertyCertificates", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
             entity.Property(e => e.CertificateTypeId).IsRequired();
-            entity.Property(e => e.CertificateNo).HasMaxLength(100).HasColumnType("varchar(100)");
-            entity.Property(e => e.IsEnabled).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(e => e.CertificateNo).HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.IssueDate).HasColumnName("CertificateIssueDate").HasColumnType("date");
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // RowVersion for optimistic concurrency - database-generated timestamp
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion()
+                .HasColumnType("rowversion")
+                .ValueGeneratedOnAddOrUpdate();
 
             entity.HasOne(pc => pc.CertificateType)
                 .WithMany()
@@ -2850,9 +2867,13 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(pc => pc.DocumentBindingId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyCertificate_PropertyId");
-            entity.HasIndex(e => e.CertificateTypeId).HasDatabaseName("IX_PropertyCertificate_CertificateTypeId");
-            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertyCertificate_DocumentBindingId");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyCertificates_PropertyId");
+            entity.HasIndex(e => e.CertificateTypeId).HasDatabaseName("IX_PropertyCertificates_CertificateTypeId");
+            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertyCertificates_DocumentBindingId")
+                .HasFilter("[DocumentBindingId] IS NOT NULL");
+            entity.HasIndex(e => new { e.PropertyId, e.IsActive, e.MarkedForDeletion })
+                .HasDatabaseName("IX_PropertyCertificates_Property_Active")
+                .IncludeProperties(e => new { e.CertificateTypeId, e.CertificateNo, e.IssueDate, e.DocumentBindingId });
         });
 
         // rule scope configuration

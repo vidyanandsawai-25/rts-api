@@ -30,13 +30,15 @@ public interface IDocumentService
     /// </summary>
     Task<int> CreateDocumentBindingAsync(
         int documentId,
-        string moduleCode,
+        int departmentId,
+        int moduleId,
         string referenceTableName,
         int? referenceTableId,
         Guid? referenceTableIdGuid,
+        string referencePropertyName,
         string? bindingPurpose,
         bool isPrimaryDocument,
-        string? authModuleCode,
+        int? authDepartmentId,
         int? authReferenceId,
         int createdBy,
         CancellationToken cancellationToken = default);

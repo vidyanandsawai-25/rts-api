@@ -68,13 +68,15 @@ public class DocumentController : ControllerBase
             {
                 OwnerUserId = formDto.OwnerUserId,
                 DocumentType = formDto.DocumentType,
-                ModuleCode = formDto.ModuleCode,
+                DepartmentId = formDto.DepartmentId,
+                ModuleId = formDto.ModuleId,
                 ReferenceTableName = formDto.ReferenceTableName,
                 ReferenceTableId = formDto.ReferenceTableId,
                 ReferenceTableIdGuid = formDto.ReferenceTableIdGuid,
+                ReferencePropertyName = formDto.ReferencePropertyName,
                 BindingPurpose = formDto.BindingPurpose,
                 IsPrimaryDocument = formDto.IsPrimaryDocument,
-                AuthModuleCode = formDto.AuthModuleCode,
+                AuthDepartmentId = formDto.AuthDepartmentId,
                 AuthReferenceId = formDto.AuthReferenceId
             };
 

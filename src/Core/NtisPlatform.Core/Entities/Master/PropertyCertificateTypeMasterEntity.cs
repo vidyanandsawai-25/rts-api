@@ -3,30 +3,23 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace NtisPlatform.Core.Entities.Master;
 
 /// <summary>
-/// Represents property certificate type master data in the PTIS system
+/// Master/lookup table that defines the kinds of certificates a property can have
+/// (e.g. Building Permit, Commencement Certificate, Occupancy Certificate).
+/// Used by [PTIS].[PropertyCertificates] to classify each certificate row.
 /// </summary>
 [Table("PropertyCertificateTypeMaster", Schema = "PTIS")]
 public class PropertyCertificateTypeMasterEntity : BaseEntity
 {
+    /// <summary>
+    /// Display name shown in UI. May contain non-ASCII (multilingual).
+    /// Example: 'Building Permit', 'Commencement Certificate'
+    /// </summary>
     [Column(TypeName = "nvarchar(100)")]
     public string CertificateTypeName { get; set; } = string.Empty;
-    
-    [Column(TypeName = "nvarchar(50)")]
-    public string CertificateTypeCode { get; set; } = string.Empty;
-    
-    [Column(TypeName = "nvarchar(100)")]
-    public string FieldCode { get; set; } = string.Empty;
-    
-    [Column(TypeName = "nvarchar(100)")]
-    public string SectionCode { get; set; } = string.Empty;
-    
-    [Column(TypeName = "nvarchar(50)")]
-    public string DocumentTypeCode { get; set; } = string.Empty;
-    
-    [Column(TypeName = "nvarchar(200)")]
-    public string? DisplayLabel { get; set; }
-    
+
+    /// <summary>
+    /// Sort order for UI dropdowns/lists. Lower = shown first.
+    /// Example: 10, 20, 30, etc.
+    /// </summary>
     public int DisplayOrder { get; set; }
-    
-    public bool IsMandatory { get; set; }
 }

@@ -15,7 +15,9 @@ public class DocumentUploadFormDto
 
     public string? DocumentType { get; set; }
 
-    public string? ModuleCode { get; set; }
+    public int? DepartmentId { get; set; }
+
+    public int? ModuleId { get; set; }
 
     public string? ReferenceTableName { get; set; }
 
@@ -23,11 +25,13 @@ public class DocumentUploadFormDto
 
     public Guid? ReferenceTableIdGuid { get; set; }
 
+    public string? ReferencePropertyName { get; set; }
+
     public string? BindingPurpose { get; set; }
 
     public bool IsPrimaryDocument { get; set; }
 
-    public string? AuthModuleCode { get; set; }
+    public int? AuthDepartmentId { get; set; }
 
     public int? AuthReferenceId { get; set; }
 }

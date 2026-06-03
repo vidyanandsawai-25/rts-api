@@ -4,7 +4,7 @@ using NtisPlatform.Core.Enums;
 namespace NtisPlatform.Core.Interfaces;
 
 /// <summary>
-/// Service for PTIS.PropertyCertificate operations
+/// Service for PTIS.PropertyCertificates operations
 /// </summary>
 public interface IPropertyCertificateService
 {
@@ -83,5 +83,46 @@ public interface IPropertyCertificateService
     Task<List<PropertyCertificateEntity>> GetByPropertyIdAsync(
         int propertyId,
         PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all property certificates by property ID including inactive ones (IsActive = false).
+    /// This is used for bulk operations where we need to check all certificates regardless of status.
+    /// Still excludes certificates marked for deletion.
+    /// </summary>
+    /// <param name="propertyId">The property ID</param>
+    /// <param name="includeOptions">Flags indicating which related entities to load</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of all property certificates including inactive ones</returns>
+    Task<List<PropertyCertificateEntity>> GetByPropertyIdIncludingInactiveAsync(
+        int propertyId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates property certificate metadata (number and date)
+    /// </summary>
+    Task UpdateAsync(
+        int id,
+        string? certificateNo,
+        DateTime? issueDate,
+        int updatedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Toggles the enabled status of a property certificate
+    /// </summary>
+    Task ToggleEnabledAsync(
+        int id,
+        bool isEnabled,
+        int updatedBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft deletes a property certificate
+    /// </summary>
+    Task DeleteAsync(
+        int id,
+        int deletedBy,
         CancellationToken cancellationToken = default);
 }

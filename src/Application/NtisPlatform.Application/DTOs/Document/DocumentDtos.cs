@@ -13,15 +13,19 @@ public class DocumentUploadDto
 
     // Binding Information
     /// <summary>
-    /// Module code for document binding (e.g., PROPERTY, BUILDING).
+    /// Department ID for document binding (e.g., 3 for PTIS).
     /// Optional: Only required if creating a document binding.
     /// </summary>
-    [StringLength(50, MinimumLength = 2, ErrorMessage = "ModuleCode must be between 2 and 50 characters if provided.")]
-    [RegularExpression(@"^[A-Z_]+$", ErrorMessage = "ModuleCode must contain only uppercase letters and underscores.")]
-    public string? ModuleCode { get; set; }
+    public int? DepartmentId { get; set; }
 
     /// <summary>
-    /// Reference table name for document binding (e.g., PropertyCertificate).
+    /// Module ID for document binding (e.g., 12 for PropertyCertificate).
+    /// Optional: Only required if creating a document binding.
+    /// </summary>
+    public int? ModuleId { get; set; }
+
+    /// <summary>
+    /// Reference table name for document binding (e.g., PropertyCertificates).
     /// Optional: Only required if creating a document binding.
     /// </summary>
     [StringLength(100, MinimumLength = 2, ErrorMessage = "ReferenceTableName must be between 2 and 100 characters if provided.")]
@@ -32,11 +36,22 @@ public class DocumentUploadDto
 
     public Guid? ReferenceTableIdGuid { get; set; }
 
+    /// <summary>
+    /// Name of the primary key column in the reference table (e.g., "Id", "PropertyCertificateId").
+    /// Optional: Only required if creating a document binding.
+    /// </summary>
+    [StringLength(100, MinimumLength = 2, ErrorMessage = "ReferencePropertyName must be between 2 and 100 characters if provided.")]
+    public string? ReferencePropertyName { get; set; }
+
     public string? BindingPurpose { get; set; }
 
     public bool IsPrimaryDocument { get; set; }
 
-    public string? AuthModuleCode { get; set; }
+    /// <summary>
+    /// Authorization department ID (e.g., 3 for PTIS).
+    /// Optional: Used for permission checks.
+    /// </summary>
+    public int? AuthDepartmentId { get; set; }
 
     public int? AuthReferenceId { get; set; }
 }
@@ -62,7 +77,6 @@ public class DocumentDto
     public int Id { get; set; }
     public Guid DocumentGuid { get; set; }
     public int UploadedBy { get; set; }
-    public int? OwnerUserId { get; set; }
     public string? FileName { get; set; }
     public string? OriginalFileName { get; set; }
     public string? FileExtension { get; set; }

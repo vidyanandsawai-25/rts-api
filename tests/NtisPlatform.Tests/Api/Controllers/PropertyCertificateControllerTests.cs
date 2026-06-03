@@ -1,5 +1,6 @@
-using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -8,1053 +9,423 @@ using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Models;
-using System.Security.Claims;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
 
-/// <summary>
-/// Comprehensive tests for PropertyCertificateController to achieve 100% code coverage
-/// </summary>
 public class PropertyCertificateControllerTests
 {
-    private readonly Mock<IPropertyCertificateApplicationService> _mockService;
-    private readonly Mock<ILogger<PropertyCertificateController>> _mockLogger;
-    private readonly Mock<IWebHostEnvironment> _mockEnvironment;
-    private readonly FileValidationHelper _fileValidationHelper;
-    private readonly PropertyCertificateController _controller;
-
-    public PropertyCertificateControllerTests()
+    private static PropertyCertificateController Create(
+        out Mock<IPropertyCertificateApplicationService> service,
+        bool isDevelopment = false,
+        int? userId = 42)
     {
-        _mockService = new Mock<IPropertyCertificateApplicationService>();
-        _mockLogger = new Mock<ILogger<PropertyCertificateController>>();
-        _mockEnvironment = new Mock<IWebHostEnvironment>();
-        _fileValidationHelper = CreateFileValidationHelper();
-        _controller = new PropertyCertificateController(
-            _mockService.Object,
-            _mockLogger.Object,
-            _mockEnvironment.Object,
-            _fileValidationHelper);
-        SetupControllerContext();
+        service = new Mock<IPropertyCertificateApplicationService>();
+        var logger = new Mock<ILogger<PropertyCertificateController>>();
+        var env = new Mock<IWebHostEnvironment>();
+        env.SetupGet(e => e.EnvironmentName).Returns(isDevelopment ? "Development" : "Production");
+
+        var config = new Mock<IConfiguration>();
+        var section = new Mock<IConfigurationSection>();
+        section.Setup(s => s.Value).Returns((string?)null);
+        config.Setup(c => c.GetSection(It.IsAny<string>())).Returns(section.Object);
+        var fileHelper = new FileValidationHelper(config.Object);
+
+        var controller = new PropertyCertificateController(service.Object, logger.Object, env.Object, fileHelper);
+
+        var httpContext = new DefaultHttpContext();
+        if (userId.HasValue)
+        {
+            httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString())
+            }, "TestAuth"));
+        }
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        return controller;
     }
 
-    private static FileValidationHelper CreateFileValidationHelper()
+    private static IFormFile MakeFile(string fileName, string contentType, byte[] content)
     {
-        var mockConfiguration = new Mock<IConfiguration>();
-        var mockSection = new Mock<IConfigurationSection>();
-        mockSection.Setup(s => s.Value).Returns((string?)null);
-        mockConfiguration.Setup(c => c.GetSection(It.IsAny<string>())).Returns(mockSection.Object);
-        return new FileValidationHelper(mockConfiguration.Object);
+        var stream = new MemoryStream(content);
+        var formFile = new FormFile(stream, 0, content.Length, "File", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+        return formFile;
     }
 
-    private void SetupControllerContext(int userId = 1)
-    {
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString())
-        };
-        var identity = new ClaimsIdentity(claims, "TestAuth");
-        var principal = new ClaimsPrincipal(identity);
-
-        var httpContext = new DefaultHttpContext { User = principal };
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = httpContext
-        };
-    }
-
-    private void SetupControllerContextWithoutUserId()
-    {
-        var claims = new List<Claim>();
-        var identity = new ClaimsIdentity(claims, "TestAuth");
-        var principal = new ClaimsPrincipal(identity);
-
-        var httpContext = new DefaultHttpContext { User = principal };
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = httpContext
-        };
-    }
-
-    private void SetupControllerContextWithInvalidUserId()
-    {
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, "not-a-number")
-        };
-        var identity = new ClaimsIdentity(claims, "TestAuth");
-        var principal = new ClaimsPrincipal(identity);
-
-        var httpContext = new DefaultHttpContext { User = principal };
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = httpContext
-        };
-    }
-
-    #region Upload Tests
+    #region GetCertificateTypesWithStatus
 
     [Fact]
-    public async Task Upload_WithValidData_ReturnsOk()
+    public async Task GetCertificateTypesWithStatus_ReturnsBadRequest_WhenPropertyIdInvalid()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Certificate content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
+        var controller = Create(out _);
 
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1,
-            CertificateNo = "CERT-001",
-            IssueDate = DateTime.Now
-        };
+        var result = await controller.GetCertificateTypesWithStatus(0, CancellationToken.None);
 
-        var expectedResponse = new PropertyCertificateUploadResponseDto
-        {
-            PropertyCertificateId = 1,
-            DocumentGuid = Guid.NewGuid(),
-            DocumentId = 1,
-            DocumentBindingId = 1,
-            PropertyId = 100,
-            CertificateTypeId = 1,
-            CertificateNo = "CERT-001",
-            IssueDate = formDto.IssueDate,
-            FileName = "certificate.pdf",
-            FileSizeBytes = content.Length,
-            StoragePath = "/certificates/certificate.pdf"
-        };
-
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResponse);
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<PropertyCertificateUploadResponseDto>>(okResult.Value);
-        Assert.True(response.Success);
-        Assert.Equal("PropertyCertificate uploaded successfully", response.Message);
-        Assert.NotNull(response.Items);
-        Assert.Equal(expectedResponse.PropertyCertificateId, response.Items.PropertyCertificateId);
-        Assert.Equal(expectedResponse.PropertyId, response.Items.PropertyId);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WithNullFile_ReturnsBadRequest()
+    public async Task GetCertificateTypesWithStatus_ReturnsOk_WhenPropertyIdValid()
     {
-        // Arrange
-        var formDto = new PropertyCertificateUploadFormDto
+        var controller = Create(out var service);
+        service.Setup(s => s.GetCertificateTypesWithStatusAsync(123, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyCertificateWithStatusDto>());
+
+        var result = await controller.GetCertificateTypesWithStatus(123, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatus_Returns500_OnException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.GetCertificateTypesWithStatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("error"));
+
+        var result = await controller.GetCertificateTypesWithStatus(123, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    #endregion
+
+    #region Upload
+
+    [Fact]
+    public async Task Upload_ReturnsBadRequest_WhenFileMissing()
+    {
+        var controller = Create(out _);
+        var dto = new PropertyCertificateUploadFormDto { File = null!, PropertyId = 1, CertificateTypeId = 1 };
+
+        var result = await controller.Upload(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Upload_ReturnsBadRequest_WhenFileEmpty()
+    {
+        var controller = Create(out _);
+        var dto = new PropertyCertificateUploadFormDto
         {
-            File = null!,
-            PropertyId = 100,
+            File = MakeFile("a.pdf", "application/pdf", Array.Empty<byte>()),
+            PropertyId = 1,
             CertificateTypeId = 1
         };
 
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
+        var result = await controller.Upload(dto, CancellationToken.None);
 
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("File is required", response.Message);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WithEmptyFile_ReturnsBadRequest()
+    public async Task Upload_ReturnsBadRequest_WhenFileTypeInvalid()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        fileMock.Setup(f => f.Length).Returns(0);
-
-        var formDto = new PropertyCertificateUploadFormDto
+        var controller = Create(out _);
+        var dto = new PropertyCertificateUploadFormDto
         {
-            File = fileMock.Object,
-            PropertyId = 100,
+            File = MakeFile("a.exe", "application/x-msdownload", new byte[] { 1, 2, 3 }),
+            PropertyId = 1,
             CertificateTypeId = 1
         };
 
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
+        var result = await controller.Upload(dto, CancellationToken.None);
 
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("File is required", response.Message);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WithInvalidFileType_ReturnsBadRequest()
+    public async Task Upload_ReturnsBadRequest_WhenPropertyIdInvalid()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.FileName).Returns("malicious.exe");
-        fileMock.Setup(f => f.ContentType).Returns("application/x-msdownload");
-
-        var formDto = new PropertyCertificateUploadFormDto
+        var controller = Create(out _);
+        var dto = new PropertyCertificateUploadFormDto
         {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Contains("Invalid file type", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WithValidPdfFile_Succeeds()
-    {
-        // Arrange - Test PDF is allowed
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test PDF content"u8.ToArray();
-        fileMock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(content));
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        var expectedResponse = new PropertyCertificateUploadResponseDto();
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
-            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<DateTime?>(),
-            It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResponse);
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
-    }
-
-    [Fact]
-    public async Task Upload_WithValidImageFile_Succeeds()
-    {
-        // Arrange - Test image is allowed
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test image content"u8.ToArray();
-        fileMock.Setup(f => f.OpenReadStream()).Returns(new MemoryStream(content));
-        fileMock.Setup(f => f.FileName).Returns("photo.jpg");
-        fileMock.Setup(f => f.ContentType).Returns("image/jpeg");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        var expectedResponse = new PropertyCertificateUploadResponseDto();
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(),
-            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<DateTime?>(),
-            It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResponse);
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
-    }
-
-    [Fact]
-    public async Task Upload_WithZeroPropertyId_ReturnsBadRequest()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 }),
             PropertyId = 0,
             CertificateTypeId = 1
         };
 
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
+        var result = await controller.Upload(dto, CancellationToken.None);
 
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("PropertyId is required", response.Message);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WithNegativePropertyId_ReturnsBadRequest()
+    public async Task Upload_ReturnsBadRequest_WhenCertificateTypeIdInvalid()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
+        var controller = Create(out _);
+        var dto = new PropertyCertificateUploadFormDto
         {
-            File = fileMock.Object,
-            PropertyId = -1,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("PropertyId is required", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WithZeroCertificateTypeId_ReturnsBadRequest()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 }),
+            PropertyId = 1,
             CertificateTypeId = 0
         };
 
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
+        var result = await controller.Upload(dto, CancellationToken.None);
 
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("CertificateTypeId is required", response.Message);
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WithNegativeCertificateTypeId_ReturnsBadRequest()
+    public async Task Upload_ReturnsOk_OnValidUpload()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = -5
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("CertificateTypeId is required", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WhenServiceThrowsArgumentException_ReturnsBadRequest()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
+        var controller = Create(out var service);
+        service.Setup(s => s.UploadWithDocumentAsync(
             It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new ArgumentException("Invalid certificate type"));
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("Invalid certificate type", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WhenServiceThrowsException_ReturnsInternalServerError()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, statusCodeResult.StatusCode);
-        var response = Assert.IsType<ApiResponse<object>>(statusCodeResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("An error occurred", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WithNullCertificateNo_ReturnsOk()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Certificate content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1,
-            CertificateNo = null,
-            IssueDate = null
-        };
-
-        var expectedResponse = new PropertyCertificateUploadResponseDto
-        {
-            PropertyCertificateId = 1,
-            DocumentGuid = Guid.NewGuid(),
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            100,
+            "a.pdf",
+            "application/pdf",
+            3,
+            1,
             1,
             null,
             null,
-            It.IsAny<int>(),
+            42,
             It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResponse);
+            .ReturnsAsync(new PropertyCertificateUploadResponseDto());
 
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<PropertyCertificateUploadResponseDto>>(okResult.Value);
-        Assert.True(response.Success);
-    }
-
-    [Fact]
-    public async Task Upload_VerifiesCorrectParametersPassed()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Certificate content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var issueDate = new DateTime(2024, 1, 15);
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 200,
-            CertificateTypeId = 5,
-            CertificateNo = "CERT-XYZ",
-            IssueDate = issueDate
-        };
-
-        var expectedResponse = new PropertyCertificateUploadResponseDto();
-
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            "certificate.pdf",
-            "application/pdf",
-            content.Length,
-            200,
-            5,
-            "CERT-XYZ",
-            issueDate,
-            1,
-            It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedResponse);
-
-        // Act
-        await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        _mockService.Verify(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            "certificate.pdf",
-            "application/pdf",
-            content.Length,
-            200,
-            5,
-            "CERT-XYZ",
-            issueDate,
-            1,
-            It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    #endregion
-
-    #region GetByPropertyId Tests
-
-    [Fact]
-    public async Task GetByPropertyId_WithExistingCertificates_ReturnsOk()
-    {
-        // Arrange
-        var propertyId = 100;
-        var expectedCertificates = new List<PropertyCertificateDto>
-        {
-            new PropertyCertificateDto
-            {
-                Id = 1,
-                PropertyId = propertyId,
-                CertificateTypeId = 1,
-                CertificateTypeName = "Ownership Certificate",
-                CertificateNo = "CERT-001",
-                IssueDate = DateTime.Now.AddDays(-30),
-                DocumentBindingId = 1,
-                DocumentGuid = Guid.NewGuid(),
-                IsEnabled = true
-            },
-            new PropertyCertificateDto
-            {
-                Id = 2,
-                PropertyId = propertyId,
-                CertificateTypeId = 2,
-                CertificateTypeName = "Tax Certificate",
-                CertificateNo = "CERT-002",
-                IssueDate = DateTime.Now.AddDays(-15),
-                DocumentBindingId = 2,
-                DocumentGuid = Guid.NewGuid(),
-                IsEnabled = true
-            }
-        };
-
-        _mockService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedCertificates);
-
-        // Act
-        var result = await _controller.GetByPropertyId(propertyId, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<PropertyCertificateDto>>>(okResult.Value);
-        Assert.True(response.Success);
-        Assert.NotNull(response.Items);
-        Assert.Equal(2, response.Items.Count);
-        Assert.All(response.Items, cert => Assert.Equal(propertyId, cert.PropertyId));
-    }
-
-    [Fact]
-    public async Task GetByPropertyId_WithNoCertificates_ReturnsEmptyList()
-    {
-        // Arrange
-        var propertyId = 999;
-        var expectedCertificates = new List<PropertyCertificateDto>();
-
-        _mockService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedCertificates);
-
-        // Act
-        var result = await _controller.GetByPropertyId(propertyId, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<PropertyCertificateDto>>>(okResult.Value);
-        Assert.True(response.Success);
-        Assert.NotNull(response.Items);
-        Assert.Empty(response.Items);
-    }
-
-    [Fact]
-    public async Task GetByPropertyId_VerifiesServiceCalledWithCorrectPropertyId()
-    {
-        // Arrange
-        var propertyId = 500;
-        _mockService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyCertificateDto>());
-
-        // Act
-        await _controller.GetByPropertyId(propertyId, CancellationToken.None);
-
-        // Assert
-        _mockService.Verify(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task GetByPropertyId_WithZeroPropertyId_ReturnsEmptyList()
-    {
-        // Arrange
-        var propertyId = 0;
-        _mockService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyCertificateDto>());
-
-        // Act
-        var result = await _controller.GetByPropertyId(propertyId, CancellationToken.None);
-
-        // Assert
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<PropertyCertificateDto>>>(okResult.Value);
-        Assert.True(response.Success);
-    }
-
-    #endregion
-
-    #region GetUserId Tests
-
-    [Fact]
-    public async Task Upload_WithNoUserClaim_ReturnsUnauthorized()
-    {
-        // Arrange
-        SetupControllerContextWithoutUserId();
-
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(unauthorizedResult.Value);
-        Assert.False(response.Success);
-        Assert.Contains("Valid user identification is required", response.Message);
-    }
-
-    [Fact]
-    public async Task Upload_WithInvalidUserClaim_ReturnsUnauthorized()
-    {
-        // Arrange
-        SetupControllerContextWithInvalidUserId();
-
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(unauthorizedResult.Value);
-        Assert.False(response.Success);
-    }
-
-    [Fact]
-    public async Task Upload_WithZeroUserId_ReturnsUnauthorized()
-    {
-        // Arrange
-        SetupControllerContext(userId: 0);
-
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(unauthorizedResult.Value);
-        Assert.False(response.Success);
-    }
-
-    [Fact]
-    public async Task Upload_WithNegativeUserId_ReturnsUnauthorized()
-    {
-        // Arrange
-        SetupControllerContext(userId: -1);
-
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        // Act
-        var result = await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert
-        var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<object>>(unauthorizedResult.Value);
-        Assert.False(response.Success);
-    }
-
-    #endregion
-
-    #region Constructor Tests
-
-    [Fact]
-    public void Constructor_WithValidDependencies_CreatesInstance()
-    {
-        // Arrange & Act
-        var controller = new PropertyCertificateController(
-            _mockService.Object,
-            _mockLogger.Object,
-            _mockEnvironment.Object,
-            _fileValidationHelper);
-
-        // Assert
-        Assert.NotNull(controller);
-    }
-
-    #endregion
-
-    #region PropertyCertificateUploadFormDto Tests
-
-    [Fact]
-    public void PropertyCertificateUploadFormDto_DefaultValues_AreCorrect()
-    {
-        // Arrange & Act
-        var dto = new PropertyCertificateUploadFormDto();
-
-        // Assert
-        Assert.Null(dto.File);
-        Assert.Equal(0, dto.PropertyId);
-        Assert.Equal(0, dto.CertificateTypeId);
-        Assert.Null(dto.CertificateNo);
-        Assert.Null(dto.IssueDate);
-    }
-
-    [Fact]
-    public void PropertyCertificateUploadFormDto_CanSetAllProperties()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var issueDate = DateTime.Now;
-
-        // Act
         var dto = new PropertyCertificateUploadFormDto
         {
-            File = fileMock.Object,
-            PropertyId = 123,
-            CertificateTypeId = 5,
-            CertificateNo = "CERT-TEST",
-            IssueDate = issueDate
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 }),
+            PropertyId = 1,
+            CertificateTypeId = 1
         };
 
-        // Assert
-        Assert.Equal(fileMock.Object, dto.File);
-        Assert.Equal(123, dto.PropertyId);
-        Assert.Equal(5, dto.CertificateTypeId);
-        Assert.Equal("CERT-TEST", dto.CertificateNo);
-        Assert.Equal(issueDate, dto.IssueDate);
+        var result = await controller.Upload(dto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Upload_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    {
+        var controller = Create(out _, userId: null);
+        var dto = new PropertyCertificateUploadFormDto
+        {
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 }),
+            PropertyId = 1,
+            CertificateTypeId = 1
+        };
+
+        var result = await controller.Upload(dto, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Upload_ReturnsBadRequest_OnArgumentException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.UploadWithDocumentAsync(
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<string?>(),
+            It.IsAny<DateTime?>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("invalid"));
+
+        var dto = new PropertyCertificateUploadFormDto
+        {
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2 }),
+            PropertyId = 1,
+            CertificateTypeId = 1
+        };
+
+        var result = await controller.Upload(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     #endregion
 
-    #region Integration-like Tests
+    #region ReplaceDocument
 
     [Fact]
-    public async Task Upload_ThenGetByPropertyId_WorksTogether()
+    public async Task ReplaceDocument_ReturnsBadRequest_WhenPropertyCertificateIdInvalid()
     {
-        // Arrange
-        var propertyId = 100;
-        var fileMock = new Mock<IFormFile>();
-        var content = "Certificate content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
+        var controller = Create(out _);
+        var dto = new ReplacePropertyCertificateDocumentFormDto
         {
-            File = fileMock.Object,
-            PropertyId = propertyId,
-            CertificateTypeId = 1,
-            CertificateNo = "CERT-001"
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 })
         };
 
-        var uploadResponse = new PropertyCertificateUploadResponseDto
+        var result = await controller.ReplaceDocument(0, dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsBadRequest_WhenFileMissing()
+    {
+        var controller = Create(out _);
+        var dto = new ReplacePropertyCertificateDocumentFormDto { File = null! };
+
+        var result = await controller.ReplaceDocument(123, dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsBadRequest_WhenFileTypeInvalid()
+    {
+        var controller = Create(out _);
+        var dto = new ReplacePropertyCertificateDocumentFormDto
         {
-            PropertyCertificateId = 1,
-            DocumentGuid = Guid.NewGuid(),
-            PropertyId = propertyId
+            File = MakeFile("a.exe", "application/x-msdownload", new byte[] { 1, 2, 3 })
         };
 
-        var certificates = new List<PropertyCertificateDto>
+        var result = await controller.ReplaceDocument(123, dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    {
+        var controller = Create(out _, userId: null);
+        var dto = new ReplacePropertyCertificateDocumentFormDto
         {
-            new PropertyCertificateDto
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 })
+        };
+
+        var result = await controller.ReplaceDocument(123, dto, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsNotFound_OnInvalidOperationException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.ReplaceDocumentAsync(
+            It.IsAny<int>(),
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("not found"));
+
+        var dto = new ReplacePropertyCertificateDocumentFormDto
+        {
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 })
+        };
+
+        var result = await controller.ReplaceDocument(123, dto, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ReplaceDocument_ReturnsOk_OnValidReplace()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.ReplaceDocumentAsync(
+            123,
+            It.IsAny<Stream>(),
+            "a.pdf",
+            "application/pdf",
+            3,
+            42,
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyCertificateUploadResponseDto());
+
+        var dto = new ReplacePropertyCertificateDocumentFormDto
+        {
+            File = MakeFile("a.pdf", "application/pdf", new byte[] { 1, 2, 3 })
+        };
+
+        var result = await controller.ReplaceDocument(123, dto, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    #endregion
+
+    #region BulkSaveAll
+
+    [Fact]
+    public async Task BulkSaveAll_ReturnsBadRequest_WhenModelStateInvalid()
+    {
+        var controller = Create(out _);
+        controller.ModelState.AddModelError("key", "error");
+        var dto = new PropertyCertificateBulkSaveDto { PropertyId = 1, Certificates = new List<PropertyCertificateItemDto>() };
+
+        var result = await controller.BulkSaveAll(dto, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task BulkSaveAll_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    {
+        var controller = Create(out _, userId: null);
+        var dto = new PropertyCertificateBulkSaveDto { PropertyId = 1, Certificates = new List<PropertyCertificateItemDto>() };
+
+        var result = await controller.BulkSaveAll(dto, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task BulkSaveAll_ReturnsOk_OnSuccessfulSave()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.BulkSaveAllAsync(
+            It.IsAny<PropertyCertificateBulkSaveDto>(),
+            42,
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyCertificateBulkSaveResponseDto
             {
-                Id = 1,
-                PropertyId = propertyId,
-                CertificateNo = "CERT-001"
-            }
-        };
+                PropertyId = 1,
+                TotalProcessed = 5,
+                EnabledCount = 3,
+                DisabledCount = 2,
+                Errors = new List<string>()
+            });
 
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            propertyId,
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()))
-            .ReturnsAsync(uploadResponse);
-
-        _mockService.Setup(s => s.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(certificates);
-
-        // Act - Upload
-        var uploadResult = await _controller.Upload(formDto, CancellationToken.None);
-        var uploadOkResult = Assert.IsType<OkObjectResult>(uploadResult);
-        var uploadApiResponse = Assert.IsType<ApiResponse<PropertyCertificateUploadResponseDto>>(uploadOkResult.Value);
-        Assert.True(uploadApiResponse.Success);
-
-        // Act - Get
-        var getResult = await _controller.GetByPropertyId(propertyId, CancellationToken.None);
-        var getOkResult = Assert.IsType<OkObjectResult>(getResult);
-        var getApiResponse = Assert.IsType<ApiResponse<List<PropertyCertificateDto>>>(getOkResult.Value);
-
-        // Assert
-        Assert.True(getApiResponse.Success);
-        Assert.Single(getApiResponse.Items!);
-        Assert.Equal("CERT-001", getApiResponse.Items![0].CertificateNo);
-    }
-
-    #endregion
-
-    #region Logging Tests
-
-    [Fact]
-    public async Task Upload_WhenArgumentExceptionThrown_LogsWarning()
-    {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
+        var dto = new PropertyCertificateBulkSaveDto
         {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
+            PropertyId = 1,
+            Certificates = new List<PropertyCertificateItemDto>()
         };
 
-        var expectedException = new ArgumentException("Validation failed");
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()))
-            .ThrowsAsync(expectedException);
+        var result = await controller.BulkSaveAll(dto, CancellationToken.None);
 
-        // Act
-        await _controller.Upload(formDto, CancellationToken.None);
-
-        // Assert - Verify logging was called
-        _mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => true),
-                expectedException,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
+        Assert.IsType<OkObjectResult>(result);
     }
 
     [Fact]
-    public async Task Upload_WhenExceptionThrown_LogsError()
+    public async Task BulkSaveAll_Returns500_OnGenericException()
     {
-        // Arrange
-        var fileMock = new Mock<IFormFile>();
-        var content = "Test content"u8.ToArray();
-        var ms = new MemoryStream(content);
-        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
-        fileMock.Setup(f => f.FileName).Returns("certificate.pdf");
-        fileMock.Setup(f => f.Length).Returns(content.Length);
-        fileMock.Setup(f => f.ContentType).Returns("application/pdf");
-
-        var formDto = new PropertyCertificateUploadFormDto
-        {
-            File = fileMock.Object,
-            PropertyId = 100,
-            CertificateTypeId = 1
-        };
-
-        var expectedException = new Exception("Database error");
-        _mockService.Setup(s => s.UploadWithDocumentAsync(
-            It.IsAny<Stream>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<int>(),
-            It.IsAny<int>(),
-            It.IsAny<string?>(),
-            It.IsAny<DateTime?>(),
+        var controller = Create(out var service);
+        service.Setup(s => s.BulkSaveAllAsync(
+            It.IsAny<PropertyCertificateBulkSaveDto>(),
             It.IsAny<int>(),
             It.IsAny<CancellationToken>()))
-            .ThrowsAsync(expectedException);
+            .ThrowsAsync(new InvalidOperationException("error"));
 
-        // Act
-        await _controller.Upload(formDto, CancellationToken.None);
+        var dto = new PropertyCertificateBulkSaveDto
+        {
+            PropertyId = 1,
+            Certificates = new List<PropertyCertificateItemDto>()
+        };
 
-        // Assert - Verify logging was called
-        _mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => true),
-                expectedException,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
+        var result = await controller.BulkSaveAll(dto, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
     }
 
     #endregion

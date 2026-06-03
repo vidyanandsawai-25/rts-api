@@ -139,13 +139,15 @@ public class DocumentApplicationService : IDocumentApplicationService
                         {
                             bindingId = await _documentService.CreateDocumentBindingAsync(
                                 documentId,
-                                uploadDto.ModuleCode!,
+                                uploadDto.DepartmentId!.Value,
+                                uploadDto.ModuleId!.Value,
                                 uploadDto.ReferenceTableName!,
                                 uploadDto.ReferenceTableId,
                                 uploadDto.ReferenceTableIdGuid,
+                                uploadDto.ReferencePropertyName ?? "Id",
                                 uploadDto.BindingPurpose,
                                 uploadDto.IsPrimaryDocument,
-                                uploadDto.AuthModuleCode,
+                                uploadDto.AuthDepartmentId,
                                 uploadDto.AuthReferenceId,
                                 uploadedBy,
                                 cancellationToken);
@@ -231,7 +233,6 @@ public class DocumentApplicationService : IDocumentApplicationService
             Id = document.Id,
             DocumentGuid = document.DocumentGuid,
             UploadedBy = document.UploadedByUserId,
-            OwnerUserId = document.OwnerUserId,
             FileName = document.FileName,
             OriginalFileName = document.OriginalFileName,
             FileExtension = document.FileExtension,
@@ -341,12 +342,12 @@ public class DocumentApplicationService : IDocumentApplicationService
     /// <returns>True if a valid binding should be created, false otherwise</returns>
     private bool ShouldCreateBinding(DocumentUploadDto dto)
     {
-        // Check if ModuleCode is provided and not a placeholder/test value
-        if (string.IsNullOrWhiteSpace(dto.ModuleCode))
+        // Check if DepartmentId is provided and valid
+        if (!dto.DepartmentId.HasValue || dto.DepartmentId.Value <= 0)
             return false;
 
-        // Validate ModuleCode format (uppercase letters and underscores only, 2-50 chars)
-        if (!System.Text.RegularExpressions.Regex.IsMatch(dto.ModuleCode, @"^[A-Z_]{2,50}$"))
+        // Check if ModuleId is provided and valid
+        if (!dto.ModuleId.HasValue || dto.ModuleId.Value <= 0)
             return false;
 
         // Check if ReferenceTableName is provided and not a placeholder/test value

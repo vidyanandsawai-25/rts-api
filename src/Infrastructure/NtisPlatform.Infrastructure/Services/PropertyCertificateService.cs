@@ -8,8 +8,8 @@ using NtisPlatform.Infrastructure.Data;
 namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
-/// Service for PTIS.PropertyCertificate operations
-/// SEPARATE from Document service
+/// Service for PTIS.PropertyCertificates operations.
+/// SEPARATE from Document service.
 /// </summary>
 public class PropertyCertificateService : IPropertyCertificateService
 {
@@ -185,6 +185,28 @@ public class PropertyCertificateService : IPropertyCertificateService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<PropertyCertificateEntity>> GetByPropertyIdIncludingInactiveAsync(
+        int propertyId,
+        PropertyCertificateIncludeOptions includeOptions,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.PropertyCertificates
+            .AsNoTracking();
+
+        // Use split query if loading multiple navigation properties for better performance
+        if (includeOptions != PropertyCertificateIncludeOptions.None)
+        {
+            query = query.AsSplitQuery();
+        }
+
+        // Apply includes based on flags
+        query = ApplyIncludes(query, includeOptions);
+
+        return await query
+            .Where(x => x.PropertyId == propertyId && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+    }
+
     /// <summary>
     /// Applies Include statements to the query based on the specified options.
     /// Uses flags to provide flexible, composable loading strategies.
@@ -218,5 +240,76 @@ public class PropertyCertificateService : IPropertyCertificateService
         }
 
         return query;
+    }
+
+    public async Task UpdateAsync(
+        int id,
+        string? certificateNo,
+        DateTime? issueDate,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.PropertyCertificates
+            .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
+
+        if (entity == null)
+        {
+            throw new PropertyCertificateNotFoundException(id);
+        }
+
+        entity.UpdateDetails(certificateNo, issueDate);
+        entity.UpdatedBy = updatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task ToggleEnabledAsync(
+        int id,
+        bool isEnabled,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.PropertyCertificates
+            .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
+
+        if (entity == null)
+        {
+            throw new PropertyCertificateNotFoundException(id);
+        }
+
+        if (isEnabled)
+        {
+            entity.Enable();
+        }
+        else
+        {
+            entity.Disable();
+        }
+
+        entity.UpdatedBy = updatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DeleteAsync(
+        int id,
+        int deletedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.PropertyCertificates
+            .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
+
+        if (entity == null)
+        {
+            throw new PropertyCertificateNotFoundException(id);
+        }
+
+        entity.MarkForDeletion();
+        entity.UpdatedBy = deletedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

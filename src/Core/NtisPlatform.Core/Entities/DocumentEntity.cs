@@ -36,14 +36,12 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         long fileSizeBytes,
         string storagePath,
         string? storageProvider = null,
-        int? ownerUserId = null,
         string? documentType = null,
         string? uploadStatusCode = null,
         int downloadCount = 0)
     {
         DocumentGuid = documentGuid;
         UploadedByUserId = uploadedByUserId;
-        OwnerUserId = ownerUserId ?? uploadedByUserId;
         _fileName = fileName;
         _originalFileName = originalFileName;
         _fileExtension = fileExtension.ToLowerInvariant();
@@ -95,7 +93,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         {
             DocumentGuid = Guid.NewGuid(),
             UploadedByUserId = uploadedByUserId,
-            OwnerUserId = uploadedByUserId, // Default owner to uploader
             _fileName = fileName,
             _originalFileName = originalFileName,
             _fileExtension = fileExtension.ToLowerInvariant(),
@@ -128,17 +125,30 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     /// </summary>
     public Guid DocumentGuid { get; private set; }
 
+    /// <summary>
+    /// FK to CORE.DepartmentMaster(Id). Identifies which department this document belongs to.
+    /// Required for correct filtering when combined with DepartmentEntityId.
+    /// Example: 3 (DepartmentMaster.Id for 'PTIS')
+    /// </summary>
+    public int? DepartmentId { get; private set; }
+
+    /// <summary>
+    /// Department-specific primary business id this document logically belongs to.
+    /// The value's meaning depends on the owning department (identified by DepartmentId):
+    ///   When DepartmentId=PTIS  -> PropertyId
+    ///   When DepartmentId=WTIS  -> ConsumerId
+    ///   When DepartmentId=ASSET -> AssetId  (and so on)
+    /// Nullable for cases where no department-level entity applies yet.
+    /// MUST be filtered together with DepartmentId to prevent ID collision across departments.
+    /// Example: DepartmentId=3, DepartmentEntityId=1001  (PTIS PropertyId)
+    /// </summary>
+    public int? DepartmentEntityId { get; private set; }
+
     // Ownership
     /// <summary>
     /// User who uploaded the document (surveyor/data entry operator)
     /// </summary>
     public int UploadedByUserId { get; private set; }
-
-    /// <summary>
-    /// Document owner - can differ from uploader (e.g., property owner)
-    /// Can be NULL (defaults to uploader ownership)
-    /// </summary>
-    public int? OwnerUserId { get; private set; }
 
     // File Information - Encapsulated with validation
     /// <summary>
@@ -294,12 +304,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     /// </summary>
     public bool IsLatestVersion { get; private set; } = true;
 
-    /// <summary>
-    /// ID of the document that replaced this version.
-    /// NULL if this is the latest version, set when superseded by a newer version.
-    /// </summary>
-    public int? ReplacedByDocumentId { get; private set; }
-
     // Access Control (future use)
     /// <summary>
     /// Indicates if the document is publicly accessible without authentication.
@@ -318,19 +322,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     /// Optional, used for access control and compliance.
     /// </summary>
     public string? ConfidentialityLevel { get; private set; }
-
-    // Compliance & Retention (future use)
-    /// <summary>
-    /// Date when the document expires and should no longer be used.
-    /// Optional, used for compliance and document lifecycle management.
-    /// </summary>
-    public DateTime? ExpiryDate { get; private set; }
-
-    /// <summary>
-    /// Number of days to retain the document for legal or regulatory compliance.
-    /// Optional, used for automatic deletion policies.
-    /// </summary>
-    public int? RetentionPeriodDays { get; private set; }
 
     // Document Content (future use)
     /// <summary>
@@ -377,20 +368,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         private set => _downloadCount = value >= 0 ? value : throw new ArgumentException("Download count cannot be negative.");
     }
 
-    /// <summary>
-    /// Timestamp of the last download or access to the document.
-    /// Updated by RecordDownload method.
-    /// Used for tracking document usage and identifying inactive documents.
-    /// </summary>
-    public DateTime? LastAccessedDate { get; private set; }
-
-    /// <summary>
-    /// User ID of the last person to download or access the document.
-    /// Updated by RecordDownload method.
-    /// Used for audit trails and usage analytics.
-    /// </summary>
-    public int? LastAccessedBy { get; private set; }
-
     // Status Flags
     /// <summary>
     /// Identifier of the source system that created the document.
@@ -430,19 +407,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     }
 
     /// <summary>
-    /// Timestamp when the document was permanently deleted (hard delete).
-    /// NULL for active documents or soft-deleted documents.
-    /// </summary>
-    public DateTime? DeletedDate { get; private set; }
-
-    /// <summary>
-    /// User ID of the person who deleted the document.
-    /// NULL for active documents.
-    /// Used for audit trails and accountability.
-    /// </summary>
-    public int? DeletedBy { get; private set; }
-
-    /// <summary>
     /// Concurrency token for optimistic concurrency control.
     /// Automatically updated by EF Core on each save.
     /// Prevents lost updates in concurrent scenarios.
@@ -457,12 +421,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     public DocumentEntity? ParentDocument { get; private set; }
 
     /// <summary>
-    /// Navigation property to the document that replaced this version.
-    /// NULL if this is the latest version.
-    /// </summary>
-    public DocumentEntity? ReplacedByDocument { get; private set; }
-
-    /// <summary>
     /// Collection of document bindings that link this document to business entities.
     /// A document can be bound to multiple entities (e.g., Property, Certificate, Invoice).
     /// </summary>
@@ -471,7 +429,7 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     // ========== Domain Methods ==========
 
     /// <summary>
-    /// Increment download count and update last accessed information
+    /// Increment download count
     /// </summary>
     public void RecordDownload(int userId)
     {
@@ -482,8 +440,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
             throw new InvalidOperationException("Cannot download a document marked for deletion.");
 
         DownloadCount++;
-        LastAccessedDate = DateTime.Now;
-        LastAccessedBy = userId;
     }
 
     /// <summary>
@@ -499,7 +455,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
 
         _markedForDeletion = true;
         _markedForDeletionDate = DateTime.Now;
-        DeletedBy = deletedByUserId;
         IsActive = false;
     }
 
@@ -513,8 +468,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
 
         _markedForDeletion = false;
         _markedForDeletionDate = null;
-        DeletedBy = null;
-        DeletedDate = null;
         IsActive = true;
     }
 
@@ -575,19 +528,7 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         DocumentCategory = trimmedCategory;
     }
 
-    /// <summary>
-    /// Transfer ownership to another user
-    /// </summary>
-    public void TransferOwnership(int newOwnerUserId)
-    {
-        if (newOwnerUserId <= 0)
-            throw new ArgumentException("New owner user ID must be greater than zero.", nameof(newOwnerUserId));
 
-        if (_markedForDeletion)
-            throw new InvalidOperationException("Cannot transfer ownership of a document marked for deletion.");
-
-        OwnerUserId = newOwnerUserId;
-    }
 
     /// <summary>
     /// Set checksum for integrity verification
@@ -604,23 +545,27 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     }
 
     /// <summary>
-    /// Set expiry date with validation
+    /// Set department and department entity ID for quick filtering
     /// </summary>
-    public void SetExpiryDate(DateTime expiryDate)
+    public void SetDepartmentEntity(int? departmentId, int? departmentEntityId)
     {
-        if (expiryDate <= DateTime.Now)
-            throw new ArgumentException("Expiry date must be in the future.", nameof(expiryDate));
+        // Business rule: DepartmentEntityId requires DepartmentId to be set
+        if (departmentEntityId.HasValue && !departmentId.HasValue)
+            throw new ArgumentException("DepartmentEntityId requires DepartmentId to be set.", nameof(departmentId));
 
-        ExpiryDate = expiryDate;
+        if (departmentId.HasValue && departmentId.Value <= 0)
+            throw new ArgumentException("DepartmentId must be greater than zero.", nameof(departmentId));
+
+        if (departmentEntityId.HasValue && departmentEntityId.Value <= 0)
+            throw new ArgumentException("DepartmentEntityId must be greater than zero.", nameof(departmentEntityId));
+
+        DepartmentId = departmentId;
+        DepartmentEntityId = departmentEntityId;
     }
 
-    /// <summary>
-    /// Check if document is expired
-    /// </summary>
-    public bool IsExpired()
-    {
-        return ExpiryDate.HasValue && ExpiryDate.Value <= DateTime.Now;
-    }
+
+
+
 
     /// <summary>
     /// Mark document as a new version of another document
@@ -638,17 +583,7 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         IsLatestVersion = true;
     }
 
-    /// <summary>
-    /// Mark this version as outdated (replaced by a newer version)
-    /// </summary>
-    public void MarkAsOutdated(int replacedByDocumentId)
-    {
-        if (replacedByDocumentId <= 0)
-            throw new ArgumentException("Replaced by document ID must be greater than zero.", nameof(replacedByDocumentId));
 
-        ReplacedByDocumentId = replacedByDocumentId;
-        IsLatestVersion = false;
-    }
 
     /// <summary>
     /// Set confidentiality level
@@ -679,7 +614,6 @@ public class DocumentEntity : BaseEntity, IHardDeletable
     public bool ValidateIntegrity()
     {
         if (_markedForDeletion) return false;
-        if (IsExpired()) return false;
         if (ScanStatusCode == DocumentScanStatus.Infected.ToStatusString()) return false;
         if (!IsActive) return false;
 

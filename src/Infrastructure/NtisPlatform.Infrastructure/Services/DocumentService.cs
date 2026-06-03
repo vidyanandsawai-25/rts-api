@@ -53,10 +53,7 @@ public class DocumentService : IDocumentService
             storagePath,
             documentType);
 
-        if (ownerUserId.HasValue && ownerUserId.Value != uploadedByUserId)
-        {
-            document.TransferOwnership(ownerUserId.Value);
-        }
+        // OwnerUserId property removed from entity - ownership is always the uploader
 
         if (!string.IsNullOrWhiteSpace(checksumSha256))
         {
@@ -75,26 +72,38 @@ public class DocumentService : IDocumentService
 
     public async Task<int> CreateDocumentBindingAsync(
         int documentId,
-        string moduleCode,
+        int departmentId,
+        int moduleId,
         string referenceTableName,
         int? referenceTableId,
         Guid? referenceTableIdGuid,
+        string referencePropertyName,
         string? bindingPurpose,
         bool isPrimaryDocument,
-        string? authModuleCode,
+        int? authDepartmentId,
         int? authReferenceId,
         int createdBy,
         CancellationToken cancellationToken = default)
     {
         // Validate required fields
-        if (string.IsNullOrWhiteSpace(moduleCode))
+        if (departmentId <= 0)
         {
-            throw new InvalidBindingException("Module code is required.", moduleCode);
+            throw new ArgumentException("Department ID must be greater than zero.", nameof(departmentId));
+        }
+
+        if (moduleId <= 0)
+        {
+            throw new ArgumentException("Module ID must be greater than zero.", nameof(moduleId));
         }
 
         if (string.IsNullOrWhiteSpace(referenceTableName))
         {
             throw new InvalidBindingException("Reference table name is required.", null, referenceTableName);
+        }
+
+        if (string.IsNullOrWhiteSpace(referencePropertyName))
+        {
+            throw new ArgumentException("Reference property name is required.", nameof(referencePropertyName));
         }
 
         // Validate XOR semantics: exactly one of referenceTableId or referenceTableIdGuid must be provided
@@ -106,18 +115,22 @@ public class DocumentService : IDocumentService
         {
             binding = DocumentBindingEntity.CreateWithIntReference(
                 documentId,
-                moduleCode,
+                departmentId,
+                moduleId,
                 referenceTableName,
                 referenceTableId!.Value,
+                referencePropertyName,
                 bindingPurpose);
         }
         else
         {
             binding = DocumentBindingEntity.CreateWithGuidReference(
                 documentId,
-                moduleCode,
+                departmentId,
+                moduleId,
                 referenceTableName,
                 referenceTableIdGuid!.Value,
+                referencePropertyName,
                 bindingPurpose);
         }
 
@@ -126,9 +139,9 @@ public class DocumentService : IDocumentService
             binding.MarkAsPrimary();
         }
 
-        if (!string.IsNullOrWhiteSpace(authModuleCode) && authReferenceId.HasValue)
+        if (authDepartmentId.HasValue && authReferenceId.HasValue)
         {
-            binding.SetAuthorizationContext(authModuleCode, authReferenceId.Value);
+            binding.SetAuthorizationContext(authDepartmentId.Value, authReferenceId.Value);
         }
 
         binding.CreatedBy = createdBy;
@@ -214,7 +227,6 @@ public class DocumentService : IDocumentService
 
         var orderedBindings = await query
             .OrderByDescending(db => db.IsPrimaryDocument)
-            .ThenBy(db => db.DisplayOrder)
             .ThenByDescending(db => db.CreatedDate)
             .Select(db => new
             {
