@@ -130,6 +130,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
+        services.AddScoped<IDynamicEntityLoader, DynamicEntityLoader>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
