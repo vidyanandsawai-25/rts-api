@@ -115,9 +115,9 @@ public class AutoMapperValidationTest
              "UseFactorCVMaster", "NatureFactorCVMaster", "AgeFactorCVMaster",
              "RateMasterForCV", "TaxPercentageMasterCV", "Rates",
              "TaxPercentageMasterRV", "DepreciationMaster",
-              "PropertyDetails", "PropertyMast", "Property", // Updated specific property names
+              "PropertyDetails", "PropertyMast", "Property", "Master", // Updated specific property names
               "RateSection", "RateSectionDetails", "BlockMaster",
-              "WaterConnectionMaster", "WaterRateMaster", 
+              "WaterConnectionMaster", "WaterRateMaster",
               "PropertyAssessmentDetails", "PropertyCertificates", "PropertyTaxCalculationSection129Results",
               "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
               "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",

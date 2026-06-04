@@ -238,7 +238,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
- 
+        services.AddScoped<IBulkUpdateFieldConfigService, BulkUpdateFieldConfigService>();
+        services.AddScoped<IBulkUpdateMasterService, BulkUpdateMasterService>();
+
         services.AddScoped<IDataEntryService, DataEntryService>();
         services.AddScoped<IRenterDetailService, RenterDetailService>();
         services.AddScoped<IRenterMastService, RenterMastService>();
