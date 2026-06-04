@@ -75,4 +75,23 @@ public interface IPropertyService
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
 
     Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
+
+    /// <summary>
+    /// Gets discount information for a specific property including all social attributes where IsDiscountApplicable=1.
+    /// This endpoint is used to populate the Discount Information tab in the property form.
+    /// </summary>
+    /// <param name="propertyId">The unique identifier of the property</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Property discount details including all applicable discount attributes with their values and documents</returns>
+    Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Updates discount information for a specific property by upserting PropertySocialDetails records.
+    /// Handles toggle states, values, and document uploads for discount-applicable social attributes.
+    /// </summary>
+    /// <param name="propertyId">The unique identifier of the property</param>
+    /// <param name="dto">The discount information update payload</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Updated property discount details</returns>
+    Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default);
 }

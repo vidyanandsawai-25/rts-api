@@ -16,7 +16,7 @@ public class PropertyControllerFloorDetailsOldTests
     {
         service = new Mock<IPropertyService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return new PropertyController(service.Object, logger.Object);
+        return PropertyControllerTestHelper.CreateController(service, logger);
     }
 
     #region Get

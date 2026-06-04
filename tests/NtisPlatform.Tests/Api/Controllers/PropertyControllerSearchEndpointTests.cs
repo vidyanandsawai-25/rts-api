@@ -26,7 +26,7 @@ public class PropertyControllerSearchEndpointTests
     {
         _mockPropertyService = new Mock<IPropertyService>();
         _mockLogger = new Mock<ILogger<PropertyController>>();
-        _controller = new PropertyController(_mockPropertyService.Object, _mockLogger.Object);
+        _controller = PropertyControllerTestHelper.CreateController(_mockPropertyService, _mockLogger);
     }
 
     #region GET /api/Property/search Tests

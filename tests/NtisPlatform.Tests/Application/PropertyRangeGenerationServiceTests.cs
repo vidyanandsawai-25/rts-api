@@ -175,6 +175,7 @@ namespace NtisPlatform.Tests.Repositories
 
 namespace NtisPlatform.Tests.Application
 {
+    using NtisPlatform.Tests.Api.Controllers;
 
     /// <summary>
     /// Tests for PropertyService range-based property generation functionality.
@@ -851,7 +852,7 @@ namespace NtisPlatform.Tests.Application
         {
             _mockPropertyService = new Mock<IPropertyService>();
             _mockLogger = new Mock<ILogger<PropertyController>>();
-            _controller = new PropertyController(_mockPropertyService.Object, _mockLogger.Object);
+            _controller = PropertyControllerTestHelper.CreateController(_mockPropertyService, _mockLogger);
         }
 
         private static CreateNewPropertyDto CreateControllerValidTemplate() => new()

@@ -1129,5 +1129,14 @@ public class PropertyService
         }
     }
 
+    public async Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetDiscountDetailsAsync(propertyId, cancellationToken);
+    }
+
+    public async Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.UpdateDiscountDetailsAsync(propertyId, dto, cancellationToken);
+    }
 
 }

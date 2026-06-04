@@ -28,7 +28,7 @@ public class ComprehensiveControllerTests
     {
         var mockService = new Mock<IPropertyService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var controller = new PropertyController(mockService.Object, mockLogger.Object);
+        var controller = PropertyControllerTestHelper.CreateController(mockService, mockLogger);
 
         var query = new PropertyQueryParameters();
         var pagedResult = new PagedResult<PropertyDto>(new List<PropertyDto>(), 0, 1, 10);
@@ -47,7 +47,7 @@ public class ComprehensiveControllerTests
     {
         var mockService = new Mock<IPropertyService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var controller = new PropertyController(mockService.Object, mockLogger.Object);
+        var controller = PropertyControllerTestHelper.CreateController(mockService, mockLogger);
 
         var dto = new PropertyDto { Id = 1 };
         mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -64,7 +64,7 @@ public class ComprehensiveControllerTests
     {
         var mockService = new Mock<IPropertyService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var controller = new PropertyController(mockService.Object, mockLogger.Object);
+        var controller = PropertyControllerTestHelper.CreateController(mockService, mockLogger);
 
         var createDto = new CreatePropertyDto { WardId = 1, TaxZoneId = 1 };
         var resultDto = new PropertyDto { Id = 1 };
@@ -83,7 +83,7 @@ public class ComprehensiveControllerTests
     {
         var mockService = new Mock<IPropertyService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var controller = new PropertyController(mockService.Object, mockLogger.Object);
+        var controller = PropertyControllerTestHelper.CreateController(mockService, mockLogger);
 
         var updateDto = new UpdatePropertyDto { WardId = 1, TaxZoneId = 1 };
         var resultDto = new PropertyDto { Id = 1 };
@@ -102,7 +102,7 @@ public class ComprehensiveControllerTests
     {
         var mockService = new Mock<IPropertyService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var controller = new PropertyController(mockService.Object, mockLogger.Object);
+        var controller = PropertyControllerTestHelper.CreateController(mockService, mockLogger);
 
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);

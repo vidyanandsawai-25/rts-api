@@ -4,6 +4,7 @@ using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.Range;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Models;
 
@@ -27,16 +28,25 @@ public partial class PropertyController : ControllerBase
 {
     private readonly IPropertyService _propertyService;
     private readonly ILogger<PropertyController> _logger;
+    private readonly IPropertyDiscountDocumentService _discountDocumentService;
+    private readonly IWebHostEnvironment _environment;
+    private readonly FileValidationHelper _fileValidationHelper;
 
     /// <summary>
     /// Constructor follows codebase convention: Service dependencies first, then infrastructure.
     /// </summary>
     public PropertyController(
         IPropertyService propertyService,
-        ILogger<PropertyController> logger)
+        ILogger<PropertyController> logger,
+        IPropertyDiscountDocumentService discountDocumentService,
+        IWebHostEnvironment environment,
+        FileValidationHelper fileValidationHelper)
     {
         _propertyService = propertyService;
         _logger = logger;
+        _discountDocumentService = discountDocumentService;
+        _environment = environment;
+        _fileValidationHelper = fileValidationHelper;
     }
 
     [HttpGet]

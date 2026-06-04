@@ -337,6 +337,24 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 
 	Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
 
+	/// <summary>
+	/// Retrieves discount information for a property including all social attributes where IsDiscountApplicable=1.
+	/// Returns all discount-applicable attributes with their current values from PropertySocialDetails if they exist.
+	/// </summary>
+	/// <param name="propertyId">The property identifier</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>Property discount details DTO or null if property not found</returns>
+	Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+
+	/// <summary>
+	/// Updates discount information for a property by upserting PropertySocialDetails records.
+	/// Handles creating, updating, and managing discount-applicable social attributes.
+	/// </summary>
+	/// <param name="propertyId">The property identifier</param>
+	/// <param name="dto">The discount information update payload</param>
+	/// <param name="cancellationToken">Cancellation token</param>
+	/// <returns>Updated property discount details DTO or null if property not found</returns>
+	Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default);
 
     Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
     Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default);

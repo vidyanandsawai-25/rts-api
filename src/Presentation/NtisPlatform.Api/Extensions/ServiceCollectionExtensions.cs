@@ -151,6 +151,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUlbConfigService, UlbConfigService>();
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
+        services.AddScoped<IPropertyDiscountDocumentService, PropertyDiscountDocumentService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
 
 

@@ -3911,5 +3911,170 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             cancellationToken);
     }
 
+    public async Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Check if property exists
+        var property = await _context.PropertyMast
+            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (property == null) return null;
+
+        // Step 2: Get all social attributes where IsDiscountApplicable = 1
+        var discountAttributes = await _context.Set<SocialAttributeEntity>()
+            .Where(sa => sa.IsActive && sa.IsDiscountApplicable)
+            .OrderBy(sa => sa.DisplayOrder ?? int.MaxValue)
+            .ThenBy(sa => sa.SocialAttributeName)
+            .ToListAsync(cancellationToken);
+
+        // Step 3: Get existing PropertySocialDetails for this property
+        var existingDetails = await _context.Set<PropertySocialDetailsEntity>()
+            .Where(psd => psd.PropertyId == propertyId && psd.IsActive)
+            .ToListAsync(cancellationToken);
+
+        var existingByAttributeId = existingDetails
+            .GroupBy(x => x.SocialAttributeId)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        // Step 4: Build response DTO
+        var result = new PropertyDiscountInfoResponseDto
+        {
+            PropertyId = propertyId,
+            DiscountAttributes = discountAttributes.Select(attr =>
+            {
+                existingByAttributeId.TryGetValue(attr.Id, out var existingValue);
+                return new DiscountAttributeDto
+                {
+                    Id = attr.Id,
+                    SocialAttributeCode = attr.SocialAttributeCode,
+                    SocialAttributeName = attr.SocialAttributeName,
+                    DataType = attr.DataType,
+                    Unit = attr.Unit,
+                    DisplayOrder = attr.DisplayOrder,
+                    IsDiscountApplicable = attr.IsDiscountApplicable,
+
+                    // Map existing values if present
+                    PropertySocialDetailId = existingValue?.Id,
+                    BitValue = existingValue?.BitValue,
+                    IntValue = existingValue?.IntValue,
+                    DecimalValue = existingValue?.DecimalValue,
+                    TextValue = existingValue?.TextValue,
+                    DateValue = existingValue?.DateValue,
+                    DocumentBindingId = existingValue?.DocumentBindingId,
+                    Remark = existingValue?.Remark
+                };
+            }).ToList()
+        };
+
+        return result;
+    }
+
+    public async Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default)
+    {
+        // Step 1: Validate property exists
+        var property = await _context.PropertyMast
+            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (property == null) return null;
+
+        // Step 2: Get existing PropertySocialDetails for this property
+        var existingRecords = await _context.Set<PropertySocialDetailsEntity>()
+            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        // Step 3: Process each discount attribute from the request
+        // First, get all discount-applicable social attribute IDs to validate incoming requests
+        var allowedAttributeIds = await _context.Set<SocialAttributeEntity>()
+            .Where(sa => sa.IsActive && sa.IsDiscountApplicable)
+            .Select(sa => sa.Id)
+            .ToHashSetAsync(cancellationToken);
+
+        if (dto.DiscountAttributes != null && dto.DiscountAttributes.Any())
+        {
+            foreach (var item in dto.DiscountAttributes)
+            {
+                // Validate that the social attribute is discount-applicable
+                if (!allowedAttributeIds.Contains(item.SocialAttributeId))
+                {
+                    throw new InvalidOperationException(
+                        $"SocialAttribute with ID {item.SocialAttributeId} is not marked as discount-applicable. " +
+                        "Only attributes with IsDiscountApplicable=true can be updated via the discount-details endpoint.");
+                }
+
+                if (item.PropertySocialDetailId.HasValue && item.PropertySocialDetailId.Value > 0)
+                {
+                    // Update existing record by PropertySocialDetailId
+                    var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.PropertySocialDetailId.Value && x.IsActive);
+                    if (existingRecord == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"PropertySocialDetails with ID {item.PropertySocialDetailId.Value} not found for property {propertyId}.");
+                    }
+
+                    if (existingRecord.SocialAttributeId != item.SocialAttributeId)
+                    {
+                        throw new InvalidOperationException(
+                            $"PropertySocialDetails with ID {item.PropertySocialDetailId.Value} does not match SocialAttributeId {item.SocialAttributeId}.");
+                    }
+
+                    existingRecord.BitValue = item.BitValue;
+                    existingRecord.IntValue = item.IntValue;
+                    existingRecord.DecimalValue = item.DecimalValue;
+                    existingRecord.TextValue = item.TextValue;
+                    existingRecord.DateValue = item.DateValue;
+                    existingRecord.DocumentBindingId = item.DocumentBindingId;
+                    existingRecord.Remark = item.Remark;
+                    existingRecord.UpdatedBy = dto.UpdatedBy;
+                    existingRecord.UpdatedDate = DateTime.Now;
+                }
+                else
+                {
+                    // Upsert by SocialAttributeId
+                    var existingByAttribute = existingRecords
+                        .FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId && x.IsActive);
+
+                    if (existingByAttribute != null)
+                    {
+                        // Update existing
+                        existingByAttribute.BitValue = item.BitValue;
+                        existingByAttribute.IntValue = item.IntValue;
+                        existingByAttribute.DecimalValue = item.DecimalValue;
+                        existingByAttribute.TextValue = item.TextValue;
+                        existingByAttribute.DateValue = item.DateValue;
+                        existingByAttribute.DocumentBindingId = item.DocumentBindingId;
+                        existingByAttribute.Remark = item.Remark;
+                        existingByAttribute.UpdatedBy = dto.UpdatedBy;
+                        existingByAttribute.UpdatedDate = DateTime.Now;
+                    }
+                    else
+                    {
+                        // Create new record
+                        var newRecord = new PropertySocialDetailsEntity
+                        {
+                            PropertyId = propertyId,
+                            SocialAttributeId = item.SocialAttributeId,
+                            BitValue = item.BitValue,
+                            IntValue = item.IntValue,
+                            DecimalValue = item.DecimalValue,
+                            TextValue = item.TextValue,
+                            DateValue = item.DateValue,
+                            DocumentBindingId = item.DocumentBindingId,
+                            Remark = item.Remark,
+                            CreatedBy = dto.UpdatedBy,
+                            CreatedDate = DateTime.Now,
+                            IsActive = true
+                        };
+                        _context.Set<PropertySocialDetailsEntity>().Add(newRecord);
+                    }
+                }
+            }
+        }
+
+        // Step 4: Save all changes
+        await _context.SaveChangesAsync(cancellationToken);
+
+        // Step 5: Return updated discount details
+        return await GetDiscountDetailsAsync(propertyId, cancellationToken);
+    }
+
 }
 
