@@ -639,24 +639,15 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             .ToListAsync(cancellationToken);
 
         // Pre-fetch the latest finance/pending year IDs as scalar constants.
-        // This gives SQL Server a literal parameter for the equality predicate rather than an inline
-        // scalar subquery, enabling index seeks on FinanceYearId / PendingYearId.
-        var maxTransYearId   = await _context.TransMast.AsNoTracking()
-            .MaxAsync(t => (int?)t.FinanceYearId, cancellationToken) ?? 0;
-        var maxTransCVYearId = await _context.TransMastCV.AsNoTracking()
-            .MaxAsync(t => (int?)t.FinanceYearId, cancellationToken) ?? 0;
-        var maxTransRVYearId = await _context.TransMastRV.AsNoTracking()
-            .MaxAsync(t => (int?)t.FinanceYearId, cancellationToken) ?? 0;
-        var maxTpYearId      = await _context.TaxPendingDetails.AsNoTracking()
-            .MaxAsync(t => (int?)t.PendingYearId, cancellationToken) ?? 0;
-        var maxTpcvYearId    = await _context.TaxPendingDetailsCV.AsNoTracking()
-            .MaxAsync(t => (int?)t.PendingYearId, cancellationToken) ?? 0;
-        var maxTprvYearId    = await _context.TaxPendingDetailsRV.AsNoTracking()
-            .MaxAsync(t => (int?)t.PendingYearId, cancellationToken) ?? 0;
+        var financeYearId = await _context.YearMaster
+                .AsNoTracking()
+                .Where(ym => ym.IsActive)
+                .Select(ym => ym.Id)
+                .FirstOrDefaultAsync();
 
         var transMastList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == maxTransYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRow(
                 g.Key,
@@ -666,7 +657,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var transMastCVList = await _context.TransMastCV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == maxTransCVYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastCVRow(
                 g.Key,
@@ -676,7 +667,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var transMastRVList = await _context.TransMastRV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == maxTransRVYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRVRow(
                 g.Key,
@@ -686,21 +677,21 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var taxPendingList = await _context.TaxPendingDetails
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == maxTpYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
         var taxPendingCVList = await _context.TaxPendingDetailsCV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == maxTpcvYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
         var taxPendingRVList = await _context.TaxPendingDetailsRV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == maxTprvYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
