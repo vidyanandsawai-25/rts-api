@@ -799,6 +799,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DataType).IsRequired().HasMaxLength(20).HasDefaultValue("bit");
             entity.Property(e => e.PolicyValue).HasMaxLength(500);
             entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.AllowedValues).HasMaxLength(500);
             entity.Property(e => e.Unit).HasMaxLength(30);
             entity.Property(e => e.EffectiveFrom);
             entity.Property(e => e.EffectiveTo);

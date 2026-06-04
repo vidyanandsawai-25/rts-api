@@ -12,6 +12,7 @@ public class PolicyConfigurationDto : BaseDtos
     public string? PolicyValue { get; set; }
     public string? DefaultValue { get; set; }
     public string? Unit { get; set; }
+    public string? AllowedValues { get; set; }
     public DateTime? EffectiveFrom { get; set; }
     public DateTime? EffectiveTo { get; set; }
 }

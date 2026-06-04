@@ -121,7 +121,7 @@ public class AutoMapperValidationTest
               "PropertyAssessmentDetails", "PropertyCertificates", "PropertyTaxCalculationSection129Results",
               "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
               "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
-              "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup",
+              "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
              "TransMastRV"
           };
 
