@@ -132,9 +132,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
-	public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
+    public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
     public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;
- 
+
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
@@ -657,8 +657,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()").IsRequired();
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-             entity.HasOne(e => e.FloorGroup).WithMany().HasForeignKey(e => e.FloorGroupId).HasConstraintName("FK_RateCVMaster_FloorGroupMaster");
-         });
+            entity.HasOne(e => e.FloorGroup).WithMany().HasForeignKey(e => e.FloorGroupId).HasConstraintName("FK_RateCVMaster_FloorGroupMaster");
+        });
 
 
         modelBuilder.Entity<DepreciationMasterEntity>(entity =>
@@ -1180,7 +1180,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
-            entity.HasOne(e => e.Property) 
+            entity.HasOne(e => e.Property)
                     .WithMany(p => p.TransMast)
                     .HasForeignKey(e => e.PropertyId)
                     .OnDelete(DeleteBehavior.Restrict);
@@ -1272,7 +1272,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.RoomTypeId);
         });
-       
+
         // RoomWiseMinusData configuration
         modelBuilder.Entity<RoomWiseMinusDataEntity>(entity =>
         {
@@ -1287,7 +1287,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Base1Mtr);
             entity.Property(e => e.Base2Mtr);
             entity.Property(e => e.IsOffset).HasDefaultValue(false);
-             entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.Shape).HasMaxLength(25);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -1359,7 +1359,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyDescription).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Type).HasMaxLength(5);
-            entity.Property(e => e.PropertyTypeGroup).HasMaxLength(50);
             entity.Property(e => e.SearchSequence);
             entity.Property(e => e.PartType);
             entity.Property(e => e.PropertyTypeCategoryId);
@@ -1404,7 +1403,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);          
+            entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.MarkedForDeletionDate);
             entity.HasIndex(e => e.PropertyId);
 
@@ -1596,7 +1595,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.PartitionNo).HasMaxLength(10);
-           // entity.Property(e => e.Id);
+            // entity.Property(e => e.Id);
             entity.Property(e => e.UPICId).HasMaxLength(30);
             entity.Property(e => e.OpenPlot);
             entity.Property(e => e.CSN).HasMaxLength(30);
@@ -1614,7 +1613,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Location).HasMaxLength(200);
             entity.Property(e => e.MobileNo).HasMaxLength(13);
             entity.Property(e => e.EmailId).HasMaxLength(100);
-           // entity.Property(e => e.Id);
+            // entity.Property(e => e.Id);
             entity.Property(e => e.OwnerTitleEnglish).HasMaxLength(20);
             entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000);
             entity.Property(e => e.OccupierTitleEnglish).HasMaxLength(20);
@@ -1630,6 +1629,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.OccupierMobileNoRemarkId);
             entity.Property(e => e.PropertyAssessmentStatusId);
             entity.Property(e => e.PropertyMastOldId);
+            entity.Property(e => e.PropertyFloorId);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -1895,7 +1895,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsRevoked).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.RevokedAt);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
-            entity.Property(e => e.UserAgent).HasMaxLength(500);           
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
@@ -2023,7 +2023,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.RevokedAt);
             entity.Property(e => e.IpAddress).HasMaxLength(45);
             entity.Property(e => e.UserAgent).HasMaxLength(500);
-            entity.Property(e => e.ReplacedByTokenId);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
@@ -3267,7 +3266,7 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_WaterConnectionDetails_Connection_Year");
             entity.HasIndex(e => e.WaterConnectionId).HasDatabaseName("IX_WaterConnectionDetails_ConnectionId");
         });
-		 
+
         modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
         {
             entity.ToTable("BulkUpdateMaster", "PTIS");
@@ -3344,7 +3343,7 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
         {
-            entity.ToTable("BulkUpdateHistory", "PTIS"); 
+            entity.ToTable("BulkUpdateHistory", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.BulkUpdateMasterId).IsRequired();
@@ -3358,7 +3357,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");           
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
@@ -4100,22 +4099,22 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<SocialAttributeEntity>(entity =>
         {
-               entity.ToTable("SocialAttributeMaster", "PTIS");
-               entity.HasKey(e => e.Id);
-               entity.Property(e => e.Id).ValueGeneratedOnAdd();
-               entity.Property(e => e.SocialAttributeCode).IsRequired().HasMaxLength(100);
-               entity.Property(e => e.SocialAttributeName).IsRequired().HasMaxLength(200);
-               entity.Property(e => e.DataType).IsRequired().HasMaxLength(30);
-               entity.Property(e => e.Unit).HasMaxLength(50);
-               entity.Property(e => e.DisplayOrder);
-               entity.Property(e => e.ParentAttributeId);
-               entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
-               entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
-               entity.Property(e => e.CreatedBy);
-               entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-               entity.Property(e => e.UpdatedBy);
-               entity.Property(e => e.UpdatedDate);
-               entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.ToTable("SocialAttributeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.SocialAttributeCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SocialAttributeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.Unit).HasMaxLength(50);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.ParentAttributeId);
+            entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
         });
 
 

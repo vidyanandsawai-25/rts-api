@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using NtisPlatform.Application.Enums;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -6,7 +8,6 @@ using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
-using NtisPlatform.Application.Enums;
 
 namespace NtisPlatform.Infrastructure.Repositories;
 
@@ -708,8 +709,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             // Calculate Total Tax (excluding Interest)
             var totalTaxFromTransMastOld = await _context.TransMastOld
-                .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                           t.IsActive && 
+                .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                           t.IsActive &&
                            !t.MarkedForDeletion &&
                            (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
                 .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -720,8 +721,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             if (generalTaxId.HasValue)
             {
                 var generalTaxFromTransMastOld = await _context.TransMastOld
-                    .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                               t.IsActive && 
+                    .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                               t.IsActive &&
                                !t.MarkedForDeletion &&
                                t.TaxId == generalTaxId.Value)
                     .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -1110,9 +1111,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         {
             var propertyMastOldId = property.PropertyMastOldId.Value;
             var transMastOldData = await _context.TransMastOld
-                .Where(t => t.PropertyMastOldId == propertyMastOldId && 
+                .Where(t => t.PropertyMastOldId == propertyMastOldId &&
                            t.FinanceYearId == activeYear.Id &&
-                           t.IsActive && 
+                           t.IsActive &&
                            !t.MarkedForDeletion)
                 .Select(t => new { t.TaxId, t.TaxAmount })
                 .ToListAsync(cancellationToken);
@@ -1259,7 +1260,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 .ToListAsync(cancellationToken);
 
             var conflicts = requestedYearTaxCombinations
-                .Where(req => existingActiveTransactions.Any(exist => 
+                .Where(req => existingActiveTransactions.Any(exist =>
                     exist.FinanceYearId == req.YearId && exist.TaxId == req.TaxId))
                 .ToList();
 
@@ -1278,7 +1279,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     .ToListAsync(cancellationToken);
 
                 var conflictDetails = conflicts
-                    .Select(c => 
+                    .Select(c =>
                     {
                         var year = yearNames.FirstOrDefault(y => y.Id == c.YearId)?.YearCode ?? c.YearId.ToString();
                         var tax = taxNames.FirstOrDefault(t => t.Id == c.TaxId)?.TaxName ?? c.TaxId.ToString();
@@ -1381,8 +1382,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                 // Calculate Total Tax (excluding Interest)
                 var totalTaxFromTransMastOld = await _context.TransMastOld
-                    .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                               t.IsActive && 
+                    .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                               t.IsActive &&
                                !t.MarkedForDeletion &&
                                (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
                     .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -1392,8 +1393,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 if (generalTaxId.HasValue)
                 {
                     generalTaxFromTransMastOld = await _context.TransMastOld
-                        .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                                   t.IsActive && 
+                        .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                                   t.IsActive &&
                                    !t.MarkedForDeletion &&
                                    t.TaxId == generalTaxId.Value)
                         .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -1595,7 +1596,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                         TaxId = taxDto.TaxId,
                         TaxAmount = taxDto.TaxAmount,
                         RVorCV = "RV",
-                RVorCVValue = 0m,
+                        RVorCVValue = 0m,
                         IsActive = true,
                         MarkedForDeletion = false,
                         CreatedDate = DateTime.Now
@@ -1627,8 +1628,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         // Calculate Total Tax (excluding Interest)
         var totalTaxFromTransMastOld = await _context.TransMastOld
-            .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                       t.IsActive && 
+            .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                       t.IsActive &&
                        !t.MarkedForDeletion &&
                        (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
             .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -1638,8 +1639,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (generalTaxId.HasValue)
         {
             generalTaxFromTransMastOld = await _context.TransMastOld
-                .Where(t => t.PropertyMastOldId == propertyMastOldId && 
-                           t.IsActive && 
+                .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                           t.IsActive &&
                            !t.MarkedForDeletion &&
                            t.TaxId == generalTaxId.Value)
                 .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
@@ -1775,12 +1776,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             // Normalize metadata for empty result set with unpaged mode
             var emptyPageSize = query.PageSize == -1 ? 1 : query.PageSize;
             var emptyPageNumber = query.PageSize == -1 ? 1 : query.PageNumber;
-            return new FloorDetailsOldPagedResult 
-            { 
-                TotalCount = 0, 
-                PageNumber = emptyPageNumber, 
-                PageSize = emptyPageSize, 
-                Items = new List<PropertyDetailsOldDto>() 
+            return new FloorDetailsOldPagedResult
+            {
+                TotalCount = 0,
+                PageNumber = emptyPageNumber,
+                PageSize = emptyPageSize,
+                Items = new List<PropertyDetailsOldDto>()
             };
         }
 
@@ -1788,46 +1789,46 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         // Step 2: Build base query with joins to master tables by ID
         var baseQuery = from pd in _context.PropertyDetailsOld
-                    where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
+                        where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
 
-                    join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
-                    from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                        join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
+                        from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
-                    from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                        join sf in _context.SubFloorEntity on pd.OldSubFloorId equals sf.Id into subFloorJoin
+                        from sf in subFloorJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
-                    from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                        join ct in _context.ConstructionTypeEntity on pd.OldConstructionTypeId equals ct.Id into constructionJoin
+                        from ct in constructionJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
-                    from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                        join tu in _context.TypeOfUse on pd.OldTypeOfUseId equals tu.Id into typeOfUseJoin
+                        from tu in typeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
-                    from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                        join stu in _context.SubTypeOfUse on pd.OldSubTypeOfUseId equals stu.Id into subTypeOfUseJoin
+                        from stu in subTypeOfUseJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    select new
-                    {
-                        Id = pd.Id,
-                        PropertyId = propertyId,
-                        OldFloorId = pd.OldFloorId,
-                        FloorDescription = f != null ? f.Description : null,
-                        OldSubFloorId = pd.OldSubFloorId,
-                        SubFloorDescription = sf != null ? sf.Description : null,
-                        OldConstructionYear = pd.OldConstructionYear,
-                        OldAssessmentYear = pd.OldAssessmentYear,
-                        OldConstructionTypeId = pd.OldConstructionTypeId,
-                        ConstructionTypeDescription = ct != null ? ct.Description : null,
-                        OldTypeOfUseId = pd.OldTypeOfUseId,
-                        TypeOfUseDescription = tu != null ? tu.Description : null,
-                        OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
-                        SubTypeOfUseDescription = stu != null ? stu.Description : null,
-                        OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
-                        OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
-                        OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
-                        OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
-                        MarkedForDeletion = pd.MarkedForDeletion,
-                        MarkedForDeletionDate = pd.MarkedForDeletionDate
-                    };
+                        select new
+                        {
+                            Id = pd.Id,
+                            PropertyId = propertyId,
+                            OldFloorId = pd.OldFloorId,
+                            FloorDescription = f != null ? f.Description : null,
+                            OldSubFloorId = pd.OldSubFloorId,
+                            SubFloorDescription = sf != null ? sf.Description : null,
+                            OldConstructionYear = pd.OldConstructionYear,
+                            OldAssessmentYear = pd.OldAssessmentYear,
+                            OldConstructionTypeId = pd.OldConstructionTypeId,
+                            ConstructionTypeDescription = ct != null ? ct.Description : null,
+                            OldTypeOfUseId = pd.OldTypeOfUseId,
+                            TypeOfUseDescription = tu != null ? tu.Description : null,
+                            OldSubTypeOfUseId = pd.OldSubTypeOfUseId,
+                            SubTypeOfUseDescription = stu != null ? stu.Description : null,
+                            OldCarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+                            OldCarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+                            OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+                            OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                            MarkedForDeletion = pd.MarkedForDeletion,
+                            MarkedForDeletionDate = pd.MarkedForDeletionDate
+                        };
 
         // Step 3: Apply filters
         if (query.OldFloorId.HasValue)
@@ -2532,7 +2533,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         int iToFloor = 1;
         int number;
 
-
+        string ? floorCode = "";
         if (dto.GenerationType.ToLower() == "HC".ToLower() & dto.FromFloor != dto.ToFloor)
         {
             throw new InvalidOperationException("From floor and to floor must be same");
@@ -2556,6 +2557,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         else
         {
+
+            floorCode = dto.FromFloor?.ToString();
 
             if (dto.GenerationType.ToLower() != "hc" && dto.GenerationType.ToLower() != "vc")
             {
@@ -2640,6 +2643,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             ? crossJoin.OrderBy(x => x.UnitNo).ThenBy(x => x.FloorNo)
             : crossJoin.OrderBy(x => x.FloorNo).ThenBy(x => x.UnitNo);
 
+        var floorlst = await _context.FloorEntity.Where(f => f.IsActive)
+                            .ToListAsync(cancellationToken);
+
         // Generate result with floor multiplier (HC uses 0, others use FloorNo - 1)
         return orderedItems
             .Select((item, index) => new BuildingGenerateStructureDto
@@ -2649,6 +2655,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 WingId = dto.WingId,
                 RowNo = index + 1,
                 FloorNo = item.FloorNo,
+                floorCode = string.IsNullOrEmpty(floorCode) ? item.FloorNo.ToString() : floorCode,
+                PropertyFloorId = floorlst.Where(e=>e.FloorCode==(string.IsNullOrEmpty(floorCode) ? item.FloorNo.ToString() : floorCode)).Select(e=>e.Id).FirstOrDefault(),
                 UnitNo = item.UnitNo,
                 FlatNo = $"{prefix}{dto.FlatStart + (isHC ? 0 : (item.FloorNo - 1) * dto.IncrementedBy) + (item.UnitNo - 1)}",
                 PartitionNo = $"{wingNo}{index + 1 + lastPropertyNo}",
@@ -3791,64 +3799,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     public async Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
     {
-        var propertyExists = await _context.PropertyMast.AnyAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo.Trim() && x.PartitionNo == dto.PartitionNo.Trim(), cancellationToken);
-
-        if (propertyExists)
-            return new CreateBulkPropertyResponseDto
-            {
-                Success = false,
-                Message = string.Join(" ", "PropertyNo already exists in our records.")
-            };
 
         // Transaction
         PropertyEntity? property = null;
         PropertyAssessmentEntity? propertyMastDetails = null;
         try
         {
-            var category = await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == dto.CategoryId, cancellationToken);
-            var MainPropertyDetails = await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "", cancellationToken);
-            // Validate category exists and is not "apartment" type
-            if (category == null)
-            {
-                return new CreateBulkPropertyResponseDto
-                {
-                    Success = false,
-                    Message = "Invalid CategoryId - category not found."
-                };
-            }
 
-            if (category.PropertyCategoryName != null &&
-                category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (dto.SocietyDetailId == null || dto.SocietyDetailId == 0))
-            {
-                return new CreateBulkPropertyResponseDto
-                {
-                    Success = false,
-                    Message = "Society Wing Details is not Found"
-                };
-            }
-            bool OpenPlot = false;
-
-            if (category.PropertyCategoryName != null && category.PropertyCategoryName.Contains("plot", StringComparison.OrdinalIgnoreCase))
-            {
-                OpenPlot = true;
-            }
-            if (!string.IsNullOrEmpty(dto.PartitionNo) &&
-                 dto.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
-            {
-                var propertyType = await _context.PropertyTypeMasters
-                .FirstOrDefaultAsync(x => x.PartType == PartTypeConstants.Amenity, cancellationToken);
-
-                if (propertyType == null)
-                {
-                    return new CreateBulkPropertyResponseDto
-                    {
-                        Success = false,
-                        Message = "Amenity property type not found"
-                    };
-                }
-
-                dto.PropertyTypeId = propertyType.Id;
-            }
             // Property insert
             property = new PropertyEntity
             {
@@ -3856,24 +3813,26 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 WardId = dto.WardId,
                 PropertyNo = dto.PropertyNo.Trim(),
                 PartitionNo = dto.PartitionNo.Trim(),
-                PropertySeqNo = MainPropertyDetails?.PropertySeqNo,
+                PropertySeqNo = dto.PropertySeqNo,
                 PropertyTypeId = dto.PropertyTypeId,
                 CategoryId = dto.CategoryId,
                 OwnerTitle = string.Empty,
                 OwnerTitleEnglish = string.Empty,
-                OpenPlot = OpenPlot,
-                OwnerName = "धारक",
-                OwnerNameEnglish = "The Holder",
+                OpenPlot = dto.OpenPlot,
+                OwnerName = dto.OwnerName,
+                OwnerNameEnglish = dto.OwnerNameEnglish,
                 FlatOrShopNo = dto.FlatOrShopNo,
                 FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish,
-                Address = MainPropertyDetails?.Address,
-                AddressEnglish = MainPropertyDetails?.AddressEnglish,
-                Location = MainPropertyDetails?.Location,
-                LocationEnglish = MainPropertyDetails?.LocationEnglish,
-                SocietyDetailId = dto.SocietyDetailId,
+                Address = dto?.Address,
+                AddressEnglish = dto?.AddressEnglish,
+                Location = dto?.Location,
+                LocationEnglish = dto?.LocationEnglish,
+                SocietyDetailId = dto?.SocietyDetailId,
+                PropertyFloorId = dto?.PropertyFloorId,
+
                 IsActive = true,
                 MarkedForDeletion = false,
-                CreatedBy = dto.CreatedBy
+                CreatedBy = dto?.CreatedBy
             };
 
             _context.PropertyMast.Add(property);
@@ -3885,7 +3844,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 PropertyId = property.Id,
                 IsActive = true,
                 MarkedForDeletion = false,
-                CreatedBy = dto.CreatedBy
+                CreatedBy = dto?.CreatedBy
             };
 
             _context.PropertyMastDetails.Add(propertyMastDetails);
@@ -3916,6 +3875,35 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 Message = $"An unexpected error occurred : {ex.Message}"
             };
         }
+    }
+    public async Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "", cancellationToken);
+    }
+    public async Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == CategoryId, cancellationToken);
+    }
+    public async Task<bool> CheckPropertyIfExists(
+     CreateBulkPropertyDto dto,
+     CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyMast.AnyAsync(
+            x => x.WardId == dto.WardId
+              && x.PropertyNo == dto.PropertyNo
+              && x.PartitionNo == dto.PartitionNo,
+            cancellationToken);
+    }
+    public async Task<bool> CheckPropertyFlatIfExists(
+  CreateBulkPropertyDto dto,
+  CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyMast.AnyAsync(
+            x => x.WardId == dto.WardId
+              && x.PropertyNo == dto.PropertyNo
+              && x.SocietyDetailId == dto.SocietyDetailId
+              && x.FlatOrShopNo == dto.FlatOrShopNo,
+            cancellationToken);
     }
 
 }

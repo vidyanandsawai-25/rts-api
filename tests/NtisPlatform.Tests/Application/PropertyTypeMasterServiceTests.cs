@@ -45,7 +45,6 @@ public class PropertyTypeMasterServiceTests
             Id = 1,
             PropertyDescription = "Residential",
             Type = "R",
-            PropertyTypeGroup = "Residential Group",
             SearchSequence = 1,
             PropertyTypeCategoryId = 1,
             IsActive = true,
@@ -61,7 +60,6 @@ public class PropertyTypeMasterServiceTests
                 Id = 1,
                 PropertyDescription = "Residential",
                 Type = "R",
-                PropertyTypeGroup = "Residential Group",
                 SearchSequence = 1,
                 PropertyTypeCategoryId = 1,
                 IsActive = true
@@ -75,7 +73,6 @@ public class PropertyTypeMasterServiceTests
         Assert.Equal(1, result.Id);
         Assert.Equal("Residential", result.PropertyDescription);
         Assert.Equal("R", result.Type);
-        Assert.Equal("Residential Group", result.PropertyTypeGroup);
         Assert.Equal(1, result.SearchSequence);
         Assert.Equal(1, result.PropertyTypeCategoryId);
         Assert.True(result.IsActive);
@@ -151,7 +148,6 @@ public class PropertyTypeMasterServiceTests
         {
             PropertyDescription = "New Type",
             Type = "N",
-            PropertyTypeGroup = "New Group",
             SearchSequence = 3,
             PropertyTypeCategoryId = 2,
             IsActive = true
@@ -163,7 +159,6 @@ public class PropertyTypeMasterServiceTests
             {
                 PropertyDescription = dto.PropertyDescription,
                 Type = dto.Type,
-                PropertyTypeGroup = dto.PropertyTypeGroup,
                 SearchSequence = dto.SearchSequence,
                 PropertyTypeCategoryId = dto.PropertyTypeCategoryId,
                 CreatedBy = dto.CreatedBy,
@@ -181,7 +176,6 @@ public class PropertyTypeMasterServiceTests
             {
                 PropertyDescription = e.PropertyDescription,
                 Type = e.Type,
-                PropertyTypeGroup = e.PropertyTypeGroup,
                 SearchSequence = e.SearchSequence,
                 PropertyTypeCategoryId = e.PropertyTypeCategoryId,
                 IsActive = true
@@ -194,7 +188,6 @@ public class PropertyTypeMasterServiceTests
         Assert.NotNull(result);
         Assert.Equal("New Type", result.PropertyDescription);
         Assert.Equal("N", result.Type);
-        Assert.Equal("New Group", result.PropertyTypeGroup);
         Assert.Equal(3, result.SearchSequence);
         Assert.Equal(2, result.PropertyTypeCategoryId);
         Assert.True(result.IsActive);
@@ -213,7 +206,6 @@ public class PropertyTypeMasterServiceTests
         {
             PropertyDescription = "Updated Description",
             Type = "U",
-            PropertyTypeGroup = "Updated Group",
             SearchSequence = 5,
             PropertyTypeCategoryId = 3,
             IsActive = true
@@ -224,7 +216,6 @@ public class PropertyTypeMasterServiceTests
             Id = 1,
             PropertyDescription = "Old Description",
             Type = "O",
-            PropertyTypeGroup = "Old Group",
             SearchSequence = 1,
             PropertyTypeCategoryId = 1,
             IsActive = true
@@ -244,7 +235,6 @@ public class PropertyTypeMasterServiceTests
             {
                 dest.PropertyDescription = src.PropertyDescription;
                 dest.Type = src.Type;
-                dest.PropertyTypeGroup = src.PropertyTypeGroup;
                 dest.SearchSequence = src.SearchSequence;
                 dest.PropertyTypeCategoryId = src.PropertyTypeCategoryId;
             });
@@ -261,7 +251,6 @@ public class PropertyTypeMasterServiceTests
 
         Assert.Equal("Updated Description", existingEntity.PropertyDescription);
         Assert.Equal("U", existingEntity.Type);
-        Assert.Equal("Updated Group", existingEntity.PropertyTypeGroup);
         Assert.Equal(5, existingEntity.SearchSequence);
         Assert.Equal(3, existingEntity.PropertyTypeCategoryId);
         Assert.True(existingEntity.IsActive);

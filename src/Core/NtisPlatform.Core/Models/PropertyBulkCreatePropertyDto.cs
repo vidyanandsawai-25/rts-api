@@ -62,6 +62,13 @@ namespace NtisPlatform.Core.Models
         [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_SocietyDetailId_RangeMax")]
         public int? SocietyDetailId { get; set; }
 
+        public string? OwnerName { get; set; }
+        public string? OwnerNameEnglish { get; set; }
+        public bool OpenPlot { get; set; } = false;
+        public int? PropertySeqNo { get; set; } = 0;
+        public int? PropertyFloorId { get; set; }
+        
+
         [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_CreatedBy_RangeMax")]
         public int? CreatedBy { get; set; }
         public DateTime? CreatedDate { get; set; } = DateTime.UtcNow;

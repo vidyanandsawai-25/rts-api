@@ -39,6 +39,8 @@ public class BuildingGenerateStructureDto
     public int WingId { get; set; }
     public int RowNo { get; set; }
     public int FloorNo { get; set; }
+    public string floorCode { get; set; } = string.Empty;
+    public int PropertyFloorId{ get; set; }
     public int UnitNo { get; set; }
     public string? FlatNo { get; set; } = string.Empty;
     public string? PartitionNo { get; set; } = string.Empty;

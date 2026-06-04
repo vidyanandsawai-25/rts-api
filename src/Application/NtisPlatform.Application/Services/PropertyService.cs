@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
@@ -15,6 +16,7 @@ using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
+using System.Text;
 using DataValidationException = System.ComponentModel.DataAnnotations.ValidationException;
 
 
@@ -62,7 +64,7 @@ public class PropertyService
     }
     public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
     {
-        return await _propertyRepository.GetSocietyAmenityDetailsAsync(SocietyDetailId,  isAmenity, cancellationToken);
+        return await _propertyRepository.GetSocietyAmenityDetailsAsync(SocietyDetailId, isAmenity, cancellationToken);
     }
     public async Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default)
     {
@@ -224,7 +226,7 @@ public class PropertyService
                     {
                         errors.Add($"Row {i + 1}: Generated property name is empty or null.");
                         break;
-                    } 
+                    }
 
                     request.Template?.PropertyNo = $"{rangeValues[i]}";
                     request.Template?.PropertySeqNo = Convert.ToInt32(rangeValues[i]);
@@ -250,7 +252,7 @@ public class PropertyService
                             {
                                 errors.Add($"{rangeValues[existCount]} : {res.Message ?? "Unknown error"}");
                             }
-                            else 
+                            else
                             {
                                 errors.Add($"Row {existCount + 1} : {res.Message ?? "Unknown error"}");
                                 break;
@@ -959,7 +961,7 @@ public class PropertyService
             errors.Count > 0 ? errors : null);
     }
 
- public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
+    public async Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct)
     {
         if (items.Length == 0)
         {
@@ -969,37 +971,135 @@ public class PropertyService
         var results = new List<CreateBulkPropertyResponseDto>();
         var errors = new List<string>();
 
+
+
+        var buildingResult = await _propertyRepository.CheckBuildingIfExists(items[0], ct);
+
+        if (buildingResult == null)
+        {
+            return new BulkResult<CreateBulkPropertyResponseDto>(
+            0,
+            items.Length,
+            [],
+            ["Building Not Found"]
+        );
+        }
+
+
+        var category = await _propertyRepository.GetBuildingCategory(items[0].CategoryId, ct);
+        if (category == null)
+        {
+            return new BulkResult<CreateBulkPropertyResponseDto>(
+                0,
+                items.Length,
+                [],
+                ["Invalid CategoryId - category not found."]
+            );
+        }
+
+        if (category.PropertyCategoryName != null &&
+            category.PropertyCategoryName.Contains("apartment", StringComparison.OrdinalIgnoreCase) && (items[0].SocietyDetailId == null || items[0].SocietyDetailId == 0))
+        {
+            return new BulkResult<CreateBulkPropertyResponseDto>(
+               0,
+               items.Length,
+               [],
+               ["Society Wing Details is not Found"]
+           );
+        }
         await _unitOfWork.BeginTransactionAsync(ct);
         try
         {
+            StringBuilder strPropertyExistsMessage = new StringBuilder();
+            StringBuilder strPropertyFlatExistsMessage = new StringBuilder();
             for (int i = 0; i < items.Length; i++)
             {
                 var item = items[i];
+                var propertyExists = await _propertyRepository.CheckPropertyIfExists(item, ct);
+                if (propertyExists)
+                {
+                    if (strPropertyExistsMessage.Length == 0)
+                    {
+                        strPropertyExistsMessage.Append($"{item.PropertyNo}-{item.PartitionNo}");
+                    }
+                    else
+                    {
+                        strPropertyExistsMessage.Append($",{item.PartitionNo}");
+                    }
+                }
 
-                if (string.IsNullOrWhiteSpace(item.PropertyNo))
+                var propertyflatExists = await _propertyRepository.CheckPropertyFlatIfExists(item, ct);
+                if (propertyflatExists)
+                {
+                    if (strPropertyFlatExistsMessage.Length == 0)
+                    {
+                        strPropertyFlatExistsMessage.Append($"{item.FlatOrShopNo}");
+                    }
+                    else
+                    {
+                        strPropertyFlatExistsMessage.Append($",{item.FlatOrShopNo}");
+                    }
+
+                }
+
+            }
+            if (strPropertyExistsMessage.Length > 0)
+            {
+                strPropertyExistsMessage.Append(" this property partition already exists in this wing");
+            }
+            if (strPropertyFlatExistsMessage.Length > 0)
+            {
+                strPropertyFlatExistsMessage.Append(" this property flat already exists in this wing");
+            }
+           
+
+            var errorParts = new List<string>(capacity: 2);
+            errorParts.Add(strPropertyExistsMessage.ToString());
+
+            if (strPropertyFlatExistsMessage.Length > 0)
+                errorParts.Add(strPropertyFlatExistsMessage.ToString());
+
+            var strErrorMsg = string.Join(", ", errorParts);
+            if (strErrorMsg.Length > 0)
+            {
+                await _unitOfWork.RollbackTransactionAsync(ct);
+                return new BulkResult<CreateBulkPropertyResponseDto>(
+                 0,
+                 items.Length,
+                 [],
+                 [strErrorMsg.ToString()]
+             );
+            }
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                var item = items[i];
+                if (category.PropertyCategoryName != null && category.PropertyCategoryName.Contains("plot", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.OpenPlot = true;
+                }
+                item.Address = buildingResult?.Address;
+                item.AddressEnglish = buildingResult?.AddressEnglish;
+                item.Location = buildingResult?.Location;
+                item.LocationEnglish = buildingResult?.LocationEnglish;
+                item.PropertySeqNo = buildingResult?.PropertySeqNo;
+                item.OwnerName = "धारक";
+                item.OwnerNameEnglish = "The Holder";
+
+                var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
+                if (res == null || !res.Success)
                 {
                     await _unitOfWork.RollbackTransactionAsync(ct);
                     return new BulkResult<CreateBulkPropertyResponseDto>(
                         0,
                         items.Length,
                         [],
-                        [$"{i}: PropertyNo is required."]
+                        [$"{i}: {res?.Message ?? "Unknown error"}"]
                     );
                 }
-                    var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
-                    if (res == null || !res.Success)
-                    {
-                        await _unitOfWork.RollbackTransactionAsync(ct);
-                        return new BulkResult<CreateBulkPropertyResponseDto>(
-                            0,
-                            items.Length,
-                            [],
-                            [$"{i}: {res?.Message ?? "Unknown error"}"]
-                        );
-                    }
 
-                    results.Add(res);
-                }
+                results.Add(res);
+            }
 
 
             await _unitOfWork.CommitTransactionAsync(ct);
@@ -1022,4 +1122,6 @@ public class PropertyService
             );
         }
     }
+
+
 }

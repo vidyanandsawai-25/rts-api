@@ -17,7 +17,6 @@ public class PropertyTypeMasterEntityTests
             Id = 1,
             PropertyDescription = "Residential Apartment",
             Type = "R",
-            PropertyTypeGroup = "Residential",
             SearchSequence = 1,
             PropertyTypeCategoryId = 1,
             IsActive = true,
@@ -30,7 +29,6 @@ public class PropertyTypeMasterEntityTests
         Assert.Equal(1, entity.Id);
         Assert.Equal("Residential Apartment", entity.PropertyDescription);
         Assert.Equal("R", entity.Type);
-        Assert.Equal("Residential", entity.PropertyTypeGroup);
         Assert.Equal(1, entity.SearchSequence);
         Assert.Equal(1, entity.PropertyTypeCategoryId);
         Assert.True(entity.IsActive);
@@ -55,7 +53,6 @@ public class PropertyTypeMasterEntityTests
         Assert.Equal(0, entity.Id);
         Assert.Equal(string.Empty, entity.PropertyDescription);
         Assert.Equal(string.Empty, entity.Type);
-        Assert.Equal(string.Empty, entity.PropertyTypeGroup);
         Assert.Equal(0, entity.SearchSequence);
         Assert.Null(entity.PropertyTypeCategoryId);
         Assert.True(entity.IsActive);

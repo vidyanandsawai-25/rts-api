@@ -336,4 +336,11 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 	Task<List<WaterConnectionMasterEntity>> GetWaterConnectionsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 
 	Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
+
+
+    Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
+    Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default);
+    Task<bool> CheckPropertyIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
+    Task<bool> CheckPropertyFlatIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
+
 }

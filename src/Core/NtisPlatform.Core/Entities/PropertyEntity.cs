@@ -101,6 +101,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     /// Foreign Key to PropertyMastOld.Id
     /// </summary>
     public int? PropertyMastOldId { get; set; }
+    public int? PropertyFloorId { get; set; }
 
     /// <summary>
     /// Indicates whether the entity is marked for deletion.

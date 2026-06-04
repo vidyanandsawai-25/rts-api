@@ -52,10 +52,7 @@ public class RefreshTokenEntity : BaseEntity
     [MaxLength(500)]
     public string? UserAgent { get; set; }
 
-    /// <summary>
-    /// If this token was replaced by a new one (via refresh endpoint), store the new token ID here
-    /// </summary>
-    public int? ReplacedByTokenId { get; set; }
+   
 
     /// <summary>
     /// Navigation property to user

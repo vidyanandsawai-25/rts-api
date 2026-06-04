@@ -74,7 +74,7 @@ namespace NtisPlatform.Core.Models
         [Range(1, int.MaxValue, ErrorMessage = "CreateNewProperty_PropertySeqNo_RangeMax")]
         public int? PropertySeqNo { get; set; }
         [StringLength(10, ErrorMessage = "CreateNewProperty_PartitionNo_MaxLength")]
-        public string? PartitionNo { get; set; }
+        public string PartitionNo { get; set; }=string.Empty;
         public bool OpenPlot { get; set; }
 
         [StringLength(50, ErrorMessage = "CreateNewProperty_PlotNo_MaxLength")]
