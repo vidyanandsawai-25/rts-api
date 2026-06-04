@@ -16,7 +16,8 @@ public static class PartTypeConstants
     /// </summary>
     public const string Amenity = "Amenity";
     public const string Residential = "R";
-    public const string Commercial   = "C";
+    public const string Commercial = "C";
+    public const string Plot = "Plot";
 }
 public static class PartitionNoConstants
 {

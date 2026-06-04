@@ -13,6 +13,7 @@ using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Options;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
@@ -1075,7 +1076,7 @@ public class PropertyService
             for (int i = 0; i < items.Length; i++)
             {
                 var item = items[i];
-                if (category.PropertyCategoryName != null && category.PropertyCategoryName.Contains("plot", StringComparison.OrdinalIgnoreCase))
+                if (category.PropertyCategoryName != null && category.PropertyCategoryName.Contains(PartTypeConstants.Plot, StringComparison.OrdinalIgnoreCase))
                 {
                     item.OpenPlot = true;
                 }
@@ -1087,13 +1088,13 @@ public class PropertyService
                 item.PropertySeqNo = buildingResult?.PropertySeqNo;
                 item.OwnerName = "धारक";
                 item.OwnerNameEnglish = "The Holder";
-                if (amenityPropertyTypeResult != null)
+                if (amenityPropertyTypeResult != null && item.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
                 {
                     item.PropertyTypeId = amenityPropertyTypeResult.Id;
                 }
 
                 var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
-                if (res == null || !res.Success)
+                if (res == null || !res.Success )
                 {
                     await _unitOfWork.RollbackTransactionAsync(ct);
                     return new BulkResult<CreateBulkPropertyResponseDto>(
