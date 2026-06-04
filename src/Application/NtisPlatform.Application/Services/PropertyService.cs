@@ -228,8 +228,8 @@ public class PropertyService
                         break;
                     }
 
-                    request.Template?.PropertyNo = $"{rangeValues[i]}";
-                    request.Template?.PropertySeqNo = Convert.ToInt32(rangeValues[i]);
+                    request.Template.PropertyNo = $"{rangeValues[i]}";
+                    request.Template.PropertySeqNo = Convert.ToInt32(rangeValues[i]);
 
                     if (request.Template == null)
                     {
@@ -1071,6 +1071,7 @@ public class PropertyService
              );
             }
 
+            var amenityPropertyTypeResult = await _propertyRepository.GetAmenityPropertyType(ct);
             for (int i = 0; i < items.Length; i++)
             {
                 var item = items[i];
@@ -1078,6 +1079,7 @@ public class PropertyService
                 {
                     item.OpenPlot = true;
                 }
+
                 item.Address = buildingResult?.Address;
                 item.AddressEnglish = buildingResult?.AddressEnglish;
                 item.Location = buildingResult?.Location;
@@ -1085,6 +1087,10 @@ public class PropertyService
                 item.PropertySeqNo = buildingResult?.PropertySeqNo;
                 item.OwnerName = "धारक";
                 item.OwnerNameEnglish = "The Holder";
+                if (amenityPropertyTypeResult != null)
+                {
+                    item.PropertyTypeId = amenityPropertyTypeResult.Id;
+                }
 
                 var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);
                 if (res == null || !res.Success)

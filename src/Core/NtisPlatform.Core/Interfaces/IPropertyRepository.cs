@@ -342,5 +342,6 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default);
     Task<bool> CheckPropertyIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
     Task<bool> CheckPropertyFlatIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
+    Task<PropertyTypeMasterEntity?> GetAmenityPropertyType(CancellationToken cancellationToken = default);
 
 }

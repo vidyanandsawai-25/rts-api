@@ -2779,11 +2779,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
             var category = await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == dto.CategoryId, cancellationToken);
 
-            if (category != null && category.PropertyCategoryName.Contains("apartment"))
+            if (category != null && category.PropertyCategoryName.Contains("Apartment"))
             {
                 society = new SocietyDetailsEntity
                 {
                     PropertyId = property.Id,
+                    WingName="Building Society", 
                     SocietyName = dto.SocietyName,
                     SocietyAddress = dto.SocietyAddress,
                     SecretaryName = dto.SecretaryName,
@@ -3883,6 +3884,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     public async Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default)
     {
         return await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == CategoryId, cancellationToken);
+    }
+    public async Task<PropertyTypeMasterEntity?> GetAmenityPropertyType(CancellationToken cancellationToken = default)
+    {
+        return await _context.PropertyTypeMasters.FirstOrDefaultAsync(x => x.PartType == PartTypeConstants.Amenity, cancellationToken);
     }
     public async Task<bool> CheckPropertyIfExists(
      CreateBulkPropertyDto dto,
