@@ -25,7 +25,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<UserRoleMasterEntity> UserRoleMasterEntity { get; set; } = null!;
     public DbSet<MoujaEntity> MoujaEntity { get; set; } = null!;
     public DbSet<CombinePropertyHistoryEntity> CombinePropertyHistory { get; set; } = null!;
-
+    public DbSet<PropertyScreenLockEntity> PropertyScreenLocks { get; set; } = null!;
     public DbSet<OfficeEntity> OfficeEntity { get; set; } = null!;
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
@@ -376,6 +376,47 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ToFactor);
             entity.Property(e => e.FactorValue);
             entity.Property(e => e.IsActive);
+        });
+
+        modelBuilder.Entity<PropertyScreenLockEntity>(entity =>
+        {
+            entity.ToTable("PropertyScreenLock", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.LockableScreenId).IsRequired();
+            entity.Property(e => e.IsLocked).IsRequired();  // Removed HasDefaultValue to ensure value is always sent
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.LockedDate).HasColumnType("datetime");
+            entity.Property(e => e.UnlockedDate).HasColumnType("datetime");
+            entity.Property(e => e.LockedBy);  // Explicitly configure
+            entity.Property(e => e.UnlockedBy);  // Explicitly configure
+
+            entity.HasIndex(e => new { e.PropertyId, e.LockableScreenId })
+                .IsUnique()
+                .HasDatabaseName("UQ_PropertyScreenLock_Property_Screen");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyScreenLock_PropertyId");
+            entity.HasIndex(e => e.LockableScreenId).HasDatabaseName("IX_PropertyScreenLock_LockableScreenId");
+
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.LockableScreen)
+                .WithMany()
+                .HasForeignKey(e => e.LockableScreenId)
+                .HasConstraintName("FK_PropertyScreenLock_ScreenMaster")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
         });
 
         modelBuilder.Entity<RetentionYearWiseEntity>(entity =>

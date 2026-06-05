@@ -183,7 +183,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICapitalValueCalculator, CapitalValueCalculatorService>();
         // Capital Value Supporting Services - Persistence
         services.AddScoped<ICapitalValuePersistenceService, CapitalValuePersistenceService>();
-        // Capital Value Configuration Options
+        // Capital Value Configuration Options 
         services.Configure<CapitalValueOptions>(configuration.GetSection(CapitalValueOptions.SectionName));
         services.AddScoped<IDualMethodService, DualMethodService>();
         services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
@@ -195,7 +195,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
         services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
         services.AddScoped<ICombinePropertyTaxService, CombinePropertyTaxService>();
-
+        services.AddScoped<ILockUnlockService, LockUnlockService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
         services.AddScoped<ISubFloorService, SubFloorService>();

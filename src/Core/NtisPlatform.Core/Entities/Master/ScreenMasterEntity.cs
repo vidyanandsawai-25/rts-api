@@ -42,6 +42,8 @@ public class ScreenMasterEntity : BaseEntity
     /// </summary>
     public string? RoutePath { get; set; }
 
+    public bool? IsPropertyLockable { get; set; }
+
     /// <summary>
     /// Whether the screen is a menu item
     /// </summary>
