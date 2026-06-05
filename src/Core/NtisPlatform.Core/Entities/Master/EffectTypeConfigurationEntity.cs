@@ -1,0 +1,43 @@
+namespace NtisPlatform.Core.Entities.Master
+{
+    public class EffectTypeConfigurationEntity : BaseEntity
+    {
+        public int EffectTypeId { get; set; }
+        public string DataType { get; set; } = string.Empty;
+
+        // Input Type Configuration
+        public string InputType { get; set; } = string.Empty;
+
+        // API Configuration (for dynamic dropdowns)
+        public bool HasApiSource { get; set; } = false;
+        public string? ApiEndpoint { get; set; }
+        public string? ApiMethod { get; set; }
+        public string? ApiParameters { get; set; }
+
+        // Static API Configuration (global/default API settings)
+        public string? StaticApiEndpoint { get; set; }
+        public string? StaticApiInputType { get; set; }
+        public string? StaticApiMethod { get; set; }
+        public string? StaticApiParamter { get; set; }
+        public string? StaticApiResponseMapping { get; set; }
+
+        // Static Value Configuration (for non-API dropdowns)
+        public bool HasStaticValues { get; set; } = false;
+        public string? StaticValuesJson { get; set; }
+
+        // Validation & Default Configuration
+        public bool IsRequired { get; set; } = false;
+        public string? DefaultValue { get; set; }
+        public string? ValidationRegex { get; set; }
+        public decimal? MinValue { get; set; }
+        public decimal? MaxValue { get; set; }
+        public int? MinLength { get; set; }
+        public int? MaxLength { get; set; }
+
+        // Lambda expression template for OnSuccess.Context.Expression
+        public string? ExpressionTemplate { get; set; }
+
+        // Navigation property
+        public virtual RuleEffectTypeEntity? EffectType { get; set; }
+    }
+}

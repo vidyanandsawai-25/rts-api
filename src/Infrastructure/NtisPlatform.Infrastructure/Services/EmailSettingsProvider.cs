@@ -132,7 +132,11 @@ public class EmailSettingsProvider : IEmailSettingsProvider
         }
 
         // Cache the settings
-        _cache.Set(CacheKey, settings, CacheDuration);
+        _cache.Set(CacheKey, settings, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = CacheDuration,
+            Size = 1
+        });
         _logger.LogInformation("Email settings loaded and cached successfully");
 
         return settings;

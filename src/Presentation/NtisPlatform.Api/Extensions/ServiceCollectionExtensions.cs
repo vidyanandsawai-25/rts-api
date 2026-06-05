@@ -17,9 +17,15 @@ using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueServ
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.RuleEngine;
+using NtisPlatform.Application.Interfaces.FieldConfiguration;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Master;
+using NtisPlatform.Application.Services.RuleEngine;
+using NtisPlatform.Application.Services.RuleEngine.Effects;
+using NtisPlatform.Application.Services.FieldConfiguration;
 using NtisPlatform.Application.Services.CapitalValue;
 using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
 using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
@@ -27,8 +33,10 @@ using NtisPlatform.Application.Services.CapitalValue.DataLoader;
 using NtisPlatform.Application.Services.CapitalValue.MasterDataProviders;
 using NtisPlatform.Application.Services.CapitalValueService;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.RuleEngine;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.RuleEngine;
 using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
@@ -119,6 +127,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
+        services.AddScoped<IRuleFieldsRepository, RuleFieldsRepository>();
         services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
 
         // Infrastructure Layer - Services
@@ -205,6 +214,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
+        services.AddScoped<IPropertyRuleEvaluationMasterService, PropertyRuleEvaluationMasterService>();
         services.AddScoped<IZoneService, ZoneService>();
         services.AddScoped<IRateSectionService, RateSectionService>();
         services.AddScoped<IRateSectionDetailsService, RateSectionDetailsService>();
@@ -249,16 +259,17 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoomWiseSubmissionDetailsService, RoomWiseSubmissionDetailsService>();
 
 
- 
+
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserScreenAccessService, UserScreenAccessService>();
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
- 
+
         services.AddScoped<IPropertyDescriptionAndTypeOfUseValidationService, PropertyDescriptionAndTypeOfUseValidationService>();
         services.AddScoped<IBlockMasterService, BlockMasterService>();
         services.AddScoped<IReferenceValidationService, ReferenceValidationService>();
         services.AddScoped<IRuleScopeService, RuleScopeService>();
+        services.AddScoped<IRuleCategoryService, RuleCategoryService>();
         services.AddScoped<IRuleEffectTypeService, RuleEffectTypeService>();
         services.AddScoped<IRuleOperatorService, RuleOperatorService>();
 
@@ -290,6 +301,21 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
+        services.AddScoped<IRuleFieldsService, RuleFieldsService>();
+        services.AddScoped<IRuleEngineService, RuleEngineService>();
+        services.AddScoped<IFieldConfigurationService, FieldConfigurationService>();
+
+        // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
+        // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests
+        // Effect applicators are stateless, safe as singleton for better performance
+        services.AddScoped<IRuleExecutionService, RuleExecutionService>();
+        services.AddSingleton<IRuleEffectApplicator, DecreasePercentApplicator>();
+        services.AddSingleton<IRuleEffectApplicator, IncreasePercentApplicator>();
+        services.AddSingleton<IRuleEffectApplicator, MultiplyApplicator>();
+        services.AddSingleton<IRuleEffectApplicator, OverrideApplicator>();
+        services.AddSingleton<IRuleEffectApplicator, ExemptionApplicator>();
+        // RateLookupApplicator is Scoped because it depends on IRepository (DbContext-bound)
+        services.AddScoped<IRuleEffectApplicator, RateLookupApplicator>();
         services.AddScoped<ITaxMasterService, TaxMasterService>();
 
         // AutoMapper
@@ -437,72 +463,77 @@ public static class ServiceCollectionExtensions
             {
                 // Read rate limiting configuration
                 var globalPermitLimit = configuration.GetValue<int>("RateLimiting:Global:PermitLimit", 100);
-            var globalWindowMinutes = configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1);
-            var loginPermitLimit = configuration.GetValue<int>("RateLimiting:Login:PermitLimit", 5);
-            var loginWindowMinutes = configuration.GetValue<int>("RateLimiting:Login:WindowMinutes", 15);
-            var uploadPermitLimit = configuration.GetValue<int>("RateLimiting:FileUpload:PermitLimit", 10);
-            var uploadWindowMinutes = configuration.GetValue<int>("RateLimiting:FileUpload:WindowMinutes", 5);
-            var uploadQueueLimit = configuration.GetValue<int>("RateLimiting:FileUpload:QueueLimit", 2);
+                var globalWindowMinutes = configuration.GetValue<int>("RateLimiting:Global:WindowMinutes", 1);
+                var loginPermitLimit = configuration.GetValue<int>("RateLimiting:Login:PermitLimit", 5);
+                var loginWindowMinutes = configuration.GetValue<int>("RateLimiting:Login:WindowMinutes", 15);
+                var uploadPermitLimit = configuration.GetValue<int>("RateLimiting:FileUpload:PermitLimit", 10);
+                var uploadWindowMinutes = configuration.GetValue<int>("RateLimiting:FileUpload:WindowMinutes", 5);
+                var uploadQueueLimit = configuration.GetValue<int>("RateLimiting:FileUpload:QueueLimit", 2);
 
-            // Global default policy for all endpoints (unless overridden)
-            options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
-                System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
-                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new System.Threading.RateLimiting.SlidingWindowRateLimiterOptions
-                    {
-                        PermitLimit = globalPermitLimit,
-                        Window = TimeSpan.FromMinutes(globalWindowMinutes),
-                        SegmentsPerWindow = 6,
-                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                        QueueLimit = 0
-                    }));
+                // Global default policy for all endpoints (unless overridden)
+                options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetSlidingWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.SlidingWindowRateLimiterOptions
+                        {
+                            PermitLimit = globalPermitLimit,
+                            Window = TimeSpan.FromMinutes(globalWindowMinutes),
+                            SegmentsPerWindow = 6,
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
 
-            // Stricter fixed window rate limiter for login endpoint
-            options.AddPolicy("login", context =>
-                System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                    factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = loginPermitLimit,
-                        Window = TimeSpan.FromMinutes(loginWindowMinutes),
-                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                        QueueLimit = 0
-                    }));
+                // Stricter fixed window rate limiter for login endpoint
+                options.AddPolicy("login", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = loginPermitLimit,
+                            Window = TimeSpan.FromMinutes(loginWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
 
-            // Dedicated rate limiter for file upload endpoints
-            // Prevents abuse and resource exhaustion from excessive file uploads
-            options.AddPolicy("fileupload", context =>
-                System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
-                    factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = uploadPermitLimit,
-                        Window = TimeSpan.FromMinutes(uploadWindowMinutes),
-                        QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
-                        QueueLimit = uploadQueueLimit
-                    }));
+                // Dedicated rate limiter for file upload endpoints
+                // Prevents abuse and resource exhaustion from excessive file uploads
+                options.AddPolicy("fileupload", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = uploadPermitLimit,
+                            Window = TimeSpan.FromMinutes(uploadWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = uploadQueueLimit
+                        }));
 
-            // On rejection, return 429 Too Many Requests
-            options.OnRejected = async (context, cancellationToken) =>
-            {
-                context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-
-                var retryAfterSeconds = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
-                    ? (double?)retryAfter.TotalSeconds
-                    : null;
-
-                await context.HttpContext.Response.WriteAsJsonAsync(new
+                // On rejection, return 429 Too Many Requests
+                options.OnRejected = async (context, cancellationToken) =>
                 {
-                    error = "Too Many Requests",
-                    message = "Rate limit exceeded. Please try again later.",
-                    retryAfter = retryAfterSeconds
-                }, cancellationToken);
-            };
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+
+                    var retryAfterSeconds = context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out var retryAfter)
+                        ? (double?)retryAfter.TotalSeconds
+                        : null;
+
+                    await context.HttpContext.Response.WriteAsJsonAsync(new
+                    {
+                        error = "Too Many Requests",
+                        message = "Rate limit exceeded. Please try again later.",
+                        retryAfter = retryAfterSeconds
+                    }, cancellationToken);
+                };
             });
         }
 
-        // Caching
-        services.AddMemoryCache();
+        // P0: Caching with size limits to prevent memory leaks
+        services.AddMemoryCache(options =>
+        {
+            options.SizeLimit = 100; // Max 100 cache entries (each rule category = 1 entry)
+            options.CompactionPercentage = 0.25; // Remove 25% of entries when size limit reached
+        });
+
         services.AddResponseCaching();
 
         // Health checks

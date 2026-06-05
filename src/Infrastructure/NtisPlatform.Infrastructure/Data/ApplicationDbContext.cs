@@ -37,6 +37,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
     public DbSet<WardEntity> WardMaster { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
+    public DbSet<PropertyRuleEvaluationMasterEntity> PropertyRuleEvaluationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
     public DbSet<ScreenMasterEntity> ScreenMaster { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMaster { get; set; } = null!;
@@ -140,6 +141,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
+    public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
+    public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;
+    public DbSet<FieldConfigurationEntity> FieldConfiguration { get; set; } = null!;
+    public DbSet<EffectTypeConfigurationEntity> EffectTypeConfiguration { get; set; } = null!;
+    public DbSet<RuleEngineEntity> RuleEngine { get; set; } = null!;
+    public DbSet<RuleVersionHistoryEntity> RuleVersionHistory { get; set; } = null!;
+    public DbSet<RuleCategoryEntity> RuleCategory { get; set; } = null!;
+    public DbSet<RuleExclusionEntity> RuleExclusion { get; set; } = null!;
 
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
@@ -784,6 +793,22 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BankCode).IsUnique();
             entity.HasIndex(e => e.IFSCCode).IsUnique();
             entity.HasIndex(e => e.BankName);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // PropertyRuleEvaluationMaster configuration
+        modelBuilder.Entity<PropertyRuleEvaluationMasterEntity>(entity =>
+        {
+            entity.ToTable("PropertyRuleEvaluationMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ParameterCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ParameterName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.ParameterCode).IsUnique();
             entity.HasIndex(e => e.IsActive);
         });
 
@@ -2058,6 +2083,12 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Explicitly configure the RateCVMaster relationship
+            entity.HasOne(e => e.RateCVMaster)
+                .WithMany()
+                .HasForeignKey(e => e.RateCVMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Relationship to PropertyDetails - Restrict delete to preserve CV history
             entity.HasOne(e => e.PropertyDetails)
                 .WithMany(p => p.PropertyTaxCalculationCVResults)
@@ -2915,6 +2946,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.HasIndex(e => e.IsActive);
+
+            // One-to-one relationship with EffectTypeConfiguration
+            entity.HasOne(e => e.EffectTypeConfiguration)
+                .WithOne(c => c.EffectType)
+                .HasForeignKey<EffectTypeConfigurationEntity>(c => c.EffectTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // rule operator configuration
@@ -4135,11 +4172,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DocumentBindingId);
             entity.Property(e => e.Remark).HasMaxLength(500);
 
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
 
             // Configure relationships
             entity.HasOne(e => e.PropertyMast)
@@ -4163,6 +4196,387 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.PropertyId, e.SocialAttributeId }).IsUnique().HasDatabaseName("UQ_PropertySocialDetails").HasFilter("[IsActive] = 1");
         });
 
+        // rule operator configuration
+        modelBuilder.Entity<RulesFieldEntity>(entity =>
+        {
+            entity.ToTable("RulesFieldMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
+
+            // One-to-one relationship with FieldConfiguration
+            entity.HasOne(e => e.FieldConfiguration)
+                .WithOne(c => c.RulesField)
+                .HasForeignKey<FieldConfigurationEntity>(c => c.RulesFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // RuleScopeFieldMapping configuration
+        modelBuilder.Entity<RuleScopeFieldMappingEntity>(entity =>
+        {
+            entity.ToTable("RuleScopeFieldMapping", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuleScopeId);
+            entity.Property(e => e.RulesFieldId);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Foreign key relationships
+            entity.HasOne<RuleScopeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.RuleScopeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RulesFieldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.RulesFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.RuleScopeId);
+            entity.HasIndex(e => e.RulesFieldId);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // FieldConfiguration configuration
+        modelBuilder.Entity<FieldConfigurationEntity>(entity =>
+        {
+            entity.ToTable("FieldConfiguration", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            // Required fields
+            entity.Property(e => e.RulesFieldId).IsRequired();
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.InputType).IsRequired().HasMaxLength(50);
+            // API Configuration
+            entity.Property(e => e.HasApiSource).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ApiEndpoint).HasMaxLength(500);
+            entity.Property(e => e.ApiMethod).HasMaxLength(10);
+            entity.Property(e => e.ApiParameters).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ApiResponseMapping).HasColumnType("nvarchar(max)");
+            // Static Value Configuration
+            entity.Property(e => e.HasStaticValues).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.StaticValuesJson).HasColumnType("nvarchar(max)");
+            // Validation & Default Configuration
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DefaultValue).HasMaxLength(255);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MinLength);
+            entity.Property(e => e.MaxLength);
+            // Audit Fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        // rule operator configuration
+        modelBuilder.Entity<RulesFieldEntity>(entity =>
+        {
+            entity.ToTable("RulesFieldMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // RuleScopeFieldMapping configuration
+        modelBuilder.Entity<RuleScopeFieldMappingEntity>(entity =>
+        {
+            entity.ToTable("RuleScopeFieldMapping", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RuleScopeId);
+            entity.Property(e => e.RulesFieldId);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Foreign key relationships
+            entity.HasOne<RuleScopeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.RuleScopeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RulesFieldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.RulesFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.RuleScopeId);
+            entity.HasIndex(e => e.RulesFieldId);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // FieldConfiguration configuration
+        modelBuilder.Entity<FieldConfigurationEntity>(entity =>
+        {
+            entity.ToTable("FieldConfiguration", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            // Required fields
+            entity.Property(e => e.RulesFieldId).IsRequired();
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.InputType).IsRequired().HasMaxLength(50);
+            // API Configuration
+            entity.Property(e => e.HasApiSource).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ApiEndpoint).HasMaxLength(500);
+            entity.Property(e => e.ApiMethod).HasMaxLength(10);
+            entity.Property(e => e.ApiParameters).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ApiResponseMapping).HasColumnType("nvarchar(max)");
+            // Static Value Configuration
+            entity.Property(e => e.HasStaticValues).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.StaticValuesJson).HasColumnType("nvarchar(max)");
+            // Validation & Default Configuration
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DefaultValue).HasMaxLength(255);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MinLength);
+            entity.Property(e => e.MaxLength);
+            // Audit Fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Foreign key relationship — one-to-one: one RulesField has one FieldConfiguration
+            entity.HasOne(e => e.RulesField)
+                .WithOne(r => r.FieldConfiguration)
+                .HasForeignKey<FieldConfigurationEntity>(e => e.RulesFieldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // EffectTypeConfiguration configuration
+        modelBuilder.Entity<EffectTypeConfigurationEntity>(entity =>
+        {
+            entity.ToTable("EffectTypeConfiguration", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            // Required fields
+            entity.Property(e => e.EffectTypeId).IsRequired();
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.InputType).IsRequired().HasMaxLength(50);
+            // API Configuration
+            entity.Property(e => e.HasApiSource).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ApiEndpoint).HasMaxLength(500);
+            entity.Property(e => e.ApiMethod).HasMaxLength(10);
+            entity.Property(e => e.ApiParameters).HasColumnType("nvarchar(max)");
+
+            // Static API Configuration
+            entity.Property(e => e.StaticApiEndpoint).HasMaxLength(500);
+            entity.Property(e => e.StaticApiInputType).HasMaxLength(500);
+            entity.Property(e => e.StaticApiMethod).HasMaxLength(500);
+            entity.Property(e => e.StaticApiParamter).HasMaxLength(500);
+            entity.Property(e => e.StaticApiResponseMapping).HasMaxLength(500);
+            // Static Value Configuration
+            entity.Property(e => e.HasStaticValues).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.StaticValuesJson).HasColumnType("nvarchar(max)");
+            // Validation & Default Configuration
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DefaultValue).HasMaxLength(255);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.MinLength);
+            entity.Property(e => e.MaxLength);
+            entity.Property(e => e.ExpressionTemplate).HasMaxLength(500);
+            // Audit Fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // Unique constraint on EffectTypeId
+            entity.HasIndex(e => e.EffectTypeId).IsUnique().HasDatabaseName("UQ_EffectTypeConfiguration_EffectTypeId");
+            // Indexes for performance
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // RuleEngineMaster configuration
+        modelBuilder.Entity<RuleEngineEntity>(entity =>
+        {
+            entity.ToTable("RuleEngineMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Required fields
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.RuleCategory).HasMaxLength(100);
+            entity.Property(e => e.RuleJson).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ConditionsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.EffectJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.TargetFiltersJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.Priority).IsRequired().HasDefaultValue(100);
+
+            entity.Property(e => e.IsEnabled).IsRequired().HasDefaultValue(true);
+
+            // Audit fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // New property for stop processing
+            entity.Property(e => e.StopProcessing).IsRequired().HasDefaultValue(false);
+
+            // Unique constraint on RuleCode
+            entity.HasIndex(e => e.RuleCode).IsUnique().HasDatabaseName("UQ_RuleEngineMaster_RuleCode");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.IsEnabled);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // RuleCategoryMaster configuration
+        modelBuilder.Entity<RuleCategoryEntity>(entity =>
+        {
+            entity.ToTable("RuleCategoryMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
+
+            // Audit fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Unique constraint on CategoryCode
+            entity.HasIndex(e => e.CategoryCode).IsUnique().HasDatabaseName("UQ_RuleCategoryMaster_CategoryCode");
+
+            // Indexes for performance
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.SortOrder);
+        });
+
+        // RuleExclusion configuration
+        modelBuilder.Entity<RuleExclusionEntity>(entity =>
+        {
+            entity.ToTable("RuleExclusion", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Required fields
+            entity.Property(e => e.AppliedRuleId).IsRequired();
+            entity.Property(e => e.SkipRuleId).IsRequired();
+            entity.Property(e => e.Reason).HasMaxLength(500);
+
+            // Audit fields
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Foreign key relationships
+            entity.HasOne(e => e.AppliedRule)
+                .WithMany(r => r.ExclusionsTriggered)
+                .HasForeignKey(e => e.AppliedRuleId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_RuleExclusion_AppliedRule");
+
+            entity.HasOne(e => e.SkipRule)
+                .WithMany(r => r.ExclusionsSkippedBy)
+                .HasForeignKey(e => e.SkipRuleId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_RuleExclusion_SkipRule");
+
+            // Unique constraint - prevent duplicate exclusion entries
+            entity.HasIndex(e => new { e.AppliedRuleId, e.SkipRuleId })
+                .IsUnique()
+                .HasDatabaseName("UQ_RuleExclusion_AppliedSkip");
+
+            // Check constraint - prevent self-exclusion (will be added in migration as SQL)
+            // CHECK (AppliedRuleId <> SkipRuleId)
+
+            // Indexes for performance
+            entity.HasIndex(e => e.AppliedRuleId)
+                .HasDatabaseName("IX_RuleExclusion_AppliedRuleId")
+                .HasFilter("[IsActive] = 1");
+
+            entity.HasIndex(e => e.SkipRuleId)
+                .HasDatabaseName("IX_RuleExclusion_SkipRuleId")
+                .HasFilter("[IsActive] = 1");
+
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // RuleVersionHistory configuration
+        modelBuilder.Entity<RuleVersionHistoryEntity>(entity =>
+        {
+            entity.ToTable("RuleVersionHistory", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Required fields
+            entity.Property(e => e.RuleId).IsRequired();
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.Version).IsRequired();
+            entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.RuleJson).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.Priority).IsRequired();
+            entity.Property(e => e.IsEnabled).IsRequired();
+
+            // Change metadata
+            entity.Property(e => e.ChangeType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ChangeReason).HasMaxLength(500);
+            entity.Property(e => e.ChangedBy).IsRequired();
+            entity.Property(e => e.ChangedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.ChangeSummary).HasColumnType("nvarchar(max)");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.RuleEngine)
+                .WithMany()
+                .HasForeignKey(e => e.RuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for performance
+            entity.HasIndex(e => e.RuleId);
+            entity.HasIndex(e => e.RuleCode);
+            entity.HasIndex(e => e.Version);
+            entity.HasIndex(e => e.ChangeType);
+            entity.HasIndex(e => e.ChangedDate);
+        });
 
         // TypeOfUseGroupMasterCV configuration
         modelBuilder.Entity<TypeOfUseGroupCVEntity>(entity =>
@@ -4190,7 +4604,5 @@ public class ApplicationDbContext : DbContext
            .HasForeignKey(n => n.TypeOfUseGroupCVId)
            .OnDelete(DeleteBehavior.Restrict);
         });
-
     }
 }
-

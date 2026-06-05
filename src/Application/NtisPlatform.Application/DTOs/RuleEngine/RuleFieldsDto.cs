@@ -1,0 +1,31 @@
+namespace NtisPlatform.Application.DTOs.RuleEngine
+{
+    public class RuleFieldsDto
+    {
+        public int Id { get; set; }
+        public string FieldName { get; set; } = string.Empty;
+        public string FieldType { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedOn { get; set; }
+        public DateTime UpdatedOn { get; set; }
+
+        // FieldConfiguration properties (nullable as they may not exist)
+        public string? DataType { get; set; }
+        public string? InputType { get; set; }
+        public bool? HasApiSource { get; set; }
+        public string? ApiEndpoint { get; set; }
+        public string? ApiMethod { get; set; }
+        public string? ApiParameters { get; set; }
+        public string? ApiResponseMapping { get; set; }
+        public bool? HasStaticValues { get; set; }
+        public string? StaticValuesJson { get; set; }
+        public bool? IsRequired { get; set; }
+        public string? DefaultValue { get; set; }
+        public string? ValidationRegex { get; set; }
+        public decimal? MinValue { get; set; }
+        public decimal? MaxValue { get; set; }
+        public int? MinLength { get; set; }
+        public int? MaxLength { get; set; }
+    }
+}

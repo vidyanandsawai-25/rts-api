@@ -68,6 +68,8 @@ public class AutoMapperValidationTest
               "Id",
               // Audit fields (populated by repository/interceptors)
               "CreatedBy", "UpdatedBy", "CreatedDate", "UpdatedDate", "MarkedForDeletion",
+              // Description field (intentionally not mapped in RuleFields)
+              "Description",
               // Navigation properties (managed by EF Core)
               "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
               "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
@@ -122,7 +124,9 @@ public class AutoMapperValidationTest
               "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
               "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
               "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
-             "TransMastRV"
+             "TransMastRV",
+             // Rule exclusion properties (navigation properties)
+             "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy"
           };
 
             // Check if all unmapped properties are in the expected list

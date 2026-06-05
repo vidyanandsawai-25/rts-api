@@ -1,8 +1,5 @@
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace NtisPlatform.Application.Services.TaxEngine
 {
@@ -17,7 +14,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             List<RateEntity> rates,
             List<DepreciationMasterEntity> depreciations,
             List<AssessmentYearRangeEntity> yearRanges,
-            List<RenterMastEntity> renters) // <-- add this
+            List<RenterMastEntity> renters,
+            decimal? overrideRateSqM = null) // Rule-engine adjusted rate (optional)
 
         {
             if (detail == null) throw new ArgumentNullException(nameof(detail));
@@ -42,9 +40,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     $"Rate not found for TaxZoneId={taxZoneId}, WardId={wardId}, FloorId={detail.FloorId}, ConstructionTypeId={detail.ConstructionTypeId}, TypeOfUseGroupId={typeOfUse.TypeOfUseGroupId}, YearRangeRVId={yearRange.Id}");
 
             decimal areaSqM = Convert.ToDecimal(detail.CarpetAreaSqMeter ?? 0d);
-            decimal rateSqM = rate.RateSquareMeter ?? 0m;
+            // Use rule-engine adjusted rate if provided; otherwise use master rate
+            decimal rateSqM = overrideRateSqM ?? rate.RateSquareMeter ?? 0m;
             decimal monthlyRate = rateSqM / 12;
-            decimal yearlyRate = rateSqM ;
+            decimal yearlyRate = rateSqM;
 
             decimal yearlyRentCalc = rateSqM * areaSqM;
             if (detail.IsRenter == true)
@@ -73,8 +72,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             else
                 yearlyRent = yearlyRentCalc;
 
-           decimal annualRentalValue = yearlyRent - depreciationAmount;
-                      
+            decimal annualRentalValue = yearlyRent - depreciationAmount;
+
 
             annualRentalValue = Math.Round(annualRentalValue, 0, MidpointRounding.AwayFromZero);
             depreciationAmount = Math.Round(depreciationAmount, 0, MidpointRounding.AwayFromZero);

@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging;
 using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.RateableValue;
+using NtisPlatform.Application.Interfaces.RuleEngine;
+using NtisPlatform.Application.Services.RuleEngine.Effects;
 using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -32,7 +34,10 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
     private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
     private readonly Mock<IRepository<PropertyMastOldEntity, int>> _oldPropertyRepo;
+    private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
+    private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
     private readonly Mock<TaxMasterDataService> _masterDataService;
+    private readonly Mock<IRuleExecutionService> _ruleExecutionService;
     private readonly Mock<IUnitOfWork> _unitOfWork;
     private readonly Mock<ILogger<RateableValueService>> _logger;
 
@@ -45,6 +50,8 @@ public class RateableValueServiceTests
         _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
         _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
         _oldPropertyRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
+        _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
         _unitOfWork = new Mock<IUnitOfWork>();
         _logger = new Mock<ILogger<RateableValueService>>();
 
@@ -81,6 +88,9 @@ public class RateableValueServiceTests
             employmentTaxRepo.Object
         );
 
+        // Setup rule execution service mock
+        _ruleExecutionService = new Mock<IRuleExecutionService>();
+
         // Setup unit of work
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -88,6 +98,16 @@ public class RateableValueServiceTests
 
     private RateableValueService CreateService()
     {
+        // Create effect applicators collection
+        var effectApplicators = new List<IRuleEffectApplicator>
+        {
+            new DecreasePercentApplicator(),
+            new IncreasePercentApplicator(),
+            new ExemptionApplicator(),
+            new MultiplyApplicator(),
+            new OverrideApplicator()
+        };
+
         return new RateableValueService(
             _propertyRepo.Object,
             _propertyDetailsRepo.Object,
@@ -96,7 +116,11 @@ public class RateableValueServiceTests
             _renterRepo.Object,
             _occupancyRepo.Object,
             _oldPropertyRepo.Object,
+            _propertySocialDetailsRepo.Object,
+            _propertyAssessmentRepo.Object,
             _masterDataService.Object,
+            _ruleExecutionService.Object,
+            effectApplicators,
             _unitOfWork.Object,
             _logger.Object
         );
@@ -241,7 +265,7 @@ public class RateableValueServiceTests
         SetupPropertyAndDetails(1, "2025");
 
         SetupBasicMasterData();
-        
+
         // Override year ranges with empty list after basic setup
         _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
             .ReturnsAsync(new List<AssessmentYearRangeEntity>()); // Empty year ranges
@@ -290,7 +314,7 @@ public class RateableValueServiceTests
         var testValueDecimal = (decimal)testValue;
         var minAmountDecimal = minAmount.HasValue ? (decimal?)minAmount.Value : null;
         var maxAmountDecimal = maxAmount.HasValue ? (decimal?)maxAmount.Value : null;
-        
+
         var minOk = !minAmountDecimal.HasValue || testValueDecimal >= minAmountDecimal.Value;
         var maxOk = !maxAmountDecimal.HasValue || testValueDecimal <= maxAmountDecimal.Value;
         var actualMatch = minOk && maxOk;
@@ -336,7 +360,7 @@ public class RateableValueServiceTests
                 IsActive = true
             }
         };
-        
+
         // Setup callback BEFORE calling SetupCompleteCalculationData
         List<PolicyTaxDetailsEntity>? capturedPolicyRows = null;
         _policyTaxRepo.Setup(r => r.AddRangeAsync(
@@ -417,7 +441,7 @@ public class RateableValueServiceTests
         var testValueDecimal = (decimal)testValue;
         var minAmountDecimal = minAmount.HasValue ? (decimal?)minAmount.Value : null;
         var maxAmountDecimal = maxAmount.HasValue ? (decimal?)maxAmount.Value : null;
-        
+
         var minOk = !minAmountDecimal.HasValue || testValueDecimal >= minAmountDecimal.Value;
         var maxOk = !maxAmountDecimal.HasValue || testValueDecimal <= maxAmountDecimal.Value;
         var actualMatch = minOk && maxOk;
@@ -521,9 +545,9 @@ public class RateableValueServiceTests
         var service = CreateService();
         var propertyId = 1;
         SetupPropertyAndDetails(propertyId, "2020");
-        
+
         SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
-        
+
         // Override policy repo GetQueryable to return old policy rows AFTER SetupCompleteCalculationData
         _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PolicyTaxDetailsEntity>
@@ -640,7 +664,7 @@ public class RateableValueServiceTests
         var service = CreateService();
         var propertyId = 1;
         SetupPropertyWithMultipleDetails(propertyId, "2020"); // 2 details
-        
+
         // Setup callback BEFORE calling SetupCompleteCalculationData
         List<PolicyTaxDetailsEntity>? capturedResults = null;
         _policyTaxRepo.Setup(r => r.AddRangeAsync(
@@ -653,7 +677,7 @@ public class RateableValueServiceTests
             .Returns(Task.CompletedTask);
 
         SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
-        
+
         // Override taxes with custom list (3 standard taxes)
         var taxes = new List<TaxMasterEntity>
         {
@@ -662,7 +686,7 @@ public class RateableValueServiceTests
             new TaxMasterEntity { Id = 12, TaxName = "Drainage Tax", TaxCode = "DT", IsActive = true }
         };
         _masterDataService.Setup(m => m.GetActiveTaxesAsync()).ReturnsAsync(taxes);
-        
+
         // Setup tax percentages for all taxes
         _masterDataService.Setup(m => m.GetActiveTaxPercentagesAsync())
             .ReturnsAsync(new List<TaxPercentageMasterRVEntity>
@@ -901,13 +925,13 @@ public class RateableValueServiceTests
 
         _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PolicyTaxDetailsEntity>().BuildMockDbSet().Object);
-            
+
         // Setup UpdateAsync for policy tax repository
         _policyTaxRepo.Setup(r => r.UpdateAsync(
             It.IsAny<PolicyTaxDetailsEntity>(),
             It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-            
+
         // Note: AddRangeAsync is NOT set up here to allow individual tests to mock it with callbacks
     }
 

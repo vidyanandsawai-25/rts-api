@@ -82,7 +82,7 @@ public class SecuritySettingsService : ISecuritySettingsService
             return defaultValue;
         }
 
-        _logger.LogDebug("Security setting '{Key}' retrieved: RawValue='{Value}', ConvertingTo={TargetType}", 
+        _logger.LogDebug("Security setting '{Key}' retrieved: RawValue='{Value}', ConvertingTo={TargetType}",
             key, stringValue, typeof(T).Name);
 
         try
@@ -161,7 +161,11 @@ public class SecuritySettingsService : ISecuritySettingsService
                 StringComparer.OrdinalIgnoreCase
             );
 
-        _cache.Set(CacheKey, dict, CacheDuration);
+        _cache.Set(CacheKey, dict, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = CacheDuration,
+            Size = 1
+        });
 
         _logger.LogDebug("Loaded {Count} security settings for category '{CategoryCode}'.",
             dict.Count, SecurityCategoryCode);
