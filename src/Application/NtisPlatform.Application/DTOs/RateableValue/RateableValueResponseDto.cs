@@ -17,6 +17,7 @@ namespace NtisPlatform.Application.DTOs.RateableValue
     public class RateableValueDetailDto
     {
         public int PropertyDetailsId { get; set; }
+        public bool Taxable { get; set; }
         public string Floor { get; set; } = string.Empty;
         public string SubFloor { get; set; } = string.Empty;
         public string ConstructionYear { get; set; } = string.Empty;
@@ -38,6 +39,8 @@ namespace NtisPlatform.Application.DTOs.RateableValue
         public decimal YearlyRate { get; set; }
         public decimal YearlyRent { get; set; }
         public decimal Depreciation { get; set; }
+        public decimal DepreciationPer { get; set; }
+        public string AppliedOn { get; set; } = string.Empty;
         public decimal AnnualRentalValue { get; set; }
         public decimal Maintenance { get; set; }
         public decimal RateableValue { get; set; }

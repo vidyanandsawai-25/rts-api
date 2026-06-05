@@ -2791,6 +2791,18 @@ public class ApplicationDbContext : DbContext
               .WithMany(p => p.TransMastRV)
              .HasForeignKey(r => r.PropertyId)
             .OnDelete(DeleteBehavior.Restrict);
+
+            // Unique constraint on PropertyId, FinanceYearId, TaxId for active, non-deleted rows only
+            // This allows multiple historical records with the same natural key as long as only one is active
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
+                .HasDatabaseName("UQ_TransMastRV_Property_Year_Tax");
+
+            // Performance indexes
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_TransMastRV_PropertyId");
+            entity.HasIndex(e => e.FinanceYearId).HasDatabaseName("IX_TransMastRV_FinanceYearId");
+            entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastRV_TaxId");
         });
 
         // Document configuration

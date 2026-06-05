@@ -21,7 +21,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IReadOnlyList<ConstructionTypeEntity> constructionTypes,
             IReadOnlyList<TypeOfUseEntity> typeOfUses,
             IReadOnlyList<SubTypeOfUseEntity> subTypeOfUses,
-            //IReadOnlyList<SubFloorEntity> subFloors,
+            IReadOnlyList<SubFloorEntity> subFloors,
             List<RenterMastEntity> renters,
             List<PropertyOccupancyDetailsEntity> occupancies,
             TaxGetterCache<TaxMasterEntity> taxMasterCache)
@@ -35,7 +35,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             var typeOfUseMap = typeOfUses.ToDictionary(x => x.Id, x => x.Description ?? string.Empty);
             var subTypeOfUseMap = subTypeOfUses.ToDictionary(x => x.Id, x => x.Description ?? string.Empty);
-            //var subFloorMap = subFloors.ToDictionary(x => x.Id, x => x.Description ?? x.SubFloorCode ?? string.Empty);
+            var subFloorMap = subFloors.ToDictionary(x => x.Id, x => x.Description ?? x.SubFloorCode ?? string.Empty);
             var detailMap = details.ToDictionary(x => x.Id, x => x);
 
             var renterMap = renters
@@ -71,8 +71,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     return new RateableValueDetailDto
                     {
                         PropertyDetailsId = detail.Id,
+                        Taxable = detail.IsTaxable ?? true,
                         Floor = floorMap.TryGetValue(detail.FloorId, out var floorName) ? floorName : string.Empty,
-                        //SubFloor = detail.SubFloorId.HasValue && subFloorMap.TryGetValue(detail.SubFloorId.Value, out var subFloorName) ? subFloorName : string.Empty,
+                        SubFloor = detail.SubFloorId.HasValue && subFloorMap.TryGetValue(detail.SubFloorId.Value, out var subFloorName) ? subFloorName : string.Empty,
                         ConstructionYear = detail.ConstructionYear ?? string.Empty,
                         AssessmentYear = detail.AssessmentYear ?? string.Empty,
                         ConstructionType = constructionTypeMap.TryGetValue(detail.ConstructionTypeId, out var conType) ? conType : string.Empty,
@@ -96,6 +97,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         YearlyRate = ToDecimal(first.YearlyRate),
                         YearlyRent = ToDecimal(first.YearlyRent),
                         Depreciation = first.Depreciation ?? 0m,
+                        DepreciationPer = Math.Round(first.DepreciationPer ?? 0m, 2),
+                        AppliedOn = first.AppliedOn ?? string.Empty,
                         AnnualRentalValue = ToDecimal(first.AnnualRentalValue),
                         Maintenance = first.Maintenance ?? 0m,
                         RateableValue = first.RateableValue ?? 0m,

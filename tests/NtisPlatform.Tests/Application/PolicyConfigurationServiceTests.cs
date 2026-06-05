@@ -1,4 +1,6 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
@@ -14,6 +16,7 @@ public class PolicyConfigurationServiceTests
     private readonly Mock<IRepository<PolicyConfigurationEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork>  _mockUnitOfWork;
     private readonly Mock<IMapper>      _mockMapper;
+    private readonly Mock<ILogger<PolicyConfigurationService>> _mockLogger;
     private readonly PolicyConfigurationService _service;
 
     public PolicyConfigurationServiceTests()
@@ -21,6 +24,7 @@ public class PolicyConfigurationServiceTests
         _mockRepository = new Mock<IRepository<PolicyConfigurationEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper     = new Mock<IMapper>();
+        _mockLogger     = new Mock<ILogger<PolicyConfigurationService>>();
 
         _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
@@ -29,7 +33,8 @@ public class PolicyConfigurationServiceTests
         _service = new PolicyConfigurationService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            _mockMapper.Object);
+            _mockMapper.Object,
+            _mockLogger.Object);
     }
 
     // ──────────────────────── Helpers ────────────────────────────────────────
@@ -37,8 +42,11 @@ public class PolicyConfigurationServiceTests
     private static IMapper RealMapper() =>
         new MapperConfiguration(cfg =>
             cfg.CreateMap<PolicyConfigurationEntity, PolicyConfigurationDto>(),
-            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance)
+            NullLoggerFactory.Instance)
         .CreateMapper();
+
+    private static ILogger<PolicyConfigurationService> NullLogger() =>
+        NullLoggerFactory.Instance.CreateLogger<PolicyConfigurationService>();
 
     private static PolicyConfigurationEntity SampleEntity(int id = 1) => new()
     {
@@ -123,7 +131,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10 });
 
@@ -143,7 +151,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10, Category = "Tax" });
 
@@ -161,7 +169,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10, PolicyCode = "POL-001" });
 
@@ -180,7 +188,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10, DataType = "BIT" });
 
@@ -192,7 +200,7 @@ public class PolicyConfigurationServiceTests
     public async Task GetAllAsync_EmptyDatabase_ReturnsEmpty()
     {
         _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<PolicyConfigurationEntity>().BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10 });
 
@@ -215,7 +223,7 @@ public class PolicyConfigurationServiceTests
             }).ToList();
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(new PolicyConfigurationQueryParameters { PageNumber = 2, PageSize = 10 });
 
@@ -235,7 +243,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(
             new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10, SearchTerm = "Penalty" });
@@ -260,7 +268,7 @@ public class PolicyConfigurationServiceTests
         };
 
         _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
-        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper());
+        var service = new PolicyConfigurationService(_mockRepository.Object, _mockUnitOfWork.Object, RealMapper(), NullLogger());
 
         var result = await service.GetAllAsync(
             new PolicyConfigurationQueryParameters { PageNumber = 1, PageSize = 10, SortBy = "Category", SortOrder = "asc" });
@@ -561,5 +569,200 @@ public class PolicyConfigurationServiceTests
 
         _mockMapper.Verify(m => m.Map<PolicyConfigurationEntity>(dto), Times.Once);
         _mockMapper.Verify(m => m.Map<PolicyConfigurationDto>(It.IsAny<PolicyConfigurationEntity>()), Times.Once);
+    }
+
+    // ──────────────────────── GetPolicyValueAsync ─────────────────────────────
+
+    [Fact]
+    public async Task GetPolicyValueAsync_ExistingActivePolicy_ReturnsPolicyValue()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = "BuiltupArea", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        // Act
+        var result = await _service.GetPolicyValueAsync("RateableValueAreaType", "CarpetArea");
+
+        // Assert
+        Assert.Equal("BuiltupArea", result);
+    }
+
+    [Fact]
+    public async Task GetPolicyValueAsync_NonExistingPolicy_ReturnsDefaultValue()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<PolicyConfigurationEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPolicyValueAsync("NonExistentPolicy", "DefaultValue");
+
+        // Assert
+        Assert.Equal("DefaultValue", result);
+    }
+
+    [Fact]
+    public async Task GetPolicyValueAsync_InactivePolicy_ReturnsDefaultValue()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = "BuiltupArea", IsActive = false }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        // Act
+        var result = await _service.GetPolicyValueAsync("RateableValueAreaType", "CarpetArea");
+
+        // Assert
+        Assert.Equal("CarpetArea", result);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task GetPolicyValueAsync_NullOrEmptyPolicyValue_ReturnsDefaultValue(string policyValue)
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = policyValue, IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        // Act
+        var result = await _service.GetPolicyValueAsync("RateableValueAreaType", "CarpetArea");
+
+        // Assert
+        Assert.Equal("CarpetArea", result);
+    }
+
+    // ──────────────────────── GetPolicyValuesAsync ─────────────────────────────
+
+    [Fact]
+    public async Task GetPolicyValuesAsync_AllPoliciesExist_ReturnsAllValues()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = "BuiltupArea", IsActive = true },
+            new() { Id = 2, PolicyCode = "RateMasterAreaUnit", PolicyValue = "SqFeet", IsActive = true },
+            new() { Id = 3, PolicyCode = "RateMonthlyOrYearly", PolicyValue = "Monthly", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        var policyDefaults = new Dictionary<string, string>
+        {
+            { "RateableValueAreaType", "CarpetArea" },
+            { "RateMasterAreaUnit", "SqMeter" },
+            { "RateMonthlyOrYearly", "Yearly" }
+        };
+
+        // Act
+        var result = await _service.GetPolicyValuesAsync(policyDefaults);
+
+        // Assert
+        Assert.Equal("BuiltupArea", result["RateableValueAreaType"]);
+        Assert.Equal("SqFeet", result["RateMasterAreaUnit"]);
+        Assert.Equal("Monthly", result["RateMonthlyOrYearly"]);
+    }
+
+    [Fact]
+    public async Task GetPolicyValuesAsync_SomePoliciesMissing_ReturnsDefaultsForMissing()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = "BuiltupArea", IsActive = true }
+            // Missing: RateMasterAreaUnit, RateMonthlyOrYearly
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        var policyDefaults = new Dictionary<string, string>
+        {
+            { "RateableValueAreaType", "CarpetArea" },
+            { "RateMasterAreaUnit", "SqMeter" },
+            { "RateMonthlyOrYearly", "Yearly" }
+        };
+
+        // Act
+        var result = await _service.GetPolicyValuesAsync(policyDefaults);
+
+        // Assert
+        Assert.Equal("BuiltupArea", result["RateableValueAreaType"]); // From DB
+        Assert.Equal("SqMeter", result["RateMasterAreaUnit"]); // Default
+        Assert.Equal("Yearly", result["RateMonthlyOrYearly"]); // Default
+    }
+
+    [Fact]
+    public async Task GetPolicyValuesAsync_SomePoliciesInactive_ReturnsDefaultsForInactive()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = "BuiltupArea", IsActive = true },
+            new() { Id = 2, PolicyCode = "RateMasterAreaUnit", PolicyValue = "SqFeet", IsActive = false }, // Inactive
+            new() { Id = 3, PolicyCode = "RateMonthlyOrYearly", PolicyValue = "Monthly", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        var policyDefaults = new Dictionary<string, string>
+        {
+            { "RateableValueAreaType", "CarpetArea" },
+            { "RateMasterAreaUnit", "SqMeter" },
+            { "RateMonthlyOrYearly", "Yearly" }
+        };
+
+        // Act
+        var result = await _service.GetPolicyValuesAsync(policyDefaults);
+
+        // Assert
+        Assert.Equal("BuiltupArea", result["RateableValueAreaType"]); // From DB
+        Assert.Equal("SqMeter", result["RateMasterAreaUnit"]); // Default (inactive)
+        Assert.Equal("Monthly", result["RateMonthlyOrYearly"]); // From DB
+    }
+
+    [Fact]
+    public async Task GetPolicyValuesAsync_EmptyDictionary_ReturnsEmptyDictionary()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<PolicyConfigurationEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetPolicyValuesAsync(new Dictionary<string, string>());
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetPolicyValuesAsync_NullOrEmptyPolicyValues_ReturnsDefaults()
+    {
+        // Arrange
+        var entities = new List<PolicyConfigurationEntity>
+        {
+            new() { Id = 1, PolicyCode = "RateableValueAreaType", PolicyValue = null, IsActive = true },
+            new() { Id = 2, PolicyCode = "RateMasterAreaUnit", PolicyValue = "", IsActive = true },
+            new() { Id = 3, PolicyCode = "RateMonthlyOrYearly", PolicyValue = "   ", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMock());
+
+        var policyDefaults = new Dictionary<string, string>
+        {
+            { "RateableValueAreaType", "CarpetArea" },
+            { "RateMasterAreaUnit", "SqMeter" },
+            { "RateMonthlyOrYearly", "Yearly" }
+        };
+
+        // Act
+        var result = await _service.GetPolicyValuesAsync(policyDefaults);
+
+        // Assert - All should return defaults due to null/empty values
+        Assert.Equal("CarpetArea", result["RateableValueAreaType"]);
+        Assert.Equal("SqMeter", result["RateMasterAreaUnit"]);
+        Assert.Equal("Yearly", result["RateMonthlyOrYearly"]);
     }
 }

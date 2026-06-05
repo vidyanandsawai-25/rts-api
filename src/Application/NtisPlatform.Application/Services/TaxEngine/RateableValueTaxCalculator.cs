@@ -36,6 +36,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 YearlyRate = baseResult.YearlyRate,
                 YearlyRent = baseResult.YearlyRent,
                 Depreciation = baseResult.Depreciation,
+                DepreciationPer = baseResult.DepreciationPer,
+                AppliedOn = baseResult.AppliedOn,
                 AnnualRentalValue = baseResult.AnnualRentalValue,
                 Maintenance = baseResult.Maintenance,
                 RateableValue = baseResult.RateableValue,

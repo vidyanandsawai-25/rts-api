@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RateableValue;
 using NtisPlatform.Application.DTOs.RuleEngine;
@@ -6,11 +6,16 @@ using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.RuleEngine;
 using NtisPlatform.Application.Services.RuleEngine.Effects;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
-using System.Collections.Concurrent;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Collections.Concurrent;
 
 namespace NtisPlatform.Application.Services.TaxEngine
 {
@@ -33,6 +38,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly IEnumerable<IRuleEffectApplicator> _effectApplicators;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<RateableValueService> _logger;
+        private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
+        private readonly IRepository<YearMasterEntity, int> _yearMasterRepo;
+        private readonly IPolicyConfigurationService _policyConfigurationService;
 
         public RateableValueService(
             IRepository<PropertyEntity, int> propertyRepo,
@@ -48,7 +56,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRuleExecutionService ruleExecutionService,
             IEnumerable<IRuleEffectApplicator> effectApplicators,
             IUnitOfWork unitOfWork,
-            ILogger<RateableValueService> logger)
+            ILogger<RateableValueService> logger,
+            IRepository<TransMastRVEntity, int> transmastRVRepo,
+            IRepository<YearMasterEntity, int> yearMasterRepo,
+            IPolicyConfigurationService policyConfigurationService)
         {
             _propertyRepo = propertyRepo;
             _propertyDetailsRepo = propertyDetailsRepo;
@@ -64,6 +75,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _effectApplicators = effectApplicators;
             _unitOfWork = unitOfWork;
             _logger = logger;
+            _transmastRVRepo = transmastRVRepo;
+            _yearMasterRepo = yearMasterRepo;
+            _policyConfigurationService = policyConfigurationService;
         }
 
         public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
@@ -75,10 +89,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
             try
             {
                 // 1. Validation - Get property and assessment
-                var property = _propertyRepo.GetQueryable()
-                    .AsNoTracking()
-                    .FirstOrDefault(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
-                    ?? throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
+                var property = await _propertyRepo.GetQueryable()
+                 .AsNoTracking()
+                 .FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
+                 ?? throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
 
                 // Load PropertyAssessmentEntity for OwnerType context in rule engine
                 var propertyAssessment = _propertyAssessmentRepo.GetQueryable()
@@ -107,10 +121,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 _logger.LogDebug("Property {PropertyId} has lift: {HasLift}", propertyId, hasLift);
 
                 // 2. Get property details
-                var details = _propertyDetailsRepo.GetQueryable()
-                    .Where(x => x.PropertyId == propertyId && x.IsActive)
-                    .OrderBy(x => x.Id)
-                    .ToList();
+                var details = await _propertyDetailsRepo.GetQueryable()
+                   .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                   .OrderBy(x => x.Id)
+                      .ToListAsync();
 
                 CalculationValidator.CheckCondition(details.Any(), $"PropertyDetails not found for PropertyId={propertyId}");
 
@@ -125,7 +139,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var typeOfUses = await _masterDataService.GetActiveTypeOfUsesAsync();
                 var subTypeOfUses = await _masterDataService.GetActiveSubTypeOfUsesAsync();
                 var floors = await _masterDataService.GetActiveFloorsAsync();
-                //var suBfloors = await _masterDataService.GetActiveSubFloorsAsync(); commented for future use
+                var subFloors = await _masterDataService.GetActiveSubFloorsAsync();
                 var constructionTypes = await _masterDataService.GetActiveConstructionTypesAsync();
                 var rateSectionId = await _masterDataService.GetRateSectionIdForWardAsync(property.WardId);
                 var rates = await _masterDataService.GetRatesForSectionAsync(rateSectionId);
@@ -137,9 +151,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 // 4. Get renters
                 var detailIds = details.Select(d => d.Id).ToList();
-                var renters = _renterRepo.GetQueryable()
+                var renters = await _renterRepo.GetQueryable()
                     .Where(x => detailIds.Contains(x.PropertyDetailsId) && x.IsActive && !x.MarkedForDeletion)
-                    .ToList();
+                    .ToListAsync();
 
                 // 5. Validate construction year
                 var constructionYear = details.FirstOrDefault()?.ConstructionYear;
@@ -172,7 +186,34 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 CalculationValidator.CheckCondition(financeYearRange != null,
                     $"Finance year range not found for FinanceYear={financeYear}. " +
                     $"Tax calculation cannot proceed without valid year range configuration for PropertyId={propertyId}.");
+                var yearMaster = await _yearMasterRepo.GetQueryable()
+                .FirstOrDefaultAsync(y => y.Year == financeYear && y.IsActive);
 
+                if (yearMaster == null)
+                    throw new InvalidOperationException($"Year {financeYear} not found in YearMaster table");
+
+                int yearMasterId = yearMaster.Id;
+
+                // 7a. Fetch Rateable Value policy configuration
+                var policyDefaults = new Dictionary<string, string>
+            {
+                { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.DefaultAreaType },
+                { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.DefaultAreaUnit },
+                { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.DefaultRatePeriod },
+                { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV }
+            };
+                var policyValues = await _policyConfigurationService.GetPolicyValuesAsync(policyDefaults);
+                var policyOptions = RateableValuePolicyOptions.FromPolicies(policyValues, _logger);
+
+                _logger.LogDebug("Rateable Value Policy Configuration: AreaType={AreaType}, AreaUnit={AreaUnit}, RatePeriod={RatePeriod}, EducationEmploymentTaxOnRV={EducationEmploymentTaxOnRV}",
+                    policyOptions.AreaType, policyOptions.AreaUnit, policyOptions.RatePeriod, policyOptions.IsEducationEmploymentTaxOnRV);
+
+
+                // 7b. Pre-compute selected areas for all property details at once using policy helper
+                var selectedAreas = RateableValuePolicyHelper.GetSelectedAreasForProperty(details, policyOptions);
+
+                _logger.LogDebug("Calculating base values for {DetailCount} property details, FinanceYear={FinanceYear}, YearMasterId={YearMasterId}",
+                    details.Count, financeYear, yearMasterId);
                 // P2: Parallel processing for independent detail calculations (2-10x faster for properties with many details)
                 var detailTasks = details.Select(async detail =>
                 {
@@ -228,7 +269,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         }
                     }
                     // ── End ARV Rule Engine ───────────────────────────────────────────────────────
-
+                    var selectedArea = selectedAreas.TryGetValue(detail.Id, out var area) ? area : 0m;
                     var baseResult = RateableValueCalculator.CalculateBaseValues(
                         detail,
                         financeYear,
@@ -239,7 +280,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         depreciations,
                         yearRanges,
                         renters,
-                        ruleAdjustedRateSqM);  // null = no rule matched, use master rate
+                         selectedArea,
+                    policyOptions,
+                    ruleAdjustedRateSqM,
+                    _logger);  // null = no rule matched, use master rate
 
                     // Thread-safe add to concurrent dictionary
                     baseResultsCache[detail.Id] = baseResult;
@@ -302,27 +346,32 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    // Sum ALV for this propertyType using cached results
-                    var totalAlv = detailsOfType
-                        .Sum(d => (decimal)(baseResultsCache[d.Id].AnnualRentalValue ?? 0d));
+                    // Calculate tax base based on policy: RateableValue or AnnualRentalValue
+                    decimal taxBase;
+                    if (policyOptions.IsEducationEmploymentTaxOnRV)
+                    {
+                        // Sum RateableValue for this propertyType
+                        taxBase = detailsOfType.Sum(d => baseResultsCache[d.Id].RateableValue ?? 0m);
+                    }
+                    else
+                    {
+                        // Sum AnnualRentalValue for this propertyType (default behavior)
+                        taxBase = detailsOfType.Sum(d => (decimal)(baseResultsCache[d.Id].AnnualRentalValue ?? 0d));
+                    }
 
                     // Education Tax
                     if (educationTaxMaster != null)
                     {
                         var slab = educationTaxSlabs.FirstOrDefault(x =>
-                            IsSlabMatch(totalAlv, x.MinAmount, x.MaxAmount) &&
+                            IsSlabMatch(taxBase, x.MinAmount, x.MaxAmount) &&
                             (string.IsNullOrWhiteSpace(x.Type) ||
                              string.Equals(x.Type, propType, StringComparison.OrdinalIgnoreCase)));
 
                         if (slab != null)
                         {
                             var pct = slab.Rate ?? 0m;
-                            var amt = Math.Round(totalAlv * pct / 100m, 0, MidpointRounding.AwayFromZero);
+                            var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
 
-                            // Note: Education tax is calculated at property-type level (aggregated ALV),
-                            // but we create a row for each detail with the SAME amount. This enables
-                            // per-detail reporting while the policy rows maintain the correct aggregate.
-                            // Response mapper uses policy TaxTotal to avoid double-counting.
                             foreach (var d in detailsOfType)
                             {
                                 var baseResult = baseResultsCache[d.Id];
@@ -335,6 +384,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                     YearlyRate = baseResult.YearlyRate,
                                     YearlyRent = baseResult.YearlyRent,
                                     Depreciation = baseResult.Depreciation,
+                                    DepreciationPer = baseResult.DepreciationPer,
+                                    AppliedOn = baseResult.AppliedOn,
                                     AnnualRentalValue = baseResult.AnnualRentalValue,
                                     Maintenance = baseResult.Maintenance,
                                     RateableValue = baseResult.RateableValue,
@@ -366,19 +417,15 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     if (employmentTaxMaster != null)
                     {
                         var slab = employmentTaxSlabs.FirstOrDefault(x =>
-                            IsSlabMatch(totalAlv, x.MinAmount, x.MaxAmount) &&
+                            IsSlabMatch(taxBase, x.MinAmount, x.MaxAmount) &&
                             (string.IsNullOrWhiteSpace(x.Type) ||
                              string.Equals(x.Type, propType, StringComparison.OrdinalIgnoreCase)));
 
                         if (slab != null)
                         {
                             var pct = slab.Rate ?? 0m;
-                            var amt = Math.Round(totalAlv * pct / 100m, 0, MidpointRounding.AwayFromZero);
+                            var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
 
-                            // Note: Employment tax is calculated at property-type level (aggregated ALV),
-                            // but we create a row for each detail with the SAME amount. This enables
-                            // per-detail reporting while the policy rows maintain the correct aggregate.
-                            // Response mapper uses policy TaxTotal to avoid double-counting.
                             foreach (var d in detailsOfType)
                             {
                                 var baseResult = baseResultsCache[d.Id];
@@ -391,6 +438,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                     YearlyRate = baseResult.YearlyRate,
                                     YearlyRent = baseResult.YearlyRent,
                                     Depreciation = baseResult.Depreciation,
+                                    DepreciationPer = baseResult.DepreciationPer,
+                                    AppliedOn = baseResult.AppliedOn,
                                     AnnualRentalValue = baseResult.AnnualRentalValue,
                                     Maintenance = baseResult.Maintenance,
                                     RateableValue = baseResult.RateableValue,
@@ -419,21 +468,39 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     }
                 }
 
-                //await ReplaceExistingResults(propertyId, newRows);
-                _logger.LogInformation("Persisting {RowCount} tax calculation rows for PropertyId={PropertyId}",
-                    newRows.Count, propertyId);
-                await SavePolicyRows(propertyId, GetFinanceYear(), newRows, educationTaxMaster?.Id, employmentTaxMaster?.Id);
-                _logger.LogInformation("Policy rows saved successfully for PropertyId={PropertyId}", propertyId);
+                // Wrap all persistence operations in a single transaction to ensure atomicity
+                await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    await ReplaceExistingResults(propertyId, newRows, saveChanges: false);
+                    _logger.LogInformation("Persisting {RowCount} tax calculation rows for PropertyId={PropertyId}",
+                        newRows.Count, propertyId);
+
+                    // Save to both PolicyTaxDetails and TransmastRV tables in single transaction
+                    await SavePolicyAndTransmastRV(propertyId, financeYear, yearMasterId, newRows,
+                        educationTaxMaster?.Id, employmentTaxMaster?.Id, saveChanges: false);
+
+                    // Single SaveChanges and Commit for all operations - atomic transaction
+                    await _unitOfWork.SaveChangesAsync();
+                    await _unitOfWork.CommitTransactionAsync();
+                    _logger.LogInformation("Policy and TransmastRV rows saved successfully for PropertyId={PropertyId}", propertyId);
+                }
+                catch (Exception ex)
+                {
+                    await _unitOfWork.RollbackTransactionAsync();
+                    _logger.LogError(ex, "Failed to save tax calculation results for PropertyId={PropertyId}. Transaction rolled back.", propertyId);
+                    throw;
+                }
 
                 // Response Mapping - Load policy rows
-                var policyRows = _policyTaxRepo.GetQueryable()
-                    .Include(x => x.TaxMaster)
-                    .Where(x => x.PropertyId == propertyId &&
-                                x.PolicyYear == GetFinanceYear() &&
-                                x.PolicyCode == "NETTAX" &&
-                                x.IsActive &&
-                                !x.MarkedForDeletion)
-                    .ToList();
+                var policyRows = await _policyTaxRepo.GetQueryable()
+                .Include(x => x.TaxMaster)
+                .Where(x => x.PropertyId == propertyId &&
+                            x.PolicyYear == financeYear &&
+                            x.PolicyCode == "NETTAX" &&
+                            x.IsActive &&
+                            !x.MarkedForDeletion)
+                .ToListAsync();
 
                 var taxMasterCache = new TaxGetterCache<TaxMasterEntity>(
                     activeTaxes,
@@ -442,16 +509,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 );
 
                 // Load occupancies
-                var occupancies = _occupancyRepo.GetQueryable()
+                var occupancies = await _occupancyRepo.GetQueryable()
                     .Where(x => detailIds.Contains(x.PropertyDetailId) && x.IsActive && !x.MarkedForDeletion)
-                    .ToList();
+                    .ToListAsync();
 
                 // Load old property data (not used but kept for future reference)
-                var oldProperty = _oldPropertyRepo.GetQueryable()
+                var oldProperty = await _oldPropertyRepo.GetQueryable()
                     .AsNoTracking()
                     .Where(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
                     .OrderByDescending(x => x.Id)
-                    .FirstOrDefault();
+                    .FirstOrDefaultAsync();
 
                 decimal oldTotalRv = oldProperty?.OldRV != null
                     ? Convert.ToDecimal(oldProperty.OldRV)
@@ -472,19 +539,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     constructionTypes,
                     typeOfUses,
                     subTypeOfUses,
+                    subFloors,
                     renters,
                     occupancies,
-                    taxMasterCache);
-
-                operationStopwatch.Stop();
-
-                // P3: Log final operation metrics
-                LogMetric("TaxCalculation.TotalDuration", operationStopwatch.ElapsedMilliseconds, new Dictionary<string, string>
-            {
-                { "PropertyId", propertyId.ToString() },
-                { "DetailCount", details.Count.ToString() },
-                { "TaxRowCount", newRows.Count.ToString() }
-            });
+                    taxMasterCache
+    );
 
                 LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
             {
@@ -549,11 +608,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
             return minOk && maxOk;
         }
 
-        private async Task ReplaceExistingResults(int propertyId, List<PropertyTaxCalculationRVResultsEntity> newRows)
+        private async Task ReplaceExistingResults(int propertyId, List<PropertyTaxCalculationRVResultsEntity> newRows, bool saveChanges = true)
         {
-            var oldRows = _taxResultsRepo.GetQueryable()
+            var oldRows = await _taxResultsRepo.GetQueryable()
                 .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-                .ToList();
+                .ToListAsync();
 
             foreach (var row in oldRows)
             {
@@ -574,26 +633,36 @@ namespace NtisPlatform.Application.Services.TaxEngine
             }
 
             await _taxResultsRepo.AddRangeAsync(newRows);
-            await _unitOfWork.SaveChangesAsync();
+
+            if (saveChanges)
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
         }
 
 
-        private async Task SavePolicyRows(
+        private async Task SavePolicyAndTransmastRV(
             int propertyId,
             int financeYear,
+            int yearMasterId,
             List<PropertyTaxCalculationRVResultsEntity> detailRows,
             int? educationTaxId,
-            int? employmentTaxId)
+            int? employmentTaxId,
+            bool saveChanges = true)
         {
-            _logger.LogDebug("Saving policy rows for PropertyId={PropertyId}, FinanceYear={FinanceYear}",
-                propertyId, financeYear);
-            var oldPolicyRows = _policyTaxRepo.GetQueryable()
+            _logger.LogDebug("Saving policy and TransmastRV records for PropertyId={PropertyId}, Year={Year}, YearMasterId={YearMasterId}",
+                propertyId, financeYear, yearMasterId);
+
+            // ===== STEP 1: Deactivate old records from BOTH tables =====
+
+            // Deactivate old PolicyTaxDetails records
+            var oldPolicyRows = await _policyTaxRepo.GetQueryable()
                 .Where(x => x.PropertyId == propertyId &&
                             x.PolicyYear == financeYear &&
                             x.PolicyCode == "NETTAX" &&
                             x.IsActive &&
                             !x.MarkedForDeletion)
-                .ToList();
+                .ToListAsync();
 
             foreach (var row in oldPolicyRows)
             {
@@ -604,56 +673,126 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 await _policyTaxRepo.UpdateAsync(row);
             }
 
+            // Deactivate old TransmastRV records (using YearMaster.Id)
+            var oldTransmastRecords = await _transmastRVRepo.GetQueryable()
+                .Where(x => x.PropertyId == propertyId
+                         && x.FinanceYearId == yearMasterId
+                         && x.IsActive
+                         && !x.MarkedForDeletion)
+                .ToListAsync();
+
+            foreach (var record in oldTransmastRecords)
+            {
+                record.IsActive = false;
+                record.MarkedForDeletion = true;
+                record.MarkedForDeletionDate = DateTime.Now;
+                record.UpdatedDate = DateTime.Now;
+                await _transmastRVRepo.UpdateAsync(record);
+            }
+
+            _logger.LogDebug("Deactivated {PolicyCount} policy and {TransCount} transmast records",
+                oldPolicyRows.Count, oldTransmastRecords.Count);
+
+            // ===== STEP 2: Calculate totals and group by TaxId =====
+
             var totalRv = detailRows
                 .GroupBy(x => x.PropertyDetailsId)
                 .Sum(g => g.First().RateableValue ?? 0m);
 
-
-            var groupedTaxes = detailRows
-
+            var taxGroups = detailRows
+                .Where(x => x.TaxId > 0)
                 .OrderBy(x => x.TaxId)
                 .GroupBy(x => x.TaxId)
-                               .Select(g =>
-                               {
-                                   var firstRow = g.FirstOrDefault();
-                                   var taxId = g.Key;
-
-
-
-                                   decimal taxAmount;
-                                   // Apply MAX aggregation for education/employment taxes (avoids double-counting)
-                                   // since these are calculated at property-type level but duplicated per detail.
-                                   // Use SUM for all other taxes.
-                                   bool isEducationOrEmployment = (educationTaxId.HasValue && taxId == educationTaxId.Value) ||
-                                                                  (employmentTaxId.HasValue && taxId == employmentTaxId.Value);
-                                   if (isEducationOrEmployment)
-                                       taxAmount = g.Max(x => x.TaxAmount ?? 0m);
-                                   else
-                                       taxAmount = g.Sum(x => x.TaxAmount ?? 0m);
-
-                                   return new PolicyTaxDetailsEntity
-                                   {
-                                       PropertyId = propertyId,
-                                       PolicyCode = "NETTAX",
-                                       PolicyDate = DateTime.Now,
-                                       PolicyYear = (short)financeYear,
-                                       PolicyRVorCVvalue = totalRv,
-                                       TaxId = g.Key,
-                                       TaxAmount = taxAmount,
-                                       IsActive = true,
-                                       MarkedForDeletion = false,
-                                       MarkedForDeletionDate = null,
-                                       CreatedDate = DateTime.Now,
-                                       UpdatedDate = DateTime.Now
-                                   };
-                               })
                 .ToList();
 
-            await _policyTaxRepo.AddRangeAsync(groupedTaxes);
-            await _unitOfWork.SaveChangesAsync();
-            _logger.LogDebug("Saved {PolicyRowCount} policy rows (replaced {OldRowCount} old rows)",
-                groupedTaxes.Count, oldPolicyRows.Count);
+            if (!taxGroups.Any())
+            {
+                _logger.LogWarning("No tax groups found for PropertyId={PropertyId}", propertyId);
+                if (saveChanges)
+                {
+                    await _unitOfWork.SaveChangesAsync();
+                }
+                return;
+            }
+
+            // ===== STEP 3: Create new records for BOTH tables =====
+
+            var newPolicyRecords = new List<PolicyTaxDetailsEntity>();
+            var newTransmastRecords = new List<TransMastRVEntity>();
+            var now = DateTime.Now;
+
+            foreach (var taxGroup in taxGroups)
+            {
+                var taxId = taxGroup.Key;
+
+                // Apply MAX aggregation for education/employment taxes (avoids double-counting)
+                // Use SUM for all other taxes
+                bool isEducationOrEmployment = (educationTaxId.HasValue && taxId == educationTaxId.Value) ||
+                                               (employmentTaxId.HasValue && taxId == employmentTaxId.Value);
+
+                decimal taxAmount = isEducationOrEmployment
+                    ? taxGroup.Max(x => x.TaxAmount ?? 0m)
+                    : taxGroup.Sum(x => x.TaxAmount ?? 0m);
+
+                // Create PolicyTaxDetails record
+                var policyRecord = new PolicyTaxDetailsEntity
+                {
+                    PropertyId = propertyId,
+                    PolicyCode = "NETTAX",
+                    PolicyDate = now,
+                    PolicyYear = (short)financeYear,
+                    PolicyRVorCVvalue = totalRv,
+                    TaxId = taxId,
+                    TaxAmount = taxAmount,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    MarkedForDeletionDate = null,
+                    CreatedDate = now,
+                    UpdatedDate = now
+                };
+
+                // Create matching TransmastRV record (using YearMaster.Id)
+                var transmastRecord = new TransMastRVEntity
+                {
+                    PropertyId = propertyId,
+                    FinanceYearId = yearMasterId,
+                    TaxId = taxId,
+                    TaxAmount = taxAmount,
+                    RateableValue = totalRv,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = now,
+                    UpdatedDate = now
+                };
+
+                newPolicyRecords.Add(policyRecord);
+                newTransmastRecords.Add(transmastRecord);
+            }
+
+            // ===== STEP 4: Save both sets of records in single transaction =====
+
+            if (newPolicyRecords.Any())
+            {
+                await _policyTaxRepo.AddRangeAsync(newPolicyRecords);
+            }
+
+            if (newTransmastRecords.Any())
+            {
+                await _transmastRVRepo.AddRangeAsync(newTransmastRecords);
+            }
+
+            // Save changes only if requested (when not part of outer transaction)
+            if (saveChanges)
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            _logger.LogInformation(
+                "Saved {PolicyCount} policy and {TransCount} transmast records for PropertyId={PropertyId}, Year={Year}",
+                newPolicyRecords.Count, newTransmastRecords.Count, propertyId, financeYear);
         }
+
+
 
 
 

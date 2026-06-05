@@ -20,6 +20,8 @@ namespace NtisPlatform.Core.Entities
         public double? YearlyRent { get; set; }
 
         public decimal? Depreciation { get; set; }
+        public decimal? DepreciationPer { get; set; }
+        public string? AppliedOn { get; set; }
         public double? AnnualRentalValue { get; set; }
         public decimal? Maintenance { get; set; }
         public decimal? RateableValue { get; set; }

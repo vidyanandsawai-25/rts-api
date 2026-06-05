@@ -41,6 +41,7 @@
 	  <Folder Include="Api\DTOs\" />
 	  <Folder Include="Api\Extensions\" />
 	  <Folder Include="Application\DTOs\Document\" />
+	  <Folder Include="Application\Examples\" />
 	  <Folder Include="Integration\" />
 	</ItemGroup>
 
