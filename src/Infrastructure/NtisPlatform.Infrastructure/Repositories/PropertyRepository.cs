@@ -1080,49 +1080,70 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             };
         }
 
-        // Step 3: Get the active finance year from YearMaster (independent of transaction data)
-        // This ensures we always return the active year even when no transactions exist
-        var activeYear = await _context.YearMaster
-            .Where(y => y.IsActive)
-            .OrderByDescending(y => y.Year)
-            .Select(y => new { y.Id, y.Year, y.YearCode })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (activeYear == null)
-        {
-            // No active year configured
-            return new PropertyOldTaxesDetailsDto
-            {
-                PropertyId = propertyId,
-                TaxYears = new List<OldTaxYearDto>()
-            };
-        }
-
-        // Step 4: Build the result
+        // Step 3: Build the result
         var result = new PropertyOldTaxesDetailsDto
         {
             PropertyId = propertyId,
             TaxYears = new List<OldTaxYearDto>()
         };
 
-        // Step 5: Get existing transaction data for the active year if PropertyMastOld exists
+        // Step 4: Check if TransMastOld records exist for this property
+        int? financeYearId = null;
+        int? year = null;
+        string? yearCode = null;
         Dictionary<int, decimal>? transactionLookup = null;
+
         if (property.PropertyMastOldId.HasValue)
         {
             var propertyMastOldId = property.PropertyMastOldId.Value;
-            var transMastOldData = await _context.TransMastOld
+
+            // First, get distinct FinanceYearId values, then join with YearMaster (optimized: prevents duplicate joins)
+            // Use left join to handle orphaned FinanceYearId rows without matching YearMaster
+            var latestYear = await _context.TransMastOld
                 .Where(t => t.PropertyMastOldId == propertyMastOldId &&
-                           t.FinanceYearId == activeYear.Id &&
                            t.IsActive &&
                            !t.MarkedForDeletion)
-                .Select(t => new { t.TaxId, t.TaxAmount })
-                .ToListAsync(cancellationToken);
+                .Select(t => t.FinanceYearId)
+                .Distinct()
+                .GroupJoin(_context.YearMaster,
+                          financeYearId => financeYearId,
+                          y => y.Id,
+                          (financeYearId, yearGroup) => new
+                          {
+                              FinanceYearId = financeYearId,
+                              YearInfo = yearGroup.DefaultIfEmpty().FirstOrDefault()
+                          })
+                .Select(x => new
+                {
+                    Id = x.FinanceYearId,
+                    Year = x.YearInfo != null ? x.YearInfo.Year : (int?)null,
+                    YearCode = x.YearInfo != null ? x.YearInfo.YearCode : null
+                })
+                .OrderByDescending(y => y.Year ?? 0) // Handle null years by sorting them last
+                .ThenByDescending(y => y.Id) // If Year is null, use FinanceYearId as secondary sort
+                .FirstOrDefaultAsync(cancellationToken);
 
-            // Build lookup dictionary for O(1) access: TaxId -> TaxAmount
-            transactionLookup = transMastOldData.ToDictionary(t => t.TaxId, t => t.TaxAmount);
+            if (latestYear != null)
+            {
+                financeYearId = latestYear.Id;
+                year = latestYear.Year;
+                yearCode = latestYear.YearCode;
+
+                // Now fetch only the transactions for the latest year
+                var transMastOldData = await _context.TransMastOld
+                    .Where(t => t.PropertyMastOldId == propertyMastOldId &&
+                               t.FinanceYearId == latestYear.Id &&
+                               t.IsActive &&
+                               !t.MarkedForDeletion)
+                    .Select(t => new { t.TaxId, t.TaxAmount })
+                    .ToListAsync(cancellationToken);
+
+                // Build lookup dictionary for O(1) access: TaxId -> TaxAmount
+                transactionLookup = transMastOldData.ToDictionary(t => t.TaxId, t => t.TaxAmount);
+            }
         }
 
-        // Step 6: Build result for the active year only
+        // Step 5: Build result with year data (null if no records exist)
         var taxes = new List<TaxDetailDto>();
 
         foreach (var tax in oldTaxes)
@@ -1144,9 +1165,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         result.TaxYears.Add(new OldTaxYearDto
         {
-            FinanceYearId = activeYear.Id,
-            Year = activeYear.Year,
-            YearCode = activeYear.YearCode,
+            FinanceYearId = financeYearId,
+            Year = year,
+            YearCode = yearCode,
             Taxes = taxes
         });
 

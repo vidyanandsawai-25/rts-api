@@ -626,12 +626,12 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(20, result.PropertyId);
-        // No PropertyMastOldId means no transaction data - returns active year with 0 amounts
+        // No PropertyMastOldId means no transaction data - returns year fields as null with taxes having 0 amounts
         Assert.Single(result.TaxYears);
         var year = result.TaxYears[0];
-        Assert.Equal(3, year.FinanceYearId); // Active year
-        Assert.Equal(2022, year.Year);
-        Assert.Equal("2022-23", year.YearCode);
+        Assert.Null(year.FinanceYearId); // No transactions, so year is null
+        Assert.Null(year.Year);
+        Assert.Null(year.YearCode);
         Assert.Equal(4, year.Taxes.Count); // All 4 configured taxes
         Assert.All(year.Taxes, tax => Assert.Equal(0m, tax.TaxAmount)); // All amounts should be 0
     }
@@ -716,12 +716,12 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(22, result.PropertyId);
-        // No transactions means no data - returns active year with 0 amounts
+        // No transactions means no data - returns year fields as null with taxes having 0 amounts
         Assert.Single(result.TaxYears);
         var year = result.TaxYears[0];
-        Assert.Equal(3, year.FinanceYearId); // Active year
-        Assert.Equal(2022, year.Year);
-        Assert.Equal("2022-23", year.YearCode);
+        Assert.Null(year.FinanceYearId); // No transactions, so year is null
+        Assert.Null(year.Year);
+        Assert.Null(year.YearCode);
         Assert.Equal(4, year.Taxes.Count); // All 4 configured taxes
         Assert.All(year.Taxes, tax => Assert.Equal(0m, tax.TaxAmount)); // All amounts should be 0
     }

@@ -11,12 +11,25 @@ public class PropertyOldTaxesDetailsDto
 }
 
 /// <summary>
-/// Represents old tax data for a single finance year
+/// Represents old tax data for a single finance year.
+/// When no TransMastOld records exist for the property, FinanceYearId, Year, and YearCode will be null,
+/// allowing the user to select a year and save new records.
 /// </summary>
 public class OldTaxYearDto
 {
-    public int FinanceYearId { get; set; }
-    public int Year { get; set; }
+    /// <summary>
+    /// The finance year ID. Null when no TransMastOld records exist for the property.
+    /// </summary>
+    public int? FinanceYearId { get; set; }
+
+    /// <summary>
+    /// The year number. Null when no TransMastOld records exist for the property.
+    /// </summary>
+    public int? Year { get; set; }
+
+    /// <summary>
+    /// The year code (e.g., "2022-23"). Null when no TransMastOld records exist for the property.
+    /// </summary>
     public string? YearCode { get; set; }
 
     /// <summary>

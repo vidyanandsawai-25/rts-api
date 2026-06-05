@@ -856,8 +856,8 @@ public class PropertyOldDetailsComprehensiveTests
         var dto = new OldTaxYearDto();
 
         // Assert
-        Assert.Equal(0, dto.FinanceYearId);
-        Assert.Equal(0, dto.Year);
+        Assert.Null(dto.FinanceYearId);
+        Assert.Null(dto.Year);
         Assert.Null(dto.YearCode);
         Assert.NotNull(dto.Taxes);
         Assert.Empty(dto.Taxes);
