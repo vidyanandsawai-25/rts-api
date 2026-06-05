@@ -70,6 +70,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
     public DbSet<PropertyTypeCategoryEntity> PropertyTypeCategoryMaster { get; set; } = null!;
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
+    public DbSet<PropertyPhotoTypeEntity> PropertyPhotoTypes { get; set; } = null!;
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
@@ -1394,6 +1395,24 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyDescription).IsUnique().HasDatabaseName("UQ_PropertyTypeMaster_PropertyDescription");
+        });
+
+        // PropertyPhotoType configuration
+        modelBuilder.Entity<PropertyPhotoTypeEntity>(entity =>
+        {
+            entity.ToTable("PropertyPhotoType", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PhotoTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PhotoTypeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PhotoTypeCode).IsUnique().HasDatabaseName("UQ_PropertyPhotoType_Code");
         });
 
         // PropertyAssessment configuration (PropertyMastDetails table)
