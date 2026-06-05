@@ -198,7 +198,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     SocialAttributeId = socialAttributeId,
                     DocumentBindingId = documentBindingId,
                     DocumentGuid = documentGuid,
-                    DocumentUrl = $"/api/documents/{documentGuid}/view",
                     FileName = originalFileName,
                     Remark = remark
                 };
@@ -374,7 +373,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     SocialAttributeId = propertySocialDetail.SocialAttributeId,
                     DocumentBindingId = documentBindingId,
                     DocumentGuid = documentGuid,
-                    DocumentUrl = $"/api/documents/{documentGuid}/view",
                     FileName = originalFileName,
                     Remark = remark
                 };

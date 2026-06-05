@@ -62,8 +62,14 @@ public class DiscountDocumentUploadResponseDto
     public int PropertyId { get; set; }
     public int SocialAttributeId { get; set; }
     public int DocumentBindingId { get; set; }
+
+    /// <summary>
+    /// Document GUID - use with DocumentController endpoints:
+    /// GET /api/documents/{documentGuid}/view
+    /// GET /api/documents/{documentGuid}/download
+    /// </summary>
     public Guid DocumentGuid { get; set; }
-    public string DocumentUrl { get; set; } = string.Empty;
+
     public string FileName { get; set; } = string.Empty;
     public string? Remark { get; set; }
 }

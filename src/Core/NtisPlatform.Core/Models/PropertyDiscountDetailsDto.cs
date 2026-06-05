@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace NtisPlatform.Core.Models;
 
@@ -35,7 +37,13 @@ public class DiscountAttributeDto
     public decimal? DecimalValue { get; set; }
     public string? TextValue { get; set; }
     public DateTime? DateValue { get; set; }
-    public int? DocumentBindingId { get; set; }
+
+    /// <summary>
+    /// Document GUID for viewing/downloading. Only present if a valid, active document exists.
+    /// Use with DocumentController: GET /api/documents/{documentGuid}/view
+    /// </summary>
+    public Guid? DocumentGuid { get; set; }
+
     public string? Remark { get; set; }
 }
 

@@ -3947,13 +3947,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .ThenBy(sa => sa.SocialAttributeName)
             .ToListAsync(cancellationToken);
 
-        // Step 3: Get existing PropertySocialDetails for this property
-        var existingDetails = await _context.Set<PropertySocialDetailsEntity>()
-            .Where(psd => psd.PropertyId == propertyId && psd.IsActive)
-            .ToListAsync(cancellationToken);
+        // Step 3: Get existing PropertySocialDetails for this property with document information
+        var existingDetailsWithDocs = await (
+            from psd in _context.Set<PropertySocialDetailsEntity>()
+            where psd.PropertyId == propertyId && psd.IsActive
+            join db in _context.Set<DocumentBindingEntity>() on psd.DocumentBindingId equals db.Id into dbJoin
+            from db in dbJoin.DefaultIfEmpty()
+            join doc in _context.Set<DocumentEntity>() on db.DocumentId equals doc.Id into docJoin
+            from doc in docJoin.DefaultIfEmpty()
+            select new
+            {
+                PropertySocialDetail = psd,
+                DocumentGuid = doc != null ? (Guid?)doc.DocumentGuid : null
+            }).ToListAsync(cancellationToken);
 
-        var existingByAttributeId = existingDetails
-            .GroupBy(x => x.SocialAttributeId)
+        var existingByAttributeId = existingDetailsWithDocs
+            .GroupBy(x => x.PropertySocialDetail.SocialAttributeId)
             .ToDictionary(g => g.Key, g => g.First());
 
         // Step 4: Build response DTO
@@ -3963,6 +3972,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             DiscountAttributes = discountAttributes.Select(attr =>
             {
                 existingByAttributeId.TryGetValue(attr.Id, out var existingValue);
+
                 return new DiscountAttributeDto
                 {
                     Id = attr.Id,
@@ -3974,14 +3984,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     IsDiscountApplicable = attr.IsDiscountApplicable,
 
                     // Map existing values if present
-                    PropertySocialDetailId = existingValue?.Id,
-                    BitValue = existingValue?.BitValue,
-                    IntValue = existingValue?.IntValue,
-                    DecimalValue = existingValue?.DecimalValue,
-                    TextValue = existingValue?.TextValue,
-                    DateValue = existingValue?.DateValue,
-                    DocumentBindingId = existingValue?.DocumentBindingId,
-                    Remark = existingValue?.Remark
+                    PropertySocialDetailId = existingValue?.PropertySocialDetail.Id,
+                    BitValue = existingValue?.PropertySocialDetail.BitValue,
+                    IntValue = existingValue?.PropertySocialDetail.IntValue,
+                    DecimalValue = existingValue?.PropertySocialDetail.DecimalValue,
+                    TextValue = existingValue?.PropertySocialDetail.TextValue,
+                    DateValue = existingValue?.PropertySocialDetail.DateValue,
+
+                    // Document GUID - only populated if document is valid and active
+                    DocumentGuid = existingValue?.DocumentGuid,
+
+                    Remark = existingValue?.PropertySocialDetail.Remark
                 };
             }).ToList()
         };
@@ -3993,8 +4006,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     {
         // Step 1: Validate property exists
         var property = await _context.PropertyMast
-            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
-
+            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+            .FirstOrDefaultAsync(cancellationToken);
         if (property == null) return null;
 
         // Step 2: Get existing PropertySocialDetails for this property
