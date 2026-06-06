@@ -2554,7 +2554,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         int iToFloor = 1;
         int number;
 
-        string ? floorCode = "";
+        string? floorCode = "";
         if (dto.GenerationType.ToLower() == "HC".ToLower() & dto.FromFloor != dto.ToFloor)
         {
             throw new InvalidOperationException("From floor and to floor must be same");
@@ -2677,7 +2677,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 RowNo = index + 1,
                 FloorNo = item.FloorNo,
                 floorCode = string.IsNullOrEmpty(floorCode) ? item.FloorNo.ToString() : floorCode,
-                PropertyFloorId = floorlst.Where(e=>e.FloorCode==(string.IsNullOrEmpty(floorCode) ? item.FloorNo.ToString() : floorCode)).Select(e=>e.Id).FirstOrDefault(),
+                PropertyFloorId = floorlst.Where(e => e.FloorCode == (string.IsNullOrEmpty(floorCode) ? item.FloorNo.ToString() : floorCode)).Select(e => e.Id).FirstOrDefault(),
                 UnitNo = item.UnitNo,
                 FlatNo = $"{prefix}{dto.FlatStart + (isHC ? 0 : (item.FloorNo - 1) * dto.IncrementedBy) + (item.UnitNo - 1)}",
                 PartitionNo = $"{wingNo}{index + 1 + lastPropertyNo}",
@@ -2805,7 +2805,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 society = new SocietyDetailsEntity
                 {
                     PropertyId = property.Id,
-                    WingName="Building Society", 
+                    WingName = "Building Society",
                     SocietyName = dto.SocietyName,
                     SocietyAddress = dto.SocietyAddress,
                     SecretaryName = dto.SecretaryName,
@@ -3993,6 +3993,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                     // Document GUID - only populated if document is valid and active
                     DocumentGuid = existingValue?.DocumentGuid,
+
+                    DocumentBindingId = existingValue?.PropertySocialDetail.DocumentBindingId,
 
                     Remark = existingValue?.PropertySocialDetail.Remark
                 };

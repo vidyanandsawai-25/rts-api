@@ -44,6 +44,8 @@ public class DiscountAttributeDto
     /// </summary>
     public Guid? DocumentGuid { get; set; }
 
+    public int? DocumentBindingId { get; set; }
+
     public string? Remark { get; set; }
 }
 
