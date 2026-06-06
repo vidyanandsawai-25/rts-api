@@ -16,7 +16,7 @@ public class CombinePropertyServiceTest
 {
     private readonly Mock<IRepository<PropertyEntity, int>> _mockRepository;
     private readonly Mock<IRepository<WardEntity, int>> _mockWardRepository;
-    private readonly Mock<IRepository<TransMastEntity>> _mockTransMastRepository;
+    private readonly Mock<IRepository<TransMastRVEntity>> _mockTransMastRepository;
     private readonly Mock<IRepository<TaxPendingDetailsEntity>> _mockTaxPendingRepository;
     private readonly Mock<IRepository<CombinePropertyHistoryEntity>> _mockCombineHistoryRepository;
     private readonly Mock<IRepository<PropertyMastOldEntity, int>> _mockPropertyMastOldRepository;
@@ -35,7 +35,7 @@ public class CombinePropertyServiceTest
     {
         _mockRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockWardRepository = new Mock<IRepository<WardEntity, int>>();
-        _mockTransMastRepository = new Mock<IRepository<TransMastEntity>>();
+        _mockTransMastRepository = new Mock<IRepository<TransMastRVEntity>>();
         _mockTaxPendingRepository = new Mock<IRepository<TaxPendingDetailsEntity>>();
         _mockCombineHistoryRepository = new Mock<IRepository<CombinePropertyHistoryEntity>>();
         _mockPropertyMastOldRepository = new Mock<IRepository<PropertyMastOldEntity, int>>();
@@ -128,7 +128,7 @@ public class CombinePropertyServiceTest
             .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -160,7 +160,7 @@ public class CombinePropertyServiceTest
             .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -209,7 +209,7 @@ public class CombinePropertyServiceTest
             .ReturnsAsync(new WardEntity { Id = 1, WardNo = "WARD1", IsActive = true });
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -263,10 +263,10 @@ public class CombinePropertyServiceTest
             new() { Id = 101, PropertyDescription = "Residential", IsActive = true },
             new() { Id = 102, PropertyDescription = "Commercial", IsActive = true }
         };
-        var transMast = new List<TransMastEntity>
+        var transMast = new List<TransMastRVEntity>
         {
-            new() { Id = 1, PropertyId = 1, TaxAmount = 1000, FinanceYearId = 1, TaxId = 1, RVorCV = "RV", RVorCVValue = 50000, IsActive = true },
-            new() { Id = 2, PropertyId = 1, TaxAmount = 500, FinanceYearId = 1, TaxId = 1, RVorCV = "RV", RVorCVValue = 50000, IsActive = true }
+            new() { Id = 1, PropertyId = 1, TaxAmount = 1000, FinanceYearId = 1, TaxId = 1,  RateableValue = 50000, IsActive = true },
+            new() { Id = 2, PropertyId = 1, TaxAmount = 500, FinanceYearId = 1, TaxId = 1,  RateableValue = 50000, IsActive = true }
         };
         var taxPending = new List<TaxPendingDetailsEntity>
         {
@@ -332,10 +332,10 @@ public class CombinePropertyServiceTest
             new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", PropertyMastOldId = 1, IsActive = true }
         };
         var propertyMastOld = new List<PropertyMastOldEntity>();
-        var transMast = new List<TransMastEntity>
+        var transMast = new List<TransMastRVEntity>
         {
-            new() { Id = 1, PropertyId = 1, TaxAmount = 1000, FinanceYearId = 1, TaxId = 1, RVorCV = "RV", RVorCVValue = 50000, IsActive = true },
-            new() { Id = 2, PropertyId = 1, TaxAmount = 500, FinanceYearId = 1, TaxId = 1, RVorCV = "RV", RVorCVValue = 50000, IsActive = true }
+            new() { Id = 1, PropertyId = 1, TaxAmount = 1000, FinanceYearId = 1, TaxId = 1, RateableValue = 50000, IsActive = true },
+            new() { Id = 2, PropertyId = 1, TaxAmount = 500, FinanceYearId = 1, TaxId = 1, RateableValue = 50000, IsActive = true }
         };
         var taxPending = new List<TaxPendingDetailsEntity>
         {
@@ -379,7 +379,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -410,7 +410,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -441,7 +441,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((WardEntity?)null);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -468,9 +468,9 @@ public class CombinePropertyServiceTest
         {
             new() { Id = 1, WardId = 60, PropertyNo = "1", PartitionNo = "A", OwnerName = "Owner A", IsActive = true }
         };
-        var transMast = new List<TransMastEntity>
+        var transMast = new List<TransMastRVEntity>
         {
-            new() { Id = 1, PropertyId = 1, TaxAmount = 0, FinanceYearId = 1, TaxId = 1, RVorCV = "RV", RVorCVValue = 50000, IsActive = true }
+            new() { Id = 1, PropertyId = 1, TaxAmount = 0, FinanceYearId = 1, TaxId = 1, RateableValue = 50000, IsActive = true }
         };
         var taxPending = new List<TaxPendingDetailsEntity>
         {
@@ -516,7 +516,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(propertyMastOld.BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -551,7 +551,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(propertyMastOld.BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -586,7 +586,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(propertyMastOld.BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -632,7 +632,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>())).ReturnsAsync(ward);
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(propertyMastOld.BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -667,7 +667,7 @@ public class CombinePropertyServiceTest
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
         _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -700,7 +700,7 @@ public class CombinePropertyServiceTest
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
         _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -738,7 +738,7 @@ public class CombinePropertyServiceTest
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
         _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -776,7 +776,7 @@ public class CombinePropertyServiceTest
         _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
         _mockPropertyMastOldRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyMastOldEntity>().BuildMock());
         _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
-        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable()).Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable()).Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
@@ -1064,6 +1064,55 @@ public class CombinePropertyServiceTest
         Assert.Contains("Owner name must match for all properties.", result.Message);
     }
 
+    [Fact]
+    public async Task CombinePropertiesAsync_TaxProcessingThrows_AfterCommit_StillReturnsSuccess()
+    {
+        // Arrange
+        var request = new CombinePropertiesRequestDto
+        {
+            SourcePropertyId = 1,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Test",
+            CreatedBy = 100
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PropertyEntity { Id = 1, OwnerName = "Main Owner", IsActive = true });
+
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(1, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((true, string.Empty, new List<PropertyEntity>()));
+
+        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(
+                1,
+                It.IsAny<List<int>>(),
+                100,
+                It.IsAny<bool>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockDeactivator.Setup(d => d.DeactivateCombinedPropertiesAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockDeactivator.Setup(d => d.EnsureMainPropertyRecordsActiveAsync(1, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockCombinePropertyTaxService.Setup(t => t.ProcessCombinePropertyTaxesAsync(
+                1,
+                It.IsAny<List<int>>(),
+                100,
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Tax processing failure"));
+
+        // Act
+        var result = await _service.CombinePropertiesAsync(request, default);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal("Properties combined successfully.", result.Message);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     #endregion
 
     #region GetCombinePropertyHistoryAsync Tests
@@ -1099,7 +1148,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetQueryable())
             .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
         _mockTransMastRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TransMastEntity>().BuildMock());
+            .Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable())
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
@@ -1161,7 +1210,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetQueryable())
             .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
         _mockTransMastRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TransMastEntity>().BuildMock());
+            .Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable())
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
@@ -1232,7 +1281,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetQueryable())
             .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
         _mockTransMastRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TransMastEntity>().BuildMock());
+            .Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable())
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
@@ -1286,7 +1335,7 @@ public class CombinePropertyServiceTest
         _mockWardRepository.Setup(r => r.GetQueryable())
             .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
         _mockTransMastRepository.Setup(r => r.GetQueryable())
-            .Returns(new List<TransMastEntity>().BuildMock());
+            .Returns(new List<TransMastRVEntity>().BuildMock());
         _mockTaxPendingRepository.Setup(r => r.GetQueryable())
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 

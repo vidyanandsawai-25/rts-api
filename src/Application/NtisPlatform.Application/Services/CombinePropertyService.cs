@@ -15,7 +15,7 @@ namespace NtisPlatform.Application.Services;
 public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, CombinePropertyDto, CreateCombinePropertyDto, UpdateCombinePropertyDto, CombinePropertyQueryParameters, int>, ICombinePropertyService
 {
     private readonly IRepository<WardEntity, int> _wardRepository;
-    private readonly IRepository<TransMastEntity> _transMastRepository;
+    private readonly IRepository<TransMastRVEntity> _transMastRepository;
     private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<CombinePropertyHistoryEntity> _combineHistoryRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
@@ -30,7 +30,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     public CombinePropertyService(
          IRepository<PropertyEntity, int> repository,
         IRepository<WardEntity, int> wardRepository,
-         IRepository<TransMastEntity> transMastRepository,
+         IRepository<TransMastRVEntity> transMastRepository,
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<CombinePropertyHistoryEntity> combineHistoryRepository,
          IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
@@ -403,7 +403,21 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             // Step 4: Insert history records
             await InsertCombineHistoryAsync(request.SourcePropertyId, combinePropertyIds, request.CombineReason, request.CreatedBy, cancellationToken);
 
-            // Step 5: Process tax handling for combine property
+            // Single consolidated SaveChanges - persists all pending changes before commit
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError(ex, "Failed to combine properties for SourcePropertyId={SourcePropertyId}", request.SourcePropertyId);
+            throw;
+        }
+
+        try
+        {
+            // Step 5: Process tax handling for combine property outside combine transaction
             // - Aggregate pending taxes from combined properties (year-wise, tax-wise)
             // - Recalculate current year RV tax
             // - Check if bill is distributed (placeholder for future TransMast sync)
@@ -416,27 +430,21 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             {
                 _logger.LogWarning("Combine-property tax processing reported failure for SourcePropertyId={SourcePropertyId}", request.SourcePropertyId);
             }
-
-            // Single consolidated SaveChanges - persists all pending changes before commit
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-
-            return new CombinePropertiesResponseDto
-            {
-                Success = true,
-                SourcePropertyId = request.SourcePropertyId,
-                CombinedPropertyIds = combinePropertyIds,
-                Message = "Properties combined successfully."
-            };
         }
         catch (Exception ex)
         {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-            _logger.LogError(ex, "Failed to combine properties for SourcePropertyId={SourcePropertyId}", request.SourcePropertyId);
-            throw;
+            _logger.LogError(ex,
+                "Combine-property tax processing threw after combine transaction committed. SourcePropertyId={SourcePropertyId}",
+                request.SourcePropertyId);
         }
+
+        return new CombinePropertiesResponseDto
+        {
+            Success = true,
+            SourcePropertyId = request.SourcePropertyId,
+            CombinedPropertyIds = combinePropertyIds,
+            Message = "Properties combined successfully."
+        };
     }
 
     private async Task InsertCombineHistoryAsync(

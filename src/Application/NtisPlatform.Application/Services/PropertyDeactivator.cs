@@ -15,7 +15,7 @@ public class PropertyDeactivator : IPropertyDeactivator
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepository;
-    private readonly IRepository<TransMastEntity> _transMastRepository;
+    private readonly IRepository<TransMastRVEntity> _transMastRepository;
     private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseSubmissionRepository;
     private readonly IRepository<RoomWiseMinusDataEntity, int> _roomWiseMinusDataRepository;
@@ -26,7 +26,7 @@ public class PropertyDeactivator : IPropertyDeactivator
         IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
         IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepository,
-        IRepository<TransMastEntity> transMastRepository,
+        IRepository<TransMastRVEntity> transMastRepository,
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseSubmissionRepository,
         IRepository<RoomWiseMinusDataEntity, int> roomWiseMinusDataRepository,

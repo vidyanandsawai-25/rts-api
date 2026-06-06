@@ -22,17 +22,20 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
     private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<YearMasterEntity, int> _yearMasterRepository;
     private readonly IRateableValueService _rateableValueService;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<CombinePropertyTaxService> _logger;
 
     public CombinePropertyTaxService(
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<YearMasterEntity, int> yearMasterRepository,
         IRateableValueService rateableValueService,
+        IUnitOfWork unitOfWork,
         ILogger<CombinePropertyTaxService> logger)
     {
         _taxPendingRepository = taxPendingRepository;
         _yearMasterRepository = yearMasterRepository;
         _rateableValueService = rateableValueService;
+        _unitOfWork = unitOfWork;
         _logger = logger;
     }
 
@@ -50,26 +53,45 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
 
         try
         {
-            // Step 1: Aggregate pending taxes from combined properties (year-wise, tax-wise)
-            var pendingTaxResult = await AggregatePendingTaxesAsync(
-                sourcePropertyId,
-                combinePropertyIds,
-                createdBy,
-                cancellationToken);
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
 
-            if (!pendingTaxResult)
+            try
             {
-                _logger.LogWarning("Failed to aggregate pending taxes for SourcePropertyId={SourcePropertyId}", sourcePropertyId);
-                // Continue with recalculation even if pending tax aggregation fails
+                // Step 1: Aggregate pending taxes from combined properties (year-wise, tax-wise)
+                var pendingTaxResult = await AggregatePendingTaxesAsync(
+                    sourcePropertyId,
+                    combinePropertyIds,
+                    createdBy,
+                    cancellationToken);
+
+                if (!pendingTaxResult)
+                {
+                    _logger.LogWarning("Failed to aggregate pending taxes for SourcePropertyId={SourcePropertyId}", sourcePropertyId);
+                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    return false;
+                }
+
+                // Save pending tax changes before recalculation
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                _logger.LogInformation("Pending tax aggregation committed for SourcePropertyId={SourcePropertyId}", sourcePropertyId);
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                _logger.LogError(ex, "Failed to aggregate pending taxes for SourcePropertyId={SourcePropertyId}. Transaction rolled back.", sourcePropertyId);
+                throw;
             }
 
             // Step 2: Recalculate current year RV tax using RateableValueService.CalculateAndSaveAsync()
+            // This runs in its own transaction
             var recalculationResult = await RecalculateCurrentYearTaxAsync(sourcePropertyId, cancellationToken);
 
             if (!recalculationResult)
             {
                 _logger.LogWarning("Failed to recalculate current year tax for SourcePropertyId={SourcePropertyId}", sourcePropertyId);
-                // Log warning but don't fail the entire operation
+                return false;
             }
 
             _logger.LogInformation(

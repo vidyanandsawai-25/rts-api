@@ -20,6 +20,7 @@ public class CombinePropertyTaxServiceTests
     private readonly Mock<IRepository<TaxPendingDetailsEntity>> _mockTaxPendingRepository;
     private readonly Mock<IRepository<YearMasterEntity, int>> _mockYearMasterRepository;
     private readonly Mock<IRateableValueService> _mockRateableValueService;
+    private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<ILogger<CombinePropertyTaxService>> _mockLogger;
     private readonly CombinePropertyTaxService _service;
 
@@ -28,12 +29,23 @@ public class CombinePropertyTaxServiceTests
         _mockTaxPendingRepository = new Mock<IRepository<TaxPendingDetailsEntity>>();
         _mockYearMasterRepository = new Mock<IRepository<YearMasterEntity, int>>();
         _mockRateableValueService = new Mock<IRateableValueService>();
+        _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockLogger = new Mock<ILogger<CombinePropertyTaxService>>();
+
+        _mockUnitOfWork.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
 
         _service = new CombinePropertyTaxService(
             _mockTaxPendingRepository.Object,
             _mockYearMasterRepository.Object,
             _mockRateableValueService.Object,
+            _mockUnitOfWork.Object,
             _mockLogger.Object);
     }
 
@@ -132,7 +144,7 @@ public class CombinePropertyTaxServiceTests
     }
 
     [Fact]
-    public async Task ProcessCombinePropertyTaxesAsync_RecalculationFails_StillReturnsTrue()
+    public async Task ProcessCombinePropertyTaxesAsync_RecalculationFails_ReturnsFalse()
     {
         // Arrange
         var sourcePropertyId = 1;
@@ -153,8 +165,8 @@ public class CombinePropertyTaxServiceTests
         var result = await _service.ProcessCombinePropertyTaxesAsync(
             sourcePropertyId, combinePropertyIds, createdBy, default);
 
-        // Assert - Should still return true even if recalculation fails
-        Assert.True(result);
+        // Assert - Should return false if recalculation fails
+        Assert.False(result);
     }
 
     [Fact]
