@@ -168,6 +168,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
     public DbSet<RoomWiseMinusDataEntity> RoomWiseMinusData { get; set; } = null!;
+    public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -813,6 +814,29 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.MoujaNo).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaNo");
             entity.HasIndex(e => e.MoujaName).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaName");
+        });
+
+        modelBuilder.Entity<SubZoneDetailsForCVEntity>(entity =>
+        {
+            entity.ToTable("SubZoneDetailsForCV", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.MoujaId).IsRequired();
+            entity.Property(e => e.SubZoneNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SubZoneName).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("getdate()");
+
+            // Foreign key relationship
+            entity.HasOne(e => e.Mouja)
+                .WithMany()
+                .HasForeignKey(e => e.MoujaId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_SubZoneDetailsForCV_MoujaMaster");
+
+            // Unique constraint on MoujaId + SubZoneNo
+            entity.HasIndex(e => new { e.MoujaId, e.SubZoneNo })
+                .IsUnique()
+                .HasDatabaseName("UQ_SubZoneDetailsForCV_Mouja_SubZoneNo");
         });
 
         modelBuilder.Entity<BankMasterEntity>(entity =>

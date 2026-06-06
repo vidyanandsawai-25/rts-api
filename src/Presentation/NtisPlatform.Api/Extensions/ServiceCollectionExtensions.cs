@@ -249,6 +249,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConfigKeyMasterService, ConfigKeyMasterService>();
         services.AddScoped<IConfigValueMasterService, ConfigValueMasterService>();
         services.AddScoped<IWingService, WingService>();
+        services.AddScoped<IFloorGroupService, FloorGroupService>();
+        services.AddScoped<ITypeOfUseGroupCVService, TypeOfUseGroupCVService>();
+        services.AddScoped<ISubZoneDetailsForCVService, SubZoneDetailsForCVService>();
         services.AddScoped<IBulkUpdateFieldConfigService, BulkUpdateFieldConfigService>();
         services.AddScoped<IBulkUpdateMasterService, BulkUpdateMasterService>();
 
