@@ -217,7 +217,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 // P2: Parallel processing for independent detail calculations (2-10x faster for properties with many details)
                 var detailTasks = details.Select(async detail =>
                 {
-                    // ── ARV Rule Engine: Adjust Annual Rateable Value (Rate per sq.m) ────────
+                    // ── RV Rule Engine: Adjust Rateable Value Rate ──────────────────────────────
                     decimal? ruleAdjustedRateSqM = null;
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
 
@@ -231,13 +231,17 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             x.YearRangeRVId == financeYearRange.Id &&
                             x.IsActive);
 
-                        if (masterRate?.RateSquareMeter > 0)
+                        // ✅ Use RateableValueCalculator's helper method for consistent rate selection
+                        decimal masterRatePerUnit = RateableValueCalculator.GetRatePerUnit(masterRate, policyOptions);
+
+                        if (masterRatePerUnit > 0)
                         {
                             // 🔍 DEBUG: Log before rule execution
                             _logger.LogInformation(
-                                "🔍 [RuleEngine-ARV-DEBUG] About to execute ARV rules for PropertyDetailsId={DetailId}:\n" +
-                                "   MasterRate={MasterRate}, Floor={Floor}, UsageType={UsageType}, TypeOfUseGroup={TypeOfUseGroup}",
-                                detail.Id, masterRate.RateSquareMeter, detail.FloorId, detail.TypeOfUseId, detailTypeOfUse.TypeOfUseGroupId);
+                                "🔍 [RuleEngine-RV-DEBUG] About to execute RV rules for PropertyDetailsId={DetailId}:\n" +
+                                "   MasterRate={MasterRate} ({Unit}), Floor={Floor}, UsageType={UsageType}, TypeOfUseGroup={TypeOfUseGroup}",
+                                detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm",
+                                detail.FloorId, detail.TypeOfUseId, detailTypeOfUse.TypeOfUseGroupId);
 
                             await ApplyRulesToRateAsync(
                                 category: "RV",
@@ -249,26 +253,27 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 constructionYearValue: constructionYearValue,
                                 financeYear: financeYear,
                                 yearRangeRVId: financeYearRange.Id,  // ✅ Pass year range ID for rate lookup
-                                currentRate: masterRate.RateSquareMeter ?? 0m,
+                                currentRate: masterRatePerUnit,  // ✅ Rate in policy unit (sqm or sqft)
                                 onApplied: (adjustedRate) =>
                                 {
-                                    ruleAdjustedRateSqM = adjustedRate;
+                                    ruleAdjustedRateSqM = adjustedRate;  // Adjusted rate in same unit
                                     _logger.LogDebug(
-                                        "[RuleEngine-ARV] Adjusted rate for PropertyDetailsId={DetailId}: {OriginalRate} → {AdjustedRate}",
-                                        detail.Id, masterRate.RateSquareMeter, adjustedRate);
+                                        "[RuleEngine-RV] Adjusted rate for PropertyDetailsId={DetailId}: {OriginalRate} → {AdjustedRate} ({Unit})",
+                                        detail.Id, masterRatePerUnit, adjustedRate, policyOptions.IsSqFeetUnit ? "sqft" : "sqm");
                                 });
                         }
                         else
                         {
                             _logger.LogWarning(
-                                "[RuleEngine-ARV] ⚠️ Skipping ARV rule execution for PropertyDetailsId={DetailId}: " +
+                                "[RuleEngine-RV] ⚠️ Skipping RV rule execution for PropertyDetailsId={DetailId}: " +
                                 "masterRate is null or zero (TaxZone={TaxZone}, ConstructionType={ConstructionType}, " +
-                                "TypeOfUseGroup={TypeOfUseGroup}, YearRange={YearRange}). Using base rate calculation.",
+                                "TypeOfUseGroup={TypeOfUseGroup}, YearRange={YearRange}, Unit={Unit}). Using base rate calculation.",
                                 detail.Id, property.TaxZoneId, detail.ConstructionTypeId,
-                                detailTypeOfUse.TypeOfUseGroupId, financeYearRange.Id);
+                                detailTypeOfUse.TypeOfUseGroupId, financeYearRange.Id,
+                                policyOptions.IsSqFeetUnit ? "sqft" : "sqm");
                         }
                     }
-                    // ── End ARV Rule Engine ───────────────────────────────────────────────────────
+                    // ── End RV Rule Engine ───────────────────────────────────────────────────────
                     var selectedArea = selectedAreas.TryGetValue(detail.Id, out var area) ? area : 0m;
                     var baseResult = RateableValueCalculator.CalculateBaseValues(
                         detail,

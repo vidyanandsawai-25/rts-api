@@ -42,11 +42,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
             List<AssessmentYearRangeEntity> yearRanges,
             List<RenterMastEntity> renters,
             RateableValuePolicyOptions policyOptions,
-            decimal? overrideRateSqM = null)
+            decimal? overrideRate = null)
         {
             var options = policyOptions ?? RateableValuePolicyOptions.Default;
             decimal selectedArea = RateableValuePolicyHelper.GetSelectedArea(detail, options);
-            return CalculateBaseValues(detail, financeYear, taxZoneId, wardId, typeOfUses, rates, depreciations, yearRanges, renters, selectedArea, options, overrideRateSqM);
+            return CalculateBaseValues(detail, financeYear, taxZoneId, wardId, typeOfUses, rates, depreciations, yearRanges, renters, selectedArea, options, overrideRate);
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             List<RenterMastEntity> renters,
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
-            decimal? overrideRateSqM = null,
+            decimal? overrideRate = null,
             ILogger? logger = null)
 
 
@@ -160,9 +160,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             var options = policyOptions ?? RateableValuePolicyOptions.Default;
 
-            // Select the appropriate rate based on area unit policy (uses precomputed IsSqFeetUnit)
-            decimal ratePerUnit = options.IsSqFeetUnit ? (rate.RateSquareFeet ?? 0m) : (rate.RateSquareMeter ?? 0m);
-            ratePerUnit = overrideRateSqM ?? ratePerUnit;
+            // ✅ Use override rate if provided (from rule engine), otherwise use helper method
+            // If override exists, it's already in the correct unit (sqm or sqft)
+            decimal ratePerUnit = overrideRate ?? GetRatePerUnit(rate, options);
+
             // Calculate monthly and yearly rates based on policy (uses precomputed IsMonthlyRate)
             decimal monthlyRate;
             decimal yearlyRate;
@@ -267,6 +268,24 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
 
 
+
+        /// <summary>
+        /// Selects the appropriate rate per unit based on policy configuration.
+        /// This is a reusable helper to ensure consistent rate selection logic.
+        /// </summary>
+        /// <param name="rate">The rate entity containing both sqm and sqft rates (can be null)</param>
+        /// <param name="policyOptions">Policy options determining which unit to use</param>
+        /// <returns>Rate in the policy-configured unit (sqm or sqft), or 0 if rate is null</returns>
+        public static decimal GetRatePerUnit(RateEntity? rate, RateableValuePolicyOptions? policyOptions)
+        {
+            if (rate == null)
+                return 0m;
+
+            var options = policyOptions ?? RateableValuePolicyOptions.Default;
+            return options.IsSqFeetUnit
+                ? (rate.RateSquareFeet ?? 0m)
+                : (rate.RateSquareMeter ?? 0m);
+        }
 
         private static decimal ResolveDepreciationRate(
             PropertyDetailsEntity detail,
