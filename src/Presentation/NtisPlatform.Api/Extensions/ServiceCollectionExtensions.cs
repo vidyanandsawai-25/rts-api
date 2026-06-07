@@ -308,6 +308,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();
         services.AddScoped<IFieldConfigurationService, FieldConfigurationService>();
+        services.AddScoped<IAssetDocumentDefinitionService, AssetDocumentDefinitionService>();
+        services.AddScoped<IAssetFieldDefinitionService, AssetFieldDefinitionService>();
+        services.AddScoped<IAssetAuthorityMasterService, AssetAuthorityMasterService>();
+        services.AddScoped<IAssetOrganizationMasterService, AssetOrganizationMasterService>();
+
 
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
         // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests

@@ -108,9 +108,10 @@ public class ReferenceValidationService : IReferenceValidationService
 
         config.ForEntity<AssetCategoryEntity>()
         .CheckReferences(
-            ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.CategoryId == id).Cast<object>())
+            ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.CategoryId == id).Cast<object>()),
+            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetCategoryId == id).Cast<object>()),
+            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetCategoryId == id).Cast<object>())
         );
-
         // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
         config.ForEntity<InventoryItemCategoryEntity>()
          .CheckReferences(
@@ -146,7 +147,18 @@ public class ReferenceValidationService : IReferenceValidationService
         config.ForEntity<PropertyAssessmentStatusEntity>()
             .CheckReferences(
                 ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.PropertyAssessmentStatusId == id).Cast<object>())
-            );
+            );		
+			
+        config.ForEntity<AssetTypeEntity>()
+        .CheckReferences(
+            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetTypeId == id).Cast<object>()),
+            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetTypeId == id).Cast<object>())
+        );
+
+        config.ForEntity<AssetAuthorityMasterEntity>()
+        .CheckReferences(
+            ("Asset Organization Master", (ctx, id) => ctx.AssetOrganizationMasters.Where(o => o.AuthorityId == id).Cast<object>())
+        );
 
         _referenceConfig = config.Build();
     }

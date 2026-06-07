@@ -168,6 +168,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
     public DbSet<RoomWiseMinusDataEntity> RoomWiseMinusData { get; set; } = null!;
+    public DbSet<AssetDocumentDefinitionEntity> AssetDocumentDefinitions { get; set; } = null!;
+    public DbSet<AssetFieldDefinitionEntity> AssetFieldDefinitions { get; set; } = null!;
+    public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
+    public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -4699,6 +4703,142 @@ public class ApplicationDbContext : DbContext
            .WithOne(n => n.TypeOfUseGroupCV)
            .HasForeignKey(n => n.TypeOfUseGroupCVId)
            .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AssetDocumentDefinition configuration
+        modelBuilder.Entity<AssetDocumentDefinitionEntity>(entity =>
+        {
+            entity.ToTable("AssetDocumentDefinition", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired(false);
+            entity.Property(e => e.DocumentCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DocumentName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MaxFileSizeMB).IsRequired().HasDefaultValue(10);
+            entity.Property(e => e.AllowedExtensions).IsRequired().HasMaxLength(200).HasDefaultValue(".pdf,.jpg,.jpeg,.png,.doc,.docx");
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<AssetTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.AssetCategoryId, e.AssetTypeId, e.DocumentCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_DocDef_CategoryTypeCode")
+                .HasFilter("[AssetTypeId] IS NOT NULL");
+
+            entity.HasIndex(e => new { e.AssetCategoryId, e.DocumentCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_DocDef_CategoryCode_WhenTypeNull")
+                .HasFilter("[AssetTypeId] IS NULL");
+        });
+
+        // AssetFieldDefinition configuration
+        modelBuilder.Entity<AssetFieldDefinitionEntity>(entity =>
+        {
+            entity.ToTable("AssetFieldDefinition", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired();
+            entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FieldGroup).HasMaxLength(100);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ValidationRules).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.MaxLength);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<AssetTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.AssetCategoryId, e.AssetTypeId, e.FieldCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_FieldDef_CategoryTypeField");
+        });
+
+        // AssetAuthorityMaster configuration
+        modelBuilder.Entity<AssetAuthorityMasterEntity>(entity =>
+        {
+            entity.ToTable("AuthorityMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AuthorityCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AuthorityName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.State).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.AuthorityCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_AuthorityMaster_AuthorityCode");
+        });
+
+        // AssetOrganizationMaster configuration
+        modelBuilder.Entity<AssetOrganizationMasterEntity>(entity =>
+        {
+            entity.ToTable("OrganizationMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AuthorityId).IsRequired();
+            entity.Property(e => e.OrganizationCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.OrganizationName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne<AssetAuthorityMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AuthorityId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.OrganizationCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_OrganizationMaster_OrgCode");
         });
     }
 }
