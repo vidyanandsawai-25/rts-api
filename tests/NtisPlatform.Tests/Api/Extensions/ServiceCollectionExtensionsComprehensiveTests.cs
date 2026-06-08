@@ -101,6 +101,18 @@ public class ServiceCollectionExtensionsComprehensiveTests
     }
 
     [Fact]
+    public void AddAllServices_RegistersPropertyPhotoServices()
+    {
+        // Act
+        _services.AddAllServices(_configuration);
+        var serviceProvider = _services.BuildServiceProvider();
+
+        // Assert - PropertyPhoto stack: Core row service + Application orchestration service
+        Assert.NotNull(serviceProvider.GetService<IPropertyPhotoService>());
+        Assert.NotNull(serviceProvider.GetService<IPropertyPhotoApplicationService>());
+    }
+
+    [Fact]
     public void AddAllServices_RegistersLocalizationServices()
     {
         // Act

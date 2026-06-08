@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Infrastructure.Services;
@@ -15,10 +16,11 @@ public class FileStorageService : IFileStorageService
     private readonly int _bufferSizeBytes;
     private readonly ILogger<FileStorageService> _logger;
 
-    public FileStorageService(IConfiguration configuration, ILogger<FileStorageService> logger)
+    public FileStorageService(IOptions<FileStorageOptions> options, ILogger<FileStorageService> logger)
     {
-        _baseStoragePath = configuration.GetValue<string>("FileStorage:BasePath") ?? "Uploads";
-        _bufferSizeBytes = configuration.GetValue<int>("FileStorage:BufferSizeBytes", 81920);
+        var fileStorage = options.Value;
+        _baseStoragePath = fileStorage.BasePath;
+        _bufferSizeBytes = fileStorage.BufferSizeBytes;
         _logger = logger;
 
         if (!Path.IsPathRooted(_baseStoragePath))

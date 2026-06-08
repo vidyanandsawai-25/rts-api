@@ -39,6 +39,8 @@ builder.Services.Configure<LocalizationOptions>(builder.Configuration.GetSection
 builder.Services.AddSingleton<ILocalizationService, NtisPlatform.Infrastructure.Services.Localization.LocalizationService>();
 
 // Application Layer - Services
+builder.Services.Configure<NtisPlatform.Application.Options.FileStorageOptions>(
+    builder.Configuration.GetSection(NtisPlatform.Application.Options.FileStorageOptions.Section));
 builder.Services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
 builder.Services.AddScoped<IFileStorageService, FileStorageService>();
 

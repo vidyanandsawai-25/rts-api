@@ -32,3 +32,14 @@ public class CertificateTypeNotFoundException : EntityNotFoundException
     {
     }
 }
+
+/// <summary>
+/// Exception thrown when a property photo is not found
+/// </summary>
+public class PropertyPhotoNotFoundException : EntityNotFoundException
+{
+    public PropertyPhotoNotFoundException(int propertyPhotoId)
+        : base("PropertyPhoto", propertyPhotoId, "PROPERTY_PHOTO_NOT_FOUND")
+    {
+    }
+}

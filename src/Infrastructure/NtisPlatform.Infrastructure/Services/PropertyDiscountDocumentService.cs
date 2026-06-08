@@ -1,8 +1,9 @@
 using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Common;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.DTOs.PropertyDiscount;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
@@ -36,7 +37,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         ApplicationDbContext context,
         IRepository<DepartmentMasterEntity, int> departmentRepository,
         IRepository<ModuleMasterEntity, int> moduleRepository,
-        IConfiguration configuration,
+        IOptions<FileStorageOptions> fileStorageOptions,
         ILogger<PropertyDiscountDocumentService> logger)
     {
         _documentService = documentService;
@@ -46,8 +47,10 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         _departmentRepository = departmentRepository;
         _moduleRepository = moduleRepository;
         _logger = logger;
-        _bufferSizeBytes = configuration.GetValue<int>("FileStorage:BufferSizeBytes", 81920);
-        _maxFileSizeBytes = configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+
+        var fileStorage = fileStorageOptions.Value;
+        _bufferSizeBytes = fileStorage.BufferSizeBytes;
+        _maxFileSizeBytes = fileStorage.MaxFileSizeBytes;
     }
 
     public async Task<DiscountDocumentUploadResponseDto> UploadDiscountDocumentAsync(

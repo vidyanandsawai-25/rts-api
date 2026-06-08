@@ -100,6 +100,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<BlockMasterEntity> BlockMasters { get; set; } = null!;
     public DbSet<PropertyCertificateEntity> PropertyCertificates { get; set; } = null!;
+    public DbSet<PropertyPhotoEntity> PropertyPhotos { get; set; } = null!;
     public DbSet<DocumentEntity> Documents { get; set; } = null!;
     public DbSet<DocumentBindingEntity> DocumentBindings { get; set; } = null!;
     public DbSet<TaxPercentageMasterRVEntity> TaxPercentageMasterRVs { get; set; } = null!;
@@ -3005,6 +3006,50 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.PropertyId, e.IsActive, e.MarkedForDeletion })
                 .HasDatabaseName("IX_PropertyCertificates_Property_Active")
                 .IncludeProperties(e => new { e.CertificateTypeId, e.CertificateNo, e.IssueDate, e.DocumentBindingId });
+        });
+
+        // PropertyPhoto configuration
+        modelBuilder.Entity<PropertyPhotoEntity>(entity =>
+        {
+            entity.ToTable("PropertyPhoto", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PhotoTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(p => p.PhotoType)
+                .WithMany()
+                .HasForeignKey(p => p.PhotoTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(p => p.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(p => p.DocumentBindingId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyPhoto_PropertyId");
+            entity.HasIndex(e => e.PhotoTypeId).HasDatabaseName("IX_PropertyPhoto_PhotoTypeId");
+            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertyPhoto_DocumentBindingId")
+                .HasFilter("[DocumentBindingId] IS NOT NULL");
+
+            // Non-unique helper index for the "current photos for a property" query.
+            // NOTE: a property may have multiple photos per (PropertyId, PhotoTypeId), so this
+            // is intentionally NOT unique. The DDL's UNIQUE index must be dropped in the DB.
+            entity.HasIndex(e => new { e.PropertyId, e.PhotoTypeId })
+                .HasDatabaseName("IX_PropertyPhoto_Property_Type_Latest")
+                .IncludeProperties(e => new { e.DocumentBindingId, e.DisplayOrder, e.IsLatest })
+                .HasFilter("[IsLatest] = 1 AND [IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
         // rule scope configuration

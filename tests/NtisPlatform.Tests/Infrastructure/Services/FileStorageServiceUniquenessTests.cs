@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Infrastructure.Services;
 using Xunit;
 
@@ -13,7 +14,6 @@ namespace NtisPlatform.Tests.Infrastructure.Services;
 public class FileStorageServiceUniquenessTests : IDisposable
 {
     private readonly string _testStoragePath;
-    private readonly IConfiguration _configuration;
     private readonly Mock<ILogger<FileStorageService>> _mockLogger;
     private readonly FileStorageService _service;
 
@@ -22,18 +22,14 @@ public class FileStorageServiceUniquenessTests : IDisposable
         _testStoragePath = Path.Combine(Path.GetTempPath(), $"FileStorageTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testStoragePath);
 
-        // Create in-memory configuration
-        var configData = new Dictionary<string, string>
+        var options = Options.Create(new FileStorageOptions
         {
-            {"FileStorage:BasePath", _testStoragePath},
-            {"FileStorage:BufferSizeBytes", "81920"}
-        };
-        _configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configData!)
-            .Build();
+            BasePath = _testStoragePath,
+            BufferSizeBytes = 81920
+        });
 
         _mockLogger = new Mock<ILogger<FileStorageService>>();
-        _service = new FileStorageService(_configuration, _mockLogger.Object);
+        _service = new FileStorageService(options, _mockLogger.Object);
     }
 
     public void Dispose()

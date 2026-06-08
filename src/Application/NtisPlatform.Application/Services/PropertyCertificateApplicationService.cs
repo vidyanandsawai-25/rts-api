@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Common;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
@@ -37,7 +38,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         IRepository<DepartmentMasterEntity, int> departmentRepository,
         IRepository<ModuleMasterEntity, int> moduleRepository,
         IRepository<PropertyCertificateTypeMasterEntity, int> certificateTypeRepository,
-        IConfiguration configuration,
+        IOptions<FileStorageOptions> fileStorageOptions,
         ILogger<PropertyCertificateApplicationService> logger)
     {
         _propertyCertificateService = propertyCertificateService;
@@ -48,8 +49,10 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         _moduleRepository = moduleRepository;
         _certificateTypeRepository = certificateTypeRepository;
         _logger = logger;
-        _bufferSizeBytes = configuration.GetValue<int>("FileStorage:BufferSizeBytes", 81920);
-        _maxFileSizeBytes = configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+
+        var fileStorage = fileStorageOptions.Value;
+        _bufferSizeBytes = fileStorage.BufferSizeBytes;
+        _maxFileSizeBytes = fileStorage.MaxFileSizeBytes;
     }
 
     public async Task<PropertyCertificateUploadResponseDto> UploadWithDocumentAsync(

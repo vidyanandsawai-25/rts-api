@@ -1,7 +1,8 @@
 using System.Security.Cryptography;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Common;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
@@ -26,15 +27,17 @@ public class DocumentApplicationService : IDocumentApplicationService
         IDocumentService documentService,
         IFileStorageService fileStorageService,
         IUnitOfWork unitOfWork,
-        IConfiguration configuration,
+        IOptions<FileStorageOptions> fileStorageOptions,
         ILogger<DocumentApplicationService> logger)
     {
         _documentService = documentService;
         _fileStorageService = fileStorageService;
         _unitOfWork = unitOfWork;
         _logger = logger;
-        _bufferSizeBytes = configuration.GetValue<int>("FileStorage:BufferSizeBytes", 81920);
-        _maxFileSizeBytes = configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+
+        var fileStorage = fileStorageOptions.Value;
+        _bufferSizeBytes = fileStorage.BufferSizeBytes;
+        _maxFileSizeBytes = fileStorage.MaxFileSizeBytes;
     }
 
     public async Task<DocumentUploadResponseDto> UploadDocumentAsync(

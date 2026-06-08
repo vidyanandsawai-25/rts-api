@@ -98,11 +98,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ILocalization, LocalizationRepoService>();
         services.AddScoped<ILocalizedQueryService, LocalizedQueryService>();
 
-        // Configure file upload limits from configuration
-        var maxFileSizeBytes = configuration.GetValue<long>("FileStorage:MaxFileSizeBytes", 104857600);
+        // Configure file upload limits from the strongly-typed FileStorage options (single source of truth)
+        var fileStorageOptions = configuration.GetSection(NtisPlatform.Application.Options.FileStorageOptions.Section)
+            .Get<NtisPlatform.Application.Options.FileStorageOptions>() ?? new NtisPlatform.Application.Options.FileStorageOptions();
         services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
         {
-            options.MultipartBodyLengthLimit = maxFileSizeBytes;
+            options.MultipartBodyLengthLimit = fileStorageOptions.MaxFileSizeBytes;
         });
 
         // API Layer - Controllers with DataAnnotations localization
@@ -139,6 +140,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
+        services.AddScoped<IPropertyPhotoService, PropertyPhotoService>();
         services.AddScoped<IDynamicEntityLoader, DynamicEntityLoader>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
@@ -151,6 +153,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<ITranslationService, TranslationService>();
         services.Configure<TranslationServiceOptions>(configuration.GetSection("GoogleTranslate"));
         services.Configure<NtisPlatform.Application.Options.ApartmentQCOptions>(configuration.GetSection(NtisPlatform.Application.Options.ApartmentQCOptions.Section));
+        services.Configure<NtisPlatform.Application.Options.FileStorageOptions>(configuration.GetSection(NtisPlatform.Application.Options.FileStorageOptions.Section));
 
         // Application Layer - Helpers
         services.AddSingleton<NtisPlatform.Application.Helpers.FileValidationHelper>();
@@ -160,6 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUlbConfigService, UlbConfigService>();
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
+        services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<IPropertyDiscountDocumentService, PropertyDiscountDocumentService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
 

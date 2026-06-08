@@ -1,6 +1,7 @@
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Infrastructure.Services;
 using Xunit;
 
@@ -43,16 +44,12 @@ public class FileStorageServiceTests : IDisposable
 
     private FileStorageService CreateService(string? basePath = null)
     {
-        var configValues = new Dictionary<string, string?>
+        var options = Options.Create(new FileStorageOptions
         {
-            { "FileStorage:BasePath", basePath ?? _testBasePath }
-        };
+            BasePath = basePath ?? _testBasePath
+        });
 
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configValues)
-            .Build();
-
-        return new FileStorageService(configuration, _mockLogger.Object);
+        return new FileStorageService(options, _mockLogger.Object);
     }
 
     #region Constructor Tests
@@ -72,16 +69,10 @@ public class FileStorageServiceTests : IDisposable
     {
         // Arrange - Use unique temp directory to avoid conflicts
         var uniqueDirName = $"TestUploads_{Guid.NewGuid()}";
-        var configValues = new Dictionary<string, string?>
-        {
-            { "FileStorage:BasePath", uniqueDirName }
-        };
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configValues)
-            .Build();
+        var options = Options.Create(new FileStorageOptions { BasePath = uniqueDirName });
 
         // Act
-        var service = new FileStorageService(configuration, _mockLogger.Object);
+        var service = new FileStorageService(options, _mockLogger.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -100,16 +91,10 @@ public class FileStorageServiceTests : IDisposable
 
         // Since we can't easily control the default "Uploads" behavior without modifying the service,
         // we'll test with a temp path instead to avoid conflicts
-        var configValues = new Dictionary<string, string?>
-        {
-            { "FileStorage:BasePath", tempBasePath }
-        };
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configValues)
-            .Build();
+        var options = Options.Create(new FileStorageOptions { BasePath = tempBasePath });
 
         // Act
-        var service = new FileStorageService(configuration, _mockLogger.Object);
+        var service = new FileStorageService(options, _mockLogger.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -389,18 +374,7 @@ public class FileStorageServiceTests : IDisposable
     [Fact]
     public async Task SaveFileAsync_LogsErrorOnException()
     {
-        // Arrange
-        var invalidPath = Path.Combine(_testBasePath, new string('x', 300)); // Path too long
-        var configValues = new Dictionary<string, string?>
-        {
-            { "FileStorage:BasePath", invalidPath }
-        };
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(configValues)
-            .Build();
-
-        // This will throw during directory creation in constructor
-        // So we need a different approach - use a valid path but invalid stream
+        // Arrange - use a valid service but an already-disposed stream to force a write error
         var service = CreateService();
         var disposedStream = new MemoryStream();
         disposedStream.Dispose();
