@@ -1,6 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations;
-using System.Text.Json.Serialization;
 
 namespace NtisPlatform.Core.Models;
 
