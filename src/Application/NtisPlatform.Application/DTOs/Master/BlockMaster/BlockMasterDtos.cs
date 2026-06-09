@@ -16,6 +16,7 @@ public class CreateBlockMasterDto : CreateBaseDtos
 
     [Required(ErrorMessage = "BlockNo_Required")]
     [StringLength(20, ErrorMessage = "BlockNo_MaxLen_20")]
+    [RegularExpression(@"^[A-Za-z1-9][A-Za-z0-9]*$", ErrorMessage = "BlockNo_Invalid")]
     public string BlockNo { get; set; } = string.Empty;
 }
 
@@ -27,5 +28,6 @@ public class UpdateBlockMasterDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "BlockNo_Required")]
     [StringLength(20, ErrorMessage = "BlockNo_MaxLen_20")]
+    [RegularExpression(@"^[A-Za-z1-9][A-Za-z0-9]*$", ErrorMessage = "BlockNo_Invalid")]
     public string BlockNo { get; set; } = string.Empty;
 }

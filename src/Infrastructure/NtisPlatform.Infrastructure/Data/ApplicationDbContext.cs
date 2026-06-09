@@ -2738,10 +2738,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.WardId).IsRequired();
             entity.Property(e => e.BlockNo).IsRequired().HasMaxLength(20);
             // Foreign key relationship with WardMaster
-            entity.HasOne<WardEntity>()
-                .WithMany(p => p.BlockMaster)
-                .HasForeignKey(e => e.WardId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Ward)
+                 .WithMany(p => p.BlockMaster)
+                 .HasForeignKey(e => e.WardId)
+                 .OnDelete(DeleteBehavior.Restrict);
 
             // Unique constraint on WardId and BlockNo combination
             entity.HasIndex(e => new { e.WardId, e.BlockNo })
