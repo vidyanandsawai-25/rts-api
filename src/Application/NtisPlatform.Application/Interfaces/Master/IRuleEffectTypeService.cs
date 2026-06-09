@@ -1,5 +1,5 @@
 using NtisPlatform.Application.DTOs.Master.RuleEffectTypeMaster;
-using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Rules;
 
 namespace NtisPlatform.Application.Interfaces.Master
 {

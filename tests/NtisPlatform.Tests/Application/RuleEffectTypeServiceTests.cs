@@ -5,6 +5,7 @@ using NtisPlatform.Application.DTOs.Master.RuleEffectTypeMaster;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 

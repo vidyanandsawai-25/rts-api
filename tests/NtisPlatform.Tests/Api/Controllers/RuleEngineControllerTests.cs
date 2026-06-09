@@ -1,9 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
-using NtisPlatform.Api.Controllers.RuleEngine;
-using NtisPlatform.Application.DTOs.RuleEngine;
-using NtisPlatform.Application.Interfaces.RuleEngine;
+using NtisPlatform.Api.Controllers.Rules;
+using NtisPlatform.Application.DTOs.Rules.RuleEngine;
+using NtisPlatform.Application.DTOs.Rules.RuleCategory;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Tests.Api.Controllers;

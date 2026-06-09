@@ -1,0 +1,191 @@
+using System.Text.Json;
+using Xunit;
+using NtisPlatform.Application.Services.Rules;
+
+namespace NtisPlatform.Tests.Application
+{
+    public class RuleJsonBuilderTests
+    {
+        [Fact]
+        public void Build_WithSingleRule_GeneratesCorrectPolicyJson()
+        {
+            // Arrange
+            var ruleName = "Single Rule Test";
+            var ruleCode = "SR001";
+            var conditions = @"{
+                ""logicalOperator"": ""AND"",
+                ""conditions"": [
+                    { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": ""2"" }
+                ]
+            }";
+            var effect = @"{
+                ""effectType"": ""Decrease %"",
+                ""value"": 10,
+                ""overrideRate"": ""Rate""
+            }";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "ARV", conditions, effect, "Single test description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var root = doc.RootElement;
+
+            Assert.Equal(ruleName, root.GetProperty("RuleName").GetString());
+            Assert.True(root.GetProperty("isActive").GetBoolean());
+            Assert.Equal("ARV", root.GetProperty("RuleCategory").GetString());
+
+            var rules = root.GetProperty("rules");
+            Assert.Equal(JsonValueKind.Array, rules.ValueKind);
+            Assert.Equal(1, rules.GetArrayLength());
+
+            var rule = rules[0];
+            Assert.Equal(ruleCode, rule.GetProperty("RuleCode").GetString());
+            Assert.Equal("Single test description", rule.GetProperty("errorMessage").GetString());
+            Assert.True(rule.GetProperty("enabled").GetBoolean());
+            Assert.Equal("LambdaExpression", rule.GetProperty("ruleExpressionType").GetString());
+            Assert.Equal("input.Floor == 2", rule.GetProperty("expression").GetString());
+
+            var actions = rule.GetProperty("Actions");
+            var onSuccess = actions.GetProperty("OnSuccess");
+            Assert.Equal("Decrease", onSuccess.GetProperty("Name").GetString());
+
+            var context = onSuccess.GetProperty("Context");
+            Assert.Equal("input.Rate * (1 - 10 / 100)", context.GetProperty("Expression").GetString());
+            Assert.Equal("Decrease %", context.GetProperty("effectType").GetString());
+            Assert.Equal("10", context.GetProperty("value").GetString());
+            Assert.Equal("input.Rate", context.GetProperty("ParameterCode").GetString());
+        }
+
+        [Fact]
+        public void Build_WithMultiRuleArray_GeneratesCorrectPolicyJson()
+        {
+            // Arrange
+            var ruleName = "Combined Rules Test";
+            var ruleCode = "CR001";
+            var multiConditions = @"[
+                {
+                    ""id"": ""f5697d61-7d1e-42f7-b00d-87f08a41c025"",
+                    ""description"": ""rule1"",
+                    ""conditions"": {
+                        ""logicalOperator"": ""AND"",
+                        ""conditions"": [
+                            { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": ""2"" }
+                        ]
+                    },
+                    ""effect"": {
+                        ""effectType"": ""Decrease %"",
+                        ""value"": 51
+                    }
+                },
+                {
+                    ""id"": ""734c446f-4141-4794-851d-f86d382b63a9"",
+                    ""description"": ""rule3"",
+                    ""conditions"": {
+                        ""logicalOperator"": ""AND"",
+                        ""conditions"": [
+                            { ""fieldId"": ""Carpet Area SqFeet"", ""operator"": ""EQUALS"", ""value"": ""100"" }
+                        ]
+                    },
+                    ""effect"": {
+                        ""effectType"": ""Multiply"",
+                        ""value"": 20
+                    }
+                }
+            ]";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "ARV", multiConditions, null, "Combined test description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var root = doc.RootElement;
+
+            Assert.Equal(ruleName, root.GetProperty("RuleName").GetString());
+            Assert.True(root.GetProperty("isActive").GetBoolean());
+            Assert.Equal("ARV", root.GetProperty("RuleCategory").GetString());
+
+            var rules = root.GetProperty("rules");
+            Assert.Equal(JsonValueKind.Array, rules.ValueKind);
+            Assert.Equal(2, rules.GetArrayLength());
+
+            // Check first rule
+            var rule1 = rules[0];
+            Assert.Equal("f5697d61-7d1e-42f7-b00d-87f08a41c025", rule1.GetProperty("RuleCode").GetString());
+            Assert.Equal("rule1", rule1.GetProperty("errorMessage").GetString());
+            Assert.True(rule1.GetProperty("enabled").GetBoolean());
+            Assert.Equal("input.Floor == 2", rule1.GetProperty("expression").GetString());
+            var onSuccess1 = rule1.GetProperty("Actions").GetProperty("OnSuccess");
+            Assert.Equal("Decrease", onSuccess1.GetProperty("Name").GetString());
+            Assert.Equal("input.Rate * (1 - 51 / 100)", onSuccess1.GetProperty("Context").GetProperty("Expression").GetString());
+
+            // Check second rule
+            var rule2 = rules[1];
+            Assert.Equal("734c446f-4141-4794-851d-f86d382b63a9", rule2.GetProperty("RuleCode").GetString());
+            Assert.Equal("rule3", rule2.GetProperty("errorMessage").GetString());
+            Assert.True(rule2.GetProperty("enabled").GetBoolean());
+            Assert.Equal("input.CarpetAreaSqFeet == 100", rule2.GetProperty("expression").GetString());
+            var onSuccess2 = rule2.GetProperty("Actions").GetProperty("OnSuccess");
+            Assert.Equal("Multiply", onSuccess2.GetProperty("Name").GetString());
+            Assert.Equal("input.Rate * 20", onSuccess2.GetProperty("Context").GetProperty("Expression").GetString());
+        }
+
+        [Fact]
+        public void Build_WithMultiRuleArrayIncludingStopProcessing_GeneratesCorrectStopProcessingValues()
+        {
+            // Arrange
+            var ruleName = "Combined Rules Stop Processing Test";
+            var ruleCode = "CR002";
+            var multiConditions = @"[
+                {
+                    ""id"": ""r1"",
+                    ""description"": ""rule1"",
+                    ""stopProcessing"": true,
+                    ""conditions"": {
+                        ""logicalOperator"": ""AND"",
+                        ""conditions"": [
+                            { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": ""2"" }
+                        ]
+                    },
+                    ""effect"": {
+                        ""effectType"": ""Decrease %"",
+                        ""value"": 51
+                    }
+                },
+                {
+                    ""id"": ""r2"",
+                    ""description"": ""rule2"",
+                    ""stopProcessing"": false,
+                    ""conditions"": {
+                        ""logicalOperator"": ""AND"",
+                        ""conditions"": [
+                            { ""fieldId"": ""Carpet Area SqFeet"", ""operator"": ""EQUALS"", ""value"": ""100"" }
+                        ]
+                    },
+                    ""effect"": {
+                        ""effectType"": ""Multiply"",
+                        ""value"": 20
+                    }
+                }
+            ]";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "ARV", multiConditions, null, "Combined test description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var root = doc.RootElement;
+            var rules = root.GetProperty("rules");
+            Assert.Equal(2, rules.GetArrayLength());
+
+            var rule1 = rules[0];
+            Assert.True(rule1.GetProperty("stopProcessing").GetBoolean());
+
+            var rule2 = rules[1];
+            Assert.False(rule2.GetProperty("stopProcessing").GetBoolean());
+        }
+    }
+}

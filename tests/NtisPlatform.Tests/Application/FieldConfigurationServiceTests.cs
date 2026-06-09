@@ -6,6 +6,7 @@ using NtisPlatform.Application.Mappings.FieldConfigurationMappings;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services.FieldConfiguration;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;

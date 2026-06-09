@@ -4,7 +4,7 @@ using Moq;
 using NtisPlatform.Application.DTOs.Master.RuleScopeMaster;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
-using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;

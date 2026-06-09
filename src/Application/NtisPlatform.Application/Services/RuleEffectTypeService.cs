@@ -5,6 +5,7 @@ using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services

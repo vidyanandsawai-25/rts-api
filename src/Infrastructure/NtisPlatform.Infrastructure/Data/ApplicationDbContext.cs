@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Rules;
 
 namespace NtisPlatform.Infrastructure.Data;
 
@@ -150,7 +151,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleEngineEntity> RuleEngine { get; set; } = null!;
     public DbSet<RuleVersionHistoryEntity> RuleVersionHistory { get; set; } = null!;
     public DbSet<RuleCategoryEntity> RuleCategory { get; set; } = null!;
-    public DbSet<RuleExclusionEntity> RuleExclusion { get; set; } = null!;
 
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
@@ -3055,7 +3055,7 @@ public class ApplicationDbContext : DbContext
         // rule scope configuration
         modelBuilder.Entity<RuleScopeEntity>(entity =>
         {
-            entity.ToTable("RuleScopeMaster", "CORE");
+            entity.ToTable("RuleScopeMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.RuleScope).IsRequired().HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
@@ -3082,7 +3082,7 @@ public class ApplicationDbContext : DbContext
         // rule effect type configuration
         modelBuilder.Entity<RuleEffectTypeEntity>(entity =>
         {
-            entity.ToTable("RuleEffectTypeMaster", "CORE");
+            entity.ToTable("RuleEffectTypeMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.EffectType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
@@ -3102,7 +3102,7 @@ public class ApplicationDbContext : DbContext
         // rule operator configuration
         modelBuilder.Entity<RuleOperatorEntity>(entity =>
         {
-            entity.ToTable("RuleOperatorMaster", "CORE");
+            entity.ToTable("RuleOperatorMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Operator).IsRequired().HasMaxLength(100);
             entity.Property(e => e.OperatorDescription).IsRequired().HasMaxLength(100);
@@ -4348,6 +4348,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DatabaseColumnName).HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
@@ -4436,6 +4437,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DatabaseColumnName).HasMaxLength(100);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
@@ -4631,58 +4633,6 @@ public class ApplicationDbContext : DbContext
             // Indexes for performance
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.SortOrder);
-        });
-
-        // RuleExclusion configuration
-        modelBuilder.Entity<RuleExclusionEntity>(entity =>
-        {
-            entity.ToTable("RuleExclusion", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-
-            // Required fields
-            entity.Property(e => e.AppliedRuleId).IsRequired();
-            entity.Property(e => e.SkipRuleId).IsRequired();
-            entity.Property(e => e.Reason).HasMaxLength(500);
-
-            // Audit fields
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-
-            // Foreign key relationships
-            entity.HasOne(e => e.AppliedRule)
-                .WithMany(r => r.ExclusionsTriggered)
-                .HasForeignKey(e => e.AppliedRuleId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("FK_RuleExclusion_AppliedRule");
-
-            entity.HasOne(e => e.SkipRule)
-                .WithMany(r => r.ExclusionsSkippedBy)
-                .HasForeignKey(e => e.SkipRuleId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("FK_RuleExclusion_SkipRule");
-
-            // Unique constraint - prevent duplicate exclusion entries
-            entity.HasIndex(e => new { e.AppliedRuleId, e.SkipRuleId })
-                .IsUnique()
-                .HasDatabaseName("UQ_RuleExclusion_AppliedSkip");
-
-            // Check constraint - prevent self-exclusion (will be added in migration as SQL)
-            // CHECK (AppliedRuleId <> SkipRuleId)
-
-            // Indexes for performance
-            entity.HasIndex(e => e.AppliedRuleId)
-                .HasDatabaseName("IX_RuleExclusion_AppliedRuleId")
-                .HasFilter("[IsActive] = 1");
-
-            entity.HasIndex(e => e.SkipRuleId)
-                .HasDatabaseName("IX_RuleExclusion_SkipRuleId")
-                .HasFilter("[IsActive] = 1");
-
-            entity.HasIndex(e => e.IsActive);
         });
 
         // RuleVersionHistory configuration

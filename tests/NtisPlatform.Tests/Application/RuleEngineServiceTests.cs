@@ -1,13 +1,11 @@
-﻿using AutoMapper;
-using Microsoft.EntityFrameworkCore;
+using AutoMapper;
 using MockQueryable;
 using Moq;
-using NtisPlatform.Application.DTOs.RuleEngine;
-using NtisPlatform.Application.Interfaces.RuleEngine;
-using NtisPlatform.Application.Mappings.RuleEngineMappings;
-using NtisPlatform.Application.Models;
-using NtisPlatform.Application.Services.RuleEngine;
-using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Application.DTOs.Rules.RuleEngine;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Mappings.Rules;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;
@@ -20,7 +18,6 @@ public class RuleEngineServiceTests
 {
     private readonly Mock<IRepository<RuleEngineEntity, int>> _mockRepository;
     private readonly Mock<IRepository<RuleVersionHistoryEntity, long>> _mockVersionRepository;
-    private readonly Mock<IRepository<RuleExclusionEntity, int>> _mockRuleExclusionRepository;
     private readonly Mock<IRuleExecutionService> _mockRuleExecutionService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly IMapper _mapper;
@@ -30,7 +27,6 @@ public class RuleEngineServiceTests
     {
         _mockRepository = new Mock<IRepository<RuleEngineEntity, int>>();
         _mockVersionRepository = new Mock<IRepository<RuleVersionHistoryEntity, long>>();
-        _mockRuleExclusionRepository = new Mock<IRepository<RuleExclusionEntity, int>>();
         _mockRuleExecutionService = new Mock<IRuleExecutionService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
 
@@ -63,7 +59,6 @@ public class RuleEngineServiceTests
             _mockUnitOfWork.Object,
             _mapper,
             _mockVersionRepository.Object,
-            _mockRuleExclusionRepository.Object,
             _mockRuleExecutionService.Object);
     }
 

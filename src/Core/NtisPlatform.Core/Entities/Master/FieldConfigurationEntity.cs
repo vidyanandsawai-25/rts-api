@@ -1,3 +1,5 @@
+using NtisPlatform.Core.Entities.Rules;
+
 namespace NtisPlatform.Core.Entities.Master
 {
     public class FieldConfigurationEntity : BaseEntity

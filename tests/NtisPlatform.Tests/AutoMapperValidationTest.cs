@@ -126,7 +126,9 @@ public class AutoMapperValidationTest
               "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
              "TransMastRV",
              // Rule exclusion properties (navigation properties)
-             "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy"
+             "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy",
+             // RuleScope navigation property and derived display name
+             "RuleScope", "RuleScopeName"
           };
 
             // Check if all unmapped properties are in the expected list

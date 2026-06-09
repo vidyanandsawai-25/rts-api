@@ -4,9 +4,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.RateableValue;
+using NtisPlatform.Application.DTOs.Rules.RuleEngine;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Application.Interfaces.RuleEngine;
-using NtisPlatform.Application.Services.RuleEngine.Effects;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -41,7 +44,7 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<TransMastRVEntity, int>> _transmastRVRepo;
     private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
     private readonly Mock<TaxMasterDataService> _masterDataService;
-    private readonly Mock<IRuleExecutionService> _ruleExecutionService;
+    private readonly Mock<IRuleApplierService> _ruleApplierService;
     private readonly Mock<IUnitOfWork> _unitOfWork;
     private readonly Mock<ILogger<RateableValueService>> _logger;
     private readonly Mock<IPolicyConfigurationService> _policyConfigurationService;
@@ -61,8 +64,16 @@ public class RateableValueServiceTests
         _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
         _unitOfWork = new Mock<IUnitOfWork>();
         _logger = new Mock<ILogger<RateableValueService>>();
-        _ruleExecutionService = new Mock<IRuleExecutionService>();
+        _ruleApplierService = new Mock<IRuleApplierService>();
         _policyConfigurationService = new Mock<IPolicyConfigurationService>();
+
+        // Setup rule applier mock to default return the initialValue passed to it
+        _ruleApplierService
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken cancellationToken) => context.InitialValue);
 
         // Setup policy configuration service with default values
         _policyConfigurationService
@@ -131,6 +142,17 @@ public class RateableValueServiceTests
 
     private RateableValueService CreateService()
     {
+        var propertyContextLoader = new PropertyContextLoaderService(
+            _propertyRepo.Object,
+            _propertyDetailsRepo.Object,
+            _propertyAssessmentRepo.Object,
+            _propertySocialDetailsRepo.Object,
+            _renterRepo.Object,
+            _occupancyRepo.Object,
+            _masterDataService.Object,
+            new Mock<ILogger<PropertyContextLoaderService>>().Object
+        );
+
         return new RateableValueService(
             _propertyRepo.Object,
             _propertyDetailsRepo.Object,
@@ -142,8 +164,8 @@ public class RateableValueServiceTests
             _propertySocialDetailsRepo.Object,
             _propertyAssessmentRepo.Object,
             _masterDataService.Object,
-            _ruleExecutionService.Object,
-            new List<IRuleEffectApplicator>(),
+            _ruleApplierService.Object,
+            propertyContextLoader,
             _unitOfWork.Object,
             _logger.Object,
             _transmastRVRepo.Object,
@@ -291,7 +313,7 @@ public class RateableValueServiceTests
         SetupPropertyAndDetails(1, "2025");
 
         SetupBasicMasterData();
-        
+
         // Override year ranges with empty list after basic setup
         _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
             .ReturnsAsync(new List<AssessmentYearRangeEntity>()); // Empty year ranges
@@ -339,7 +361,7 @@ public class RateableValueServiceTests
         var testValueDecimal = (decimal)testValue;
         var minAmountDecimal = minAmount.HasValue ? (decimal?)minAmount.Value : null;
         var maxAmountDecimal = maxAmount.HasValue ? (decimal?)maxAmount.Value : null;
-        
+
         var minOk = !minAmountDecimal.HasValue || testValueDecimal >= minAmountDecimal.Value;
         var maxOk = !maxAmountDecimal.HasValue || testValueDecimal <= maxAmountDecimal.Value;
         var actualMatch = minOk && maxOk;
@@ -385,7 +407,7 @@ public class RateableValueServiceTests
                 IsActive = true
             }
         };
-        
+
         // Setup callback BEFORE calling SetupCompleteCalculationData
         List<PolicyTaxDetailsEntity>? capturedPolicyRows = null;
         _policyTaxRepo.Setup(r => r.AddRangeAsync(
@@ -466,7 +488,7 @@ public class RateableValueServiceTests
         var testValueDecimal = (decimal)testValue;
         var minAmountDecimal = minAmount.HasValue ? (decimal?)minAmount.Value : null;
         var maxAmountDecimal = maxAmount.HasValue ? (decimal?)maxAmount.Value : null;
-        
+
         var minOk = !minAmountDecimal.HasValue || testValueDecimal >= minAmountDecimal.Value;
         var maxOk = !maxAmountDecimal.HasValue || testValueDecimal <= maxAmountDecimal.Value;
         var actualMatch = minOk && maxOk;
@@ -570,9 +592,9 @@ public class RateableValueServiceTests
         var service = CreateService();
         var propertyId = 1;
         SetupPropertyAndDetails(propertyId, "2020");
-        
+
         SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
-        
+
         // Override policy repo GetQueryable to return old policy rows AFTER SetupCompleteCalculationData
         _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PolicyTaxDetailsEntity>
@@ -689,7 +711,7 @@ public class RateableValueServiceTests
         var service = CreateService();
         var propertyId = 1;
         SetupPropertyWithMultipleDetails(propertyId, "2020"); // 2 details
-        
+
         // Setup callback BEFORE calling SetupCompleteCalculationData
         List<PolicyTaxDetailsEntity>? capturedResults = null;
         _policyTaxRepo.Setup(r => r.AddRangeAsync(
@@ -702,7 +724,7 @@ public class RateableValueServiceTests
             .Returns(Task.CompletedTask);
 
         SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
-        
+
         // Override taxes with custom list (3 standard taxes)
         var taxes = new List<TaxMasterEntity>
         {
@@ -711,7 +733,7 @@ public class RateableValueServiceTests
             new TaxMasterEntity { Id = 12, TaxName = "Drainage Tax", TaxCode = "DT", IsActive = true }
         };
         _masterDataService.Setup(m => m.GetActiveTaxesAsync()).ReturnsAsync(taxes);
-        
+
         // Setup tax percentages for all taxes
         _masterDataService.Setup(m => m.GetActiveTaxPercentagesAsync())
             .ReturnsAsync(new List<TaxPercentageMasterRVEntity>
@@ -761,6 +783,101 @@ public class RateableValueServiceTests
             Assert.NotEqual(default(DateTime), row.CreatedDate);
             Assert.NotEqual(default(DateTime), row.UpdatedDate);
         });
+    }
+
+    [Fact]
+    public async Task RVRuleEngine_WithSqFeetPolicy_SelectsRateSquareFeetForRuleExecution()
+    {
+        // Arrange
+        var propertyId = 1;
+
+        // Setup property with policy configured to use SqFeet
+        var policyValues = new Dictionary<string, string>
+        {
+            { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.CarpetArea },
+            { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.SqFeet },  // ← Configure to use SqFeet
+            { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.Monthly },
+            { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.PolicyValueFalse }
+        };
+
+        _policyConfigurationService
+            .Setup(p => p.GetPolicyValuesAsync(It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(policyValues);
+
+        // Track rule execution calls to verify rate selection - MUST SETUP BEFORE CreateService
+        decimal capturedInitialValue = 0m;
+        _ruleApplierService
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<RuleApplierContext, int, CancellationToken>((context, maxRetries, cancellationToken) =>
+            {
+                if (context.Category == "RV" && context.ValueKey == "Rate")
+                {
+                    capturedInitialValue = context.InitialValue;
+                }
+            })
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken cancellationToken) => context.InitialValue);
+
+        // Setup property and details
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<PropertyEntity>
+            {
+                new PropertyEntity
+                {
+                    Id = propertyId,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    TaxZoneId = 1,
+                    WardId = 1
+                }
+            }.BuildMockDbSet().Object);
+
+        _propertyDetailsRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<PropertyDetailsEntity>
+            {
+                new PropertyDetailsEntity
+                {
+                    Id = 10,
+                    PropertyId = propertyId,
+                    IsActive = true,
+                    ConstructionYear = "2020",
+                    TypeOfUseId = 1,
+                    ConstructionTypeId = 1,
+                    FloorId = 1,
+                    CarpetAreaSqMeter = 1000,
+                    CarpetAreaSqFeet = 10764  // ~1000 sqm
+                }
+            }.BuildMockDbSet().Object);
+
+        // Setup master data - need to call SetupCompleteCalculationData first, then override rate
+        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
+
+        // Now override with rate that has ONLY RateSquareFeet (no RateSquareMeter)
+        _masterDataService.Setup(m => m.GetRatesForSectionAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<RateEntity>
+            {
+                new RateEntity
+                {
+                    Id = 1,
+                    TaxZoneId = 1,
+                    ConstructionTypeId = 1,
+                    TypeOfUseGroupId = 1,
+                    YearRangeRVId = 1,
+                    RateSquareMeter = 0m,      // ← Zero sqm rate
+                    RateSquareFeet = 100m,     // ← Only sqft rate available
+                    IsActive = true
+                }
+            });
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert - Verify rule engine was called with sqft rate (100), not sqm rate (0)
+        Assert.Equal(100m, capturedInitialValue);
     }
 
     #endregion
@@ -953,13 +1070,13 @@ public class RateableValueServiceTests
 
         _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PolicyTaxDetailsEntity>().BuildMockDbSet().Object);
-            
+
         // Setup UpdateAsync for policy tax repository
         _policyTaxRepo.Setup(r => r.UpdateAsync(
             It.IsAny<PolicyTaxDetailsEntity>(),
             It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-            
+
         // Note: AddRangeAsync is NOT set up here to allow individual tests to mock it with callbacks
     }
 

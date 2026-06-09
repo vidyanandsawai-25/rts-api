@@ -2,10 +2,12 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
-using NtisPlatform.Application.DTOs.RuleEngine;
-using NtisPlatform.Application.Services.RuleEngine;
-using NtisPlatform.Application.Services.RuleEngine.Effects;
-using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Application.DTOs.Rules.RuleEngine;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+using NtisPlatform.Application.DTOs.Rules.RuleCategory;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Application;
@@ -18,9 +20,7 @@ public class RuleExecutionServiceTests
 {
     private readonly Mock<IRepository<RuleEngineEntity, int>> _mockRuleRepository;
     private readonly Mock<IRepository<RuleCategoryEntity, int>> _mockCategoryRepository;
-    private readonly Mock<IRepository<RuleExclusionEntity, int>> _mockRuleExclusionRepository;
     private readonly Mock<ILogger<RuleExecutionService>> _mockLogger;
-    private readonly IMemoryCache _memoryCache;
     private readonly List<IRuleEffectApplicator> _effectApplicators;
     private readonly RuleExecutionService _service;
 
@@ -28,17 +28,7 @@ public class RuleExecutionServiceTests
     {
         _mockRuleRepository = new Mock<IRepository<RuleEngineEntity, int>>();
         _mockCategoryRepository = new Mock<IRepository<RuleCategoryEntity, int>>();
-        _mockRuleExclusionRepository = new Mock<IRepository<RuleExclusionEntity, int>>();
         _mockLogger = new Mock<ILogger<RuleExecutionService>>();
-        _memoryCache = new MemoryCache(new MemoryCacheOptions
-        {
-            SizeLimit = 100
-        });
-
-        // Setup empty exclusions by default
-        var emptyExclusions = new List<RuleExclusionEntity>();
-        var mockExclusionQueryable = MockQueryableExtensions.BuildMock(emptyExclusions);
-        _mockRuleExclusionRepository.Setup(r => r.GetQueryable()).Returns(mockExclusionQueryable);
 
         // Initialize all effect applicators
         _effectApplicators = new List<IRuleEffectApplicator>
@@ -53,10 +43,8 @@ public class RuleExecutionServiceTests
         _service = new RuleExecutionService(
             _mockRuleRepository.Object,
             _mockCategoryRepository.Object,
-            _mockRuleExclusionRepository.Object,
             _effectApplicators,
-            _mockLogger.Object,
-            _memoryCache);
+            _mockLogger.Object);
     }
 
     #region GetCategoriesAsync Tests
@@ -128,99 +116,7 @@ public class RuleExecutionServiceTests
 
     #endregion
 
-    #region ExecuteAsync - Caching Tests
 
-    [Fact]
-    public async Task ExecuteAsync_CachesRulesEngine_OnFirstCall()
-    {
-        // Arrange
-        var rules = CreateTestRules("ARV", priority: 10);
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object> { { "Rate", 1000 } }
-        };
-
-        // Act - First call
-        await _service.ExecuteAsync(input);
-
-        // Assert - Repository called once
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Once);
-
-        // Act - Second call
-        await _service.ExecuteAsync(input);
-
-        // Assert - Repository still called only once (cache hit)
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Once);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ConcurrentRequests_UseSameCache()
-    {
-        // Arrange
-        var rules = CreateTestRules("ARV", priority: 10);
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object> { { "Rate", 1000 } }
-        };
-
-        // Act - Warm the cache with a single call first
-        await _service.ExecuteAsync(input);
-
-        // Assert - Cache was populated (repository called once)
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Once);
-
-        // Act - Simulate concurrent requests (cache is already warm)
-        var tasks = Enumerable.Range(0, 10)
-            .Select(_ => _service.ExecuteAsync(input))
-            .ToArray();
-
-        await Task.WhenAll(tasks);
-
-        // Assert - Repository still called only once (all concurrent calls used cache)
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Once);
-    }
-
-    #endregion
-
-    #region ExecuteAsync - Cache Invalidation Tests
-
-    [Fact]
-    public async Task InvalidateCache_RemovesCategoryCache()
-    {
-        // Arrange
-        var rules = CreateTestRules("ARV", priority: 10);
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object> { { "Rate", 1000 } }
-        };
-
-        // Act - First call to populate cache
-        await _service.ExecuteAsync(input);
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Once);
-
-        // Invalidate cache
-        _service.InvalidateCache("ARV");
-
-        // Act - Second call after invalidation
-        await _service.ExecuteAsync(input);
-
-        // Assert - Repository called again (cache miss)
-        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Exactly(2));
-    }
-
-    #endregion
 
     #region ExecuteAsync - Priority Ordering Tests
 
@@ -252,6 +148,92 @@ public class RuleExecutionServiceTests
         Assert.Equal("RULE-5", result[0].RuleCode);
         Assert.Equal("RULE-10", result[1].RuleCode);
         Assert.Equal("RULE-50", result[2].RuleCode);
+    }
+
+    [Theory]
+    [InlineData(1)] // Apartment
+    [InlineData(6)] // Multi Commercial Apartment
+    public async Task ExecuteAsync_OrdersByScopeFirst_WhenCategoryIdIsApartmentOrMultiCommercialApartment(int categoryId)
+    {
+        // Arrange
+        var compRule = CreateRuleEntity("COMP-5", "ARV", priority: 5, expression: "input.Rate > 0");
+        compRule.RuleScopeId = 3; // Component Level
+
+        var propRule = CreateRuleEntity("PROP-20", "ARV", priority: 20, expression: "input.Rate > 0");
+        propRule.RuleScopeId = 1; // Property Level
+
+        var buildRule = CreateRuleEntity("BUILD-50", "ARV", priority: 50, expression: "input.Rate > 0");
+        buildRule.RuleScopeId = 2; // Building Level
+
+        var unscopedRule = CreateRuleEntity("UNSCOPED-1", "ARV", priority: 1, expression: "input.Rate > 0");
+        unscopedRule.RuleScopeId = null; // Unscoped
+
+        var rules = new List<RuleEngineEntity> { compRule, propRule, buildRule, unscopedRule };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000 },
+                { "CategoryId", categoryId }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Scope order: Building Level (2) -> Property Level (1) -> Component Level (3) -> Unscoped (null/other)
+        Assert.Equal(4, result.Count);
+        Assert.Equal("BUILD-50", result[0].RuleCode);
+        Assert.Equal("PROP-20", result[1].RuleCode);
+        Assert.Equal("COMP-5", result[2].RuleCode);
+        Assert.Equal("UNSCOPED-1", result[3].RuleCode);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FallbackToPriorityOrdering_WhenCategoryIdIsOther()
+    {
+        // Arrange
+        var compRule = CreateRuleEntity("COMP-5", "ARV", priority: 5, expression: "input.Rate > 0");
+        compRule.RuleScopeId = 3; // Component Level
+
+        var propRule = CreateRuleEntity("PROP-20", "ARV", priority: 20, expression: "input.Rate > 0");
+        propRule.RuleScopeId = 1; // Property Level
+
+        var buildRule = CreateRuleEntity("BUILD-50", "ARV", priority: 50, expression: "input.Rate > 0");
+        buildRule.RuleScopeId = 2; // Building Level
+
+        var unscopedRule = CreateRuleEntity("UNSCOPED-1", "ARV", priority: 1, expression: "input.Rate > 0");
+        unscopedRule.RuleScopeId = null; // Unscoped
+
+        var rules = new List<RuleEngineEntity> { compRule, propRule, buildRule, unscopedRule };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000 },
+                { "CategoryId", 3 } // Non-apartment CategoryId
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Fallback to default priority order: UNSCOPED-1 (1) -> COMP-5 (5) -> PROP-20 (20) -> BUILD-50 (50)
+        Assert.Equal(4, result.Count);
+        Assert.Equal("UNSCOPED-1", result[0].RuleCode);
+        Assert.Equal("COMP-5", result[1].RuleCode);
+        Assert.Equal("PROP-20", result[2].RuleCode);
+        Assert.Equal("BUILD-50", result[3].RuleCode);
     }
 
     #endregion
@@ -390,83 +372,7 @@ public class RuleExecutionServiceTests
 
     #endregion
 
-    #region ExecuteAsync - Rule Exclusion Tests
 
-    [Fact]
-    public async Task ExecuteAsync_SkipsExcludedRule_WhenAppliedRuleMatches()
-    {
-        // Arrange
-        var rules = new List<RuleEngineEntity>
-        {
-            CreateRuleEntity("RULE-1", "ARV", priority: 10, expression: "input.Rate > 500"), // Will match
-            CreateRuleEntity("RULE-2", "ARV", priority: 20, expression: "input.Rate > 0"),   // Should be skipped
-            CreateRuleEntity("RULE-3", "ARV", priority: 30, expression: "input.Rate > 0")    // Should execute
-        };
-
-        var exclusions = new List<RuleExclusionEntity>
-        {
-            new() { Id = 1, AppliedRuleId = 10, SkipRuleId = 20, IsActive = true } // RULE-1 excludes RULE-2
-        };
-
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        var mockExclusionQueryable = MockQueryableExtensions.BuildMock(exclusions);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-        _mockRuleExclusionRepository.Setup(r => r.GetQueryable()).Returns(mockExclusionQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object> { { "Rate", 1000 } }
-        };
-
-        // Act
-        var result = await _service.ExecuteAsync(input);
-
-        // Assert - RULE-2 should be skipped
-        Assert.Equal(2, result.Count);
-        Assert.Equal("RULE-1", result[0].RuleCode);
-        Assert.Equal("RULE-3", result[1].RuleCode);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_MultipleExclusions_SkipsAllExcludedRules()
-    {
-        // Arrange
-        var rules = new List<RuleEngineEntity>
-        {
-            CreateRuleEntity("RULE-1", "ARV", priority: 10, expression: "input.Rate > 500"),
-            CreateRuleEntity("RULE-2", "ARV", priority: 20, expression: "input.Rate > 0"),
-            CreateRuleEntity("RULE-3", "ARV", priority: 30, expression: "input.Rate > 0"),
-            CreateRuleEntity("RULE-4", "ARV", priority: 40, expression: "input.Rate > 0")
-        };
-
-        var exclusions = new List<RuleExclusionEntity>
-        {
-            new() { Id = 1, AppliedRuleId = 10, SkipRuleId = 20, IsActive = true }, // RULE-1 excludes RULE-2
-            new() { Id = 2, AppliedRuleId = 10, SkipRuleId = 30, IsActive = true }  // RULE-1 excludes RULE-3
-        };
-
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        var mockExclusionQueryable = MockQueryableExtensions.BuildMock(exclusions);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-        _mockRuleExclusionRepository.Setup(r => r.GetQueryable()).Returns(mockExclusionQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object> { { "Rate", 1000 } }
-        };
-
-        // Act
-        var result = await _service.ExecuteAsync(input);
-
-        // Assert - RULE-2 and RULE-3 should be skipped
-        Assert.Equal(2, result.Count);
-        Assert.Equal("RULE-1", result[0].RuleCode);
-        Assert.Equal("RULE-4", result[1].RuleCode);
-    }
-
-    #endregion
 
     #region ExecuteAsync - StopProcessing Flag Tests
 
@@ -809,6 +715,162 @@ public class RuleExecutionServiceTests
         // Assert - Rate set to 0 (full exemption)
         Assert.Single(result);
         Assert.Equal(0, result[0].ComputedRate);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithMultiRuleCombinedJson_ExecutesAllMatchingRulesCorrectly()
+    {
+        // Arrange
+        var multiConditions = @"[
+            {
+                ""id"": ""RULE-M1"",
+                ""description"": ""rule1"",
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [
+                        { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": ""2"" }
+                    ]
+                },
+                ""effect"": {
+                    ""effectType"": ""Decrease %"",
+                    ""value"": 10
+                }
+            },
+            {
+                ""id"": ""RULE-M2"",
+                ""description"": ""rule2"",
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [
+                        { ""fieldId"": ""Carpet Area SqFeet"", ""operator"": ""EQUALS"", ""value"": ""100"" }
+                    ]
+                },
+                ""effect"": {
+                    ""effectType"": ""Multiply"",
+                    ""value"": 2
+                }
+            }
+        ]";
+
+        var ruleJson = RuleJsonBuilder.Build("Combined Rules", "COMBINED-RULE", true, "ARV", multiConditions, null, "Combined description");
+
+        var ruleEntity = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "COMBINED-RULE",
+            RuleName = "Combined Rules",
+            RuleCategory = "ARV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = ruleJson,
+            ConditionsJson = multiConditions
+        };
+
+        var rules = new List<RuleEngineEntity> { ruleEntity };
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m },
+                { "Floor", 2 },
+                { "CarpetAreaSqFeet", 100 }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Both rules should match and execute
+        Assert.Equal(2, result.Count);
+
+        // First rule: RULE-M1 -> Decrease 10% on 1000m -> 900
+        Assert.Equal("RULE-M1", result[0].RuleCode);
+        Assert.Equal(900m, result[0].ComputedRate);
+
+        // Second rule: RULE-M2 -> Multiply by 2 on 1000m -> 2000
+        Assert.Equal("RULE-M2", result[1].RuleCode);
+        Assert.Equal(2000m, result[1].ComputedRate);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithMultiRuleCombinedJsonIncludingStopProcessing_HaltsEarly()
+    {
+        // Arrange
+        var multiConditions = @"[
+            {
+                ""id"": ""RULE-M1"",
+                ""description"": ""rule1"",
+                ""stopProcessing"": true,
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [
+                        { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": ""2"" }
+                    ]
+                },
+                ""effect"": {
+                    ""effectType"": ""Decrease %"",
+                    ""value"": 10
+                }
+            },
+            {
+                ""id"": ""RULE-M2"",
+                ""description"": ""rule2"",
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [
+                        { ""fieldId"": ""Carpet Area SqFeet"", ""operator"": ""EQUALS"", ""value"": ""100"" }
+                    ]
+                },
+                ""effect"": {
+                    ""effectType"": ""Multiply"",
+                    ""value"": 2
+                }
+            }
+        ]";
+
+        var ruleJson = RuleJsonBuilder.Build("Combined Rules", "COMBINED-RULE", true, "ARV", multiConditions, null, "Combined description");
+
+        var ruleEntity = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "COMBINED-RULE",
+            RuleName = "Combined Rules",
+            RuleCategory = "ARV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = ruleJson,
+            ConditionsJson = multiConditions
+        };
+
+        var rules = new List<RuleEngineEntity> { ruleEntity };
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m },
+                { "Floor", 2 },
+                { "CarpetAreaSqFeet", 100 }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Only the first rule should execute and halt early
+        Assert.Single(result);
+        Assert.Equal("RULE-M1", result[0].RuleCode);
+        Assert.Equal(900m, result[0].ComputedRate);
+        Assert.True(result[0].StopProcessing);
     }
 
     #endregion

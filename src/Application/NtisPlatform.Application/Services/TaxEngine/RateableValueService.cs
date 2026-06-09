@@ -1,19 +1,15 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RateableValue;
-using NtisPlatform.Application.DTOs.RuleEngine;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.RuleEngine;
-using NtisPlatform.Application.Services.RuleEngine.Effects;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Collections.Concurrent;
 
@@ -34,8 +30,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
         private readonly TaxMasterDataService _masterDataService;
-        private readonly IRuleExecutionService _ruleExecutionService;
-        private readonly IEnumerable<IRuleEffectApplicator> _effectApplicators;
+        private readonly IRuleApplierService _ruleApplierService;
+        private readonly IPropertyContextLoaderService _propertyContextLoaderService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<RateableValueService> _logger;
         private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
@@ -53,8 +49,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
             IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepo,
             TaxMasterDataService masterDataService,
-            IRuleExecutionService ruleExecutionService,
-            IEnumerable<IRuleEffectApplicator> effectApplicators,
+            IRuleApplierService ruleApplierService,
+            IPropertyContextLoaderService propertyContextLoaderService,
             IUnitOfWork unitOfWork,
             ILogger<RateableValueService> logger,
             IRepository<TransMastRVEntity, int> transmastRVRepo,
@@ -71,8 +67,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
             _propertyAssessmentRepo = propertyAssessmentRepo;
             _masterDataService = masterDataService;
-            _ruleExecutionService = ruleExecutionService;
-            _effectApplicators = effectApplicators;
+            _ruleApplierService = ruleApplierService;
+            _propertyContextLoaderService = propertyContextLoaderService;
             _unitOfWork = unitOfWork;
             _logger = logger;
             _transmastRVRepo = transmastRVRepo;
@@ -88,53 +84,25 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             try
             {
-                // 1. Validation - Get property and assessment
-                var property = await _propertyRepo.GetQueryable()
-                 .AsNoTracking()
-                 .FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
-                 ?? throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
+                // 1. Load complete PropertyCalculationContext using loader service
+                int financeYear = GetFinanceYear();
+                var propertyContext = await _propertyContextLoaderService.LoadPropertyContextAsync(propertyId, financeYear);
 
-                // Load PropertyAssessmentEntity for OwnerType context in rule engine
-                var propertyAssessment = _propertyAssessmentRepo.GetQueryable()
-                    .AsNoTracking()
-                    .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-                    .OrderBy(x => x.Id)
-                    .FirstOrDefault();
+                var property = propertyContext.Property;
+                var propertyAssessment = propertyContext.PropertyAssessment;
+                var details = propertyContext.Details.ToList();
+                var renters = propertyContext.Renters.ToList();
 
-                // ✅ FIX: Log warning if PropertyAssessment is missing
-                if (propertyAssessment == null)
-                {
-                    _logger.LogWarning(
-                        "⚠️ PropertyAssessmentEntity not found for PropertyId={PropertyId}. " +
-                        "OwnerType will default to 0 in rule engine. This may cause incorrect rule matching.",
-                        propertyId);
-                }
-
-                // ✅ FIX: Load hasLift ONCE per property (not per detail) to avoid N+1 query
-                var hasLift = _propertySocialDetailsRepo.GetQueryable()
-                    .Include(psd => psd.SocialAttribute)
-                    .Any(psd => psd.PropertyId == propertyId &&
-                                     psd.SocialAttribute != null &&
-                                     psd.SocialAttribute.SocialAttributeCode == "HAS_LIFT" &&
-                                     psd.IsActive);
-
-                _logger.LogDebug("Property {PropertyId} has lift: {HasLift}", propertyId, hasLift);
-
-                // 2. Get property details
-                var details = await _propertyDetailsRepo.GetQueryable()
-                   .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-                   .OrderBy(x => x.Id)
-                      .ToListAsync();
-
-                CalculationValidator.CheckCondition(details.Any(), $"PropertyDetails not found for PropertyId={propertyId}");
+                var hasLift             = propertyContext.Parameters.HasLift;
+                var constructionYearValue = propertyContext.Parameters.ConstructionYearValue;
 
                 // P3: Log property complexity metric
                 LogMetric("Property.DetailCount", details.Count, new Dictionary<string, string>
-            {
-                { "PropertyId", propertyId.ToString() }
-            });
+                {
+                    { "PropertyId", propertyId.ToString() }
+                });
 
-                // 3. Load all master data
+                // 2. Load all master data
                 _logger.LogDebug("Loading master data for PropertyId={PropertyId}, WardId={WardId}", propertyId, property.WardId);
                 var typeOfUses = await _masterDataService.GetActiveTypeOfUsesAsync();
                 var subTypeOfUses = await _masterDataService.GetActiveSubTypeOfUsesAsync();
@@ -149,29 +117,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 _logger.LogDebug("Master data loaded: {TypeOfUseCount} TypeOfUses, {TaxCount} Taxes, {RateCount} Rates",
                     typeOfUses.Count, activeTaxes.Count, rates.Count);
 
-                // 4. Get renters
-                var detailIds = details.Select(d => d.Id).ToList();
-                var renters = await _renterRepo.GetQueryable()
-                    .Where(x => detailIds.Contains(x.PropertyDetailsId) && x.IsActive && !x.MarkedForDeletion)
-                    .ToListAsync();
+                // 3. Load tax-related master data
+                var yearRangeRVId = propertyContext.Parameters.YearRangeRVId;
 
-                // 5. Validate construction year
-                var constructionYear = details.FirstOrDefault()?.ConstructionYear;
-                CalculationValidator.CheckCondition(!string.IsNullOrWhiteSpace(constructionYear), $"ConstructionYear not found for PropertyId={propertyId}");
-                CalculationValidator.CheckCondition(int.TryParse(constructionYear, out int constructionYearValue), $"Invalid ConstructionYear value '{constructionYear}' for PropertyId={propertyId}");
-
-                var yearRange = yearRanges.FirstOrDefault(x => x.FromYear <= constructionYearValue && x.ToYear >= constructionYearValue)
-                    ?? throw new InvalidOperationException($"Assessment year range not found for constructionYear={constructionYearValue}");
-
-                // 6. Load tax-related master data
                 var taxPercentages = (await _masterDataService.GetActiveTaxPercentagesAsync())
-                    .Where(x => x.YearRangeRVId == yearRange.Id)
+                    .Where(x => x.YearRangeRVId == yearRangeRVId)
                     .ToList();
                 var educationTaxSlabs = await _masterDataService.GetActiveEducationTaxSlabsAsync();
                 var employmentTaxSlabs = await _masterDataService.GetActiveEmploymentTaxSlabsAsync();
 
-                // 7. Pre-calculate base values for all details (cache to avoid redundant computation)
-                int financeYear = GetFinanceYear();
+                // 4. Pre-calculate base values for all details (cache to avoid redundant computation)
                 _logger.LogDebug("Calculating base values for {DetailCount} property details, FinanceYear={FinanceYear}",
                     details.Count, financeYear);
 
@@ -196,12 +151,12 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 // 7a. Fetch Rateable Value policy configuration
                 var policyDefaults = new Dictionary<string, string>
-            {
-                { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.DefaultAreaType },
-                { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.DefaultAreaUnit },
-                { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.DefaultRatePeriod },
-                { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV }
-            };
+                {
+                    { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.DefaultAreaType },
+                    { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.DefaultAreaUnit },
+                    { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.DefaultRatePeriod },
+                    { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV }
+                };
                 var policyValues = await _policyConfigurationService.GetPolicyValuesAsync(policyDefaults);
                 var policyOptions = RateableValuePolicyOptions.FromPolicies(policyValues, _logger);
 
@@ -218,7 +173,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var detailTasks = details.Select(async detail =>
                 {
                     // ── RV Rule Engine: Adjust Rateable Value Rate ──────────────────────────────
-                    decimal? ruleAdjustedRateSqM = null;
+                    decimal? ruleAdjustedRatePerUnit = null;
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
 
                     if (detailTypeOfUse != null && financeYearRange != null)
@@ -236,31 +191,15 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                         if (masterRatePerUnit > 0)
                         {
-                            // 🔍 DEBUG: Log before rule execution
-                            _logger.LogInformation(
-                                "🔍 [RuleEngine-RV-DEBUG] About to execute RV rules for PropertyDetailsId={DetailId}:\n" +
-                                "   MasterRate={MasterRate} ({Unit}), Floor={Floor}, UsageType={UsageType}, TypeOfUseGroup={TypeOfUseGroup}",
-                                detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm",
-                                detail.FloorId, detail.TypeOfUseId, detailTypeOfUse.TypeOfUseGroupId);
+                            var ruleContext = new RuleApplierContext
+                            {
+                                Category    = "RV",
+                                ValueKey    = "Rate",
+                                InitialValue = masterRatePerUnit,
+                                PropertyContext = propertyContext.CloneForDetail(detail, detailTypeOfUse)
+                            };
 
-                            await ApplyRulesToRateAsync(
-                                category: "RV",
-                                detail: detail,
-                                detailTypeOfUse: detailTypeOfUse,
-                                property: property,
-                                propertyAssessment: propertyAssessment,
-                                hasLift: hasLift,  // ✅ Pass pre-loaded hasLift
-                                constructionYearValue: constructionYearValue,
-                                financeYear: financeYear,
-                                yearRangeRVId: financeYearRange.Id,  // ✅ Pass year range ID for rate lookup
-                                currentRate: masterRatePerUnit,  // ✅ Rate in policy unit (sqm or sqft)
-                                onApplied: (adjustedRate) =>
-                                {
-                                    ruleAdjustedRateSqM = adjustedRate;  // Adjusted rate in same unit
-                                    _logger.LogDebug(
-                                        "[RuleEngine-RV] Adjusted rate for PropertyDetailsId={DetailId}: {OriginalRate} → {AdjustedRate} ({Unit})",
-                                        detail.Id, masterRatePerUnit, adjustedRate, policyOptions.IsSqFeetUnit ? "sqft" : "sqm");
-                                });
+                            ruleAdjustedRatePerUnit = await _ruleApplierService.ApplyRulesAsync(ruleContext);
                         }
                         else
                         {
@@ -287,7 +226,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         renters,
                          selectedArea,
                     policyOptions,
-                    ruleAdjustedRateSqM,
+                    ruleAdjustedRatePerUnit,
                     _logger);  // null = no rule matched, use master rate
 
                     // Thread-safe add to concurrent dictionary
@@ -514,9 +453,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 );
 
                 // Load occupancies
-                var occupancies = await _occupancyRepo.GetQueryable()
-                    .Where(x => detailIds.Contains(x.PropertyDetailId) && x.IsActive && !x.MarkedForDeletion)
-                    .ToListAsync();
+                var occupancies = propertyContext.Occupancies.ToList();
 
                 // Load old property data (not used but kept for future reference)
                 var oldProperty = await _oldPropertyRepo.GetQueryable()
@@ -807,402 +744,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             return today.Month >= 4 ? today.Year : today.Year - 1;
         }
 
-        /// <summary>
-        /// P2: Executes rule with retry logic for resilience against transient failures.
-        /// Delegates to RetryHelper for industry-standard retry pattern.
-        /// </summary>
-        private Task<List<RuleExecutionResultDto>> ExecuteRuleWithRetryAsync(
-            RuleExecutionInputDto ruleInput,
-            int detailId,
-            int maxRetries = 3)
-        {
-            return RetryHelper.ExecuteWithRetryAsync(
-                operation: () => _ruleExecutionService.ExecuteAsync(ruleInput),
-                logger: _logger,
-                operationName: "RuleEngine",
-                contextId: $"PropertyDetailsId={detailId}",
-                maxRetries: maxRetries);
-        }
 
-        /// <summary>
-        /// Applies rule engine effects to ALV or RV values with comprehensive context.
-        /// Executes rules for the specified category and applies cumulative effects.
-        /// All property and detail context is passed to enable flexible rule expressions.
-        /// </summary>
-        /// <param name="category">Rule category (ALV or RV)</param>
-        /// <param name="detail">Property detail entity</param>
-        /// <param name="detailTypeOfUse">Type of use entity for context</param>
-        /// <param name="property">Property entity for ward/zone context</param>
-        /// <param name="propertyAssessment">Property assessment entity (optional) for owner type context</param>
-        /// <param name="hasLift">Whether the property has a lift (pre-loaded to avoid N+1 query)</param>
-        /// <param name="constructionYearValue">Parsed construction year value</param>
-        /// <param name="financeYear">Current finance year</param>
-        /// <param name="yearRangeRVId">Year range ID for rate lookup</param>
-        /// <param name="currentValue">Current value to adjust (ALV or RV)</param>
-        /// <param name="onApplied">Callback to apply the adjusted value</param>
-        private async Task ApplyRulesToValueAsync(
-            string category,
-            PropertyDetailsEntity detail,
-            TypeOfUseEntity detailTypeOfUse,
-            PropertyEntity property,
-            PropertyAssessmentEntity? propertyAssessment,
-            bool hasLift,
-            int constructionYearValue,
-            int financeYear,
-            int yearRangeRVId,
-            decimal currentValue,
-            Action<decimal> onApplied)
-        {
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                // Validate input values
-                if (detail.FloorId <= 0 || detailTypeOfUse.TypeOfUseGroupId <= 0)
-                {
-                    _logger.LogDebug(
-                        "[RuleEngine-{Category}] Skipping rule execution for PropertyDetailsId={DetailId}: Invalid Floor or TypeOfUseGroup",
-                        category, detail.Id);
-                    return;
-                }
-
-                // Build comprehensive input context (reusable across ARV/ALV/RV)
-                var inputContext = await BuildRuleInputContext(
-                    detail, detailTypeOfUse, property, propertyAssessment, hasLift, constructionYearValue, financeYear, yearRangeRVId);
-
-                // Add category-specific parameter: Value (ALV or RV to adjust)
-                inputContext["Value"] = (double)currentValue;
-
-                var ruleInput = new RuleExecutionInputDto
-                {
-                    Category = category,
-                    Input = inputContext
-                };
-
-                // P2: Execute rules with retry logic
-                var ruleResults = await ExecuteRuleWithRetryAsync(ruleInput, detail.Id);
-                stopwatch.Stop();
-
-                // P3: Log performance metric
-                LogMetric("RuleExecution.Duration", stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
-                {
-                    { "PropertyDetailsId", detail.Id.ToString() },
-                    { "Category", category }
-                });
-
-                if (ruleResults != null && ruleResults.Any())
-                {
-                    // Apply ALL matching rules sequentially in priority order
-                    decimal cumulativeValue = currentValue;
-                    var appliedRules = new List<string>();
-                    var stopProcessing = false;
-
-                    foreach (var rule in ruleResults)
-                    {
-                        var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(rule.EffectType));
-                        if (applicator != null)
-                        {
-                            var previousValue = cumulativeValue;
-                            cumulativeValue = await applicator.Apply(cumulativeValue, rule.EffectValue);
-                            appliedRules.Add($"{rule.RuleCode}({rule.EffectType} {rule.EffectValue}%: {previousValue:F2}→{cumulativeValue:F2})");
-
-                            _logger.LogDebug(
-                                "[RuleEngine-{Category}] Applied rule '{RuleCode}' to PropertyDetailsId={DetailId}: " +
-                                "Value {PreviousValue} → {NewValue} ({EffectType} {EffectValue})",
-                                category, rule.RuleCode, detail.Id, previousValue, cumulativeValue,
-                                rule.EffectType, rule.EffectValue);
-
-                            // 🔹 Check if this rule has StopProcessing flag
-                            if (rule.StopProcessing)
-                            {
-                                _logger.LogInformation(
-                                    "🛑 [RuleEngine-{Category}] Rule '{RuleCode}' has StopProcessing=true. " +
-                                    "Remaining rules will not be applied for PropertyDetailsId={DetailId}.",
-                                    category, rule.RuleCode, detail.Id);
-                                stopProcessing = true;
-                                break; // Exit the loop, don't apply further rules
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "[RuleEngine-{Category}] No applicator found for EffectType='{EffectType}' in rule '{RuleCode}', skipping",
-                                category, rule.EffectType, rule.RuleCode);
-                        }
-                    }
-
-                    // Apply the adjusted value via callback
-                    onApplied(cumulativeValue);
-
-                    // P3: Log rule application metric
-                    LogMetric("RuleExecution.RulesApplied", ruleResults.Count, new Dictionary<string, string>
-                    {
-                        { "PropertyDetailsId", detail.Id.ToString() },
-                        { "Category", category },
-                        { "OriginalValue", currentValue.ToString("F2") },
-                        { "FinalValue", cumulativeValue.ToString("F2") },
-                        { "StopProcessing", stopProcessing.ToString() }
-                    });
-
-                    var statusMsg = stopProcessing ? " (stopped early)" : "";
-                    _logger.LogInformation(
-                        "[RuleEngine-{Category}] ✅ Applied {RuleCount} rule(s) to PropertyDetailsId={DetailId} in {ElapsedMs}ms{StatusMsg}: " +
-                        "Value {OriginalValue} → {FinalValue}. Rules: {AppliedRules}",
-                        category, appliedRules.Count, detail.Id, stopwatch.ElapsedMilliseconds, statusMsg,
-                        currentValue, cumulativeValue,
-                        string.Join(" → ", appliedRules));
-
-                    // Performance budget warning
-                    if (stopwatch.ElapsedMilliseconds > 100)
-                    {
-                        _logger.LogWarning(
-                            "[RuleEngine-{Category}] Performance: Rule execution took {ElapsedMs}ms (>100ms budget) for PropertyDetailsId={DetailId}",
-                            category, stopwatch.ElapsedMilliseconds, detail.Id);
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug(
-                        "[RuleEngine-{Category}] No rules matched for PropertyDetailsId={DetailId} in {ElapsedMs}ms, using original value {Value}",
-                        category, detail.Id, stopwatch.ElapsedMilliseconds, currentValue);
-                }
-            }
-            catch (ArgumentException argEx)
-            {
-                stopwatch.Stop();
-                _logger.LogWarning(argEx,
-                    "[RuleEngine-{Category}] ⚠️ Validation error for PropertyDetailsId={DetailId} after {ElapsedMs}ms. Using original value.",
-                    category, detail.Id, stopwatch.ElapsedMilliseconds);
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                _logger.LogError(ex,
-                    "[RuleEngine-{Category}] ❌ Execution failed for PropertyDetailsId={DetailId} after {ElapsedMs}ms. Using original value.",
-                    category, detail.Id, stopwatch.ElapsedMilliseconds);
-            }
-        }
-
-        /// <summary>
-        /// Applies rule engine effects to ARV rate (Annual Rateable Value rate per sq.m) with comprehensive context.
-        /// Executes rules for ARV category and applies cumulative effects to the base rate.
-        /// This method provides consistent rule execution logic across ARV, ALV, and RV categories.
-        /// </summary>
-        /// <param name="category">Rule category (should be "ARV" for rate adjustment)</param>
-        /// <param name="detail">Property detail entity</param>
-        /// <param name="detailTypeOfUse">Type of use entity for context</param>
-        /// <param name="property">Property entity for ward/zone context</param>
-        /// <param name="propertyAssessment">Property assessment entity (optional) for owner type context</param>
-        /// <param name="hasLift">Whether the property has a lift (pre-loaded to avoid N+1 query)</param>
-        /// <param name="constructionYearValue">Parsed construction year value</param>
-        /// <param name="financeYear">Current finance year</param>
-        /// <param name="yearRangeRVId">Year range ID for rate lookup</param>
-        /// <param name="currentRate">Current rate to adjust (base rate per sq.m)</param>
-        /// <param name="onApplied">Callback to apply the adjusted rate</param>
-        private async Task ApplyRulesToRateAsync(
-            string category,
-            PropertyDetailsEntity detail,
-            TypeOfUseEntity detailTypeOfUse,
-            PropertyEntity property,
-            PropertyAssessmentEntity? propertyAssessment,
-            bool hasLift,
-            int constructionYearValue,
-            int financeYear,
-            int yearRangeRVId,
-            decimal currentRate,
-            Action<decimal> onApplied)
-        {
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                // Validate input values
-                if (detail.FloorId <= 0 || detailTypeOfUse.TypeOfUseGroupId <= 0)
-                {
-                    _logger.LogDebug(
-                        "[RuleEngine-{Category}] Skipping rule execution for PropertyDetailsId={DetailId}: Invalid Floor or TypeOfUseGroup",
-                        category, detail.Id);
-                    return;
-                }
-
-                // Build comprehensive input context (reusable across ARV/ALV/RV)
-                var inputContext = await BuildRuleInputContext(
-                    detail, detailTypeOfUse, property, propertyAssessment, hasLift, constructionYearValue, financeYear, yearRangeRVId);
-
-                // Add category-specific parameter: Rate (per sq.m for ARV)
-                inputContext["Rate"] = (double)currentRate;
-
-                var ruleInput = new RuleExecutionInputDto
-                {
-                    Category = category,
-                    Input = inputContext
-                };
-
-                // P2: Execute rules with retry logic
-                var ruleResults = await ExecuteRuleWithRetryAsync(ruleInput, detail.Id);
-                stopwatch.Stop();
-
-                // P3: Log performance metric
-                LogMetric("RuleExecution.Duration", stopwatch.ElapsedMilliseconds, new Dictionary<string, string>
-                {
-                    { "PropertyDetailsId", detail.Id.ToString() },
-                    { "Category", category }
-                });
-
-                if (ruleResults != null && ruleResults.Any())
-                {
-                    // Apply ALL matching rules sequentially in priority order
-                    decimal cumulativeRate = currentRate;
-                    var appliedRules = new List<string>();
-
-                    foreach (var rule in ruleResults)
-                    {
-                        var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(rule.EffectType));
-                        if (applicator != null)
-                        {
-                            var previousRate = cumulativeRate;
-                            cumulativeRate = await applicator.Apply(cumulativeRate, rule.EffectValue);
-                            appliedRules.Add($"{rule.RuleCode}({rule.EffectType} {rule.EffectValue}%: {previousRate:F2}→{cumulativeRate:F2})");
-
-                            _logger.LogDebug(
-                                "[RuleEngine-{Category}] Applied rule '{RuleCode}' to PropertyDetailsId={DetailId}: " +
-                                "Rate {PreviousRate} → {NewRate} ({EffectType} {EffectValue})",
-                                category, rule.RuleCode, detail.Id, previousRate, cumulativeRate,
-                                rule.EffectType, rule.EffectValue);
-                        }
-                        else
-                        {
-                            _logger.LogWarning(
-                                "[RuleEngine-{Category}] No applicator found for EffectType='{EffectType}' in rule '{RuleCode}', skipping",
-                                category, rule.EffectType, rule.RuleCode);
-                        }
-                    }
-
-                    // Apply the adjusted rate via callback
-                    onApplied(cumulativeRate);
-
-                    // P3: Log rule application metric
-                    LogMetric("RuleExecution.RulesApplied", ruleResults.Count, new Dictionary<string, string>
-                    {
-                        { "PropertyDetailsId", detail.Id.ToString() },
-                        { "Category", category },
-                        { "OriginalRate", currentRate.ToString("F2") },
-                        { "FinalRate", cumulativeRate.ToString("F2") }
-                    });
-
-                    _logger.LogInformation(
-                        "[RuleEngine-{Category}] ✅ Applied {RuleCount} rule(s) to PropertyDetailsId={DetailId} in {ElapsedMs}ms: " +
-                        "Rate {OriginalRate} → {FinalRate}. Rules: {AppliedRules}",
-                        category, ruleResults.Count, detail.Id, stopwatch.ElapsedMilliseconds,
-                        currentRate, cumulativeRate,
-                        string.Join(" → ", appliedRules));
-
-                    // Performance budget warning
-                    if (stopwatch.ElapsedMilliseconds > 100)
-                    {
-                        _logger.LogWarning(
-                            "[RuleEngine-{Category}] Performance: Rule execution took {ElapsedMs}ms (>100ms budget) for PropertyDetailsId={DetailId}",
-                            category, stopwatch.ElapsedMilliseconds, detail.Id);
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug(
-                        "[RuleEngine-{Category}] No rules matched for PropertyDetailsId={DetailId} in {ElapsedMs}ms, using original rate {Rate}",
-                        category, detail.Id, stopwatch.ElapsedMilliseconds, currentRate);
-                }
-            }
-            catch (ArgumentException argEx)
-            {
-                stopwatch.Stop();
-                _logger.LogWarning(argEx,
-                    "[RuleEngine-{Category}] ⚠️ Validation error for PropertyDetailsId={DetailId} after {ElapsedMs}ms. Using original rate.",
-                    category, detail.Id, stopwatch.ElapsedMilliseconds);
-            }
-            catch (Exception ex)
-            {
-                stopwatch.Stop();
-                _logger.LogError(ex,
-                    "[RuleEngine-{Category}] ❌ Execution failed for PropertyDetailsId={DetailId} after {ElapsedMs}ms. Using original rate.",
-                    category, detail.Id, stopwatch.ElapsedMilliseconds);
-            }
-        }
-
-        /// <summary>
-        /// Builds comprehensive rule input context with all property and detail parameters.
-        /// This context enables flexible rule configuration using any available property/detail attributes.
-        /// </summary>
-        /// <param name="detail">Property detail entity</param>
-        /// <param name="detailTypeOfUse">Type of use entity for group classification</param>
-        /// <param name="property">Property entity for location context</param>
-        /// <param name="propertyAssessment">Property assessment entity for owner type</param>
-        /// <param name="hasLift">Whether the property has a lift (pre-loaded to avoid N+1 query)</param>
-        /// <param name="constructionYearValue">Parsed construction year</param>
-        /// <param name="financeYear">Current finance year</param>
-        /// <param name="yearRangeRVId">Year range ID for rate lookup</param>
-        /// <returns>Dictionary with comprehensive context parameters (excluding category-specific Rate/Value)</returns>
-        private async Task<Dictionary<string, object>> BuildRuleInputContext(
-            PropertyDetailsEntity detail,
-            TypeOfUseEntity detailTypeOfUse,
-            PropertyEntity property,
-            PropertyAssessmentEntity? propertyAssessment,
-            bool hasLift,
-            int constructionYearValue,
-            int financeYear,
-            int yearRangeRVId)
-        {
-            // ✅ Use pre-loaded hasLift parameter instead of querying database
-            // This prevents N+1 query problem when processing multiple details
-
-            var context = new Dictionary<string, object>
-            {
-                // Primary classification
-                { "Floor",              detail.FloorId },
-                { "Type",     detailTypeOfUse.TypeOfUseGroupId },
-                
-                // Property context
-                { "Property Type",         property.Id },
-                { "Ward",               property.WardId },
-                { "TaxZone",            property.TaxZoneId },
-                
-                // Detail context
-                { "PropertyDetailsId",  detail.Id },
-                { "Construction Type",   detail.ConstructionTypeId },
-                { "Type Of Use",          detail.TypeOfUseId },
-                { "Carpet Area SqMeter",  detail.CarpetAreaSqMeter ?? 0 },
-                { "Carpet Area SqFeet",   detail.CarpetAreaSqFeet ?? 0 },
-                { "Builtup Area SqMeter", detail.BuiltupAreaSqMeter ?? 0 },
-                { "Builtup Area SqFeet",  detail.BuiltupAreaSqFeet ?? 0 },
-                { "NoOfRooms",          detail.NoOfRooms ?? 0 },
-                { "Rented",          detail.IsRenter ?? false },
-                
-                // Building age context
-                { "ConstructionYear",   constructionYearValue },
-                { "PropertyAge",        financeYear - constructionYearValue },
-                { "FinanceYear",        financeYear },
-                { "YearRangeRVId",      yearRangeRVId },  // ✅ For RateLookupApplicator
-                { "Zone",       property.TaxZoneId },
-                { "Ward",        property.WardId },
-                { "Owner Type",        propertyAssessment?.OwnerTypeId ?? 0},
-                { "Sub Floor",   detail.SubFloorId ?? 0 },
-                { "Lift",   hasLift }
-            };
-
-            // 🔍 DEBUG: Log the complete input context for rule execution
-            _logger.LogInformation(
-                "🔍 [RuleEngine-DEBUG] Building input context for PropertyDetailsId={PropertyDetailsId}, PropertyId={PropertyId}:\n" +
-                "   Floor={Floor}, UsageType={UsageType}, TypeOfUseGroup={TypeOfUseGroup}\n" +
-                "   ConstructionType={ConstructionType}, Ward={Ward}, TaxZone={TaxZone}\n" +
-                "   CarpetAreaSqMeter={CarpetAreaSqMeter}, NoOfRooms={NoOfRooms}\n" +
-                "   ConstructionYear={ConstructionYear}, PropertyAge={PropertyAge}, FinanceYear={FinanceYear}\n" +
-                "   Lift={HasLift}, OwnerType={OwnerType}",
-                detail.Id, property.Id,
-                detail.FloorId, detail.TypeOfUseId, detailTypeOfUse.TypeOfUseGroupId,
-                detail.ConstructionTypeId, property.WardId, property.TaxZoneId,
-                detail.CarpetAreaSqMeter, detail.NoOfRooms,
-                constructionYearValue, financeYear - constructionYearValue, financeYear,
-                hasLift, propertyAssessment?.OwnerTypeId ?? 0);
-
-            return context;
-        }
 
         /// <summary>
         /// P3: Logs custom metrics for Application Insights / monitoring dashboards.
