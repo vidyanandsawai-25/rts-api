@@ -410,6 +410,11 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         {
             photosByType.TryGetValue(type.Id, out var typePhotos);
             var photos = (typePhotos ?? new List<PropertyPhotoEntity>())
+
+                .OrderBy(p => p.DisplayOrder)
+
+                .ThenBy(p => p.Id)
+
                 .Select(MapToDto)
                 .ToList();
 
@@ -453,7 +458,8 @@ public class PropertyPhotoApplicationService : IPropertyPhotoApplicationService
         {
             photosByType.TryGetValue(type.Id, out var typePhotos);
             var count = typePhotos?.Count ?? 0;
-            var representative = typePhotos?.FirstOrDefault();
+
+            var representative = typePhotos?.OrderBy(p => p.DisplayOrder).ThenBy(p => p.Id).FirstOrDefault();
 
             return new PropertyPhotoTypeWithStatusDto
             {
