@@ -36,6 +36,7 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     public int? SubTypeOfUseId { get; set; }
 
     public bool? IsTaxable { get; set; }
+    public bool? IsOpenPlot { get; set; }
 
     /// <summary>
     /// Indicates whether the entity is marked for deletion
@@ -102,5 +103,7 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     /// Collection of Property Occupancy Details associated with this property detail
     /// </summary>
     public virtual ICollection<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = new List<PropertyOccupancyDetailsEntity>();
+
+
 
 }

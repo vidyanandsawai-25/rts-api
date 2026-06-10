@@ -26,8 +26,12 @@ namespace NtisPlatform.Application.DTOs.PropertyDetails
         public int? NoOfRooms { get; set; }
         public bool? IsRenter { get; set; }
         public bool? IsTaxable { get; set; }
+        public bool? IsOpenPlot { get; set; }
+
         public List<RenterDetailDto>? RenterDetails { get; set; }
         public List<RenterMastDto>? Renters { get; set; }
         public List<RoomWiseSubmissionDetailsDto>? RoomWiseSubmissionDetails { get; set; }
+
+
     }
 }
