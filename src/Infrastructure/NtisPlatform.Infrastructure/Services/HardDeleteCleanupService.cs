@@ -42,6 +42,7 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
         {
             totalDeleted += await CleanupEntityType<Core.Entities.PropertyEntity>(cutoffDate, cancellationToken);
             totalDeleted += await CleanupEntityType<Core.Entities.Master.UserEntity>(cutoffDate, cancellationToken);
+            totalDeleted += await CleanupEntityType<Core.Entities.Rules.RuleEngineEntity>(cutoffDate, cancellationToken);
 
             await _context.SaveChangesAsync(cancellationToken);
 

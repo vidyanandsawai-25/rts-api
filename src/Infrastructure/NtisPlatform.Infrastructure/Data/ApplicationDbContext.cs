@@ -4600,6 +4600,10 @@ public class ApplicationDbContext : DbContext
             // New property for stop processing
             entity.Property(e => e.StopProcessing).IsRequired().HasDefaultValue(false);
 
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
             // Unique constraint on RuleCode
             entity.HasIndex(e => e.RuleCode).IsUnique().HasDatabaseName("UQ_RuleEngineMaster_RuleCode");
 
@@ -4663,7 +4667,7 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.RuleEngine)
                 .WithMany()
                 .HasForeignKey(e => e.RuleId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes for performance
             entity.HasIndex(e => e.RuleId);

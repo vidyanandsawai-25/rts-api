@@ -187,5 +187,112 @@ namespace NtisPlatform.Tests.Application
             var rule2 = rules[1];
             Assert.False(rule2.GetProperty("stopProcessing").GetBoolean());
         }
+        [Fact]
+        public void Build_WithUserConditionsJson_GeneratesCorrectExpression()
+        {
+            // Arrange
+            var ruleName = "demo";
+            var ruleCode = "SR002";
+            var conditions = @"[
+                {
+                    ""id"": ""5c0afcce-2c8e-4af3-957c-2c373f8a78d1"",
+                    ""description"": ""dgfdg"",
+                    ""conditions"": {
+                        ""id"": ""a37a635d-96ff-4817-8c27-ec77079dc97b"",
+                        ""logicalOperator"": ""AND"",
+                        ""conditions"": [
+                            {
+                                ""id"": ""798e2133-117d-4c70-b279-63a909c9eb70"",
+                                ""fieldId"": ""FloorId"",
+                                ""operator"": ""In"",
+                                ""value"": [""1"", ""2"", ""3""]
+                            },
+                            {
+                                ""id"": ""80d182de-f79c-434d-b1fa-3228498c67bc"",
+                                ""fieldId"": ""FloorId"",
+                                ""operator"": ""Not In"",
+                                ""value"": [""2"", ""1"", ""3"", ""4""]
+                            },
+                            {
+                                ""id"": ""5455cd60-e4df-45f2-bb53-26125047fc2d"",
+                                ""fieldId"": ""TypeOfUseGroupId"",
+                                ""operator"": ""contains any"",
+                                ""value"": [""4"", ""5""]
+                            },
+                            {
+                                ""id"": ""4ca47f9a-f474-444b-9e19-40d2d71b0fc4"",
+                                ""fieldId"": ""TypeOfUseGroupId"",
+                                ""operator"": ""contains all"",
+                                ""value"": [""1"", ""2""]
+                            }
+                        ],
+                        ""groups"": []
+                    },
+                    ""effect"": {
+                        ""effectType"": ""Increase %"",
+                        ""value"": 20,
+                        ""isPercentage"": true,
+                        ""overrideRate"": 1
+                    },
+                    ""stopProcessing"": false,
+                    ""ruleScopeName"": ""Property Level""
+                }
+            ]";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "RV", conditions, null, "demo description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var rules = doc.RootElement.GetProperty("rules");
+            Assert.Equal(1, rules.GetArrayLength());
+            
+            var expr = rules[0].GetProperty("expression").GetString();
+            Assert.Contains("input.FloorId in (1, 2, 3)", expr);
+            Assert.Contains("input.FloorId not in (2, 1, 3, 4)", expr);
+            Assert.Contains("input.TypeOfUseGroupId contains (4, 5)", expr);
+            Assert.Contains("input.TypeOfUseGroupId contains (1, 2)", expr);
+        }
+
+        [Fact]
+        public void Build_WithMasterTableOperators_GeneratesCorrectExpressions()
+        {
+            // Arrange
+            var ruleName = "demo-master-operators";
+            var ruleCode = "SR003";
+            var conditions = @"{
+                ""logicalOperator"": ""AND"",
+                ""conditions"": [
+                    { ""fieldId"": ""Field1"", ""operator"": ""Equal To"", ""value"": ""A"" },
+                    { ""fieldId"": ""Field2"", ""operator"": ""Not Equal To"", ""value"": ""B"" },
+                    { ""fieldId"": ""Field3"", ""operator"": ""Greater Than Or Equal To"", ""value"": 5 },
+                    { ""fieldId"": ""Field4"", ""operator"": ""Less Than Or Equal To"", ""value"": 10 },
+                    { ""fieldId"": ""Field5"", ""operator"": ""Value exists in list"", ""value"": [""X"", ""Y""] },
+                    { ""fieldId"": ""Field6"", ""operator"": ""Value does not exist in list"", ""value"": [""W"", ""Z""] },
+                    { ""fieldId"": ""Field7"", ""operator"": ""Contains any matching value"", ""value"": [""M"", ""N""] },
+                    { ""fieldId"": ""Field8"", ""operator"": ""Contains all matching values"", ""value"": [""O"", ""P""] },
+                    { ""fieldId"": ""Field9"", ""operator"": ""Value Between Range"", ""value"": [20, 50] }
+                ]
+            }";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "RV", conditions, null, "test description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var expr = doc.RootElement.GetProperty("rules")[0].GetProperty("expression").GetString();
+
+            Assert.Contains("input.Field1 == \"A\"", expr);
+            Assert.Contains("input.Field2 != \"B\"", expr);
+            Assert.Contains("input.Field3 >= 5", expr);
+            Assert.Contains("input.Field4 <= 10", expr);
+            Assert.Contains("input.Field5 in (\"X\", \"Y\")", expr);
+            Assert.Contains("input.Field6 not in (\"W\", \"Z\")", expr);
+            Assert.Contains("input.Field7 contains (\"M\", \"N\")", expr);
+            Assert.Contains("input.Field8 contains (\"O\", \"P\")", expr);
+            Assert.Contains("input.Field9 >= 20 && input.Field9 <= 50", expr);
+        }
     }
 }

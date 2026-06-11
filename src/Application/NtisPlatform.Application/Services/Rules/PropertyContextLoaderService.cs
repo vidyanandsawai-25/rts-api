@@ -56,14 +56,14 @@ namespace NtisPlatform.Application.Services.Rules
             TaxMasterDataService masterDataService,
             ILogger<PropertyContextLoaderService> logger)
         {
-            _propertyRepo               = propertyRepo;
-            _propertyDetailsRepo        = propertyDetailsRepo;
-            _propertyAssessmentRepo     = propertyAssessmentRepo;
-            _propertySocialDetailsRepo  = propertySocialDetailsRepo;
-            _renterRepo                 = renterRepo;
-            _occupancyRepo              = occupancyRepo;
-            _masterDataService          = masterDataService;
-            _logger                     = logger;
+            _propertyRepo = propertyRepo;
+            _propertyDetailsRepo = propertyDetailsRepo;
+            _propertyAssessmentRepo = propertyAssessmentRepo;
+            _propertySocialDetailsRepo = propertySocialDetailsRepo;
+            _renterRepo = renterRepo;
+            _occupancyRepo = occupancyRepo;
+            _masterDataService = masterDataService;
+            _logger = logger;
         }
 
         /// <inheritdoc/>
@@ -105,12 +105,12 @@ namespace NtisPlatform.Application.Services.Rules
                 .Where(psd => psd.PropertyId == propertyId && psd.IsActive && psd.SocialAttribute != null)
                 .Select(psd => new
                 {
-                    Code       = psd.SocialAttribute!.SocialAttributeCode,
-                    DataType   = psd.SocialAttribute!.DataType,
-                    BitValue   = psd.BitValue,
-                    IntValue   = psd.IntValue,
+                    Code = psd.SocialAttribute!.SocialAttributeCode,
+                    DataType = psd.SocialAttribute!.DataType,
+                    BitValue = psd.BitValue,
+                    IntValue = psd.IntValue,
                     DecimalValue = psd.DecimalValue,
-                    TextValue  = psd.TextValue
+                    TextValue = psd.TextValue
                 })
                 .ToListAsync(cancellationToken);
 
@@ -122,13 +122,21 @@ namespace NtisPlatform.Application.Services.Rules
 
             await Task.WhenAll(assessmentTask, socialDetailsTask, detailsTask);
 
-            var assessment    = assessmentTask.Result;
+            var assessment = assessmentTask.Result;
             var socialDetails = socialDetailsTask.Result;
-            var details       = detailsTask.Result;
+            var details = detailsTask.Result;
 
             // Derive hasLift from the loaded social attributes (backward-compat)
             var hasLift = socialDetails.Any(s =>
                 s.Code == "HAS_LIFT" &&
+                s.BitValue == true);
+
+            var hasClubHouse = socialDetails.Any(s =>
+                s.Code == "HAS_CLUB_HOUSE" &&
+                s.BitValue == true);
+
+            var hasSwimmingPool = socialDetails.Any(s =>
+                s.Code == "HAS_SWIMMING_POOL" &&
                 s.BitValue == true);
 
             // Build a flat attribute dictionary: SocialAttributeCode → typed CLR value
@@ -139,11 +147,11 @@ namespace NtisPlatform.Application.Services.Rules
                 if (string.IsNullOrWhiteSpace(attr.Code)) continue;
                 object? val = attr.DataType?.ToUpperInvariant() switch
                 {
-                    "BIT"     => (object?)(attr.BitValue ?? false),
-                    "INT"     => attr.IntValue,
+                    "BIT" => (object?)(attr.BitValue ?? false),
+                    "INT" => attr.IntValue,
                     "DECIMAL" => attr.DecimalValue,
-                    "TEXT"    => attr.TextValue,
-                    _         => attr.BitValue.HasValue ? attr.BitValue
+                    "TEXT" => attr.TextValue,
+                    _ => attr.BitValue.HasValue ? attr.BitValue
                                  : attr.IntValue.HasValue ? (object?)attr.IntValue
                                  : attr.DecimalValue.HasValue ? attr.DecimalValue
                                  : attr.TextValue
@@ -184,7 +192,7 @@ namespace NtisPlatform.Application.Services.Rules
 
             var yearRange = yearRanges.FirstOrDefault(
                                 x => x.FromYear <= constructionYearValue
-                                  && x.ToYear   >= constructionYearValue)
+                                  && x.ToYear >= constructionYearValue)
                             ?? throw new InvalidOperationException(
                                 $"Assessment year range not found for constructionYear={constructionYearValue}");
 
@@ -206,19 +214,21 @@ namespace NtisPlatform.Application.Services.Rules
 
             return new PropertyCalculationContext
             {
-                Property            = property,
-                PropertyAssessment  = assessment,
-                Details             = details,
-                Renters             = renters,
-                Occupancies         = occupancies,
+                Property = property,
+                PropertyAssessment = assessment,
+                Details = details,
+                Renters = renters,
+                Occupancies = occupancies,
 
                 Parameters = new PropertyCalculationParameters
                 {
-                    FinanceYear              = financeYear,
-                    ConstructionYearValue    = constructionYearValue,
-                    YearRangeRVId            = yearRange.Id,
-                    HasLift                  = hasLift,
-                    SocialAttributes         = socialAttributeDict
+                    FinanceYear = financeYear,
+                    ConstructionYearValue = constructionYearValue,
+                    YearRangeRVId = yearRange.Id,
+                    HasLift = hasLift,
+                    HAS_CLUB_HOUSE = hasClubHouse,
+                    HAS_SWIMMING_POOL = hasSwimmingPool,
+                    SocialAttributes = socialAttributeDict
                     // Detail and DetailTypeOfUse remain null at the root context level.
                     // They are populated per-detail by PropertyCalculationContext.CloneForDetail().
                 }

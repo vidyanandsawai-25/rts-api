@@ -15,6 +15,7 @@ namespace NtisPlatform.Application.Services.Rules
         // UI operator code → C# expression operator
         private static readonly Dictionary<string, string> OperatorMap = new(StringComparer.OrdinalIgnoreCase)
         {
+            // Standard / technical names
             ["EQUALS"] = "==",
             ["NOT_EQUALS"] = "!=",
             ["GREATER_THAN"] = ">",
@@ -25,6 +26,18 @@ namespace NtisPlatform.Application.Services.Rules
             ["NOT_IN"] = "not in",
             ["CONTAINS_ANY"] = "contains",
             ["CONTAINS_ALL"] = "contains",
+
+            // Human-readable master table names (normalized: spaces replaced with underscores)
+            ["EQUAL_TO"] = "==",
+            ["NOT_EQUAL_TO"] = "!=",
+            ["GREATER_THAN_OR_EQUAL_TO"] = ">=",
+            ["LESS_THAN_OR_EQUAL_TO"] = "<=",
+            ["VALUE_EXISTS_IN_LIST"] = "in",
+            ["VALUE_DOES_NOT_EXIST_IN_LIST"] = "not in",
+            ["CONTAINS_ANY_MATCHING_VALUE"] = "contains",
+            ["CONTAINS_ALL_MATCHING_VALUES"] = "contains",
+            ["CONTAINS_ANY_MATCHING_VALUES"] = "contains",
+            ["CONTAINS_ALL_MATCHING_VALUE"] = "contains",
         };
 
         /// <summary>
@@ -202,7 +215,23 @@ namespace NtisPlatform.Application.Services.Rules
             var valueEl = cond.TryGetProperty("value", out var v) ? v : default;
 
             var prop = ResolveInputProp(fieldId);
-            var op = OperatorMap.TryGetValue(operCode, out var mapped) ? mapped : "==";
+            
+            // Normalize operator code: e.g. "Not In" -> "NOT_IN", "contains any" -> "CONTAINS_ANY"
+            var normalizedOperCode = operCode.Trim().Replace(" ", "_").ToUpperInvariant();
+
+            // Special handling for Value Between Range
+            if (normalizedOperCode == "VALUE_BETWEEN_RANGE" || normalizedOperCode == "BETWEEN")
+            {
+                if (valueEl.ValueKind == JsonValueKind.Array && valueEl.GetArrayLength() == 2)
+                {
+                    var items = valueEl.EnumerateArray().ToList();
+                    var minVal = FormatScalar(items[0]);
+                    var maxVal = FormatScalar(items[1]);
+                    return $"{prop} >= {minVal} && {prop} <= {maxVal}";
+                }
+            }
+
+            var op = OperatorMap.TryGetValue(normalizedOperCode, out var mapped) ? mapped : "==";
             var val = FormatValue(valueEl);
 
             return $"{prop} {op} {val}";

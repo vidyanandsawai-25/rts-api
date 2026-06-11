@@ -492,4 +492,118 @@ public class RuleEngineServiceTests
     }
 
     #endregion
+
+    #region DeleteAsync Tests
+
+    [Fact]
+    public async Task DeleteAsync_ExistingRule_CallsRepositoryDeleteAndCreatesHistory()
+    {
+        // Arrange
+        var rule = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "RULE001",
+            RuleName = "Test Rule",
+            RuleCategory = "ARV",
+            RuleJson = "{}",
+            IsEnabled = true,
+            IsActive = true
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(rule);
+
+        // We mock GetQueryable for VersionRepository.MaxAsync used by CreateVersionHistoryAsync
+        var emptyHistories = new List<RuleVersionHistoryEntity>();
+        var mockVersionQueryable = MockQueryableExtensions.BuildMock(emptyHistories);
+        _mockVersionRepository.Setup(r => r.GetQueryable()).Returns(mockVersionQueryable);
+
+        // Act
+        var result = await _service.DeleteAsync(1, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        _mockRepository.Verify(r => r.DeleteAsync(rule, It.IsAny<CancellationToken>()), Times.Once);
+        _mockVersionRepository.Verify(r => r.AddAsync(It.Is<RuleVersionHistoryEntity>(v => v.ChangeType == "DELETED"), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_NonExistingRule_ReturnsFalse()
+    {
+        // Arrange
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleEngineEntity)null!);
+
+        // Act
+        var result = await _service.DeleteAsync(999, CancellationToken.None);
+
+        // Assert
+        Assert.False(result);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<RuleEngineEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Soft Delete Filtering Tests
+
+    [Fact]
+    public async Task GetByIdAsync_WithMarkedForDeletionTrue_ReturnsNull()
+    {
+        // Arrange
+        var entity = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "RULE001",
+            RuleName = "Deleted Rule",
+            RuleCategory = "TAX",
+            RuleJson = "{}",
+            IsActive = false,
+            MarkedForDeletion = true
+        };
+
+        var entities = new List<RuleEngineEntity> { entity };
+        var mockQueryable = MockQueryableExtensions.BuildMock(entities);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        // Act
+        var result = await _service.GetByIdAsync(1, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithMarkedForDeletionTrue_ExcludesDeletedRecords()
+    {
+        // Arrange
+        var entities = new List<RuleEngineEntity>
+        {
+            new() { Id = 1, RuleCode = "RULE001", RuleName = "Active Rule", RuleCategory = "TAX", RuleJson = "{}", IsActive = true, MarkedForDeletion = false },
+            new() { Id = 2, RuleCode = "RULE002", RuleName = "Deleted Rule", RuleCategory = "TAX", RuleJson = "{}", IsActive = false, MarkedForDeletion = true }
+        };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(entities);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var queryParams = new RuleEngineQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(1, result.TotalCount);
+        Assert.Single(result.Items);
+        Assert.Equal("RULE001", result.Items.First().RuleCode);
+    }
+
+    #endregion
 }

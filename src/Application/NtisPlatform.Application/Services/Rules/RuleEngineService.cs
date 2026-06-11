@@ -1,8 +1,10 @@
 using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Rules.RuleEngine;
 using NtisPlatform.Application.DTOs.Rules.RuleCategory;
 using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
@@ -37,12 +39,12 @@ namespace NtisPlatform.Application.Services.Rules
         }
 
         /// <summary>
-        /// Override GetByIdAsync to include rule exclusions
+        /// Override GetByIdAsync to include rule exclusions and check MarkedForDeletion
         /// </summary>
         public override async Task<RuleEngineDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
             var entity = await _repository.GetQueryable()
-                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+                .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
 
             if (entity == null)
                 return null;
@@ -56,9 +58,44 @@ namespace NtisPlatform.Application.Services.Rules
             RuleEngineQueryParameters queryParameters,
             CancellationToken cancellationToken = default)
         {
-            var pagedResult = await base.GetAllAsync(queryParameters, cancellationToken);
+            var query = _repository.GetQueryable()
+                .Where(x => !x.MarkedForDeletion);
 
-            return pagedResult;
+            // Apply filters
+            query = query.ApplyFilters(queryParameters);
+
+            // Apply search
+            query = query.ApplySearch(queryParameters);
+
+            // Apply sorting
+            query = query.ApplySort(queryParameters);
+
+            // Get total count
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination
+            var pagedQuery = query
+                .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+                .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize);
+
+            var queryWithIncludes = ApplyIncludes(pagedQuery);
+            List<RuleEngineDto> items;
+            if (ReferenceEquals(queryWithIncludes, pagedQuery))
+            {
+                items = await pagedQuery
+                    .ProjectTo<RuleEngineDto>(_mapper.ConfigurationProvider)
+                    .ToListAsync(cancellationToken);
+            }
+            else
+            {
+                var entities = await queryWithIncludes.ToListAsync(cancellationToken);
+                items = _mapper.Map<List<RuleEngineDto>>(entities);
+            }
+
+            var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+            var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+            return new Models.PagedResult<RuleEngineDto>(items, totalCount, pageNumber, pageSize);
         }
 
         /// <summary>
@@ -187,8 +224,6 @@ namespace NtisPlatform.Application.Services.Rules
             var entity = await _repository.GetByIdAsync(id, cancellationToken);
             if (entity == null)
                 return false;
-
-            var ruleCategory = entity.RuleCategory; // Capture before deletion
 
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try

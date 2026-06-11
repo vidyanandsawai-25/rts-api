@@ -1,9 +1,11 @@
+using NtisPlatform.Core.Interfaces;
+
 namespace NtisPlatform.Core.Entities.Rules;
 
 /// <summary>
 /// Represents a rule engine master configuration entity
 /// </summary>
-public class RuleEngineEntity : BaseEntity
+public class RuleEngineEntity : BaseEntity, IHardDeletable
 {
     public string RuleCode { get; set; } = string.Empty;
     public string RuleName { get; set; } = string.Empty;
@@ -41,4 +43,8 @@ public class RuleEngineEntity : BaseEntity
     // Navigation properties
     /// <summary>The scope this rule belongs to (optional)</summary>
     public virtual RuleScopeEntity? RuleScope { get; set; }
+
+    /// <summary>Indicates whether the entity is marked for deletion</summary>
+    public bool MarkedForDeletion { get; set; } = false;
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
