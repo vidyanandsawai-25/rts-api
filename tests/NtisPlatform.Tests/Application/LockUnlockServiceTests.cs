@@ -247,6 +247,49 @@ public class LockUnlockServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPropertyLocksAsync_FiltersByMultiplePartitionNumbers()
+    {
+        // Arrange
+        var request = new FilterPropertyLocksRequestDto
+        {
+            WardId = 1,
+            PartitionNo = "A, C",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetPropertyLocksAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, result.TotalCount);
+        Assert.Collection(
+            result.Items.OrderBy(p => p.PartitionNo),
+            p => Assert.Equal("A", p.PartitionNo),
+            p => Assert.Equal("C", p.PartitionNo));
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksAsync_IgnoresEmptyPartitionNumberEntries()
+    {
+        // Arrange
+        var request = new FilterPropertyLocksRequestDto
+        {
+            WardId = 1,
+            PartitionNo = " , B, ",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetPropertyLocksAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result.Items);
+        Assert.Equal("B", result.Items.First().PartitionNo);
+    }
+
+    [Fact]
     public async Task GetPropertyLocksAsync_ReturnsPaginatedResults()
     {
         // Arrange
@@ -879,6 +922,7 @@ public class LockUnlockServiceTests : IDisposable
         Assert.Equal(0, dto.WardId);
         Assert.Equal(string.Empty, dto.FromPropertyNo);
         Assert.Equal(string.Empty, dto.ToPropertyNo);
+        Assert.Null(dto.PartitionNo);
         Assert.Null(dto.Search);
     }
 

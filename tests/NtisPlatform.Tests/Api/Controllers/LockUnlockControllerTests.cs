@@ -247,6 +247,7 @@ public class LockUnlockControllerTests
             WardId = 5, 
             FromPropertyNo = "P001", 
             ToPropertyNo = "P100",
+            PartitionNo = "A,B",
             Search = "test",
             PageNumber = 2,
             PageSize = 20
@@ -266,6 +267,7 @@ public class LockUnlockControllerTests
         Assert.Equal(5, capturedRequest.WardId);
         Assert.Equal("P001", capturedRequest.FromPropertyNo);
         Assert.Equal("P100", capturedRequest.ToPropertyNo);
+        Assert.Equal("A,B", capturedRequest.PartitionNo);
         Assert.Equal("test", capturedRequest.Search);
     }
 

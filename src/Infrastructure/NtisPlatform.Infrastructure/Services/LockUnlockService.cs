@@ -53,6 +53,17 @@ public class LockUnlockService : ILockUnlockService
             query = query.Where(pm => string.Compare(pm.PropertyNo, request.FromPropertyNo) >= 0);
         if (!string.IsNullOrEmpty(request.ToPropertyNo))
             query = query.Where(pm => string.Compare(pm.PropertyNo, request.ToPropertyNo) <= 0);
+        if (!string.IsNullOrWhiteSpace(request.PartitionNo))
+        {
+            var partitionNumbers = request.PartitionNo
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(partitionNo => !string.IsNullOrWhiteSpace(partitionNo))
+                .Distinct()
+                .ToList();
+
+            if (partitionNumbers.Count > 0)
+                query = query.Where(pm => pm.PartitionNo != null && partitionNumbers.Contains(pm.PartitionNo));
+        }
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim();
