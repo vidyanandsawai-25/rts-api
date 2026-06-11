@@ -163,9 +163,8 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Step 2: Derived helper values ──────────────────────────────────────
             flatDict["PropertyAge"] = p.FinanceYear - p.ConstructionYearValue;
-            flatDict["Lift"] = p.HasLift;
-            flatDict["HAS_CLUB_HOUSE"] = p.HAS_CLUB_HOUSE;
-            flatDict["HAS_SWIMMING_POOL"] = p.HAS_SWIMMING_POOL;
+            flatDict["SocialAttributeId"] = p.SocialAttributeId;
+            flatDict["SocialAttribute"] = p.SocialAttributeId;
 
 
             if (detail != null)

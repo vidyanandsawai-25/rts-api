@@ -44,25 +44,10 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         public int YearRangeRVId { get; set; }
 
         /// <summary>
-        /// Whether the property has a lift, resolved from <c>PropertySocialDetailsEntity</c>
-        /// via the social attribute code <c>"HAS_LIFT"</c>.
-        /// Kept for backward compatibility — also available via <see cref="SocialAttributes"/>["HAS_LIFT"].
+        /// A list of selected SocialAttributeIds against the property (from PropertySocialDetailsEntity).
+        /// Used for multi-select rules (e.g. Contains Any, Contains All).
         /// </summary>
-        public bool HasLift { get; set; }
-
-        /// <summary>
-        /// Whether the property has a club house, resolved from <c>PropertySocialDetailsEntity</c>
-        /// via the social attribute code <c>"HAS_CLUB_HOUSE"</c>.
-        /// Kept for backward compatibility — also available via <see cref="SocialAttributes"/>["HAS_CLUB_HOUSE"].
-        /// </summary>
-        public bool HAS_CLUB_HOUSE { get; set; }
-
-        /// <summary>
-        /// Whether the property has a swimming pool, resolved from <c>PropertySocialDetailsEntity</c>
-        /// via the social attribute code <c>"HAS_SWIMMING_POOL"</c>.
-        /// Kept for backward compatibility — also available via <see cref="SocialAttributes"/>["HAS_SWIMMING_POOL"].
-        /// </summary>
-        public bool HAS_SWIMMING_POOL { get; set; }
+        public List<int> SocialAttributeId { get; set; } = new();
 
         /// <summary>
         /// All active social attributes for the property, keyed by <c>SocialAttributeCode</c>.
@@ -108,9 +93,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
                 FinanceYear = this.FinanceYear,
                 ConstructionYearValue = this.ConstructionYearValue,
                 YearRangeRVId = this.YearRangeRVId,
-                HasLift = this.HasLift,
-                HAS_CLUB_HOUSE = this.HAS_CLUB_HOUSE,
-                HAS_SWIMMING_POOL = this.HAS_SWIMMING_POOL,
+                SocialAttributeId = this.SocialAttributeId,
                 SocialAttributes = this.SocialAttributes,
 
                 // Per-detail — overridden for this clone

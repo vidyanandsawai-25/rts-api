@@ -105,6 +105,7 @@ namespace NtisPlatform.Application.Services.Rules
                 .Where(psd => psd.PropertyId == propertyId && psd.IsActive && psd.SocialAttribute != null)
                 .Select(psd => new
                 {
+                    SocialAttributeId = psd.SocialAttributeId,
                     Code = psd.SocialAttribute!.SocialAttributeCode,
                     DataType = psd.SocialAttribute!.DataType,
                     BitValue = psd.BitValue,
@@ -126,18 +127,8 @@ namespace NtisPlatform.Application.Services.Rules
             var socialDetails = socialDetailsTask.Result;
             var details = detailsTask.Result;
 
-            // Derive hasLift from the loaded social attributes (backward-compat)
-            var hasLift = socialDetails.Any(s =>
-                s.Code == "HAS_LIFT" &&
-                s.BitValue == true);
-
-            var hasClubHouse = socialDetails.Any(s =>
-                s.Code == "HAS_CLUB_HOUSE" &&
-                s.BitValue == true);
-
-            var hasSwimmingPool = socialDetails.Any(s =>
-                s.Code == "HAS_SWIMMING_POOL" &&
-                s.BitValue == true);
+            // Gather active SocialAttributeIds for the property
+            var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).ToList();
 
             // Build a flat attribute dictionary: SocialAttributeCode → typed CLR value
             // Rule expressions can reference these directly: input.HAS_LIFT, input.NO_OF_WELL, etc.
@@ -225,9 +216,7 @@ namespace NtisPlatform.Application.Services.Rules
                     FinanceYear = financeYear,
                     ConstructionYearValue = constructionYearValue,
                     YearRangeRVId = yearRange.Id,
-                    HasLift = hasLift,
-                    HAS_CLUB_HOUSE = hasClubHouse,
-                    HAS_SWIMMING_POOL = hasSwimmingPool,
+                    SocialAttributeId = socialAttributeIds,
                     SocialAttributes = socialAttributeDict
                     // Detail and DetailTypeOfUse remain null at the root context level.
                     // They are populated per-detail by PropertyCalculationContext.CloneForDetail().

@@ -240,7 +240,7 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task LoadPropertyContextAsync_PropertyHasLift_SetsHasLiftTrue()
+        public async Task LoadPropertyContextAsync_PropertyHasSocialAttributes_PopulatesSocialAttributeIds()
         {
             // Arrange
             const int propertyId = 1;
@@ -257,6 +257,7 @@ namespace NtisPlatform.Tests.Application
                     new()
                     {
                         Id = 1, PropertyId = propertyId, IsActive = true,
+                        SocialAttributeId = 99,
                         BitValue = true,   // ← required: actual stored value
                         SocialAttribute = new SocialAttributeEntity
                         {
@@ -270,35 +271,12 @@ namespace NtisPlatform.Tests.Application
             // Act
             var ctx = await sut.LoadPropertyContextAsync(propertyId, 2026);
 
-            // Assert — HasLift shortcut
-            Assert.True(ctx.Parameters.HasLift);
+            // Assert — SocialAttributeId list contains the ID
+            Assert.Contains(99, ctx.Parameters.SocialAttributeId);
 
             // Assert — SocialAttributes dictionary also contains HAS_LIFT
             Assert.True(ctx.Parameters.SocialAttributes.ContainsKey("HAS_LIFT"));
             Assert.Equal(true, ctx.Parameters.SocialAttributes["HAS_LIFT"]);
-        }
-
-        [Fact]
-        public async Task LoadPropertyContextAsync_PropertyHasNoLift_SetsHasLiftFalse()
-        {
-            // Arrange
-            const int propertyId = 1;
-            SetupValidProperty(propertyId);
-            SetupPropertyDetails(propertyId, constructionYear: "2010");
-            _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
-                .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
-
-            // No social detail record for HAS_LIFT — default setup returns empty list
-            _propertySocialDetailsRepo.Setup(r => r.GetQueryable())
-                .Returns(new List<PropertySocialDetailsEntity>().BuildMockDbSet().Object);
-
-            var sut = CreateService();
-
-            // Act
-            var ctx = await sut.LoadPropertyContextAsync(propertyId, 2026);
-
-            // Assert
-            Assert.False(ctx.Parameters.HasLift);
         }
 
         [Fact]
@@ -382,7 +360,7 @@ namespace NtisPlatform.Tests.Application
             // Assert — global params are preserved verbatim
             Assert.Equal(ctx.Parameters.FinanceYear,           cloned.Parameters.FinanceYear);
             Assert.Equal(ctx.Parameters.ConstructionYearValue, cloned.Parameters.ConstructionYearValue);
-            Assert.Equal(ctx.Parameters.HasLift,               cloned.Parameters.HasLift);
+            Assert.Equal(ctx.Parameters.SocialAttributeId,     cloned.Parameters.SocialAttributeId);
 
             // Assert — entity references are shared (not deep-cloned, read-only safe)
             Assert.Same(ctx.Property, cloned.Property);

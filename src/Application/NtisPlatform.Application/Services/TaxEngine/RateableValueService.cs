@@ -93,7 +93,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var details = propertyContext.Details.ToList();
                 var renters = propertyContext.Renters.ToList();
 
-                var hasLift             = propertyContext.Parameters.HasLift;
                 var constructionYearValue = propertyContext.Parameters.ConstructionYearValue;
 
                 // P3: Log property complexity metric

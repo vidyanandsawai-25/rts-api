@@ -27,10 +27,10 @@ namespace NtisPlatform.Tests.Application
     /// </summary>
     public class RuleApplierServiceTests
     {
-        private readonly Mock<IRuleExecutionService>          _ruleExecutionServiceMock;
+        private readonly Mock<IRuleExecutionService> _ruleExecutionServiceMock;
         private readonly Mock<IRepository<RulesFieldEntity, int>> _rulesFieldRepoMock;
-        private readonly List<IRuleEffectApplicator>          _effectApplicators;
-        private readonly RuleApplierService                   _service;
+        private readonly List<IRuleEffectApplicator> _effectApplicators;
+        private readonly RuleApplierService _service;
 
         public RuleApplierServiceTests()
         {
@@ -67,8 +67,8 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var context = new RuleApplierContext
             {
-                Category     = "RV",
-                ValueKey     = "Rate",
+                Category = "RV",
+                ValueKey = "Rate",
                 InitialValue = 1000m,
                 PropertyContext = null!
             };
@@ -88,9 +88,9 @@ namespace NtisPlatform.Tests.Application
         {
             // Arrange — context has no per-detail entities set (root context level)
             var context = CreateTestContext(
-                detail:         null!,
+                detail: null!,
                 detailTypeOfUse: null!,
-                property:        new PropertyEntity { Id = 1 });
+                property: new PropertyEntity { Id = 1 });
 
             // Act
             var result = await _service.ApplyRulesAsync(context);
@@ -106,9 +106,9 @@ namespace NtisPlatform.Tests.Application
         public async Task ApplyRulesAsync_InvalidFloorId_ReturnsInitialValue()
         {
             // Arrange
-            var detail          = new PropertyDetailsEntity { FloorId = 0, Id = 1 }; // FloorId = 0 is invalid
+            var detail = new PropertyDetailsEntity { FloorId = 0, Id = 1 }; // FloorId = 0 is invalid
             var detailTypeOfUse = new TypeOfUseEntity { TypeOfUseGroupId = 5 };
-            var property        = new PropertyEntity { Id = 1 };
+            var property = new PropertyEntity { Id = 1 };
 
             var context = CreateTestContext(detail, detailTypeOfUse, property);
 
@@ -126,9 +126,9 @@ namespace NtisPlatform.Tests.Application
         public async Task ApplyRulesAsync_InvalidTypeOfUseGroupId_ReturnsInitialValue()
         {
             // Arrange
-            var detail          = new PropertyDetailsEntity { FloorId = 1, Id = 1 };
+            var detail = new PropertyDetailsEntity { FloorId = 1, Id = 1 };
             var detailTypeOfUse = new TypeOfUseEntity { TypeOfUseGroupId = 0 }; // 0 is invalid
-            var property        = new PropertyEntity { Id = 1 };
+            var property = new PropertyEntity { Id = 1 };
 
             var context = CreateTestContext(detail, detailTypeOfUse, property);
 
@@ -300,9 +300,9 @@ namespace NtisPlatform.Tests.Application
             // Arrange — configure a DB field that maps "ConstructionTypeId" → "ConstType"
             var activeField = new RulesFieldEntity
             {
-                FieldName          = "ConstType",
+                FieldName = "ConstType",
                 DatabaseColumnName = "ConstructionTypeId",
-                IsActive           = true
+                IsActive = true
             };
 
             _rulesFieldRepoMock
@@ -318,7 +318,8 @@ namespace NtisPlatform.Tests.Application
 
             var detail = new PropertyDetailsEntity
             {
-                FloorId = 1, Id = 1,
+                FloorId = 1,
+                Id = 1,
                 ConstructionTypeId = 7   // ← this should appear as "ConstType" = 7
             };
             var context = CreateTestContext(detail, new TypeOfUseEntity { TypeOfUseGroupId = 2 }, new PropertyEntity { Id = 1 });
@@ -340,9 +341,9 @@ namespace NtisPlatform.Tests.Application
             // 1. Configure DB-configured rule field mapping "ConstructionTypeId" -> "ConstType"
             var activeField = new RulesFieldEntity
             {
-                FieldName          = "ConstType",
+                FieldName = "ConstType",
                 DatabaseColumnName = "ConstructionTypeId",
-                IsActive           = true
+                IsActive = true
             };
 
             _rulesFieldRepoMock
@@ -393,9 +394,7 @@ namespace NtisPlatform.Tests.Application
                     FinanceYear = 2026,
                     ConstructionYearValue = 2020,
                     YearRangeRVId = 1,
-                    HasLift = true,
-                    HAS_CLUB_HOUSE = true,
-                    HAS_SWIMMING_POOL = true,
+                    SocialAttributeId = new List<int> { 101, 102, 103 },
                     Detail = detail,
                     DetailTypeOfUse = detailTypeOfUse
                 }
@@ -417,14 +416,16 @@ namespace NtisPlatform.Tests.Application
             // Assert
             Assert.NotNull(capturedInput);
             Assert.Equal("RV", capturedInput.Category);
-            
+
             var inputDict = capturedInput.Input;
-            
+
             // Check derived properties
             Assert.Equal(6, inputDict["PropertyAge"]); // 2026 - 2020
-            Assert.Equal(true, inputDict["Lift"]);
-            Assert.Equal(true, inputDict["HAS_CLUB_HOUSE"]);
-            Assert.Equal(true, inputDict["HAS_SWIMMING_POOL"]);
+            var socialAttributeIds = inputDict["SocialAttributeId"] as List<int>;
+            Assert.NotNull(socialAttributeIds);
+            Assert.Contains(101, socialAttributeIds);
+            Assert.Contains(102, socialAttributeIds);
+            Assert.Contains(103, socialAttributeIds);
             Assert.Equal(true, inputDict["Rented"]); // detail.IsRenter ?? false
 
             // Check flattened properties
@@ -456,29 +457,28 @@ namespace NtisPlatform.Tests.Application
         /// per-detail <see cref="PropertyCalculationContext"/> for test use.
         /// </summary>
         private static RuleApplierContext CreateTestContext(
-            PropertyDetailsEntity  detail,
-            TypeOfUseEntity        detailTypeOfUse,
-            PropertyEntity         property)
+            PropertyDetailsEntity detail,
+            TypeOfUseEntity detailTypeOfUse,
+            PropertyEntity property)
         {
             var propertyContext = new PropertyCalculationContext
             {
-                Property           = property,
+                Property = property,
                 PropertyAssessment = null,
                 Parameters = new PropertyCalculationParameters
                 {
-                    FinanceYear           = 2026,
+                    FinanceYear = 2026,
                     ConstructionYearValue = 2020,
-                    YearRangeRVId         = 1,
-                    HasLift               = false,
-                    Detail                = detail,
-                    DetailTypeOfUse       = detailTypeOfUse
+                    YearRangeRVId = 1,
+                    Detail = detail,
+                    DetailTypeOfUse = detailTypeOfUse
                 }
             };
 
             return new RuleApplierContext
             {
-                Category     = "RV",
-                ValueKey     = "Rate",
+                Category = "RV",
+                ValueKey = "Rate",
                 InitialValue = 1000m,
                 PropertyContext = propertyContext
             };
