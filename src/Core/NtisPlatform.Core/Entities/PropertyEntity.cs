@@ -93,12 +93,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public int? SocietyDetailId { get; set; }
 
     /// <summary>
-    /// Plot area in square meters - auto-updated from PropertyDetails.BuiltUpAreaSqMeter
-    /// when TypeOfUseCode is OP, OPR, or OPC
-    /// </summary>
-    public double? TotalPlotArea { get; set; }
-
-    /// <summary>
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
     /// </summary>
     public int? PropertyAssessmentStatusId { get; set; }

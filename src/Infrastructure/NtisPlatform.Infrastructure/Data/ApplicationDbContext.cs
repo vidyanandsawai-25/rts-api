@@ -1745,9 +1745,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyAssessmentStatusId);
             entity.Property(e => e.PropertyMastOldId);
             entity.Property(e => e.PropertyFloorId);
- 
-            entity.Property(e => e.TotalPlotArea).HasColumnType("float");
- 
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);

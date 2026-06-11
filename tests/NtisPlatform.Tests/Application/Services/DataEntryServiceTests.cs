@@ -28,7 +28,6 @@ public class DataEntryServiceTests
     private readonly Mock<IRenterDetailService> _mockRenterDetailService;
     private readonly Mock<IRenterMastService> _mockRenterMastService;
     private readonly Mock<IRoomWiseSubmissionDetailsService> _mockRoomWiseService;
-    private readonly Mock<IRepository<PropertyEntity, int>> _mockPropertyRepository;
     private readonly DataEntryService _service;
     private readonly Mock<IQueryable<PropertyDetailsEntity>> _mockQueryable;
 
@@ -40,7 +39,6 @@ public class DataEntryServiceTests
         _mockRenterDetailService = new Mock<IRenterDetailService>();
         _mockRenterMastService = new Mock<IRenterMastService>();
         _mockRoomWiseService = new Mock<IRoomWiseSubmissionDetailsService>();
-        _mockPropertyRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockQueryable = new Mock<IQueryable<PropertyDetailsEntity>>();
 
         // Setup transaction methods to prevent null Task returns
@@ -51,18 +49,13 @@ public class DataEntryServiceTests
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        // Setup empty queryable for PropertyRepository to avoid test failures
-        var emptyProperty = new List<PropertyEntity>().BuildMock();
-        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(emptyProperty);
-
         _service = new DataEntryService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
             _mockRenterDetailService.Object,
             _mockRenterMastService.Object,
-            _mockRoomWiseService.Object,
-            _mockPropertyRepository.Object
+            _mockRoomWiseService.Object
         );
     }
 
