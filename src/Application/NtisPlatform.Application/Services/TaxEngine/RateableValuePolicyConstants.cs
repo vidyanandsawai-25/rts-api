@@ -27,6 +27,14 @@ public static class RateableValuePolicyConstants
     public const string PolicyValueTrue = "1";
     public const string PolicyValueFalse = "0";
 
+    // Maintenance Rate
+    /// <summary>Policy key for the statutory maintenance deduction percentage (e.g. "10" = 10%).</summary>
+    public const string MaintenanceRateKey = "RV_MaintenanceRate";
+    /// <summary>Default maintenance rate percentage when the policy key is absent.</summary>
+    public const string DefaultMaintenanceRate = "10";
+    /// <summary>Parsed numeric default used when the policy string cannot be resolved.</summary>
+    public const decimal DefaultMaintenanceRateValue = 10m;
+
     // Default Values
     public const string DefaultAreaType = CarpetArea;
     public const string DefaultAreaUnit = SqMeter;

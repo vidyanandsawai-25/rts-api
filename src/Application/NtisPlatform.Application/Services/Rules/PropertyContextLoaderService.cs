@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Helpers;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Services.TaxEngine;
@@ -43,7 +44,7 @@ namespace NtisPlatform.Application.Services.Rules
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
         private readonly IRepository<RenterMastEntity, int> _renterRepo;
         private readonly IRepository<PropertyOccupancyDetailsEntity, int> _occupancyRepo;
-        private readonly TaxMasterDataService _masterDataService;
+        private readonly ITaxMasterDataService _masterDataService;
         private readonly ILogger<PropertyContextLoaderService> _logger;
 
         public PropertyContextLoaderService(
@@ -53,7 +54,7 @@ namespace NtisPlatform.Application.Services.Rules
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
             IRepository<RenterMastEntity, int> renterRepo,
             IRepository<PropertyOccupancyDetailsEntity, int> occupancyRepo,
-            TaxMasterDataService masterDataService,
+            ITaxMasterDataService masterDataService,
             ILogger<PropertyContextLoaderService> logger)
         {
             _propertyRepo = propertyRepo;

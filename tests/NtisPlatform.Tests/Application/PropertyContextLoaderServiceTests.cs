@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable.Moq;
 using Moq;
@@ -71,6 +72,7 @@ namespace NtisPlatform.Tests.Application
             var employmentTaxRepo      = new Mock<IRepository<EmploymentTaxMasterEntity, int>>();
 
             _masterDataService = new Mock<TaxMasterDataService>(
+                new MemoryCache(new MemoryCacheOptions()),
                 typeOfUseRepo.Object,
                 subTypeOfUseRepo.Object,
                 floorRepo.Object,

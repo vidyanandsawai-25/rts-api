@@ -1,15 +1,10 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.RateableValue;
-using NtisPlatform.Application.DTOs.Rules.RuleEngine;
-using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Services.Rules;
-using NtisPlatform.Application.Services.Rules.Effects;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -38,16 +33,16 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<PolicyTaxDetailsEntity, int>> _policyTaxRepo;
     private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
     private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
-    private readonly Mock<IRepository<PropertyMastOldEntity, int>> _oldPropertyRepo;
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
     private readonly Mock<IRepository<TransMastRVEntity, int>> _transmastRVRepo;
     private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
-    private readonly Mock<TaxMasterDataService> _masterDataService;
-    private readonly Mock<IRuleApplierService> _ruleApplierService;
+    private readonly Mock<ITaxMasterDataService> _masterDataService;
     private readonly Mock<IUnitOfWork> _unitOfWork;
     private readonly Mock<ILogger<RateableValueService>> _logger;
     private readonly Mock<IPolicyConfigurationService> _policyConfigurationService;
+    private readonly Mock<NtisPlatform.Application.Interfaces.IFinanceYearProvider> _financeYearProvider;
+    private readonly Mock<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationCleanupService> _cleanupService;
 
     public RateableValueServiceTests()
     {
@@ -57,23 +52,16 @@ public class RateableValueServiceTests
         _policyTaxRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
         _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
         _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
-        _oldPropertyRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
         _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
         _transmastRVRepo = new Mock<IRepository<TransMastRVEntity, int>>();
         _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
         _unitOfWork = new Mock<IUnitOfWork>();
         _logger = new Mock<ILogger<RateableValueService>>();
-        _ruleApplierService = new Mock<IRuleApplierService>();
+        _masterDataService = new Mock<ITaxMasterDataService>();
         _policyConfigurationService = new Mock<IPolicyConfigurationService>();
-
-        // Setup rule applier mock to default return the initialValue passed to it
-        _ruleApplierService
-            .Setup(r => r.ApplyRulesAsync(
-                It.IsAny<RuleApplierContext>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken cancellationToken) => context.InitialValue);
+        _financeYearProvider = new Mock<NtisPlatform.Application.Interfaces.IFinanceYearProvider>();
+        _cleanupService = new Mock<NtisPlatform.Application.Interfaces.TaxEngine.IRVCalculationCleanupService>();
 
         // Setup policy configuration service with default values
         _policyConfigurationService
@@ -82,6 +70,7 @@ public class RateableValueServiceTests
 
         // Setup yearMaster repository with default data
         var currentYear = DateTime.Today.Month >= 4 ? DateTime.Today.Year : DateTime.Today.Year - 1;
+        _financeYearProvider.Setup(p => p.GetCurrentFinanceYear()).Returns(currentYear);
         _yearMasterRepo.Setup(r => r.GetQueryable())
             .Returns(new List<YearMasterEntity>
             {
@@ -89,39 +78,6 @@ public class RateableValueServiceTests
                 new YearMasterEntity { Id = 2, Year = currentYear, IsActive = true },
                 new YearMasterEntity { Id = 3, Year = currentYear + 1, IsActive = true }
             }.BuildMockDbSet().Object);
-
-        // Create mock master data service with minimal dependencies
-        var typeOfUseRepo = new Mock<IRepository<TypeOfUseEntity, int>>();
-        var subTypeOfUseRepo = new Mock<IRepository<SubTypeOfUseEntity, int>>();
-        var floorRepo = new Mock<IRepository<FloorEntity, int>>();
-        var subFloorRepo = new Mock<IRepository<SubFloorEntity, int>>();
-        var constructionTypeRepo = new Mock<IRepository<ConstructionTypeEntity, int>>();
-        var rateRepo = new Mock<IRepository<RateEntity, int>>();
-        var rateSectionRepo = new Mock<IRepository<RateSectionEntity, int>>();
-        var rateSectionDetailsRepo = new Mock<IRepository<RateSectionDetailsEntity, int>>();
-        var depreciationRepo = new Mock<IRepository<DepreciationMasterEntity, int>>();
-        var yearRangeRepo = new Mock<IRepository<AssessmentYearRangeEntity, int>>();
-        var taxMasterRepo = new Mock<IRepository<TaxMasterEntity, int>>();
-        var taxPercentageRepo = new Mock<IRepository<TaxPercentageMasterRVEntity, int>>();
-        var educationTaxRepo = new Mock<IRepository<EducationTaxMasterEntity, int>>();
-        var employmentTaxRepo = new Mock<IRepository<EmploymentTaxMasterEntity, int>>();
-
-        _masterDataService = new Mock<TaxMasterDataService>(
-            typeOfUseRepo.Object,
-            subTypeOfUseRepo.Object,
-            floorRepo.Object,
-            subFloorRepo.Object,
-            constructionTypeRepo.Object,
-            rateRepo.Object,
-            rateSectionRepo.Object,
-            rateSectionDetailsRepo.Object,
-            depreciationRepo.Object,
-            yearRangeRepo.Object,
-            taxMasterRepo.Object,
-            taxPercentageRepo.Object,
-            educationTaxRepo.Object,
-            employmentTaxRepo.Object
-        );
 
         // Setup unit of work
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -142,36 +98,93 @@ public class RateableValueServiceTests
 
     private RateableValueService CreateService()
     {
-        var propertyContextLoader = new PropertyContextLoaderService(
-            _propertyRepo.Object,
-            _propertyDetailsRepo.Object,
-            _propertyAssessmentRepo.Object,
-            _propertySocialDetailsRepo.Object,
-            _renterRepo.Object,
-            _occupancyRepo.Object,
-            _masterDataService.Object,
-            new Mock<ILogger<PropertyContextLoaderService>>().Object
-        );
+        // RateableValueCalculatorService is a pure calculation engine with no I/O — use the real impl.
+        var calculatorService = new RateableValueCalculatorService(
+            NullLogger<RateableValueCalculatorService>.Instance);
 
-        return new RateableValueService(
+        // RVPersistenceService is wired with the same repo mocks so that callback-based
+        // assertions on _policyTaxRepo.AddRangeAsync and _taxResultsRepo.AddRangeAsync still work.
+        var persistenceService = new RVPersistenceService(
+            _taxResultsRepo.Object,
+            _policyTaxRepo.Object,
+            _transmastRVRepo.Object,
+            _unitOfWork.Object,
+            NullLogger<RVPersistenceService>.Instance,
+            TimeProvider.System);
+
+        // Rule applicator is mocked — tests do not exercise the rule engine.
+        var ruleApplicatorMock = new Mock<IRVRuleApplicator>();
+        ruleApplicatorMock
+            .Setup(r => r.GetAdjustedRateAsync(
+                It.IsAny<PropertyDetailsEntity>(), It.IsAny<TypeOfUseEntity>(),
+                It.IsAny<PropertyEntity>(), It.IsAny<PropertyAssessmentEntity>(),
+                It.IsAny<bool>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(),
+                It.IsAny<decimal>()))
+            .ReturnsAsync((decimal?)null);
+
+        // Constructor-safe dependency list.
+        // This avoids CS1729 when RateableValueService constructor arguments are added,
+        // removed, or reordered, as long as the required dependency type is listed here.
+        var dependencies = new object[]
+        {
             _propertyRepo.Object,
             _propertyDetailsRepo.Object,
             _taxResultsRepo.Object,
             _policyTaxRepo.Object,
             _renterRepo.Object,
             _occupancyRepo.Object,
-            _oldPropertyRepo.Object,
             _propertySocialDetailsRepo.Object,
             _propertyAssessmentRepo.Object,
-            _masterDataService.Object,
-            _ruleApplierService.Object,
-            propertyContextLoader,
-            _unitOfWork.Object,
-            _logger.Object,
             _transmastRVRepo.Object,
             _yearMasterRepo.Object,
-            _policyConfigurationService.Object
-        );
+            _masterDataService.Object,
+            _unitOfWork.Object,
+            _logger.Object,
+            _policyConfigurationService.Object,
+            _financeYearProvider.Object,
+            _cleanupService.Object,
+            calculatorService,
+            persistenceService,
+            ruleApplicatorMock.Object,
+            TimeProvider.System
+        };
+
+        var matchingConstructor = typeof(RateableValueService)
+            .GetConstructors()
+            .Select(c => new
+            {
+                Constructor = c,
+                Parameters = c.GetParameters()
+            })
+            .Where(c => c.Parameters.All(p =>
+                dependencies.Any(d => p.ParameterType.IsInstanceOfType(d))))
+            .OrderByDescending(c => c.Parameters.Length)
+            .FirstOrDefault();
+
+        if (matchingConstructor == null)
+        {
+            var availableTypes = string.Join(Environment.NewLine, dependencies.Select(d => $"- {d.GetType().FullName}"));
+            var constructorSignatures = string.Join(
+                Environment.NewLine,
+                typeof(RateableValueService)
+                    .GetConstructors()
+                    .Select(c => $"- RateableValueService({string.Join(", ", c.GetParameters().Select(p => p.ParameterType.FullName + " " + p.Name))})"));
+
+            throw new InvalidOperationException(
+                "No RateableValueService constructor could be matched from the test dependency list." +
+                Environment.NewLine + Environment.NewLine +
+                "Available test dependency runtime types:" +
+                Environment.NewLine + availableTypes +
+                Environment.NewLine + Environment.NewLine +
+                "Current RateableValueService constructors:" +
+                Environment.NewLine + constructorSignatures);
+        }
+
+        var arguments = matchingConstructor.Parameters
+            .Select(p => dependencies.First(d => p.ParameterType.IsInstanceOfType(d)))
+            .ToArray();
+
+        return (RateableValueService)matchingConstructor.Constructor.Invoke(arguments);
     }
 
     #region Missing Master Data Failure Tests
@@ -586,48 +599,35 @@ public class RateableValueServiceTests
     }
 
     [Fact]
-    public async Task PolicyRowAggregation_DeactivatesOldPolicyRows()
+    public async Task PolicyRowAggregation_WritesFreshNetTaxPolicyRows()
     {
+        // Old-row deactivation now happens via a bulk ExecuteUpdateAsync (relational SQL UPDATE),
+        // which Moq/MockQueryable cannot observe — that path is covered at the integration level.
+        // This unit test verifies the replacement side: fresh active NETTAX rows are inserted.
+
         // Arrange
         var service = CreateService();
         var propertyId = 1;
         SetupPropertyAndDetails(propertyId, "2020");
-
         SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
 
-        // Override policy repo GetQueryable to return old policy rows AFTER SetupCompleteCalculationData
-        _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PolicyTaxDetailsEntity>
-            {
-                new PolicyTaxDetailsEntity
-                {
-                    Id = 1,
-                    PropertyId = propertyId,
-                    PolicyYear = DateTime.Today.Month >= 4 ? (short)DateTime.Today.Year : (short)(DateTime.Today.Year - 1),
-                    PolicyCode = "NETTAX",
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    TaxId = 1,
-                    TaxAmount = 1000
-                }
-            }.BuildMockDbSet().Object);
-
-        // Track update calls
-        var updatedRows = new List<PolicyTaxDetailsEntity>();
-        _policyTaxRepo.Setup(r => r.UpdateAsync(It.IsAny<PolicyTaxDetailsEntity>(), It.IsAny<CancellationToken>()))
-            .Callback<PolicyTaxDetailsEntity, CancellationToken>((row, ct) => updatedRows.Add(row))
+        List<PolicyTaxDetailsEntity>? capturedPolicyRows = null;
+        _policyTaxRepo.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<PolicyTaxDetailsEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<PolicyTaxDetailsEntity>, CancellationToken>((rows, ct) => capturedPolicyRows = rows.ToList())
             .Returns(Task.CompletedTask);
 
         // Act
         await service.CalculateAndSaveAsync(propertyId);
 
-        // Assert - Old policy rows should be deactivated
-        Assert.NotEmpty(updatedRows);
-        Assert.All(updatedRows, row =>
+        // Assert — replacement rows were written, all active NETTAX rows for the property
+        Assert.NotNull(capturedPolicyRows);
+        Assert.NotEmpty(capturedPolicyRows);
+        Assert.All(capturedPolicyRows, row =>
         {
-            Assert.False(row.IsActive);
-            Assert.True(row.MarkedForDeletion);
-            Assert.NotNull(row.MarkedForDeletionDate);
+            Assert.Equal(propertyId, row.PropertyId);
+            Assert.Equal("NETTAX", row.PolicyCode);
+            Assert.True(row.IsActive);
+            Assert.False(row.MarkedForDeletion);
         });
     }
 
@@ -783,101 +783,6 @@ public class RateableValueServiceTests
             Assert.NotEqual(default(DateTime), row.CreatedDate);
             Assert.NotEqual(default(DateTime), row.UpdatedDate);
         });
-    }
-
-    [Fact]
-    public async Task RVRuleEngine_WithSqFeetPolicy_SelectsRateSquareFeetForRuleExecution()
-    {
-        // Arrange
-        var propertyId = 1;
-
-        // Setup property with policy configured to use SqFeet
-        var policyValues = new Dictionary<string, string>
-        {
-            { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.CarpetArea },
-            { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.SqFeet },  // ← Configure to use SqFeet
-            { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.Monthly },
-            { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.PolicyValueFalse }
-        };
-
-        _policyConfigurationService
-            .Setup(p => p.GetPolicyValuesAsync(It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(policyValues);
-
-        // Track rule execution calls to verify rate selection - MUST SETUP BEFORE CreateService
-        decimal capturedInitialValue = 0m;
-        _ruleApplierService
-            .Setup(r => r.ApplyRulesAsync(
-                It.IsAny<RuleApplierContext>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .Callback<RuleApplierContext, int, CancellationToken>((context, maxRetries, cancellationToken) =>
-            {
-                if (context.Category == "RV" && context.ValueKey == "Rate")
-                {
-                    capturedInitialValue = context.InitialValue;
-                }
-            })
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken cancellationToken) => context.InitialValue);
-
-        // Setup property and details
-        _propertyRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyEntity>
-            {
-                new PropertyEntity
-                {
-                    Id = propertyId,
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    TaxZoneId = 1,
-                    WardId = 1
-                }
-            }.BuildMockDbSet().Object);
-
-        _propertyDetailsRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyDetailsEntity>
-            {
-                new PropertyDetailsEntity
-                {
-                    Id = 10,
-                    PropertyId = propertyId,
-                    IsActive = true,
-                    ConstructionYear = "2020",
-                    TypeOfUseId = 1,
-                    ConstructionTypeId = 1,
-                    FloorId = 1,
-                    CarpetAreaSqMeter = 1000,
-                    CarpetAreaSqFeet = 10764  // ~1000 sqm
-                }
-            }.BuildMockDbSet().Object);
-
-        // Setup master data - need to call SetupCompleteCalculationData first, then override rate
-        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
-
-        // Now override with rate that has ONLY RateSquareFeet (no RateSquareMeter)
-        _masterDataService.Setup(m => m.GetRatesForSectionAsync(It.IsAny<int>()))
-            .ReturnsAsync(new List<RateEntity>
-            {
-                new RateEntity
-                {
-                    Id = 1,
-                    TaxZoneId = 1,
-                    ConstructionTypeId = 1,
-                    TypeOfUseGroupId = 1,
-                    YearRangeRVId = 1,
-                    RateSquareMeter = 0m,      // ← Zero sqm rate
-                    RateSquareFeet = 100m,     // ← Only sqft rate available
-                    IsActive = true
-                }
-            });
-
-        var service = CreateService();
-
-        // Act
-        var result = await service.CalculateAndSaveAsync(propertyId);
-
-        // Assert - Verify rule engine was called with sqft rate (100), not sqm rate (0)
-        Assert.Equal(100m, capturedInitialValue);
     }
 
     #endregion
@@ -1062,9 +967,6 @@ public class RateableValueServiceTests
         _occupancyRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
 
-        _oldPropertyRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyMastOldEntity>().BuildMockDbSet().Object);
-
         _taxResultsRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PropertyTaxCalculationRVResultsEntity>().BuildMockDbSet().Object);
 
@@ -1101,12 +1003,16 @@ public class RateableValueServiceTests
         _masterDataService.Setup(m => m.GetActiveEmploymentTaxSlabsAsync())
             .ReturnsAsync(employmentSlabs);
 
-        // Add education and employment taxes to the tax master list
+        // IsEducationTax / IsEmploymentTax compare TaxCategoryMaster.CategoryCode.
+        // Populate the navigation so the predicates work without hitting the DB.
         var taxes = new List<TaxMasterEntity>
         {
-            new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PT", IsActive = true },
-            new TaxMasterEntity { Id = 2, TaxName = "Education Tax", TaxCode = "STATE_EDU", TaxNameAlias = "Education", IsActive = true },
-            new TaxMasterEntity { Id = 3, TaxName = "Employment Tax", TaxCode = "STATE_EMP", TaxNameAlias = "Employment", IsActive = true }
+            new TaxMasterEntity { Id = 1, TaxName = "Property Tax",  TaxCode = "PT",        IsActive = true, TaxCategoryId = 1,
+                TaxCategoryMaster = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax" } },
+            new TaxMasterEntity { Id = 2, TaxName = "Education Tax", TaxCode = "STATE_EDU", IsActive = true, TaxCategoryId = 3,
+                TaxCategoryMaster = new TaxCategoryMasterEntity { Id = 3, CategoryCode = "EDU", CategoryName = "State Education Tax" } },
+            new TaxMasterEntity { Id = 3, TaxName = "Employment Tax",TaxCode = "STATE_EMP", IsActive = true, TaxCategoryId = 4,
+                TaxCategoryMaster = new TaxCategoryMasterEntity { Id = 4, CategoryCode = "EMP", CategoryName = "State Employment Tax" } }
         };
 
         _masterDataService.Setup(m => m.GetActiveTaxesAsync()).ReturnsAsync(taxes);

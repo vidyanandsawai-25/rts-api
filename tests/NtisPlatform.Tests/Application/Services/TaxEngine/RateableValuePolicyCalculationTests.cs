@@ -26,6 +26,27 @@ public class RateableValuePolicyCalculationTests
         _logger = NullLoggerFactory.Instance.CreateLogger<RateableValuePolicyCalculationTests>();
     }
 
+    // Convenience wrapper that mirrors the old static signature used in tests.
+    // Computes selectedArea from policyOptions so test call sites stay concise.
+    private static PropertyTaxCalculationRVResultsEntity Calculate(
+        PropertyDetailsEntity detail,
+        int financeYear,
+        int taxZoneId,
+        int wardId,
+        List<TypeOfUseEntity> typeOfUses,
+        List<RateEntity> rates,
+        List<DepreciationMasterEntity> depreciations,
+        List<AssessmentYearRangeEntity> yearRanges,
+        List<RenterMastEntity> renters,
+        RateableValuePolicyOptions? policyOptions = null)
+    {
+        var options = policyOptions ?? RateableValuePolicyOptions.Default;
+        var selectedArea = RateableValuePolicyHelper.GetSelectedArea(detail, options);
+        return new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance)
+            .CalculateBaseValues(detail, financeYear, taxZoneId, wardId, typeOfUses, rates,
+                depreciations, yearRanges, renters, selectedArea, options);
+    }
+
     #region GetSelectedArea Tests
 
     [Fact]
@@ -553,7 +574,7 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail,
             financeYear: 2024,
             taxZoneId: 1,
@@ -566,7 +587,7 @@ public class RateableValuePolicyCalculationTests
             policyOptions);
 
         // Assert
-        Assert.Equal(expectedArea, result.TotalAreaSqMtr);
+        Assert.Equal(Convert.ToDecimal(expectedArea), result.TotalAreaSqMtr);
         Assert.NotNull(result);
         Assert.Equal(1, result.PropertyId);
     }
@@ -609,13 +630,13 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail, 2024, 1, 1, typeOfUses, rates,
             new List<DepreciationMasterEntity>(), yearRanges,
             new List<RenterMastEntity>(), policyOptions);
 
         // Assert: YearlyRent = 100 * 100 * 12 = 120000
-        Assert.Equal(120000d, result.YearlyRent);
+        Assert.Equal(120000m, result.YearlyRent);
     }
 
     [Fact]
@@ -656,13 +677,13 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail, 2024, 1, 1, typeOfUses, rates,
             new List<DepreciationMasterEntity>(), yearRanges,
             new List<RenterMastEntity>(), policyOptions);
 
         // Assert: YearlyRent = 100 * 1200 = 120000
-        Assert.Equal(120000d, result.YearlyRent);
+        Assert.Equal(120000m, result.YearlyRent);
     }
 
     [Fact]
@@ -695,15 +716,15 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act - Use backward compatible overload (no policy options)
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail, 2024, 1, 1, typeOfUses, rates,
             new List<DepreciationMasterEntity>(), yearRanges,
             new List<RenterMastEntity>());
 
         // Assert: Uses default policies - CarpetArea, SqMeter, Yearly
         // YearlyRent = 100 * 1200 = 120000 (yearly calculation)
-        Assert.Equal(120000d, result.YearlyRent);
-        Assert.Equal(100d, result.TotalAreaSqMtr);
+        Assert.Equal(120000m, result.YearlyRent);
+        Assert.Equal(100m, result.TotalAreaSqMtr);
     }
 
     [Fact]
@@ -736,13 +757,13 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act - Pass null policy options
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail, 2024, 1, 1, typeOfUses, rates,
             new List<DepreciationMasterEntity>(), yearRanges,
             new List<RenterMastEntity>(), null!);
 
         // Assert: Uses default policies
-        Assert.Equal(120000d, result.YearlyRent);
+        Assert.Equal(120000m, result.YearlyRent);
     }
 
     [Fact]
@@ -760,7 +781,7 @@ public class RateableValuePolicyCalculationTests
         };
 
         // Act
-        var result = RateableValueCalculator.CalculateBaseValues(
+        var result = Calculate(
             detail, 2024, 1, 1,
             new List<TypeOfUseEntity>(),
             new List<RateEntity>(),
@@ -772,7 +793,7 @@ public class RateableValuePolicyCalculationTests
         // Assert
         Assert.Equal("Not Taxable", result.AppliedOn);
         Assert.Equal(0m, result.RateableValue);
-        Assert.Equal(0d, result.YearlyRent);
+        Assert.Equal(0m, result.YearlyRent);
     }
 
     #endregion

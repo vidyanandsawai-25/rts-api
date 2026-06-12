@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -8,21 +8,23 @@ using System.Text;
 
 namespace NtisPlatform.Core.Entities
 {
-    public class PropertyTaxCalculationRVResultsEntity:BaseEntity, IHardDeletable
+    public class PropertyTaxCalculationRVResultsEntity : BaseEntity, IHardDeletable
     {
         public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
         public virtual PropertyEntity? PropertyMast { get; set; }
         public int PropertyId { get; set; }
         public int PropertyDetailsId { get; set; }
 
-        public double? MonthlyRate { get; set; }
-        public double? YearlyRate { get; set; }
-        public double? YearlyRent { get; set; }
+        // Financial rate and rent fields stored as decimal for precision consistency.
+        // MIGRATION REQUIRED: update column types from float to decimal(18,4) for these columns.
+        public decimal? MonthlyRate { get; set; }
+        public decimal? YearlyRate { get; set; }
+        public decimal? YearlyRent { get; set; }
 
         public decimal? Depreciation { get; set; }
         public decimal? DepreciationPer { get; set; }
         public string? AppliedOn { get; set; }
-        public double? AnnualRentalValue { get; set; }
+        public decimal? AnnualRentalValue { get; set; }
         public decimal? Maintenance { get; set; }
         public decimal? RateableValue { get; set; }
 
@@ -42,9 +44,9 @@ namespace NtisPlatform.Core.Entities
         public decimal? REmploymentTaxPercentage { get; set; }
         public decimal? CEmploymentTaxPercentage { get; set; }
 
-        public double? TotalAreaSqMtr { get; set; }
-        public double? RAreaSqMtr { get; set; }
-        public double? CAreaSqlMtr { get; set; }
+        public decimal? TotalAreaSqMtr { get; set; }
+        public decimal? RAreaSqMtr { get; set; }
+        public decimal? CAreaSqlMtr { get; set; }
 
         public bool MarkedForDeletion { get; set; }
         public DateTime? MarkedForDeletionDate { get; set; }

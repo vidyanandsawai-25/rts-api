@@ -84,6 +84,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
     public DbSet<TaxPercentageMasterCVEntity> TaxPercentageMasterCVs { get; set; } = null!;
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
+    public DbSet<TaxCategoryMasterEntity> TaxCategoryMaster { get; set; } = null!;
     public DbSet<FlagMasterEntity> FlagMaster { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
 
@@ -2405,6 +2406,17 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PropertyTaxCalculationRVResults", "PTIS");
             entity.HasKey(e => e.Id);
+
+            // Previously double? (SQL float). Migrated to decimal(18,4) for financial precision.
+            // Migration: 20260609_RVResults_FloatToDecimal applies the matching ALTER COLUMN statements.
+            entity.Property(e => e.MonthlyRate).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.YearlyRate).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.YearlyRent).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.AnnualRentalValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.RAreaSqMtr).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CAreaSqlMtr).HasColumnType("decimal(18,4)");
+
             entity.Property(e => e.Depreciation).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Maintenance).HasColumnType("decimal(18,2)");
             entity.Property(e => e.RateableValue).HasColumnType("decimal(18,2)");
@@ -2748,6 +2760,22 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasDatabaseName("UQ_BlockMaster_Ward_BlockNo");
         });
+        // TaxCategoryMaster configuration
+        modelBuilder.Entity<TaxCategoryMasterEntity>(entity =>
+        {
+            entity.ToTable("TaxCategoryMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.CategoryCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CategoryName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.CategoryCode).IsUnique().HasDatabaseName("UQ_TaxCategoryMaster_CategoryCode");
+        });
+
         // TaxMaster configuration
         modelBuilder.Entity<TaxMasterEntity>(entity =>
         {
@@ -2758,6 +2786,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TaxName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.TaxNameAlias).HasMaxLength(200);
             entity.Property(e => e.TaxCategoryId).IsRequired();
+            // Category is a [NotMapped] computed property — no column or EF configuration needed.
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.TaxOnUnit).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.AssessmentStatus).IsRequired().HasDefaultValue(true);
@@ -2769,6 +2798,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.TaxCode).IsUnique().HasDatabaseName("UQ_TaxMaster_TaxCode");
             entity.HasIndex(e => e.TaxName).IsUnique().HasDatabaseName("UQ_TaxMaster_TaxName");
+            // FK → TaxCategoryMaster
+            entity.HasOne(e => e.TaxCategoryMaster)
+                  .WithMany(c => c.TaxMasters)
+                  .HasForeignKey(e => e.TaxCategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // TransMastOld configuration

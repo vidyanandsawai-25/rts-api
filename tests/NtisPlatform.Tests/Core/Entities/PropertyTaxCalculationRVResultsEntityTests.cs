@@ -13,11 +13,11 @@ public class PropertyTaxCalculationRVResultsEntityTests
             Id = 1,
             PropertyId = 9,
             PropertyDetailsId = 99,
-            MonthlyRate = 100.5,
-            YearlyRate = 1206.0,
-            YearlyRent = 1200.0,
+            MonthlyRate = 100.5m,
+            YearlyRate = 1206.0m,
+            YearlyRent = 1200.0m,
             Depreciation = 50.0m,
-            AnnualRentalValue = 1150.0,
+            AnnualRentalValue = 1150.0m,
             Maintenance = 10.0m,
             RateableValue = 1140.0m,
             TaxId = 2,
@@ -31,9 +31,9 @@ public class PropertyTaxCalculationRVResultsEntityTests
             CEmploymentTax = 2.5m,
             REmploymentTaxPercentage = 0.2m,
             CEmploymentTaxPercentage = 0.25m,
-            TotalAreaSqMtr = 100.0,
-            RAreaSqMtr = 60.0,
-            CAreaSqlMtr = 40.0,
+            TotalAreaSqMtr = 100.0m,
+            RAreaSqMtr = 60.0m,
+            CAreaSqlMtr = 40.0m,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null
         };
@@ -41,11 +41,11 @@ public class PropertyTaxCalculationRVResultsEntityTests
         Assert.Equal(1, entity.Id);
         Assert.Equal(9, entity.PropertyId);
         Assert.Equal(99, entity.PropertyDetailsId);
-        Assert.Equal(100.5, entity.MonthlyRate);
-        Assert.Equal(1206.0, entity.YearlyRate);
-        Assert.Equal(1200.0, entity.YearlyRent);
+        Assert.Equal(100.5m, entity.MonthlyRate);
+        Assert.Equal(1206.0m, entity.YearlyRate);
+        Assert.Equal(1200.0m, entity.YearlyRent);
         Assert.Equal(50.0m, entity.Depreciation);
-        Assert.Equal(1150.0, entity.AnnualRentalValue);
+        Assert.Equal(1150.0m, entity.AnnualRentalValue);
         Assert.Equal(10.0m, entity.Maintenance);
         Assert.Equal(1140.0m, entity.RateableValue);
         Assert.Equal(2, entity.TaxId);
@@ -59,9 +59,9 @@ public class PropertyTaxCalculationRVResultsEntityTests
         Assert.Equal(2.5m, entity.CEmploymentTax);
         Assert.Equal(0.2m, entity.REmploymentTaxPercentage);
         Assert.Equal(0.25m, entity.CEmploymentTaxPercentage);
-        Assert.Equal(100.0, entity.TotalAreaSqMtr);
-        Assert.Equal(60.0, entity.RAreaSqMtr);
-        Assert.Equal(40.0, entity.CAreaSqlMtr);
+        Assert.Equal(100.0m, entity.TotalAreaSqMtr);
+        Assert.Equal(60.0m, entity.RAreaSqMtr);
+        Assert.Equal(40.0m, entity.CAreaSqlMtr);
         Assert.False(entity.MarkedForDeletion);
         Assert.Null(entity.MarkedForDeletionDate);
     }

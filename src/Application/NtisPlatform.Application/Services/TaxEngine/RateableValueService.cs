@@ -1,287 +1,362 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.RateableValue;
-using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NtisPlatform.Application.Services.TaxEngine
 {
     /// <summary>
-    /// Service for calculating and persisting rateable value tax calculations
+    /// Orchestrates the end-to-end Rateable Value calculation for a single property.
+    /// Persistence is delegated to <see cref="IRVPersistenceService"/>;
+    /// rule-engine application to <see cref="IRVRuleApplicator"/>.
     /// </summary>
     public class RateableValueService : IRateableValueService
     {
         private readonly IRepository<PropertyEntity, int> _propertyRepo;
         private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepo;
-        private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _taxResultsRepo;
-        private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
         private readonly IRepository<RenterMastEntity, int> _renterRepo;
         private readonly IRepository<PropertyOccupancyDetailsEntity, int> _occupancyRepo;
-        private readonly IRepository<PropertyMastOldEntity, int> _oldPropertyRepo;
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
-        private readonly TaxMasterDataService _masterDataService;
-        private readonly IRuleApplierService _ruleApplierService;
-        private readonly IPropertyContextLoaderService _propertyContextLoaderService;
+        private readonly ITaxMasterDataService _masterDataService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<RateableValueService> _logger;
-        private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
         private readonly IRepository<YearMasterEntity, int> _yearMasterRepo;
         private readonly IPolicyConfigurationService _policyConfigurationService;
+        private readonly IRateableValueCalculatorService _rateableValueCalculatorService;
+    
+        private readonly IFinanceYearProvider _financeYearProvider;
+        private readonly IRVRuleApplicator _ruleApplicator;
+        private readonly IRVPersistenceService _persistenceService;
+        private readonly TimeProvider _timeProvider;
 
         public RateableValueService(
             IRepository<PropertyEntity, int> propertyRepo,
             IRepository<PropertyDetailsEntity, int> propertyDetailsRepo,
-            IRepository<PropertyTaxCalculationRVResultsEntity, int> taxResultsRepo,
-            IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
             IRepository<RenterMastEntity, int> renterRepo,
             IRepository<PropertyOccupancyDetailsEntity, int> occupancyRepo,
-            IRepository<PropertyMastOldEntity, int> oldPropertyRepo,
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
             IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepo,
-            TaxMasterDataService masterDataService,
-            IRuleApplierService ruleApplierService,
-            IPropertyContextLoaderService propertyContextLoaderService,
+            ITaxMasterDataService masterDataService,
             IUnitOfWork unitOfWork,
             ILogger<RateableValueService> logger,
-            IRepository<TransMastRVEntity, int> transmastRVRepo,
             IRepository<YearMasterEntity, int> yearMasterRepo,
-            IPolicyConfigurationService policyConfigurationService)
+            IPolicyConfigurationService policyConfigurationService,
+            IRateableValueCalculatorService rateableValueCalculatorService,
+         
+            IFinanceYearProvider financeYearProvider,
+            IRVRuleApplicator ruleApplicator,
+            IRVPersistenceService persistenceService,
+            TimeProvider timeProvider)
+
+
         {
             _propertyRepo = propertyRepo;
             _propertyDetailsRepo = propertyDetailsRepo;
-            _taxResultsRepo = taxResultsRepo;
-            _policyTaxRepo = policyTaxRepo;
             _renterRepo = renterRepo;
             _occupancyRepo = occupancyRepo;
-            _oldPropertyRepo = oldPropertyRepo;
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
             _propertyAssessmentRepo = propertyAssessmentRepo;
             _masterDataService = masterDataService;
-            _ruleApplierService = ruleApplierService;
-            _propertyContextLoaderService = propertyContextLoaderService;
             _unitOfWork = unitOfWork;
             _logger = logger;
-            _transmastRVRepo = transmastRVRepo;
             _yearMasterRepo = yearMasterRepo;
             _policyConfigurationService = policyConfigurationService;
+            _rateableValueCalculatorService = rateableValueCalculatorService;
+        
+            _financeYearProvider = financeYearProvider;
+            _ruleApplicator = ruleApplicator;
+            _persistenceService = persistenceService;
+            _timeProvider = timeProvider;
         }
 
         public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
         {
-            // P3: Start operation tracking
             var operationStopwatch = Stopwatch.StartNew();
             _logger.LogInformation("Starting RV tax calculation for PropertyId={PropertyId}", propertyId);
 
             try
             {
-                // 1. Load complete PropertyCalculationContext using loader service
-                int financeYear = GetFinanceYear();
-                var propertyContext = await _propertyContextLoaderService.LoadPropertyContextAsync(propertyId, financeYear);
+                // 1. Load property
+                var property = await _propertyRepo.GetQueryable()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
+                    ?? throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
 
-                var property = propertyContext.Property;
-                var propertyAssessment = propertyContext.PropertyAssessment;
-                var details = propertyContext.Details.ToList();
-                var renters = propertyContext.Renters.ToList();
+                // Load assessment for owner-type context passed to rule engine
+                var propertyAssessment = await _propertyAssessmentRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                    .OrderBy(x => x.Id)
+                    .FirstOrDefaultAsync();
 
-                var constructionYearValue = propertyContext.Parameters.ConstructionYearValue;
+                if (propertyAssessment == null)
+                    _logger.LogWarning(
+                        "PropertyAssessmentEntity not found for PropertyId={PropertyId}. " +
+                        "OwnerType will default to 0 in rule engine.", propertyId);
 
-                // P3: Log property complexity metric
+                // Load hasLift once per property to avoid per-detail queries
+                var hasLift = await _propertySocialDetailsRepo.GetQueryable()
+                    .Include(psd => psd.SocialAttribute)
+                    .AnyAsync(psd => psd.PropertyId == propertyId &&
+                                     psd.SocialAttribute != null &&
+                                     psd.SocialAttribute.SocialAttributeCode == "HAS_LIFT" &&
+                                     psd.IsActive);
+
+                _logger.LogDebug("Property {PropertyId} has lift: {HasLift}", propertyId, hasLift);
+
+                // 2. Get property details — AsNoTracking: this is a read-only calc path
+                var details = await _propertyDetailsRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                    .OrderBy(x => x.Id)
+                    .ToListAsync();
+
+                if (!details.Any())
+                    throw new InvalidOperationException($"PropertyDetails not found for PropertyId={propertyId}");
+
                 LogMetric("Property.DetailCount", details.Count, new Dictionary<string, string>
                 {
                     { "PropertyId", propertyId.ToString() }
                 });
 
-                // 2. Load all master data
-                _logger.LogDebug("Loading master data for PropertyId={PropertyId}, WardId={WardId}", propertyId, property.WardId);
-                var typeOfUses = await _masterDataService.GetActiveTypeOfUsesAsync();
-                var subTypeOfUses = await _masterDataService.GetActiveSubTypeOfUsesAsync();
-                var floors = await _masterDataService.GetActiveFloorsAsync();
-                var subFloors = await _masterDataService.GetActiveSubFloorsAsync();
+                // 3. Load master data — sequential; TaxMasterDataService uses IMemoryCache
+                //    so repeated calls within the same cache window are in-memory (< 1 ms each).
+                //    Task.WhenAll cannot be used here: all repositories share the same scoped
+                //    DbContext instance, which is not thread-safe for concurrent async operations.
+                _logger.LogDebug("Loading master data for PropertyId={PropertyId}, WardId={WardId}",
+                    propertyId, property.WardId);
+
+                var typeOfUses        = await _masterDataService.GetActiveTypeOfUsesAsync();
+                var subTypeOfUses     = await _masterDataService.GetActiveSubTypeOfUsesAsync();
+                var floors            = await _masterDataService.GetActiveFloorsAsync();
+                var subFloors         = await _masterDataService.GetActiveSubFloorsAsync();
                 var constructionTypes = await _masterDataService.GetActiveConstructionTypesAsync();
-                var rateSectionId = await _masterDataService.GetRateSectionIdForWardAsync(property.WardId);
-                var rates = await _masterDataService.GetRatesForSectionAsync(rateSectionId);
-                var depreciations = await _masterDataService.GetActiveDepreciationsAsync();
-                var yearRanges = await _masterDataService.GetActiveYearRangesAsync();
-                var activeTaxes = await _masterDataService.GetActiveTaxesAsync();
-                _logger.LogDebug("Master data loaded: {TypeOfUseCount} TypeOfUses, {TaxCount} Taxes, {RateCount} Rates",
-                    typeOfUses.Count, activeTaxes.Count, rates.Count);
+                var rateSectionId     = await _masterDataService.GetRateSectionIdForWardAsync(property.WardId);
+                var rates             = await _masterDataService.GetRatesForSectionAsync(rateSectionId);
+                var depreciations     = await _masterDataService.GetActiveDepreciationsAsync();
+                var yearRanges        = await _masterDataService.GetActiveYearRangesAsync();
+                var activeTaxes       = await _masterDataService.GetActiveTaxesAsync();
 
-                // 3. Load tax-related master data
-                var yearRangeRVId = propertyContext.Parameters.YearRangeRVId;
+                _logger.LogInformation(
+                    "Master data loaded for PropertyId={PropertyId}: " +
+                    "TypeOfUses={TypeOfUseCount}, Taxes={TaxCount}, Rates={RateCount}, " +
+                    "RateSectionId={RateSectionId}, WardId={WardId}",
+                    propertyId, typeOfUses.Count, activeTaxes.Count, rates.Count,
+                    rateSectionId, property.WardId);
 
-                var taxPercentages = (await _masterDataService.GetActiveTaxPercentagesAsync())
-                    .Where(x => x.YearRangeRVId == yearRangeRVId)
-                    .ToList();
-                var educationTaxSlabs = await _masterDataService.GetActiveEducationTaxSlabsAsync();
+                if (activeTaxes.Count == 0)
+                    _logger.LogWarning(
+                        "No active taxes found in TaxMaster for PropertyId={PropertyId}. " +
+                        "No tax rows will be generated.", propertyId);
+
+                if (rates.Count == 0)
+                    _logger.LogWarning(
+                        "No rates found for RateSectionId={RateSectionId} (WardId={WardId}). " +
+                        "All base rates will be zero for PropertyId={PropertyId}.",
+                        rateSectionId, property.WardId, propertyId);
+
+                // 4. Load renters — AsNoTracking: read-only
+                var detailIds = details.Select(d => d.Id).ToList();
+                var renters = await _renterRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(x => detailIds.Contains(x.PropertyDetailsId) && x.IsActive && !x.MarkedForDeletion)
+                    .ToListAsync();
+
+                // 5. Validate construction year
+                var constructionYear = details.FirstOrDefault()?.ConstructionYear;
+                CalculationValidator.CheckCondition(
+                    !string.IsNullOrWhiteSpace(constructionYear),
+                    $"ConstructionYear not found for PropertyId={propertyId}");
+                CalculationValidator.CheckCondition(
+                    int.TryParse(constructionYear, out int constructionYearValue),
+                    $"Invalid ConstructionYear value '{constructionYear}' for PropertyId={propertyId}");
+
+                var yearRange = yearRanges.FirstOrDefault(x =>
+                    x.FromYear <= constructionYearValue && x.ToYear >= constructionYearValue)
+                    ?? throw new InvalidOperationException(
+                        $"Assessment year range not found for constructionYear={constructionYearValue}");
+
+                // 6. Load tax-related master data (sequential; served from cache after first request)
+                var allTaxPercentages  = await _masterDataService.GetActiveTaxPercentagesAsync();
+                var taxPercentages     = allTaxPercentages.Where(x => x.YearRangeRVId == yearRange.Id).ToList();
+                var educationTaxSlabs  = await _masterDataService.GetActiveEducationTaxSlabsAsync();
                 var employmentTaxSlabs = await _masterDataService.GetActiveEmploymentTaxSlabsAsync();
 
-                // 4. Pre-calculate base values for all details (cache to avoid redundant computation)
+                _logger.LogInformation(
+                    "Tax data for PropertyId={PropertyId}: " +
+                    "YearRange={YearRangeId} ({From}-{To}), TaxPercentages(all)={AllPct}, TaxPercentages(filtered)={FilteredPct}, " +
+                    "EducationSlabs={EduSlabs}, EmploymentSlabs={EmpSlabs}",
+                    propertyId, yearRange.Id, yearRange.FromYear, yearRange.ToYear,
+                    allTaxPercentages.Count, taxPercentages.Count,
+                    educationTaxSlabs.Count, employmentTaxSlabs.Count);
+
+                if (taxPercentages.Count == 0)
+                    _logger.LogWarning(
+                        "No TaxPercentages found for YearRangeRVId={YearRangeId} (ConstructionYear={Year}). " +
+                        "Tax amounts will be zero for PropertyId={PropertyId}. " +
+                        "Total TaxPercentages in DB (any year): {AllCount}.",
+                        yearRange.Id, constructionYearValue, propertyId, allTaxPercentages.Count);
+
+                // 7. Resolve finance year
+                int financeYear = _financeYearProvider.GetCurrentFinanceYear();
                 _logger.LogDebug("Calculating base values for {DetailCount} property details, FinanceYear={FinanceYear}",
                     details.Count, financeYear);
 
-                // P2: Use thread-safe ConcurrentDictionary for parallel processing
-                var baseResultsCache = new ConcurrentDictionary<int, PropertyTaxCalculationRVResultsEntity>();
-
-                // Resolve the finance-year rate range once (used to look up rates for rule engine input)
                 var financeYearRange = yearRanges.FirstOrDefault(x =>
                     x.FromYear <= financeYear && x.ToYear >= financeYear && x.IsActive);
 
-                // Validate finance year range exists (required for rate lookup and tax calculation)
                 CalculationValidator.CheckCondition(financeYearRange != null,
                     $"Finance year range not found for FinanceYear={financeYear}. " +
-                    $"Tax calculation cannot proceed without valid year range configuration for PropertyId={propertyId}.");
-                var yearMaster = await _yearMasterRepo.GetQueryable()
-                .FirstOrDefaultAsync(y => y.Year == financeYear && y.IsActive);
+                    $"Tax calculation cannot proceed for PropertyId={propertyId}.");
 
-                if (yearMaster == null)
-                    throw new InvalidOperationException($"Year {financeYear} not found in YearMaster table");
+                var yearMaster = await _yearMasterRepo.GetQueryable()
+                    .FirstOrDefaultAsync(y => y.Year == financeYear && y.IsActive)
+                    ?? throw new InvalidOperationException(
+                        $"Year {financeYear} not found in YearMaster table");
 
                 int yearMasterId = yearMaster.Id;
 
-                // 7a. Fetch Rateable Value policy configuration
+                // 7a. Load policy configuration
                 var policyDefaults = new Dictionary<string, string>
                 {
-                    { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.DefaultAreaType },
-                    { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.DefaultAreaUnit },
-                    { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.DefaultRatePeriod },
-                    { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV }
+                    { RateableValuePolicyConstants.RateableValueAreaType,        RateableValuePolicyConstants.DefaultAreaType },
+                    { RateableValuePolicyConstants.RateMasterAreaUnit,           RateableValuePolicyConstants.DefaultAreaUnit },
+                    { RateableValuePolicyConstants.RateMonthlyOrYearly,          RateableValuePolicyConstants.DefaultRatePeriod },
+                    { RateableValuePolicyConstants.EducationEmploymentTaxOnRV,   RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV },
+                    { RateableValuePolicyConstants.MaintenanceRateKey,           RateableValuePolicyConstants.DefaultMaintenanceRate }
                 };
-                var policyValues = await _policyConfigurationService.GetPolicyValuesAsync(policyDefaults);
+                var policyValues  = await _policyConfigurationService.GetPolicyValuesAsync(policyDefaults);
                 var policyOptions = RateableValuePolicyOptions.FromPolicies(policyValues, _logger);
 
-                _logger.LogDebug("Rateable Value Policy Configuration: AreaType={AreaType}, AreaUnit={AreaUnit}, RatePeriod={RatePeriod}, EducationEmploymentTaxOnRV={EducationEmploymentTaxOnRV}",
-                    policyOptions.AreaType, policyOptions.AreaUnit, policyOptions.RatePeriod, policyOptions.IsEducationEmploymentTaxOnRV);
+                _logger.LogDebug(
+                    "RV Policy: AreaType={AreaType}, AreaUnit={AreaUnit}, RatePeriod={RatePeriod}, " +
+                    "EducationEmploymentTaxOnRV={EducationEmploymentTaxOnRV}, Maintenance={Maintenance}%",
+                    policyOptions.AreaType, policyOptions.AreaUnit, policyOptions.RatePeriod,
+                    policyOptions.IsEducationEmploymentTaxOnRV, policyOptions.MaintenanceRatePercent);
 
-
-                // 7b. Pre-compute selected areas for all property details at once using policy helper
+                // 7b. Pre-compute selected areas for all details
                 var selectedAreas = RateableValuePolicyHelper.GetSelectedAreasForProperty(details, policyOptions);
 
-                _logger.LogDebug("Calculating base values for {DetailCount} property details, FinanceYear={FinanceYear}, YearMasterId={YearMasterId}",
-                    details.Count, financeYear, yearMasterId);
-                // P2: Parallel processing for independent detail calculations (2-10x faster for properties with many details)
-                var detailTasks = details.Select(async detail =>
+                // 8. Calculate base values (sequential — scoped DbContext is not safe for concurrent async)
+                var baseResultsCache = new Dictionary<int, PropertyTaxCalculationRVResultsEntity>();
+
+                foreach (var detail in details)
                 {
-                    // ── RV Rule Engine: Adjust Rateable Value Rate ──────────────────────────────
-                    decimal? ruleAdjustedRatePerUnit = null;
+                    decimal? ruleAdjustedRate = null;
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
 
                     if (detailTypeOfUse != null && financeYearRange != null)
                     {
-                        // Mirror the rate lookup from RateableValueCalculator (in-memory, no DB call)
                         var masterRate = rates.FirstOrDefault(x =>
-                            x.TaxZoneId == property.TaxZoneId &&
-                            x.ConstructionTypeId == detail.ConstructionTypeId &&
-                            x.TypeOfUseGroupId == detailTypeOfUse.TypeOfUseGroupId &&
-                            x.YearRangeRVId == financeYearRange.Id &&
+                            x.TaxZoneId           == property.TaxZoneId &&
+                            x.ConstructionTypeId  == detail.ConstructionTypeId &&
+                            x.TypeOfUseGroupId    == detailTypeOfUse.TypeOfUseGroupId &&
+                            x.YearRangeRVId       == financeYearRange.Id &&
                             x.IsActive);
 
-                        // ✅ Use RateableValueCalculator's helper method for consistent rate selection
                         decimal masterRatePerUnit = RateableValueCalculator.GetRatePerUnit(masterRate, policyOptions);
 
                         if (masterRatePerUnit > 0)
                         {
-                            var ruleContext = new RuleApplierContext
-                            {
-                                Category    = "RV",
-                                ValueKey    = "Rate",
-                                InitialValue = masterRatePerUnit,
-                                PropertyContext = propertyContext.CloneForDetail(detail, detailTypeOfUse)
-                            };
+                            _logger.LogDebug(
+                                "[RuleEngine-RV] Executing RV rules for PropertyDetailsId={DetailId}: MasterRate={MasterRate} ({Unit})",
+                                detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm");
 
-                            ruleAdjustedRatePerUnit = await _ruleApplierService.ApplyRulesAsync(ruleContext);
+                            ruleAdjustedRate = await _ruleApplicator.GetAdjustedRateAsync(
+                                detail, detailTypeOfUse, property, propertyAssessment,
+                                hasLift, constructionYearValue, financeYear,
+                                financeYearRange.Id, masterRatePerUnit);
                         }
                         else
                         {
                             _logger.LogWarning(
-                                "[RuleEngine-RV] ⚠️ Skipping RV rule execution for PropertyDetailsId={DetailId}: " +
-                                "masterRate is null or zero (TaxZone={TaxZone}, ConstructionType={ConstructionType}, " +
-                                "TypeOfUseGroup={TypeOfUseGroup}, YearRange={YearRange}, Unit={Unit}). Using base rate calculation.",
-                                detail.Id, property.TaxZoneId, detail.ConstructionTypeId,
-                                detailTypeOfUse.TypeOfUseGroupId, financeYearRange.Id,
-                                policyOptions.IsSqFeetUnit ? "sqft" : "sqm");
+                                "[RuleEngine-RV] Skipping rule execution for PropertyDetailsId={DetailId}: " +
+                                "masterRate is null or zero. Using base rate.",
+                                detail.Id);
                         }
                     }
-                    // ── End RV Rule Engine ───────────────────────────────────────────────────────
+
                     var selectedArea = selectedAreas.TryGetValue(detail.Id, out var area) ? area : 0m;
-                    var baseResult = RateableValueCalculator.CalculateBaseValues(
-                        detail,
-                        financeYear,
-                        property.TaxZoneId,
-                        property.WardId,
-                        typeOfUses,
-                        rates,
-                        depreciations,
-                        yearRanges,
-                        renters,
-                         selectedArea,
-                    policyOptions,
-                    ruleAdjustedRatePerUnit,
-                    _logger);  // null = no rule matched, use master rate
+                    baseResultsCache[detail.Id] = _rateableValueCalculatorService.CalculateBaseValues(
+                        detail, financeYear, property.TaxZoneId, property.WardId,
+                        typeOfUses, rates, depreciations, yearRanges, renters,
+                        selectedArea, policyOptions, ruleAdjustedRate);
+                }
 
-                    // Thread-safe add to concurrent dictionary
-                    baseResultsCache[detail.Id] = baseResult;
-                });
+                _logger.LogInformation(
+                    "Base values calculated for PropertyId={PropertyId}: {CachedCount} detail(s). " +
+                    "FinanceYear={FinanceYear}, FinanceYearRangeId={FinanceYearRangeId}",
+                    propertyId, baseResultsCache.Count, financeYear, financeYearRange!.Id);
 
-                // Wait for all detail calculations to complete
-                await Task.WhenAll(detailTasks);
+                // 9. Build standard tax rows (excluding education and employment)
+                var regularTaxes = activeTaxes
+                    .Where(t => !IsEducationTax(t) && !IsEmploymentTax(t))
+                    .ToList();
+                var eduTaxCount = activeTaxes.Count(IsEducationTax);
+                var empTaxCount = activeTaxes.Count(IsEmploymentTax);
 
-                _logger.LogDebug("Base values calculated for {CachedCount} details", baseResultsCache.Count);
+                _logger.LogInformation(
+                    "Tax classification for PropertyId={PropertyId}: " +
+                    "Regular={Regular}, Education={Edu}, Employment={Emp}. " +
+                    "CategoryCode check: first tax CategoryCode='{Code}'",
+                    propertyId, regularTaxes.Count, eduTaxCount, empTaxCount,
+                    activeTaxes.FirstOrDefault()?.TaxCategoryMaster?.CategoryCode ?? "NULL(nav not loaded)");
 
-                // 8. Generate tax calculation rows using cached base results
-                _logger.LogDebug("Generating tax calculation rows for {TaxCount} taxes", activeTaxes.Count);
                 var newRows = new List<PropertyTaxCalculationRVResultsEntity>();
+                var now = _timeProvider.GetLocalNow().DateTime;
 
                 foreach (var detail in details)
                 {
                     var baseResult = baseResultsCache[detail.Id];
-                    var typeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
-                    var propertyType = typeOfUse?.Type;
 
-                    // Apply standard taxes (excluding education and employment)
-                    foreach (var tax in activeTaxes)
+                    foreach (var tax in regularTaxes)
                     {
-                        if (IsEducationTax(tax) || IsEmploymentTax(tax))
-                            continue;
-
                         var taxPct = taxPercentages.FirstOrDefault(x =>
-                            x.TaxId == tax.Id &&
-                            x.TypeOfUseId == detail.TypeOfUseId);
+                            x.TaxId == tax.Id && x.TypeOfUseId == detail.TypeOfUseId);
+
+                        if (taxPct == null)
+                            _logger.LogWarning(
+                                "No TaxPercentage found for TaxId={TaxId} ({TaxCode}), " +
+                                "TypeOfUseId={TypeOfUseId}, YearRangeRVId={YearRangeId}. " +
+                                "Tax amount will be zero for PropertyDetailsId={DetailId}.",
+                                tax.Id, tax.TaxCode, detail.TypeOfUseId, yearRange.Id, detail.Id);
 
                         var row = RateableValueTaxCalculator.ApplyTax(baseResult, tax, taxPct);
-                        var taxMaster = activeTaxes.FirstOrDefault(t => t.Id == tax.Id);
-                        row.TaxMaster = taxMaster;
-                        row.IsActive = true;
+                        // Do NOT set row.TaxMaster — assigning an AsNoTracking entity as a navigation
+                        // property on a new (Added) entity causes EF to attempt INSERT on TaxMaster.
+                        // TaxId (FK) is already set by ApplyTax; that is sufficient for persistence.
+                        row.IsActive          = true;
                         row.MarkedForDeletion = false;
-                        row.CreatedDate = DateTime.Now;
-                        row.UpdatedDate = DateTime.Now;
-
+                        row.CreatedDate       = now;
+                        row.UpdatedDate       = now;
                         newRows.Add(row);
                     }
                 }
 
-                // 9. Education and Employment tax (grouped by propertyType)
+                // 10. Education and Employment tax — grouped by property type (R/C)
                 var propertyTypes = details
                     .Select(d => typeOfUses.FirstOrDefault(x => x.Id == d.TypeOfUseId)?.Type)
                     .Where(t => !string.IsNullOrWhiteSpace(t))
                     .Distinct()
                     .ToList();
 
-                var educationTaxMaster = activeTaxes.FirstOrDefault(IsEducationTax);
+                var educationTaxMaster  = activeTaxes.FirstOrDefault(IsEducationTax);
                 var employmentTaxMaster = activeTaxes.FirstOrDefault(IsEmploymentTax);
 
                 foreach (var propType in propertyTypes)
                 {
-                    // Get all details of this propertyType
                     var detailsOfType = details
                         .Where(d => string.Equals(
                             typeOfUses.FirstOrDefault(x => x.Id == d.TypeOfUseId)?.Type,
@@ -289,20 +364,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             StringComparison.OrdinalIgnoreCase))
                         .ToList();
 
-                    // Calculate tax base based on policy: RateableValue or AnnualRentalValue
-                    decimal taxBase;
-                    if (policyOptions.IsEducationEmploymentTaxOnRV)
-                    {
-                        // Sum RateableValue for this propertyType
-                        taxBase = detailsOfType.Sum(d => baseResultsCache[d.Id].RateableValue ?? 0m);
-                    }
-                    else
-                    {
-                        // Sum AnnualRentalValue for this propertyType (default behavior)
-                        taxBase = detailsOfType.Sum(d => (decimal)(baseResultsCache[d.Id].AnnualRentalValue ?? 0d));
-                    }
+                    decimal taxBase = policyOptions.IsEducationEmploymentTaxOnRV
+                        ? detailsOfType.Sum(d => baseResultsCache[d.Id].RateableValue ?? 0m)
+                        : detailsOfType.Sum(d => baseResultsCache[d.Id].AnnualRentalValue ?? 0m);
 
-                    // Education Tax
                     if (educationTaxMaster != null)
                     {
                         var slab = educationTaxSlabs.FirstOrDefault(x =>
@@ -314,49 +379,13 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         {
                             var pct = slab.Rate ?? 0m;
                             var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
-
                             foreach (var d in detailsOfType)
-                            {
-                                var baseResult = baseResultsCache[d.Id];
-
-                                var row = new PropertyTaxCalculationRVResultsEntity
-                                {
-                                    PropertyId = baseResult.PropertyId,
-                                    PropertyDetailsId = baseResult.PropertyDetailsId,
-                                    MonthlyRate = baseResult.MonthlyRate,
-                                    YearlyRate = baseResult.YearlyRate,
-                                    YearlyRent = baseResult.YearlyRent,
-                                    Depreciation = baseResult.Depreciation,
-                                    DepreciationPer = baseResult.DepreciationPer,
-                                    AppliedOn = baseResult.AppliedOn,
-                                    AnnualRentalValue = baseResult.AnnualRentalValue,
-                                    Maintenance = baseResult.Maintenance,
-                                    RateableValue = baseResult.RateableValue,
-                                    TotalAreaSqMtr = baseResult.TotalAreaSqMtr,
-                                    RAreaSqMtr = baseResult.RAreaSqMtr,
-                                    CAreaSqlMtr = baseResult.CAreaSqlMtr,
-                                    TaxId = educationTaxMaster.Id,
-                                    TaxPercentage = pct,
-                                    TaxAmount = amt,
-                                    REducationTax = string.Equals(propType, "R", StringComparison.OrdinalIgnoreCase) ? amt : 0m,
-                                    CEducationTax = string.Equals(propType, "C", StringComparison.OrdinalIgnoreCase) ? amt : 0m,
-                                    REducationTaxPercentage = string.Equals(propType, "R", StringComparison.OrdinalIgnoreCase) ? pct : 0m,
-                                    CEducationTaxPercentage = string.Equals(propType, "C", StringComparison.OrdinalIgnoreCase) ? pct : 0m,
-                                    REmploymentTax = 0m,
-                                    CEmploymentTax = 0m,
-                                    REmploymentTaxPercentage = 0m,
-                                    CEmploymentTaxPercentage = 0m,
-                                    IsActive = true,
-                                    MarkedForDeletion = false,
-                                    CreatedDate = DateTime.Now,
-                                    UpdatedDate = DateTime.Now
-                                };
-                                newRows.Add(row);
-                            }
+                                newRows.Add(BuildSpecialTaxRow(
+                                    baseResultsCache[d.Id], educationTaxMaster, propType!, pct, amt,
+                                    isEducation: true, now));
                         }
                     }
 
-                    // Employment Tax
                     if (employmentTaxMaster != null)
                     {
                         var slab = employmentTaxSlabs.FirstOrDefault(x =>
@@ -368,407 +397,181 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         {
                             var pct = slab.Rate ?? 0m;
                             var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
-
                             foreach (var d in detailsOfType)
-                            {
-                                var baseResult = baseResultsCache[d.Id];
-
-                                var row = new PropertyTaxCalculationRVResultsEntity
-                                {
-                                    PropertyId = baseResult.PropertyId,
-                                    PropertyDetailsId = baseResult.PropertyDetailsId,
-                                    MonthlyRate = baseResult.MonthlyRate,
-                                    YearlyRate = baseResult.YearlyRate,
-                                    YearlyRent = baseResult.YearlyRent,
-                                    Depreciation = baseResult.Depreciation,
-                                    DepreciationPer = baseResult.DepreciationPer,
-                                    AppliedOn = baseResult.AppliedOn,
-                                    AnnualRentalValue = baseResult.AnnualRentalValue,
-                                    Maintenance = baseResult.Maintenance,
-                                    RateableValue = baseResult.RateableValue,
-                                    TotalAreaSqMtr = baseResult.TotalAreaSqMtr,
-                                    RAreaSqMtr = baseResult.RAreaSqMtr,
-                                    CAreaSqlMtr = baseResult.CAreaSqlMtr,
-                                    TaxId = employmentTaxMaster.Id,
-                                    TaxPercentage = pct,
-                                    TaxAmount = amt,
-                                    REducationTax = 0m,
-                                    CEducationTax = 0m,
-                                    REducationTaxPercentage = 0m,
-                                    CEducationTaxPercentage = 0m,
-                                    REmploymentTax = string.Equals(propType, "R", StringComparison.OrdinalIgnoreCase) ? amt : 0m,
-                                    CEmploymentTax = string.Equals(propType, "C", StringComparison.OrdinalIgnoreCase) ? amt : 0m,
-                                    REmploymentTaxPercentage = string.Equals(propType, "R", StringComparison.OrdinalIgnoreCase) ? pct : 0m,
-                                    CEmploymentTaxPercentage = string.Equals(propType, "C", StringComparison.OrdinalIgnoreCase) ? pct : 0m,
-                                    IsActive = true,
-                                    MarkedForDeletion = false,
-                                    CreatedDate = DateTime.Now,
-                                    UpdatedDate = DateTime.Now
-                                };
-                                newRows.Add(row);
-                            }
+                                newRows.Add(BuildSpecialTaxRow(
+                                    baseResultsCache[d.Id], employmentTaxMaster, propType!, pct, amt,
+                                    isEducation: false, now));
                         }
                     }
                 }
 
-                // Wrap all persistence operations in a single transaction to ensure atomicity
+                // 11. Total RV across all details (each detail contributes its RV once)
+                decimal totalRv = baseResultsCache.Values.Sum(r => r.RateableValue ?? 0m);
+
+                _logger.LogInformation(
+                    "Row summary for PropertyId={PropertyId}: TotalRows={Total}, TotalRV={TotalRv}",
+                    propertyId, newRows.Count, totalRv);
+
+                if (newRows.Count == 0)
+                    _logger.LogWarning(
+                        "PropertyId={PropertyId}: 0 tax rows generated. " +
+                        "Likely causes: no active taxes, no matching TaxPercentages for YearRangeId={YearRangeId}, " +
+                        "or no rates for RateSectionId={RateSectionId}.",
+                        propertyId, yearRange.Id, rateSectionId);
+
+                // 12. Persist all results in a single transaction
                 await _unitOfWork.BeginTransactionAsync();
                 try
                 {
-                    await ReplaceExistingResults(propertyId, newRows, saveChanges: false);
-                    _logger.LogInformation("Persisting {RowCount} tax calculation rows for PropertyId={PropertyId}",
+                    await _persistenceService.ReplaceExistingResultsAsync(propertyId, newRows);
+
+                    _logger.LogInformation(
+                        "Persisting {RowCount} tax calculation rows for PropertyId={PropertyId}",
                         newRows.Count, propertyId);
 
-                    // Save to both PolicyTaxDetails and TransmastRV tables in single transaction
-                    await SavePolicyAndTransmastRV(propertyId, financeYear, yearMasterId, newRows,
-                        educationTaxMaster?.Id, employmentTaxMaster?.Id, saveChanges: false);
+                    var savedPolicyRecords = await _persistenceService.SavePolicyAndTransmastRVAsync(
+                        propertyId, financeYear, yearMasterId, newRows, totalRv,
+                        educationTaxMaster?.Id, employmentTaxMaster?.Id);
 
-                    // Single SaveChanges and Commit for all operations - atomic transaction
                     await _unitOfWork.SaveChangesAsync();
                     await _unitOfWork.CommitTransactionAsync();
-                    _logger.LogInformation("Policy and TransmastRV rows saved successfully for PropertyId={PropertyId}", propertyId);
+
+                    _logger.LogInformation(
+                        "Policy and TransmastRV rows saved for PropertyId={PropertyId}", propertyId);
+
+                    // 13. Build response from in-memory data (no extra DB round-trip)
+                    var occupancies = await _occupancyRepo.GetQueryable()
+                        .Where(x => detailIds.Contains(x.PropertyDetailId) && x.IsActive && !x.MarkedForDeletion)
+                        .ToListAsync();
+
+                    var taxMasterCache = new TaxGetterCache<TaxMasterEntity>(
+                        activeTaxes,
+                        x => x.Id,
+                        x => string.IsNullOrWhiteSpace(x.TaxNameAlias) ? x.TaxName : x.TaxNameAlias!);
+
+                    var response = RateableValueResponseMapper.Map(
+                        propertyId, financeYear, details, newRows, savedPolicyRecords,
+                        floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
+                        renters, occupancies, taxMasterCache);
+
+                    LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
+                        { { "PropertyId", propertyId.ToString() } });
+                    LogMetric("TaxCalculation.TotalRV", (double)response.TotalRateableValue, new Dictionary<string, string>
+                        { { "PropertyId", propertyId.ToString() } });
+
+                    _logger.LogInformation(
+                        "RV calculation completed for PropertyId={PropertyId}, TotalTax={TotalTax}, " +
+                        "TotalRV={TotalRV}, Duration={DurationMs}ms",
+                        propertyId, response.TotalTax, response.TotalRateableValue,
+                        operationStopwatch.ElapsedMilliseconds);
+
+                    return response;
                 }
                 catch (Exception ex)
                 {
                     await _unitOfWork.RollbackTransactionAsync();
-                    _logger.LogError(ex, "Failed to save tax calculation results for PropertyId={PropertyId}. Transaction rolled back.", propertyId);
+                    _logger.LogError(ex,
+                        "Failed to save RV results for PropertyId={PropertyId}. Transaction rolled back.",
+                        propertyId);
                     throw;
                 }
-
-                // Response Mapping - Load policy rows
-                var policyRows = await _policyTaxRepo.GetQueryable()
-                .Include(x => x.TaxMaster)
-                .Where(x => x.PropertyId == propertyId &&
-                            x.PolicyYear == financeYear &&
-                            x.PolicyCode == "NETTAX" &&
-                            x.IsActive &&
-                            !x.MarkedForDeletion)
-                .ToListAsync();
-
-                var taxMasterCache = new TaxGetterCache<TaxMasterEntity>(
-                    activeTaxes,
-                    x => x.Id,
-                    x => string.IsNullOrWhiteSpace(x.TaxNameAlias) ? x.TaxName : x.TaxNameAlias!
-                );
-
-                // Load occupancies
-                var occupancies = propertyContext.Occupancies.ToList();
-
-                // Load old property data (not used but kept for future reference)
-                var oldProperty = await _oldPropertyRepo.GetQueryable()
-                    .AsNoTracking()
-                    .Where(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion)
-                    .OrderByDescending(x => x.Id)
-                    .FirstOrDefaultAsync();
-
-                decimal oldTotalRv = oldProperty?.OldRV != null
-                    ? Convert.ToDecimal(oldProperty.OldRV)
-                    : 0m;
-
-                decimal oldTotalTax = oldProperty?.OldTotalTax != null
-                    ? Convert.ToDecimal(oldProperty.OldTotalTax)
-                    : 0m;
-
-
-                var response = RateableValueResponseMapper.Map(
-                    propertyId,
-                    financeYear,
-                    details,
-                    newRows,
-                    policyRows,
-                    floors,
-                    constructionTypes,
-                    typeOfUses,
-                    subTypeOfUses,
-                    subFloors,
-                    renters,
-                    occupancies,
-                    taxMasterCache
-    );
-
-                LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
-            {
-                { "PropertyId", propertyId.ToString() }
-            });
-
-                LogMetric("TaxCalculation.TotalRV", (double)response.TotalRateableValue, new Dictionary<string, string>
-            {
-                { "PropertyId", propertyId.ToString() }
-            });
-
-                _logger.LogInformation("RV tax calculation completed for PropertyId={PropertyId}, TotalTax={TotalTax}, TotalRV={TotalRV}, Duration={DurationMs}ms",
-                    propertyId, response.TotalTax, response.TotalRateableValue, operationStopwatch.ElapsedMilliseconds);
-
-                return response;
             }
             catch (Exception ex)
             {
                 operationStopwatch.Stop();
 
-                // P3: Log failure metric
                 LogMetric("TaxCalculation.Failed", 1, new Dictionary<string, string>
                 {
-                    { "PropertyId", propertyId.ToString() },
-                    { "ErrorType", ex.GetType().Name },
-                    { "DurationMs", operationStopwatch.ElapsedMilliseconds.ToString() }
+                    { "PropertyId",  propertyId.ToString() },
+                    { "ErrorType",   ex.GetType().Name },
+                    { "DurationMs",  operationStopwatch.ElapsedMilliseconds.ToString() }
                 });
 
-                _logger.LogError(ex, "RV tax calculation failed for PropertyId={PropertyId} after {DurationMs}ms",
+                _logger.LogError(ex,
+                    "RV calculation failed for PropertyId={PropertyId} after {DurationMs}ms",
                     propertyId, operationStopwatch.ElapsedMilliseconds);
 
                 throw;
             }
         }
 
-        private bool IsEducationTax(TaxMasterEntity tax)
-        {
-            var taxCode = (tax.TaxCode ?? string.Empty).Trim().ToUpperInvariant();
-            var taxName = (tax.TaxName ?? string.Empty).Trim().ToUpperInvariant();
-            var taxAlias = (tax.TaxNameAlias ?? string.Empty).Trim().ToUpperInvariant();
+        // ── Tax classification ───────────────────────────────────────────────────────────
+        // Compare against PTIS.TaxCategoryMaster.CategoryCode (loaded via Include in
+        // GetActiveTaxesAsync). Using CategoryCode avoids dependency on surrogate key values
+        // that differ across environments.
 
-            return taxCode.Contains("EDU") ||
-                   taxName.Contains("EDUCATION") ||
-                   taxAlias.Contains("EDUCATION");
-        }
+        /// <summary>Returns true when the tax belongs to the Education category (CategoryCode = "EDU").</summary>
+        private static bool IsEducationTax(TaxMasterEntity tax) =>
+            string.Equals(
+                tax.TaxCategoryMaster?.CategoryCode, "EDU",
+                StringComparison.OrdinalIgnoreCase);
 
-        private bool IsEmploymentTax(TaxMasterEntity tax)
-        {
-            var taxCode = (tax.TaxCode ?? string.Empty).Trim().ToUpperInvariant();
-            var taxName = (tax.TaxName ?? string.Empty).Trim().ToUpperInvariant();
-            var taxAlias = (tax.TaxNameAlias ?? string.Empty).Trim().ToUpperInvariant();
+        /// <summary>Returns true when the tax belongs to the Employment category (CategoryCode = "EMP").</summary>
+        private static bool IsEmploymentTax(TaxMasterEntity tax) =>
+            string.Equals(
+                tax.TaxCategoryMaster?.CategoryCode, "EMP",
+                StringComparison.OrdinalIgnoreCase);
 
-            return taxCode.Contains("EMP") ||
-                   taxName.Contains("EMPLOYMENT") ||
-                   taxAlias.Contains("EMPLOYMENT");
-        }
-
-        private bool IsSlabMatch(decimal value, decimal? min, decimal? max)
+        private static bool IsSlabMatch(decimal value, decimal? min, decimal? max)
         {
             var minOk = !min.HasValue || value >= min.Value;
             var maxOk = !max.HasValue || value <= max.Value;
             return minOk && maxOk;
         }
 
-        private async Task ReplaceExistingResults(int propertyId, List<PropertyTaxCalculationRVResultsEntity> newRows, bool saveChanges = true)
+        // ── Row builders ─────────────────────────────────────────────────────────────────
+
+        private static PropertyTaxCalculationRVResultsEntity BuildSpecialTaxRow(
+            PropertyTaxCalculationRVResultsEntity baseResult,
+            TaxMasterEntity taxMaster,
+            string propType,
+            decimal percentage,
+            decimal amount,
+            bool isEducation,
+            DateTime now)
         {
-            var oldRows = await _taxResultsRepo.GetQueryable()
-                .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
-                .ToListAsync();
+            bool isR = string.Equals(propType, "R", StringComparison.OrdinalIgnoreCase);
+            bool isC = string.Equals(propType, "C", StringComparison.OrdinalIgnoreCase);
 
-            foreach (var row in oldRows)
+            return new PropertyTaxCalculationRVResultsEntity
             {
-                row.IsActive = false;
-                row.MarkedForDeletion = true;
-                row.MarkedForDeletionDate = DateTime.Now;
-                row.UpdatedDate = DateTime.Now;
-                await _taxResultsRepo.UpdateAsync(row);
-            }
-
-            foreach (var row in newRows)
-            {
-                row.IsActive = true;
-                row.MarkedForDeletion = false;
-                row.MarkedForDeletionDate = null;
-                row.CreatedDate = DateTime.Now;
-                row.UpdatedDate = DateTime.Now;
-            }
-
-            await _taxResultsRepo.AddRangeAsync(newRows);
-
-            if (saveChanges)
-            {
-                await _unitOfWork.SaveChangesAsync();
-            }
+                PropertyId            = baseResult.PropertyId,
+                PropertyDetailsId     = baseResult.PropertyDetailsId,
+                MonthlyRate           = baseResult.MonthlyRate,
+                YearlyRate            = baseResult.YearlyRate,
+                YearlyRent            = baseResult.YearlyRent,
+                Depreciation          = baseResult.Depreciation,
+                DepreciationPer       = baseResult.DepreciationPer,
+                AppliedOn             = baseResult.AppliedOn,
+                AnnualRentalValue     = baseResult.AnnualRentalValue,
+                Maintenance           = baseResult.Maintenance,
+                RateableValue         = baseResult.RateableValue,
+                TotalAreaSqMtr        = baseResult.TotalAreaSqMtr,
+                RAreaSqMtr            = baseResult.RAreaSqMtr,
+                CAreaSqlMtr           = baseResult.CAreaSqlMtr,
+                TaxId                 = taxMaster.Id,
+                TaxPercentage         = percentage,
+                TaxAmount             = amount,
+                REducationTax         = isEducation && isR ? amount : 0m,
+                CEducationTax         = isEducation && isC ? amount : 0m,
+                REducationTaxPercentage  = isEducation && isR ? percentage : 0m,
+                CEducationTaxPercentage  = isEducation && isC ? percentage : 0m,
+                REmploymentTax        = !isEducation && isR ? amount : 0m,
+                CEmploymentTax        = !isEducation && isC ? amount : 0m,
+                REmploymentTaxPercentage = !isEducation && isR ? percentage : 0m,
+                CEmploymentTaxPercentage = !isEducation && isC ? percentage : 0m,
+                IsActive              = true,
+                MarkedForDeletion     = false,
+                CreatedDate           = now,
+                UpdatedDate           = now
+            };
         }
 
+        // ── Metrics ──────────────────────────────────────────────────────────────────────
 
-        private async Task SavePolicyAndTransmastRV(
-            int propertyId,
-            int financeYear,
-            int yearMasterId,
-            List<PropertyTaxCalculationRVResultsEntity> detailRows,
-            int? educationTaxId,
-            int? employmentTaxId,
-            bool saveChanges = true)
-        {
-            _logger.LogDebug("Saving policy and TransmastRV records for PropertyId={PropertyId}, Year={Year}, YearMasterId={YearMasterId}",
-                propertyId, financeYear, yearMasterId);
-
-            // ===== STEP 1: Deactivate old records from BOTH tables =====
-
-            // Deactivate old PolicyTaxDetails records
-            var oldPolicyRows = await _policyTaxRepo.GetQueryable()
-                .Where(x => x.PropertyId == propertyId &&
-                            x.PolicyYear == financeYear &&
-                            x.PolicyCode == "NETTAX" &&
-                            x.IsActive &&
-                            !x.MarkedForDeletion)
-                .ToListAsync();
-
-            foreach (var row in oldPolicyRows)
-            {
-                row.IsActive = false;
-                row.MarkedForDeletion = true;
-                row.MarkedForDeletionDate = DateTime.Now;
-                row.UpdatedDate = DateTime.Now;
-                await _policyTaxRepo.UpdateAsync(row);
-            }
-
-            // Deactivate old TransmastRV records (using YearMaster.Id)
-            var oldTransmastRecords = await _transmastRVRepo.GetQueryable()
-                .Where(x => x.PropertyId == propertyId
-                         && x.FinanceYearId == yearMasterId
-                         && x.IsActive
-                         && !x.MarkedForDeletion)
-                .ToListAsync();
-
-            foreach (var record in oldTransmastRecords)
-            {
-                record.IsActive = false;
-                record.MarkedForDeletion = true;
-                record.MarkedForDeletionDate = DateTime.Now;
-                record.UpdatedDate = DateTime.Now;
-                await _transmastRVRepo.UpdateAsync(record);
-            }
-
-            _logger.LogDebug("Deactivated {PolicyCount} policy and {TransCount} transmast records",
-                oldPolicyRows.Count, oldTransmastRecords.Count);
-
-            // ===== STEP 2: Calculate totals and group by TaxId =====
-
-            var totalRv = detailRows
-                .GroupBy(x => x.PropertyDetailsId)
-                .Sum(g => g.First().RateableValue ?? 0m);
-
-            var taxGroups = detailRows
-                .Where(x => x.TaxId > 0)
-                .OrderBy(x => x.TaxId)
-                .GroupBy(x => x.TaxId)
-                .ToList();
-
-            if (!taxGroups.Any())
-            {
-                _logger.LogWarning("No tax groups found for PropertyId={PropertyId}", propertyId);
-                if (saveChanges)
-                {
-                    await _unitOfWork.SaveChangesAsync();
-                }
-                return;
-            }
-
-            // ===== STEP 3: Create new records for BOTH tables =====
-
-            var newPolicyRecords = new List<PolicyTaxDetailsEntity>();
-            var newTransmastRecords = new List<TransMastRVEntity>();
-            var now = DateTime.Now;
-
-            foreach (var taxGroup in taxGroups)
-            {
-                var taxId = taxGroup.Key;
-
-                // Apply MAX aggregation for education/employment taxes (avoids double-counting)
-                // Use SUM for all other taxes
-                bool isEducationOrEmployment = (educationTaxId.HasValue && taxId == educationTaxId.Value) ||
-                                               (employmentTaxId.HasValue && taxId == employmentTaxId.Value);
-
-                decimal taxAmount = isEducationOrEmployment
-                    ? taxGroup.Max(x => x.TaxAmount ?? 0m)
-                    : taxGroup.Sum(x => x.TaxAmount ?? 0m);
-
-                // Create PolicyTaxDetails record
-                var policyRecord = new PolicyTaxDetailsEntity
-                {
-                    PropertyId = propertyId,
-                    PolicyCode = "NETTAX",
-                    PolicyDate = now,
-                    PolicyYear = (short)financeYear,
-                    PolicyRVorCVvalue = totalRv,
-                    TaxId = taxId,
-                    TaxAmount = taxAmount,
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    MarkedForDeletionDate = null,
-                    CreatedDate = now,
-                    UpdatedDate = now
-                };
-
-                // Create matching TransmastRV record (using YearMaster.Id)
-                var transmastRecord = new TransMastRVEntity
-                {
-                    PropertyId = propertyId,
-                    FinanceYearId = yearMasterId,
-                    TaxId = taxId,
-                    TaxAmount = taxAmount,
-                    RateableValue = totalRv,
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    CreatedDate = now,
-                    UpdatedDate = now
-                };
-
-                newPolicyRecords.Add(policyRecord);
-                newTransmastRecords.Add(transmastRecord);
-            }
-
-            // ===== STEP 4: Save both sets of records in single transaction =====
-
-            if (newPolicyRecords.Any())
-            {
-                await _policyTaxRepo.AddRangeAsync(newPolicyRecords);
-            }
-
-            if (newTransmastRecords.Any())
-            {
-                await _transmastRVRepo.AddRangeAsync(newTransmastRecords);
-            }
-
-            // Save changes only if requested (when not part of outer transaction)
-            if (saveChanges)
-            {
-                await _unitOfWork.SaveChangesAsync();
-            }
-
-            _logger.LogInformation(
-                "Saved {PolicyCount} policy and {TransCount} transmast records for PropertyId={PropertyId}, Year={Year}",
-                newPolicyRecords.Count, newTransmastRecords.Count, propertyId, financeYear);
-        }
-
-
-
-
-
-        private int GetFinanceYear()
-        {
-            var today = DateTime.Today;
-            return today.Month >= 4 ? today.Year : today.Year - 1;
-        }
-
-
-
-        /// <summary>
-        /// P3: Logs custom metrics for Application Insights / monitoring dashboards.
-        /// These structured logs can be queried and visualized in monitoring systems.
-        /// </summary>
         private void LogMetric(string metricName, double value, Dictionary<string, string>? properties = null)
         {
-            var logEntry = new Dictionary<string, object>
-            {
-                { "MetricName", metricName },
-                { "Value", value },
-                { "Timestamp", DateTime.UtcNow }
-            };
-
-            if (properties != null)
-            {
-                foreach (var prop in properties)
-                {
-                    logEntry[$"Property_{prop.Key}"] = prop.Value;
-                }
-            }
-
-            // P3: Structured logging for metrics (Application Insights automatically picks up these logs)
-            _logger.LogInformation(
-                "[Metric] {MetricName} = {Value} {@Properties}",
+            _logger.LogInformation("[Metric] {MetricName} = {Value} {@Properties}",
                 metricName, value, properties ?? new Dictionary<string, string>());
         }
     }

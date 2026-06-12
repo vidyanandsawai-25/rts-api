@@ -11,21 +11,21 @@ using NtisPlatform.Api.Localization;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Configuration;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.FieldConfiguration;
 using NtisPlatform.Application.Interfaces.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Interfaces.FieldConfiguration;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
-using NtisPlatform.Application.Services.Master;
-using NtisPlatform.Application.Services.Rules;
-using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.FieldConfiguration;
+using NtisPlatform.Application.Services.Master;
+using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Application.Services.CapitalValue;
 using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
 using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
@@ -40,6 +40,8 @@ using NtisPlatform.Infrastructure.Repositories.Rules;
 using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
 
 namespace NtisPlatform.Api.Extensions;
 
@@ -191,7 +193,15 @@ public static class ServiceCollectionExtensions
         services.Configure<CapitalValueOptions>(configuration.GetSection(CapitalValueOptions.SectionName));
         services.AddScoped<IDualMethodService, DualMethodService>();
         services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
-        services.AddScoped<NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.ITaxMasterDataService,
+                       NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
+
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVRuleApplicator,
+                           NtisPlatform.Application.Services.TaxEngine.RVRuleApplicator>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVPersistenceService,
+                           NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<NtisPlatform.Application.Interfaces.IFinanceYearProvider, NtisPlatform.Application.Services.SystemFinanceYearProvider>();
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IPolicyConfigurationService, PolicyConfigurationService>();
         services.AddScoped<ICombinePropertyService, CombinePropertyService>();
@@ -333,6 +343,8 @@ public static class ServiceCollectionExtensions
         // RateLookupApplicator is Scoped because it depends on IRepository (DbContext-bound)
         services.AddScoped<IRuleEffectApplicator, RateLookupApplicator>();
         services.AddScoped<ITaxMasterService, TaxMasterService>();
+        services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
+        services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
 
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
