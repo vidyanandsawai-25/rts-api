@@ -3117,4 +3117,114 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
     }
 
     #endregion
+
+    #region TaxTotal Tests
+
+    [Fact]
+    public async Task CreateAndUpdateOldTaxesDetailsAsync_WithTaxTotalConfigured_CalculatesDynamicallyAndExcludesFromTotal()
+    {
+        // 1. Arrange
+        // Add TaxTotal to the context
+        var taxTotalConfig = new TaxMasterEntity
+        {
+            Id = 21,
+            TaxCode = "TOTAL",
+            TaxName = "TaxTotal",
+            TaxNameAlias = "TaxTotal",
+            TaxCategoryId = 1,
+            OldTaxStatus = true,
+            IsActive = true,
+            DisplayOrder = 5
+        };
+        _context.TaxMaster.Add(taxTotalConfig);
+        await _context.SaveChangesAsync();
+
+        var property = new PropertyEntity
+        {
+            Id = 500,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "TAX500",
+            PropertyMastOldId = null,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // 2. Test CreateOldTaxesDetailsAsync
+        var createDto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1, // Year 2020-21
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 100m }, // Property Tax
+                        new() { TaxId = 2, TaxAmount = 50m },  // Water Tax
+                        new() { TaxId = 3, TaxAmount = 10m },  // Interest (should be excluded from TaxTotal)
+                        new() { TaxId = 21, TaxAmount = 0m }   // TaxTotal (should be calculated dynamically)
+                    }
+                }
+            }
+        };
+
+        var createResult = await _repository.CreateOldTaxesDetailsAsync(500, createDto, CancellationToken.None);
+
+        // Assert Create Results
+        Assert.NotNull(createResult);
+        var createdYear = createResult.TaxYears.FirstOrDefault(y => y.FinanceYearId == 1);
+        Assert.NotNull(createdYear);
+        var createdTaxTotal = createdYear.Taxes.FirstOrDefault(t => t.TaxId == 21);
+        Assert.NotNull(createdTaxTotal);
+        // TaxTotal should be dynamic sum of other taxes (Property Tax 100 + Water Tax 50 = 150. Excludes Interest 10)
+        Assert.Equal(150m, createdTaxTotal.TaxAmount);
+
+        // Verify that PropertyMastOld.OldTotalTax excludes TaxTotal (Property Tax 100 + Water Tax 50 = 150. Excludes Interest 10, and excludes TaxTotal itself)
+        var updatedProperty = await _context.PropertyMast.FindAsync(500);
+        Assert.NotNull(updatedProperty);
+        Assert.NotNull(updatedProperty.PropertyMastOldId);
+        var mastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        Assert.NotNull(mastOld);
+        Assert.Equal(150.0, mastOld.OldTotalTax);
+
+        // 3. Test UpdateOldTaxesDetailsAsync
+        var updateDto = new UpdatePropertyOldTaxesDetailsDto
+        {
+            TaxYears = new List<UpdateOldTaxYearDto>
+            {
+                new()
+                {
+                    FinanceYearId = 1,
+                    Taxes = new List<UpdateTaxDetailDto>
+                    {
+                        new() { TaxId = 1, TaxAmount = 200m }, // Property Tax updated
+                        new() { TaxId = 2, TaxAmount = 100m }, // Water Tax updated
+                        new() { TaxId = 3, TaxAmount = 15m },  // Interest updated
+                        new() { TaxId = 21, TaxAmount = 0m }   // TaxTotal updated
+                    }
+                }
+            }
+        };
+
+        var updateResult = await _repository.UpdateOldTaxesDetailsAsync(500, updateDto, CancellationToken.None);
+
+        // Assert Update Results
+        Assert.NotNull(updateResult);
+        var updatedYear = updateResult.TaxYears.FirstOrDefault(y => y.FinanceYearId == 1);
+        Assert.NotNull(updatedYear);
+        var updatedTaxTotal = updatedYear.Taxes.FirstOrDefault(t => t.TaxId == 21);
+        Assert.NotNull(updatedTaxTotal);
+        // TaxTotal should be dynamic sum of other taxes (Property Tax 200 + Water Tax 100 = 300. Excludes Interest 15)
+        Assert.Equal(300m, updatedTaxTotal.TaxAmount);
+
+        // Verify that PropertyMastOld.OldTotalTax excludes TaxTotal (Property Tax 200 + Water Tax 100 = 300. Excludes Interest 15, and excludes TaxTotal itself)
+        var updatedMastOld = await _context.PropertyMastOld.FindAsync(updatedProperty.PropertyMastOldId);
+        Assert.NotNull(updatedMastOld);
+        Assert.Equal(300.0, updatedMastOld.OldTotalTax);
+    }
+
+    #endregion
 }

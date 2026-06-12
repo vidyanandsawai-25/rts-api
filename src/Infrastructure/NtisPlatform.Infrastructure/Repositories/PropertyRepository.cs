@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Core.Constants;
@@ -707,12 +707,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
                                             t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
 
-            // Calculate Total Tax (excluding Interest)
+            var taxTotalTaxId = oldTaxes.FirstOrDefault(t =>
+                t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+                (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+            // Calculate Total Tax (excluding Interest and TaxTotal)
             var totalTaxFromTransMastOld = await _context.TransMastOld
                 .Where(t => t.PropertyMastOldId == propertyMastOldId &&
                            t.IsActive &&
                            !t.MarkedForDeletion &&
-                           (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                           (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value) &&
+                           (!taxTotalTaxId.HasValue || t.TaxId != taxTotalTaxId.Value))
                 .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
 
             oldTotalTax = totalTaxFromTransMastOld;
@@ -1092,10 +1097,14 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         int? year = null;
         string? yearCode = null;
         Dictionary<int, decimal>? transactionLookup = null;
+        PropertyMastOldEntity? oldMastData = null;
 
         if (property.PropertyMastOldId.HasValue)
         {
             var propertyMastOldId = property.PropertyMastOldId.Value;
+            oldMastData = await _context.PropertyMastOld
+                .Where(x => x.Id == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
+                .FirstOrDefaultAsync(cancellationToken);
 
             // First, get distinct FinanceYearId values, then join with YearMaster (optimized: prevents duplicate joins)
             // Use left join to handle orphaned FinanceYearId rows without matching YearMaster
@@ -1143,6 +1152,36 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             }
         }
 
+        // Identify special taxes to calculate TaxTotal dynamically
+        var interestTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        var taxTotalTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        decimal? taxTotalAmount = null;
+        if (transactionLookup != null)
+        {
+            decimal sum = 0m;
+            foreach (var tax in oldTaxes)
+            {
+                if (tax.Id != interestTaxId && (!taxTotalTaxId.HasValue || tax.Id != taxTotalTaxId.Value))
+                {
+                    if (transactionLookup.TryGetValue(tax.Id, out var amount))
+                    {
+                        sum += amount;
+                    }
+                }
+            }
+            taxTotalAmount = sum;
+        }
+        else if (oldMastData?.OldTotalTax != null)
+        {
+            taxTotalAmount = (decimal)oldMastData.OldTotalTax.Value;
+        }
+
         // Step 5: Build result with year data (null if no records exist)
         var taxes = new List<TaxDetailDto>();
 
@@ -1150,7 +1189,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         {
             // Get tax amount from existing data or default to 0
             var taxAmount = 0m;
-            if (transactionLookup != null && transactionLookup.TryGetValue(tax.Id, out var amount))
+            if (taxTotalTaxId.HasValue && tax.Id == taxTotalTaxId.Value)
+            {
+                taxAmount = taxTotalAmount ?? 0m;
+            }
+            else if (transactionLookup != null && transactionLookup.TryGetValue(tax.Id, out var amount))
             {
                 taxAmount = amount;
             }
@@ -1201,6 +1244,44 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         if (property == null)
             return null;
+
+        // NEW: Adjust TaxTotal amounts in the incoming dto before validation and processing
+        var oldTaxesConfig = await _context.TaxMaster
+            .Where(t => t.OldTaxStatus)
+            .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+            .ToListAsync(cancellationToken);
+
+        var interestTaxIdConfig = oldTaxesConfig.FirstOrDefault(t =>
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        var taxTotalTaxIdConfig = oldTaxesConfig.FirstOrDefault(t =>
+            t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        if (taxTotalTaxIdConfig.HasValue)
+        {
+            foreach (var yearDto in dto.TaxYears)
+            {
+                var yearTotal = yearDto.Taxes
+                    .Where(t => t.TaxId != interestTaxIdConfig && t.TaxId != taxTotalTaxIdConfig.Value)
+                    .Sum(t => t.TaxAmount);
+
+                var taxTotalItem = yearDto.Taxes.FirstOrDefault(t => t.TaxId == taxTotalTaxIdConfig.Value);
+                if (taxTotalItem != null)
+                {
+                    taxTotalItem.TaxAmount = yearTotal;
+                }
+                else
+                {
+                    yearDto.Taxes.Add(new UpdateTaxDetailDto
+                    {
+                        TaxId = taxTotalTaxIdConfig.Value,
+                        TaxAmount = yearTotal
+                    });
+                }
+            }
+        }
 
         // Step 2: Validate finance years exist and are not greater than current year
         var requestedFinanceYearIds = dto.TaxYears.Select(ty => ty.FinanceYearId).ToList();
@@ -1401,12 +1482,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
                                                 t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
 
-                // Calculate Total Tax (excluding Interest)
+                var taxTotalTaxId = oldTaxes.FirstOrDefault(t =>
+                    t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+                    (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+                // Calculate Total Tax (excluding Interest and TaxTotal)
                 var totalTaxFromTransMastOld = await _context.TransMastOld
                     .Where(t => t.PropertyMastOldId == propertyMastOldId &&
                                t.IsActive &&
                                !t.MarkedForDeletion &&
-                               (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                               (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value) &&
+                               (!taxTotalTaxId.HasValue || t.TaxId != taxTotalTaxId.Value))
                     .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
 
                 // Calculate General Tax
@@ -1461,6 +1547,43 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (property == null)
             return null;
 
+        // NEW: Adjust TaxTotal amounts in the incoming dto before validation and processing
+        var oldTaxesConfig = await _context.TaxMaster
+            .Where(t => t.OldTaxStatus)
+            .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+            .ToListAsync(cancellationToken);
+
+        var interestTaxIdConfig = oldTaxesConfig.FirstOrDefault(t =>
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        var taxTotalTaxIdConfig = oldTaxesConfig.FirstOrDefault(t =>
+            t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        if (taxTotalTaxIdConfig.HasValue)
+        {
+            foreach (var yearDto in dto.TaxYears)
+            {
+                var yearTotal = yearDto.Taxes
+                    .Where(t => t.TaxId != interestTaxIdConfig && t.TaxId != taxTotalTaxIdConfig.Value)
+                    .Sum(t => t.TaxAmount);
+
+                var taxTotalItem = yearDto.Taxes.FirstOrDefault(t => t.TaxId == taxTotalTaxIdConfig.Value);
+                if (taxTotalItem != null)
+                {
+                    taxTotalItem.TaxAmount = yearTotal;
+                }
+                else
+                {
+                    yearDto.Taxes.Add(new UpdateTaxDetailDto
+                    {
+                        TaxId = taxTotalTaxIdConfig.Value,
+                        TaxAmount = yearTotal
+                    });
+                }
+            }
+        }
 
         int propertyMastOldId;
 
@@ -1647,12 +1770,17 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
                                         t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
 
-        // Calculate Total Tax (excluding Interest)
+        var taxTotalTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("TaxTotal", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        // Calculate Total Tax (excluding Interest and TaxTotal)
         var totalTaxFromTransMastOld = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == propertyMastOldId &&
                        t.IsActive &&
                        !t.MarkedForDeletion &&
-                       (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                       (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value) &&
+                       (!taxTotalTaxId.HasValue || t.TaxId != taxTotalTaxId.Value))
             .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
 
         // Calculate General Tax
