@@ -65,6 +65,10 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             ParentAttributeId = attribute.ParentAttributeId,
             IsRequiredWhenParentTrue = attribute.IsRequiredWhenParentTrue,
             IsDiscountApplicable = attribute.IsDiscountApplicable,
+            PhotoTypeId = attribute.PhotoTypeId,
+            IsPhotoRequired = attribute.IsPhotoRequired,
+            IsDocumentRequired = attribute.IsDocumentRequired,
+            IsActive = attribute.IsActive,
 
             // Map existing values
             PropertySocialDetailId = existingValue?.Id,

@@ -132,6 +132,10 @@ public class SocialAttributeHierarchyDto
     public int? ParentAttributeId { get; set; }
     public bool IsRequiredWhenParentTrue { get; set; }
     public bool IsDiscountApplicable { get; set; }
+    public int? PhotoTypeId { get; set; }
+    public bool IsPhotoRequired { get; set; }
+    public bool IsDocumentRequired { get; set; }
+    public bool IsActive { get; set; }
 
     // Current value from PropertySocialDetails
     public int? PropertySocialDetailId { get; set; }

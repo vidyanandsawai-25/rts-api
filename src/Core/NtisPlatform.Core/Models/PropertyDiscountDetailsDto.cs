@@ -45,6 +45,12 @@ public class DiscountAttributeDto
     public int? DocumentBindingId { get; set; }
 
     public string? Remark { get; set; }
+
+    /// <summary>
+    /// Whether this discount attribute is currently active/enabled for this property.
+    /// true = toggle ON, false = toggle OFF (no saved record yet or soft-deleted).
+    /// </summary>
+    public bool IsActive { get; set; }
 }
 
 /// <summary>

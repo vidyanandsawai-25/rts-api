@@ -23,6 +23,12 @@ namespace NtisPlatform.Application.DTOs.Master.SocialAttributeMaster
         public bool? IsDiscountApplicable { get; set; }
 
         [Filterable]
+        public bool? IsPhotoRequired { get; set; }
+
+        [Filterable]
+        public bool? IsDocumentRequired { get; set; }
+
+        [Filterable]
         public bool? IsActive { get; set; }
     }
 }

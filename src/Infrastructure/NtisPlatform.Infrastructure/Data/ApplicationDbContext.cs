@@ -4327,6 +4327,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.ParentAttributeId);
             entity.Property(e => e.IsRequiredWhenParentTrue).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsDiscountApplicable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.PhotoTypeId);
+            entity.Property(e => e.IsPhotoRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsDocumentRequired).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);

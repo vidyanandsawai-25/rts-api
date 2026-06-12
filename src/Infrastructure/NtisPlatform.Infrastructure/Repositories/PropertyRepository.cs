@@ -3996,7 +3996,10 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                     DocumentBindingId = existingValue?.PropertySocialDetail.DocumentBindingId,
 
-                    Remark = existingValue?.PropertySocialDetail.Remark
+                    Remark = existingValue?.PropertySocialDetail.Remark,
+
+                    // true when this property has a saved & active record for this attribute
+                    IsActive = existingValue?.PropertySocialDetail.IsActive ?? false
                 };
             }).ToList()
         };

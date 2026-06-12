@@ -13,5 +13,8 @@ namespace NtisPlatform.Core.Entities.Master
         public int? ParentAttributeId { get; set; }
         public bool IsRequiredWhenParentTrue { get; set; } = false;
         public bool IsDiscountApplicable { get; set; } = false;
+        public int? PhotoTypeId { get; set; }
+        public bool IsPhotoRequired { get; set; } = false;
+        public bool IsDocumentRequired { get; set; } = false;
     }
 }
