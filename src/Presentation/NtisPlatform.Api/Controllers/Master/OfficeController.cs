@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.OfficeMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +14,19 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class OfficeController : ControllerBase
 {
     private readonly IOfficeService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<OfficeController> _logger;
 
-    public OfficeController(IOfficeService service, ILogger<OfficeController> logger)
+    public OfficeController(
+        IOfficeService service,
+        IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
+        ILogger<OfficeController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -39,4 +49,10 @@ public class OfficeController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<OfficeEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }
+

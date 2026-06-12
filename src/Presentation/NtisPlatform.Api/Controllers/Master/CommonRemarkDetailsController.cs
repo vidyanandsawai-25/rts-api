@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.CommonRemarkDetails;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -10,11 +13,19 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class CommonRemarkDetailsController : ControllerBase
 {
     private readonly ICommonRemarkDetailsService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<CommonRemarkDetailsController> _logger;
 
-    public CommonRemarkDetailsController(ICommonRemarkDetailsService service, ILogger<CommonRemarkDetailsController> logger)
+    public CommonRemarkDetailsController(
+        ICommonRemarkDetailsService service,
+        IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
+        ILogger<CommonRemarkDetailsController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -37,4 +48,10 @@ public class CommonRemarkDetailsController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<CommonRemarkDetailsEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
 }
+

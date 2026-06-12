@@ -1004,8 +1004,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkTypeController_GetAll_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkTypeController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var query = new CommonRemarkTypeQueryParameters();
         var pagedResult = new PagedResult<CommonRemarkTypeMasterDtos>(new List<CommonRemarkTypeMasterDtos>(), 0, 1, 10);
@@ -1023,8 +1029,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkTypeController_Delete_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkTypeController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -1039,8 +1051,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkTypeController_GetById_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkTypeController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var dto = new CommonRemarkTypeMasterDtos { Id = 1 };
         mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -1057,8 +1075,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkTypeController_Create_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkTypeController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var createDto = new CreateCommonRemarkTypeMasterDto { RemarkTypeName = "General Remark" };
         var resultDto = new CommonRemarkTypeMasterDtos { Id = 1 };
@@ -1076,8 +1100,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkTypeController_Update_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkTypeMasterService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkTypeController>>();
-        var controller = new CommonRemarkTypeController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkTypeController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var updateDto = new UpdateCommonRemarkTypeMasterDto { RemarkTypeName = "General Remark Updated" };
         var resultDto = new CommonRemarkTypeMasterDtos { Id = 1 };
@@ -1310,8 +1340,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkDetailsController_GetAll_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
-        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkDetailsController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var query = new CommonRemarkDetailsQueryParameters();
         var pagedResult = new PagedResult<CommonRemarkDetailsDtos>(new List<CommonRemarkDetailsDtos>(), 0, 1, 10);
@@ -1329,8 +1365,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkDetailsController_Delete_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
-        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkDetailsController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         mockService.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -1345,8 +1387,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkDetailsController_GetById_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
-        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkDetailsController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var dto = new CommonRemarkDetailsDtos { Id = 1 };
         mockService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -1362,8 +1410,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkDetailsController_Create_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
-        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkDetailsController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var createDto = new CreateCommonRemarkDetailsDto { Remark = "Test Remark Details" };
         var resultDto = new CommonRemarkDetailsDtos { Id = 1 };
@@ -1381,8 +1435,14 @@ public class AllMasterControllersComprehensiveTests
     public async Task CommonRemarkDetailsController_Update_CallsExtensionMethod()
     {
         var mockService = new Mock<ICommonRemarkDetailsService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<CommonRemarkDetailsController>>();
-        var controller = new CommonRemarkDetailsController(mockService.Object, mockLogger.Object);
+        var controller = new CommonRemarkDetailsController(
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object,
+            mockLogger.Object);
 
         var updateDto = new UpdateCommonRemarkDetailsDto { Remark = "Updated Remark Details" };
         var resultDto = new CommonRemarkDetailsDtos { Id = 1 };

@@ -3,19 +3,26 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs.Master.BankMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Entities.Master;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
 
 public class BankMasterControllerTests
 {
-    private static BankMasterController Create(out Mock<IBankMasterService> service)
+    private static BankMasterController Create(
+        out Mock<IBankMasterService> service,
+        Mock<IHardDeleteCleanupService>? cleanupService = null,
+        Mock<IReferenceValidationService>? referenceValidationService = null)
     {
         service = new Mock<IBankMasterService>();
+        var cleanup = cleanupService ?? new Mock<IHardDeleteCleanupService>();
+        var refVal = referenceValidationService ?? new Mock<IReferenceValidationService>();
         var logger = new Mock<ILogger<BankMasterController>>();
-        return new BankMasterController(service.Object, logger.Object);
+        return new BankMasterController(service.Object, cleanup.Object, refVal.Object, logger.Object);
     }
 
     [Fact]
@@ -69,6 +76,30 @@ public class BankMasterControllerTests
         service.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
 
         var result = await controller.Delete(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Purge_WithValidId_ReturnsOk()
+    {
+        var cleanupMock = new Mock<IHardDeleteCleanupService>();
+        cleanupMock.Setup(s => s.ForceHardDeleteAsync<BankMasterEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var controller = Create(out _, cleanupMock);
+
+        var result = await controller.Purge(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Purge_WithInvalidId_ReturnsOk()
+    {
+        var cleanupMock = new Mock<IHardDeleteCleanupService>();
+        cleanupMock.Setup(s => s.ForceHardDeleteAsync<BankMasterEntity, int>(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var controller = Create(out _, cleanupMock);
+
+        var result = await controller.Purge(999, CancellationToken.None);
         Assert.IsType<OkObjectResult>(result);
     }
 }

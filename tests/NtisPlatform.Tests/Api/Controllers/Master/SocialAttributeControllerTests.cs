@@ -4,8 +4,10 @@ using Moq;
 using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs.Master.SocialAttributeMaster;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
 
@@ -15,14 +17,22 @@ namespace NtisPlatform.Tests.Api.Controllers.Master;
 public class SocialAttributeControllerTests
 {
     private readonly Mock<ISocialAttributeService> _mockService;
+    private readonly Mock<IHardDeleteCleanupService> _mockCleanupService;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidationService;
     private readonly Mock<ILogger<SocialAttributeController>> _mockLogger;
     private readonly SocialAttributeController _controller;
 
     public SocialAttributeControllerTests()
     {
         _mockService = new Mock<ISocialAttributeService>();
+        _mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        _mockReferenceValidationService = new Mock<IReferenceValidationService>();
         _mockLogger = new Mock<ILogger<SocialAttributeController>>();
-        _controller = new SocialAttributeController(_mockLogger.Object, _mockService.Object);
+        _controller = new SocialAttributeController(
+            _mockLogger.Object,
+            _mockService.Object,
+            _mockCleanupService.Object,
+            _mockReferenceValidationService.Object);
     }
 
     #region GetAll Tests
@@ -537,10 +547,16 @@ public class SocialAttributeControllerTests
     {
         // Arrange
         var mockService = new Mock<ISocialAttributeService>();
+        var mockCleanupService = new Mock<IHardDeleteCleanupService>();
+        var mockReferenceValidationService = new Mock<IReferenceValidationService>();
         var mockLogger = new Mock<ILogger<SocialAttributeController>>();
 
         // Act
-        var controller = new SocialAttributeController(mockLogger.Object, mockService.Object);
+        var controller = new SocialAttributeController(
+            mockLogger.Object,
+            mockService.Object,
+            mockCleanupService.Object,
+            mockReferenceValidationService.Object);
 
         // Assert
         Assert.NotNull(controller);
@@ -653,6 +669,40 @@ public class SocialAttributeControllerTests
 
         // Assert
         _mockService.Verify(s => s.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region Purge Tests
+
+    [Fact]
+    public async Task Purge_WithValidId_ReturnsOk()
+    {
+        // Arrange
+        _mockCleanupService.Setup(s => s.ForceHardDeleteAsync<SocialAttributeEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.Purge(1, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        _mockCleanupService.Verify(s => s.ForceHardDeleteAsync<SocialAttributeEntity, int>(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Purge_WithInvalidId_ReturnsOk()
+    {
+        // Arrange
+        _mockCleanupService.Setup(s => s.ForceHardDeleteAsync<SocialAttributeEntity, int>(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.Purge(999, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        _mockCleanupService.Verify(s => s.ForceHardDeleteAsync<SocialAttributeEntity, int>(999, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
