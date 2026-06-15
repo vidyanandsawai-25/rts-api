@@ -88,9 +88,9 @@ namespace NtisPlatform.Application.Services.Rules
             if (property == null)
                 throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
 
-            // ── Phase 2: Parallel Fetch of child details ───────────────────────────
+            // ── Phase 2: Sequential Fetch of child details ───────────────────────────
 
-            var assessmentTask = _propertyAssessmentRepo.GetQueryable()
+            var assessment = await _propertyAssessmentRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
                 .OrderBy(x => x.Id)
@@ -101,7 +101,7 @@ namespace NtisPlatform.Application.Services.Rules
             // This means ANY attribute from SocialAttributeMaster is available in rule
             // expressions as  input.HAS_LIFT, input.NO_OF_WELL, input.HAS_SOLAR, etc.
             // with ZERO code changes when new attributes are added to the master table.
-            var socialDetailsTask = _propertySocialDetailsRepo.GetQueryable()
+            var socialDetails = await _propertySocialDetailsRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(psd => psd.PropertyId == propertyId && psd.IsActive && psd.SocialAttribute != null)
                 .Select(psd => new
@@ -116,17 +116,11 @@ namespace NtisPlatform.Application.Services.Rules
                 })
                 .ToListAsync(cancellationToken);
 
-            var detailsTask = _propertyDetailsRepo.GetQueryable()
+            var details = await _propertyDetailsRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
                 .OrderBy(x => x.Id)
                 .ToListAsync(cancellationToken);
-
-            await Task.WhenAll(assessmentTask, socialDetailsTask, detailsTask);
-
-            var assessment = assessmentTask.Result;
-            var socialDetails = socialDetailsTask.Result;
-            var details = detailsTask.Result;
 
             // Gather active SocialAttributeIds for the property
             var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).ToList();

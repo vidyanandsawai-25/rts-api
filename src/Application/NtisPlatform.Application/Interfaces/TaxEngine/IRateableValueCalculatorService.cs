@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using System.Collections.Generic;
@@ -16,7 +16,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
             List<RateEntity> rates,
             List<DepreciationMasterEntity> depreciations,
             List<AssessmentYearRangeEntity> yearRanges,
-            List<RenterMastEntity> renters,
+            IReadOnlyList<RenterMastEntity> renters,
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null);

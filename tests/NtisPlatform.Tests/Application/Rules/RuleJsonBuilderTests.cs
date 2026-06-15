@@ -215,13 +215,13 @@ namespace NtisPlatform.Tests.Application
                             },
                             {
                                 ""id"": ""5455cd60-e4df-45f2-bb53-26125047fc2d"",
-                                ""fieldId"": ""TypeOfUseGroupId"",
+                                ""fieldId"": ""SocialAttributeId"",
                                 ""operator"": ""contains any"",
-                                ""value"": [""4"", ""5""]
+                                ""value"": [""38"", ""39""]
                             },
                             {
                                 ""id"": ""4ca47f9a-f474-444b-9e19-40d2d71b0fc4"",
-                                ""fieldId"": ""TypeOfUseGroupId"",
+                                ""fieldId"": ""SocialAttributeId"",
                                 ""operator"": ""contains all"",
                                 ""value"": [""1"", ""2""]
                             }
@@ -249,10 +249,10 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal(1, rules.GetArrayLength());
             
             var expr = rules[0].GetProperty("expression").GetString();
-            Assert.Contains("input.FloorId in (1, 2, 3)", expr);
-            Assert.Contains("input.FloorId not in (2, 1, 3, 4)", expr);
-            Assert.Contains("input.TypeOfUseGroupId contains (4, 5)", expr);
-            Assert.Contains("input.TypeOfUseGroupId contains (1, 2)", expr);
+            Assert.Contains("(input.FloorId == 1 || input.FloorId == 2 || input.FloorId == 3)", expr);
+            Assert.Contains("(input.FloorId != 2 && input.FloorId != 1 && input.FloorId != 3 && input.FloorId != 4)", expr);
+            Assert.Contains("(input.SocialAttributeId.Contains(38) || input.SocialAttributeId.Contains(39))", expr);
+            Assert.Contains("(input.SocialAttributeId.Contains(1) && input.SocialAttributeId.Contains(2))", expr);
         }
 
         [Fact]
@@ -288,11 +288,43 @@ namespace NtisPlatform.Tests.Application
             Assert.Contains("input.Field2 != \"B\"", expr);
             Assert.Contains("input.Field3 >= 5", expr);
             Assert.Contains("input.Field4 <= 10", expr);
-            Assert.Contains("input.Field5 in (\"X\", \"Y\")", expr);
-            Assert.Contains("input.Field6 not in (\"W\", \"Z\")", expr);
+            Assert.Contains("(input.Field5 == \"X\" || input.Field5 == \"Y\")", expr);
+            Assert.Contains("(input.Field6 != \"W\" && input.Field6 != \"Z\")", expr);
             Assert.Contains("input.Field7 contains (\"M\", \"N\")", expr);
             Assert.Contains("input.Field8 contains (\"O\", \"P\")", expr);
             Assert.Contains("input.Field9 >= 20 && input.Field9 <= 50", expr);
+        }
+
+        [Fact]
+        public void Build_WithLiteralOperators_GeneratesCorrectExpressions()
+        {
+            // Arrange
+            var ruleName = "demo-literal-operators";
+            var ruleCode = "SR004";
+            var conditions = @"{
+                ""logicalOperator"": ""AND"",
+                ""conditions"": [
+                    { ""fieldId"": ""FloorId"", ""operator"": "">"", ""value"": ""10"" },
+                    { ""fieldId"": ""FloorId2"", ""operator"": ""<="", ""value"": ""10"" },
+                    { ""fieldId"": ""TypeOfUseGroupId"", ""operator"": ""="", ""value"": ""3"" },
+                    { ""fieldId"": ""TypeOfUseGroupId2"", ""operator"": ""=="", ""value"": ""1"" },
+                    { ""fieldId"": ""SocialAttributeId"", ""operator"": ""="", ""value"": ""28"" }
+                ]
+            }";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "RV", conditions, null, "test description");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var expr = doc.RootElement.GetProperty("rules")[0].GetProperty("expression").GetString();
+
+            Assert.Contains("input.FloorId > 10", expr);
+            Assert.Contains("input.FloorId2 <= 10", expr);
+            Assert.Contains("input.TypeOfUseGroupId == 3", expr);
+            Assert.Contains("input.TypeOfUseGroupId2 == 1", expr);
+            Assert.Contains("input.SocialAttributeId.Contains(28)", expr);
         }
     }
 }

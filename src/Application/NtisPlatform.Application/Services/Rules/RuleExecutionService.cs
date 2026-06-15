@@ -522,10 +522,11 @@ namespace NtisPlatform.Application.Services.Rules
             foreach (var safePattern in new[]
             {
                 @"\binput\.\w+\b",          // input.PropertyName
+                @"\.\w+",                   // Property access / method calls (e.g. .Contains)
                 @"\d+(\.\d+)?",             // Numbers
                 @"[<>=!&|]+",               // Comparison / logical operators
-                @"\bAND\b|\bOR\b|\bNOT\b", // SQL-style logical operators
-                @"[(){}]",                  // Parentheses / braces
+                @"\bAND\b|\bOR\b|\bNOT\b|\bin\b|\bcontains\b", // SQL-style & SQL collection logical operators
+                @"[(){},]",                 // Parentheses / braces / commas
                 @"\s+",                     // Whitespace
                 @"true|false",              // Boolean literals
                 @"'[^']*'|""[^""]*"""       // String literals (single or double quoted)

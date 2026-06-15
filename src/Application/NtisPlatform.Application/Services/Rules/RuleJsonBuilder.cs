@@ -27,6 +27,15 @@ namespace NtisPlatform.Application.Services.Rules
             ["CONTAINS_ANY"] = "contains",
             ["CONTAINS_ALL"] = "contains",
 
+            // Literal operator mappings
+            ["="] = "==",
+            ["=="] = "==",
+            ["!="] = "!=",
+            [">"] = ">",
+            ["<"] = "<",
+            [">="] = ">=",
+            ["<="] = "<=",
+
             // Human-readable master table names (normalized: spaces replaced with underscores)
             ["EQUAL_TO"] = "==",
             ["NOT_EQUAL_TO"] = "!=",
@@ -219,6 +228,34 @@ namespace NtisPlatform.Application.Services.Rules
             // Normalize operator code: e.g. "Not In" -> "NOT_IN", "contains any" -> "CONTAINS_ANY"
             var normalizedOperCode = operCode.Trim().Replace(" ", "_").ToUpperInvariant();
 
+            // Special handling for SocialAttributeId list collection
+            if (fieldId.Equals("SocialAttributeId", StringComparison.OrdinalIgnoreCase))
+            {
+                if (valueEl.ValueKind == JsonValueKind.Array)
+                {
+                    var items = valueEl.EnumerateArray()
+                        .Select(el => el.ValueKind == JsonValueKind.Number ? el.GetRawText() : el.GetString())
+                        .Where(valStr => !string.IsNullOrEmpty(valStr) && int.TryParse(valStr, out _))
+                        .Select(int.Parse)
+                        .ToList();
+
+                    if (items.Any())
+                    {
+                        var containsCalls = items.Select(item => $"input.SocialAttributeId.Contains({item})");
+                        var joinOp = normalizedOperCode.Contains("ALL") ? " && " : " || ";
+                        return $"({string.Join(joinOp, containsCalls)})";
+                    }
+                }
+                else
+                {
+                    var valStr = valueEl.ValueKind == JsonValueKind.Number ? valueEl.GetRawText() : valueEl.GetString();
+                    if (!string.IsNullOrEmpty(valStr) && int.TryParse(valStr, out int intVal))
+                    {
+                        return $"input.SocialAttributeId.Contains({intVal})";
+                    }
+                }
+            }
+
             // Special handling for Value Between Range
             if (normalizedOperCode == "VALUE_BETWEEN_RANGE" || normalizedOperCode == "BETWEEN")
             {
@@ -228,6 +265,34 @@ namespace NtisPlatform.Application.Services.Rules
                     var minVal = FormatScalar(items[0]);
                     var maxVal = FormatScalar(items[1]);
                     return $"{prop} >= {minVal} && {prop} <= {maxVal}";
+                }
+            }
+
+            // Special handling for IN / VALUE_EXISTS_IN_LIST
+            if (normalizedOperCode == "IN" || normalizedOperCode == "VALUE_EXISTS_IN_LIST")
+            {
+                if (valueEl.ValueKind == JsonValueKind.Array)
+                {
+                    var items = valueEl.EnumerateArray().Select(FormatScalar).ToList();
+                    if (items.Any())
+                    {
+                        var equalityExprs = items.Select(item => $"{prop} == {item}");
+                        return $"({string.Join(" || ", equalityExprs)})";
+                    }
+                }
+            }
+
+            // Special handling for NOT_IN / VALUE_DOES_NOT_EXIST_IN_LIST
+            if (normalizedOperCode == "NOT_IN" || normalizedOperCode == "VALUE_DOES_NOT_EXIST_IN_LIST")
+            {
+                if (valueEl.ValueKind == JsonValueKind.Array)
+                {
+                    var items = valueEl.EnumerateArray().Select(FormatScalar).ToList();
+                    if (items.Any())
+                    {
+                        var inequalityExprs = items.Select(item => $"{prop} != {item}");
+                        return $"({string.Join(" && ", inequalityExprs)})";
+                    }
                 }
             }
 

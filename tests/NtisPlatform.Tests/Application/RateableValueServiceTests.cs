@@ -9,6 +9,8 @@ using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -96,7 +98,7 @@ public class RateableValueServiceTests
             .Returns(new List<PropertyAssessmentEntity>().BuildMockDbSet().Object);
     }
 
-    private RateableValueService CreateService()
+    private RateableValueService CreateService(IRuleApplierService ruleApplier = null, IPropertyContextLoaderService contextLoader = null)
     {
         // RateableValueCalculatorService is a pure calculation engine with no I/O — use the real impl.
         var calculatorService = new RateableValueCalculatorService(
@@ -112,29 +114,77 @@ public class RateableValueServiceTests
             NullLogger<RVPersistenceService>.Instance,
             TimeProvider.System);
 
-        // Rule applicator is mocked — tests do not exercise the rule engine.
-        var ruleApplicatorMock = new Mock<IRVRuleApplicator>();
-        ruleApplicatorMock
-            .Setup(r => r.GetAdjustedRateAsync(
-                It.IsAny<PropertyDetailsEntity>(), It.IsAny<TypeOfUseEntity>(),
-                It.IsAny<PropertyEntity>(), It.IsAny<PropertyAssessmentEntity>(),
-                It.IsAny<bool>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<int>(),
-                It.IsAny<decimal>()))
-            .ReturnsAsync((decimal?)null);
+        // Setup property context loader mock to route queries to mocked repos, so existing tests still function.
+        var contextLoaderMock = new Mock<IPropertyContextLoaderService>();
+        contextLoaderMock
+            .Setup(c => c.LoadPropertyContextAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(async (int propId, int finYear, CancellationToken token) =>
+            {
+                var property = _propertyRepo.Object.GetQueryable().FirstOrDefault(x => x.Id == propId);
+                if (property == null)
+                {
+                    throw new InvalidOperationException($"Property not found for PropertyId={propId}");
+                }
+
+                var details = _propertyDetailsRepo.Object.GetQueryable().Where(x => x.PropertyId == propId).ToList();
+                if (!details.Any())
+                {
+                    throw new InvalidOperationException($"PropertyDetails not found for PropertyId={propId}");
+                }
+
+                var assessment = _propertyAssessmentRepo.Object.GetQueryable().FirstOrDefault(x => x.PropertyId == propId);
+                var renters = _renterRepo.Object.GetQueryable().ToList();
+                var occupancies = _occupancyRepo.Object.GetQueryable().ToList();
+
+                var constructionYear = details.FirstOrDefault()?.ConstructionYear;
+                if (string.IsNullOrWhiteSpace(constructionYear))
+                {
+                    throw new InvalidOperationException($"ConstructionYear not found for PropertyId={propId}");
+                }
+
+                if (!int.TryParse(constructionYear, out int constYearVal))
+                {
+                    throw new InvalidOperationException($"Invalid ConstructionYear value '{constructionYear}' for PropertyId={propId}");
+                }
+
+                var yearRanges = await _masterDataService.Object.GetActiveYearRangesAsync();
+                var yearRange = yearRanges.FirstOrDefault(x =>
+                    x.FromYear <= constYearVal && x.ToYear >= constYearVal && x.IsActive)
+                    ?? throw new InvalidOperationException($"Assessment year range not found for constructionYear={constYearVal}");
+
+                return new PropertyCalculationContext
+                {
+                    Property = property,
+                    PropertyAssessment = assessment,
+                    Details = details,
+                    Renters = renters,
+                    Occupancies = occupancies,
+                    Parameters = new PropertyCalculationParameters
+                    {
+                        FinanceYear = finYear,
+                        ConstructionYearValue = constYearVal,
+                        YearRangeRVId = yearRange.Id
+                    }
+                };
+            });
+
+        var actualContextLoader = contextLoader ?? contextLoaderMock.Object;
+
+        // Rule applier is mocked — tests do not exercise the rule engine by default.
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+
+        var actualRuleApplier = ruleApplier ?? ruleApplierMock.Object;
 
         // Constructor-safe dependency list.
         // This avoids CS1729 when RateableValueService constructor arguments are added,
         // removed, or reordered, as long as the required dependency type is listed here.
         var dependencies = new object[]
         {
-            _propertyRepo.Object,
-            _propertyDetailsRepo.Object,
             _taxResultsRepo.Object,
             _policyTaxRepo.Object,
-            _renterRepo.Object,
-            _occupancyRepo.Object,
-            _propertySocialDetailsRepo.Object,
-            _propertyAssessmentRepo.Object,
             _transmastRVRepo.Object,
             _yearMasterRepo.Object,
             _masterDataService.Object,
@@ -145,7 +195,8 @@ public class RateableValueServiceTests
             _cleanupService.Object,
             calculatorService,
             persistenceService,
-            ruleApplicatorMock.Object,
+            actualContextLoader,
+            actualRuleApplier,
             TimeProvider.System
         };
 
@@ -785,6 +836,150 @@ public class RateableValueServiceTests
         });
     }
 
+    [Fact]
+    public async Task RVRuleEngine_WithSqFeetPolicy_SelectsRateSquareFeetForRuleExecution()
+    {
+        // Arrange
+        var propertyId = 1;
+
+        // Setup property with policy configured to use SqFeet
+        var policyValues = new Dictionary<string, string>
+        {
+            { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.CarpetArea },
+            { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.SqFeet },  // ← Configure to use SqFeet
+            { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.Monthly },
+            { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.PolicyValueFalse }
+        };
+
+        _policyConfigurationService
+            .Setup(p => p.GetPolicyValuesAsync(It.IsAny<Dictionary<string, string>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(policyValues);
+
+        // Track rule execution calls to verify rate selection - MUST SETUP BEFORE CreateService
+        decimal capturedInitialValue = 0m;
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Callback<RuleApplierContext, int, CancellationToken>((context, maxRetries, token) =>
+            {
+                capturedInitialValue = context.InitialValue;
+            })
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+
+        // Setup property and details
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<PropertyEntity>
+            {
+                new PropertyEntity
+                {
+                    Id = propertyId,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    TaxZoneId = 1,
+                    WardId = 1
+                }
+            }.BuildMockDbSet().Object);
+
+        _propertyDetailsRepo.Setup(r => r.GetQueryable()).Returns(
+            new List<PropertyDetailsEntity>
+            {
+                new PropertyDetailsEntity
+                {
+                    Id = 10,
+                    PropertyId = propertyId,
+                    IsActive = true,
+                    ConstructionYear = "2020",
+                    TypeOfUseId = 1,
+                    ConstructionTypeId = 1,
+                    FloorId = 1,
+                    CarpetAreaSqMeter = 1000,
+                    CarpetAreaSqFeet = 10764  // ~1000 sqm
+                }
+            }.BuildMockDbSet().Object);
+
+        // Setup master data - need to call SetupCompleteCalculationData first, then override rate
+        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
+
+        // Now override with rate that has ONLY RateSquareFeet (no RateSquareMeter)
+        _masterDataService.Setup(m => m.GetRatesForSectionAsync(It.IsAny<int>()))
+            .ReturnsAsync(new List<RateEntity>
+            {
+                new RateEntity
+                {
+                    Id = 1,
+                    TaxZoneId = 1,
+                    ConstructionTypeId = 1,
+                    TypeOfUseGroupId = 1,
+                    YearRangeRVId = 1,
+                    RateSquareMeter = 0m,      // ← Zero sqm rate
+                    RateSquareFeet = 100m,     // ← Only sqft rate available
+                    IsActive = true
+                }
+            });
+
+        var service = CreateService(ruleApplierMock.Object);
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert - Verify rule engine was called with sqft rate (100), not sqm rate (0)
+        Assert.Equal(100m, capturedInitialValue);
+    }
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_WithAndWithoutRuleValue_ReturnsBothResults()
+    {
+        // Arrange
+        var propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
+
+        // 1. Without Rule Engine value adjustment (Rule engine returns null so base rate is used)
+        var ruleApplierWithoutRules = new Mock<IRuleApplierService>();
+        ruleApplierWithoutRules
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+
+        var serviceWithoutRules = CreateService(ruleApplierWithoutRules.Object);
+
+        // Act - Run calculation without rules
+        var resultWithoutRules = await serviceWithoutRules.CalculateAndSaveAsync(propertyId);
+
+        // 2. With Rule Engine value adjustment (Rule engine overrides/adjusts the rate, e.g. applies a 50% discount)
+        var ruleApplierWithRules = new Mock<IRuleApplierService>();
+        ruleApplierWithRules
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue * 0.5m);
+
+        var serviceWithRules = CreateService(ruleApplierWithRules.Object);
+
+        // Act - Run calculation with rules
+        var resultWithRules = await serviceWithRules.CalculateAndSaveAsync(propertyId);
+
+        // Assert
+        Assert.NotNull(resultWithoutRules);
+        Assert.NotNull(resultWithRules);
+
+        // Verify that both results have positive, non-zero values
+        Assert.True(resultWithoutRules.TotalRateableValue > 0, "Rateable value without rules should be greater than zero");
+        Assert.True(resultWithRules.TotalRateableValue > 0, "Rateable value with rules should be greater than zero");
+
+        // Verify that the result with rules has a smaller Rateable Value and Total Tax due to the 50% rule discount
+        Assert.True(resultWithRules.TotalRateableValue < resultWithoutRules.TotalRateableValue, "Rateable value with rules should be smaller than without rules");
+        Assert.True(resultWithRules.TotalTax < resultWithoutRules.TotalTax, "Total tax with rules should be smaller than without rules");
+
+        // Verify the exact proportional reduction (half rate leads to half rateable value)
+        Assert.Equal(resultWithoutRules.TotalRateableValue * 0.5m, resultWithRules.TotalRateableValue);
+    }
     #endregion
 
     #region Helper Methods

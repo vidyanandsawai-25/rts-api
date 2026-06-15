@@ -19,7 +19,7 @@ public static class RateableValuePolicyHelper
     /// per detail because the area-selector function is resolved only once.
     /// </summary>
     public static Dictionary<int, decimal> GetSelectedAreasForProperty(
-        List<PropertyDetailsEntity> details,
+        IReadOnlyList<PropertyDetailsEntity> details,
         RateableValuePolicyOptions policyOptions)
     {
         var options = policyOptions ?? RateableValuePolicyOptions.Default;
@@ -30,7 +30,7 @@ public static class RateableValuePolicyHelper
     /// Returns a dictionary mapping each property-detail ID to its selected area value.
     /// </summary>
     public static Dictionary<int, decimal> GetSelectedAreasForProperty(
-        List<PropertyDetailsEntity> details,
+        IReadOnlyList<PropertyDetailsEntity> details,
         string areaType,
         string areaUnit)
     {

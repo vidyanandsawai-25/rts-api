@@ -793,6 +793,218 @@ public class RuleExecutionServiceTests
         Assert.True(result[0].StopProcessing);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithCustomInputJsonMatchingExpression_EvaluatesAndMatchesWorkflowCorrectly()
+    {
+        // Arrange
+        var rules = new List<RuleEngineEntity>
+        {
+            CreateRuleWithEffect(
+                ruleCode: "CUSTOM-TEST-RULE",
+                category: "RV",
+                priority: 10,
+                expression: "input.PropertyAge > 10 && input.HasLift == true",
+                effectType: "DecreasePercent",
+                effectValue: 15
+            )
+        };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 2000m },
+                { "PropertyAge", 15 },
+                { "HasLift", true }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Rule should match as PropertyAge is 15 (> 10) and HasLift is true
+        Assert.Single(result);
+        Assert.Equal("CUSTOM-TEST-RULE", result[0].RuleCode);
+        Assert.Equal("DecreasePercent", result[0].EffectType);
+        Assert.Equal(15, result[0].EffectValue);
+        Assert.Equal(1700m, result[0].ComputedRate); // 2000 - 15% = 1700
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithCustomInputJsonNotMatchingExpression_EvaluatesAndDoesNotMatchWorkflow()
+    {
+        // Arrange
+        var rules = new List<RuleEngineEntity>
+        {
+            CreateRuleWithEffect(
+                ruleCode: "CUSTOM-TEST-RULE",
+                category: "RV",
+                priority: 10,
+                expression: "input.PropertyAge > 10 && input.HasLift == true",
+                effectType: "DecreasePercent",
+                effectValue: 15
+            )
+        };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 2000m },
+                { "PropertyAge", 5 }, // 5 is not > 10
+                { "HasLift", true }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Rule should not match
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithCorrectedThaneRuleJson_EvaluatesAndMatchesWorkflowsCorrectly()
+    {
+        // Arrange - Corrected Thane Rule JSON
+        var ruleJson = @"{
+          ""RuleName"": ""thane rule"",
+          ""isActive"": true,
+          ""RuleCategory"": ""RV"",
+          ""rules"": [
+            {
+              ""RuleCode"": ""5df5bb47-1141-43e6-851c-237d9276a9a8"",
+              ""errorMessage"": ""If has Properties with Swimming pool or club house and property is Residentail then increase 20% "",
+              ""enabled"": true,
+              ""ruleExpressionType"": ""LambdaExpression"",
+              ""expression"": ""input.TypeOfUseGroupId == 1 && (input.SocialAttributeId.Contains(38) || input.SocialAttributeId.Contains(39))"",
+              ""Actions"": {
+                ""OnSuccess"": {
+                  ""Name"": ""Increase"",
+                  ""Context"": {
+                    ""Expression"": ""input.Rate * (1 + 20 / 100)"",
+                    ""effectType"": ""Increase %"",
+                    ""value"": ""20"",
+                    ""ParameterCode"": ""input.Rate""
+                  }
+                }
+              },
+              ""stopProcessing"": true
+            },
+            {
+              ""RuleCode"": ""8c4db8c2-7449-4902-8ddc-9fa320bad378"",
+              ""errorMessage"": ""if Residentail building has lift and Floor is more than  G+10 then increase 10 % "",
+              ""enabled"": true,
+              ""ruleExpressionType"": ""LambdaExpression"",
+              ""expression"": ""input.TypeOfUseGroupId == 3 && input.FloorId == 10 && input.SocialAttributeId.Contains(28)"",
+              ""Actions"": {
+                ""OnSuccess"": {
+                  ""Name"": ""Increase"",
+                  ""Context"": {
+                    ""Expression"": ""input.Rate * (1 + 10 / 100)"",
+                    ""effectType"": ""Increase %"",
+                    ""value"": ""10"",
+                    ""ParameterCode"": ""input.Rate""
+                  }
+                }
+              },
+              ""stopProcessing"": true
+            },
+            {
+              ""RuleCode"": ""a8d68ac3-71d4-4a53-9d3b-a68d4bcabad6"",
+              ""errorMessage"": ""if Residentail building has lift and Floor is G+10 then increase 5 % "",
+              ""enabled"": true,
+              ""ruleExpressionType"": ""LambdaExpression"",
+              ""expression"": ""input.TypeOfUseGroupId == 1 && input.FloorId == 10 && input.SocialAttributeId.Contains(28)"",
+              ""Actions"": {
+                ""OnSuccess"": {
+                  ""Name"": ""Increase"",
+                  ""Context"": {
+                    ""Expression"": ""input.Rate * (1 + 5 / 100)"",
+                    ""effectType"": ""Increase %"",
+                    ""value"": ""5"",
+                    ""ParameterCode"": ""input.Rate""
+                  }
+                }
+              },
+              ""stopProcessing"": false
+            }
+          ]
+        }";
+
+        var ruleEntity = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "THANE-RULES",
+            RuleName = "thane rule",
+            RuleCategory = "RV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = ruleJson
+        };
+
+        var rules = new List<RuleEngineEntity> { ruleEntity };
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        // Test Input: matching the first rule (TypeOfUseGroupId = 1, SocialAttributeIds contains 38, Rate = 1000)
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m },
+                { "TypeOfUseGroupId", 1 },
+                { "SocialAttributeId", new List<int> { 38, 42 } }
+            }
+        };
+
+        // Act
+        List<RuleExecutionResultDto>? result = null;
+        try
+        {
+            result = await _service.ExecuteAsync(input);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("EXECUTION EXCEPTION: " + ex);
+            throw;
+        }
+
+        // Check if mock logger received warnings
+        var warnings = _mockLogger.Invocations
+            .Where(inv => inv.Method.Name == "Log" && inv.Arguments[0].ToString() == "Warning")
+            .Select(inv => inv.Arguments[2]?.ToString() ?? "")
+            .ToList();
+        
+        foreach (var warning in warnings)
+        {
+            Console.WriteLine("LOGGER WARNING: " + warning);
+        }
+
+        // Assert - The first rule should match and halt execution (stopProcessing = true)
+        Assert.NotNull(result);
+        if (result!.Count == 0)
+        {
+            Console.WriteLine("RESULT IS EMPTY!");
+        }
+        Assert.Single(result!);
+        Assert.Equal("5df5bb47-1141-43e6-851c-237d9276a9a8", result![0].RuleCode);
+        Assert.Equal("Increase %", result![0].EffectType);
+        Assert.Equal(20m, result[0].EffectValue);
+        Assert.Equal(1200m, result[0].ComputedRate); // 1000 + 20% = 1200
+        Assert.True(result[0].StopProcessing);
+    }
+
     #endregion
 
     #region Helper Methods

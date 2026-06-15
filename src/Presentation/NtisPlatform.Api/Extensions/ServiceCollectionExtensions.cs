@@ -196,8 +196,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.ITaxMasterDataService,
                        NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
 
-        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVRuleApplicator,
-                           NtisPlatform.Application.Services.TaxEngine.RVRuleApplicator>();
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IRVPersistenceService,
                            NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
         services.AddSingleton(TimeProvider.System);

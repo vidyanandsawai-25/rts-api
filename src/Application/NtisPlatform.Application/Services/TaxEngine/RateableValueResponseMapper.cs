@@ -14,7 +14,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         public static RateableValueResponseDto Map(
             int propertyId,
             int financeYear,
-            List<PropertyDetailsEntity> details,
+            IReadOnlyList<PropertyDetailsEntity> details,
             List<PropertyTaxCalculationRVResultsEntity> resultRows,
             List<PolicyTaxDetailsEntity> policyRows,
             IReadOnlyList<FloorEntity> floors,
@@ -22,8 +22,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IReadOnlyList<TypeOfUseEntity> typeOfUses,
             IReadOnlyList<SubTypeOfUseEntity> subTypeOfUses,
             IReadOnlyList<SubFloorEntity> subFloors,
-            List<RenterMastEntity> renters,
-            List<PropertyOccupancyDetailsEntity> occupancies,
+            IReadOnlyList<RenterMastEntity> renters,
+            IReadOnlyList<PropertyOccupancyDetailsEntity> occupancies,
             TaxGetterCache<TaxMasterEntity> taxMasterCache)
         {
             var floorMap = floors.ToDictionary(x => x.Id, x => x.Description ?? x.FloorCode ?? string.Empty);
