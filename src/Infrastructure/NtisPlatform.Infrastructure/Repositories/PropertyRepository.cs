@@ -4060,6 +4060,14 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             cancellationToken);
     }
 
+    private class PropertySocialDetailBindingInfo
+    {
+        public int PropertySocialDetailId { get; set; }
+        public int BindingId { get; set; }
+        public Guid DocumentGuid { get; set; }
+        public string? BindingPurpose { get; set; }
+    }
+
     public async Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // Step 1: Check if property exists
@@ -4093,6 +4101,28 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             .GroupBy(x => x.PropertySocialDetail.SocialAttributeId)
             .ToDictionary(g => g.Key, g => g.First());
 
+        // Step 3.5: Load polymorphic bindings (including photos and fallback documents) for existing details
+        var psdIds = existingDetailsWithDocs.Select(x => x.PropertySocialDetail.Id).ToList();
+        var bindings = new List<PropertySocialDetailBindingInfo>();
+        if (psdIds.Any())
+        {
+            bindings = await (
+                from db in _context.Set<DocumentBindingEntity>()
+                where db.ReferenceTableName == "PropertySocialDetails"
+                   && db.ReferenceTableId.HasValue
+                   && psdIds.Contains(db.ReferenceTableId.Value)
+                   && db.IsActive
+                   && !db.MarkedForDeletion
+                join doc in _context.Set<DocumentEntity>() on db.DocumentId equals doc.Id
+                select new PropertySocialDetailBindingInfo
+                {
+                    PropertySocialDetailId = db.ReferenceTableId.Value,
+                    BindingId = db.Id,
+                    DocumentGuid = doc.DocumentGuid,
+                    BindingPurpose = db.BindingPurpose
+                }).ToListAsync(cancellationToken);
+        }
+
         // Step 4: Build response DTO
         var result = new PropertyDiscountInfoResponseDto
         {
@@ -4100,6 +4130,37 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             DiscountAttributes = discountAttributes.Select(attr =>
             {
                 existingByAttributeId.TryGetValue(attr.Id, out var existingValue);
+
+                var psdId = existingValue?.PropertySocialDetail.Id;
+                var docGuid = existingValue?.DocumentGuid;
+                var docBindingId = existingValue?.PropertySocialDetail.DocumentBindingId;
+
+                int? photoBindingId = null;
+                Guid? photoGuid = null;
+
+                if (psdId.HasValue)
+                {
+                    // Look up photo binding
+                    var photoBinding = bindings.FirstOrDefault(b => b.PropertySocialDetailId == psdId.Value && b.BindingPurpose == "Photo");
+                    if (photoBinding != null)
+                    {
+                        photoBindingId = photoBinding.BindingId;
+                        photoGuid = photoBinding.DocumentGuid;
+                    }
+
+                    // Fallback or verify document binding if not found in first join
+                    if (docGuid == null && docBindingId.HasValue)
+                    {
+                        var dbObj = bindings.FirstOrDefault(b => b.PropertySocialDetailId == psdId.Value && b.BindingId == docBindingId.Value);
+                        docGuid = dbObj?.DocumentGuid;
+                    }
+                    else if (docGuid == null)
+                    {
+                        var dbObj = bindings.FirstOrDefault(b => b.PropertySocialDetailId == psdId.Value && b.BindingPurpose != "Photo");
+                        docGuid = dbObj?.DocumentGuid;
+                        docBindingId = dbObj?.BindingId;
+                    }
+                }
 
                 return new DiscountAttributeDto
                 {
@@ -4110,9 +4171,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     Unit = attr.Unit,
                     DisplayOrder = attr.DisplayOrder,
                     IsDiscountApplicable = attr.IsDiscountApplicable,
+                    IsPhotoRequired = attr.IsPhotoRequired,
+                    IsDocumentRequired = attr.IsDocumentRequired,
 
                     // Map existing values if present
-                    PropertySocialDetailId = existingValue?.PropertySocialDetail.Id,
+                    PropertySocialDetailId = psdId,
                     BitValue = existingValue?.PropertySocialDetail.BitValue,
                     IntValue = existingValue?.PropertySocialDetail.IntValue,
                     DecimalValue = existingValue?.PropertySocialDetail.DecimalValue,
@@ -4120,9 +4183,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     DateValue = existingValue?.PropertySocialDetail.DateValue,
 
                     // Document GUID - only populated if document is valid and active
-                    DocumentGuid = existingValue?.DocumentGuid,
+                    DocumentGuid = docGuid,
+                    DocumentBindingId = docBindingId,
 
-                    DocumentBindingId = existingValue?.PropertySocialDetail.DocumentBindingId,
+                    // Photo GUID and Binding ID
+                    PhotoBindingId = photoBindingId,
+                    PhotoGuid = photoGuid,
 
                     Remark = existingValue?.PropertySocialDetail.Remark,
 

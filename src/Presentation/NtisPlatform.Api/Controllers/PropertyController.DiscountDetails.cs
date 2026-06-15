@@ -173,6 +173,7 @@ public partial class PropertyController
                 formDto.SocialAttributeId,
                 formDto.Remark,
                 GetUserId(),
+                formDto.IsPhoto,
                 ct);
 
             return Ok(new ApiResponse<DiscountDocumentUploadResponseDto>
@@ -262,6 +263,7 @@ public partial class PropertyController
                 formDto.File.Length,
                 formDto.Remark,
                 GetUserId(),
+                formDto.IsPhoto,
                 ct);
 
             return Ok(new ApiResponse<DiscountDocumentUploadResponseDto>

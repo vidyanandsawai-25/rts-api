@@ -157,7 +157,12 @@ public enum DocumentBindingPurpose
     /// <summary>
     /// Application form or submission document
     /// </summary>
-    ApplicationDocument
+    ApplicationDocument,
+
+    /// <summary>
+    /// Photo or image document
+    /// </summary>
+    Photo
 }
 
 /// <summary>

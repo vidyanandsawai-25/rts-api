@@ -62,6 +62,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         int socialAttributeId,
         string? remark,
         int uploadedBy,
+        bool isPhoto = false,
         CancellationToken cancellationToken = default)
     {
         // Input validation
@@ -87,8 +88,8 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         if (!attributeExists)
             throw new ArgumentException($"SocialAttributeId {socialAttributeId} is not a valid discount-applicable attribute", nameof(socialAttributeId));
 
-        _logger.LogInformation("Starting discount document upload: {FileName}, PropertyId: {PropertyId}, SocialAttributeId: {SocialAttributeId}",
-            originalFileName, propertyId, socialAttributeId);
+        _logger.LogInformation("Starting discount document upload: {FileName}, PropertyId: {PropertyId}, SocialAttributeId: {SocialAttributeId}, IsPhoto: {IsPhoto}",
+            originalFileName, propertyId, socialAttributeId, isPhoto);
 
         var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
         var tempFilePath = Path.GetTempFileName();
@@ -175,15 +176,18 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     propertySocialDetail.Id,
                     null,
                     "Id",
-                    DocumentBindingPurpose.SupportingDocument.ToPurposeString(),
+                    isPhoto ? DocumentBindingPurpose.Photo.ToPurposeString() : DocumentBindingPurpose.SupportingDocument.ToPurposeString(),
                     false,
                     departmentId,
                     uploadedBy,
                     uploadedBy,
                     cancellationToken);
 
-                // 7. Update PropertySocialDetails with DocumentBinding
-                propertySocialDetail.DocumentBindingId = documentBindingId;
+                // 7. Update PropertySocialDetails with DocumentBinding (only if not photo)
+                if (!isPhoto)
+                {
+                    propertySocialDetail.DocumentBindingId = documentBindingId;
+                }
                 if (!string.IsNullOrEmpty(remark))
                 {
                     propertySocialDetail.Remark = remark;
@@ -250,6 +254,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         long fileSizeBytes,
         string? remark,
         int uploadedBy,
+        bool isPhoto = false,
         CancellationToken cancellationToken = default)
     {
         // Input validation
@@ -262,7 +267,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         Guard.AgainstNegativeOrZero(propertySocialDetailId, nameof(propertySocialDetailId));
         Guard.AgainstNegativeOrZero(uploadedBy, nameof(uploadedBy));
 
-        _logger.LogInformation("Replacing discount document for PropertySocialDetailId: {Id}", propertySocialDetailId);
+        _logger.LogInformation("Replacing discount document for PropertySocialDetailId: {Id}, IsPhoto: {IsPhoto}", propertySocialDetailId, isPhoto);
 
         // Get existing record
         var propertySocialDetail = await _context.Set<PropertySocialDetailsEntity>()
@@ -318,6 +323,24 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
             try
             {
                 await _unitOfWork.BeginTransactionAsync(cancellationToken);
+
+                // If replacing a photo, mark existing photo bindings for deletion
+                if (isPhoto)
+                {
+                    var existingPhotoBindings = await _context.Set<DocumentBindingEntity>()
+                        .Where(db => db.ReferenceTableName == "PropertySocialDetails"
+                                  && db.ReferenceTableId == propertySocialDetailId
+                                  && db.BindingPurpose == "Photo"
+                                  && db.IsActive
+                                  && !db.MarkedForDeletion)
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var binding in existingPhotoBindings)
+                    {
+                        binding.MarkForDeletion();
+                    }
+                }
+
                 // 3. Create new CORE.Document
                 var result = await _documentService.CreateDocumentAsync(
                     uploadedBy,
@@ -347,7 +370,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     propertySocialDetail.Id,
                     null,
                     "Id",
-                    DocumentBindingPurpose.SupportingDocument.ToPurposeString(),
+                    isPhoto ? DocumentBindingPurpose.Photo.ToPurposeString() : DocumentBindingPurpose.SupportingDocument.ToPurposeString(),
                     false,
                     departmentId,
                     uploadedBy,
@@ -355,7 +378,10 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     cancellationToken);
 
                 // 6. Update PropertySocialDetails
-                propertySocialDetail.DocumentBindingId = documentBindingId;
+                if (!isPhoto)
+                {
+                    propertySocialDetail.DocumentBindingId = documentBindingId;
+                }
                 if (!string.IsNullOrEmpty(remark))
                 {
                     propertySocialDetail.Remark = remark;

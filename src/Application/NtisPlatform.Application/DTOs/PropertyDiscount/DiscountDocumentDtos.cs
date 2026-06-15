@@ -33,6 +33,11 @@ public class DiscountDocumentUploadFormDto
     /// </summary>
     [MaxLength(500)]
     public string? Remark { get; set; }
+
+    /// <summary>
+    /// Whether the file being uploaded is a photo or a document
+    /// </summary>
+    public bool IsPhoto { get; set; } = false;
 }
 
 /// <summary>
@@ -51,6 +56,11 @@ public class ReplaceDiscountDocumentFormDto
     /// </summary>
     [MaxLength(500)]
     public string? Remark { get; set; }
+
+    /// <summary>
+    /// Whether the file being uploaded is a photo or a document
+    /// </summary>
+    public bool IsPhoto { get; set; } = false;
 }
 
 /// <summary>

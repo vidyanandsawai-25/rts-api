@@ -1,5 +1,6 @@
 using AutoMapper;
 using Moq;
+using MockQueryable.Moq;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
@@ -16,6 +17,8 @@ public class PropertySocialDetailsServiceTests
 {
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _mockRepository;
     private readonly Mock<IRepository<SocialAttributeEntity>> _mockSocialAttributeRepository;
+    private readonly Mock<IRepository<DocumentBindingEntity>> _mockDocumentBindingRepository;
+    private readonly Mock<IRepository<DocumentEntity>> _mockDocumentRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertySocialDetailsService _service;
@@ -24,6 +27,8 @@ public class PropertySocialDetailsServiceTests
     {
         _mockRepository = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _mockSocialAttributeRepository = new Mock<IRepository<SocialAttributeEntity>>();
+        _mockDocumentBindingRepository = new Mock<IRepository<DocumentBindingEntity>>();
+        _mockDocumentRepository = new Mock<IRepository<DocumentEntity>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -31,9 +36,22 @@ public class PropertySocialDetailsServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
+        // Set up empty queryables to prevent NullReferenceException during DTO enrichment
+        var emptyBindings = new List<DocumentBindingEntity>().BuildMockDbSet().Object;
+        _mockDocumentBindingRepository.Setup(r => r.GetQueryable()).Returns(emptyBindings);
+
+        var emptyDocs = new List<DocumentEntity>().BuildMockDbSet().Object;
+        _mockDocumentRepository.Setup(r => r.GetQueryable()).Returns(emptyDocs);
+
+        // Also mock GetQueryable for SocialAttribute repository
+        var emptyAttributes = new List<SocialAttributeEntity>().BuildMockDbSet().Object;
+        _mockSocialAttributeRepository.Setup(r => r.GetQueryable()).Returns(emptyAttributes);
+
         _service = new PropertySocialDetailsService(
             _mockRepository.Object,
             _mockSocialAttributeRepository.Object,
+            _mockDocumentBindingRepository.Object,
+            _mockDocumentRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object
         );

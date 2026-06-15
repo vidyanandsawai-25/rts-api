@@ -36,6 +36,9 @@ public class DiscountAttributeDto
     public string? TextValue { get; set; }
     public DateTime? DateValue { get; set; }
 
+    public bool IsPhotoRequired { get; set; }
+    public bool IsDocumentRequired { get; set; }
+
     /// <summary>
     /// Document GUID for viewing/downloading. Only present if a valid, active document exists.
     /// Use with DocumentController: GET /api/documents/{documentGuid}/view
@@ -43,6 +46,9 @@ public class DiscountAttributeDto
     public Guid? DocumentGuid { get; set; }
 
     public int? DocumentBindingId { get; set; }
+
+    public int? PhotoBindingId { get; set; }
+    public Guid? PhotoGuid { get; set; }
 
     public string? Remark { get; set; }
 

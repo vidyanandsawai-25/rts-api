@@ -10,7 +10,12 @@ public class PropertySocialDetailsMappingProfile : Profile
     {
         CreateMap<PropertySocialDetailsEntity, PropertySocialDetailsDto>()
             .ForMember(dest => dest.SocialAttributeCode, opt => opt.MapFrom(src => src.SocialAttribute != null ? src.SocialAttribute.SocialAttributeCode : null))
-            .ForMember(dest => dest.SocialAttributeName, opt => opt.MapFrom(src => src.SocialAttribute != null ? src.SocialAttribute.SocialAttributeName : null));
+            .ForMember(dest => dest.SocialAttributeName, opt => opt.MapFrom(src => src.SocialAttribute != null ? src.SocialAttribute.SocialAttributeName : null))
+            .ForMember(dest => dest.IsPhotoRequired, opt => opt.Ignore())
+            .ForMember(dest => dest.IsDocumentRequired, opt => opt.Ignore())
+            .ForMember(dest => dest.PhotoBindingId, opt => opt.Ignore())
+            .ForMember(dest => dest.PhotoGuid, opt => opt.Ignore())
+            .ForMember(dest => dest.DocumentGuid, opt => opt.Ignore());
 
         CreateMap<CreatePropertySocialDetailsDto, PropertySocialDetailsEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

@@ -19,6 +19,7 @@ public interface IPropertyDiscountDocumentService
         int socialAttributeId,
         string? remark,
         int uploadedBy,
+        bool isPhoto = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -32,5 +33,6 @@ public interface IPropertyDiscountDocumentService
         long fileSizeBytes,
         string? remark,
         int uploadedBy,
+        bool isPhoto = false,
         CancellationToken cancellationToken = default);
 }

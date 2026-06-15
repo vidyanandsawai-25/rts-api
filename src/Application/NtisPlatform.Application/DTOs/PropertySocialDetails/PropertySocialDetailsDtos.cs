@@ -15,6 +15,12 @@ public class PropertySocialDetailsDto : BaseDtos
     public string? Remark { get; set; }
     public string? SocialAttributeCode { get; set; }
     public string? SocialAttributeName { get; set; }
+
+    public bool IsPhotoRequired { get; set; }
+    public bool IsDocumentRequired { get; set; }
+    public int? PhotoBindingId { get; set; }
+    public Guid? PhotoGuid { get; set; }
+    public Guid? DocumentGuid { get; set; }
 }
 
 public class CreatePropertySocialDetailsDto : CreateBaseDtos
@@ -145,6 +151,9 @@ public class SocialAttributeHierarchyDto
     public string? TextValue { get; set; }
     public DateTime? DateValue { get; set; }
     public int? DocumentBindingId { get; set; }
+    public Guid? DocumentGuid { get; set; }
+    public int? PhotoBindingId { get; set; }
+    public Guid? PhotoGuid { get; set; }
     public string? Remark { get; set; }
 
     // Child attributes
