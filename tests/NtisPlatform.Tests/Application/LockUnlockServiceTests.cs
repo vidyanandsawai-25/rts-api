@@ -290,6 +290,31 @@ public class LockUnlockServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPropertyLocksAsync_IncludesBlankPartitionNumbers_WhenPartitionNoIsZero()
+    {
+        // Arrange
+        _context.PropertyMast.AddRange(
+            new PropertyEntity { Id = 4, PropertyNo = "P004", PartitionNo = string.Empty, WardId = 1, IsActive = true },
+            new PropertyEntity { Id = 5, PropertyNo = "P005", PartitionNo = null, WardId = 1, IsActive = true });
+        await _context.SaveChangesAsync();
+
+        var request = new FilterPropertyLocksRequestDto
+        {
+            WardId = 1,
+            PartitionNo = "0",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetPropertyLocksAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, result.TotalCount);
+        Assert.All(result.Items, p => Assert.Equal(string.Empty, p.PartitionNo));
+    }
+
+    [Fact]
     public async Task GetPropertyLocksAsync_ReturnsPaginatedResults()
     {
         // Arrange

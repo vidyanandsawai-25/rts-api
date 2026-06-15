@@ -62,7 +62,12 @@ public class LockUnlockService : ILockUnlockService
                 .ToList();
 
             if (partitionNumbers.Count > 0)
-                query = query.Where(pm => pm.PartitionNo != null && partitionNumbers.Contains(pm.PartitionNo));
+            {
+                var includeBlankPartition = partitionNumbers.Contains("0");
+                query = query.Where(pm =>
+                    (pm.PartitionNo != null && partitionNumbers.Contains(pm.PartitionNo)) ||
+                    (includeBlankPartition && string.IsNullOrEmpty(pm.PartitionNo)));
+            }
         }
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
