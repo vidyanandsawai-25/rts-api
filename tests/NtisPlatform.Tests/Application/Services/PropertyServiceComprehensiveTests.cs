@@ -46,7 +46,7 @@ public class PropertyServiceComprehensiveTests
             _mockMapper.Object,
             _mockPropertyRepository.Object,
             _mockLogger.Object,
-            _mockFeatureFlags.Object);
+            _mockFeatureFlags.Object, new Mock<IRepository<NtisPlatform.Core.Entities.WardEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyCategoryEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.SocietyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyAssessmentEntity, int>>().Object);
     }
 
     [Fact]
@@ -272,3 +272,5 @@ public class PropertyServiceComprehensiveTests
         _mockPropertyRepository.Verify(r => r.UpdateSocietyDetailsAsync(549357, dto, cts.Token), Times.Once);
     }
 }
+
+

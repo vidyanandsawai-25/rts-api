@@ -27,13 +27,19 @@ namespace NtisPlatform.Application.Services;
 /// Global Property Service - Used across all features
 /// Provides property search, lookup, and master data functionality
 /// </summary>
-public class PropertyService
+public partial class PropertyService
     : BaseCommonCrudService<PropertyEntity, PropertyDto, CreatePropertyDto, UpdatePropertyDto, PropertyQueryParameters, int>,
       IPropertyService
 {
     private readonly IPropertyRepository _propertyRepository;
     private readonly ILogger<PropertyService> _logger;
     private readonly FeatureFlagsOptions _featureFlags;
+    private readonly IRepository<WardEntity, int> _wardRepository;
+    private readonly IRepository<PropertyCategoryEntity, int> _categoryRepository;
+    private readonly IRepository<SocietyDetailsEntity, int> _societyRepository;
+    private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
+    private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseRepository;
+    private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
 
     public PropertyService(
         IRepository<PropertyEntity, int> repository,
@@ -41,12 +47,24 @@ public class PropertyService
         IMapper mapper,
         IPropertyRepository propertyRepository,
         ILogger<PropertyService> logger,
-        IOptions<FeatureFlagsOptions> featureFlags)
+        IOptions<FeatureFlagsOptions> featureFlags,
+        IRepository<WardEntity, int> wardRepository,
+        IRepository<PropertyCategoryEntity, int> categoryRepository,
+        IRepository<SocietyDetailsEntity, int> societyRepository,
+        IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
+        IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository,
+        IRepository<PropertyAssessmentEntity, int> assessmentRepository)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
         _logger = logger;
         _featureFlags = featureFlags.Value;
+        _wardRepository = wardRepository;
+        _categoryRepository = categoryRepository;
+        _societyRepository = societyRepository;
+        _propertyDetailsRepository = propertyDetailsRepository;
+        _roomWiseRepository = roomWiseRepository;
+        _assessmentRepository = assessmentRepository;
     }
 
     public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
@@ -199,144 +217,7 @@ public class PropertyService
         return await _propertyRepository.GetBuildingListAsync(wardId, cancellationToken);
     }
 
-    public async Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        if (request.Template == null)
-            return new RangeResult<CreateNewPropertyResponseDto>(SuccessCount: 0, FailedCount: 0, Results: [], Errors: new List<string> { "Template cannot be null." });
 
-        var rangeValues = RangeGenerator.GenerateRangeValues(request.RangeFrom, request.RangeTo, request.Prefix, request.Suffix);
-        var results = new List<CreateNewPropertyResponseDto>();
-        var errors = new List<string>();
-        var sequenceNo = request.StartSequenceNo;
-        var processedCount = 0;
-
-        await _unitOfWork.BeginTransactionAsync(ct);
-        try
-        {
-            for (int i = 0; i < rangeValues.Count; i++)
-            {
-                if (ct.IsCancellationRequested)
-                {
-                    errors.Add($"Operation cancelled at Row {i + 1}.");
-                    break;
-                }
-                try
-                {
-                    if (string.IsNullOrWhiteSpace(rangeValues[i]))
-                    {
-                        errors.Add($"Row {i + 1}: Generated property name is empty or null.");
-                        break;
-                    }
-
-                    request.Template.PropertyNo = $"{rangeValues[i]}";
-                    request.Template.PropertySeqNo = Convert.ToInt32(rangeValues[i]);
-
-                    if (request.Template == null)
-                    {
-                        errors.Add($"Row {i + 1}: Template is null.");
-                        break;
-                    }
-
-                    var res = await _propertyRepository.CreateNewPropertyAsync(request.Template, ct);
-                    processedCount++;
-
-                    if (res != null && res.Success)
-                    {
-                        results.Add(res);
-                    }
-                    else if (res != null && !res.Success)
-                    {
-                        for (int existCount = i; existCount < rangeValues.Count; existCount++)
-                        {
-                            if (await _propertyRepository.IsPropertyExists(request.Template.WardId, rangeValues[existCount], null))
-                            {
-                                errors.Add($"{rangeValues[existCount]} : {res.Message ?? "Unknown error"}");
-                            }
-                            else
-                            {
-                                errors.Add($"Row {existCount + 1} : {res.Message ?? "Unknown error"}");
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                    else
-                    {
-                        errors.Add($"Row {i + 1} ({rangeValues[i]}): Repository returned null response.");
-                        break;
-                    }
-                }
-                catch (DbUpdateException dbEx)
-                {
-                    errors.Add($"Row {i + 1} ({rangeValues[i]}): Database error: {dbEx.InnerException?.Message ?? dbEx.Message}");
-                    break;
-                }
-                catch (OperationCanceledException ocEx)
-                {
-                    errors.Add($"Row {i + 1} ({rangeValues[i]}): Operation cancelled: {ocEx.Message}");
-                    break;
-                }
-                catch (ArgumentException argEx)
-                {
-                    errors.Add($"Row {i + 1} ({rangeValues[i]}): Invalid argument: {argEx.Message}");
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    errors.Add($"Row {i + 1} ({rangeValues[i]}): {ex.GetType().Name}: {ex.Message}");
-                    break;
-                }
-            }
-            if (errors.Count > 0)
-            {
-                try
-                {
-                    await _unitOfWork.RollbackTransactionAsync(ct);
-                }
-                catch (Exception rollbackEx)
-                {
-                    errors.Add($"Rollback error: {rollbackEx.Message}");
-                }
-
-                return new RangeResult<CreateNewPropertyResponseDto>(
-                    SuccessCount: 0,
-                    FailedCount: rangeValues.Count,
-                    Results: [],
-                    Errors: errors
-                );
-            }
-            await _unitOfWork.CommitTransactionAsync(ct);
-
-            return new RangeResult<CreateNewPropertyResponseDto>(
-                SuccessCount: results.Count,
-                FailedCount: 0,
-                Results: results,
-                Errors: null
-            );
-        }
-        //Unexpected exception during loop - rollback
-        catch (Exception ex)
-        {
-            try
-            {
-                await _unitOfWork.RollbackTransactionAsync(ct);
-            }
-            catch (Exception rollbackEx)
-            {
-                errors.Add($"Rollback error: {rollbackEx.Message}");
-            }
-
-            errors.Add($"Unexpected transaction error: {ex.GetType().Name}: {ex.Message}");
-
-            return new RangeResult<CreateNewPropertyResponseDto>(
-                SuccessCount: 0,
-                FailedCount: rangeValues.Count,
-                Results: [],
-                Errors: errors
-            );
-        }
-    }
 
     public async Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
@@ -1091,6 +972,10 @@ public class PropertyService
                 if (amenityPropertyTypeResult != null && item.PartitionNo.Contains(PartitionNoConstants.AmenityPartitionNo, StringComparison.OrdinalIgnoreCase))
                 {
                     item.PropertyTypeId = amenityPropertyTypeResult.Id;
+                    item.ConstructionTypeId = null;
+                    item.ConstructionYear = null;
+                    item.TypeOfUseId = null;
+                    item.SubTypeOfUseId = null;
                 }
 
                 var res = await _propertyRepository.CreateBulkPropertyAsync(item, ct);

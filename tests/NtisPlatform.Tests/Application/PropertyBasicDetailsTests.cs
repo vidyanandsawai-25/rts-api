@@ -684,7 +684,7 @@ public class PropertyBasicDetailsTests
 
             var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
             mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
 
             var result = await service.GetBasicDetailsAsync(549357);
 
@@ -724,7 +724,7 @@ public class PropertyBasicDetailsTests
 
             var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
             mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
 
             var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
@@ -755,7 +755,7 @@ public class PropertyBasicDetailsTests
 
             var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
             mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
 
             var result = await service.UpdateBasicDetailsAsync(999, dto);
 
@@ -1118,3 +1118,4 @@ public class PropertyBasicDetailsTests
 
     #endregion
 }
+

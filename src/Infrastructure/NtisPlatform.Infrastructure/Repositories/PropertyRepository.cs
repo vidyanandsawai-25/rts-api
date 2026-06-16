@@ -2777,7 +2777,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         }
 
         // Normalize prefix
-        var prefix = !string.IsNullOrEmpty(dto.Prifix) ? $"{dto.Prifix}-" : string.Empty;
+        var prefix = !string.IsNullOrEmpty(dto.Prifix) ? $"{dto.Prifix}" : string.Empty;
         var normalizedType = dto.GenerationType.ToUpperInvariant();
 
         // Create cross join of units and floors
@@ -2852,221 +2852,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     }
 
 
-    public async Task<CreateNewPropertyResponseDto?> CreateNewPropertyAsync(CreateNewPropertyDto dto, CancellationToken cancellationToken = default)
-    {
-        // Null check for request body
-        ArgumentNullException.ThrowIfNull(dto);
-
-        var propertyExists = await _context.PropertyMast.AnyAsync(x => x.PropertyNo == dto.PropertyNo && x.WardId == dto.WardId && x.PartitionNo == "", cancellationToken);
-
-        if (propertyExists)
-            return new CreateNewPropertyResponseDto
-            {
-                Success = false,
-                Message = string.Join(" ", "PropertyNo already exists in our records.")
-            };
-
-        SocietyDetailsEntity? society = null;
-        PropertyEntity? property = null;
-        PropertyAssessmentEntity? propertyMastDetails = null;
-        PropertyDetailsEntity? propertyDetails = null;
-        RoomWiseSubmissionDetailsEntity? RoomWiseSubmissionDetails = null;
-
-        try
-        {
-            var ward = await _context.WardMaster.FirstOrDefaultAsync(x => x.Id == dto.WardId, cancellationToken);
-
-            // ============ STEP 2: Property insert ============
-            property = new PropertyEntity
-            {
-                TaxZoneId = dto.TaxZoneId,
-                WardId = dto.WardId,
-                PropertyNo = dto.PropertyNo?.Trim(),
-                PartitionNo = dto.PartitionNo,
-                PropertySeqNo = dto.PropertySeqNo,
-                PropertyTypeId = dto.PropertyTypeId,
-                OpenPlot = dto.OpenPlot,
-                CSN = dto.CSN,
-                PlotNo = dto.PlotNo,
-                CategoryId = dto.CategoryId,
-                Type = dto.Type,
-                OwnerTitle = dto.OwnerTitle,
-                OwnerTitleEnglish = dto.OwnerTitleEnglish,
-                OwnerName = dto.OwnerName,
-                OwnerNameEnglish = dto.OwnerNameEnglish,
-                MobileNo = dto.MobileNo,
-                UPICId = ward != null ? $"{dto.PropertyNo}{dto.WardId}{dto.PartitionNo}{ward.WardNo}" : $"{dto.PropertyNo}{dto.WardId}{dto.PartitionNo}",
-                EmailId = dto.EmailId,
-                OccupierTitle = dto.OccupierTitle,
-                OccupierTitleEnglish = dto.OccupierTitleEnglish,
-                OccupierName = dto.OccupierName,
-                OccupierNameEnglish = dto.OccupierNameEnglish,
-                FlatOrShopNo = dto.FlatOrShopNo,
-                FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish,
-                FlatOrShopNameEnglish = dto.FlatOrShopNameEnglish,
-                FlatOrShopName = dto.FlatOrShopName,
-                Address = dto.Address,
-                AddressEnglish = dto.AddressEnglish,
-                AlternateMobileNo = dto.AlternateMobileNo,
-                MobileNoRemarkId = dto.MobileNoRemarkId,
-                OccupierMobileNo = dto.OccupierMobileNo,
-                OccupierMobileNoRemarkId = dto.OccupierMobileNoRemarkId,
-                PropertyMastOldId = dto.PropertyMastOldId,
-                PinCode = dto.PinCode,
-                Location = dto.Location,
-                LocationEnglish = dto.LocationEnglish,
-                PropertyAssessmentStatusId = dto.PropertyAssessmentStatusId,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedBy = dto.CreatedBy
-            };
-
-            _context.PropertyMast.Add(property);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // ============ STEP 1: Society (Apartment only) ============
-
-            var category = await _context.PropertyCategoryMaster.FirstOrDefaultAsync(x => x.Id == dto.CategoryId, cancellationToken);
-
-            if (category != null && category.PropertyCategoryName.Contains("Apartment"))
-            {
-                society = new SocietyDetailsEntity
-                {
-                    PropertyId = property.Id,
-                    WingName = "Building Society",
-                    SocietyName = dto.SocietyName,
-                    SocietyAddress = dto.SocietyAddress,
-                    SecretaryName = dto.SecretaryName,
-                    ManagerName = dto.ManagerName,
-                    LandOwnerName = dto.LandOwnerName,
-                    BuilderName = dto.BuilderName,
-                    BuilderMobileNo = dto.BuilderMobileNo,
-                    BuilderMobileNoRemarkId = dto.BuilderMobileRemarkId,
-                    SocietyNameEnglish = dto.SocietyNameEnglish,
-                    SocietyAddressEnglish = dto.SocietyAddressEnglish,
-                    SecretaryNameEnglish = dto.SecretaryNameEnglish,
-                    LandOwnerNameEnglish = dto.LandOwnerNameEnglish,
-                    ManagerNameEnglish = dto.ManagerNameEnglish,
-                    BuilderNameEnglish = dto.BuilderNameEnglish,
-                    ManagerMobileNo = dto.ManagerMobileNo,
-                    SecretaryMobileNo = dto.SecretaryMobileNo,
-                    SocietyEmailId = dto.SocietyEmailId,
-                    SecretaryEmailId = dto.SecretaryEmailId,
-                    ManagerEmailId = dto.ManagerEmailId,
-                    IsActive = true,
-                    MarkedForDeletion = false,
-                    CreatedBy = dto.CreatedBy
-                };
-
-                _context.SocietyDetailsMast.Add(society);
-                await _context.SaveChangesAsync(cancellationToken);
-
-
-                // ============ STEP 3: Link society to property ============
-                property.SocietyDetailId = society.Id;
-                _context.PropertyMast.Update(property);
-                await _context.SaveChangesAsync(cancellationToken);
-            }
-
-            // ============ STEP 4: Assessment insert ============
-            propertyMastDetails = new PropertyAssessmentEntity
-            {
-                PropertyId = property.Id,
-                SurveyRemark = dto.SurveyRemark,
-                BlockNo = dto.BlockNo,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedBy = dto.CreatedBy
-            };
-
-            _context.PropertyMastDetails.Add(propertyMastDetails);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // ============ STEP 5: PropertyDetails insert (PLOT category only) ============
-            if (category != null && category.PropertyCategoryName.ToLower().Trim() == "plot")
-            {
-                // Check property details already present in our records or not 
-                propertyDetails = await _context.PropertyDetails.FirstOrDefaultAsync(x => x.PropertyId == property.Id, cancellationToken);
-                if (propertyDetails == null)
-                {
-                    propertyDetails = new PropertyDetailsEntity
-                    {
-                        PropertyId = property.Id,
-                        FloorId = 1,
-                        ConstructionTypeId = 1,
-                        TypeOfUseId = 1,
-                        IsActive = true,
-                        MarkedForDeletion = false,
-                    };
-
-                    _context.PropertyDetails.Add(propertyDetails);
-                    var propertyDetailsSaveResult = await _context.SaveChangesAsync(cancellationToken);
-                    if (propertyDetailsSaveResult > 0)
-                    {
-                        RoomWiseSubmissionDetails = new RoomWiseSubmissionDetailsEntity
-                        {
-                            PropertyId = property.Id,
-                            PropertyDetailsId = propertyDetails.Id,
-                            LengthMtr = dto.LengthMtr,
-                            WidthMtr = dto.WidthMtr,
-                            TotalAreaSqMtr = dto.TotalAreaSqMtr,
-                            CreatedBy = dto.CreatedBy,
-                            CreatedDate = dto.CreatedDate,
-                            OuterYesNo = false,
-                            MinusYesNo = false,
-                            IsActive = true,
-                            MarkedForDeletion = false
-                        };
-
-                        _context.RoomWiseSubmissionDetails.Add(RoomWiseSubmissionDetails);
-                        await _context.SaveChangesAsync(cancellationToken);
-                    }
-                }
-            }
-
-            return new CreateNewPropertyResponseDto
-            {
-                PropertyId = property.Id,
-                UPICID = property.UPICId,
-                WardID = property.WardId,
-                Success = true,
-                Message = "Property generated successfully."
-            };
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            return Failure($"A concurrency conflict occurred. Please retry. Detail: {ex.Message}");
-        }
-        catch (DbUpdateException ex)
-        {
-            var message = ex.InnerException?.Message ?? ex.Message;
-
-            return message switch
-            {
-                var m when ContainsAny(m, "duplicate", "unique")
-                    => Failure("PropertyNo already exists. A duplicate was detected at the Records level."),
-
-                var m when m.Contains("FK_RoomWiseSubmissionDetails_PropertyDetails", StringComparison.OrdinalIgnoreCase)
-                    => Failure("PropertyDetailsId is invalid. PropertyDetails record does not exist for this Property."),
-
-                var m when m.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase)
-                    => Failure($"A referenced record does not exist. Please verify all IDs are valid. Detail: {message}"),
-
-                var m when ContainsAny(m, "NULL", "not-null", "not allow nulls")
-                    => Failure($"A required field is missing at the database level. Please check all mandatory fields. Detail: {message}"),
-
-                _ => Failure($"A database error occurred while saving. Detail: {message}")
-            };
-        }
-        catch (OperationCanceledException)
-        {
-            return Failure("The operation was cancelled before it could complete.");
-        }
-        catch (Exception ex)
-        {
-            return Failure($"An unexpected error occurred: {ex.Message}");
-        }
-    }
 
     public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(
     int SocietyDetailId,
@@ -3195,7 +2980,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
     public async Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId)
     {
-        return await _context.PropertyMast.AnyAsync(x => x.WardId == wardId && x.PropertyNo == propertyNo && (!propertyId.HasValue || x.Id != propertyId.Value));
+        return await _context.PropertyMast.AnyAsync(x => 
+            x.WardId == wardId && 
+            x.PropertyNo == propertyNo && 
+            (x.PartitionNo == "" || x.PartitionNo == null) &&
+            (!propertyId.HasValue || x.Id != propertyId.Value));
     }
 
     public async Task<(int TotalCount, List<PropertySearchResponseDto> Items)> SearchPropertiesAsync(PropertySearchRequestDto searchRequest, int pageNumber, int pageSize, CancellationToken cancellationToken = default)
@@ -4000,9 +3789,29 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             _context.PropertyMastDetails.Add(propertyMastDetails);
             var assessmentSaveResult = await _context.SaveChangesAsync(cancellationToken);
 
+            if (dto != null && dto.ConstructionTypeId != null && dto.TypeOfUseId != null && dto.SubTypeOfUseId != null && dto.ConstructionYear != null) 
+            {
+                // PropertyDetails insert
+                var propertyDetails = new PropertyDetailsEntity
+                {
+                    PropertyId = property.Id,
+                    FloorId = property!.PropertyFloorId!.Value,
+                    ConstructionTypeId = dto!.ConstructionTypeId!.Value,
+                    TypeOfUseId = dto.TypeOfUseId!.Value,
+                    SubTypeOfUseId = dto.SubTypeOfUseId,
+                    ConstructionYear = dto.ConstructionYear,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedBy = dto?.CreatedBy
+                };
+
+                _context.PropertyDetails.Add(propertyDetails);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             return new CreateBulkPropertyResponseDto
             {
-                PropertyId = property.Id,
+                PropertyId = property!.Id,
                 Success = true,
                 Message = "Property generated successfully."
             };

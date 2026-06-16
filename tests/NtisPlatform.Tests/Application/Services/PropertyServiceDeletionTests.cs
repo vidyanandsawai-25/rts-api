@@ -52,7 +52,7 @@ public class PropertyServiceDeletionTests
             _mockMapper.Object,
             _mockPropertyRepository.Object,
             _mockLogger.Object,
-            _mockFeatureFlags.Object);
+            _mockFeatureFlags.Object, new Mock<IRepository<NtisPlatform.Core.Entities.WardEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyCategoryEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.SocietyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyAssessmentEntity, int>>().Object);
     }
 
     /// <summary>
@@ -528,7 +528,7 @@ public class PropertyServiceDeletionTests
             _mockMapper.Object,
             _mockPropertyRepository.Object,
             _mockLogger.Object,
-            mockFeatureFlagsDisabled.Object);
+            mockFeatureFlagsDisabled.Object, new Mock<IRepository<NtisPlatform.Core.Entities.WardEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyCategoryEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.SocietyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyAssessmentEntity, int>>().Object);
 
         _mockRepository.Setup(r => r.GetByIdAsync(propertyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
@@ -544,3 +544,6 @@ public class PropertyServiceDeletionTests
 
     #endregion
 }
+
+
+

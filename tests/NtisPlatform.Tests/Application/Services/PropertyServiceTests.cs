@@ -29,6 +29,12 @@ public class PropertyServiceTests
     private readonly Mock<IPropertyRepository> _mockPropertyRepository;
     private readonly Mock<ILogger<PropertyService>> _mockLogger;
     private readonly Mock<IOptions<FeatureFlagsOptions>> _mockFeatureFlags;
+    private readonly Mock<IRepository<WardEntity, int>> _mockWardRepository;
+    private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
+    private readonly Mock<IRepository<SocietyDetailsEntity, int>> _mockSocietyRepository;
+    private readonly Mock<IRepository<PropertyDetailsEntity, int>> _mockPropertyDetailsRepository;
+    private readonly Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>> _mockRoomWiseRepository;
+    private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _mockAssessmentRepository;
     private readonly PropertyService _service;
 
     public PropertyServiceTests()
@@ -39,6 +45,12 @@ public class PropertyServiceTests
         _mockPropertyRepository = new Mock<IPropertyRepository>();
         _mockLogger = new Mock<ILogger<PropertyService>>();
         _mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
+        _mockWardRepository = new Mock<IRepository<WardEntity, int>>();
+        _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        _mockSocietyRepository = new Mock<IRepository<SocietyDetailsEntity, int>>();
+        _mockPropertyDetailsRepository = new Mock<IRepository<PropertyDetailsEntity, int>>();
+        _mockRoomWiseRepository = new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>();
+        _mockAssessmentRepository = new Mock<IRepository<PropertyAssessmentEntity, int>>();
 
         // Setup feature flag - allow deletion without payment validation in tests
         _mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
@@ -52,8 +64,15 @@ public class PropertyServiceTests
             _mockMapper.Object,
             _mockPropertyRepository.Object,
             _mockLogger.Object,
-            _mockFeatureFlags.Object);
+            _mockFeatureFlags.Object,
+            _mockWardRepository.Object,
+            _mockCategoryRepository.Object,
+            _mockSocietyRepository.Object,
+            _mockPropertyDetailsRepository.Object,
+            _mockRoomWiseRepository.Object,
+            _mockAssessmentRepository.Object);
     }
+
 
     #region GetBasicDetailsAsync Tests
 
@@ -621,6 +640,44 @@ public class PropertyServiceTests
 
     #region CreatePropertiesFromRangeAsync Tests
 
+    /// <summary>
+    /// Helper to setup mocks for range creation tests.
+    /// Mocks AutoMapper, repositories (ward, category, assessment), and UnitOfWork 
+    /// to simulate the service-layer property creation flow.
+    /// </summary>
+    private void SetupRangeCreationMocks(
+        WardEntity? ward = null,
+        PropertyCategoryEntity? category = null,
+        bool propertyExists = false)
+    {
+        // Setup IMapper for PropertyEntity
+        var propertyIdCounter = 100;
+        _mockMapper.Setup(m => m.Map<PropertyEntity>(It.IsAny<CreateNewPropertyDto>()))
+            .Returns(() => new PropertyEntity { Id = propertyIdCounter++, WardId = 1 });
+
+        // Setup IMapper for PropertyAssessmentEntity
+        _mockMapper.Setup(m => m.Map<PropertyAssessmentEntity>(It.IsAny<CreateNewPropertyDto>()))
+            .Returns(new PropertyAssessmentEntity());
+
+        // Setup ward repository
+        _mockWardRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ward ?? new WardEntity { Id = 1, WardNo = "W01" });
+
+        // Setup category repository
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(category ?? new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential" });
+
+        // Setup IsPropertyExists
+        _mockPropertyRepository.Setup(r => r.IsPropertyExists(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>()))
+            .ReturnsAsync(propertyExists);
+
+        // Setup UnitOfWork
+        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mockUnitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+    }
+
     [Fact]
     public async Task CreatePropertiesFromRangeAsync_WithNullRequest_ThrowsArgumentNullException()
     {
@@ -653,9 +710,8 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithValidRequest_CreatesProperties()
     {
         // Arrange
-        // Note: RangeFrom and RangeTo must be numeric values without prefix/suffix
-        // because the code uses Convert.ToInt32(rangeValues[i]) for PropertySeqNo
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
@@ -666,29 +722,22 @@ public class PropertyServiceTests
             StartSequenceNo = 1
         };
 
-        var response1 = new CreateNewPropertyResponseDto { Success = true };
-        var response2 = new CreateNewPropertyResponseDto { Success = true };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response1);
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
 
         // Assert
         Assert.Equal(2, result.SuccessCount);
         Assert.Equal(0, result.FailedCount);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _mockUnitOfWork.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task CreatePropertiesFromRangeAsync_WithCancellationRequested_RollsBackAndReturnsError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
@@ -698,9 +747,6 @@ public class PropertyServiceTests
 
         var cts = new CancellationTokenSource();
         cts.Cancel();
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, cts.Token);
@@ -729,10 +775,11 @@ public class PropertyServiceTests
     }
 
     [Fact]
-    public async Task CreatePropertiesFromRangeAsync_WithFailedResponse_RollsBackAndReturnsError()
+    public async Task CreatePropertiesFromRangeAsync_WithDuplicateProperty_RollsBackAndReturnsError()
     {
-        // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        // Arrange — all properties exist
+        SetupRangeCreationMocks(propertyExists: true);
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
@@ -740,73 +787,33 @@ public class PropertyServiceTests
             RangeTo = "2"
         };
 
-        var response = new CreateNewPropertyResponseDto { Success = false, Message = "Property already exists" };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response);
-
-        _mockPropertyRepository
-            .Setup(x => x.IsPropertyExists(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>()))
-            .ReturnsAsync(false);
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
 
         // Assert
         Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(2, result.FailedCount);
         Assert.NotNull(result.Errors);
-    }
-
-    [Fact]
-    public async Task CreatePropertiesFromRangeAsync_WithNullResponse_ReturnsError()
-    {
-        // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
-        var request = new RangeCreateRequest<CreateNewPropertyDto>
-        {
-            Template = template,
-            RangeFrom = "1",
-            RangeTo = "2"
-        };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((CreateNewPropertyResponseDto?)null);
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-
-        // Act
-        var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(0, result.SuccessCount);
-        Assert.NotNull(result.Errors);
-        Assert.Contains(result.Errors, e => e.Contains("Repository returned null response"));
+        Assert.Contains(result.Errors!, e => e.Contains("Property already exists"));
+        _mockUnitOfWork.Verify(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
     public async Task CreatePropertiesFromRangeAsync_WithDbUpdateException_ReturnsError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        // Override AddAsync to throw
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DbUpdateException("Database error"));
+
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new DbUpdateException("Database error"));
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -821,20 +828,17 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithOperationCanceledException_ReturnsError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException("Operation cancelled"));
+
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new OperationCanceledException("Operation cancelled"));
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -849,20 +853,17 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithArgumentException_ReturnsError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        _mockMapper.Setup(m => m.Map<PropertyEntity>(It.IsAny<CreateNewPropertyDto>()))
+            .Throws(new ArgumentException("Invalid argument"));
+
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new ArgumentException("Invalid argument"));
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -877,20 +878,17 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithGenericException_ReturnsError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        _mockMapper.Setup(m => m.Map<PropertyEntity>(It.IsAny<CreateNewPropertyDto>()))
+            .Throws(new InvalidOperationException("Invalid operation"));
+
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Invalid operation"));
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -905,21 +903,20 @@ public class PropertyServiceTests
     public async Task CreatePropertiesFromRangeAsync_WithRollbackFailure_IncludesRollbackError()
     {
         // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        SetupRangeCreationMocks();
+        _mockMapper.Setup(m => m.Map<PropertyEntity>(It.IsAny<CreateNewPropertyDto>()))
+            .Throws(new InvalidOperationException("Test error"));
+
+        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Rollback failed"));
+
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Test error"));
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Rollback failed"));
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -933,27 +930,15 @@ public class PropertyServiceTests
     [Fact]
     public async Task CreatePropertiesFromRangeAsync_WithPropertyExists_IncludesProperMessage()
     {
-        // Arrange
-        var template = new CreateNewPropertyDto { WardId = 1 };
+        // Arrange — duplicate detection via IsPropertyExists
+        SetupRangeCreationMocks(propertyExists: true);
+        var template = new CreateNewPropertyDto { WardId = 1, CategoryId = 1 };
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             Template = template,
             RangeFrom = "1",
             RangeTo = "2"
         };
-
-        var response = new CreateNewPropertyResponseDto { Success = false, Message = "Property already exists" };
-
-        _mockPropertyRepository
-            .Setup(x => x.CreateNewPropertyAsync(It.IsAny<CreateNewPropertyDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response);
-
-        _mockPropertyRepository
-            .Setup(x => x.IsPropertyExists(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int?>()))
-            .ReturnsAsync(true);
-
-        _mockUnitOfWork.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-        _mockUnitOfWork.Setup(x => x.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         // Act
         var result = await _service.CreatePropertiesFromRangeAsync(request, CancellationToken.None);
@@ -964,6 +949,7 @@ public class PropertyServiceTests
     }
 
     #endregion
+
 
     #region BulkCreateAsync Tests
 
@@ -1933,3 +1919,4 @@ public class PropertyServiceTests
 
     #endregion
 }
+

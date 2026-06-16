@@ -1,5 +1,6 @@
 using AutoMapper;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Mappings;
@@ -22,6 +23,47 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore()) // Managed by Repository (BaseEntity handling)
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore()) // Managed by Repository on update
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
+
+        // CreateNewPropertyDto (Range/Single generation) to Entity
+        CreateMap<CreateNewPropertyDto, PropertyEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore());
+
+        // CreateNewPropertyDto to PropertyDetailsEntity
+        CreateMap<CreateNewPropertyDto, PropertyDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.FloorId, opt => opt.MapFrom(src => 1)) // Default FloorId
+            .ForMember(dest => dest.ConstructionTypeId, opt => opt.MapFrom(src => 1)) // Default Construction Type
+            .ForMember(dest => dest.TypeOfUseId, opt => opt.MapFrom(src => 1))  // Default TypeOfUseId
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
+            .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(src => false));
+
+        // CreateNewPropertyDto to RoomWiseSubmissionDetailsEntity
+        CreateMap<CreateNewPropertyDto, RoomWiseSubmissionDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyDetailsId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.OuterYesNo, opt => opt.MapFrom(src => false))
+            .ForMember(dest => dest.MinusYesNo, opt => opt.MapFrom(src => false))
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true));
+
+        // CreateNewPropertyDto to PropertyAssessmentEntity
+        CreateMap<CreateNewPropertyDto, PropertyAssessmentEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => true))
+            .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(src => false));
 
         // UpdateDto to Entity
         CreateMap<UpdatePropertyDto, PropertyEntity>()

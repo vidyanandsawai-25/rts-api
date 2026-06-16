@@ -65,9 +65,20 @@ namespace NtisPlatform.Core.Models
         public string? OwnerName { get; set; }
         public string? OwnerNameEnglish { get; set; }
         public bool OpenPlot { get; set; } = false;
-        public int? PropertySeqNo { get; set; } = 0;
+        public int? PropertySeqNo { get; set; }
         public int? PropertyFloorId { get; set; }
         
+        [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_ConstructionTypeId_RangeMax")]
+        public int? ConstructionTypeId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_TypeOfUseId_RangeMax")]
+        public int? TypeOfUseId { get; set; }
+
+        [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_SubTypeOfUseId_RangeMax")]
+        public int? SubTypeOfUseId { get; set; }
+
+        [StringLength(4, ErrorMessage = "CreateBulkProperty_ConstructionYear_MaxLength")]
+        public string? ConstructionYear { get; set; }
 
         [Range(1, int.MaxValue, ErrorMessage = "CreateBulkProperty_CreatedBy_RangeMax")]
         public int? CreatedBy { get; set; }

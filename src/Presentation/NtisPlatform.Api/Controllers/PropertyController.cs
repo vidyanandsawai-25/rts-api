@@ -115,7 +115,58 @@ public partial class PropertyController : ControllerBase
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_propertyService, ids, _logger, ct);
         
+    /// <summary>
+    /// Creates multiple property records from a specified range with transactional consistency.
+    /// </summary>
+    /// <param name="request">The range create request containing property template and range parameters.</param>
+    /// <param name="ct">Cancellation token to cancel the operation.</param>
+    /// <returns>
+    /// 200 OK with RangeResult containing success count, failed count, and created properties,
+    /// 400 Bad Request if the request is invalid,
+    /// 409 Conflict if duplicate properties are detected,
+    /// 500 Internal Server Error if a critical failure occurs.
+    /// </returns>
+    /// <response code="200">Returns RangeResult with successfully created properties and any errors.</response>
+    /// <response code="400">If the request is null, template is missing, or range parameters are invalid.</response>
+    /// <response code="409">If duplicate property numbers are detected within the specified range.</response>
+    /// <response code="500">If a critical error occurs during the creation process.</response>
+    /// <remarks>
+    /// Sample request:
+    /// 
+    ///     POST /api/Property/Range
+    ///     {
+    ///         "rangeFrom": "1",
+    ///         "rangeTo": "10",
+    ///         "prefix": "PROP-",
+    ///         "suffix": "",
+    ///         "startSequenceNo": 1,
+    ///         "template": {
+    ///             "wardId": 1,
+    ///             "zoneId": 1,
+    ///             // Other CreateNewPropertyDto fields
+    ///         }
+    ///     }
+    ///     
+    /// **Transaction Behavior:**
+    /// - All database changes occur within a single database transaction.
+    /// - If any property fails validation or creation, all changes are rolled back.
+    /// - If a critical error occurs (database error, system failure), ALL changes are rolled back.
+    /// 
+    /// **Range Processing:**
+    /// - Properties are created sequentially from RangeFrom to RangeTo using the provided template.
+    /// - PropertyNo is generated using the pattern: {Prefix}{RangeValue}{Suffix}
+    /// - PropertySeqNo is set to the numeric range value.
+    /// 
+    /// **Error Handling:**
+    /// - If a property already exists, the error is recorded and the entire operation is rolled back.
+    /// - All errors are collected and returned in the Errors array of the response.
+    /// </remarks>
+    [Authorize]
     [HttpPost("Range")]
+    [ProducesResponseType(typeof(RangeResult<CreateNewPropertyResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
     {
         try 
@@ -134,3 +185,4 @@ public partial class PropertyController : ControllerBase
         }
     }
 }
+

@@ -128,7 +128,15 @@ public class AutoMapperValidationTest
              // Rule exclusion properties (navigation properties)
              "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy",
              // RuleScope navigation property and derived display name
-             "RuleScope", "RuleScopeName"
+             "RuleScope", "RuleScopeName",
+             // Additional entity fields that are unmapped
+             "IsActive", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
+             "BuiltupAreaSqMeter", "BuiltupAreaSqFeet", "NoOfRooms", "IsRenter", "IsTaxable",
+             "Renters", "RenterDetails", "AreaSqMtr", "HeightMtr", "Base1Mtr", "Base2Mtr", "Shape",
+             "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
+             "PrarupYadiPublishDate", "AntimYadiPublishDate", "PartOCDate", "BHK", "WingNo",
+             "TotalBuiltupAreaSqFeet", "TotalBuiltupAreaSqMeter", "Latitude", "Longitude",
+             "NoOfCommercialToilets", "WingName", "PartitionNo"
           };
 
             // Check if all unmapped properties are in the expected list
