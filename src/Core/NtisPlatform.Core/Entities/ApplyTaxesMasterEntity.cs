@@ -5,6 +5,7 @@ namespace NtisPlatform.Core.Entities;
 public class ApplyTaxesMasterEntity : BaseEntity, IHardDeletable
 {
     public int PropertyId { get; set; }
+    public int TaxId { get; set; }
     /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>

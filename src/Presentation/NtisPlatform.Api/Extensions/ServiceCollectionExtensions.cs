@@ -343,7 +343,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITaxMasterService, TaxMasterService>();
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
-
+        services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

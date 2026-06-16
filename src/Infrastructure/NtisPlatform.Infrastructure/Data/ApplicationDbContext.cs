@@ -3671,6 +3671,7 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("ApplyTaxesMaster", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -3684,6 +3685,10 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => new { e.PropertyId, e.TaxId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
+                .HasDatabaseName("UQ_ApplyTaxesMaster_PropertyId_TaxId");
         });
 
         // PropertyAssessmentDetails configuration
