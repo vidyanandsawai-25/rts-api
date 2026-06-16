@@ -149,6 +149,46 @@ public class TaxZoningServiceTests
     }    
 
     [Fact]
+    public async Task GetAllPropertyNo_WithSortByPropertyNo_ReturnsNaturalSortedResults()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, TaxZoneId = 10, PropertyNo = "10", IsActive = true },
+            new() { Id = 2, WardId = 1, TaxZoneId = 10, PropertyNo = "2", IsActive = true },
+            new() { Id = 3, WardId = 1, TaxZoneId = 10, PropertyNo = "1", IsActive = true },
+            new() { Id = 4, WardId = 1, TaxZoneId = 10, PropertyNo = "A10", IsActive = true },
+            new() { Id = 5, WardId = 1, TaxZoneId = 10, PropertyNo = "A2", IsActive = true },
+            new() { Id = 6, WardId = 1, TaxZoneId = 10, PropertyNo = "A1", IsActive = true }
+        };
+        var wards = new List<WardEntity> { new() { Id = 1, WardNo = "W1", ZoneId = 1 } };
+        var taxZones = new List<TaxZoneEntity> { new() { Id = 10, TaxZoneNo = "TZ10" } };
+
+        SetupRepositories(properties, wards, taxZones);
+        var service = CreateService();
+        var query = new TaxZoningQueryParameters
+        {
+            IsActive = true,
+            SortBy = "propertyno",
+            SortOrder = "ASC"
+        };
+
+        // Act
+        var result = await service.GetAllPropertyNo(query);
+
+        // Assert
+        Assert.NotNull(result);
+        var items = result.Items.ToList();
+        Assert.Equal(6, items.Count);
+        Assert.Equal("1", items[0].PropertyNo);
+        Assert.Equal("2", items[1].PropertyNo);
+        Assert.Equal("10", items[2].PropertyNo);
+        Assert.Equal("A1", items[3].PropertyNo);
+        Assert.Equal("A2", items[4].PropertyNo);
+        Assert.Equal("A10", items[5].PropertyNo);
+    }
+
+    [Fact]
     public async Task GetAllPropertyNo_WithPageSizeMinusOne_ReturnsAllResults()
     {
         // Arrange

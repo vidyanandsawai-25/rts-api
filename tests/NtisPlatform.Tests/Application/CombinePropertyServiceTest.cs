@@ -1342,10 +1342,246 @@ public class CombinePropertyServiceTest
         // Act
         var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
 
-        // Assert - Should return only one source property with CombineReason from first history record
         Assert.Single(result);
         Assert.Equal(100, result[0].PropertyId);
         Assert.Equal("First reason", result[0].CombineReason); // First CombineReason from history
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithWardIdSorting_PerformsDatabaseSortingAndPaging()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 2, PropertyNo = "10", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true },
+            new() { Id = 2, WardNo = "WARD2", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            SortBy = "wardid",
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.TotalCount);
+        var items = result.Items.ToList();
+        // Since sorted by WardId ASC, items in WardId 1 should come before WardId 2
+        Assert.Equal(1, items[0].WardId);
+        Assert.Equal(1, items[1].WardId);
+        Assert.Equal(2, items[2].WardId);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithPropertyNoSorting_PerformsNaturalInMemorySorting()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "10", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.TotalCount);
+        var items = result.Items.ToList();
+        // Sorted naturally by PropertyNo ASC: "1" -> "2" -> "10"
+        Assert.Equal("1", items[0].PropertyNo);
+        Assert.Equal("2", items[1].PropertyNo);
+        Assert.Equal("10", items[2].PropertyNo);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithPropertyNoSorting_PerformsNaturalInMemorySorting_MixedValues()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "A10", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "A2", PartitionNo = "B", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "A1", PartitionNo = "C", IsActive = true }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.TotalCount);
+        var items = result.Items.ToList();
+        // Sorted naturally by PropertyNo ASC: "A1" -> "A2" -> "A10"
+        Assert.Equal("A1", items[0].PropertyNo);
+        Assert.Equal("A2", items[1].PropertyNo);
+        Assert.Equal("A10", items[2].PropertyNo);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithDefaultSorting_PerformsSortingByWardPropertyAndPartition()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "A", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "10", PartitionNo = "A", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "2", PartitionNo = "A", IsActive = true }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true },
+            new() { Id = 2, WardNo = "WARD2", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            SortBy = null, // Trigger default sort
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        var items = result.Items.ToList();
+        // Expected order:
+        // 1. WardId = 1, PropertyNo = "2"
+        // 2. WardId = 1, PropertyNo = "10"
+        // 3. WardId = 2, PropertyNo = "1"
+        Assert.Equal(1, items[0].WardId);
+        Assert.Equal("2", items[0].PropertyNo);
+        Assert.Equal(1, items[1].WardId);
+        Assert.Equal("10", items[1].PropertyNo);
+        Assert.Equal(2, items[2].WardId);
+        Assert.Equal("1", items[2].PropertyNo);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithStablePaging_ReturnsConsistentPagedResults()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "B", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true },
+            new() { Id = 3, WardId = 2, PropertyNo = "1", PartitionNo = "A", IsActive = true }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true },
+            new() { Id = 2, WardNo = "WARD2", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        // Sort by PropertyNo. All have PropertyNo = "1".
+        // Tie-breaker 1: WardId. So WardId = 1 comes first.
+        // Tie-breaker 2: PartitionNo. So among WardId = 2, PartitionNo = "A" comes before PartitionNo = "B".
+        // Complete expected order:
+        // 1. PropertyId = 2 (WardId = 1, PartitionNo = "C")
+        // 2. PropertyId = 3 (WardId = 2, PartitionNo = "A")
+        // 3. PropertyId = 1 (WardId = 2, PartitionNo = "B")
+
+        // Act & Assert Page 1 (Size = 1)
+        var resultPage1 = await _service.GetAllAsync(new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 1
+        }, default);
+
+        Assert.Single(resultPage1.Items);
+        Assert.Equal(2, resultPage1.Items.First().Id);
+
+        // Act & Assert Page 2 (Size = 1)
+        var resultPage2 = await _service.GetAllAsync(new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 2,
+            PageSize = 1
+        }, default);
+
+        Assert.Single(resultPage2.Items);
+        Assert.Equal(3, resultPage2.Items.First().Id);
+
+        // Act & Assert Page 3 (Size = 1)
+        var resultPage3 = await _service.GetAllAsync(new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 3,
+            PageSize = 1
+        }, default);
+
+        Assert.Single(resultPage3.Items);
+        Assert.Equal(1, resultPage3.Items.First().Id);
     }
 
     #endregion

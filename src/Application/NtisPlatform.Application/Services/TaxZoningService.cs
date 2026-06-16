@@ -57,21 +57,68 @@ public class TaxZoningService : ITaxZoningService
         var distinctQ = q.GroupBy(x => new { x.TaxZoneId, x.TaxZoneNo, x.WardId, x.WardNo, x.PropertyNo })
                          .Select(g => g.Key);
 
-        // Apply sorting
-        var desc = string.Equals(queryParams.SortOrder, "DESC", StringComparison.OrdinalIgnoreCase);       
-        var orderedQ =
-             string.Equals(queryParams.SortBy, "propertyno", StringComparison.OrdinalIgnoreCase)
-                 ? (desc ? distinctQ.OrderByDescending(x => x.PropertyNo) : distinctQ.OrderBy(x => x.PropertyNo))
-                 : string.Equals(queryParams.SortBy, "taxzone", StringComparison.OrdinalIgnoreCase)
-                     ? (desc ? distinctQ.OrderByDescending(x => x.TaxZoneId) : distinctQ.OrderBy(x => x.TaxZoneId))
-                     : (desc ? distinctQ.OrderByDescending(x => x.WardId) : distinctQ.OrderBy(x => x.WardId));
+        var desc = string.Equals(queryParams.SortOrder, "DESC", StringComparison.OrdinalIgnoreCase);
+        var sortBy = queryParams.SortBy?.ToLowerInvariant();
 
-        var totalCount = await orderedQ.CountAsync(cancellationToken);
+        // For integer-keyed sorts (taxzone, ward) we can sort in SQL and paginate there.
+        // For propertyno (or the default, which should also respect natural order) we must
+        // sort in memory because SQL uses lexicographic string ordering ("10" < "2").
+        bool sortInMemory = sortBy == "propertyno" || string.IsNullOrEmpty(sortBy);
+
+        int totalCount;
+
+        if (sortInMemory)
+        {
+            // Fetch all distinct rows for this filter into memory so we can natural-sort them.
+            var all = await distinctQ.ToListAsync(cancellationToken);
+            totalCount = all.Count;
+
+            var sorted = desc
+                ? all.OrderByDescending(x => x.PropertyNo, NaturalStringComparer.Instance)
+                     .ThenByDescending(x => x.WardId)
+                     .ThenByDescending(x => x.TaxZoneId)
+                : all.OrderBy(x => x.PropertyNo, NaturalStringComparer.Instance)
+                     .ThenBy(x => x.WardId)
+                     .ThenBy(x => x.TaxZoneId);
+
+            var (pageNumber2, pageSize2, skip2, take2) = PaginationHelper.Calculate(queryParams.PageNumber, queryParams.PageSize, totalCount);
+            var pagedItems = sorted.Skip(skip2).Take(take2);
+
+            var dtos2 = pagedItems.Select(x => new TaxZoningDto
+            {
+                TaxZoneId = x.TaxZoneId,
+                TaxZoneNo = x.TaxZoneNo,
+                WardId = x.WardId,
+                WardNo = x.WardNo,
+                PropertyNo = x.PropertyNo
+            }).ToList();
+
+            return new PagedResult<TaxZoningDto>(dtos2, totalCount, pageNumber2, pageSize2);
+        }
+
+        // Integer-column sorts — safe to do in SQL.
+        var orderedQ = sortBy == "taxzone"
+            ? (desc
+                ? distinctQ.OrderByDescending(x => x.TaxZoneId)
+                    .ThenByDescending(x => x.WardId)
+                    .ThenByDescending(x => x.PropertyNo)
+                : distinctQ.OrderBy(x => x.TaxZoneId)
+                    .ThenBy(x => x.WardId)
+                    .ThenBy(x => x.PropertyNo))
+            : (desc
+                ? distinctQ.OrderByDescending(x => x.WardId)
+                    .ThenByDescending(x => x.TaxZoneId)
+                    .ThenByDescending(x => x.PropertyNo)
+                : distinctQ.OrderBy(x => x.WardId)
+                    .ThenBy(x => x.TaxZoneId)
+                    .ThenBy(x => x.PropertyNo));
+
+        totalCount = await orderedQ.CountAsync(cancellationToken);
         var (pageNumber, pageSize, skip, take) = PaginationHelper.Calculate(queryParams.PageNumber, queryParams.PageSize, totalCount);
-        var page = await orderedQ.Skip(skip).Take(take).ToListAsync(cancellationToken);
+        var rawPage = await orderedQ.Skip(skip).Take(take).ToListAsync(cancellationToken);
 
         // Project to DTOs (data already has WardNo and TaxZoneNo from joins)
-        var dtos = page.Select(x => new TaxZoningDto
+        var dtos = rawPage.Select(x => new TaxZoningDto
         {
             TaxZoneId = x.TaxZoneId,
             TaxZoneNo = x.TaxZoneNo,

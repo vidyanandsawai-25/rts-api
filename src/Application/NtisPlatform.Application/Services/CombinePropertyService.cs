@@ -1,10 +1,11 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Utilities;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -148,27 +149,30 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         var propertyIds = propertiesData.Select(p => p.Property.Id).Distinct().ToList();
         var taxData = await GetTaxDataAsync(propertyIds, cancellationToken);
 
-        return propertiesData.Select(x =>
-        {
-            var taxInfo = taxData.TryGetValue(x.Property.Id, out var info) ? info : (TaxAmount: 0m, PendingAmount: 0m);
-
-            return new PropertyCombineDetailsDto
+        return propertiesData
+            .OrderBy(x => x.Property.PropertyNo, NaturalStringComparer.Instance)
+            .ThenBy(x => x.Property.PartitionNo, NaturalStringComparer.Instance)
+            .Select(x =>
             {
-                PropertyId = x.Property.Id,
-                WardId = x.Property.WardId,
-                WardNo = wardNo,
-                PropertyNo = x.Property.PropertyNo,
-                PartitionNo = x.Property.PartitionNo,
-                OldPropertyNo = x.OldPropertyNo ?? string.Empty,
-                OwnerName = x.Property.OwnerName ?? string.Empty,
-                OccupierName = x.Property.OccupierName ?? string.Empty,
-                CategoryId = x.Property.CategoryId,
-                PropertyTypeId = x.PropertyTypeId,
-                PropertyDescription = x.PropertyDescription ?? string.Empty,
-                TaxAmount = taxInfo.TaxAmount,
-                PendingAmount = taxInfo.PendingAmount
-            };
-        }).ToList();
+                var taxInfo = taxData.TryGetValue(x.Property.Id, out var info) ? info : (TaxAmount: 0m, PendingAmount: 0m);
+
+                return new PropertyCombineDetailsDto
+                {
+                    PropertyId = x.Property.Id,
+                    WardId = x.Property.WardId,
+                    WardNo = wardNo,
+                    PropertyNo = x.Property.PropertyNo,
+                    PartitionNo = x.Property.PartitionNo,
+                    OldPropertyNo = x.OldPropertyNo ?? string.Empty,
+                    OwnerName = x.Property.OwnerName ?? string.Empty,
+                    OccupierName = x.Property.OccupierName ?? string.Empty,
+                    CategoryId = x.Property.CategoryId,
+                    PropertyTypeId = x.PropertyTypeId,
+                    PropertyDescription = x.PropertyDescription ?? string.Empty,
+                    TaxAmount = taxInfo.TaxAmount,
+                    PendingAmount = taxInfo.PendingAmount
+                };
+            }).ToList();
     }
 
     /// <summary>
@@ -233,46 +237,128 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 SocietyDetailId = g.FirstOrDefault()!.SocietyDetailId
             });
 
-        // Get total count before paging (executes COUNT query in SQL)
-        var totalCount = await groupedQuery.CountAsync(cancellationToken);
+        var desc = string.Equals(queryParams.SortOrder, "DESC", StringComparison.OrdinalIgnoreCase);
+        var sortBy = queryParams.SortBy?.ToLowerInvariant();
 
-        // Apply sorting in SQL
-        var sortedQuery = ApplySorting(groupedQuery, queryParams);
+        // Hybrid sorting approach:
+        // Keep SQL paging for purely-integer sorts (wardid) and only fall back to
+        // in-memory materialization when natural sorting on PropertyNo/PartitionNo is requested.
+        bool sortInMemory = sortBy == "propertyno" || sortBy == "partitionno" || string.IsNullOrEmpty(sortBy);
 
-        // Handle unpaged (PageSize == -1) vs paged results
-        var isUnpaged = queryParams.PageSize == -1;
-        var effectivePageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize;
-        var effectivePageNumber = isUnpaged ? 1 : queryParams.PageNumber;
+        int totalCount;
+        List<CombinePropertyDto> dtos;
+        int effectivePageNumber;
+        int effectivePageSize;
 
-        // Apply paging in SQL (OFFSET/FETCH) only if paged
-        var pagedData = isUnpaged
-            ? await sortedQuery.ToListAsync(cancellationToken)
-            : await sortedQuery
-                .Skip((effectivePageNumber - 1) * effectivePageSize)
-                .Take(effectivePageSize)
+        if (sortInMemory)
+        {
+            // Fetch all grouped rows into memory
+            var all = await groupedQuery.ToListAsync(cancellationToken);
+            totalCount = all.Count;
+
+            var sorted = (sortBy) switch
+            {
+                "propertyno" => desc
+                    ? all.OrderByDescending(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ThenByDescending(x => x.WardId)
+                         .ThenByDescending(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ToList()
+                    : all.OrderBy(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ThenBy(x => x.WardId)
+                         .ThenBy(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ToList(),
+                "partitionno" => desc
+                    ? all.OrderByDescending(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ThenByDescending(x => x.WardId)
+                         .ThenByDescending(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ToList()
+                    : all.OrderBy(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ThenBy(x => x.WardId)
+                         .ThenBy(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ToList(),
+                _ => desc
+                    ? all.OrderByDescending(x => x.WardId)
+                         .ThenByDescending(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ThenByDescending(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ToList()
+                    : all.OrderBy(x => x.WardId)
+                         .ThenBy(x => x.PropertyNo, NaturalStringComparer.Instance)
+                         .ThenBy(x => x.PartitionNo, NaturalStringComparer.Instance)
+                         .ToList()
+            };
+
+            var isUnpaged = queryParams.PageSize == -1;
+            effectivePageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize;
+            effectivePageNumber = isUnpaged ? 1 : queryParams.PageNumber;
+
+            var pagedData = isUnpaged
+                ? sorted
+                : sorted.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize).ToList();
+
+            // Load ward lookup data
+            var wardIds = pagedData.Select(x => x.WardId).Distinct().ToList();
+            var wards = await _wardRepository.GetQueryable()
+                .Where(w => wardIds.Contains(w.Id) && w.IsActive)
+                .Select(w => new { w.Id, w.WardNo })
                 .ToListAsync(cancellationToken);
 
-        // Load ward lookup data
-        var wardIds = pagedData.Select(x => x.WardId).Distinct().ToList();
-        var wards = await _wardRepository.GetQueryable()
-            .Where(w => wardIds.Contains(w.Id) && w.IsActive)
-            .Select(w => new { w.Id, w.WardNo })
-            .ToListAsync(cancellationToken);
+            var wardLookup = wards.ToDictionary(w => w.Id, w => w.WardNo);
 
-        var wardLookup = wards.ToDictionary(w => w.Id, w => w.WardNo);
-
-        // Map to DTOs
-        var dtos = pagedData.Select(x => new CombinePropertyDto
+            dtos = pagedData.Select(x => new CombinePropertyDto
+            {
+                Id = x.PropertyId,
+                WardId = x.WardId,
+                WardNo = wardLookup.TryGetValue(x.WardId, out var wn) ? wn : null,
+                PropertyNo = x.PropertyNo,
+                FromProperty = x.PartitionNo ?? string.Empty,
+                ToProperty = x.PartitionNo ?? string.Empty,
+                CategoryId = x.CategoryId,
+                SocietyDetailId = x.SocietyDetailId
+            }).ToList();
+        }
+        else // sortBy == "wardid"
         {
-            Id = x.PropertyId,
-            WardId = x.WardId,
-            WardNo = wardLookup.TryGetValue(x.WardId, out var wn) ? wn : null,
-            PropertyNo = x.PropertyNo,
-            FromProperty = x.PartitionNo ?? string.Empty,
-            ToProperty = x.PartitionNo ?? string.Empty,
-            CategoryId = x.CategoryId,
-            SocietyDetailId = x.SocietyDetailId
-        });
+            // Count total rows using SQL
+            totalCount = await groupedQuery.CountAsync(cancellationToken);
+
+            // Apply deterministic sorting in SQL (primary key: WardId, secondary keys: PropertyNo, PartitionNo)
+            var orderedQ = desc
+                ? groupedQuery.OrderByDescending(x => x.WardId)
+                              .ThenByDescending(x => x.PropertyNo)
+                              .ThenByDescending(x => x.PartitionNo)
+                : groupedQuery.OrderBy(x => x.WardId)
+                              .ThenBy(x => x.PropertyNo)
+                              .ThenBy(x => x.PartitionNo);
+
+            var isUnpaged = queryParams.PageSize == -1;
+            effectivePageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize;
+            effectivePageNumber = isUnpaged ? 1 : queryParams.PageNumber;
+
+            var rawPage = isUnpaged
+                ? await orderedQ.ToListAsync(cancellationToken)
+                : await orderedQ.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize).ToListAsync(cancellationToken);
+
+            // Load ward lookup data
+            var wardIds = rawPage.Select(x => x.WardId).Distinct().ToList();
+            var wards = await _wardRepository.GetQueryable()
+                .Where(w => wardIds.Contains(w.Id) && w.IsActive)
+                .Select(w => new { w.Id, w.WardNo })
+                .ToListAsync(cancellationToken);
+
+            var wardLookup = wards.ToDictionary(w => w.Id, w => w.WardNo);
+
+            dtos = rawPage.Select(x => new CombinePropertyDto
+            {
+                Id = x.PropertyId,
+                WardId = x.WardId,
+                WardNo = wardLookup.TryGetValue(x.WardId, out var wn) ? wn : null,
+                PropertyNo = x.PropertyNo,
+                FromProperty = x.PartitionNo ?? string.Empty,
+                ToProperty = x.PartitionNo ?? string.Empty,
+                CategoryId = x.CategoryId,
+                SocietyDetailId = x.SocietyDetailId
+            }).ToList();
+        }
 
         return new PagedResult<CombinePropertyDto>(dtos, totalCount, effectivePageNumber, effectivePageSize);
     }
