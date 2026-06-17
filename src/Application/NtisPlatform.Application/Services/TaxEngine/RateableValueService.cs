@@ -37,6 +37,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly IRuleApplierService _ruleApplierService;
         private readonly IRVPersistenceService _persistenceService;
         private readonly TimeProvider _timeProvider;
+        private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
 
         public RateableValueService(
             ITaxMasterDataService masterDataService,
@@ -49,7 +50,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IPropertyContextLoaderService propertyContextLoaderService,
             IRuleApplierService ruleApplierService,
             IRVPersistenceService persistenceService,
-            TimeProvider timeProvider)
+            TimeProvider timeProvider,
+            IRVCalculationCleanupService rvCalculationCleanupService)
         {
             _masterDataService = masterDataService;
             _unitOfWork = unitOfWork;
@@ -62,6 +64,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _ruleApplierService = ruleApplierService;
             _persistenceService = persistenceService;
             _timeProvider = timeProvider;
+            _rvCalculationCleanupService = rvCalculationCleanupService;
         }
 
         public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
@@ -81,6 +84,18 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var propertyAssessment = propertyContext.PropertyAssessment;
                 var renters = propertyContext.Renters;
                 var occupancies = propertyContext.Occupancies;
+
+                if (!details.Any())
+                {
+                    return new RateableValueResponseDto
+                    {
+                        PropertyId = propertyId,
+                        FinanceYear = propertyContext.Parameters.FinanceYear,
+                        TotalRateableValue = 0,
+                        TotalTax = 0
+                    };
+                }
+
                 var constructionYearValue = propertyContext.Parameters.ConstructionYearValue;
                 var yearRangeRVId = propertyContext.Parameters.YearRangeRVId;
 

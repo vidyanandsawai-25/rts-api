@@ -1,18 +1,20 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace NtisPlatform.Tests.Application
@@ -29,47 +31,57 @@ namespace NtisPlatform.Tests.Application
     {
         // ─── Shared Mocks ─────────────────────────────────────────────────────────
 
-        private readonly Mock<IRepository<PropertyEntity, int>>               _propertyRepo;
-        private readonly Mock<IRepository<PropertyDetailsEntity, int>>        _propertyDetailsRepo;
-        private readonly Mock<IRepository<PropertyAssessmentEntity, int>>     _propertyAssessmentRepo;
-        private readonly Mock<IRepository<PropertySocialDetailsEntity, int>>  _propertySocialDetailsRepo;
-        private readonly Mock<IRepository<RenterMastEntity, int>>             _renterRepo;
+        private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepo;
+        private readonly Mock<IRepository<PropertyDetailsEntity, int>> _propertyDetailsRepo;
+        private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
+        private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
+        private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
         private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
-        private readonly Mock<TaxMasterDataService>                           _masterDataService;
+        private readonly Mock<TaxMasterDataService> _masterDataService;
+
+        private readonly Mock<IFinanceYearProvider> _financeYearProvider;
+        private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
+        private readonly Mock<IRVCalculationCleanupService> _rvCalculationCleanupService;
+        private readonly Mock<IUnitOfWork> _unitOfWork;
 
         // Standard valid year range used across most tests
         private static readonly AssessmentYearRangeEntity DefaultYearRange = new()
         {
-            Id       = 10,
+            Id = 10,
             FromYear = 2000,
-            ToYear   = 2030,
+            ToYear = 2030,
             IsActive = true
         };
 
         public PropertyContextLoaderServiceTests()
         {
-            _propertyRepo              = new Mock<IRepository<PropertyEntity, int>>();
-            _propertyDetailsRepo       = new Mock<IRepository<PropertyDetailsEntity, int>>();
-            _propertyAssessmentRepo    = new Mock<IRepository<PropertyAssessmentEntity, int>>();
+            _propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
+            _propertyDetailsRepo = new Mock<IRepository<PropertyDetailsEntity, int>>();
+            _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
             _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
-            _renterRepo                = new Mock<IRepository<RenterMastEntity, int>>();
-            _occupancyRepo             = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
+            _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
+            _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
+
+            _financeYearProvider = new Mock<IFinanceYearProvider>();
+            _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
+            _rvCalculationCleanupService = new Mock<IRVCalculationCleanupService>();
+            _unitOfWork = new Mock<IUnitOfWork>();
 
             // Build TaxMasterDataService mock with the minimal constructor repos it needs
-            var typeOfUseRepo          = new Mock<IRepository<TypeOfUseEntity, int>>();
-            var subTypeOfUseRepo       = new Mock<IRepository<SubTypeOfUseEntity, int>>();
-            var floorRepo              = new Mock<IRepository<FloorEntity, int>>();
-            var subFloorRepo           = new Mock<IRepository<SubFloorEntity, int>>();
-            var constructionTypeRepo   = new Mock<IRepository<ConstructionTypeEntity, int>>();
-            var rateRepo               = new Mock<IRepository<RateEntity, int>>();
-            var rateSectionRepo        = new Mock<IRepository<RateSectionEntity, int>>();
+            var typeOfUseRepo = new Mock<IRepository<TypeOfUseEntity, int>>();
+            var subTypeOfUseRepo = new Mock<IRepository<SubTypeOfUseEntity, int>>();
+            var floorRepo = new Mock<IRepository<FloorEntity, int>>();
+            var subFloorRepo = new Mock<IRepository<SubFloorEntity, int>>();
+            var constructionTypeRepo = new Mock<IRepository<ConstructionTypeEntity, int>>();
+            var rateRepo = new Mock<IRepository<RateEntity, int>>();
+            var rateSectionRepo = new Mock<IRepository<RateSectionEntity, int>>();
             var rateSectionDetailsRepo = new Mock<IRepository<RateSectionDetailsEntity, int>>();
-            var depreciationRepo       = new Mock<IRepository<DepreciationMasterEntity, int>>();
-            var yearRangeRepo          = new Mock<IRepository<AssessmentYearRangeEntity, int>>();
-            var taxMasterRepo          = new Mock<IRepository<TaxMasterEntity, int>>();
-            var taxPercentageRepo      = new Mock<IRepository<TaxPercentageMasterRVEntity, int>>();
-            var educationTaxRepo       = new Mock<IRepository<EducationTaxMasterEntity, int>>();
-            var employmentTaxRepo      = new Mock<IRepository<EmploymentTaxMasterEntity, int>>();
+            var depreciationRepo = new Mock<IRepository<DepreciationMasterEntity, int>>();
+            var yearRangeRepo = new Mock<IRepository<AssessmentYearRangeEntity, int>>();
+            var taxMasterRepo = new Mock<IRepository<TaxMasterEntity, int>>();
+            var taxPercentageRepo = new Mock<IRepository<TaxPercentageMasterRVEntity, int>>();
+            var educationTaxRepo = new Mock<IRepository<EducationTaxMasterEntity, int>>();
+            var employmentTaxRepo = new Mock<IRepository<EmploymentTaxMasterEntity, int>>();
 
             _masterDataService = new Mock<TaxMasterDataService>(
                 new MemoryCache(new MemoryCacheOptions()),
@@ -89,11 +101,6 @@ namespace NtisPlatform.Tests.Application
                 employmentTaxRepo.Object);
 
             // Default: all repos return empty async-capable mocks.
-            // This matters because LoadPropertyContextAsync uses Task.WhenAll — all 4 queries
-            // run simultaneously. If any repo returns a plain non-async IQueryable (Moq loose
-            // default), EF Core's ToListAsync/FirstOrDefaultAsync throws
-            // "The source 'IQueryable' doesn't implement IAsyncEnumerable<T>".
-            // Individual tests override these defaults as needed.
             _propertyRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyEntity>().BuildMockDbSet().Object);
 
@@ -111,6 +118,15 @@ namespace NtisPlatform.Tests.Application
 
             _occupancyRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
+
+            _financeYearProvider.Setup(x => x.GetCurrentFinanceYear())
+                .Returns(2026);
+
+            _yearMasterRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<YearMasterEntity>().BuildMockDbSet().Object);
+
+            _unitOfWork.Setup(x => x.SaveChangesAsync())
+                .ReturnsAsync(1);
         }
 
         // ─── Failure / Validation Tests ──────────────────────────────────────────
@@ -133,20 +149,52 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task LoadPropertyContextAsync_NoPropertyDetails_ThrowsInvalidOperationException()
+        public async Task LoadPropertyContextAsync_NoPropertyDetails_DeactivatesExistingRVCalculationsAndReturnsEmptyContext()
         {
             // Arrange
-            SetupValidProperty(propertyId: 1);
+            const int propertyId = 1;
+            const int financeYear = 2026;
+            const int yearMasterId = 7;
+
+            SetupValidProperty(propertyId);
+
             _propertyDetailsRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyDetailsEntity>().BuildMockDbSet().Object);
 
+            _financeYearProvider.Setup(x => x.GetCurrentFinanceYear())
+                .Returns(financeYear);
+
+            _yearMasterRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<YearMasterEntity>
+                {
+                    new()
+                    {
+                        Id = yearMasterId,
+                        Year = financeYear,
+                        IsActive = true
+                    }
+                }.BuildMockDbSet().Object);
+
             var sut = CreateService();
 
-            // Act & Assert
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => sut.LoadPropertyContextAsync(1, 2026));
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(propertyId, financeYear);
 
-            Assert.Contains("PropertyDetails not found", ex.Message);
+            // Assert — context signals empty details so callers can return a zero result
+            Assert.NotNull(ctx);
+            Assert.Empty(ctx.Details);
+            Assert.Equal(financeYear, ctx.Parameters.FinanceYear);
+
+            _rvCalculationCleanupService.Verify(
+                x => x.DeactivateExistingRVCalculationsAsync(
+                    propertyId,
+                    financeYear,
+                    yearMasterId),
+                Times.Once);
+
+            _unitOfWork.Verify(
+                x => x.SaveChangesAsync(),
+                Times.Once);
         }
 
         [Fact]
@@ -155,6 +203,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: null);
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
@@ -173,6 +222,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "INVALID");
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
@@ -192,6 +242,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange — construction year 1850 is outside DefaultYearRange (2000-2030)
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "1850");
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
@@ -211,12 +262,13 @@ namespace NtisPlatform.Tests.Application
         public async Task LoadPropertyContextAsync_ValidInput_ReturnsPopulatedContext()
         {
             // Arrange
-            const int propertyId            = 1;
-            const int financeYear           = 2026;
+            const int propertyId = 1;
+            const int financeYear = 2026;
             const int constructionYearValue = 2015;
 
             SetupValidProperty(propertyId);
             SetupPropertyDetails(propertyId, constructionYear: constructionYearValue.ToString());
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
@@ -232,11 +284,11 @@ namespace NtisPlatform.Tests.Application
             Assert.NotEmpty(ctx.Details);
 
             // Assert — typed parameters
-            Assert.Equal(financeYear,           ctx.Parameters.FinanceYear);
-            Assert.Equal(constructionYearValue,  ctx.Parameters.ConstructionYearValue);
-            Assert.Equal(DefaultYearRange.Id,    ctx.Parameters.YearRangeRVId);
+            Assert.Equal(financeYear, ctx.Parameters.FinanceYear);
+            Assert.Equal(constructionYearValue, ctx.Parameters.ConstructionYearValue);
+            Assert.Equal(DefaultYearRange.Id, ctx.Parameters.YearRangeRVId);
 
-            // Per-detail fields are null at root context level (set only by CloneForDetail)
+            // Per-detail fields are null at root context level
             Assert.Null(ctx.Parameters.Detail);
             Assert.Null(ctx.Parameters.DetailTypeOfUse);
         }
@@ -246,24 +298,28 @@ namespace NtisPlatform.Tests.Application
         {
             // Arrange
             const int propertyId = 1;
+
             SetupValidProperty(propertyId);
             SetupPropertyDetails(propertyId, constructionYear: "2010");
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
-            // Simulate a "HAS_LIFT" BIT social attribute with value = true
-            // BitValue must be true and DataType must be "BIT" to be resolved as bool true.
             _propertySocialDetailsRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertySocialDetailsEntity>
                 {
                     new()
                     {
-                        Id = 1, PropertyId = propertyId, IsActive = true,
+                        Id = 1,
+                        PropertyId = propertyId,
+                        IsActive = true,
                         SocialAttributeId = 99,
-                        BitValue = true,   // ← required: actual stored value
+                        BitValue = true,
                         SocialAttribute = new SocialAttributeEntity
                         {
-                            Id = 99, SocialAttributeCode = "HAS_LIFT", DataType = "BIT"
+                            Id = 99,
+                            SocialAttributeCode = "HAS_LIFT",
+                            DataType = "BIT"
                         }
                     }
                 }.BuildMockDbSet().Object);
@@ -273,10 +329,8 @@ namespace NtisPlatform.Tests.Application
             // Act
             var ctx = await sut.LoadPropertyContextAsync(propertyId, 2026);
 
-            // Assert — SocialAttributeId list contains the ID
+            // Assert
             Assert.Contains(99, ctx.Parameters.SocialAttributeId);
-
-            // Assert — SocialAttributes dictionary also contains HAS_LIFT
             Assert.True(ctx.Parameters.SocialAttributes.ContainsKey("HAS_LIFT"));
             Assert.Equal(true, ctx.Parameters.SocialAttributes["HAS_LIFT"]);
         }
@@ -287,16 +341,16 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "2010");
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
-            // No assessment record — loader should warn but not throw
             _propertyAssessmentRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyAssessmentEntity>().BuildMockDbSet().Object);
 
             var sut = CreateService();
 
-            // Act — must not throw
+            // Act
             var ctx = await sut.LoadPropertyContextAsync(1, 2026);
 
             // Assert
@@ -308,23 +362,36 @@ namespace NtisPlatform.Tests.Application
         {
             // Arrange
             const int propertyId = 1;
-            const int detailId   = 42;
+            const int detailId = 42;
 
             SetupValidProperty(propertyId);
             SetupPropertyDetails(propertyId, constructionYear: "2012", detailId: detailId);
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
             _renterRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<RenterMastEntity>
                 {
-                    new() { Id = 1, PropertyDetailsId = detailId, IsActive = true, MarkedForDeletion = false }
+                    new()
+                    {
+                        Id = 1,
+                        PropertyDetailsId = detailId,
+                        IsActive = true,
+                        MarkedForDeletion = false
+                    }
                 }.BuildMockDbSet().Object);
 
             _occupancyRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyOccupancyDetailsEntity>
                 {
-                    new() { Id = 1, PropertyDetailId = detailId, IsActive = true, MarkedForDeletion = false }
+                    new()
+                    {
+                        Id = 1,
+                        PropertyDetailId = detailId,
+                        IsActive = true,
+                        MarkedForDeletion = false
+                    }
                 }.BuildMockDbSet().Object);
 
             var sut = CreateService();
@@ -343,30 +410,33 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "2010");
+
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
 
             var sut = CreateService();
             var ctx = await sut.LoadPropertyContextAsync(1, 2026);
 
-            var detail          = ctx.Details[0];
-            var detailTypeOfUse = new TypeOfUseEntity { Id = 5, TypeOfUseGroupId = 3 };
+            var detail = ctx.Details[0];
+            var detailTypeOfUse = new TypeOfUseEntity
+            {
+                Id = 5,
+                TypeOfUseGroupId = 3
+            };
 
             // Act
             var cloned = ctx.CloneForDetail(detail, detailTypeOfUse);
 
-            // Assert — per-detail fields are now populated in the clone
-            Assert.Same(detail,          cloned.Parameters.Detail);
+            // Assert
+            Assert.Same(detail, cloned.Parameters.Detail);
             Assert.Same(detailTypeOfUse, cloned.Parameters.DetailTypeOfUse);
 
-            // Assert — global params are preserved verbatim
-            Assert.Equal(ctx.Parameters.FinanceYear,           cloned.Parameters.FinanceYear);
+            Assert.Equal(ctx.Parameters.FinanceYear, cloned.Parameters.FinanceYear);
             Assert.Equal(ctx.Parameters.ConstructionYearValue, cloned.Parameters.ConstructionYearValue);
-            Assert.Equal(ctx.Parameters.SocialAttributeId,     cloned.Parameters.SocialAttributeId);
+            Assert.Equal(ctx.Parameters.SocialAttributeId, cloned.Parameters.SocialAttributeId);
 
-            // Assert — entity references are shared (not deep-cloned, read-only safe)
             Assert.Same(ctx.Property, cloned.Property);
-            Assert.Same(ctx.Details,  cloned.Details);
+            Assert.Same(ctx.Details, cloned.Details);
         }
 
         // ─── Private Helpers ─────────────────────────────────────────────────────
@@ -381,6 +451,10 @@ namespace NtisPlatform.Tests.Application
                 _renterRepo.Object,
                 _occupancyRepo.Object,
                 _masterDataService.Object,
+                _financeYearProvider.Object,
+                _yearMasterRepo.Object,
+                _rvCalculationCleanupService.Object,
+                _unitOfWork.Object,
                 NullLogger<PropertyContextLoaderService>.Instance);
         }
 
@@ -391,26 +465,32 @@ namespace NtisPlatform.Tests.Application
                 {
                     new()
                     {
-                        Id = propertyId, IsActive = true, MarkedForDeletion = false,
-                        TaxZoneId = 1, WardId = 1
+                        Id = propertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        TaxZoneId = 1,
+                        WardId = 1
                     }
                 }.BuildMockDbSet().Object);
         }
 
         private void SetupPropertyDetails(
-            int    propertyId,
+            int propertyId,
             string? constructionYear,
-            int    detailId = 1)
+            int detailId = 1)
         {
             _propertyDetailsRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyDetailsEntity>
                 {
                     new()
                     {
-                        Id = detailId, PropertyId = propertyId,
-                        IsActive = true, MarkedForDeletion = false,
+                        Id = detailId,
+                        PropertyId = propertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
                         ConstructionYear = constructionYear,
-                        FloorId = 1, TypeOfUseId = 1
+                        FloorId = 1,
+                        TypeOfUseId = 1
                     }
                 }.BuildMockDbSet().Object);
         }

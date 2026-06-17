@@ -49,7 +49,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             int policyCount = await _policyTaxRepo.GetQueryable()
                 .Where(x => x.PropertyId == propertyId &&
-                            x.PolicyYear == financeYear &&
                             x.PolicyCode == "NETTAX" &&
                             x.IsActive &&
                             !x.MarkedForDeletion)

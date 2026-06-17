@@ -1,19 +1,20 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+using NtisPlatform.Application.Helpers;
+using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
-using NtisPlatform.Application.DTOs.Rules.RuleExecution;
-using NtisPlatform.Application.Helpers;
-using NtisPlatform.Application.Interfaces.TaxEngine;
-using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Application.Services.TaxEngine;
-using NtisPlatform.Core.Entities;
-using NtisPlatform.Core.Entities.Master;
-using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.Rules
 {
@@ -45,7 +46,12 @@ namespace NtisPlatform.Application.Services.Rules
         private readonly IRepository<RenterMastEntity, int> _renterRepo;
         private readonly IRepository<PropertyOccupancyDetailsEntity, int> _occupancyRepo;
         private readonly ITaxMasterDataService _masterDataService;
+        private readonly IFinanceYearProvider _financeYearProvider;
+        private readonly IRepository<YearMasterEntity, int> _yearMasterRepo;
+        private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PropertyContextLoaderService> _logger;
+       
 
         public PropertyContextLoaderService(
             IRepository<PropertyEntity, int> propertyRepo,
@@ -55,6 +61,10 @@ namespace NtisPlatform.Application.Services.Rules
             IRepository<RenterMastEntity, int> renterRepo,
             IRepository<PropertyOccupancyDetailsEntity, int> occupancyRepo,
             ITaxMasterDataService masterDataService,
+            IFinanceYearProvider financeYearProvider,
+            IRepository<YearMasterEntity, int> yearMasterRepo,
+            IRVCalculationCleanupService rvCalculationCleanupService,
+            IUnitOfWork unitOfWork,
             ILogger<PropertyContextLoaderService> logger)
         {
             _propertyRepo = propertyRepo;
@@ -64,6 +74,10 @@ namespace NtisPlatform.Application.Services.Rules
             _renterRepo = renterRepo;
             _occupancyRepo = occupancyRepo;
             _masterDataService = masterDataService;
+            _financeYearProvider = financeYearProvider;
+            _yearMasterRepo = yearMasterRepo;
+            _rvCalculationCleanupService = rvCalculationCleanupService;
+            _unitOfWork = unitOfWork;
             _logger = logger;
         }
 
@@ -122,6 +136,39 @@ namespace NtisPlatform.Application.Services.Rules
                 .OrderBy(x => x.Id)
                 .ToListAsync(cancellationToken);
 
+            if (!details.Any())
+            {
+                int financeYearForCleanup = financeYear > 0
+                    ? financeYear
+                    : _financeYearProvider.GetCurrentFinanceYear();
+
+                var yearMasterForCleanup = await _yearMasterRepo.GetQueryable()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(
+                        y => y.Year == financeYearForCleanup && y.IsActive,
+                        cancellationToken);
+
+                await _rvCalculationCleanupService.DeactivateExistingRVCalculationsAsync(
+                    propertyId,
+                    financeYearForCleanup,
+                    yearMasterForCleanup?.Id);
+
+                await _unitOfWork.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "No PropertyDetails found for PropertyId={PropertyId}. Existing RV calculations deactivated for FinanceYear={FinanceYear}, YearMasterId={YearMasterId}",
+                    propertyId,
+                    financeYearForCleanup,
+                    yearMasterForCleanup?.Id);
+
+                return new PropertyCalculationContext
+                {
+                    Property = property,
+                    Details = new List<PropertyDetailsEntity>(),
+                    Parameters = new PropertyCalculationParameters { FinanceYear = financeYearForCleanup }
+                };
+            }
+
             // Gather active SocialAttributeIds for the property
             var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).ToList();
 
@@ -155,10 +202,6 @@ namespace NtisPlatform.Application.Services.Rules
                     "OwnerType will default to 0 in the rule engine. This may cause incorrect rule matching.",
                     propertyId);
             }
-
-            CalculationValidator.CheckCondition(
-                details.Any(),
-                $"PropertyDetails not found for PropertyId={propertyId}");
 
             // ── Phase 3: Parse construction year ───────────────────────────────────
 
