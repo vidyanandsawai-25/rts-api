@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MockQueryable;
@@ -7,12 +8,15 @@ using Moq;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.Property;
 using Xunit;
 
 namespace NtisPlatform.Tests.Application;
@@ -23,6 +27,14 @@ namespace NtisPlatform.Tests.Application;
 /// </summary>
 public class PropertyBasicDetailsTests
 {
+    /// <summary>
+    /// Builds the Basic Details use-case service over a real in-memory DbContext, mirroring how the API
+    /// composes the per-tab service (feature repository + master repository + unit of work). Behaviour
+    /// matches the former PropertyRepository.GetBasicDetailsAsync/UpdateBasicDetailsAsync exactly.
+    /// </summary>
+    private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
+        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
     #region UpdatePropertyBasicDetailsDto Tests
 
     public class UpdatePropertyBasicDetailsDtoTests
@@ -195,12 +207,13 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
 
-            var result = await repository.GetBasicDetailsAsync(999);
+            var result = await service.GetBasicDetailsAsync(999);
 
             Assert.Null(result);
         }
@@ -210,6 +223,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -242,8 +256,8 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetBasicDetailsAsync(549357);
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -260,10 +274,11 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
 
             var dto = new UpdatePropertyBasicDetailsDto
             {
@@ -271,7 +286,7 @@ public class PropertyBasicDetailsTests
                 TaxZoneId = 10
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(999, dto);
+            var result = await service.UpdateBasicDetailsAsync(999, dto);
 
             Assert.Null(result);
         }
@@ -281,6 +296,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -297,15 +313,15 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
                 TaxZoneId = 999 // Invalid TaxZoneId
             };
 
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => repository.UpdateBasicDetailsAsync(549357, dto));
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateBasicDetailsAsync(549357, dto));
 
             Assert.Contains("TaxZone with ID 999 does not exist or is inactive", exception.Message);
         }
@@ -315,6 +331,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -333,15 +350,15 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 999, // Invalid WardId
                 TaxZoneId = 10
             };
 
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => repository.UpdateBasicDetailsAsync(549357, dto));
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateBasicDetailsAsync(549357, dto));
 
             Assert.Contains("Ward with ID 999 does not exist or is inactive", exception.Message);
         }
@@ -351,6 +368,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -376,7 +394,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -386,7 +404,7 @@ public class PropertyBasicDetailsTests
                 NoOfCommercialToilets = 1
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -409,6 +427,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -442,7 +461,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -451,7 +470,7 @@ public class PropertyBasicDetailsTests
                 NoOfResidentialToilets = 3
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("NEW", result.WingNo);
@@ -467,6 +486,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -489,7 +509,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -498,7 +518,7 @@ public class PropertyBasicDetailsTests
                 PlotAreaMtrWidth = 25.5
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(2000.75, result.PlotArea);
@@ -514,6 +534,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -544,7 +565,7 @@ public class PropertyBasicDetailsTests
             context.PlotDetails.Add(plot);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -553,7 +574,7 @@ public class PropertyBasicDetailsTests
                 PlotAreaFtLength = 60.0
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(2500.0, result.PlotArea);
@@ -569,6 +590,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -589,7 +611,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -598,7 +620,7 @@ public class PropertyBasicDetailsTests
                 // No plot data provided
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("A1", result.PartitionNo);
@@ -613,6 +635,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -635,7 +658,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -645,7 +668,7 @@ public class PropertyBasicDetailsTests
                 SubZoneNo = "SZ01"
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(79, result.WardId);
@@ -658,18 +681,25 @@ public class PropertyBasicDetailsTests
 
     #endregion
 
-    #region PropertyService BasicDetails Tests
+    #region PropertyBasicDetailsService Tests
 
-    public class PropertyServiceBasicDetailsTests
+    public class PropertyBasicDetailsServiceTests
     {
-        [Fact]
-        public async Task GetBasicDetailsAsync_CallsRepository()
+        private static PropertyBasicDetailsService CreateService(
+            out Mock<IPropertyBasicDetailsRepository> repo,
+            out Mock<IMasterRepository> master,
+            out Mock<IUnitOfWork> unitOfWork)
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            repo = new Mock<IPropertyBasicDetailsRepository>();
+            master = new Mock<IMasterRepository>();
+            unitOfWork = new Mock<IUnitOfWork>();
+            return new PropertyBasicDetailsService(repo.Object, master.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy());
+        }
+
+        [Fact]
+        public async Task GetBasicDetailsAsync_DelegatesToRepository()
+        {
+            var service = CreateService(out var repo, out _, out _);
 
             var expectedDto = new PropertyBasicDetailsDto
             {
@@ -678,88 +708,69 @@ public class PropertyBasicDetailsTests
                 PropertyNo = "22"
             };
 
-            mockPropertyRepo
-                .Setup(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>()))
+            repo.Setup(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
 
             var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
             Assert.Equal(79, result.WardId);
-            mockPropertyRepo.Verify(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        public async Task UpdateBasicDetailsAsync_CallsRepositoryAndReturnsResult()
-        {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
-
-            var dto = new UpdatePropertyBasicDetailsDto
-            {
-                WardId = 79,
-                TaxZoneId = 10,
-                WingNo = "A"
-            };
-
-            var expectedResult = new PropertyBasicDetailsDto
-            {
-                PropertyId = 549357,
-                WardId = 79,
-                TaxZoneId = 10,
-                WingNo = "A"
-            };
-
-            mockPropertyRepo
-                .Setup(r => r.UpdateBasicDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedResult);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
-
-            var result = await service.UpdateBasicDetailsAsync(549357, dto);
-
-            Assert.NotNull(result);
-            Assert.Equal(549357, result.PropertyId);
-            Assert.Equal("A", result.WingNo);
-            mockPropertyRepo.Verify(r => r.UpdateBasicDetailsAsync(549357, dto, It.IsAny<CancellationToken>()), Times.Once);
+            repo.Verify(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateBasicDetailsAsync_PropertyNotFound_ReturnsNull()
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            var service = CreateService(out var repo, out _, out _);
 
-            var dto = new UpdatePropertyBasicDetailsDto
-            {
-                WardId = 79,
-                TaxZoneId = 10
-            };
+            repo.Setup(r => r.GetActivePropertyAsync(999, It.IsAny<CancellationToken>()))
+                .ReturnsAsync((PropertyEntity?)null);
 
-            mockPropertyRepo
-                .Setup(r => r.UpdateBasicDetailsAsync(999, dto, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((PropertyBasicDetailsDto?)null);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions { AllowPropertyDeletionWithoutPaymentValidation = true });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
-
-            var result = await service.UpdateBasicDetailsAsync(999, dto);
+            var result = await service.UpdateBasicDetailsAsync(999, new UpdatePropertyBasicDetailsDto { WardId = 79, TaxZoneId = 10 });
 
             Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_InvalidTaxZone_ThrowsInvalidOperationException()
+        {
+            var service = CreateService(out var repo, out var master, out _);
+
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, WardId = 79, TaxZoneId = 10, IsActive = true });
+            master.Setup(m => m.TaxZoneExistsAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+
+            var dto = new UpdatePropertyBasicDetailsDto { WardId = 79, TaxZoneId = 999 };
+
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateBasicDetailsAsync(549357, dto));
+
+            Assert.Contains("TaxZone with ID 999 does not exist or is inactive", exception.Message);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_ValidData_SavesAndReturnsRefreshedDto()
+        {
+            var service = CreateService(out var repo, out var master, out var unitOfWork);
+
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, WardId = 79, TaxZoneId = 10, IsActive = true });
+            master.Setup(m => m.TaxZoneExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            master.Setup(m => m.WardExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            repo.Setup(r => r.GetFirstAssessmentIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+            repo.Setup(r => r.GetFirstPlotIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+            repo.Setup(r => r.GetSocietyByPropertyIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync((SocietyDetailsEntity?)null);
+
+            var expected = new PropertyBasicDetailsDto { PropertyId = 549357, WardId = 79, TaxZoneId = 10 };
+            repo.Setup(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
+
+            var dto = new UpdatePropertyBasicDetailsDto { WardId = 79, TaxZoneId = 10 };
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
+
+            Assert.NotNull(result);
+            Assert.Equal(549357, result.PropertyId);
+            unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 
@@ -774,6 +785,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -798,8 +810,8 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetBasicDetailsAsync(549357);
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -812,6 +824,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -834,8 +847,8 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetBasicDetailsAsync(549357);
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -848,6 +861,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -872,8 +886,8 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetBasicDetailsAsync(549357);
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.MoujaId);
@@ -885,6 +899,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -909,7 +924,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -917,7 +932,7 @@ public class PropertyBasicDetailsTests
                 MoujaId = 2
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(2, result.MoujaId);
@@ -932,6 +947,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -953,7 +969,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -961,8 +977,8 @@ public class PropertyBasicDetailsTests
                 MoujaId = 999
             };
 
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => repository.UpdateBasicDetailsAsync(549357, dto));
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateBasicDetailsAsync(549357, dto));
 
             Assert.Contains("Mouja with ID 999 does not exist or is inactive", exception.Message);
         }
@@ -972,6 +988,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -997,7 +1014,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -1005,7 +1022,7 @@ public class PropertyBasicDetailsTests
                 MoujaId = 2
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(2, result.MoujaId);
@@ -1020,6 +1037,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -1043,7 +1061,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -1051,8 +1069,8 @@ public class PropertyBasicDetailsTests
                 MoujaId = 1
             };
 
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => repository.UpdateBasicDetailsAsync(549357, dto));
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateBasicDetailsAsync(549357, dto));
 
             Assert.Contains("Mouja with ID 1 does not exist or is inactive", exception.Message);
         }
@@ -1062,6 +1080,7 @@ public class PropertyBasicDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -1091,7 +1110,7 @@ public class PropertyBasicDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -1103,7 +1122,7 @@ public class PropertyBasicDetailsTests
                 UPICId = "UPIC001"
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);

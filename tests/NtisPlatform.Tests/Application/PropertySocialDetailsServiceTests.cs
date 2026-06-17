@@ -6,6 +6,7 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.Property;
 using Xunit;
 
 namespace NtisPlatform.Tests.Application;
@@ -16,9 +17,9 @@ namespace NtisPlatform.Tests.Application;
 public class PropertySocialDetailsServiceTests
 {
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _mockRepository;
-    private readonly Mock<IRepository<SocialAttributeEntity>> _mockSocialAttributeRepository;
-    private readonly Mock<IRepository<DocumentBindingEntity>> _mockDocumentBindingRepository;
-    private readonly Mock<IRepository<DocumentEntity>> _mockDocumentRepository;
+    private readonly Mock<IPropertySocialDetailsRepository> _mockSocialDetailsRepository;
+    private readonly Mock<IRepository<DocumentBindingEntity, int>> _mockDocumentBindingRepository;
+    private readonly Mock<IRepository<DocumentEntity, int>> _mockDocumentRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertySocialDetailsService _service;
@@ -26,9 +27,9 @@ public class PropertySocialDetailsServiceTests
     public PropertySocialDetailsServiceTests()
     {
         _mockRepository = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
-        _mockSocialAttributeRepository = new Mock<IRepository<SocialAttributeEntity>>();
-        _mockDocumentBindingRepository = new Mock<IRepository<DocumentBindingEntity>>();
-        _mockDocumentRepository = new Mock<IRepository<DocumentEntity>>();
+        _mockSocialDetailsRepository = new Mock<IPropertySocialDetailsRepository>();
+        _mockDocumentBindingRepository = new Mock<IRepository<DocumentBindingEntity, int>>();
+        _mockDocumentRepository = new Mock<IRepository<DocumentEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -43,13 +44,14 @@ public class PropertySocialDetailsServiceTests
         var emptyDocs = new List<DocumentEntity>().BuildMockDbSet().Object;
         _mockDocumentRepository.Setup(r => r.GetQueryable()).Returns(emptyDocs);
 
-        // Also mock GetQueryable for SocialAttribute repository
+        // Also mock GetQueryable for SocialAttribute repository (social attributes loaded via _socialDetailsRepository)
         var emptyAttributes = new List<SocialAttributeEntity>().BuildMockDbSet().Object;
-        _mockSocialAttributeRepository.Setup(r => r.GetQueryable()).Returns(emptyAttributes);
+        _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialAttributesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocialAttributeEntity>());
 
         _service = new PropertySocialDetailsService(
             _mockRepository.Object,
-            _mockSocialAttributeRepository.Object,
+            _mockSocialDetailsRepository.Object,
             _mockDocumentBindingRepository.Object,
             _mockDocumentRepository.Object,
             _mockUnitOfWork.Object,

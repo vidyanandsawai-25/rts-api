@@ -4,6 +4,7 @@ using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 using Xunit;
@@ -12,11 +13,13 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class PropertyControllerFloorDetailsOldTests
 {
-    private static PropertyController Create(out Mock<IPropertyService> service)
+    // Old (historical) floor endpoints delegate to IPropertyOldDetailsService (per-tab service).
+    private static PropertyController Create(out Mock<IPropertyOldDetailsService> service)
     {
-        service = new Mock<IPropertyService>();
+        var propertyService = new Mock<IPropertyService>();
+        service = new Mock<IPropertyOldDetailsService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(service, logger);
+        return PropertyControllerTestHelper.CreateController(propertyService, logger, oldDetailsService: service);
     }
 
     #region Get
@@ -45,19 +48,6 @@ public class PropertyControllerFloorDetailsOldTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task GetFloorDetailsOld_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetFloorDetailsOld(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
     #endregion
 
     #region GetById
@@ -84,19 +74,6 @@ public class PropertyControllerFloorDetailsOldTests
         var result = await controller.GetFloorDetailsOldById(99, 5, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task GetFloorDetailsOldById_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetFloorDetailsOldByIdAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetFloorDetailsOldById(1, 5, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
     }
 
     #endregion
@@ -147,27 +124,6 @@ public class PropertyControllerFloorDetailsOldTests
 
         // Assert
         Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task GetFloorDetailsOldPaged_Returns500_OnException()
-    {
-        // Arrange
-        var controller = Create(out var service);
-        var queryParameters = new FloorDetailsOldQueryParameters
-        {
-            PageNumber = 1,
-            PageSize = 10
-        };
-        service.Setup(s => s.GetFloorDetailsOldPagedAsync(It.IsAny<int>(), It.IsAny<FloorDetailsOldQueryParameters>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        // Act
-        var result = await controller.GetFloorDetailsOldPaged(1, queryParameters, CancellationToken.None);
-
-        // Assert
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
     }
 
     [Fact]
@@ -280,31 +236,6 @@ public class PropertyControllerFloorDetailsOldTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task AddFloorDetailsOld_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.AddFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<AddPropertyDetailsOldDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("invalid"));
-
-        var result = await controller.AddFloorDetailsOld(1, new AddPropertyDetailsOldDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task AddFloorDetailsOld_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.AddFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<AddPropertyDetailsOldDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.AddFloorDetailsOld(1, new AddPropertyDetailsOldDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
     #endregion
 
     #region Update
@@ -333,31 +264,6 @@ public class PropertyControllerFloorDetailsOldTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task UpdateFloorDetailsOld_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<UpdatePropertyDetailsOldDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("invalid"));
-
-        var result = await controller.UpdateFloorDetailsOld(1, 5, new UpdatePropertyDetailsOldDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateFloorDetailsOld_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<UpdatePropertyDetailsOldDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.UpdateFloorDetailsOld(1, 5, new UpdatePropertyDetailsOldDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
     #endregion
 
     #region Delete
@@ -384,19 +290,6 @@ public class PropertyControllerFloorDetailsOldTests
         var result = await controller.DeleteFloorDetailsOld(99, 5, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task DeleteFloorDetailsOld_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.DeleteFloorDetailsOldAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.DeleteFloorDetailsOld(1, 5, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
     }
 
     #endregion

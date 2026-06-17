@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.Property;
 using Xunit;
 
 namespace NtisPlatform.Tests.Infrastructure.Repositories;
@@ -13,11 +16,23 @@ namespace NtisPlatform.Tests.Infrastructure.Repositories;
 /// </summary>
 public class PropertyRepositoryComprehensiveTests
 {
+    /// <summary>
+    /// Composes the Basic Details use-case service over the in-memory context (feature repository +
+    /// master repository + unit of work) so these ported tests exercise the same behaviour the
+    /// repository previously implemented directly.
+    /// </summary>
+    private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
+        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
+    private static PropertySocietyService CreateSocietyService(ApplicationDbContext context)
+        => new(new PropertySocietyRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
     [Fact]
     public async Task GetBasicDetailsAsync_WithAllMasterData_ReturnsCompleteDto()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -57,8 +72,8 @@ public class PropertyRepositoryComprehensiveTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
-        var result = await repository.GetBasicDetailsAsync(549357);
+        var service = CreateBasicDetailsService(context);
+        var result = await service.GetBasicDetailsAsync(549357);
 
         Assert.NotNull(result);
         Assert.Equal(549357, result.PropertyId);
@@ -88,6 +103,7 @@ public class PropertyRepositoryComprehensiveTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -133,8 +149,8 @@ public class PropertyRepositoryComprehensiveTests
         context.PropertyMastDetails.Add(assessment);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
-        var result = await repository.GetBasicDetailsAsync(549357);
+        var service = CreateBasicDetailsService(context);
+        var result = await service.GetBasicDetailsAsync(549357);
 
         Assert.NotNull(result);
         Assert.Equal("AssessmentWing", result.WingNo);
@@ -147,6 +163,7 @@ public class PropertyRepositoryComprehensiveTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -170,7 +187,7 @@ public class PropertyRepositoryComprehensiveTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var service = CreateBasicDetailsService(context);
         var dto = new UpdatePropertyBasicDetailsDto
         {
             WardId = 79,
@@ -178,7 +195,7 @@ public class PropertyRepositoryComprehensiveTests
             WingNo = "A"
         };
 
-        var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+        var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
         Assert.NotNull(result);
         Assert.Equal("A", result.WingNo);
@@ -193,6 +210,7 @@ public class PropertyRepositoryComprehensiveTests
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -229,7 +247,7 @@ public class PropertyRepositoryComprehensiveTests
         context.SocietyDetailsMast.Add(society);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var service = CreateBasicDetailsService(context);
         var dto = new UpdatePropertyBasicDetailsDto
         {
             WardId = 79,
@@ -237,7 +255,7 @@ public class PropertyRepositoryComprehensiveTests
             WingNo = "UpdatedWing"
         };
 
-        var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+        var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
         Assert.NotNull(result);
         Assert.Equal("UpdatedWing", result.WingNo);
@@ -248,10 +266,11 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
-    public async Task GetSocietyDetailsAsync_InactiveSociety_ReturnsNull()
+    public async Task GetSocietyDetailsAsync_InactiveSociety_ReturnsEmptyDto()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -279,8 +298,8 @@ public class PropertyRepositoryComprehensiveTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
-        var result = await repository.GetSocietyDetailsAsync(549357);
+        var service = CreateSocietyService(context);
+        var result = await service.GetSocietyDetailsAsync(549357);
 
         Assert.NotNull(result);
         Assert.Equal(549357, result.PropertyId);
@@ -288,10 +307,11 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
-    public async Task GetSocietyDetailsAsync_MarkedForDeletionSociety_ReturnsNull()
+    public async Task GetSocietyDetailsAsync_MarkedForDeletionSociety_ReturnsEmptyDto()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
 
         using var context = new ApplicationDbContext(options);
@@ -319,8 +339,8 @@ public class PropertyRepositoryComprehensiveTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
-        var result = await repository.GetSocietyDetailsAsync(549357);
+        var service = CreateSocietyService(context);
+        var result = await service.GetSocietyDetailsAsync(549357);
 
         Assert.NotNull(result);
         Assert.Equal(549357, result.PropertyId);

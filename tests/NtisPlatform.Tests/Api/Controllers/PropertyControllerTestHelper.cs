@@ -5,6 +5,7 @@ using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using System.Collections.Generic;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -22,8 +23,20 @@ public static class PropertyControllerTestHelper
     /// <returns>PropertyController instance ready for testing</returns>
     public static PropertyController CreateController(
         Mock<IPropertyService> propertyService,
-        Mock<ILogger<PropertyController>> logger)
+        Mock<ILogger<PropertyController>> logger,
+        Mock<IPropertyBasicDetailsService>? basicDetailsService = null,
+        Mock<IPropertyKycService>? kycService = null,
+        Mock<IPropertySocietyService>? societyService = null,
+        Mock<IPropertyDiscountService>? discountService = null,
+        Mock<IPropertyOldDetailsService>? oldDetailsService = null,
+        Mock<IPropertySearchService>? searchService = null)
     {
+        basicDetailsService ??= new Mock<IPropertyBasicDetailsService>();
+        kycService ??= new Mock<IPropertyKycService>();
+        societyService ??= new Mock<IPropertySocietyService>();
+        discountService ??= new Mock<IPropertyDiscountService>();
+        oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
+        searchService ??= new Mock<IPropertySearchService>();
         var mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
@@ -37,6 +50,12 @@ public static class PropertyControllerTestHelper
 
         return new PropertyController(
             propertyService.Object,
+            basicDetailsService.Object,
+            kycService.Object,
+            societyService.Object,
+            discountService.Object,
+            oldDetailsService.Object,
+            searchService.Object,
             logger.Object,
             mockDiscountDocumentService.Object,
             mockEnvironment.Object,
@@ -57,6 +76,12 @@ public static class PropertyControllerTestHelper
     ) CreateControllerWithMocks()
     {
         var mockPropertyService = new Mock<IPropertyService>();
+        var mockBasicDetailsService = new Mock<IPropertyBasicDetailsService>();
+        var mockKycService = new Mock<IPropertyKycService>();
+        var mockSocietyService = new Mock<IPropertySocietyService>();
+        var mockDiscountService = new Mock<IPropertyDiscountService>();
+        var mockOldDetailsService = new Mock<IPropertyOldDetailsService>();
+        var mockSearchService = new Mock<IPropertySearchService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
         var mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
@@ -71,6 +96,12 @@ public static class PropertyControllerTestHelper
 
         var controller = new PropertyController(
             mockPropertyService.Object,
+            mockBasicDetailsService.Object,
+            mockKycService.Object,
+            mockSocietyService.Object,
+            mockDiscountService.Object,
+            mockOldDetailsService.Object,
+            mockSearchService.Object,
             mockLogger.Object,
             mockDiscountDocumentService.Object,
             mockEnvironment.Object,

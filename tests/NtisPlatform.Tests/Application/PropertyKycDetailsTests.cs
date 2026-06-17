@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,12 +8,15 @@ using MockQueryable;
 using Moq;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.Property;
 using Xunit;
 
 namespace NtisPlatform.Tests.Application;
@@ -23,6 +27,10 @@ namespace NtisPlatform.Tests.Application;
 /// </summary>
 public class PropertyKycDetailsTests
 {
+    /// <summary>Composes the KYC use-case service over the in-memory context (feature repo + unit of work).</summary>
+    private static PropertyKycService CreateKycService(ApplicationDbContext context)
+        => new(new PropertyKycRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
     #region UpdatePropertyKycDetailsDto Tests
 
     public class UpdatePropertyKycDetailsDtoTests
@@ -214,12 +222,13 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
 
-            var result = await repository.GetKycDetailsAsync(999);
+            var result = await service.GetKycDetailsAsync(999);
 
             Assert.Null(result);
         }
@@ -229,6 +238,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -248,8 +258,8 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetKycDetailsAsync(549357);
+            var service = CreateKycService(context);
+            var result = await service.GetKycDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -263,6 +273,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -296,8 +307,8 @@ public class PropertyKycDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetKycDetailsAsync(549357);
+            var service = CreateKycService(context);
+            var result = await service.GetKycDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.OwnerTypeId);
@@ -310,17 +321,18 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
 
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerName = "Test"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(999, dto);
+            var result = await service.UpdateKycDetailsAsync(999, dto);
 
             Assert.Null(result);
         }
@@ -330,6 +342,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -348,7 +361,7 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerName = "NEW NAME",
@@ -357,7 +370,7 @@ public class PropertyKycDetailsTests
                 EmailId = "new@example.com"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("NEW NAME", result.OwnerName);
@@ -371,6 +384,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -387,7 +401,7 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerTypeId = 1,
@@ -395,7 +409,7 @@ public class PropertyKycDetailsTests
                 OwnerName = "John Doe"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.OwnerTypeId);
@@ -417,6 +431,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -443,14 +458,14 @@ public class PropertyKycDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerTypeId = 1,
                 AdharCardNo = "NEW_ADHAR"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.OwnerTypeId);
@@ -470,6 +485,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -486,7 +502,7 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerName = "John Doe",
@@ -494,7 +510,7 @@ public class PropertyKycDetailsTests
                 // No OwnerTypeId or AdharCardNo
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("John Doe", result.OwnerName);
@@ -510,6 +526,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -526,7 +543,7 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerTitle = "Mr",
@@ -549,7 +566,7 @@ public class PropertyKycDetailsTests
                 EmailId = "test@test.com"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("Owner Name", result.OwnerName);
@@ -571,114 +588,58 @@ public class PropertyKycDetailsTests
 
     #endregion
 
-    #region PropertyService KycDetails Tests
+    #region PropertyKycService Tests
 
-    public class PropertyServiceKycDetailsTests
+    public class PropertyKycServiceTests
     {
-        [Fact]
-        public async Task GetKycDetailsAsync_CallsRepository()
+        private static PropertyKycService CreateService(out Mock<IPropertyKycRepository> repo, out Mock<IUnitOfWork> unitOfWork)
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            repo = new Mock<IPropertyKycRepository>();
+            unitOfWork = new Mock<IUnitOfWork>();
+            return new PropertyKycService(repo.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy());
+        }
 
-            var expectedDto = new PropertyKycDetailsDto
-            {
-                PropertyId = 549357,
-                OwnerName = "John Doe",
-                MobileNo = "9921759522"
-            };
-
-            mockPropertyRepo
-                .Setup(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedDto);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
-            {
-                AllowPropertyDeletionWithoutPaymentValidation = true
-            });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
+        [Fact]
+        public async Task GetKycDetailsAsync_DelegatesToRepository()
+        {
+            var service = CreateService(out var repo, out _);
+            var expectedDto = new PropertyKycDetailsDto { PropertyId = 549357, OwnerName = "John Doe", MobileNo = "9921759522" };
+            repo.Setup(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expectedDto);
 
             var result = await service.GetKycDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
             Assert.Equal("John Doe", result.OwnerName);
-            mockPropertyRepo.Verify(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
-        }
-
-        [Fact]
-        public async Task UpdateKycDetailsAsync_CallsRepositoryAndReturnsResult()
-        {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
-
-            var dto = new UpdatePropertyKycDetailsDto
-            {
-                OwnerName = "Updated Name",
-                MobileNo = "9921759522"
-            };
-
-            var expectedResult = new PropertyKycDetailsDto
-            {
-                PropertyId = 549357,
-                OwnerName = "Updated Name",
-                MobileNo = "9921759522"
-            };
-
-            mockPropertyRepo
-                .Setup(r => r.UpdateKycDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedResult);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
-            {
-                AllowPropertyDeletionWithoutPaymentValidation = true
-            });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
-
-            var result = await service.UpdateKycDetailsAsync(549357, dto);
-
-            Assert.NotNull(result);
-            Assert.Equal(549357, result.PropertyId);
-            Assert.Equal("Updated Name", result.OwnerName);
-            mockPropertyRepo.Verify(r => r.UpdateKycDetailsAsync(549357, dto, It.IsAny<CancellationToken>()), Times.Once);
+            repo.Verify(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateKycDetailsAsync_PropertyNotFound_ReturnsNull()
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            var service = CreateService(out var repo, out _);
+            repo.Setup(r => r.GetActivePropertyAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((PropertyEntity?)null);
 
-            var dto = new UpdatePropertyKycDetailsDto
-            {
-                OwnerName = "Test"
-            };
-
-            mockPropertyRepo
-                .Setup(r => r.UpdateKycDetailsAsync(999, dto, It.IsAny<CancellationToken>()))
-                .ReturnsAsync((PropertyKycDetailsDto?)null);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
-            {
-                AllowPropertyDeletionWithoutPaymentValidation = true
-            });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
-
-            var result = await service.UpdateKycDetailsAsync(999, dto);
+            var result = await service.UpdateKycDetailsAsync(999, new UpdatePropertyKycDetailsDto { OwnerName = "Test" });
 
             Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task UpdateKycDetailsAsync_ValidData_SavesAndReturnsRefreshedDto()
+        {
+            var service = CreateService(out var repo, out var unitOfWork);
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, IsActive = true });
+            repo.Setup(r => r.GetFirstAssessmentIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+            var expected = new PropertyKycDetailsDto { PropertyId = 549357, OwnerName = "Updated Name" };
+            repo.Setup(r => r.GetKycDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
+
+            var result = await service.UpdateKycDetailsAsync(549357, new UpdatePropertyKycDetailsDto { OwnerName = "Updated Name", MobileNo = "9921759522" });
+
+            Assert.NotNull(result);
+            Assert.Equal("Updated Name", result.OwnerName);
+            unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 
@@ -827,11 +788,16 @@ public class PropertyKycDetailsTests
 
     public class EdgeCaseTests
     {
+        // Basic Details now runs through the per-tab service; KYC edge cases still use PropertyRepository directly.
+        private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
+            => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
         [Fact]
         public async Task UpdateBasicDetailsAsync_MarkedForDeletionTrue_NotReturned()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -848,14 +814,14 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateBasicDetailsService(context);
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
                 TaxZoneId = 10
             };
 
-            var result = await repository.UpdateBasicDetailsAsync(549357, dto);
+            var result = await service.UpdateBasicDetailsAsync(549357, dto);
 
             Assert.Null(result); // Should not find property marked for deletion
         }
@@ -865,6 +831,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -881,13 +848,13 @@ public class PropertyKycDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateKycService(context);
             var dto = new UpdatePropertyKycDetailsDto
             {
                 OwnerName = "Test"
             };
 
-            var result = await repository.UpdateKycDetailsAsync(549357, dto);
+            var result = await service.UpdateKycDetailsAsync(549357, dto);
 
             Assert.Null(result); // Should not find inactive property
         }
@@ -897,6 +864,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -921,8 +889,8 @@ public class PropertyKycDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetBasicDetailsAsync(549357);
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Null(result.WingNo); // Inactive assessment should not be included
@@ -933,6 +901,7 @@ public class PropertyKycDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -965,8 +934,8 @@ public class PropertyKycDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetKycDetailsAsync(549357);
+            var service = CreateKycService(context);
+            var result = await service.GetKycDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(1, result.OwnerTypeId);

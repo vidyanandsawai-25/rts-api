@@ -10,66 +10,10 @@ namespace NtisPlatform.Core.Interfaces;
 /// </summary>
 public interface IPropertyRepository : IRepository<PropertyEntity, int>
 {
-    /// <summary>
-    /// Retrieves basic details for a property including joined data from related tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property basic details DTO or null if not found</returns>
-    Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates old property details across PropertyMastOld and PropertyDetailsOld tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update data for property basic details</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertyBasicDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertyBasicDetailsDto?> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves KYC details for a property including joined data from related tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property KYC details DTO or null if not found</returns>
-    Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates KYC details for a property
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update data for property KYC details</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertyKycDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves society details for a property
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-        
-    /// <summary>
-    /// Updates society details for a property
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update data for property society details</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertySocietyDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves old property details including joined data from PropertyMastOld and PropertyDetailsOld tables
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property old details DTO or null if not found</returns>
-    Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default);
+    // Per-tab data-entry concerns (Basic Details, KYC, Society, Discount, Old Details) have been split
+    // out of this aggregate repository into feature repositories + services under the
+    // NtisPlatform.*.Property namespaces. What remains here are cross-cutting/aggregate operations
+    // (search, dashboard, create/bulk, tax, building structure and deletion helpers).
 
     /// <summary>
     /// Retrieves tax details for a property
@@ -86,88 +30,6 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Property tax details CV DTO or null if not found</returns>
     Task<PropertyTaxDetailsCVDto?> GetTaxDetailsCVAsync(int propertyId, CancellationToken cancellationToken = default);
-    /// <summary>
-    /// Retrieves old taxes details for a property including historical tax data across finance years
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property old taxes details DTO or null if property not found</returns>
-    Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Creates new old taxes details for a property across multiple finance years.
-    /// This is a create-only operation that will fail if any records already exist for the specified years and taxes.
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The data containing tax information for multiple years to create</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Created PropertyOldTaxesDetailsDto if property was found and records created, null otherwise</returns>
-    /// <exception cref="InvalidOperationException">Thrown when records already exist for any of the specified year-tax combinations</exception>
-    Task<PropertyOldTaxesDetailsDto?> CreateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates old taxes details for a property across multiple finance years.
-    /// This is an upsert operation that will create new records or update existing ones.
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The update data containing tax information for multiple years</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertyOldTaxesDetailsDto if property was found and updated, null otherwise</returns>
-    Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves all historical floor details for a property (PropertyDetailsOld records)
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of historical floor details or null if property not found</returns>
-    Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves paginated historical floor details for a property (PropertyDetailsOld records)
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="query">Query parameters for filtering, sorting, and pagination</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Paginated list of historical floor details or null if property not found</returns>
-    Task<FloorDetailsOldPagedResult?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQuery query, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Retrieves a single historical floor detail record by ID
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="floorId">The floor record identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Single floor record or null if not found</returns>
-    Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Adds a new historical floor detail record for a property
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="dto">The floor data to add</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>The newly created PropertyDetailsOldDto if property was found and record created, null otherwise</returns>
-    Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates an existing historical floor detail record for a property
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="floorId">The floor record identifier</param>
-    /// <param name="dto">The update data for the floor record</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated PropertyDetailsOldDto if property and floor record were found and updated, null otherwise</returns>
-    Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Deletes a historical floor detail record for a property (soft delete)
-    /// </summary>
-    /// <param name="propertyId">The property identifier</param>
-    /// <param name="floorId">The floor record identifier</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>True if the record was found and deleted, false otherwise</returns>
-    Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves aggregated property tax details by filtering properties and summing tax amounts across multiple properties.
@@ -199,26 +61,12 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
 
     Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default);
-    Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int SocietyDetailId, CancellationToken cancellationToken = default);
+    Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default);
     Task<List<BuildingListDto>?> GetBuildingListAsync(int WardId, CancellationToken cancellationToken = default);
     Task<bool> IsPropertyExists(int wardId, string propertyNo, int? propertyId);
 
-    /// <summary>
-    /// Searches properties based on Quick Search or KYC Search criteria with pagination
-    /// </summary>
-    /// <param name="searchRequest">Search parameters from either Quick Search or KYC Search tab</param>
-    /// <param name="pageNumber">Page number for pagination</param>
-    /// <param name="pageSize">Page size for pagination</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Total count and list of properties matching search criteria</returns>
-    Task<(int TotalCount, List<PropertySearchResponseDto> Items)> SearchPropertiesAsync(PropertySearchRequestDto searchRequest, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets property dashboard statistics for the property search screen
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Dashboard statistics with various property counts</returns>
-    Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+    // Property search and dashboard statistics have been split out into the PropertySearch feature
+    // (IPropertySearchRepository / IPropertySearchService) per the per-feature Clean Architecture split.
 
     /// <summary>
     /// Retrieves all RoomWiseMinusData entities by list of RoomWiseSubmissionId values.
@@ -318,25 +166,6 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
 	Task<List<WaterConnectionMasterEntity>> GetWaterConnectionsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 
 	Task<CreateBulkPropertyResponseDto?> CreateBulkPropertyAsync(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
-
-	/// <summary>
-	/// Retrieves discount information for a property including all social attributes where IsDiscountApplicable=1.
-	/// Returns all discount-applicable attributes with their current values from PropertySocialDetails if they exist.
-	/// </summary>
-	/// <param name="propertyId">The property identifier</param>
-	/// <param name="cancellationToken">Cancellation token</param>
-	/// <returns>Property discount details DTO or null if property not found</returns>
-	Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-	/// <summary>
-	/// Updates discount information for a property by upserting PropertySocialDetails records.
-	/// Handles creating, updating, and managing discount-applicable social attributes.
-	/// </summary>
-	/// <param name="propertyId">The property identifier</param>
-	/// <param name="dto">The discount information update payload</param>
-	/// <param name="cancellationToken">Cancellation token</param>
-	/// <returns>Updated property discount details DTO or null if property not found</returns>
-	Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default);
 
     Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default);
     Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default);

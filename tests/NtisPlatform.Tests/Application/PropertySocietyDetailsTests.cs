@@ -1,16 +1,20 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.Property;
 using System.ComponentModel.DataAnnotations;
 using Xunit;
 
@@ -22,6 +26,10 @@ namespace NtisPlatform.Tests.Application;
 /// </summary>
 public class PropertySocietyDetailsTests
 {
+    /// <summary>Composes the Society use-case service over the in-memory context (feature repo + master repo + unit of work).</summary>
+    private static PropertySocietyService CreateSocietyService(ApplicationDbContext context)
+        => new(new PropertySocietyRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+
     #region PropertySocietyDetailsDto Tests
 
     public class PropertySocietyDetailsDtoTests
@@ -476,12 +484,13 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
 
-            var result = await repository.GetSocietyDetailsAsync(999);
+            var result = await service.GetSocietyDetailsAsync(999);
 
             Assert.Null(result);
         }
@@ -491,6 +500,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -508,8 +518,8 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetSocietyDetailsAsync(549357);
+            var service = CreateSocietyService(context);
+            var result = await service.GetSocietyDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -521,6 +531,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -552,8 +563,8 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
-            var result = await repository.GetSocietyDetailsAsync(549357);
+            var service = CreateSocietyService(context);
+            var result = await service.GetSocietyDetailsAsync(549357);
 
             Assert.NotNull(result);
             Assert.Equal(549357, result.PropertyId);
@@ -569,17 +580,18 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
 
             var dto = new UpdatePropertySocietyDetailsDto
             {
                 SocietyName = "Test"
             };
 
-            var result = await repository.UpdateSocietyDetailsAsync(999, dto);
+            var result = await service.UpdateSocietyDetailsAsync(999, dto);
 
             Assert.Null(result);
         }
@@ -589,6 +601,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -605,14 +618,14 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
             var dto = new UpdatePropertySocietyDetailsDto
             {
                 WingId = 999
             };
 
-            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => repository.UpdateSocietyDetailsAsync(549357, dto));
+            var exception = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateSocietyDetailsAsync(549357, dto));
 
             Assert.Contains("Wing with ID 999 does not exist or is inactive", exception.Message);
         }
@@ -622,6 +635,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -639,14 +653,14 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
             var dto = new UpdatePropertySocietyDetailsDto
             {
                 SocietyName = "New Society",
                 ManagerMobileNo = "9876543210"
             };
 
-            var result = await repository.UpdateSocietyDetailsAsync(549357, dto);
+            var result = await service.UpdateSocietyDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("New Society", result.SocietyName);
@@ -661,6 +675,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -688,14 +703,14 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
             var dto = new UpdatePropertySocietyDetailsDto
             {
                 SocietyName = "Updated Society",
                 WingName = "New Wing"
             };
 
-            var result = await repository.UpdateSocietyDetailsAsync(549357, dto);
+            var result = await service.UpdateSocietyDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("Updated Society", result.SocietyName);
@@ -710,6 +725,7 @@ public class PropertySocietyDetailsTests
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
                 .Options;
 
             using var context = new ApplicationDbContext(options);
@@ -726,7 +742,7 @@ public class PropertySocietyDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var service = CreateSocietyService(context);
             var dto = new UpdatePropertySocietyDetailsDto
             {
                 WingName = "Wing A",
@@ -749,7 +765,7 @@ public class PropertySocietyDetailsTests
                 ManagerEmailId = "manager@test.com"
             };
 
-            var result = await repository.UpdateSocietyDetailsAsync(549357, dto);
+            var result = await service.UpdateSocietyDetailsAsync(549357, dto);
 
             Assert.NotNull(result);
             Assert.Equal("Wing A", result.WingName);
@@ -775,36 +791,24 @@ public class PropertySocietyDetailsTests
 
     #endregion
 
-    #region PropertyService SocietyDetails Tests
+    #region PropertySocietyService Tests
 
-    public class PropertyServiceSocietyDetailsTests
+    public class PropertySocietyServiceTests
     {
-        [Fact]
-        public async Task GetSocietyDetailsAsync_CallsRepository()
+        private static PropertySocietyService CreateService(out Mock<IPropertySocietyRepository> repo, out Mock<IMasterRepository> master, out Mock<IUnitOfWork> unitOfWork)
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            repo = new Mock<IPropertySocietyRepository>();
+            master = new Mock<IMasterRepository>();
+            unitOfWork = new Mock<IUnitOfWork>();
+            return new PropertySocietyService(repo.Object, master.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy());
+        }
 
-            var expectedDto = new PropertySocietyDetailsDto
-            {
-                PropertyId = 549357,
-                SocietyDetailId = 100,
-                SocietyName = "ABC Society"
-            };
-
-            mockPropertyRepo
-                .Setup(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedDto);
-
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
-            {
-                AllowPropertyDeletionWithoutPaymentValidation = true
-            });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
+        [Fact]
+        public async Task GetSocietyDetailsAsync_DelegatesToRepository()
+        {
+            var service = CreateService(out var repo, out _, out _);
+            var expectedDto = new PropertySocietyDetailsDto { PropertyId = 549357, SocietyDetailId = 100, SocietyName = "ABC Society" };
+            repo.Setup(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expectedDto);
 
             var result = await service.GetSocietyDetailsAsync(549357);
 
@@ -812,45 +816,50 @@ public class PropertySocietyDetailsTests
             Assert.Equal(549357, result.PropertyId);
             Assert.Equal(100, result.SocietyDetailId);
             Assert.Equal("ABC Society", result.SocietyName);
-            mockPropertyRepo.Verify(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
+            repo.Verify(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Fact]
-        public async Task UpdateSocietyDetailsAsync_CallsRepositoryAndReturnsResult()
+        public async Task UpdateSocietyDetailsAsync_PropertyNotFound_ReturnsNull()
         {
-            var mockRepo = new Mock<IRepository<PropertyEntity, int>>();
-            var mockUnitOfWork = new Mock<IUnitOfWork>();
-            var mockMapper = new Mock<IMapper>();
-            var mockPropertyRepo = new Mock<IPropertyRepository>();
-            var mockLogger = new Mock<ILogger<PropertyService>>();
+            var service = CreateService(out var repo, out _, out _);
+            repo.Setup(r => r.GetActivePropertyAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((PropertyEntity?)null);
 
-            var dto = new UpdatePropertySocietyDetailsDto
-            {
-                SocietyName = "Updated Society"
-            };
+            var result = await service.UpdateSocietyDetailsAsync(999, new UpdatePropertySocietyDetailsDto { SocietyName = "X" });
 
-            var expectedResult = new PropertySocietyDetailsDto
-            {
-                PropertyId = 549357,
-                SocietyName = "Updated Society"
-            };
+            Assert.Null(result);
+        }
 
-            mockPropertyRepo
-                .Setup(r => r.UpdateSocietyDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(expectedResult);
+        [Fact]
+        public async Task UpdateSocietyDetailsAsync_InvalidWing_ThrowsInvalidOperationException()
+        {
+            var service = CreateService(out var repo, out var master, out _);
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, IsActive = true });
+            master.Setup(m => m.WingExistsAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
-            var mockFeatureFlags = new Mock<IOptions<FeatureFlagsOptions>>();
-            mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions
-            {
-                AllowPropertyDeletionWithoutPaymentValidation = true
-            });
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object);
+            var ex = await Assert.ThrowsAnyAsync<InvalidOperationException>(
+                () => service.UpdateSocietyDetailsAsync(549357, new UpdatePropertySocietyDetailsDto { WingId = 999 }));
 
-            var result = await service.UpdateSocietyDetailsAsync(549357, dto);
+            Assert.Contains("Wing with ID 999 does not exist or is inactive", ex.Message);
+        }
+
+        [Fact]
+        public async Task UpdateSocietyDetailsAsync_ExistingSociety_SavesAndReturnsRefreshedDto()
+        {
+            var service = CreateService(out var repo, out _, out var unitOfWork);
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, SocietyDetailId = 100, IsActive = true });
+            repo.Setup(r => r.GetSocietyByIdAsync(100, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new SocietyDetailsEntity { Id = 100, PropertyId = 549357, IsActive = true });
+            var expected = new PropertySocietyDetailsDto { PropertyId = 549357, SocietyName = "Updated Society" };
+            repo.Setup(r => r.GetSocietyDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
+
+            var result = await service.UpdateSocietyDetailsAsync(549357, new UpdatePropertySocietyDetailsDto { SocietyName = "Updated Society" });
 
             Assert.NotNull(result);
             Assert.Equal("Updated Society", result.SocietyName);
-            mockPropertyRepo.Verify(r => r.UpdateSocietyDetailsAsync(549357, dto, It.IsAny<CancellationToken>()), Times.Once);
+            unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 

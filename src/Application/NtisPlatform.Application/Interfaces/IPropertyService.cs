@@ -11,25 +11,10 @@ namespace NtisPlatform.Application.Interfaces;
 public interface IPropertyService
     : ICommonCrudService<PropertyEntity, PropertyDto, CreatePropertyDto, UpdatePropertyDto, PropertyQueryParameters, int>
 {
-    Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyBasicDetailsDto?> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default);
-    Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default);
+    // Basic Details, KYC, Society, Discount and Old Details tabs moved to per-tab services
+    // (per-tab Clean Architecture split). What remains here are cross-cutting/aggregate operations.
     Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
     Task<PropertyTaxDetailsCVDto?> GetTaxDetailsCVAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyOldTaxesDetailsDto?> CreateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PagedResult<PropertyDetailsOldDto>?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQueryParameters queryParameters, CancellationToken cancellationToken = default);
-    Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
-    Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default);
-    Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default);
     Task<List<BuildingGenerateStructureDto>?> GetGenerateBuildingStructureAsync(BuildingGenerateDetailsDto dto, CancellationToken cancellationToken = default);
     Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default);
     Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default);
@@ -58,40 +43,8 @@ public interface IPropertyService
 	/// <returns>A task representing the asynchronous operation.</returns>
 	Task<RangeResult<CreateNewPropertyResponseDto>> CreatePropertiesFromRangeAsync(RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct);
 
-    /// <summary>
-    /// Searches properties based on Quick Search or KYC Search criteria.
-    /// </summary>
-    /// <param name="queryParameters">Search query parameters with pagination</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Paged list of properties matching search criteria</returns>
-    Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets property dashboard statistics for the property search screen.
-    /// Shows counts like Registered, Geo-Sequencing, Assessed, Unassessed, Survey properties.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Dashboard statistics</returns>
-    Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+    // Property search and dashboard statistics have been split out into the PropertySearch feature
+    // (IPropertySearchService) per the per-feature Clean Architecture split.
 
     Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
-
-    /// <summary>
-    /// Gets discount information for a specific property including all social attributes where IsDiscountApplicable=1.
-    /// This endpoint is used to populate the Discount Information tab in the property form.
-    /// </summary>
-    /// <param name="propertyId">The unique identifier of the property</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Property discount details including all applicable discount attributes with their values and documents</returns>
-    Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Updates discount information for a specific property by upserting PropertySocialDetails records.
-    /// Handles toggle states, values, and document uploads for discount-applicable social attributes.
-    /// </summary>
-    /// <param name="propertyId">The unique identifier of the property</param>
-    /// <param name="dto">The discount information update payload</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Updated property discount details</returns>
-    Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default);
 }

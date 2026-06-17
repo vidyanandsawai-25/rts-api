@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using Xunit;
 
@@ -10,11 +11,13 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class PropertyControllerOldTaxesDetailsTests
 {
-    private static PropertyController Create(out Mock<IPropertyService> service)
+    // Old taxes endpoints delegate to IPropertyOldDetailsService (per-tab service).
+    private static PropertyController Create(out Mock<IPropertyOldDetailsService> service)
     {
-        service = new Mock<IPropertyService>();
+        var propertyService = new Mock<IPropertyService>();
+        service = new Mock<IPropertyOldDetailsService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(service, logger);
+        return PropertyControllerTestHelper.CreateController(propertyService, logger, oldDetailsService: service);
     }
 
     [Fact]
@@ -42,19 +45,6 @@ public class PropertyControllerOldTaxesDetailsTests
     }
 
     [Fact]
-    public async Task GetOldTaxesDetails_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetOldTaxesDetails(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
-    [Fact]
     public async Task UpdateOldTaxesDetails_ReturnsOk_WhenSuccess()
     {
         var controller = Create(out var service);
@@ -77,31 +67,6 @@ public class PropertyControllerOldTaxesDetailsTests
         var result = await controller.UpdateOldTaxesDetails(99, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateOldTaxesDetails_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyOldTaxesDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("invalid"));
-
-        var result = await controller.UpdateOldTaxesDetails(1, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateOldTaxesDetails_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyOldTaxesDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.UpdateOldTaxesDetails(1, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
     }
 
     [Fact]
@@ -131,40 +96,4 @@ public class PropertyControllerOldTaxesDetailsTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task CreateOldTaxesDetails_ReturnsConflict_WhenRecordsAlreadyExist()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.CreateOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyOldTaxesDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Cannot create records - the following year-tax combinations already exist: 2022-23 - Property Tax"));
-
-        var result = await controller.CreateOldTaxesDetails(1, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<ConflictObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateOldTaxesDetails_ReturnsBadRequest_OnValidationError()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.CreateOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyOldTaxesDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("Duplicate finance years are not allowed"));
-
-        var result = await controller.CreateOldTaxesDetails(1, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task CreateOldTaxesDetails_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.CreateOldTaxesDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyOldTaxesDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.CreateOldTaxesDetails(1, new UpdatePropertyOldTaxesDetailsDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
 }

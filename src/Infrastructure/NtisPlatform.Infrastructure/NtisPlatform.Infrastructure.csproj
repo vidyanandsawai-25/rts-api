@@ -3,6 +3,12 @@
   <!-- All common properties are inherited from Directory.Build.props -->
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>NtisPlatform.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Core\NtisPlatform.Core\NtisPlatform.Core.csproj" />
     <ProjectReference Include="..\..\Application\NtisPlatform.Application\NtisPlatform.Application.csproj" />
   </ItemGroup>

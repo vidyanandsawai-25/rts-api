@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Api.Filters;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Api.Controllers;
@@ -23,10 +25,16 @@ namespace NtisPlatform.Api.Controllers;
 /// </remarks>
 [ApiController]
 [Route("api/[controller]")]
-
+[TypeFilter(typeof(PropertyApiExceptionFilter))]
 public partial class PropertyController : ControllerBase
 {
     private readonly IPropertyService _propertyService;
+    private readonly IPropertyBasicDetailsService _propertyBasicDetailsService;
+    private readonly IPropertyKycService _propertyKycService;
+    private readonly IPropertySocietyService _propertySocietyService;
+    private readonly IPropertyDiscountService _propertyDiscountService;
+    private readonly IPropertyOldDetailsService _propertyOldDetailsService;
+    private readonly IPropertySearchService _propertySearchService;
     private readonly ILogger<PropertyController> _logger;
     private readonly IPropertyDiscountDocumentService _discountDocumentService;
     private readonly IWebHostEnvironment _environment;
@@ -37,12 +45,24 @@ public partial class PropertyController : ControllerBase
     /// </summary>
     public PropertyController(
         IPropertyService propertyService,
+        IPropertyBasicDetailsService propertyBasicDetailsService,
+        IPropertyKycService propertyKycService,
+        IPropertySocietyService propertySocietyService,
+        IPropertyDiscountService propertyDiscountService,
+        IPropertyOldDetailsService propertyOldDetailsService,
+        IPropertySearchService propertySearchService,
         ILogger<PropertyController> logger,
         IPropertyDiscountDocumentService discountDocumentService,
         IWebHostEnvironment environment,
         FileValidationHelper fileValidationHelper)
     {
         _propertyService = propertyService;
+        _propertyBasicDetailsService = propertyBasicDetailsService;
+        _propertyKycService = propertyKycService;
+        _propertySocietyService = propertySocietyService;
+        _propertyDiscountService = propertyDiscountService;
+        _propertyOldDetailsService = propertyOldDetailsService;
+        _propertySearchService = propertySearchService;
         _logger = logger;
         _discountDocumentService = discountDocumentService;
         _environment = environment;
@@ -169,20 +189,8 @@ public partial class PropertyController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> CreateFromRange([FromBody] RangeCreateRequest<CreateNewPropertyDto> request, CancellationToken ct)
     {
-        try 
-        {
-            var result = await _propertyService.CreatePropertiesFromRangeAsync(request, ct);    
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating properties from range");
-            return StatusCode(StatusCodes.Status500InternalServerError, new
-            {
-                Success = false,
-                Message = "An unexpected error occurred while processing your request.",
-            });
-        }
+        var result = await _propertyService.CreatePropertiesFromRangeAsync(request, ct);
+        return Ok(result);
     }
 }
 

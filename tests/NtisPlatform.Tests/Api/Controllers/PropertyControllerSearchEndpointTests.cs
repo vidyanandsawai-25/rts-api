@@ -5,6 +5,7 @@ using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 using Xunit;
@@ -18,15 +19,15 @@ namespace NtisPlatform.Tests.Api.Controllers;
 /// </summary>
 public class PropertyControllerSearchEndpointTests
 {
-    private readonly Mock<IPropertyService> _mockPropertyService;
+    private readonly Mock<IPropertySearchService> _mockSearchService;
     private readonly Mock<ILogger<PropertyController>> _mockLogger;
     private readonly PropertyController _controller;
 
     public PropertyControllerSearchEndpointTests()
     {
-        _mockPropertyService = new Mock<IPropertyService>();
+        _mockSearchService = new Mock<IPropertySearchService>();
         _mockLogger = new Mock<ILogger<PropertyController>>();
-        _controller = PropertyControllerTestHelper.CreateController(_mockPropertyService, _mockLogger);
+        _controller = PropertyControllerTestHelper.CreateController(new Mock<IPropertyService>(), _mockLogger, searchService: _mockSearchService);
     }
 
     #region GET /api/Property/search Tests
@@ -54,7 +55,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -88,7 +89,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -119,35 +120,9 @@ public class PropertyControllerSearchEndpointTests
         Assert.False(response.Success);
         Assert.Equal("Query parameters cannot be null", response.Message);
 
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()),
             Times.Never);
-    }
-
-    [Fact]
-    public async Task SearchProperties_WithException_ReturnsInternalServerError()
-    {
-        // Arrange
-        var queryParameters = new PropertySearchQueryParameters
-        {
-            PageNumber = 1,
-            PageSize = 10
-        };
-
-        _mockPropertyService
-            .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database connection failed"));
-
-        // Act
-        var result = await _controller.SearchProperties(queryParameters, CancellationToken.None);
-
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status500InternalServerError, statusCodeResult.StatusCode);
-
-        var response = Assert.IsType<ApiResponse<PagedResult<PropertySearchResponseDto>>>(statusCodeResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("An error occurred while searching properties", response.Message);
     }
 
     [Fact]
@@ -171,7 +146,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(
                 It.Is<PropertySearchQueryParameters>(q => q.PropertyNoTo == "100" && q.PropertyNoFrom == null),
                 It.IsAny<CancellationToken>()))
@@ -186,7 +161,7 @@ public class PropertyControllerSearchEndpointTests
         Assert.True(response.Success);
         Assert.Equal(1, response.Items!.TotalCount);
 
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.SearchPropertiesAsync(
                 It.Is<PropertySearchQueryParameters>(q => q.PropertyNoTo == "100"),
                 It.IsAny<CancellationToken>()),
@@ -214,7 +189,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(
                 It.Is<PropertySearchQueryParameters>(q => q.PropertyNoFrom == "050" && q.PropertyNoTo == null),
                 It.IsAny<CancellationToken>()))
@@ -251,7 +226,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: -1
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -283,7 +258,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -327,7 +302,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -340,7 +315,7 @@ public class PropertyControllerSearchEndpointTests
         Assert.True(response.Success);
         Assert.Equal(1, response.Items!.TotalCount);
 
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.SearchPropertiesAsync(
                 It.Is<PropertySearchQueryParameters>(q =>
                     q.PropertyAssessmentStatusId == 1 &&
@@ -370,7 +345,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), token))
             .ReturnsAsync(expectedResult);
 
@@ -378,7 +353,7 @@ public class PropertyControllerSearchEndpointTests
         await _controller.SearchProperties(queryParameters, token);
 
         // Assert
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), token),
             Times.Once);
     }
@@ -401,7 +376,7 @@ public class PropertyControllerSearchEndpointTests
             AssessmentCompletedPropertyCount = 0
         };
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -438,7 +413,7 @@ public class PropertyControllerSearchEndpointTests
             AssessmentCompletedPropertyCount = 0
         };
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -454,26 +429,6 @@ public class PropertyControllerSearchEndpointTests
     }
 
     [Fact]
-    public async Task GetDashboardStats_WithException_ReturnsInternalServerError()
-    {
-        // Arrange
-        _mockPropertyService
-            .Setup(s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database connection failed"));
-
-        // Act
-        var result = await _controller.GetDashboardStats(CancellationToken.None);
-
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status500InternalServerError, statusCodeResult.StatusCode);
-
-        var response = Assert.IsType<ApiResponse<PropertyDashboardStatsDto>>(statusCodeResult.Value);
-        Assert.False(response.Success);
-        Assert.Equal("An error occurred while retrieving dashboard statistics", response.Message);
-    }
-
-    [Fact]
     public async Task GetDashboardStats_WithCancellationToken_PropagatesToken()
     {
         // Arrange
@@ -482,7 +437,7 @@ public class PropertyControllerSearchEndpointTests
 
         var expectedStats = new PropertyDashboardStatsDto();
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.GetPropertyDashboardStatsAsync(token))
             .ReturnsAsync(expectedStats);
 
@@ -490,7 +445,7 @@ public class PropertyControllerSearchEndpointTests
         await _controller.GetDashboardStats(token);
 
         // Assert
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.GetPropertyDashboardStatsAsync(token),
             Times.Once);
     }
@@ -504,7 +459,7 @@ public class PropertyControllerSearchEndpointTests
             RegisteredPropertyCount = 50
         };
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedStats);
 
@@ -512,32 +467,8 @@ public class PropertyControllerSearchEndpointTests
         await _controller.GetDashboardStats(CancellationToken.None);
 
         // Assert
-        _mockPropertyService.Verify(
+        _mockSearchService.Verify(
             s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task GetDashboardStats_LogsError_WhenExceptionOccurs()
-    {
-        // Arrange
-        var exception = new InvalidOperationException("Test exception");
-
-        _mockPropertyService
-            .Setup(s => s.GetPropertyDashboardStatsAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(exception);
-
-        // Act
-        await _controller.GetDashboardStats(CancellationToken.None);
-
-        // Assert
-        _mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => true),
-                It.IsAny<Exception>(),
-                It.Is<Func<It.IsAnyType, Exception?, string>>((v, t) => true)),
             Times.Once);
     }
 
@@ -563,7 +494,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 100 // Actual clamped value
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -596,7 +527,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 
@@ -633,7 +564,7 @@ public class PropertyControllerSearchEndpointTests
             pageSize: 10
         );
 
-        _mockPropertyService
+        _mockSearchService
             .Setup(s => s.SearchPropertiesAsync(It.IsAny<PropertySearchQueryParameters>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResult);
 

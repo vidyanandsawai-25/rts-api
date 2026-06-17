@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 using Xunit;
@@ -11,11 +12,22 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class PropertyControllerSocietyDetailsTests
 {
-    private static PropertyController Create(out Mock<IPropertyService> service)
+    // Society endpoints delegate to IPropertySocietyService (per-tab service).
+    private static PropertyController Create(out Mock<IPropertySocietyService> service)
+    {
+        var propertyService = new Mock<IPropertyService>();
+        service = new Mock<IPropertySocietyService>();
+        var logger = new Mock<ILogger<PropertyController>>();
+        return PropertyControllerTestHelper.CreateController(propertyService, logger, societyService: service);
+    }
+
+    // Amenity / wing-list endpoints stay on the aggregate IPropertyService (authored elsewhere, not refactored).
+    private static PropertyController CreateForAggregate(out Mock<IPropertyService> service)
     {
         service = new Mock<IPropertyService>();
+        var societyService = new Mock<IPropertySocietyService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(service, logger);
+        return PropertyControllerTestHelper.CreateController(service, logger, societyService: societyService);
     }
 
     #region GetSocietyDetails Tests
@@ -42,19 +54,6 @@ public class PropertyControllerSocietyDetailsTests
         var result = await controller.GetSocietyDetails(99, CancellationToken.None);
 
         Assert.IsType<NotFoundObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task GetSocietyDetails_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetSocietyDetails(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
     }
 
     #endregion
@@ -86,31 +85,6 @@ public class PropertyControllerSocietyDetailsTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task UpdateSocietyDetails_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateSocietyDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertySocietyDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("invalid"));
-
-        var result = await controller.UpdateSocietyDetails(1, new UpdatePropertySocietyDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateSocietyDetails_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateSocietyDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertySocietyDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.UpdateSocietyDetails(1, new UpdatePropertySocietyDetailsDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
     #endregion
 
     #region GetSocietyAmenityDetailsAsync Tests
@@ -118,7 +92,7 @@ public class PropertyControllerSocietyDetailsTests
     [Fact]
     public async Task GetSocietyAmenityDetailsAsync_ReturnsOk_WhenFound()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         var expectedList = new List<SocietyAminityDetailsDto>
         {
             new() { SocietyDetailId = 1, PropertyId = 1, wingId = 1, WingNo = "A", WingName = "Wing A" },
@@ -139,7 +113,7 @@ public class PropertyControllerSocietyDetailsTests
     [Fact]
     public async Task GetSocietyAmenityDetailsAsync_ReturnsNotFound_WhenMissing()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         service.Setup(s => s.GetSocietyAmenityDetailsAsync(99, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync((List<SocietyAminityDetailsDto>?)null);
 
@@ -152,24 +126,9 @@ public class PropertyControllerSocietyDetailsTests
     }
 
     [Fact]
-    public async Task GetSocietyAmenityDetailsAsync_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyAmenityDetailsAsync(It.IsAny<int>(), true, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var result = await controller.GetSocietyAmenityDetailsAsync(1, true, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-        var response = Assert.IsType<ApiResponse<SocietyAminityDetailsDto>>(status.Value);
-        Assert.False(response.Success);
-    }
-
-    [Fact]
     public async Task GetSocietyAmenityDetailsAsync_ReturnsOk_WithEmptyList()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         service.Setup(s => s.GetSocietyAmenityDetailsAsync(1, true, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
@@ -188,7 +147,7 @@ public class PropertyControllerSocietyDetailsTests
     [Fact]
     public async Task GetSocietyWingListAsync_ReturnsOk_WhenFound()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         var expectedList = new List<PropertySocietyDetailsDto>
         {
             new() { PropertyId = 1, WingId = 1, WingName = "Wing A" },
@@ -209,7 +168,7 @@ public class PropertyControllerSocietyDetailsTests
     [Fact]
     public async Task GetSocietyWingListAsync_ReturnsNotFound_WhenMissing()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         service.Setup(s => s.GetSocietyWingListAsync(99, It.IsAny<CancellationToken>()))
             .ReturnsAsync((List<PropertySocietyDetailsDto>?)null);
 
@@ -222,24 +181,9 @@ public class PropertyControllerSocietyDetailsTests
     }
 
     [Fact]
-    public async Task GetSocietyWingListAsync_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetSocietyWingListAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        var result = await controller.GetSocietyWingListAsync(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-        var response = Assert.IsType<ApiResponse<PropertySocietyDetailsDto>>(status.Value);
-        Assert.False(response.Success);
-    }
-
-    [Fact]
     public async Task GetSocietyWingListAsync_ReturnsOk_WithEmptyList()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         service.Setup(s => s.GetSocietyWingListAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
 
@@ -254,7 +198,7 @@ public class PropertyControllerSocietyDetailsTests
     [Fact]
     public async Task GetSocietyWingListAsync_PassesCancellationToken()
     {
-        var controller = Create(out var service);
+        var controller = CreateForAggregate(out var service);
         var cts = new CancellationTokenSource();
         service.Setup(s => s.GetSocietyWingListAsync(1, cts.Token))
             .ReturnsAsync([]);

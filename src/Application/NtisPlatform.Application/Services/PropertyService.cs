@@ -67,53 +67,6 @@ public partial class PropertyService
         _assessmentRepository = assessmentRepository;
     }
 
-    public async Task<PropertyBasicDetailsDto?> GetBasicDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetBasicDetailsAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertyBasicDetailsDto?> UpdateBasicDetailsAsync(int propertyId, UpdatePropertyBasicDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateBasicDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertySocietyDetailsDto?> GetSocietyDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetSocietyDetailsAsync(propertyId, cancellationToken);
-    }
-    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetSocietyAmenityDetailsAsync(SocietyDetailId, isAmenity, cancellationToken);
-    }
-    public async Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetSocietyWingListAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertySocietyDetailsDto?> UpdateSocietyDetailsAsync(int propertyId, UpdatePropertySocietyDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateSocietyDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyKycDetailsDto?> GetKycDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetKycDetailsAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateKycDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateOldDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetOldDetailsAsync(propertyId, cancellationToken);
-    }
 
     public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
@@ -123,79 +76,6 @@ public partial class PropertyService
     public async Task<PropertyTaxDetailsCVDto?> GetTaxDetailsCVAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         return await _propertyRepository.GetTaxDetailsCVAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetOldTaxesDetailsAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertyOldTaxesDetailsDto?> CreateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.CreateOldTaxesDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyOldTaxesDetailsDto?> UpdateOldTaxesDetailsAsync(int propertyId, UpdatePropertyOldTaxesDetailsDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateOldTaxesDetailsAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyDetailsOldListDto?> GetFloorDetailsOldAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetFloorDetailsOldAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PagedResult<PropertyDetailsOldDto>?> GetFloorDetailsOldPagedAsync(int propertyId, FloorDetailsOldQueryParameters queryParameters, CancellationToken cancellationToken = default)
-    {
-        // Map FloorDetailsOldQueryParameters to FloorDetailsOldQuery
-        var query = new FloorDetailsOldQuery
-        {
-            PageNumber = queryParameters.PageNumber,
-            PageSize = queryParameters.PageSize,
-            SearchTerm = queryParameters.SearchTerm,
-            SortBy = queryParameters.SortBy,
-            SortOrder = queryParameters.SortOrder,
-            OldFloorId = queryParameters.OldFloorId,
-            OldSubFloorId = queryParameters.OldSubFloorId,
-            OldConstructionTypeId = queryParameters.OldConstructionTypeId,
-            OldTypeOfUseId = queryParameters.OldTypeOfUseId,
-            OldSubTypeOfUseId = queryParameters.OldSubTypeOfUseId,
-            OldConstructionYear = queryParameters.OldConstructionYear,
-            OldAssessmentYear = queryParameters.OldAssessmentYear
-        };
-
-        var result = await _propertyRepository.GetFloorDetailsOldPagedAsync(propertyId, query, cancellationToken);
-
-        if (result == null)
-            return null;
-
-        // Map FloorDetailsOldPagedResult to PagedResult<PropertyDetailsOldDto>
-        return new PagedResult<PropertyDetailsOldDto>(
-            result.Items,
-            result.TotalCount,
-            result.PageNumber,
-            result.PageSize
-        );
-    }
-
-    public async Task<PropertyDetailsOldDto?> GetFloorDetailsOldByIdAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetFloorDetailsOldByIdAsync(propertyId, floorId, cancellationToken);
-    }
-
-    public async Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.AddFloorDetailsOldAsync(propertyId, dto, cancellationToken);
-    }
-
-    public async Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateFloorDetailsOldAsync(propertyId, floorId, dto, cancellationToken);
-    }
-
-    public async Task<bool> DeleteFloorDetailsOldAsync(int propertyId, int floorId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.DeleteFloorDetailsOldAsync(propertyId, floorId, cancellationToken);
     }
 
     public async Task<PropertyTaxApartmentDetailsDto?> GetAggregatedPropertyTaxDetailsAsync(PropertyApartmentTaxRequestDto dto, CancellationToken cancellationToken = default)
@@ -212,129 +92,20 @@ public partial class PropertyService
     {
         return await _propertyRepository.GetGenerateBuildingStructureAsync(dto, cancellationToken);
     }
+    public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetSocietyAmenityDetailsAsync(SocietyDetailId, isAmenity, cancellationToken);
+    }
+    public async Task<List<PropertySocietyDetailsDto>?> GetSocietyWingListAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetSocietyWingListAsync(propertyId, cancellationToken);
+    }
     public async Task<List<BuildingListDto>?> GetBuildingListAsync(int wardId, CancellationToken cancellationToken = default)
     {
         return await _propertyRepository.GetBuildingListAsync(wardId, cancellationToken);
     }
 
 
-
-    public async Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default)
-    {
-        // Values & Dues validation
-        var op = queryParameters.AmountFilterOperator;
-        var from = queryParameters.AmountValue;
-        var to = queryParameters.AmountTo;
-        var topCount = queryParameters.TopCount;
-
-        // Validate AmountFilterOperator if provided
-        if (!string.IsNullOrWhiteSpace(op))
-        {
-            var opTrimmed = op.Trim();
-
-            // Check if operator is valid for tax filtering
-            if (!Enum.TryParse<FilterOperator>(opTrimmed, ignoreCase: true, out var parsedOp) ||
-                !Enum.IsDefined(typeof(FilterOperator), parsedOp) ||
-                (parsedOp != FilterOperator.Equals &&
-                 parsedOp != FilterOperator.GreaterThan &&
-                 parsedOp != FilterOperator.LessThan &&
-                 parsedOp != FilterOperator.Between &&
-                 parsedOp != FilterOperator.Top))
-            {
-                throw new DataValidationException($"Invalid AmountFilterOperator value: '{opTrimmed}'. Valid values are: Equals, GreaterThan, LessThan, Between, Top");
-            }
-
-            // Validate required fields based on operator
-            if (parsedOp == FilterOperator.Top)
-            {
-                if (!topCount.HasValue || topCount.Value <= 0)
-                {
-                    throw new DataValidationException("TopCount must be a positive number when AmountFilterOperator is Top.");
-                }
-            }
-            else
-            {
-                // For all other operators (Equals, GreaterThan, LessThan, Between), AmountValue is required
-                if (!from.HasValue)
-                {
-                    throw new DataValidationException($"AmountValue is required when AmountFilterOperator is '{opTrimmed}'.");
-                }
-
-                // Between operator requires AmountTo
-                if (parsedOp == FilterOperator.Between)
-                {
-                    if (!to.HasValue)
-                    {
-                        throw new DataValidationException("AmountTo is required when AmountFilterOperator is Between.");
-                    }
-
-                    if (from.Value > to.Value)
-                    {
-                        throw new DataValidationException("AmountValue cannot be greater than AmountTo.");
-                    }
-                }
-            }
-        }
-
-        // Map query parameters to repository request DTO
-        var searchRequest = new PropertySearchRequestDto
-        {
-            DashboardFilter = queryParameters.DashboardFilter,
-            PropertyProcessFilter = queryParameters.PropertyProcessFilter,
-            PropertyTypeId = queryParameters.PropertyTypeId,
-            TypeOfUseId = queryParameters.TypeOfUseId,
-            ZoneId = queryParameters.ZoneId,
-            WardId = queryParameters.WardId,
-            CategoryId = queryParameters.CategoryId,
-            PropertyNoFrom = queryParameters.PropertyNoFrom,
-            PropertyNoTo = queryParameters.PropertyNoTo,
-            OldPropertyNo = queryParameters.OldPropertyNo,
-            UPICId = queryParameters.UPICId,
-            CSN = queryParameters.CSN,
-            SubZoneNo = queryParameters.SubZoneNo,
-            PlotNo = queryParameters.PlotNo,
-            PropertyAssessmentStatusId = queryParameters.PropertyAssessmentStatusId,
-            MobileNo = queryParameters.MobileNo,
-            OwnerName = queryParameters.OwnerName,
-            OccupierName = queryParameters.OccupierName,
-            FlatOrShopName = queryParameters.FlatOrShopName,
-            SocietyName = queryParameters.SocietyName,
-            Address = queryParameters.Address,
-            RVorCV = queryParameters.RVorCV,
-            AmountFilterOperator = queryParameters.AmountFilterOperator,
-            AmountValue = queryParameters.AmountValue,
-            AmountTo = queryParameters.AmountTo,
-            TopCount = queryParameters.TopCount
-        };
-
-        var (totalCount, items) = await _propertyRepository.SearchPropertiesAsync(
-            searchRequest,
-            queryParameters.PageNumber,
-            queryParameters.PageSize,
-            cancellationToken);
-
-        var pageNumber = queryParameters.PageNumber;
-        var pageSize = queryParameters.PageSize;
-
-        if (queryParameters.PageSize == -1)
-        {
-            pageNumber = 1;
-            pageSize = Math.Max(1, totalCount);
-        }
-
-        return new PagedResult<PropertySearchResponseDto>
-        {
-            Items = items,
-            TotalCount = totalCount,
-            PageNumber = pageNumber,
-            PageSize = pageSize
-        };
-    }
-
-    public async Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetPropertyDashboardStatsAsync(cancellationToken);
-    }
 
     /// <summary>
     /// Validates if a property can be safely deleted.
@@ -1013,16 +784,6 @@ public partial class PropertyService
                 [$"Transaction failed: {ex.Message}"]
             );
         }
-    }
-
-    public async Task<PropertyDiscountInfoResponseDto?> GetDiscountDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.GetDiscountDetailsAsync(propertyId, cancellationToken);
-    }
-
-    public async Task<PropertyDiscountInfoResponseDto?> UpdateDiscountDetailsAsync(int propertyId, UpsertPropertyDiscountInfoDto dto, CancellationToken cancellationToken = default)
-    {
-        return await _propertyRepository.UpdateDiscountDetailsAsync(propertyId, dto, cancellationToken);
     }
 
 }

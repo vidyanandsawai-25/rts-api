@@ -10,19 +10,19 @@ using System.Security.Claims;
 namespace NtisPlatform.Api.Controllers;
 
 /// <summary>
-/// Property Discount Information Tab API - Partial controller for segregated property endpoints
-/// Handles the `{propertyId}/discount-details` API endpoint which loads discount-applicable social attributes
+/// Property Discount Information Tab API — thin HTTP adapter.
+/// Business logic lives in <c>PropertyDiscountService</c>;
+/// exception-to-HTTP mapping is handled by <c>PropertyApiExceptionFilter</c>.
+/// Upload methods retain their own try/catch because they handle
+/// <c>UnauthorizedAccessException</c> and <c>ArgumentException</c> distinctly,
+/// and <c>ReplaceDiscountDocument</c> maps <c>InvalidOperationException</c> to 404
+/// (which would conflict with the filter's 400 mapping).
 /// </summary>
 public partial class PropertyController
 {
     /// <summary>
     /// Retrieves discount information for a specific property including all social attributes where IsDiscountApplicable=1.
-    /// This endpoint is used to populate the Discount Information tab in the property form.
-    /// Returns all discount-applicable attributes with their current toggle states, values, and associated documents.
     /// </summary>
-    /// <param name="propertyId">The unique identifier of the property</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>Property discount details including all applicable discount attributes</returns>
     /// <response code="200">Returns the property discount details</response>
     /// <response code="404">Property not found</response>
     [HttpGet("{propertyId}/discount-details")]
@@ -30,107 +30,65 @@ public partial class PropertyController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDiscountDetails(int propertyId, CancellationToken ct)
     {
-        try
+        var result = await _propertyDiscountService.GetDiscountDetailsAsync(propertyId, ct);
+
+        if (result == null)
         {
-            var result = await _propertyService.GetDiscountDetailsAsync(propertyId, ct);
-
-            if (result == null)
+            _logger.LogWarning("Property with ID {PropertyId} not found", propertyId);
+            return NotFound(new ApiResponse<PropertyDiscountInfoResponseDto>
             {
-                _logger.LogWarning("Property with ID {PropertyId} not found", propertyId);
-                return NotFound(new ApiResponse<PropertyDiscountInfoResponseDto>
-                {
-                    Success = false,
-                    Message = $"Property with ID {propertyId} not found"
-                });
-            }
-
-            return Ok(new ApiResponse<PropertyDiscountInfoResponseDto>
-            {
-                Success = true,
-                Message = "Discount information retrieved successfully",
-                Items = result
+                Success = false,
+                Message = $"Property with ID {propertyId} not found"
             });
         }
-        catch (Exception ex)
+
+        return Ok(new ApiResponse<PropertyDiscountInfoResponseDto>
         {
-            _logger.LogError(ex, "Error retrieving discount details for property {PropertyId}", propertyId);
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiResponse<PropertyDiscountInfoResponseDto>
-                {
-                    Success = false,
-                    Message = "An error occurred while retrieving property discount information"
-                });
-        }
+            Success = true,
+            Message = "Discount information retrieved successfully",
+            Items = result
+        });
     }
 
     /// <summary>
     /// Updates discount information for a specific property by upserting PropertySocialDetails records.
-    /// Handles toggle states (BitValue), numeric values, text values, dates, and document uploads.
-    /// Only processes social attributes where IsDiscountApplicable=1.
     /// </summary>
-    /// <param name="propertyId">The unique identifier of the property</param>
-    /// <param name="dto">The discount information update payload containing attribute values and documents</param>
-    /// <param name="ct">Cancellation token</param>
-    /// <returns>Success response with updated discount data</returns>
     /// <response code="200">Discount information updated successfully</response>
     /// <response code="404">Property not found</response>
-    /// <response code="400">Invalid data - Validation error</response>
+    /// <response code="400">Invalid data — validation error</response>
     [HttpPut("{propertyId}/discount-details")]
     [ProducesResponseType(typeof(ApiResponse<PropertyDiscountInfoResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateDiscountDetails(int propertyId, [FromBody] UpsertPropertyDiscountInfoDto dto, CancellationToken ct)
     {
-        try
+        if (dto.PropertyId != propertyId)
         {
-            // Validate propertyId matches the DTO
-            if (dto.PropertyId != propertyId)
-            {
-                return BadRequest(new ApiResponse<PropertyDiscountInfoResponseDto>
-                {
-                    Success = false,
-                    Message = "PropertyId in URL does not match PropertyId in request body"
-                });
-            }
-
-            var result = await _propertyService.UpdateDiscountDetailsAsync(propertyId, dto, ct);
-
-            if (result == null)
-            {
-                _logger.LogWarning("Property with ID {PropertyId} not found for update", propertyId);
-                return NotFound(new ApiResponse<PropertyDiscountInfoResponseDto>
-                {
-                    Success = false,
-                    Message = $"Property with ID {propertyId} not found"
-                });
-            }
-
-            return Ok(new ApiResponse<PropertyDiscountInfoResponseDto>
-            {
-                Success = true,
-                Message = "Discount information updated successfully",
-                Items = result
-            });
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "Validation error updating discount details for property {PropertyId}", propertyId);
             return BadRequest(new ApiResponse<PropertyDiscountInfoResponseDto>
             {
                 Success = false,
-                Message = ex.Message
+                Message = "PropertyId in URL does not match PropertyId in request body"
             });
         }
-        catch (Exception ex)
+
+        var result = await _propertyDiscountService.UpdateDiscountDetailsAsync(propertyId, dto, ct);
+
+        if (result == null)
         {
-            _logger.LogError(ex, "Error updating discount details for property {PropertyId}", propertyId);
-            return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiResponse<PropertyDiscountInfoResponseDto>
-                {
-                    Success = false,
-                    Message = "An error occurred while updating property discount information"
-                });
+            _logger.LogWarning("Property with ID {PropertyId} not found for update", propertyId);
+            return NotFound(new ApiResponse<PropertyDiscountInfoResponseDto>
+            {
+                Success = false,
+                Message = $"Property with ID {propertyId} not found"
+            });
         }
+
+        return Ok(new ApiResponse<PropertyDiscountInfoResponseDto>
+        {
+            Success = true,
+            Message = "Discount information updated successfully",
+            Items = result
+        });
     }
 
     /// <summary>

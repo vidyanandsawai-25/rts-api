@@ -9,6 +9,7 @@ using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.PropertyDiscount;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 using Xunit;
@@ -21,6 +22,7 @@ namespace NtisPlatform.Tests.Api.Controllers;
 public class PropertyControllerDiscountDetailsTests
 {
     private readonly Mock<IPropertyService> _mockPropertyService;
+    private readonly Mock<IPropertyDiscountService> _mockDiscountService;
     private readonly Mock<ILogger<PropertyController>> _mockLogger;
     private readonly Mock<IPropertyDiscountDocumentService> _mockDiscountDocumentService;
     private readonly PropertyController _controller;
@@ -28,6 +30,7 @@ public class PropertyControllerDiscountDetailsTests
     public PropertyControllerDiscountDetailsTests()
     {
         _mockPropertyService = new Mock<IPropertyService>();
+        _mockDiscountService = new Mock<IPropertyDiscountService>();
         _mockLogger = new Mock<ILogger<PropertyController>>();
         _mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
 
@@ -38,6 +41,12 @@ public class PropertyControllerDiscountDetailsTests
 
         _controller = new PropertyController(
             _mockPropertyService.Object,
+            new Mock<IPropertyBasicDetailsService>().Object,
+            new Mock<IPropertyKycService>().Object,
+            new Mock<IPropertySocietyService>().Object,
+            _mockDiscountService.Object,
+            new Mock<IPropertyOldDetailsService>().Object,
+            new Mock<IPropertySearchService>().Object,
             _mockLogger.Object,
             _mockDiscountDocumentService.Object,
             mockEnvironment.Object,
@@ -68,7 +77,7 @@ public class PropertyControllerDiscountDetailsTests
             }
         };
 
-        _mockPropertyService.Setup(s => s.GetDiscountDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+        _mockDiscountService.Setup(s => s.GetDiscountDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResponse);
 
         // Act
@@ -88,7 +97,7 @@ public class PropertyControllerDiscountDetailsTests
     {
         // Arrange
         var propertyId = 999;
-        _mockPropertyService.Setup(s => s.GetDiscountDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
+        _mockDiscountService.Setup(s => s.GetDiscountDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyDiscountInfoResponseDto?)null);
 
         // Act
@@ -99,22 +108,6 @@ public class PropertyControllerDiscountDetailsTests
         var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(notFoundResult.Value);
         Assert.False(apiResponse.Success);
         Assert.Contains("not found", apiResponse.Message);
-    }
-
-    [Fact]
-    public async Task GetDiscountDetails_Returns500_OnException()
-    {
-        // Arrange
-        var propertyId = 1;
-        _mockPropertyService.Setup(s => s.GetDiscountDetailsAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("Database error"));
-
-        // Act
-        var result = await _controller.GetDiscountDetails(propertyId, CancellationToken.None);
-
-        // Assert
-        var serverErrorResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(StatusCodes.Status500InternalServerError, serverErrorResult.StatusCode);
     }
 
     #endregion
@@ -142,7 +135,7 @@ public class PropertyControllerDiscountDetailsTests
             DiscountAttributes = new List<DiscountAttributeDto>()
         };
 
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
+        _mockDiscountService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync(expectedResponse);
 
         // Act
@@ -187,7 +180,7 @@ public class PropertyControllerDiscountDetailsTests
             UpdatedBy = 1
         };
 
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
+        _mockDiscountService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
             .ReturnsAsync((PropertyDiscountInfoResponseDto?)null);
 
         // Act
@@ -197,132 +190,6 @@ public class PropertyControllerDiscountDetailsTests
         var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(notFoundResult.Value);
         Assert.False(apiResponse.Success);
-    }
-
-    [Fact]
-    public async Task UpdateDiscountDetails_ReturnsBadRequest_OnInvalidOperationException()
-    {
-        // Arrange
-        var propertyId = 1;
-        var updateDto = new UpsertPropertyDiscountInfoDto
-        {
-            PropertyId = propertyId,
-            UpdatedBy = 1,
-            DiscountAttributes = new List<DiscountAttributeItemDto>
-            {
-                new() { SocialAttributeId = 99, BitValue = true } // Non-discount attribute
-            }
-        };
-
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("SocialAttribute is not discount-applicable"));
-
-        // Act
-        var result = await _controller.UpdateDiscountDetails(propertyId, updateDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(badRequestResult.Value);
-        Assert.False(apiResponse.Success);
-        Assert.Contains("discount-applicable", apiResponse.Message);
-    }
-
-    [Fact]
-    public async Task UpdateDiscountDetails_ValidatesOnlyDiscountApplicableAttributes()
-    {
-        // Arrange - This test verifies that the repository validation catches non-discount attributes
-        var propertyId = 1;
-        var updateDto = new UpsertPropertyDiscountInfoDto
-        {
-            PropertyId = propertyId,
-            UpdatedBy = 1,
-            DiscountAttributes = new List<DiscountAttributeItemDto>
-            {
-                new() { SocialAttributeId = 5, BitValue = true } // Assume non-discount attribute
-            }
-        };
-
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException(
-                "SocialAttribute with ID 5 is not marked as discount-applicable. " +
-                "Only attributes with IsDiscountApplicable=true can be updated via the discount-details endpoint."));
-
-        // Act
-        var result = await _controller.UpdateDiscountDetails(propertyId, updateDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(badRequestResult.Value);
-        Assert.False(apiResponse.Success);
-        Assert.Contains("IsDiscountApplicable=true", apiResponse.Message);
-    }
-
-    [Fact]
-    public async Task UpdateDiscountDetails_RejectsPropertySocialDetailIdMismatch()
-    {
-        // Arrange - This test prevents malicious/accidental overwrites of different social attribute records
-        var propertyId = 1;
-        var updateDto = new UpsertPropertyDiscountInfoDto
-        {
-            PropertyId = propertyId,
-            UpdatedBy = 1,
-            DiscountAttributes = new List<DiscountAttributeItemDto>
-            {
-                new() 
-                { 
-                    PropertySocialDetailId = 10,  // Record ID for SocialAttributeId=1
-                    SocialAttributeId = 2,         // Trying to update with different attribute ID
-                    BitValue = true 
-                }
-            }
-        };
-
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException(
-                "PropertySocialDetails with ID 10 does not match SocialAttributeId 2."));
-
-        // Act
-        var result = await _controller.UpdateDiscountDetails(propertyId, updateDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(badRequestResult.Value);
-        Assert.False(apiResponse.Success);
-        Assert.Contains("does not match SocialAttributeId", apiResponse.Message);
-    }
-
-    [Fact]
-    public async Task UpdateDiscountDetails_RejectsNonExistentPropertySocialDetailId()
-    {
-        // Arrange - This test ensures PropertySocialDetailId references a valid existing record
-        var propertyId = 1;
-        var updateDto = new UpsertPropertyDiscountInfoDto
-        {
-            PropertyId = propertyId,
-            UpdatedBy = 1,
-            DiscountAttributes = new List<DiscountAttributeItemDto>
-            {
-                new() 
-                { 
-                    PropertySocialDetailId = 999,  // Non-existent record
-                    SocialAttributeId = 1,
-                    BitValue = true 
-                }
-            }
-        };
-
-        _mockPropertyService.Setup(s => s.UpdateDiscountDetailsAsync(propertyId, updateDto, It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException(
-                $"PropertySocialDetails with ID 999 not found for property {propertyId}."));
-
-        // Act
-        var result = await _controller.UpdateDiscountDetails(propertyId, updateDto, CancellationToken.None);
-
-        // Assert
-        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
-        var apiResponse = Assert.IsType<ApiResponse<PropertyDiscountInfoResponseDto>>(badRequestResult.Value);
-        Assert.False(apiResponse.Success);
-        Assert.Contains("not found for property", apiResponse.Message);
     }
 
     #endregion

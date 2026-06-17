@@ -6,35 +6,47 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.Property;
 
 namespace NtisPlatform.Application.Services;
 
+/// <summary>
+/// Application service for the Property "Social Info" tab. Owns the hierarchy/upsert business flow;
+/// all social-attribute and social-detail queries are delegated to <see cref="IPropertySocialDetailsRepository"/>
+/// so this service contains no EF Core query expressions. Generic CRUD is provided by the base service.
+/// </summary>
 public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocialDetailsEntity, PropertySocialDetailsDto, CreatePropertySocialDetailsDto, UpdatePropertySocialDetailsDto, PropertySocialDetailsQueryParameters, int>, IPropertySocialDetailsService
 {
-    private readonly IRepository<SocialAttributeEntity> _socialAttributeRepository;
-    private readonly IRepository<DocumentBindingEntity> _documentBindingRepository;
-    private readonly IRepository<DocumentEntity> _documentRepository;
-
-    private class PropertySocialDetailBindingInfo
-    {
-        public int PropertySocialDetailId { get; set; }
-        public int BindingId { get; set; }
-        public Guid DocumentGuid { get; set; }
-        public string? BindingPurpose { get; set; }
-    }
+    private readonly IPropertySocialDetailsRepository _socialDetailsRepository;
+    private readonly IRepository<DocumentBindingEntity, int> _documentBindingRepository;
+    private readonly IRepository<DocumentEntity, int> _documentRepository;
 
     public PropertySocialDetailsService(
-        IRepository<PropertySocialDetailsEntity, int> repository, 
-        IRepository<SocialAttributeEntity> socialAttributeRepository,
-        IRepository<DocumentBindingEntity> documentBindingRepository,
-        IRepository<DocumentEntity> documentRepository,
-        IUnitOfWork unitOfWork, 
+        IRepository<PropertySocialDetailsEntity, int> repository,
+        IPropertySocialDetailsRepository socialDetailsRepository,
+        IRepository<DocumentBindingEntity, int> documentBindingRepository,
+        IRepository<DocumentEntity, int> documentRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper) : base(repository, unitOfWork, mapper)
     {
-        _socialAttributeRepository = socialAttributeRepository;
+        _socialDetailsRepository = socialDetailsRepository;
         _documentBindingRepository = documentBindingRepository;
         _documentRepository = documentRepository;
     }
+
+    private sealed class PropertySocialDetailBindingInfo
+    {
+        public int PropertySocialDetailId { get; init; }
+        public int BindingId { get; init; }
+        public Guid DocumentGuid { get; init; }
+        public string? BindingPurpose { get; init; }
+    }
+
+    // ── Generic CRUD overrides ─────────────────────────────────────────────────────────
+    // PropertySocialDetailsDto carries IsPhotoRequired/IsDocumentRequired (from the SocialAttribute)
+    // and PhotoGuid/DocumentGuid (from polymorphic DocumentBinding+Document). The AutoMapper profile
+    // intentionally ignores those members because they cannot be mapped from the entity alone, so the
+    // base CRUD result must be enriched here — otherwise GET/POST/PUT would return false/null defaults.
 
     public override async Task<PagedResult<PropertySocialDetailsDto>> GetAllAsync(PropertySocialDetailsQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
@@ -47,9 +59,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     {
         var result = await base.GetByIdAsync(id, cancellationToken);
         if (result != null)
-        {
             await EnrichDtosAsync(new List<PropertySocialDetailsDto> { result }, cancellationToken);
-        }
         return result;
     }
 
@@ -64,26 +74,28 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     {
         var result = await base.UpdateAsync(id, updateDto, cancellationToken);
         if (result != null)
-        {
             await EnrichDtosAsync(new List<PropertySocialDetailsDto> { result }, cancellationToken);
-        }
         return result;
     }
 
+    /// <summary>
+    /// Populates the DTO members the AutoMapper profile cannot derive from the entity alone:
+    /// requirement flags from the parent <see cref="SocialAttributeEntity"/>, and the document/photo
+    /// GUIDs + binding ids from the polymorphic DocumentBinding→Document association.
+    /// </summary>
     private async Task EnrichDtosAsync(List<PropertySocialDetailsDto> dtos, CancellationToken cancellationToken)
     {
-        if (dtos == null || !dtos.Any()) return;
+        if (dtos == null || dtos.Count == 0) return;
 
         var psdIds = dtos.Select(d => d.Id).ToList();
         var attributeIds = dtos.Select(d => d.SocialAttributeId).Distinct().ToList();
 
-        // 1. Fetch requirements flags from SocialAttributeEntity
-        var requirements = await _socialAttributeRepository.GetQueryable()
+        // 1. Requirement flags come from the SocialAttribute the detail belongs to.
+        var requirements = (await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken))
             .Where(sa => attributeIds.Contains(sa.Id))
-            .Select(sa => new { sa.Id, sa.IsPhotoRequired, sa.IsDocumentRequired })
-            .ToDictionaryAsync(sa => sa.Id, cancellationToken);
+            .ToDictionary(sa => sa.Id, sa => (sa.IsPhotoRequired, sa.IsDocumentRequired));
 
-        // 2. Fetch polymorphic bindings (documents & photos)
+        // 2. Polymorphic document/photo bindings for these detail rows.
         var bindings = await (
             from db in _documentBindingRepository.GetQueryable()
             where db.ReferenceTableName == "PropertySocialDetails"
@@ -100,7 +112,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                 BindingPurpose = db.BindingPurpose
             }).ToListAsync(cancellationToken);
 
-        // 3. Enrich DTOs
+        // 3. Project enrichment onto each DTO.
         foreach (var dto in dtos)
         {
             if (requirements.TryGetValue(dto.SocialAttributeId, out var req))
@@ -109,16 +121,15 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                 dto.IsDocumentRequired = req.IsDocumentRequired;
             }
 
-            // Document binding
-            var docBinding = bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingId == dto.DocumentBindingId);
-            docBinding ??= bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingPurpose != "Photo");
+            // Prefer the explicitly referenced binding; otherwise the first non-photo (document) binding.
+            var docBinding = bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingId == dto.DocumentBindingId)
+                          ?? bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingPurpose != "Photo");
             if (docBinding != null)
             {
                 dto.DocumentGuid = docBinding.DocumentGuid;
                 dto.DocumentBindingId = docBinding.BindingId;
             }
 
-            // Photo binding
             var photoBinding = bindings.FirstOrDefault(b => b.PropertySocialDetailId == dto.Id && b.BindingPurpose == "Photo");
             if (photoBinding != null)
             {
@@ -131,16 +142,10 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     public async Task<PropertySocialInfoResponseDto> GetPropertySocialInfoAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         // Step 1: Get ALL active social attributes
-        var allSocialAttributes = await _socialAttributeRepository.GetQueryable()
-            .Where(x => x.IsActive)
-            .OrderBy(x => x.DisplayOrder ?? int.MaxValue)
-            .ThenBy(x => x.SocialAttributeCode)
-            .ToListAsync(cancellationToken);
+        var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
 
         // Step 2: Get existing property social details for this property
-        var existingDetails = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
-            .ToListAsync(cancellationToken);
+        var existingDetails = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(propertyId, cancellationToken);
 
         // Step 2.5: Load polymorphic bindings (including photos and fallback documents) for existing details
         var detailIds = existingDetails.Select(x => x.Id).ToList();
@@ -251,9 +256,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
 
     public async Task<List<PropertySocialDetailsDto>> UpsertPropertySocialInfoAsync(UpsertPropertySocialInfoDto dto, CancellationToken cancellationToken = default)
     {
-        var existingRecords = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == dto.PropertyId && x.IsActive)
-            .ToListAsync(cancellationToken);
+        var existingRecords = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
 
         // Step 1: Soft delete (mark as inactive) the social attributes to remove
         if (dto.SocialAttributeIdsToRemove != null && dto.SocialAttributeIdsToRemove.Any())
@@ -339,10 +342,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         // Step 3: Return updated list
-        var updatedRecords = await _repository.GetQueryable()
-            .Include(x => x.SocialAttribute)
-            .Where(x => x.PropertyId == dto.PropertyId && x.IsActive)
-            .ToListAsync(cancellationToken);
+        var updatedRecords = await _socialDetailsRepository.GetActiveSocialDetailsWithAttributeByPropertyAsync(dto.PropertyId, cancellationToken);
 
         var dtos = _mapper.Map<List<PropertySocialDetailsDto>>(updatedRecords);
         await EnrichDtosAsync(dtos, cancellationToken);

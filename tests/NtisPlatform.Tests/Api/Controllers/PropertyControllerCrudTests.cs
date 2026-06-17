@@ -289,9 +289,9 @@ public class PropertyControllerCrudTests
     }
 
     [Fact]
-    public async Task CreateFromRange_WithException_ReturnsInternalServerError()
+    public async Task CreateFromRange_WithException_PropagatesException()
     {
-        // Arrange
+        // Thin adapter: no inline catch; PropertyApiExceptionFilter handles this in the ASP.NET Core pipeline.
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             RangeFrom = "1",
@@ -302,19 +302,7 @@ public class PropertyControllerCrudTests
         _mockPropertyService.Setup(x => x.CreatePropertiesFromRangeAsync(request, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
-        // Act
-        var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, statusCodeResult.StatusCode);
-
-        var responseValue = statusCodeResult.Value;
-        var successProp = responseValue?.GetType().GetProperty("Success")?.GetValue(responseValue);
-        var messageProp = responseValue?.GetType().GetProperty("Message")?.GetValue(responseValue);
-
-        Assert.Equal(false, successProp);
-        Assert.Equal("An unexpected error occurred while processing your request.", messageProp);
+        await Assert.ThrowsAsync<Exception>(() => _controller.CreateFromRange(request, CancellationToken.None));
     }
 
     [Fact]
@@ -356,9 +344,9 @@ public class PropertyControllerCrudTests
     }
 
     [Fact]
-    public async Task CreateFromRange_WithArgumentException_ReturnsInternalServerError()
+    public async Task CreateFromRange_WithArgumentException_PropagatesException()
     {
-        // Arrange
+        // Thin adapter: ArgumentException propagates; PropertyApiExceptionFilter handles it in the pipeline.
         var request = new RangeCreateRequest<CreateNewPropertyDto>
         {
             RangeFrom = "10",
@@ -369,12 +357,7 @@ public class PropertyControllerCrudTests
         _mockPropertyService.Setup(x => x.CreatePropertiesFromRangeAsync(request, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ArgumentException("Invalid range"));
 
-        // Act
-        var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-        // Assert
-        var statusCodeResult = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, statusCodeResult.StatusCode);
+        await Assert.ThrowsAsync<ArgumentException>(() => _controller.CreateFromRange(request, CancellationToken.None));
     }
 
     #endregion

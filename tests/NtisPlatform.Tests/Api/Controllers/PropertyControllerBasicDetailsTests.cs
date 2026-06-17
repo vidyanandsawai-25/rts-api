@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using Xunit;
 
@@ -10,11 +11,14 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class PropertyControllerBasicDetailsTests
 {
-    private static PropertyController Create(out Mock<IPropertyService> service)
+    // Basic Details endpoints now delegate to IPropertyBasicDetailsService (per-tab service),
+    // so the controller tests drive that mock rather than the aggregate IPropertyService.
+    private static PropertyController Create(out Mock<IPropertyBasicDetailsService> service)
     {
-        service = new Mock<IPropertyService>();
+        var propertyService = new Mock<IPropertyService>();
+        service = new Mock<IPropertyBasicDetailsService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(service, logger);
+        return PropertyControllerTestHelper.CreateController(propertyService, logger, service);
     }
 
     [Fact]
@@ -42,19 +46,6 @@ public class PropertyControllerBasicDetailsTests
     }
 
     [Fact]
-    public async Task GetBasicDetails_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetBasicDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetBasicDetails(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
-    [Fact]
     public async Task UpdateBasicDetails_ReturnsOk_WhenSuccess()
     {
         var controller = Create(out var service);
@@ -79,28 +70,4 @@ public class PropertyControllerBasicDetailsTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task UpdateBasicDetails_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateBasicDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyBasicDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("FK"));
-
-        var result = await controller.UpdateBasicDetails(1, new UpdatePropertyBasicDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateBasicDetails_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateBasicDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyBasicDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.UpdateBasicDetails(1, new UpdatePropertyBasicDetailsDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
 }

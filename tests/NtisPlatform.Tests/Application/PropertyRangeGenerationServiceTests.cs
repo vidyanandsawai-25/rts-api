@@ -1134,9 +1134,13 @@ namespace NtisPlatform.Tests.Application
         #endregion
 
         #region Exception Handling Tests
+        // CreateFromRange is a thin adapter: it does NOT catch exceptions.
+        // PropertyApiExceptionFilter (registered via [TypeFilter] on the controller class) handles
+        // exception-to-HTTP mapping inside the ASP.NET Core pipeline.
+        // In unit tests that call the action directly (no pipeline), exceptions propagate to the caller.
 
         [Fact]
-        public async Task CreateFromRange_WhenServiceThrowsException_Returns500InternalServerError()
+        public async Task CreateFromRange_WhenServiceThrowsException_PropagatesException()
         {
             // Arrange
             var request = new RangeCreateRequest<CreateNewPropertyDto>
@@ -1150,34 +1154,12 @@ namespace NtisPlatform.Tests.Application
                 .Setup(s => s.CreatePropertiesFromRangeAsync(It.IsAny<RangeCreateRequest<CreateNewPropertyDto>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception("Database connection failed"));
 
-            // Act
-            var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-            // Assert
-            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-            objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
-
-            var errorResponse = objectResult.Value;
-            errorResponse.Should().NotBeNull();
-
-            // Verify the error response structure
-            var errorType = errorResponse!.GetType();
-            errorType.GetProperty("Success")?.GetValue(errorResponse).Should().Be(false);
-            errorType.GetProperty("Message")?.GetValue(errorResponse).Should().Be("An unexpected error occurred while processing your request.");
-
-            // Verify logging occurred
-            _mockLogger.Verify(
-                x => x.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => true),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-                Times.Once);
+            // Act & Assert — thin adapter: exception must reach the caller (filter handles it in production)
+            await Assert.ThrowsAsync<Exception>(() => _controller.CreateFromRange(request, CancellationToken.None));
         }
 
         [Fact]
-        public async Task CreateFromRange_WhenServiceThrowsArgumentNullException_Returns500InternalServerError()
+        public async Task CreateFromRange_WhenServiceThrowsArgumentNullException_PropagatesException()
         {
             // Arrange
             var request = new RangeCreateRequest<CreateNewPropertyDto>
@@ -1191,16 +1173,11 @@ namespace NtisPlatform.Tests.Application
                 .Setup(s => s.CreatePropertiesFromRangeAsync(It.IsAny<RangeCreateRequest<CreateNewPropertyDto>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new ArgumentNullException("request", "Request cannot be null"));
 
-            // Act
-            var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-            // Assert
-            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-            objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+            await Assert.ThrowsAsync<ArgumentNullException>(() => _controller.CreateFromRange(request, CancellationToken.None));
         }
 
         [Fact]
-        public async Task CreateFromRange_WhenServiceThrowsArgumentException_Returns500InternalServerError()
+        public async Task CreateFromRange_WhenServiceThrowsArgumentException_PropagatesException()
         {
             // Arrange
             var request = new RangeCreateRequest<CreateNewPropertyDto>
@@ -1214,27 +1191,13 @@ namespace NtisPlatform.Tests.Application
                 .Setup(s => s.CreatePropertiesFromRangeAsync(It.IsAny<RangeCreateRequest<CreateNewPropertyDto>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new ArgumentException("Invalid mixed range: numeric and alphabetic cannot be combined"));
 
-            // Act
-            var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-            // Assert
-            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-            objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
-
-            _mockLogger.Verify(
-                x => x.Log(
-                    LogLevel.Error,
-                    It.IsAny<EventId>(),
-                    It.Is<It.IsAnyType>((v, t) => true),
-                    It.IsAny<Exception>(),
-                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-                Times.Once);
+            await Assert.ThrowsAsync<ArgumentException>(() => _controller.CreateFromRange(request, CancellationToken.None));
         }
 
         [Fact]
-        public async Task CreateFromRange_WhenServiceThrowsInvalidOperationException_Returns500InternalServerError()
+        public async Task CreateFromRange_WhenServiceThrowsInvalidOperationException_PropagatesException()
         {
-            // Arrange
+            // Arrange — InvalidOperationException → 400 via PropertyApiExceptionFilter in production
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
                 RangeFrom = "1",
@@ -1246,12 +1209,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(s => s.CreatePropertiesFromRangeAsync(It.IsAny<RangeCreateRequest<CreateNewPropertyDto>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("Service is in invalid state"));
 
-            // Act
-            var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-            // Assert
-            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-            objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _controller.CreateFromRange(request, CancellationToken.None));
         }
 
         #endregion
@@ -1452,9 +1410,9 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task CreateFromRange_ErrorResponseHasCorrectStructure()
+        public async Task CreateFromRange_WhenServiceThrowsGenericException_PropagatesException()
         {
-            // Arrange
+            // Arrange — thin adapter: no inline error response; PropertyApiExceptionFilter handles it in the pipeline
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
                 RangeFrom = "1",
@@ -1466,24 +1424,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(s => s.CreatePropertiesFromRangeAsync(It.IsAny<RangeCreateRequest<CreateNewPropertyDto>>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new Exception("Test exception"));
 
-            // Act
-            var result = await _controller.CreateFromRange(request, CancellationToken.None);
-
-            // Assert
-            var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
-            objectResult.StatusCode.Should().Be(StatusCodes.Status500InternalServerError);
-
-            var errorResponse = objectResult.Value;
-            errorResponse.Should().NotBeNull();
-
-            // Verify anonymous type properties exist
-            var successProp = errorResponse!.GetType().GetProperty("Success");
-            var messageProp = errorResponse.GetType().GetProperty("Message");
-
-            successProp.Should().NotBeNull();
-            messageProp.Should().NotBeNull();
-            successProp!.GetValue(errorResponse).Should().Be(false);
-            messageProp!.GetValue(errorResponse).Should().Be("An unexpected error occurred while processing your request.");
+            await Assert.ThrowsAsync<Exception>(() => _controller.CreateFromRange(request, CancellationToken.None));
         }
 
         #endregion

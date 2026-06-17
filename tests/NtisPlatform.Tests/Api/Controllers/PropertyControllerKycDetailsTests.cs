@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Core.Models;
 using Xunit;
 
@@ -10,11 +11,13 @@ namespace NtisPlatform.Tests.Api.Controllers;
 
 public class PropertyControllerKycDetailsTests
 {
-    private static PropertyController Create(out Mock<IPropertyService> service)
+    // KYC endpoints delegate to IPropertyKycService (per-tab service).
+    private static PropertyController Create(out Mock<IPropertyKycService> service)
     {
-        service = new Mock<IPropertyService>();
+        var propertyService = new Mock<IPropertyService>();
+        service = new Mock<IPropertyKycService>();
         var logger = new Mock<ILogger<PropertyController>>();
-        return PropertyControllerTestHelper.CreateController(service, logger);
+        return PropertyControllerTestHelper.CreateController(propertyService, logger, kycService: service);
     }
 
     [Fact]
@@ -42,19 +45,6 @@ public class PropertyControllerKycDetailsTests
     }
 
     [Fact]
-    public async Task GetKycDetails_Returns500_OnException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.GetKycDetailsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("boom"));
-
-        var result = await controller.GetKycDetails(1, CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
-
-    [Fact]
     public async Task UpdateKycDetails_ReturnsOk_WhenSuccess()
     {
         var controller = Create(out var service);
@@ -79,28 +69,4 @@ public class PropertyControllerKycDetailsTests
         Assert.IsType<NotFoundObjectResult>(result);
     }
 
-    [Fact]
-    public async Task UpdateKycDetails_ReturnsBadRequest_OnInvalidOperation()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateKycDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyKycDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("invalid"));
-
-        var result = await controller.UpdateKycDetails(1, new UpdatePropertyKycDetailsDto(), CancellationToken.None);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task UpdateKycDetails_Returns500_OnGenericException()
-    {
-        var controller = Create(out var service);
-        service.Setup(s => s.UpdateKycDetailsAsync(It.IsAny<int>(), It.IsAny<UpdatePropertyKycDetailsDto>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new Exception("boom"));
-
-        var result = await controller.UpdateKycDetails(1, new UpdatePropertyKycDetailsDto(), CancellationToken.None);
-
-        var status = Assert.IsType<ObjectResult>(result);
-        Assert.Equal(500, status.StatusCode);
-    }
 }
