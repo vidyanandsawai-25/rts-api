@@ -110,6 +110,8 @@ public class PropertySocialInfoItemDto
     [MaxLength(500, ErrorMessage = "PropertySocialDetails_Remark_MaxLen_500")]
     [RegularExpression(@"^[a-zA-Z0-9\s\-\(\)&'\.\/,]*$", ErrorMessage = "PropertySocialDetails_Remark_InvalidCharacters")]
     public string? Remark { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }
 
 public class UpsertPropertySocialInfoDto

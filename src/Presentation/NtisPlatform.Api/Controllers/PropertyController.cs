@@ -36,7 +36,7 @@ public partial class PropertyController : ControllerBase
     private readonly IPropertyOldDetailsService _propertyOldDetailsService;
     private readonly IPropertySearchService _propertySearchService;
     private readonly ILogger<PropertyController> _logger;
-    private readonly IPropertyDiscountDocumentService _discountDocumentService;
+    private readonly IPropertySocialDetailsDocumentService _socialDetailsDocumentService;
     private readonly IWebHostEnvironment _environment;
     private readonly FileValidationHelper _fileValidationHelper;
 
@@ -52,7 +52,7 @@ public partial class PropertyController : ControllerBase
         IPropertyOldDetailsService propertyOldDetailsService,
         IPropertySearchService propertySearchService,
         ILogger<PropertyController> logger,
-        IPropertyDiscountDocumentService discountDocumentService,
+        IPropertySocialDetailsDocumentService socialDetailsDocumentService,
         IWebHostEnvironment environment,
         FileValidationHelper fileValidationHelper)
     {
@@ -64,7 +64,7 @@ public partial class PropertyController : ControllerBase
         _propertyOldDetailsService = propertyOldDetailsService;
         _propertySearchService = propertySearchService;
         _logger = logger;
-        _discountDocumentService = discountDocumentService;
+        _socialDetailsDocumentService = socialDetailsDocumentService;
         _environment = environment;
         _fileValidationHelper = fileValidationHelper;
     }

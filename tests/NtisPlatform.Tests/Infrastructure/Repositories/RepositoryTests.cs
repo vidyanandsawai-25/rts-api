@@ -8,7 +8,7 @@ using Xunit;
 namespace NtisPlatform.Tests.Infrastructure.Repositories;
 
 /// <summary>
-/// Comprehensive tests for Repository<T, TKey> and Repository<T> to achieve 100% code coverage
+/// Comprehensive tests for Repository{T, TKey} and Repository{T} to achieve 100% code coverage
 /// </summary>
 public class RepositoryTests
 {

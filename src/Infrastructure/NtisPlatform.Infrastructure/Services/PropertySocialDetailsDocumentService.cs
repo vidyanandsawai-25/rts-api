@@ -1,11 +1,16 @@
+using System;
+using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Common;
-using NtisPlatform.Application.Options;
-using NtisPlatform.Application.DTOs.PropertyDiscount;
+using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -16,9 +21,9 @@ using NtisPlatform.Infrastructure.Data;
 namespace NtisPlatform.Infrastructure.Services;
 
 /// <summary>
-/// Service for handling document uploads for discount-related PropertySocialDetails
+/// Service for handling document operations (upload/replace) for PropertySocialDetails
 /// </summary>
-public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
+public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocumentService
 {
     private readonly IDocumentService _documentService;
     private readonly IFileStorageService _fileStorageService;
@@ -26,11 +31,11 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
     private readonly ApplicationDbContext _context;
     private readonly IRepository<DepartmentMasterEntity, int> _departmentRepository;
     private readonly IRepository<ModuleMasterEntity, int> _moduleRepository;
-    private readonly ILogger<PropertyDiscountDocumentService> _logger;
+    private readonly ILogger<PropertySocialDetailsDocumentService> _logger;
     private readonly int _bufferSizeBytes;
     private readonly long _maxFileSizeBytes;
 
-    public PropertyDiscountDocumentService(
+    public PropertySocialDetailsDocumentService(
         IDocumentService documentService,
         IFileStorageService fileStorageService,
         IUnitOfWork unitOfWork,
@@ -38,7 +43,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         IRepository<DepartmentMasterEntity, int> departmentRepository,
         IRepository<ModuleMasterEntity, int> moduleRepository,
         IOptions<FileStorageOptions> fileStorageOptions,
-        ILogger<PropertyDiscountDocumentService> logger)
+        ILogger<PropertySocialDetailsDocumentService> logger)
     {
         _documentService = documentService;
         _fileStorageService = fileStorageService;
@@ -53,7 +58,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         _maxFileSizeBytes = fileStorage.MaxFileSizeBytes;
     }
 
-    public async Task<DiscountDocumentUploadResponseDto> UploadDiscountDocumentAsync(
+    public async Task<PropertySocialDetailsDocumentResponseDto> UploadSocialDetailsDocumentAsync(
         Stream fileStream,
         string originalFileName,
         string mimeType,
@@ -63,7 +68,8 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         string? remark,
         int uploadedBy,
         bool isPhoto = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool restrictToDiscount = true)
     {
         // Input validation
         Guard.AgainstInvalidStream(fileStream, nameof(fileStream));
@@ -83,12 +89,17 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
             throw new ArgumentException($"Property with ID {propertyId} not found", nameof(propertyId));
 
         var attributeExists = await _context.Set<SocialAttributeEntity>().AnyAsync(
-            sa => sa.Id == socialAttributeId && sa.IsActive && sa.IsDiscountApplicable,
+            sa => sa.Id == socialAttributeId && sa.IsActive && (!restrictToDiscount || sa.IsDiscountApplicable),
             cancellationToken);
         if (!attributeExists)
-            throw new ArgumentException($"SocialAttributeId {socialAttributeId} is not a valid discount-applicable attribute", nameof(socialAttributeId));
+        {
+            var msg = restrictToDiscount 
+                ? $"SocialAttributeId {socialAttributeId} is not a valid discount-applicable attribute"
+                : $"SocialAttributeId {socialAttributeId} is not a valid active attribute";
+            throw new ArgumentException(msg, nameof(socialAttributeId));
+        }
 
-        _logger.LogInformation("Starting discount document upload: {FileName}, PropertyId: {PropertyId}, SocialAttributeId: {SocialAttributeId}, IsPhoto: {IsPhoto}",
+        _logger.LogInformation("Starting social details document upload: {FileName}, PropertyId: {PropertyId}, SocialAttributeId: {SocialAttributeId}, IsPhoto: {IsPhoto}",
             originalFileName, propertyId, socialAttributeId, isPhoto);
 
         var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
@@ -122,7 +133,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
             // 2. Save to storage
             tempFileStream.Position = 0;
             storagePath = await _fileStorageService.SaveFileAsync(tempFileStream, originalFileName, cancellationToken);
-            _logger.LogInformation("Discount document saved to storage: {StoragePath}", storagePath);
+            _logger.LogInformation("Social details document saved to storage: {StoragePath}", storagePath);
 
             try
             {
@@ -198,7 +209,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
 
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                return new DiscountDocumentUploadResponseDto
+                return new PropertySocialDetailsDocumentResponseDto
                 {
                     PropertySocialDetailId = propertySocialDetail.Id,
                     PropertyId = propertyId,
@@ -237,7 +248,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 }
                 catch (Exception ex)
                 {
-                    // Don't fail the upload if temp-file cleanup fails
                     _logger.LogWarning(ex,
                         "Failed to delete temporary file: {TempFilePath}. File may need manual cleanup.",
                         tempFilePath);
@@ -246,7 +256,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         }
     }
 
-    public async Task<DiscountDocumentUploadResponseDto> ReplaceDiscountDocumentAsync(
+    public async Task<PropertySocialDetailsDocumentResponseDto> ReplaceSocialDetailsDocumentAsync(
         int propertySocialDetailId,
         Stream fileStream,
         string originalFileName,
@@ -255,7 +265,8 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         string? remark,
         int uploadedBy,
         bool isPhoto = false,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool restrictToDiscount = true)
     {
         // Input validation
         Guard.AgainstInvalidStream(fileStream, nameof(fileStream));
@@ -267,7 +278,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
         Guard.AgainstNegativeOrZero(propertySocialDetailId, nameof(propertySocialDetailId));
         Guard.AgainstNegativeOrZero(uploadedBy, nameof(uploadedBy));
 
-        _logger.LogInformation("Replacing discount document for PropertySocialDetailId: {Id}, IsPhoto: {IsPhoto}", propertySocialDetailId, isPhoto);
+        _logger.LogInformation("Replacing social details document for PropertySocialDetailId: {Id}, IsPhoto: {IsPhoto}", propertySocialDetailId, isPhoto);
 
         // Get existing record
         var propertySocialDetail = await _context.Set<PropertySocialDetailsEntity>()
@@ -278,16 +289,18 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
             throw new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found");
         }
 
-        var isDiscountApplicable = await _context.Set<SocialAttributeEntity>().AnyAsync(
-            sa => sa.Id == propertySocialDetail.SocialAttributeId && sa.IsActive && sa.IsDiscountApplicable,
+        var attributeExists = await _context.Set<SocialAttributeEntity>().AnyAsync(
+            sa => sa.Id == propertySocialDetail.SocialAttributeId && sa.IsActive && (!restrictToDiscount || sa.IsDiscountApplicable),
             cancellationToken);
 
-        if (!isDiscountApplicable)
+        if (!attributeExists)
         {
-            throw new ArgumentException(
-                $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute.",
-                nameof(propertySocialDetailId));
+            var msg = restrictToDiscount 
+                ? $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute."
+                : $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a valid active SocialAttribute.";
+            throw new ArgumentException(msg, nameof(propertySocialDetailId));
         }
+
         var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
         var tempFilePath = Path.GetTempFileName();
         string? storagePath = null;
@@ -390,12 +403,9 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 propertySocialDetail.UpdatedDate = DateTime.Now;
                 await _context.SaveChangesAsync(cancellationToken);
 
-                // 7. Note: Old document binding will remain for audit trail
-                // The new binding reference replaces the old one in PropertySocialDetails
-
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                return new DiscountDocumentUploadResponseDto
+                return new PropertySocialDetailsDocumentResponseDto
                 {
                     PropertySocialDetailId = propertySocialDetail.Id,
                     PropertyId = propertySocialDetail.PropertyId,
@@ -434,7 +444,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 }
                 catch (Exception ex)
                 {
-                    // Don't fail the replace if temp-file cleanup fails
                     _logger.LogWarning(ex,
                         "Failed to delete temporary file: {TempFilePath}. File may need manual cleanup.",
                         tempFilePath);
@@ -445,8 +454,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
 
     private async Task<(int DepartmentId, int ModuleId)> GetDepartmentAndModuleIdsAsync(CancellationToken cancellationToken)
     {
-        // Step 1: Find PTIS or PROPERTY department (exact match, case-insensitive)
-        // Order by ID for deterministic selection if multiple departments match
         var departments = await _departmentRepository.GetAsync(
             d => d.IsActive,
             cancellationToken);
@@ -466,13 +473,10 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 "Please ensure a department with exact code 'PTIS' or 'PROPERTY' exists in DepartmentMaster table.");
         }
 
-        // Step 2: Find PropertyManagement module under this department
-        // Use exact match first, then substring match, always ordered by ID for deterministic selection
         var modules = await _moduleRepository.GetAsync(
             m => m.DepartmentId == department.Id && m.IsActive,
             cancellationToken);
 
-        // Try exact matches first (deterministic)
         var module = modules
             .Where(m => m.ModuleCode != null)
             .OrderBy(m => m.Id)
@@ -481,7 +485,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 m.ModuleCode!.Equals("PROPERTYSOCIAL", StringComparison.OrdinalIgnoreCase) ||
                 m.ModuleCode!.Equals("DISCOUNT", StringComparison.OrdinalIgnoreCase));
 
-        // Fallback to substring match if no exact match (still ordered by ID)
         if (module == null)
         {
             module = modules
@@ -493,7 +496,6 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                     m.ModuleCode!.Contains("DISCOUNT", StringComparison.OrdinalIgnoreCase));
         }
 
-        // Fail fast if no match found with descriptive error
         if (module == null)
         {
             var availableModules = string.Join(", ", modules.Select(m => $"{m.ModuleCode ?? "NULL"} (ID: {m.Id})"));
@@ -502,7 +504,7 @@ public class PropertyDiscountDocumentService : IPropertyDiscountDocumentService
                 "Please ensure ModuleMaster table has at least one active module for this department.");
         }
 
-        _logger.LogDebug("Resolved PropertyDiscount context: Department={DeptCode} (ID={DeptId}), Module={ModCode} (ID={ModId})",
+        _logger.LogDebug("Resolved PropertySocialDetails context: Department={DeptCode} (ID={DeptId}), Module={ModCode} (ID={ModId})",
             department.DepartmentCode, department.Id, module.ModuleCode, module.Id);
 
         return (department.Id, module.Id);

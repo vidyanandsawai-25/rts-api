@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Application.DTOs.PropertyDiscount;
+using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -100,7 +101,7 @@ public partial class PropertyController
     [HttpPost("discount-details/upload")]
     [Consumes("multipart/form-data")]
     [EnableRateLimiting("fileupload")]
-    [ProducesResponseType(typeof(ApiResponse<DiscountDocumentUploadResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PropertySocialDetailsDocumentResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> UploadDiscountDocument(
@@ -122,7 +123,7 @@ public partial class PropertyController
                 return BadRequest(new ApiResponse<object> { Success = false, Message = "SocialAttributeId is required" });
 
             using var stream = formDto.File.OpenReadStream();
-            var result = await _discountDocumentService.UploadDiscountDocumentAsync(
+            var result = await _socialDetailsDocumentService.UploadSocialDetailsDocumentAsync(
                 stream,
                 formDto.File.FileName,
                 formDto.File.ContentType,
@@ -134,7 +135,7 @@ public partial class PropertyController
                 formDto.IsPhoto,
                 ct);
 
-            return Ok(new ApiResponse<DiscountDocumentUploadResponseDto>
+            return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
             {
                 Success = true,
                 Message = "Discount document uploaded successfully",
@@ -191,7 +192,7 @@ public partial class PropertyController
     [HttpPost("discount-details/{propertySocialDetailId}/replace-document")]
     [Consumes("multipart/form-data")]
     [EnableRateLimiting("fileupload")]
-    [ProducesResponseType(typeof(ApiResponse<DiscountDocumentUploadResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PropertySocialDetailsDocumentResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
@@ -213,7 +214,7 @@ public partial class PropertyController
 
             await using var stream = formDto.File.OpenReadStream();
 
-            var result = await _discountDocumentService.ReplaceDiscountDocumentAsync(
+            var result = await _socialDetailsDocumentService.ReplaceSocialDetailsDocumentAsync(
                 propertySocialDetailId,
                 stream,
                 formDto.File.FileName,
@@ -224,7 +225,7 @@ public partial class PropertyController
                 formDto.IsPhoto,
                 ct);
 
-            return Ok(new ApiResponse<DiscountDocumentUploadResponseDto>
+            return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
             {
                 Success = true,
                 Message = "Discount document replaced successfully",

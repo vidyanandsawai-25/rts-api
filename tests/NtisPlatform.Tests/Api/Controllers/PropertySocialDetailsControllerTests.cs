@@ -1,12 +1,25 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Application.DTOs.PropertyDiscount;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Models;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -18,13 +31,33 @@ public class PropertySocialDetailsControllerTests
 {
     private readonly Mock<IPropertySocialDetailsService> _mockService;
     private readonly Mock<ILogger<PropertySocialDetailsController>> _mockLogger;
+    private readonly Mock<IPropertySocialDetailsDocumentService> _mockSocialDetailsDocumentService;
     private readonly PropertySocialDetailsController _controller;
 
     public PropertySocialDetailsControllerTests()
     {
         _mockService = new Mock<IPropertySocialDetailsService>();
         _mockLogger = new Mock<ILogger<PropertySocialDetailsController>>();
-        _controller = new PropertySocialDetailsController(_mockLogger.Object, _mockService.Object);
+        _mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
+
+        var mockEnvironment = new Mock<IWebHostEnvironment>();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>()).Build();
+        var fileValidationHelper = new FileValidationHelper(configuration);
+
+        _controller = new PropertySocialDetailsController(
+            _mockLogger.Object,
+            _mockService.Object,
+            _mockSocialDetailsDocumentService.Object,
+            mockEnvironment.Object,
+            fileValidationHelper);
+
+        // Set up HttpContext with authenticated user
+        var httpContext = new DefaultHttpContext();
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "1")
+        }, "TestAuth"));
+        _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
 
     #region GetAll Tests
@@ -545,6 +578,300 @@ public class PropertySocialDetailsControllerTests
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, statusCodeResult.StatusCode);
+    }
+
+    #endregion
+
+    #region Document Upload Tests
+
+    [Fact]
+    public async Task UploadSocialDocument_ReturnsOk_WhenUploadSuccessful()
+    {
+        // Arrange
+        var formDto = new SocialDetailsDocumentUploadFormDto
+        {
+            File = CreateMockFormFile("test.pdf", "application/pdf"),
+            PropertyId = 1,
+            SocialAttributeId = 1,
+            Remark = "Test remark",
+            IsPhoto = false
+        };
+
+        var expectedResponse = new PropertySocialDetailsDocumentResponseDto
+        {
+            PropertySocialDetailId = 10,
+            PropertyId = 1,
+            SocialAttributeId = 1,
+            DocumentBindingId = 100,
+            DocumentGuid = Guid.NewGuid(),
+            FileName = "test.pdf",
+            Remark = "Test remark"
+        };
+
+        _mockSocialDetailsDocumentService.Setup(s => s.UploadSocialDetailsDocumentAsync(
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            formDto.PropertyId,
+            formDto.SocialAttributeId,
+            formDto.Remark,
+            It.IsAny<int>(),
+            formDto.IsPhoto,
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
+            .ReturnsAsync(expectedResponse);
+
+        // Act
+        var result = await _controller.UploadSocialDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<PropertySocialDetailsDocumentResponseDto>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal("Document uploaded successfully", apiResponse.Message);
+        Assert.NotNull(apiResponse.Items);
+        Assert.Equal(10, apiResponse.Items.PropertySocialDetailId);
+    }
+
+    [Fact]
+    public async Task UploadSocialDocument_ReturnsBadRequest_WhenFileIsNull()
+    {
+        // Arrange
+        var formDto = new SocialDetailsDocumentUploadFormDto
+        {
+            File = null!,
+            PropertyId = 1,
+            SocialAttributeId = 1
+        };
+
+        // Act
+        var result = await _controller.UploadSocialDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("File is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task UploadSocialDocument_ReturnsBadRequest_WhenPropertyIdInvalid()
+    {
+        // Arrange
+        var formDto = new SocialDetailsDocumentUploadFormDto
+        {
+            File = CreateMockFormFile("test.pdf", "application/pdf"),
+            PropertyId = 0,
+            SocialAttributeId = 1
+        };
+
+        // Act
+        var result = await _controller.UploadSocialDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("PropertyId is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task UploadSocialDocument_ReturnsBadRequest_WhenSocialAttributeIdInvalid()
+    {
+        // Arrange
+        var formDto = new SocialDetailsDocumentUploadFormDto
+        {
+            File = CreateMockFormFile("test.pdf", "application/pdf"),
+            PropertyId = 1,
+            SocialAttributeId = 0
+        };
+
+        // Act
+        var result = await _controller.UploadSocialDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("SocialAttributeId is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task UploadSocialDocument_ReturnsBadRequest_WhenFileTypeInvalid()
+    {
+        // Arrange
+        var formDto = new SocialDetailsDocumentUploadFormDto
+        {
+            File = CreateMockFormFile("malicious.exe", "application/x-msdownload"),
+            PropertyId = 1,
+            SocialAttributeId = 1
+        };
+
+        // Act
+        var result = await _controller.UploadSocialDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid file type", apiResponse.Message);
+    }
+
+    #endregion
+
+    #region Replace Document Tests
+
+    [Fact]
+    public async Task ReplaceSocialDocument_ReturnsOk_WhenReplaceSuccessful()
+    {
+        // Arrange
+        var propertySocialDetailId = 1;
+        var formDto = new ReplaceSocialDetailsDocumentFormDto
+        {
+            File = CreateMockFormFile("new.pdf", "application/pdf"),
+            Remark = "Updated document"
+        };
+
+        var expectedResponse = new PropertySocialDetailsDocumentResponseDto
+        {
+            PropertySocialDetailId = propertySocialDetailId,
+            DocumentGuid = Guid.NewGuid(),
+            FileName = "new.pdf"
+        };
+
+        _mockSocialDetailsDocumentService.Setup(s => s.ReplaceSocialDetailsDocumentAsync(
+            propertySocialDetailId,
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            formDto.Remark,
+            It.IsAny<int>(),
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
+            .ReturnsAsync(expectedResponse);
+
+        // Act
+        var result = await _controller.ReplaceSocialDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<PropertySocialDetailsDocumentResponseDto>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal("Document replaced successfully", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task ReplaceSocialDocument_ReturnsNotFound_WhenRecordNotFound()
+    {
+        // Arrange
+        var propertySocialDetailId = 999;
+        var formDto = new ReplaceSocialDetailsDocumentFormDto
+        {
+            File = CreateMockFormFile("new.pdf", "application/pdf")
+        };
+
+        _mockSocialDetailsDocumentService.Setup(s => s.ReplaceSocialDetailsDocumentAsync(
+            propertySocialDetailId,
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<bool>(),
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
+            .ThrowsAsync(new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found"));
+
+        // Act
+        var result = await _controller.ReplaceSocialDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var notFoundResult = Assert.IsType<NotFoundObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(notFoundResult.Value);
+        Assert.False(apiResponse.Success);
+    }
+
+    [Fact]
+    public async Task ReplaceSocialDocument_ReturnsBadRequest_WhenFileIsNull()
+    {
+        // Arrange
+        var propertySocialDetailId = 1;
+        var formDto = new ReplaceSocialDetailsDocumentFormDto
+        {
+            File = null!,
+            Remark = "Test"
+        };
+
+        // Act
+        var result = await _controller.ReplaceSocialDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("File is required", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task ReplaceSocialDocument_ReturnsBadRequest_WhenPropertySocialDetailIdInvalid()
+    {
+        // Arrange
+        var propertySocialDetailId = 0;
+        var formDto = new ReplaceSocialDetailsDocumentFormDto
+        {
+            File = CreateMockFormFile("new.pdf", "application/pdf")
+        };
+
+        // Act
+        var result = await _controller.ReplaceSocialDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid PropertySocialDetailId", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task ReplaceSocialDocument_ReturnsBadRequest_WhenFileTypeInvalid()
+    {
+        // Arrange
+        var propertySocialDetailId = 1;
+        var formDto = new ReplaceSocialDetailsDocumentFormDto
+        {
+            File = CreateMockFormFile("malicious.exe", "application/x-msdownload")
+        };
+
+        // Act
+        var result = await _controller.ReplaceSocialDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid file type", apiResponse.Message);
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private static IFormFile CreateMockFormFile(string fileName, string contentType)
+    {
+        var content = "Test file content"u8.ToArray();
+        var stream = new MemoryStream(content);
+        var mockFile = new Mock<IFormFile>();
+
+        mockFile.Setup(f => f.FileName).Returns(fileName);
+        mockFile.Setup(f => f.ContentType).Returns(contentType);
+        mockFile.Setup(f => f.Length).Returns(content.Length);
+        mockFile.Setup(f => f.OpenReadStream()).Returns(stream);
+
+        return mockFile.Object;
     }
 
     #endregion

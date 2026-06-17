@@ -282,7 +282,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                 if (item.Id.HasValue && item.Id.Value > 0)
                 {
                     // Update existing record
-                    var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.Id.Value && x.IsActive);
+                    var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.Id.Value);
                     if (existingRecord != null)
                     {
                         // SocialAttributeId is part of the natural key (PropertyId + SocialAttributeId); do not change it during updates.
@@ -293,6 +293,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingRecord.DateValue = item.DateValue;
                         existingRecord.DocumentBindingId = item.DocumentBindingId;
                         existingRecord.Remark = item.Remark;
+                        existingRecord.IsActive = item.IsActive;
                         existingRecord.UpdatedBy = dto.UpdatedBy;
                         existingRecord.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingRecord, cancellationToken);
@@ -302,8 +303,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                 {
                     // If client omitted Id, upsert by natural key (PropertyId + SocialAttributeId)
                     var existingByAttribute = existingRecords
-                        .FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId && x.IsActive);
-
+                        .FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId);
+ 
                     if (existingByAttribute != null)
                     {
                         existingByAttribute.BitValue = item.BitValue;
@@ -313,6 +314,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingByAttribute.DateValue = item.DateValue;
                         existingByAttribute.DocumentBindingId = item.DocumentBindingId;
                         existingByAttribute.Remark = item.Remark;
+                        existingByAttribute.IsActive = item.IsActive;
                         existingByAttribute.UpdatedBy = dto.UpdatedBy;
                         await _repository.UpdateAsync(existingByAttribute, cancellationToken);
                     }
@@ -331,7 +333,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                             DocumentBindingId = item.DocumentBindingId,
                             Remark = item.Remark,
                             CreatedBy = dto.UpdatedBy,
-                            IsActive = true
+                            IsActive = item.IsActive
                         };
                         await _repository.AddAsync(newRecord, cancellationToken);
                     }

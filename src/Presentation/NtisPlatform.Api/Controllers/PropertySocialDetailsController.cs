@@ -1,8 +1,18 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Application.DTOs.PropertyDiscount;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using System;
+using System.Collections.Generic;
+using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -12,13 +22,22 @@ public class PropertySocialDetailsController : ControllerBase
 {
     private readonly IPropertySocialDetailsService _service;
     private readonly ILogger<PropertySocialDetailsController> _logger;
+    private readonly IPropertySocialDetailsDocumentService _socialDetailsDocumentService;
+    private readonly IWebHostEnvironment _environment;
+    private readonly FileValidationHelper _fileValidationHelper;
 
     public PropertySocialDetailsController(
         ILogger<PropertySocialDetailsController> logger,
-        IPropertySocialDetailsService service)
+        IPropertySocialDetailsService service,
+        IPropertySocialDetailsDocumentService socialDetailsDocumentService,
+        IWebHostEnvironment environment,
+        FileValidationHelper fileValidationHelper)
     {
         _service = service;
         _logger = logger;
+        _socialDetailsDocumentService = socialDetailsDocumentService;
+        _environment = environment;
+        _fileValidationHelper = fileValidationHelper;
     }
 
     [HttpGet]
@@ -212,5 +231,211 @@ public class PropertySocialDetailsController : ControllerBase
                     Message = "An error occurred while updating property social information"
                 });
         }
+    }
+
+    /// <summary>
+    /// Upload a document for a social details attribute.
+    /// Creates or updates PropertySocialDetails record with the uploaded document.
+    /// Rate limited to prevent abuse.
+    /// </summary>
+    [Authorize]
+    [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
+    [EnableRateLimiting("fileupload")]
+    [ProducesResponseType(typeof(ApiResponse<PropertySocialDetailsDocumentResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> UploadSocialDocument(
+        [FromForm] SocialDetailsDocumentUploadFormDto formDto,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (formDto.File == null || formDto.File.Length == 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+            if (!_fileValidationHelper.IsValidFileType(formDto.File.ContentType, formDto.File.FileName))
+                return BadRequest(new ApiResponse<object> { Success = false, Message = _fileValidationHelper.GetInvalidFileTypeMessage() });
+
+            if (formDto.PropertyId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "PropertyId is required" });
+
+            if (formDto.SocialAttributeId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "SocialAttributeId is required" });
+
+            using var stream = formDto.File.OpenReadStream();
+            var result = await _socialDetailsDocumentService.UploadSocialDetailsDocumentAsync(
+                stream,
+                formDto.File.FileName,
+                formDto.File.ContentType,
+                formDto.File.Length,
+                formDto.PropertyId,
+                formDto.SocialAttributeId,
+                formDto.Remark,
+                GetUserId(),
+                formDto.IsPhoto,
+                ct,
+                restrictToDiscount: false);
+
+            return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
+            {
+                Success = true,
+                Message = "Document uploaded successfully",
+                Items = result
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access attempt. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error uploading document. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error uploading document. CorrelationId: {CorrelationId}, FileName: {FileName}",
+                correlationId, formDto.File?.FileName ?? "unknown");
+
+            var errorMessage = _environment.IsDevelopment()
+                ? $"An error occurred: {ex.Message}"
+                : "An error occurred";
+
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = errorMessage,
+                CorrelationId = correlationId
+            });
+        }
+    }
+
+    /// <summary>
+    /// Replace an existing social details document.
+    /// Updates the PropertySocialDetails record with a new document.
+    /// Rate limited to prevent abuse.
+    /// </summary>
+    [Authorize]
+    [HttpPost("{propertySocialDetailId}/replace-document")]
+    [Consumes("multipart/form-data")]
+    [EnableRateLimiting("fileupload")]
+    [ProducesResponseType(typeof(ApiResponse<PropertySocialDetailsDocumentResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ReplaceSocialDocument(
+        int propertySocialDetailId,
+        [FromForm] ReplaceSocialDetailsDocumentFormDto formDto,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (propertySocialDetailId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid PropertySocialDetailId" });
+
+            if (formDto.File == null || formDto.File.Length == 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "File is required" });
+
+            if (!_fileValidationHelper.IsValidFileType(formDto.File.ContentType, formDto.File.FileName))
+                return BadRequest(new ApiResponse<object> { Success = false, Message = _fileValidationHelper.GetInvalidFileTypeMessage() });
+
+            await using var stream = formDto.File.OpenReadStream();
+
+            var result = await _socialDetailsDocumentService.ReplaceSocialDetailsDocumentAsync(
+                propertySocialDetailId,
+                stream,
+                formDto.File.FileName,
+                formDto.File.ContentType,
+                formDto.File.Length,
+                formDto.Remark,
+                GetUserId(),
+                formDto.IsPhoto,
+                ct,
+                restrictToDiscount: false);
+
+            return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
+            {
+                Success = true,
+                Message = "Document replaced successfully",
+                Items = result
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access attempt. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "PropertySocialDetail not found: {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error replacing document: {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error replacing document: {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+
+            var errorMessage = _environment.IsDevelopment()
+                ? $"An error occurred: {ex.Message}"
+                : "An error occurred";
+
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = errorMessage,
+                CorrelationId = correlationId
+            });
+        }
+    }
+
+    private int GetUserId()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var id) || id <= 0)
+        {
+            throw new UnauthorizedAccessException("Valid user identification is required.");
+        }
+        return id;
     }
 }

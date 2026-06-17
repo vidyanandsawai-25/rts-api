@@ -37,7 +37,7 @@ public static class PropertyControllerTestHelper
         discountService ??= new Mock<IPropertyDiscountService>();
         oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
         searchService ??= new Mock<IPropertySearchService>();
-        var mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
+        var mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
         // Create a simple in-memory configuration with default file validation settings
@@ -57,7 +57,7 @@ public static class PropertyControllerTestHelper
             oldDetailsService.Object,
             searchService.Object,
             logger.Object,
-            mockDiscountDocumentService.Object,
+            mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
             fileValidationHelper);
     }
@@ -70,7 +70,7 @@ public static class PropertyControllerTestHelper
         PropertyController Controller,
         Mock<IPropertyService> PropertyService,
         Mock<ILogger<PropertyController>> Logger,
-        Mock<IPropertyDiscountDocumentService> DiscountDocumentService,
+        Mock<IPropertySocialDetailsDocumentService> SocialDetailsDocumentService,
         Mock<IWebHostEnvironment> Environment,
         FileValidationHelper FileValidationHelper
     ) CreateControllerWithMocks()
@@ -83,7 +83,7 @@ public static class PropertyControllerTestHelper
         var mockOldDetailsService = new Mock<IPropertyOldDetailsService>();
         var mockSearchService = new Mock<IPropertySearchService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
+        var mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
         // Create a simple in-memory configuration with default file validation settings
@@ -103,7 +103,7 @@ public static class PropertyControllerTestHelper
             mockOldDetailsService.Object,
             mockSearchService.Object,
             mockLogger.Object,
-            mockDiscountDocumentService.Object,
+            mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
             fileValidationHelper);
 
@@ -111,7 +111,7 @@ public static class PropertyControllerTestHelper
             controller,
             mockPropertyService,
             mockLogger,
-            mockDiscountDocumentService,
+            mockSocialDetailsDocumentService,
             mockEnvironment,
             fileValidationHelper
         );

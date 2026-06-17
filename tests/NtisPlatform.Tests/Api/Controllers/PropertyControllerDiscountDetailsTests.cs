@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.PropertyDiscount;
+using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Property;
@@ -24,7 +25,7 @@ public class PropertyControllerDiscountDetailsTests
     private readonly Mock<IPropertyService> _mockPropertyService;
     private readonly Mock<IPropertyDiscountService> _mockDiscountService;
     private readonly Mock<ILogger<PropertyController>> _mockLogger;
-    private readonly Mock<IPropertyDiscountDocumentService> _mockDiscountDocumentService;
+    private readonly Mock<IPropertySocialDetailsDocumentService> _mockSocialDetailsDocumentService;
     private readonly PropertyController _controller;
 
     public PropertyControllerDiscountDetailsTests()
@@ -32,7 +33,7 @@ public class PropertyControllerDiscountDetailsTests
         _mockPropertyService = new Mock<IPropertyService>();
         _mockDiscountService = new Mock<IPropertyDiscountService>();
         _mockLogger = new Mock<ILogger<PropertyController>>();
-        _mockDiscountDocumentService = new Mock<IPropertyDiscountDocumentService>();
+        _mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
 
         // Create controller with all dependencies
         var mockEnvironment = new Mock<IWebHostEnvironment>();
@@ -48,7 +49,7 @@ public class PropertyControllerDiscountDetailsTests
             new Mock<IPropertyOldDetailsService>().Object,
             new Mock<IPropertySearchService>().Object,
             _mockLogger.Object,
-            _mockDiscountDocumentService.Object,
+            _mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
             fileValidationHelper);
 
@@ -270,7 +271,7 @@ public class PropertyControllerDiscountDetailsTests
             SocialAttributeId = 1
         };
 
-        _mockDiscountDocumentService.Setup(s => s.UploadDiscountDocumentAsync(
+        _mockSocialDetailsDocumentService.Setup(s => s.UploadSocialDetailsDocumentAsync(
             It.IsAny<Stream>(),
             It.IsAny<string>(),
             It.IsAny<string>(),
@@ -280,7 +281,8 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<string>(),
             It.IsAny<int>(),
             It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()))
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
             .ThrowsAsync(new ArgumentException("Property with ID 999 not found", "propertyId"));
 
         // Act
@@ -290,6 +292,27 @@ public class PropertyControllerDiscountDetailsTests
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
         Assert.False(apiResponse.Success);
+    }
+
+    [Fact]
+    public async Task UploadDiscountDocument_ReturnsBadRequest_WhenFileTypeInvalid()
+    {
+        // Arrange
+        var formDto = new DiscountDocumentUploadFormDto
+        {
+            File = CreateMockFormFile("malicious.exe", "application/x-msdownload"),
+            PropertyId = 1,
+            SocialAttributeId = 1
+        };
+
+        // Act
+        var result = await _controller.UploadDiscountDocument(formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid file type", apiResponse.Message);
     }
 
     #endregion
@@ -307,14 +330,14 @@ public class PropertyControllerDiscountDetailsTests
             Remark = "Updated document"
         };
 
-        var expectedResponse = new DiscountDocumentUploadResponseDto
+        var expectedResponse = new PropertySocialDetailsDocumentResponseDto
         {
             PropertySocialDetailId = propertySocialDetailId,
             DocumentGuid = Guid.NewGuid(),
             FileName = "new.pdf"
         };
 
-        _mockDiscountDocumentService.Setup(s => s.ReplaceDiscountDocumentAsync(
+        _mockSocialDetailsDocumentService.Setup(s => s.ReplaceSocialDetailsDocumentAsync(
             propertySocialDetailId,
             It.IsAny<Stream>(),
             It.IsAny<string>(),
@@ -323,7 +346,8 @@ public class PropertyControllerDiscountDetailsTests
             formDto.Remark,
             It.IsAny<int>(),
             It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()))
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
             .ReturnsAsync(expectedResponse);
 
         // Act
@@ -331,7 +355,7 @@ public class PropertyControllerDiscountDetailsTests
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var apiResponse = Assert.IsType<ApiResponse<DiscountDocumentUploadResponseDto>>(okResult.Value);
+        var apiResponse = Assert.IsType<ApiResponse<PropertySocialDetailsDocumentResponseDto>>(okResult.Value);
         Assert.True(apiResponse.Success);
         Assert.Equal("Discount document replaced successfully", apiResponse.Message);
     }
@@ -346,7 +370,7 @@ public class PropertyControllerDiscountDetailsTests
             File = CreateMockFormFile("new.pdf", "application/pdf")
         };
 
-        _mockDiscountDocumentService.Setup(s => s.ReplaceDiscountDocumentAsync(
+        _mockSocialDetailsDocumentService.Setup(s => s.ReplaceSocialDetailsDocumentAsync(
             propertySocialDetailId,
             It.IsAny<Stream>(),
             It.IsAny<string>(),
@@ -355,7 +379,8 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<string>(),
             It.IsAny<int>(),
             It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()))
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
             .ThrowsAsync(new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found"));
 
         // Act
@@ -419,7 +444,7 @@ public class PropertyControllerDiscountDetailsTests
             Remark = "Updated document"
         };
 
-        _mockDiscountDocumentService.Setup(s => s.ReplaceDiscountDocumentAsync(
+        _mockSocialDetailsDocumentService.Setup(s => s.ReplaceSocialDetailsDocumentAsync(
             propertySocialDetailId,
             It.IsAny<Stream>(),
             It.IsAny<string>(),
@@ -428,7 +453,8 @@ public class PropertyControllerDiscountDetailsTests
             formDto.Remark,
             It.IsAny<int>(),
             It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()))
+            It.IsAny<CancellationToken>(),
+            It.IsAny<bool>()))
             .ThrowsAsync(new ArgumentException(
                 $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute.",
                 nameof(propertySocialDetailId)));
@@ -441,6 +467,26 @@ public class PropertyControllerDiscountDetailsTests
         var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
         Assert.False(apiResponse.Success);
         Assert.Contains("not linked to a discount-applicable SocialAttribute", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task ReplaceDiscountDocument_ReturnsBadRequest_WhenFileTypeInvalid()
+    {
+        // Arrange
+        var propertySocialDetailId = 1;
+        var formDto = new ReplaceDiscountDocumentFormDto
+        {
+            File = CreateMockFormFile("malicious.exe", "application/x-msdownload")
+        };
+
+        // Act
+        var result = await _controller.ReplaceDiscountDocument(propertySocialDetailId, formDto, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid file type", apiResponse.Message);
     }
 
     #endregion

@@ -180,7 +180,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
-        services.AddScoped<IPropertyDiscountDocumentService, PropertyDiscountDocumentService>();
+        services.AddScoped<IPropertySocialDetailsDocumentService, PropertySocialDetailsDocumentService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
 
 
