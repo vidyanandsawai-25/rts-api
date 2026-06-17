@@ -39,6 +39,7 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
     private readonly Mock<IRepository<TransMastRVEntity, int>> _transmastRVRepo;
     private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
+    private readonly Mock<IRepository<PropertyRuleApplicationLogEntity, int>> _ruleLogRepo;
     private readonly Mock<ITaxMasterDataService> _masterDataService;
     private readonly Mock<IUnitOfWork> _unitOfWork;
     private readonly Mock<ILogger<RateableValueService>> _logger;
@@ -58,6 +59,7 @@ public class RateableValueServiceTests
         _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
         _transmastRVRepo = new Mock<IRepository<TransMastRVEntity, int>>();
         _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
+        _ruleLogRepo = new Mock<IRepository<PropertyRuleApplicationLogEntity, int>>();
         _unitOfWork = new Mock<IUnitOfWork>();
         _logger = new Mock<ILogger<RateableValueService>>();
         _masterDataService = new Mock<ITaxMasterDataService>();
@@ -93,6 +95,10 @@ public class RateableValueServiceTests
         _propertySocialDetailsRepo.Setup(r => r.GetQueryable())
             .Returns(new List<PropertySocialDetailsEntity>().BuildMockDbSet().Object);
 
+        // Setup ruleLog repository to return empty queryable
+        _ruleLogRepo.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyRuleApplicationLogEntity>().BuildMockDbSet().Object);
+
         // Setup property assessment repository to return empty queryable
         _propertyAssessmentRepo.Setup(r => r.GetQueryable())
             .Returns(new List<PropertyAssessmentEntity>().BuildMockDbSet().Object);
@@ -110,6 +116,7 @@ public class RateableValueServiceTests
             _taxResultsRepo.Object,
             _policyTaxRepo.Object,
             _transmastRVRepo.Object,
+            _ruleLogRepo.Object,
             _unitOfWork.Object,
             NullLogger<RVPersistenceService>.Instance,
             TimeProvider.System);
@@ -174,7 +181,7 @@ public class RateableValueServiceTests
         var ruleApplierMock = new Mock<IRuleApplierService>();
         ruleApplierMock
             .Setup(r => r.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
 
         var actualRuleApplier = ruleApplier ?? ruleApplierMock.Object;
 
@@ -867,7 +874,7 @@ public class RateableValueServiceTests
             {
                 capturedInitialValue = context.InitialValue;
             })
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
 
         // Setup property and details
         _propertyRepo.Setup(r => r.GetQueryable()).Returns(
@@ -944,7 +951,7 @@ public class RateableValueServiceTests
                 It.IsAny<RuleApplierContext>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue);
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
 
         var serviceWithoutRules = CreateService(ruleApplierWithoutRules.Object);
 
@@ -958,7 +965,7 @@ public class RateableValueServiceTests
                 It.IsAny<RuleApplierContext>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => context.InitialValue * 0.5m);
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue * 0.5m, AppliedRules = new() });
 
         var serviceWithRules = CreateService(ruleApplierWithRules.Object);
 

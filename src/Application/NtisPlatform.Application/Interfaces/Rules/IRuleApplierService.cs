@@ -19,7 +19,7 @@ namespace NtisPlatform.Application.Interfaces.Rules
         /// <param name="maxRetries">Maximum rule execution retries for transient faults</param>
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>The adjusted rate or value after applying rule effects</returns>
-        Task<decimal> ApplyRulesAsync(
+        Task<RuleApplicationResult> ApplyRulesAsync(
             RuleApplierContext context,
             int maxRetries = 3,
             CancellationToken cancellationToken = default);

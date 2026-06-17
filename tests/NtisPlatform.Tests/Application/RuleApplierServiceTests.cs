@@ -77,7 +77,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1000m, result);
+            Assert.Equal(1000m, result.FinalValue);
             _ruleExecutionServiceMock.Verify(
                 x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -96,7 +96,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1000m, result);
+            Assert.Equal(1000m, result.FinalValue);
             _ruleExecutionServiceMock.Verify(
                 x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -116,7 +116,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1000m, result);
+            Assert.Equal(1000m, result.FinalValue);
             _ruleExecutionServiceMock.Verify(
                 x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -136,7 +136,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1000m, result);
+            Assert.Equal(1000m, result.FinalValue);
             _ruleExecutionServiceMock.Verify(
                 x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -161,7 +161,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1000m, result);
+            Assert.Equal(1000m, result.FinalValue);
             _ruleExecutionServiceMock.Verify(
                 x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -189,7 +189,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1080m, result);
+            Assert.Equal(1080m, result.FinalValue);
         }
 
         [Fact]
@@ -215,7 +215,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(500m, result);
+            Assert.Equal(500m, result.FinalValue);
         }
 
         [Fact]
@@ -240,7 +240,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context);
 
             // Assert
-            Assert.Equal(1100m, result);
+            Assert.Equal(1100m, result.FinalValue);
         }
 
         [Fact]
@@ -290,7 +290,7 @@ namespace NtisPlatform.Tests.Application
             var result = await _service.ApplyRulesAsync(context, maxRetries: 3);
 
             // Assert: recovered on second attempt; value is 1000 + 10% = 1100
-            Assert.Equal(1100m, result);
+            Assert.Equal(1100m, result.FinalValue);
             Assert.Equal(2, calls);
         }
 
@@ -416,6 +416,7 @@ namespace NtisPlatform.Tests.Application
             // Assert
             Assert.NotNull(capturedInput);
             Assert.Equal("RV", capturedInput.Category);
+            Assert.Equal(1000m, result.FinalValue);
 
             var inputDict = capturedInput.Input;
 
@@ -426,7 +427,7 @@ namespace NtisPlatform.Tests.Application
             Assert.Contains(101, socialAttributeIds);
             Assert.Contains(102, socialAttributeIds);
             Assert.Contains(103, socialAttributeIds);
-            Assert.Equal(true, inputDict["Rented"]); // detail.IsRenter ?? false
+            Assert.Equal(true, inputDict["IsRenter"]); // detail.IsRenter ?? false
 
             // Check flattened properties
             Assert.Equal(6, inputDict["CategoryId"]);

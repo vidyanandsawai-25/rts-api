@@ -183,6 +183,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 // 8. Calculate base values (sequential)
                 var baseResultsCache = new Dictionary<int, PropertyTaxCalculationRVResultsEntity>();
+                var ruleTracesCache = new Dictionary<int, List<RuleApplicationTraceEntry>>();
 
                 foreach (var detail in details)
                 {
@@ -215,7 +216,13 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 ValueKey = "Rate"
                             };
 
-                            decimal finalRate = await _ruleApplierService.ApplyRulesAsync(applierContext);
+                            var ruleResult = await _ruleApplierService.ApplyRulesAsync(applierContext);
+                            decimal finalRate = ruleResult.FinalValue;
+
+                            if (ruleResult.AppliedRules != null && ruleResult.AppliedRules.Any())
+                            {
+                                ruleTracesCache[detail.Id] = ruleResult.AppliedRules;
+                            }
 
                             if (finalRate != masterRatePerUnit)
                             {
@@ -368,6 +375,22 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     _logger.LogInformation(
                         "Persisting {RowCount} tax calculation rows for PropertyId={PropertyId}",
                         newRows.Count, propertyId);
+
+                    // Save rule application trace logs
+                    foreach (var detail in details)
+                    {
+                        var appliedRules = ruleTracesCache.TryGetValue(detail.Id, out var traceList)
+                            ? traceList
+                            : new List<RuleApplicationTraceEntry>();
+
+                        await _persistenceService.SaveRuleApplicationLogAsync(
+                            propertyId,
+                            financeYear,
+                            detail.Id,
+                            appliedRules,
+                            "RV",
+                            now);
+                    }
 
                     var savedPolicyRecords = await _persistenceService.SavePolicyAndTransmastRVAsync(
                         propertyId, financeYear, yearMasterId, newRows, totalRv,

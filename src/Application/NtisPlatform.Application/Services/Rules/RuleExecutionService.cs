@@ -81,40 +81,14 @@ namespace NtisPlatform.Application.Services.Rules
 
             _logger.LogInformation("Executing rules for Category={Category}", input.Category);
 
-            // Check if Property CategoryId is Apartment (1) or Multi Commercial Apartment (6)
-            int? categoryId = null;
-            if (input.Input.TryGetValue("CategoryId", out var categoryIdObj) && categoryIdObj != null)
-            {
-                if (int.TryParse(categoryIdObj.ToString(), out var catId))
-                {
-                    categoryId = catId;
-                }
-            }
-
-            bool sortByScope = categoryId == 1 || categoryId == 6;
-
-            // ── Step 1: Load active rules ─
-            var query = _ruleRepository.GetQueryable()
-                .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive);
-
-            IOrderedQueryable<RuleEngineEntity> orderedQuery;
-            if (sortByScope)
-            {
-                // Prioritize Building Level (ScopeId=2) -> Property Level (ScopeId=1) -> Component Level (ScopeId=3) -> other/null.
-                orderedQuery = query
-                    .OrderBy(r => r.RuleScopeId == 2 ? 1 : (r.RuleScopeId == 1 ? 2 : (r.RuleScopeId == 3 ? 3 : 4)))
-                    .ThenBy(r => r.Priority)
-                    .ThenBy(r => r.Id);
-            }
-            else
-            {
-                // Fallback to default priority-based ordering
-                orderedQuery = query
-                    .OrderBy(r => r.Priority)
-                    .ThenBy(r => r.Id);
-            }
-
-            var ruleEntities = await orderedQuery
+            // ── Step 1: Load active rules ordered by Priority (DB row level) then Id ──
+            // All rules are Property-Level rules. Priority on RuleEngineEntity controls
+            // which DB row (and its contained RuleJson sub-rules) executes first.
+            // RuleScopeId is retained on the entity for future use but is not used here.
+            var ruleEntities = await _ruleRepository.GetQueryable()
+                .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive)
+                .OrderBy(r => r.Priority)
+                .ThenBy(r => r.Id)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
@@ -158,15 +132,19 @@ namespace NtisPlatform.Application.Services.Rules
                             continue;
 
                         // Rule matched — look up the effect JSON from our side dictionary
-                        var effectsJson = ruleEffectsMap.TryGetValue(ruleResult.Rule.RuleName, out var ej)
-                            ? (JsonElement?)ej
+                        var effectsJson = ruleEffectsMap.TryGetValue(ruleResult.Rule.RuleName, out var matchedEffectJson)
+                            ? (JsonElement?)matchedEffectJson
                             : null;
 
-                        var result = await BuildRuleResultAsync(ruleResult.Rule.RuleName, effectsJson, input.Input);
+                        var result = await BuildRuleResultAsync(
+                            ruleResult.Rule.RuleName,
+                            ruleResult.Rule.ErrorMessage,
+                            effectsJson,
+                            input.Input);
                         if (result == null)
                             continue;
 
-                        var ruleStop = ruleStopProcessingMap.TryGetValue(ruleResult.Rule.RuleName, out var sp) && sp;
+                        var ruleStop = ruleStopProcessingMap.TryGetValue(ruleResult.Rule.RuleName, out var shouldStopProcessing) && shouldStopProcessing;
                         var shouldStop = stopOnMatch || ruleStop;
 
                         result.StopProcessing = shouldStop;
@@ -229,11 +207,11 @@ namespace NtisPlatform.Application.Services.Rules
 
                     // WorkflowName = RuleCode (unique per entity); can be overridden by "RuleName" in JSON
                     var workflowName = entity.RuleCode;
-                    if (ruleJson.TryGetProperty("RuleName", out var ruleNameEl))
-                        workflowName = ruleNameEl.GetString() ?? workflowName;
+                    if (ruleJson.TryGetProperty("RuleName", out var ruleNameJsonProp))
+                        workflowName = ruleNameJsonProp.GetString() ?? workflowName;
 
-                    if (!ruleJson.TryGetProperty("rules", out var rulesArrayEl) ||
-                        rulesArrayEl.ValueKind != JsonValueKind.Array)
+                    if (!ruleJson.TryGetProperty("rules", out var rulesArrayJsonProp) ||
+                        rulesArrayJsonProp.ValueKind != JsonValueKind.Array)
                         continue;
 
                     var rules             = new List<Rule>();
@@ -241,24 +219,24 @@ namespace NtisPlatform.Application.Services.Rules
                     var ruleStopProcessingMap = new Dictionary<string, bool>();
                     var ruleOrderIndex    = new Dictionary<string, int>(); // tracks original array position
 
-                    foreach (var ruleEl in rulesArrayEl.EnumerateArray())
+                    foreach (var subRuleElement in rulesArrayJsonProp.EnumerateArray())
                     {
                         // Determine rule name: prefer "RuleCode" in JSON, then "ruleName", then entity.RuleCode
                         var ruleName = entity.RuleCode;
-                        if (ruleEl.TryGetProperty("RuleCode", out var rcEl) && !string.IsNullOrWhiteSpace(rcEl.GetString()))
-                            ruleName = rcEl.GetString()!;
-                        else if (ruleEl.TryGetProperty("ruleName", out var rnEl) && !string.IsNullOrWhiteSpace(rnEl.GetString()))
-                            ruleName = rnEl.GetString()!;
+                        if (subRuleElement.TryGetProperty("RuleCode", out var ruleCodeJsonProp) && !string.IsNullOrWhiteSpace(ruleCodeJsonProp.GetString()))
+                            ruleName = ruleCodeJsonProp.GetString()!;
+                        else if (subRuleElement.TryGetProperty("ruleName", out var ruleNameFallbackProp) && !string.IsNullOrWhiteSpace(ruleNameFallbackProp.GetString()))
+                            ruleName = ruleNameFallbackProp.GetString()!;
 
                         // Expression is required
-                        if (!ruleEl.TryGetProperty("expression", out var expressionEl))
+                        if (!subRuleElement.TryGetProperty("expression", out var expressionJsonProp))
                             continue;
-                        var expression = expressionEl.GetString();
+                        var expression = expressionJsonProp.GetString();
                         if (string.IsNullOrWhiteSpace(expression))
                             continue;
 
                         // Skip disabled rules
-                        if (ruleEl.TryGetProperty("enabled", out var enabledEl) && !enabledEl.GetBoolean())
+                        if (subRuleElement.TryGetProperty("enabled", out var enabledFlagProp) && !enabledFlagProp.GetBoolean())
                             continue;
 
                         // Block potentially unsafe expressions before passing to the engine
@@ -275,11 +253,29 @@ namespace NtisPlatform.Application.Services.Rules
                         // which guarantees stopProcessing halts at the correct rule.
                         ruleOrderIndex[ruleName] = rules.Count;
 
+                        var errorMessage = string.Empty;
+                        if (subRuleElement.TryGetProperty("errorMessage", out var errMsgProp) && !string.IsNullOrWhiteSpace(errMsgProp.GetString()))
+                            errorMessage = errMsgProp.GetString()!;
+                        else if (subRuleElement.TryGetProperty("ErrorMessage", out var errMsgPropAlt) && !string.IsNullOrWhiteSpace(errMsgPropAlt.GetString()))
+                            errorMessage = errMsgPropAlt.GetString()!;
+                        else if (subRuleElement.TryGetProperty("description", out var descProp) && !string.IsNullOrWhiteSpace(descProp.GetString()))
+                            errorMessage = descProp.GetString()!;
+                        else if (subRuleElement.TryGetProperty("Description", out var descPropAlt) && !string.IsNullOrWhiteSpace(descPropAlt.GetString()))
+                            errorMessage = descPropAlt.GetString()!;
+
+                        if (string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            errorMessage = !string.IsNullOrWhiteSpace(entity.Description)
+                                ? entity.Description
+                                : (!string.IsNullOrWhiteSpace(entity.RuleName) ? entity.RuleName : entity.RuleCode);
+                        }
+
                         rules.Add(new Rule
                         {
                             RuleName           = ruleName,
                             Expression         = NormalizeLogicalOperators(expression),
-                            RuleExpressionType = RuleExpressionType.LambdaExpression
+                            RuleExpressionType = RuleExpressionType.LambdaExpression,
+                            ErrorMessage       = errorMessage
                             // Note: we do NOT set rule.Actions here.
                             // MS Rules Engine would try to invoke our effect names as registered IAction plugins.
                             // We handle effect application ourselves via IRuleEffectApplicator.
@@ -287,10 +283,10 @@ namespace NtisPlatform.Application.Services.Rules
 
                         // Store the effect JSON in our own dictionary, keyed by rule name.
                         // Priority: Actions block inside RuleJson → EffectJson column on the entity.
-                        if (ruleEl.TryGetProperty("Actions", out var actionsEl) &&
-                            actionsEl.ValueKind != JsonValueKind.Null)
+                        if (subRuleElement.TryGetProperty("Actions", out var actionsJsonElement) &&
+                            actionsJsonElement.ValueKind != JsonValueKind.Null)
                         {
-                            ruleEffectsMap[ruleName] = actionsEl;
+                            ruleEffectsMap[ruleName] = actionsJsonElement;
                         }
                         else if (!string.IsNullOrWhiteSpace(entity.EffectJson))
                         {
@@ -305,15 +301,15 @@ namespace NtisPlatform.Application.Services.Rules
 
                         // Store the stopProcessing flag mapping
                         var ruleStopProcessing = false;
-                        if (ruleEl.TryGetProperty("stopProcessing", out var stopProp))
+                        if (subRuleElement.TryGetProperty("stopProcessing", out var stopProcessingJsonProp))
                         {
-                            if (stopProp.ValueKind == JsonValueKind.True) ruleStopProcessing = true;
-                            else if (stopProp.ValueKind == JsonValueKind.False) ruleStopProcessing = false;
+                            if (stopProcessingJsonProp.ValueKind == JsonValueKind.True) ruleStopProcessing = true;
+                            else if (stopProcessingJsonProp.ValueKind == JsonValueKind.False) ruleStopProcessing = false;
                         }
-                        else if (ruleEl.TryGetProperty("StopProcessing", out var stopPropCaps))
+                        else if (subRuleElement.TryGetProperty("StopProcessing", out var stopProcessingJsonPropAlt))
                         {
-                            if (stopPropCaps.ValueKind == JsonValueKind.True) ruleStopProcessing = true;
-                            else if (stopPropCaps.ValueKind == JsonValueKind.False) ruleStopProcessing = false;
+                            if (stopProcessingJsonPropAlt.ValueKind == JsonValueKind.True) ruleStopProcessing = true;
+                            else if (stopProcessingJsonPropAlt.ValueKind == JsonValueKind.False) ruleStopProcessing = false;
                         }
                         ruleStopProcessingMap[ruleName] = ruleStopProcessing;
                     }
@@ -368,6 +364,7 @@ namespace NtisPlatform.Application.Services.Rules
         /// </summary>
         private async Task<RuleExecutionResultDto?> BuildRuleResultAsync(
             string ruleName,
+            string ruleErrorMessage,
             JsonElement? effectsJson,
             Dictionary<string, object> inputValues)
         {
@@ -376,14 +373,14 @@ namespace NtisPlatform.Application.Services.Rules
                 if (effectsJson == null)
                     return null;
 
-                var actionsEl = effectsJson.Value;
+                var actionsJsonBlock = effectsJson.Value;
 
                 // Navigate: Actions → OnSuccess → Context
-                if (!actionsEl.TryGetProperty("OnSuccess", out var onSuccessEl) ||
-                    !onSuccessEl.TryGetProperty("Context", out var contextEl))
+                if (!actionsJsonBlock.TryGetProperty("OnSuccess", out var onSuccessBlock) ||
+                    !onSuccessBlock.TryGetProperty("Context", out var effectContextBlock))
                     return null;
 
-                var context = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(contextEl.GetRawText())
+                var context = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectContextBlock.GetRawText())
                               ?? new Dictionary<string, JsonElement>();
 
                 var effectType    = ReadStringFromContext(context, "effectType");
@@ -418,7 +415,7 @@ namespace NtisPlatform.Application.Services.Rules
                 return new RuleExecutionResultDto
                 {
                     RuleCode     = ruleName,
-                    RuleName     = ruleName,
+                    RuleName     = !string.IsNullOrWhiteSpace(ruleErrorMessage) ? ruleErrorMessage : ruleName,
                     EffectType   = effectType,
                     EffectValue  = effectValue,
                     BaseRate     = baseRate,

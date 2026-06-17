@@ -150,49 +150,7 @@ public class RuleExecutionServiceTests
         Assert.Equal("RULE-50", result[2].RuleCode);
     }
 
-    [Theory]
-    [InlineData(1)] // Apartment
-    [InlineData(6)] // Multi Commercial Apartment
-    public async Task ExecuteAsync_OrdersByScopeFirst_WhenCategoryIdIsApartmentOrMultiCommercialApartment(int categoryId)
-    {
-        // Arrange
-        var compRule = CreateRuleEntity("COMP-5", "ARV", priority: 5, expression: "input.Rate > 0");
-        compRule.RuleScopeId = 3; // Component Level
 
-        var propRule = CreateRuleEntity("PROP-20", "ARV", priority: 20, expression: "input.Rate > 0");
-        propRule.RuleScopeId = 1; // Property Level
-
-        var buildRule = CreateRuleEntity("BUILD-50", "ARV", priority: 50, expression: "input.Rate > 0");
-        buildRule.RuleScopeId = 2; // Building Level
-
-        var unscopedRule = CreateRuleEntity("UNSCOPED-1", "ARV", priority: 1, expression: "input.Rate > 0");
-        unscopedRule.RuleScopeId = null; // Unscoped
-
-        var rules = new List<RuleEngineEntity> { compRule, propRule, buildRule, unscopedRule };
-
-        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
-        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
-
-        var input = new RuleExecutionInputDto
-        {
-            Category = "ARV",
-            Input = new Dictionary<string, object>
-            {
-                { "Rate", 1000 },
-                { "CategoryId", categoryId }
-            }
-        };
-
-        // Act
-        var result = await _service.ExecuteAsync(input);
-
-        // Assert - Scope order: Building Level (2) -> Property Level (1) -> Component Level (3) -> Unscoped (null/other)
-        Assert.Equal(4, result.Count);
-        Assert.Equal("BUILD-50", result[0].RuleCode);
-        Assert.Equal("PROP-20", result[1].RuleCode);
-        Assert.Equal("COMP-5", result[2].RuleCode);
-        Assert.Equal("UNSCOPED-1", result[3].RuleCode);
-    }
 
     [Fact]
     public async Task ExecuteAsync_FallbackToPriorityOrdering_WhenCategoryIdIsOther()
@@ -999,10 +957,100 @@ public class RuleExecutionServiceTests
         }
         Assert.Single(result!);
         Assert.Equal("5df5bb47-1141-43e6-851c-237d9276a9a8", result![0].RuleCode);
+        Assert.Equal("If has Properties with Swimming pool or club house and property is Residentail then increase 20% ", result[0].RuleName);
         Assert.Equal("Increase %", result![0].EffectType);
         Assert.Equal(20m, result[0].EffectValue);
         Assert.Equal(1200m, result[0].ComputedRate); // 1000 + 20% = 1200
         Assert.True(result[0].StopProcessing);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithSubRuleDescriptionFallback_PopulatesRuleNameCorrectly()
+    {
+        // Arrange
+        var ruleJson = @"{
+          ""RuleName"": ""Thane Rule Category"",
+          ""isActive"": true,
+          ""RuleCategory"": ""RV"",
+          ""rules"": [
+            {
+              ""RuleCode"": ""sub-rule-desc-1"",
+              ""description"": ""Sub-rule description via camelCase description property"",
+              ""enabled"": true,
+              ""ruleExpressionType"": ""LambdaExpression"",
+              ""expression"": ""input.Rate > 500"",
+              ""Actions"": {
+                ""OnSuccess"": {
+                  ""Name"": ""Increase"",
+                  ""Context"": {
+                    ""Expression"": ""input.Rate * 1.1"",
+                    ""effectType"": ""Increase %"",
+                    ""value"": ""10"",
+                    ""ParameterCode"": ""input.Rate""
+                  }
+                }
+              }
+            },
+            {
+              ""RuleCode"": ""sub-rule-desc-2"",
+              ""enabled"": true,
+              ""ruleExpressionType"": ""LambdaExpression"",
+              ""expression"": ""input.Rate > 800"",
+              ""Actions"": {
+                ""OnSuccess"": {
+                  ""Name"": ""Increase"",
+                  ""Context"": {
+                    ""Expression"": ""input.Rate * 1.05"",
+                    ""effectType"": ""Increase %"",
+                    ""value"": ""5"",
+                    ""ParameterCode"": ""input.Rate""
+                  }
+                }
+              }
+            }
+          ]
+        }";
+
+        var ruleEntity = new RuleEngineEntity
+        {
+            Id = 2,
+            RuleCode = "TEST-FALLBACKS",
+            RuleName = "Entity Rule Name Fallback",
+            Description = "Entity Description Fallback",
+            RuleCategory = "RV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = ruleJson
+        };
+
+        var rules = new List<RuleEngineEntity> { ruleEntity };
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+
+        // Sub-rule 1: should match and extract RuleName from sub-rule description property
+        Assert.Equal("sub-rule-desc-1", result[0].RuleCode);
+        Assert.Equal("Sub-rule description via camelCase description property", result[0].RuleName);
+
+        // Sub-rule 2: should match and fallback to entity.Description
+        Assert.Equal("sub-rule-desc-2", result[1].RuleCode);
+        Assert.Equal("Entity Description Fallback", result[1].RuleName);
     }
 
     #endregion

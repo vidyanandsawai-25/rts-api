@@ -1,4 +1,8 @@
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Core.Entities;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace NtisPlatform.Application.Interfaces.TaxEngine;
 
@@ -33,4 +37,16 @@ public interface IRVPersistenceService
         decimal totalRv,
         int? educationTaxId,
         int? employmentTaxId);
+
+    /// <summary>
+    /// Soft-deletes any existing active rule application logs for this property details ID and finance year,
+    /// and inserts the new trace entries.
+    /// </summary>
+    Task SaveRuleApplicationLogAsync(
+        int propertyId,
+        int financeYear,
+        int propertyDetailsId,
+        List<RuleApplicationTraceEntry> appliedRules,
+        string category,
+        DateTime appliedAt);
 }

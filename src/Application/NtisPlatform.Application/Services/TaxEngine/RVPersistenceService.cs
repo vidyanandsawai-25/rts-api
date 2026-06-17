@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -16,6 +17,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
     private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _taxResultsRepo;
     private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
     private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
+    private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RVPersistenceService> _logger;
     private readonly TimeProvider _timeProvider;
@@ -24,6 +26,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         IRepository<PropertyTaxCalculationRVResultsEntity, int> taxResultsRepo,
         IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
         IRepository<TransMastRVEntity, int> transmastRVRepo,
+        IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
         IUnitOfWork unitOfWork,
         ILogger<RVPersistenceService> logger,
         TimeProvider timeProvider)
@@ -31,6 +34,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _taxResultsRepo = taxResultsRepo;
         _policyTaxRepo = policyTaxRepo;
         _transmastRVRepo = transmastRVRepo;
+        _ruleLogRepo = ruleLogRepo;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _timeProvider = timeProvider;
@@ -169,5 +173,68 @@ public sealed class RVPersistenceService : IRVPersistenceService
             newPolicyRecords.Count, newTransmastRecords.Count, propertyId, financeYear);
 
         return newPolicyRecords;
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveRuleApplicationLogAsync(
+        int propertyId,
+        int financeYear,
+        int propertyDetailsId,
+        List<RuleApplicationTraceEntry> appliedRules,
+        string category,
+        DateTime appliedAt)
+    {
+        _logger.LogDebug("Saving rule application log for PropertyId={PropertyId}, DetailsId={DetailsId}, Year={Year}, Category={Category}",
+            propertyId, propertyDetailsId, financeYear, category);
+
+        var now = _timeProvider.GetLocalNow().DateTime;
+
+        // Bulk soft-delete any existing rule application logs for this details ID, finance year, and category
+        await _ruleLogRepo.GetQueryable()
+            .Where(x => x.PropertyDetailsId == propertyDetailsId &&
+                        x.FinanceYear == financeYear &&
+                        x.RuleCategory == category &&
+                        x.IsActive &&
+                        !x.MarkedForDeletion)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.IsActive,              false)
+                .SetProperty(x => x.MarkedForDeletion,     true)
+                .SetProperty(x => x.MarkedForDeletionDate, now)
+                .SetProperty(x => x.UpdatedDate,           now));
+
+        if (appliedRules == null || !appliedRules.Any())
+            return;
+
+        var entities = new List<PropertyRuleApplicationLogEntity>();
+
+        foreach (var rule in appliedRules)
+        {
+            entities.Add(new PropertyRuleApplicationLogEntity
+            {
+                PropertyId = propertyId,
+                PropertyDetailsId = propertyDetailsId,
+                FinanceYear = financeYear,
+                RuleCategory = category,
+                RuleCode = rule.RuleCode,
+                RuleName = rule.RuleName,
+                EffectType = rule.EffectType,
+                EffectValue = rule.EffectValue,
+                BaseValue = rule.BaseValue,
+                ComputedValue = rule.ComputedValue,
+                CumulativeValue = rule.CumulativeValue,
+                ApplyOrder = rule.ApplyOrder,
+                StopProcessing = rule.StopProcessing,
+                AppliedAt = appliedAt,
+                IsActive = true,
+                MarkedForDeletion = false,
+                MarkedForDeletionDate = null,
+                CreatedDate = now,
+                UpdatedDate = now
+            });
+        }
+
+        await _ruleLogRepo.AddRangeAsync(entities);
+        _logger.LogInformation("Saved {Count} rule application logs for PropertyId={PropertyId}, DetailsId={DetailsId}",
+            entities.Count, propertyId, propertyDetailsId);
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -56,7 +57,7 @@ namespace NtisPlatform.Application.Services.Rules
         }
 
         /// <inheritdoc/>
-        public async Task<decimal> ApplyRulesAsync(
+        public async Task<RuleApplicationResult> ApplyRulesAsync(
             RuleApplierContext context,
             int maxRetries = 3,
             CancellationToken cancellationToken = default)
@@ -68,11 +69,11 @@ namespace NtisPlatform.Application.Services.Rules
 
                 // Guard: context or per-detail entities missing — nothing to evaluate
                 if (pContext == null || p?.Detail == null || p.DetailTypeOfUse == null)
-                    return context.InitialValue;
+                    return new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() };
 
                 // Guard: invalid floor or type-of-use group — rule engine cannot match
                 if (p.Detail.FloorId <= 0 || p.DetailTypeOfUse.TypeOfUseGroupId <= 0)
-                    return context.InitialValue;
+                    return new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() };
 
                 // Fetch active field configuration (defines which entity fields the rule engine uses)
                 var activeFields = await _rulesFieldRepo.GetQueryable()
@@ -97,9 +98,12 @@ namespace NtisPlatform.Application.Services.Rules
                     maxRetries: maxRetries,
                     cancellationToken: cancellationToken);
 
+                var appliedRules = new List<RuleApplicationTraceEntry>();
+
                 if (ruleResults is { Count: > 0 })
                 {
                     decimal cumulativeValue = context.InitialValue;
+                    int applyOrder = 0;
 
                     foreach (var rule in ruleResults)
                     {
@@ -107,16 +111,40 @@ namespace NtisPlatform.Application.Services.Rules
                         if (applicator == null)
                             continue;
 
-                        cumulativeValue = await applicator.Apply(cumulativeValue, rule.EffectValue);
+                        applyOrder++;
+                        decimal nextValue = await applicator.Apply(cumulativeValue, rule.EffectValue);
+
+                        appliedRules.Add(new RuleApplicationTraceEntry
+                        {
+                            RuleCode = rule.RuleCode,
+                            RuleName = rule.RuleName,
+                            EffectType = rule.EffectType,
+                            EffectValue = rule.EffectValue,
+                            BaseValue = context.InitialValue,
+                            ComputedValue = nextValue,
+                            CumulativeValue = nextValue,
+                            ApplyOrder = applyOrder,
+                            StopProcessing = rule.StopProcessing
+                        });
+
+                        cumulativeValue = nextValue;
 
                         if (rule.StopProcessing)
                             break;
                     }
 
-                    return cumulativeValue;
+                    return new RuleApplicationResult
+                    {
+                        FinalValue = cumulativeValue,
+                        AppliedRules = appliedRules
+                    };
                 }
 
-                return context.InitialValue;
+                return new RuleApplicationResult
+                {
+                    FinalValue = context.InitialValue,
+                    AppliedRules = appliedRules
+                };
             }
             catch (Exception ex)
             {
@@ -155,20 +183,19 @@ namespace NtisPlatform.Application.Services.Rules
             var assessment = pContext.PropertyAssessment;
 
             // ── Step 1: Flatten entity scalar properties via reflection ─────────────
-            var flatDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            FlattenObject(property, flatDict);
-            FlattenObject(detail, flatDict);
-            FlattenObject(detailTypeOfUse, flatDict);
-            FlattenObject(assessment, flatDict);
+            var entityScalarPropertiesDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            FlattenObject(property, entityScalarPropertiesDict);
+            FlattenObject(detail, entityScalarPropertiesDict);
+            FlattenObject(detailTypeOfUse, entityScalarPropertiesDict);
+            FlattenObject(assessment, entityScalarPropertiesDict);
 
-            // ── Step 2: Derived helper values ──────────────────────────────────────
-            flatDict["PropertyAge"] = p.FinanceYear - p.ConstructionYearValue;
-            flatDict["SocialAttributeId"] = p.SocialAttributeId;
-            flatDict["SocialAttribute"] = p.SocialAttributeId;
-
-
-            if (detail != null)
-                flatDict["Rented"] = detail.IsRenter ?? false;
+            // ── Step 2: Derived helper values ────────────────────────────────────
+            // PropertyAge: computed formula — no entity column exists for this
+            entityScalarPropertiesDict["PropertyAge"] = p.FinanceYear - p.ConstructionYearValue;
+            // SocialAttributeId: List<int> of active social attribute IDs for this property.
+            // Used in rule expressions as: input.SocialAttributeId.Contains(38)
+            // Reflection skips collections, so this must be set manually.
+            entityScalarPropertiesDict["SocialAttributeId"] = p.SocialAttributeId;
 
             // ── Step 2b: Social attributes (dynamic — keyed by SocialAttributeCode) ─
             // Any attribute from PTIS.SocialAttributeMaster is injected here automatically.
@@ -177,39 +204,13 @@ namespace NtisPlatform.Application.Services.Rules
             // NO code change needed here.
             foreach (var (attrCode, attrValue) in p.SocialAttributes)
             {
-                flatDict[attrCode] = attrValue;
+                entityScalarPropertiesDict[attrCode] = attrValue;
             }
 
             // ── Step 3: Copy all scalar/primitive flat values into the input context ─
-            var inputContext = new Dictionary<string, object>(flatDict, StringComparer.OrdinalIgnoreCase);
+            var inputContext = new Dictionary<string, object>(entityScalarPropertiesDict, StringComparer.OrdinalIgnoreCase);
 
-            // ── Step 4: Legacy key aliases (space-separated names used in older rule definitions) ─
-            if (detail != null)
-            {
-                AddLegacyKey(flatDict, inputContext, "FloorId", "FloorId");
-                AddLegacyKey(flatDict, inputContext, "ConstructionTypeId", "ConstructionTypeId");
-                AddLegacyKey(flatDict, inputContext, "TypeOfUseId", "TypeOfUseId");
-                AddLegacyKey(flatDict, inputContext, "CarpetAreaSqMeter", "CarpetAreaSqMeter");
-                AddLegacyKey(flatDict, inputContext, "CarpetAreaSqFeet", "CarpetAreaSqFeet");
-                AddLegacyKey(flatDict, inputContext, "BuiltupAreaSqMeter", "BuiltupAreaSqMeter");
-                AddLegacyKey(flatDict, inputContext, "BuiltupAreaSqFeet", "BuiltupAreaSqFeet");
-                AddLegacyKey(flatDict, inputContext, "SubFloorId", "SubFloorId");
-            }
-
-            if (detailTypeOfUse != null)
-                AddLegacyKey(flatDict, inputContext, "TypeOfUseGroupId", "TypeOfUseGroupId");
-
-            if (property != null)
-            {
-                AddLegacyKey(flatDict, inputContext, "Id", "Id");
-                AddLegacyKey(flatDict, inputContext, "WardId", "WardId");
-                AddLegacyKey(flatDict, inputContext, "TaxZoneId", "TaxZoneId");
-            }
-
-            if (assessment != null)
-                AddLegacyKey(flatDict, inputContext, "OwnerTypeId", "OwnerTypeId");
-
-            // ── Step 5: DB-configured rules fields (final authority) ───────────────
+            // ── Step 4: DB-configured rules fields (final authority) ───────────────
             foreach (var field in activeFields)
             {
                 if (string.IsNullOrWhiteSpace(field.FieldName))
@@ -223,7 +224,7 @@ namespace NtisPlatform.Application.Services.Rules
 
                 foreach (var key in keysToTry)
                 {
-                    if (flatDict.TryGetValue(key, out var val))
+                    if (entityScalarPropertiesDict.TryGetValue(key, out var val))
                     {
                         inputContext[field.FieldName] = val;
                         break;
@@ -233,6 +234,8 @@ namespace NtisPlatform.Application.Services.Rules
 
             return inputContext;
         }
+
+        private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
 
         /// <summary>
         /// Reflects over all public scalar instance properties of <paramref name="obj"/>
@@ -244,15 +247,14 @@ namespace NtisPlatform.Application.Services.Rules
         {
             if (obj == null) return;
 
-            var properties = obj.GetType()
-                .GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var type = obj.GetType();
+            var properties = _propertyCache.GetOrAdd(type, t =>
+                t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                 .Where(p => !(p.PropertyType.IsClass && p.PropertyType != typeof(string)))
+                 .ToArray());
 
             foreach (var prop in properties)
             {
-                // Skip navigation properties and collections — only primitive/scalar values
-                if (prop.PropertyType.IsClass && prop.PropertyType != typeof(string))
-                    continue;
-
                 try
                 {
                     var val = prop.GetValue(obj);
@@ -266,19 +268,5 @@ namespace NtisPlatform.Application.Services.Rules
             }
         }
 
-        /// <summary>
-        /// Copies a value from <paramref name="flatDict"/> under <paramref name="sourceKey"/>
-        /// into <paramref name="inputContext"/> under <paramref name="targetKey"/>,
-        /// but only if the target key does not already exist (preserving higher-priority values).
-        /// </summary>
-        private static void AddLegacyKey(
-            Dictionary<string, object> flatDict,
-            Dictionary<string, object> inputContext,
-            string sourceKey,
-            string targetKey)
-        {
-            if (flatDict.TryGetValue(sourceKey, out var val) && !inputContext.ContainsKey(targetKey))
-                inputContext[targetKey] = val;
-        }
     }
 }

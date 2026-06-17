@@ -175,6 +175,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
+    public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -2445,7 +2446,6 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyDetailsId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-
 
         // UseFactorCVMaster configuration
         modelBuilder.Entity<UseFactorCVMasterEntity>(entity =>
@@ -4881,5 +4881,44 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasDatabaseName("UQ_OrganizationMaster_OrgCode");
         });
+
+
+        modelBuilder.Entity<PropertyRuleApplicationLogEntity>(entity =>
+        {
+            entity.ToTable("PropertyRuleApplicationLog", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PropertyDetailsId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.RuleCategory).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RuleCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.EffectType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.EffectValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BaseValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ComputedValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CumulativeValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ApplyOrder).IsRequired();
+            entity.Property(e => e.StopProcessing).IsRequired();
+            entity.Property(e => e.AppliedAt).IsRequired().HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyDetails)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.PropertyDetailsId);
+        });
+
+
     }
 }
