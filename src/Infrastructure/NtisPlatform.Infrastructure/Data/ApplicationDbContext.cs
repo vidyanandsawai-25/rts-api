@@ -3188,7 +3188,7 @@ public class ApplicationDbContext : DbContext
         // CommonRemarkDetails configuration
         modelBuilder.Entity<CommonRemarkDetailsEntity>(entity =>
         {
-            entity.ToTable("CommonRemarkDetails", "CORE");
+            entity.ToTable("CommonRemarkDetails", "GSMS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.RemarkTypeId).IsRequired();
             entity.Property(e => e.Remark).IsRequired().HasMaxLength(300);
@@ -3207,6 +3207,9 @@ public class ApplicationDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.RemarkTypeId).HasDatabaseName("IX_CommonRemarkDetails_RemarkTypeId");
             entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_CommonRemarkDetails_IsActive");
+            entity.HasIndex(e => new { e.RemarkTypeId, e.Remark })
+                .IsUnique()
+                .HasDatabaseName("UQ_CommonRemarkDetails_RemarkTypeId_Remark");
         });
 
         // PropertyMapMaster configuration
@@ -3246,6 +3249,9 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ParentPropertyMapId);
             entity.HasIndex(e => e.MappingCategory);
             entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => new {e.ModuleId,e.ParentPropertyMapId,e.MappingCategory})
+            .IsUnique()
+            .HasDatabaseName("UQ_PropertyMapMaster_ModuleId_ParentPropertyMapId_MappingCategory");
         });
         modelBuilder.Entity<RoomTypeMasterEntity>(entity =>
         {
