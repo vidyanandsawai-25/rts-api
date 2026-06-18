@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
+using NtisPlatform.Application.DTOs.Queries;
 
 namespace NtisPlatform.Application.DTOs;
 
@@ -152,11 +153,14 @@ public class CombinePropertyHistoryDto
 /// <summary>
 /// Query parameters for getting combine property history
 /// </summary>
-public class CombinePropertyHistoryQueryParameters
+public class CombinePropertyHistoryQueryParameters : BaseQueryParameters
 {
     /// <summary>
     /// The source property ID to get all combined property history for.
     /// This parameter is optional.
     /// </summary>
     public int? SourcePropertyId { get; set; }
+    public string? PropertyNo { get; set; }
+    public string? PartitionNo { get; set; }
+    public int? WardId { get; set; }
 }

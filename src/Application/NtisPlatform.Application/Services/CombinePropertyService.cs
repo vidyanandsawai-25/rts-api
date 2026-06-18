@@ -220,6 +220,10 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         var query = _repository.GetQueryable()
             .Where(x => x.PropertyNo != null && x.IsActive == true);
 
+        // Exclude blank or single-character alphabetic partition numbers (like "A", "B", "C", "S").
+        // Only retain partitions that contain at least one numeric digit (0-9) (like "1", "C1", "A2", "C121").
+        query = query.Where(PropertyConstants.HasDigitInPartition);
+
         // Apply filters in SQL
         query = await ApplyFiltersAsync(query, queryParams, cancellationToken);
 
@@ -575,8 +579,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     /// - If SourcePropertyId is NOT provided: Returns list of distinct source properties that have combined history (with CombineReason from first history record).
     /// - If SourcePropertyId IS provided: Returns ONLY the combined properties for that source (excludes the source property itself).
     /// </summary>
-    public async Task<List<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(
-        int? sourcePropertyId,
+    public async Task<PagedResult<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(
+        CombinePropertyHistoryQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
         // Step 1: Get history data from combine history table
@@ -584,9 +588,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .Where(h => h.IsActive);
 
         // Apply SourcePropertyId filter only if provided
-        if (sourcePropertyId.HasValue)
+        if (queryParams.SourcePropertyId.HasValue)
         {
-            historyQuery = historyQuery.Where(h => h.SourcePropertyId == sourcePropertyId.Value);
+            historyQuery = historyQuery.Where(h => h.SourcePropertyId == queryParams.SourcePropertyId.Value);
         }
 
         var historyData = await historyQuery
@@ -596,14 +600,14 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         // If no history data found, return empty list
         if (historyData.Count == 0)
         {
-            return [];
+            return new PagedResult<CombinePropertyHistoryDto>([], 0, queryParams.PageNumber, queryParams.PageSize);
         }
 
         // Step 2: Determine which property IDs to fetch based on the scenario
         List<int> propertyIdsToFetch;
         Dictionary<int, string?> combineReasonLookup;
 
-        if (sourcePropertyId.HasValue)
+        if (queryParams.SourcePropertyId.HasValue)
         {
             // Scenario: SourcePropertyId IS provided
             // Return ONLY the CombinedPropertyIds (exclude the source property)
@@ -636,7 +640,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         // If no property IDs to fetch, return empty list
         if (propertyIdsToFetch.Count == 0)
         {
-            return [];
+            return new PagedResult<CombinePropertyHistoryDto>([], 0, queryParams.PageNumber, queryParams.PageSize);
         }
 
         // Step 3: Get property details for the selected properties
@@ -656,7 +660,30 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                                   PropertyDescription = ptm != null && ptm.IsActive == true ? ptm.PropertyDescription : null
                               };
 
-        var propertiesData = await propertiesQuery.ToListAsync(cancellationToken);
+        if (queryParams.WardId.HasValue)
+        {
+            propertiesQuery = propertiesQuery.Where(x => x.Property.WardId == queryParams.WardId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+        {
+            propertiesQuery = propertiesQuery.Where(x => x.Property.PropertyNo == queryParams.PropertyNo);
+        }
+
+        if (!string.IsNullOrWhiteSpace(queryParams.PartitionNo))
+        {
+            propertiesQuery = propertiesQuery.Where(x => x.Property.PartitionNo == queryParams.PartitionNo);
+        }
+
+        var totalCount = await propertiesQuery.CountAsync(cancellationToken);
+
+        var isUnpaged = queryParams.PageSize == -1;
+        var effectivePageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParams.PageSize;
+        var effectivePageNumber = isUnpaged ? 1 : queryParams.PageNumber;
+
+        var propertiesData = isUnpaged
+            ? await propertiesQuery.ToListAsync(cancellationToken)
+            : await propertiesQuery.Skip((effectivePageNumber - 1) * effectivePageSize).Take(effectivePageSize).ToListAsync(cancellationToken);
 
         // Step 4: Get ward information
         var wardIds = propertiesData.Select(p => p.Property.WardId).Distinct().ToList();
@@ -672,7 +699,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         var taxData = await GetTaxDataAsync(propertyIds, cancellationToken);
 
         // Step 6: Map to DTOs
-        var result = propertiesData
+        var dtos = propertiesData
             .OrderBy(x => x.Property.Id)
             .Select(x =>
             {
@@ -700,7 +727,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 };
             }).ToList();
 
-        return result;
+        return new PagedResult<CombinePropertyHistoryDto>(dtos, totalCount, effectivePageNumber, effectivePageSize);
     }
 
     private async Task<IQueryable<PropertyEntity>> ApplyFiltersAsync(

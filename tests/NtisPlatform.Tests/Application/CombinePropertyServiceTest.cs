@@ -1153,15 +1153,16 @@ public class CombinePropertyServiceTest
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
         // Assert - Should return only the source properties (100 and 200), not combined
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, r => r.PropertyId == 100);
-        Assert.Contains(result, r => r.PropertyId == 200);
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Contains(items, r => r.PropertyId == 100);
+        Assert.Contains(items, r => r.PropertyId == 200);
         // Source properties SHOULD have CombineReason from the history table
-        Assert.Equal("Merged adjacent properties", result.First(r => r.PropertyId == 100).CombineReason);
-        Assert.Equal("Adjacent plot combined", result.First(r => r.PropertyId == 200).CombineReason);
+        Assert.Equal("Merged adjacent properties", items.First(r => r.PropertyId == 100).CombineReason);
+        Assert.Equal("Adjacent plot combined", items.First(r => r.PropertyId == 200).CombineReason);
     }
 
     [Fact]
@@ -1174,10 +1175,10 @@ public class CombinePropertyServiceTest
             .Returns(new List<CombinePropertyHistoryEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
         // Assert - Should return empty list when no history exists
-        Assert.Empty(result);
+        Assert.Empty(result.Items);
     }
 
     [Fact]
@@ -1215,16 +1216,17 @@ public class CombinePropertyServiceTest
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
         // Assert - Should return ONLY combined properties (101 and 102), NOT source (100)
-        Assert.Equal(2, result.Count);
-        Assert.DoesNotContain(result, r => r.PropertyId == 100); // Source should NOT be included
-        Assert.Contains(result, r => r.PropertyId == 101);
-        Assert.Contains(result, r => r.PropertyId == 102);
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.DoesNotContain(items, r => r.PropertyId == 100); // Source should NOT be included
+        Assert.Contains(items, r => r.PropertyId == 101);
+        Assert.Contains(items, r => r.PropertyId == 102);
         // Combined properties should have CombineReason
-        Assert.Equal("Adjacent properties merged", result.First(r => r.PropertyId == 101).CombineReason);
-        Assert.Equal("Adjacent properties merged", result.First(r => r.PropertyId == 102).CombineReason);
+        Assert.Equal("Adjacent properties merged", items.First(r => r.PropertyId == 101).CombineReason);
+        Assert.Equal("Adjacent properties merged", items.First(r => r.PropertyId == 102).CombineReason);
     }
 
     [Fact]
@@ -1237,10 +1239,10 @@ public class CombinePropertyServiceTest
             .Returns(new List<CombinePropertyHistoryEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
         // Assert - Should return empty list when no history exists for the source
-        Assert.Empty(result);
+        Assert.Empty(result.Items);
     }
 
     [Fact]
@@ -1286,11 +1288,12 @@ public class CombinePropertyServiceTest
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
         // Assert - Verify all property details are returned
-        Assert.Single(result);
-        var combinedProperty = result[0];
+        var items = result.Items.ToList();
+        Assert.Single(items);
+        var combinedProperty = items[0];
         Assert.Equal(101, combinedProperty.PropertyId);
         Assert.Equal(60, combinedProperty.WardId);
         Assert.Equal("WARD60", combinedProperty.WardNo);
@@ -1340,11 +1343,119 @@ public class CombinePropertyServiceTest
             .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
 
         // Act
-        var result = await _service.GetCombinePropertyHistoryAsync(sourcePropertyId, default);
+        var result = await _service.GetCombinePropertyHistoryAsync(new CombinePropertyHistoryQueryParameters { SourcePropertyId = sourcePropertyId }, default);
 
-        Assert.Single(result);
-        Assert.Equal(100, result[0].PropertyId);
-        Assert.Equal("First reason", result[0].CombineReason); // First CombineReason from history
+        var items = result.Items.ToList();
+        Assert.Single(items);
+        Assert.Equal(100, items[0].PropertyId);
+        Assert.Equal("First reason", items[0].CombineReason); // First CombineReason from history
+    }
+
+    [Fact]
+    public async Task GetCombinePropertyHistoryAsync_WithFilters_FiltersResultsCorrectly()
+    {
+        // Arrange
+        var queryParams = new CombinePropertyHistoryQueryParameters
+        {
+            SourcePropertyId = 100,
+            WardId = 60,
+            PropertyNo = "1",
+            PartitionNo = "A2"
+        };
+
+        var historyRecords = new List<CombinePropertyHistoryEntity>
+        {
+            new() { Id = 1, SourcePropertyId = 100, CombinedPropertyId = 101, CombineReason = "Adjacent properties merged", IsActive = true },
+            new() { Id = 2, SourcePropertyId = 100, CombinedPropertyId = 102, CombineReason = "Adjacent properties merged", IsActive = true }
+        };
+
+        _mockCombineHistoryRepository.Setup(r => r.GetQueryable())
+            .Returns(historyRecords.BuildMock());
+
+        var properties = new List<PropertyEntity>
+        {
+            // Matches wardId=60, propertyNo="1", partitionNo="A2"
+            new() { Id = 101, WardId = 60, PropertyNo = "1", PartitionNo = "A2", OwnerName = "Combined Owner 1", CategoryId = 6, IsActive = false },
+            // Does not match partitionNo="A2"
+            new() { Id = 102, WardId = 60, PropertyNo = "1", PartitionNo = "A3", OwnerName = "Combined Owner 2", CategoryId = 6, IsActive = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastRVEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetCombinePropertyHistoryAsync(queryParams, default);
+
+        // Assert - Should only return property 101, and filter out 102
+        var items = result.Items.ToList();
+        Assert.Single(items);
+        Assert.Equal(101, items[0].PropertyId);
+    }
+
+    [Fact]
+    public async Task GetCombinePropertyHistoryAsync_WithPagination_PaginatesResultsCorrectly()
+    {
+        // Arrange
+        var queryParams = new CombinePropertyHistoryQueryParameters
+        {
+            SourcePropertyId = 100,
+            PageNumber = 2,
+            PageSize = 2
+        };
+
+        var historyRecords = new List<CombinePropertyHistoryEntity>
+        {
+            new() { Id = 1, SourcePropertyId = 100, CombinedPropertyId = 101, CombineReason = "Reason 1", IsActive = true },
+            new() { Id = 2, SourcePropertyId = 100, CombinedPropertyId = 102, CombineReason = "Reason 2", IsActive = true },
+            new() { Id = 3, SourcePropertyId = 100, CombinedPropertyId = 103, CombineReason = "Reason 3", IsActive = true },
+            new() { Id = 4, SourcePropertyId = 100, CombinedPropertyId = 104, CombineReason = "Reason 4", IsActive = true }
+        };
+
+        _mockCombineHistoryRepository.Setup(r => r.GetQueryable())
+            .Returns(historyRecords.BuildMock());
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 101, WardId = 60, PropertyNo = "1", PartitionNo = "A1", OwnerName = "Owner 1", CategoryId = 6, IsActive = false },
+            new() { Id = 102, WardId = 60, PropertyNo = "1", PartitionNo = "A2", OwnerName = "Owner 2", CategoryId = 6, IsActive = false },
+            new() { Id = 103, WardId = 60, PropertyNo = "1", PartitionNo = "A3", OwnerName = "Owner 3", CategoryId = 6, IsActive = false },
+            new() { Id = 104, WardId = 60, PropertyNo = "1", PartitionNo = "A4", OwnerName = "Owner 4", CategoryId = 6, IsActive = false }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(properties.BuildMock());
+        _mockPropertyMastOldRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyMastOldEntity>().BuildMock());
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<WardEntity> { new() { Id = 60, WardNo = "WARD60", IsActive = true } }.BuildMock());
+        _mockTransMastRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TransMastRVEntity>().BuildMock());
+        _mockTaxPendingRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<TaxPendingDetailsEntity>().BuildMock());
+
+        // Act
+        var result = await _service.GetCombinePropertyHistoryAsync(queryParams, default);
+
+        // Assert - PageNumber = 2, PageSize = 2 should return 3rd and 4th properties (103 and 104)
+        var items = result.Items.ToList();
+        Assert.Equal(2, items.Count);
+        Assert.Equal(4, result.TotalCount);
+        Assert.Equal(2, result.PageNumber);
+        Assert.Equal(2, result.PageSize);
+        Assert.Contains(items, r => r.PropertyId == 103);
+        Assert.Contains(items, r => r.PropertyId == 104);
     }
 
     [Fact]
@@ -1353,9 +1464,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 2, PropertyNo = "10", PartitionNo = "A", IsActive = true },
-            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B", IsActive = true },
-            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true }
+            new() { Id = 1, WardId = 2, PropertyNo = "10", PartitionNo = "A1", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B1", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C1", IsActive = true }
         };
         var wards = new List<WardEntity>
         {
@@ -1395,9 +1506,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 1, PropertyNo = "10", PartitionNo = "A", IsActive = true },
-            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B", IsActive = true },
-            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true }
+            new() { Id = 1, WardId = 1, PropertyNo = "10", PartitionNo = "A1", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "2", PartitionNo = "B1", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "C1", IsActive = true }
         };
         var wards = new List<WardEntity>
         {
@@ -1436,9 +1547,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 1, PropertyNo = "A10", PartitionNo = "A", IsActive = true },
-            new() { Id = 2, WardId = 1, PropertyNo = "A2", PartitionNo = "B", IsActive = true },
-            new() { Id = 3, WardId = 1, PropertyNo = "A1", PartitionNo = "C", IsActive = true }
+            new() { Id = 1, WardId = 1, PropertyNo = "A10", PartitionNo = "A1", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "A2", PartitionNo = "B1", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "A1", PartitionNo = "C1", IsActive = true }
         };
         var wards = new List<WardEntity>
         {
@@ -1477,9 +1588,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "A", IsActive = true },
-            new() { Id = 2, WardId = 1, PropertyNo = "10", PartitionNo = "A", IsActive = true },
-            new() { Id = 3, WardId = 1, PropertyNo = "2", PartitionNo = "A", IsActive = true }
+            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "A1", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "10", PartitionNo = "A1", IsActive = true },
+            new() { Id = 3, WardId = 1, PropertyNo = "2", PartitionNo = "A1", IsActive = true }
         };
         var wards = new List<WardEntity>
         {
@@ -1524,9 +1635,9 @@ public class CombinePropertyServiceTest
         // Arrange
         var properties = new List<PropertyEntity>
         {
-            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "B", IsActive = true },
-            new() { Id = 2, WardId = 1, PropertyNo = "1", PartitionNo = "C", IsActive = true },
-            new() { Id = 3, WardId = 2, PropertyNo = "1", PartitionNo = "A", IsActive = true }
+            new() { Id = 1, WardId = 2, PropertyNo = "1", PartitionNo = "B1", IsActive = true },
+            new() { Id = 2, WardId = 1, PropertyNo = "1", PartitionNo = "C1", IsActive = true },
+            new() { Id = 3, WardId = 2, PropertyNo = "1", PartitionNo = "A1", IsActive = true }
         };
         var wards = new List<WardEntity>
         {
@@ -1582,6 +1693,52 @@ public class CombinePropertyServiceTest
 
         Assert.Single(resultPage3.Items);
         Assert.Equal(1, resultPage3.Items.First().Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_ExcludesBlankAndSingleCharacterAlphabeticPartitions()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "1", PartitionNo = "A", IsActive = true },       // single-character alphabetic: exclude
+            new() { Id = 2, WardId = 1, PropertyNo = "1", PartitionNo = "C1", IsActive = true },      // digit-containing alphanumeric: include
+            new() { Id = 3, WardId = 1, PropertyNo = "1", PartitionNo = "", IsActive = true },        // empty partition: exclude
+            new() { Id = 4, WardId = 1, PropertyNo = "1", PartitionNo = null, IsActive = true },      // null partition: exclude
+            new() { Id = 5, WardId = 1, PropertyNo = "1", PartitionNo = "2", IsActive = true },       // numeric partition: include
+            new() { Id = 6, WardId = 1, PropertyNo = "1", PartitionNo = "C121", IsActive = true }    // multi-digit alphanumeric: include
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyCategoryEntity?)null);
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            SortBy = "propertyno",
+            SortOrder = "ASC",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.TotalCount); // Only items with partition numbers: C1, 2, C121 should remain
+        var itemIds = result.Items.Select(x => x.Id).ToList();
+        Assert.Contains(2, itemIds); // C1
+        Assert.Contains(5, itemIds); // 2
+        Assert.Contains(6, itemIds); // C121
+        Assert.DoesNotContain(1, itemIds); // A
+        Assert.DoesNotContain(3, itemIds); // empty
+        Assert.DoesNotContain(4, itemIds); // null
     }
 
     #endregion

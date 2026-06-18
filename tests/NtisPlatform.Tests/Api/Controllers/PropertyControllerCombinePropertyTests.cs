@@ -118,19 +118,19 @@ public class PropertyControllerCombinePropertyTests
             new() { PropertyId = 101, WardId = 60, WardNo = "WARD60", PropertyNo = "1", PartitionNo = "A2", OwnerName = "Combined Owner" }
         };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(historyData);
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(historyData, historyData.Count, 1, 10));
 
         // Act
         var result = await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(okResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(okResult.Value);
         Assert.True(response.Success);
         Assert.Equal("Combine property history fetched successfully", response.Message);
         Assert.NotNull(response.Items);
-        Assert.Equal(2, response.Items.Count);
+        Assert.Equal(2, response.Items.TotalCount);
     }
 
     [Fact]
@@ -141,17 +141,18 @@ public class PropertyControllerCombinePropertyTests
         var combineService = new Mock<ICombinePropertyService>();
         var queryParams = new CombinePropertyHistoryQueryParameters { SourcePropertyId = 999 };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(999, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<CombinePropertyHistoryDto>());
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 999), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(new List<CombinePropertyHistoryDto>(), 0, 1, 10));
 
         // Act
         var result = await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(okResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(okResult.Value);
         Assert.True(response.Success);
-        Assert.Empty(response.Items!);
+        Assert.NotNull(response.Items);
+        Assert.Empty(response.Items.Items);
     }
 
     [Fact]
@@ -162,7 +163,7 @@ public class PropertyControllerCombinePropertyTests
         var combineService = new Mock<ICombinePropertyService>();
         var queryParams = new CombinePropertyHistoryQueryParameters { SourcePropertyId = 100 };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, It.IsAny<CancellationToken>()))
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
@@ -171,7 +172,7 @@ public class PropertyControllerCombinePropertyTests
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, statusCodeResult.StatusCode);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(statusCodeResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(statusCodeResult.Value);
         Assert.False(response.Success);
         Assert.Equal("An error occurred while retrieving combine property history", response.Message);
     }
@@ -189,17 +190,18 @@ public class PropertyControllerCombinePropertyTests
             new() { PropertyId = 100, WardId = 60, WardNo = "WARD60", PropertyNo = "1", OwnerName = "Only Source" }
         };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(historyData);
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(historyData, historyData.Count, 1, 10));
 
         // Act
         var result = await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(okResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(okResult.Value);
         Assert.True(response.Success);
-        Assert.Single(response.Items!);
+        Assert.NotNull(response.Items);
+        Assert.Single(response.Items.Items);
     }
 
     [Fact]
@@ -210,14 +212,14 @@ public class PropertyControllerCombinePropertyTests
         var combineService = new Mock<ICombinePropertyService>();
         var queryParams = new CombinePropertyHistoryQueryParameters { SourcePropertyId = 12345 };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(12345, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<CombinePropertyHistoryDto>());
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 12345), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(new List<CombinePropertyHistoryDto>(), 0, 1, 10));
 
         // Act
         await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
-        combineService.Verify(s => s.GetCombinePropertyHistoryAsync(12345, It.IsAny<CancellationToken>()), Times.Once);
+        combineService.Verify(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 12345), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -230,14 +232,14 @@ public class PropertyControllerCombinePropertyTests
         using var cts = new CancellationTokenSource();
         var token = cts.Token;
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, token))
-            .ReturnsAsync(new List<CombinePropertyHistoryDto>());
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), token))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(new List<CombinePropertyHistoryDto>(), 0, 1, 10));
 
         // Act
         await controller.GetCombinePropertyHistory(combineService.Object, queryParams, token);
 
         // Assert
-        combineService.Verify(s => s.GetCombinePropertyHistoryAsync(100, token), Times.Once);
+        combineService.Verify(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), token), Times.Once);
     }
 
     [Fact]
@@ -260,17 +262,18 @@ public class PropertyControllerCombinePropertyTests
             })
             .ToList();
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(historyData);
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(historyData, historyData.Count, 1, 50));
 
         // Act
         var result = await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(okResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(okResult.Value);
         Assert.True(response.Success);
-        Assert.Equal(50, response.Items!.Count);
+        Assert.NotNull(response.Items);
+        Assert.Equal(50, response.Items.TotalCount);
     }
 
     [Fact]
@@ -301,17 +304,18 @@ public class PropertyControllerCombinePropertyTests
             }
         };
 
-        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(100, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(historyData);
+        combineService.Setup(s => s.GetCombinePropertyHistoryAsync(It.Is<CombinePropertyHistoryQueryParameters>(q => q.SourcePropertyId == 100), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<CombinePropertyHistoryDto>(historyData, historyData.Count, 1, 10));
 
         // Act
         var result = await controller.GetCombinePropertyHistory(combineService.Object, queryParams, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<List<CombinePropertyHistoryDto>>>(okResult.Value);
+        var response = Assert.IsType<ApiResponse<PagedResult<CombinePropertyHistoryDto>>>(okResult.Value);
         
-        var item = response.Items![0];
+        Assert.NotNull(response.Items);
+        var item = response.Items.Items.First();
         Assert.Equal(100, item.PropertyId);
         Assert.Equal(60, item.WardId);
         Assert.Equal("DIMAJOR1", item.WardNo);

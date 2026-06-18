@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -16,6 +17,7 @@ public class CombinePropertyValidatorTests
 {
     private readonly Mock<IRepository<PropertyEntity, int>> _mockRepository;
     private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
+    private readonly Mock<IPolicyConfigurationService> _mockPolicyConfigurationService;
     private readonly Mock<ILogger<CombinePropertyValidator>> _mockLogger;
     private readonly CombinePropertyValidator _validator;
 
@@ -23,10 +25,16 @@ public class CombinePropertyValidatorTests
     {
         _mockRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        _mockPolicyConfigurationService = new Mock<IPolicyConfigurationService>();
         _mockLogger = new Mock<ILogger<CombinePropertyValidator>>();
+
+        _mockPolicyConfigurationService.Setup(s => s.GetPolicyValueAsync("CombinePropertyLimit", "2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("2");
+
         _validator = new CombinePropertyValidator(
             _mockRepository.Object,
             _mockCategoryRepository.Object,
+            _mockPolicyConfigurationService.Object,
             _mockLogger.Object);
     }
 
@@ -968,6 +976,61 @@ public class CombinePropertyValidatorTests
         Assert.True(result.IsValid);
         Assert.Null(result.ErrorMessage);
         Assert.Single(result.ValidProperties);
+    }
+
+    [Fact]
+    public async Task ValidatePropertiesForCombinationAsync_DynamicPolicyLimit_Respected()
+    {
+        // Arrange
+        var mainPropertyId = 1;
+        var combinePropertyIds = new List<int> { 2, 3 };
+
+        var mainProperty = new PropertyEntity
+        {
+            Id = mainPropertyId,
+            PropertyNo = "100",
+            OwnerName = "John Doe",
+            IsActive = true,
+            TaxZoneId = 1,
+            WardId = 1,
+            CategoryId = 2
+        };
+
+        var combineProperties = new List<PropertyEntity>
+        {
+            new() { Id = 2, PropertyNo = "103", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 2 }, // Difference is 3 (allowed if limit is 4)
+            new() { Id = 3, PropertyNo = "105", OwnerName = "John Doe", IsActive = true, TaxZoneId = 1, WardId = 1, CategoryId = 2 }  // Difference is 5 (should fail)
+        };
+
+        var category = new PropertyCategoryEntity
+        {
+            Id = 2,
+            PropertyCategoryName = "Residential",
+            IsActive = true
+        };
+
+        _mockRepository.Setup(r => r.GetByIdAsync(mainPropertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(mainProperty);
+
+        _mockRepository.Setup(r => r.GetQueryable())
+            .Returns(combineProperties.BuildMock());
+
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(category);
+
+        _mockCategoryRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyCategoryEntity> { category }.BuildMock());
+
+        // Configure mock limit to be 4
+        _mockPolicyConfigurationService.Setup(s => s.GetPolicyValueAsync("CombinePropertyLimit", "2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("4");
+
+        // Act
+        var result = await _validator.ValidatePropertiesForCombinationAsync(mainPropertyId, combinePropertyIds, false, default);
+
+        // Assert
+        Assert.False(result.IsValid);
+        Assert.Contains("is not within 4 of main property number 100", result.ErrorMessage);
     }
 
     #endregion

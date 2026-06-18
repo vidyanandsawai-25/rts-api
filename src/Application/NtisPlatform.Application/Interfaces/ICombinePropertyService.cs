@@ -1,4 +1,5 @@
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 
 namespace NtisPlatform.Application.Interfaces;
@@ -16,8 +17,7 @@ public interface ICombinePropertyService : ICommonCrudService<PropertyEntity, Co
     Task<CombinePropertiesResponseDto> CombinePropertiesAsync(CombinePropertiesRequestDto request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Get all combined property history for a given SourcePropertyId.
-    /// If SourcePropertyId is null, returns all combine property history records.
+    /// Get all combined property history based on query parameters (SourcePropertyId, WardId, PropertyNo, PartitionNo).
     /// </summary>
-    Task<List<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(int? sourcePropertyId, CancellationToken cancellationToken = default);
+    Task<PagedResult<CombinePropertyHistoryDto>> GetCombinePropertyHistoryAsync(CombinePropertyHistoryQueryParameters queryParams, CancellationToken cancellationToken = default);
 }

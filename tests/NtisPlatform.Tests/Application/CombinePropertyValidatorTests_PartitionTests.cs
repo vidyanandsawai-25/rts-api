@@ -1,5 +1,6 @@
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -16,6 +17,7 @@ public class CombinePropertyValidatorPartitionTests
 {
     private readonly Mock<IRepository<PropertyEntity, int>> _mockRepository;
     private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
+    private readonly Mock<IPolicyConfigurationService> _mockPolicyConfigurationService;
     private readonly Mock<ILogger<CombinePropertyValidator>> _mockLogger;
     private readonly CombinePropertyValidator _validator;
 
@@ -23,8 +25,17 @@ public class CombinePropertyValidatorPartitionTests
     {
         _mockRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        _mockPolicyConfigurationService = new Mock<IPolicyConfigurationService>();
         _mockLogger = new Mock<ILogger<CombinePropertyValidator>>();
-        _validator = new CombinePropertyValidator(_mockRepository.Object, _mockCategoryRepository.Object, _mockLogger.Object);
+
+        _mockPolicyConfigurationService.Setup(s => s.GetPolicyValueAsync("CombinePropertyLimit", "2", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("2");
+
+        _validator = new CombinePropertyValidator(
+            _mockRepository.Object, 
+            _mockCategoryRepository.Object, 
+            _mockPolicyConfigurationService.Object,
+            _mockLogger.Object);
     }
 
     [Fact]

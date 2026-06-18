@@ -82,7 +82,7 @@ public partial class PropertyController
     /// <returns>List of combined property details including ward, property info, owner, and tax amounts</returns>
     /// <response code="200">Returns the list of combined property history</response>
     [HttpGet("combine-properties-history")]
-    [ProducesResponseType(typeof(ApiResponse<List<CombinePropertyHistoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<CombinePropertyHistoryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetCombinePropertyHistory(
         [FromServices] ICombinePropertyService combinePropertyService,
         [FromQuery] CombinePropertyHistoryQueryParameters queryParams,
@@ -90,9 +90,9 @@ public partial class PropertyController
     {
         try
         {
-            var result = await combinePropertyService.GetCombinePropertyHistoryAsync(queryParams.SourcePropertyId, ct);
+            var result = await combinePropertyService.GetCombinePropertyHistoryAsync(queryParams, ct);
             
-            return Ok(new ApiResponse<List<CombinePropertyHistoryDto>>
+            return Ok(new ApiResponse<PagedResult<CombinePropertyHistoryDto>>
             {
                 Success = true,
                 Message = "Combine property history fetched successfully",
@@ -103,7 +103,7 @@ public partial class PropertyController
         {
             _logger.LogError(ex, "Error retrieving combine property history for SourcePropertyId: {SourcePropertyId}", queryParams.SourcePropertyId);
             return StatusCode(StatusCodes.Status500InternalServerError,
-                new ApiResponse<List<CombinePropertyHistoryDto>>
+                new ApiResponse<PagedResult<CombinePropertyHistoryDto>>
                 {
                     Success = false,
                     Message = "An error occurred while retrieving combine property history"

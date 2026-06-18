@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Constants;
@@ -16,15 +17,18 @@ public class CombinePropertyValidator : ICombinePropertyValidator
 
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyCategoryEntity, int> _categoryRepository;
+    private readonly IPolicyConfigurationService _policyConfigurationService;
     private readonly ILogger<CombinePropertyValidator> _logger;
 
     public CombinePropertyValidator(
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyCategoryEntity, int> categoryRepository,
+        IPolicyConfigurationService policyConfigurationService,
         ILogger<CombinePropertyValidator> logger)
     {
         _propertyRepository = propertyRepository;
         _categoryRepository = categoryRepository;
+        _policyConfigurationService = policyConfigurationService;
         _logger = logger;
     }
 
@@ -364,11 +368,19 @@ public class CombinePropertyValidator : ICombinePropertyValidator
         }
         else
         {
-            // Case 2: Different PropertyNo - apply ±2 range validation (existing logic)
-            // PropertyNo nearest check: must be within ±2 of main property number
+            // Fetch policy limit, default to 2
+            var allowedRangeStr = await _policyConfigurationService.GetPolicyValueAsync("CombinePropertyLimit", "2", cancellationToken);
+            if (!int.TryParse(allowedRangeStr, out int allowedRange))
+            {
+                _logger.LogWarning("Invalid policy value for CombinePropertyLimit: '{PolicyValue}'. Defaulting to 2.", allowedRangeStr);
+                allowedRange = 2;
+            }
+
+            // Case 2: Different PropertyNo - apply dynamic range validation
+            // PropertyNo nearest check: must be within ±allowedRange of main property number
             foreach (var property in combineProperties)
             {
-                var propertyNoValidation = ValidatePropertyNoWithinRange(mainProperty.PropertyNo, property.PropertyNo, 2);
+                var propertyNoValidation = ValidatePropertyNoWithinRange(mainProperty.PropertyNo, property.PropertyNo, allowedRange);
                 if (!propertyNoValidation.IsValid)
                 {
                     return (false, propertyNoValidation.ErrorMessage);
