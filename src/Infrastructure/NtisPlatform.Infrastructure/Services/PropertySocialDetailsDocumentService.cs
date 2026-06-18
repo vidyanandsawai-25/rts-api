@@ -69,7 +69,8 @@ public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocume
         int uploadedBy,
         bool isPhoto = false,
         CancellationToken cancellationToken = default,
-        bool restrictToDiscount = true)
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false)
     {
         // Input validation
         Guard.AgainstInvalidStream(fileStream, nameof(fileStream));
@@ -97,6 +98,38 @@ public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocume
                 ? $"SocialAttributeId {socialAttributeId} is not a valid discount-applicable attribute"
                 : $"SocialAttributeId {socialAttributeId} is not a valid active attribute";
             throw new ArgumentException(msg, nameof(socialAttributeId));
+        }
+
+        if (restrictToSocial)
+        {
+            var attribute = await _context.Set<SocialAttributeEntity>()
+                .FirstOrDefaultAsync(sa => sa.Id == socialAttributeId && sa.IsActive, cancellationToken);
+            if (attribute == null)
+            {
+                throw new ArgumentException($"SocialAttributeId {socialAttributeId} is not a valid active attribute", nameof(socialAttributeId));
+            }
+
+            if (attribute.IsDiscountApplicable)
+            {
+                throw new ArgumentException($"SocialAttributeId {socialAttributeId} is a discount-applicable attribute and cannot be used in the social-details flow", nameof(socialAttributeId));
+            }
+
+            if (attribute.ParentAttributeId.HasValue)
+            {
+                var parentIsDiscountApplicable = await _context.Set<SocialAttributeEntity>()
+                    .AnyAsync(sa => sa.Id == attribute.ParentAttributeId.Value && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+                if (parentIsDiscountApplicable)
+                {
+                    throw new ArgumentException($"SocialAttributeId {socialAttributeId} has a discount-applicable parent and cannot be used in the social-details flow", nameof(socialAttributeId));
+                }
+            }
+
+            var hasDiscountApplicableChild = await _context.Set<SocialAttributeEntity>()
+                .AnyAsync(sa => sa.ParentAttributeId == attribute.Id && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+            if (hasDiscountApplicableChild)
+            {
+                throw new ArgumentException($"SocialAttributeId {socialAttributeId} has a discount-applicable child and cannot be used in the social-details flow", nameof(socialAttributeId));
+            }
         }
 
         _logger.LogInformation("Starting social details document upload: {FileName}, PropertyId: {PropertyId}, SocialAttributeId: {SocialAttributeId}, IsPhoto: {IsPhoto}",
@@ -266,7 +299,8 @@ public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocume
         int uploadedBy,
         bool isPhoto = false,
         CancellationToken cancellationToken = default,
-        bool restrictToDiscount = true)
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false)
     {
         // Input validation
         Guard.AgainstInvalidStream(fileStream, nameof(fileStream));
@@ -299,6 +333,38 @@ public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocume
                 ? $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute."
                 : $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a valid active SocialAttribute.";
             throw new ArgumentException(msg, nameof(propertySocialDetailId));
+        }
+
+        if (restrictToSocial)
+        {
+            var attribute = await _context.Set<SocialAttributeEntity>()
+                .FirstOrDefaultAsync(sa => sa.Id == propertySocialDetail.SocialAttributeId && sa.IsActive, cancellationToken);
+            if (attribute == null)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} is not a valid active attribute", nameof(propertySocialDetailId));
+            }
+
+            if (attribute.IsDiscountApplicable)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} is a discount-applicable attribute and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+            }
+
+            if (attribute.ParentAttributeId.HasValue)
+            {
+                var parentIsDiscountApplicable = await _context.Set<SocialAttributeEntity>()
+                    .AnyAsync(sa => sa.Id == attribute.ParentAttributeId.Value && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+                if (parentIsDiscountApplicable)
+                {
+                    throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} has a discount-applicable parent and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+                }
+            }
+
+            var hasDiscountApplicableChild = await _context.Set<SocialAttributeEntity>()
+                .AnyAsync(sa => sa.ParentAttributeId == attribute.Id && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+            if (hasDiscountApplicableChild)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} has a discount-applicable child and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+            }
         }
 
         var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();

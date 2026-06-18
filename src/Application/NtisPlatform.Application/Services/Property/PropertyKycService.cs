@@ -94,7 +94,9 @@ public class PropertyKycService : IPropertyKycService
         property.FlatOrShopNo = dto.FlatOrShopNo;
         property.FlatOrShopNoEnglish = dto.FlatOrShopNoEnglish;
         property.MobileNo = dto.MobileNo;
+        property.AlternateMobileNo = dto.AlternateMobileNo;
         property.EmailId = dto.EmailId;
+        property.PinCode = dto.PinCode;
         property.UpdatedDate = now;
     }
 

@@ -41,7 +41,9 @@ public class UpdatePropertyKycDetailsDtoValidationTests
             FlatOrShopNo = "101",
             FlatOrShopNoEnglish = "101",
             MobileNo = "9921759522",
-            EmailId = "test@example.com"
+            AlternateMobileNo = "9503825102",
+            EmailId = "test@example.com",
+            PinCode = "456125"
         };
 
         var results = Validate(dto);
@@ -81,7 +83,9 @@ public class UpdatePropertyKycDetailsDtoValidationTests
         Assert.Null(dto.FlatOrShopNo);
         Assert.Null(dto.FlatOrShopNoEnglish);
         Assert.Null(dto.MobileNo);
+        Assert.Null(dto.AlternateMobileNo);
         Assert.Null(dto.EmailId);
+        Assert.Null(dto.PinCode);
     }
 
     [Fact]
@@ -147,6 +151,7 @@ public class UpdatePropertyKycDetailsDtoValidationTests
         var dto = new UpdatePropertyKycDetailsDto
         {
             MobileNo = "9921759522",
+            AlternateMobileNo = "9503825102",
             EmailId = "test@example.com"
         };
 
@@ -154,6 +159,7 @@ public class UpdatePropertyKycDetailsDtoValidationTests
         Assert.Empty(results);
         
         Assert.Equal("9921759522", dto.MobileNo);
+        Assert.Equal("9503825102", dto.AlternateMobileNo);
         Assert.Equal("test@example.com", dto.EmailId);
     }
 
@@ -215,7 +221,9 @@ public class UpdatePropertyKycDetailsDtoValidationTests
         dto.FlatOrShopNo = "101";
         dto.FlatOrShopNoEnglish = "101";
         dto.MobileNo = "9921759522";
+        dto.AlternateMobileNo = "9503825102";
         dto.EmailId = "test@test.com";
+        dto.PinCode = "456125";
 
         Assert.Equal(1, dto.OwnerTypeId);
         Assert.Equal("321131311616", dto.AdharCardNo);
@@ -236,6 +244,42 @@ public class UpdatePropertyKycDetailsDtoValidationTests
         Assert.Equal("101", dto.FlatOrShopNo);
         Assert.Equal("101", dto.FlatOrShopNoEnglish);
         Assert.Equal("9921759522", dto.MobileNo);
+        Assert.Equal("9503825102", dto.AlternateMobileNo);
         Assert.Equal("test@test.com", dto.EmailId);
+        Assert.Equal("456125", dto.PinCode);
+    }
+
+    [Theory]
+    [InlineData("12345")] // Too short
+    [InlineData("1234567")] // Too long
+    [InlineData("123a56")] // Contains non-digits
+    public void UpdatePropertyKycDetailsDto_InvalidPinCode_FailsValidation(string invalidPinCode)
+    {
+        var dto = new UpdatePropertyKycDetailsDto { PinCode = invalidPinCode };
+        var results = Validate(dto);
+        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage != null && r.ErrorMessage.Contains("PinCode must be exactly 6 digits or empty"));
+    }
+
+    [Theory]
+    [InlineData("12345678901234")] // Too long (14 chars)
+    [InlineData("992175952a")] // Invalid character
+    public void UpdatePropertyKycDetailsDto_InvalidMobileNo_FailsValidation(string invalidMobileNo)
+    {
+        var dto = new UpdatePropertyKycDetailsDto { MobileNo = invalidMobileNo };
+        var results = Validate(dto);
+        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage != null && r.ErrorMessage.Contains("MobileNo"));
+    }
+
+    [Theory]
+    [InlineData("12345678901234")] // Too long (14 chars)
+    [InlineData("950382510a")] // Invalid character
+    public void UpdatePropertyKycDetailsDto_InvalidAlternateMobileNo_FailsValidation(string invalidAlternateMobileNo)
+    {
+        var dto = new UpdatePropertyKycDetailsDto { AlternateMobileNo = invalidAlternateMobileNo };
+        var results = Validate(dto);
+        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage != null && r.ErrorMessage.Contains("AlternateMobileNo"));
     }
 }

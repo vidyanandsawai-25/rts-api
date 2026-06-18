@@ -26,7 +26,7 @@ public class PropertyKycRepository : PropertyRepositoryBase, IPropertyKycReposit
                 p.OccupierTitle, p.OccupierName, p.OccupierTitleEnglish, p.OccupierNameEnglish,
                 p.Address, p.Location, p.AddressEnglish, p.LocationEnglish,
                 p.FlatOrShopName, p.FlatOrShopNameEnglish, p.FlatOrShopNo, p.FlatOrShopNoEnglish,
-                p.MobileNo, p.EmailId
+                p.MobileNo, p.AlternateMobileNo, p.EmailId, p.PinCode
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -96,7 +96,9 @@ public class PropertyKycRepository : PropertyRepositoryBase, IPropertyKycReposit
 
             // From PropertyMast - Contact Information
             MobileNo = property.MobileNo,
-            EmailId = property.EmailId
+            AlternateMobileNo = property.AlternateMobileNo,
+            EmailId = property.EmailId,
+            PinCode = property.PinCode
         };
     }
 

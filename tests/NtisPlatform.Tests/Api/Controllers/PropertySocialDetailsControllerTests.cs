@@ -619,6 +619,7 @@ public class PropertySocialDetailsControllerTests
             It.IsAny<int>(),
             formDto.IsPhoto,
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ReturnsAsync(expectedResponse);
 
@@ -750,6 +751,7 @@ public class PropertySocialDetailsControllerTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ReturnsAsync(expectedResponse);
 
@@ -783,6 +785,7 @@ public class PropertySocialDetailsControllerTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ThrowsAsync(new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found"));
 

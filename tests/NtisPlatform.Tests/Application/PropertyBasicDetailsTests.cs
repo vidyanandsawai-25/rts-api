@@ -234,6 +234,8 @@ public class PropertyBasicDetailsTests
             var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
             var category = new PropertyCategoryEntity { Id = 1, PropertyCategoryName = "Residential", IsActive = true };
             var propertyType = new PropertyTypeMasterEntity { Id = 2, PropertyDescription = "Apartment", IsActive = true };
+            var rateSection = new RateSectionEntity { Id = 5, Description = "VITAVA", IsActive = true };
+            var rateSectionDetails = new RateSectionDetailsEntity { Id = 1, RateSectionId = 5, WardId = 79, IsActive = true };
             
             var property = new PropertyEntity
             {
@@ -253,6 +255,8 @@ public class PropertyBasicDetailsTests
             context.TaxZoneMaster.Add(taxZone);
             context.PropertyCategoryMaster.Add(category);
             context.PropertyTypeMasters.Add(propertyType);
+            context.RateSection.Add(rateSection);
+            context.RateSectionDetails.Add(rateSectionDetails);
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
@@ -267,6 +271,7 @@ public class PropertyBasicDetailsTests
             Assert.Equal("TZ10", result.TaxZoneNo);
             Assert.Equal("22", result.PropertyNo);
             Assert.Equal("1", result.PartitionNo);
+            Assert.Equal("VITAVA", result.RateSectionDescription);
         }
 
         [Fact]

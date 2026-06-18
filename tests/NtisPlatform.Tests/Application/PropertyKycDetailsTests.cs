@@ -59,7 +59,9 @@ public class PropertyKycDetailsTests
                 FlatOrShopNo = "1203",
                 FlatOrShopNoEnglish = "1203",
                 MobileNo = "9921759522",
-                EmailId = "user@example.com"
+                AlternateMobileNo = "9503825102",
+                EmailId = "user@example.com",
+                PinCode = "456125"
             };
 
             Assert.Equal(1, dto.OwnerTypeId);
@@ -81,7 +83,9 @@ public class PropertyKycDetailsTests
             Assert.Equal("1203", dto.FlatOrShopNo);
             Assert.Equal("1203", dto.FlatOrShopNoEnglish);
             Assert.Equal("9921759522", dto.MobileNo);
+            Assert.Equal("9503825102", dto.AlternateMobileNo);
             Assert.Equal("user@example.com", dto.EmailId);
+            Assert.Equal("456125", dto.PinCode);
         }
 
         [Fact]
@@ -108,7 +112,9 @@ public class PropertyKycDetailsTests
             Assert.Null(dto.FlatOrShopNo);
             Assert.Null(dto.FlatOrShopNoEnglish);
             Assert.Null(dto.MobileNo);
+            Assert.Null(dto.AlternateMobileNo);
             Assert.Null(dto.EmailId);
+            Assert.Null(dto.PinCode);
         }
 
         [Fact]
@@ -159,7 +165,9 @@ public class PropertyKycDetailsTests
                 FlatOrShopNo = "1203",
                 FlatOrShopNoEnglish = "1203",
                 MobileNo = "9921759522",
-                EmailId = "user@example.com"
+                AlternateMobileNo = "9503825102",
+                EmailId = "user@example.com",
+                PinCode = "456125"
             };
 
             Assert.Equal(549357, dto.PropertyId);
@@ -176,7 +184,9 @@ public class PropertyKycDetailsTests
             Assert.Equal("PARKING 13 FLOOR", dto.FlatOrShopName);
             Assert.Equal("1203", dto.FlatOrShopNo);
             Assert.Equal("9921759522", dto.MobileNo);
+            Assert.Equal("9503825102", dto.AlternateMobileNo);
             Assert.Equal("user@example.com", dto.EmailId);
+            Assert.Equal("456125", dto.PinCode);
         }
 
         [Fact]
@@ -195,7 +205,9 @@ public class PropertyKycDetailsTests
             Assert.Null(dto.OccupierName);
             Assert.Null(dto.Address);
             Assert.Null(dto.MobileNo);
+            Assert.Null(dto.AlternateMobileNo);
             Assert.Null(dto.EmailId);
+            Assert.Null(dto.PinCode);
         }
 
         [Fact]
@@ -250,7 +262,9 @@ public class PropertyKycDetailsTests
                 TaxZoneId = 10,
                 OwnerName = "John Doe",
                 MobileNo = "9921759522",
+                AlternateMobileNo = "9503825102",
                 EmailId = "test@example.com",
+                PinCode = "456125",
                 IsActive = true,
                 MarkedForDeletion = false
             };
@@ -265,7 +279,9 @@ public class PropertyKycDetailsTests
             Assert.Equal(549357, result.PropertyId);
             Assert.Equal("John Doe", result.OwnerName);
             Assert.Equal("9921759522", result.MobileNo);
+            Assert.Equal("9503825102", result.AlternateMobileNo);
             Assert.Equal("test@example.com", result.EmailId);
+            Assert.Equal("456125", result.PinCode);
         }
 
         [Fact]
@@ -367,7 +383,9 @@ public class PropertyKycDetailsTests
                 OwnerName = "NEW NAME",
                 OwnerNameEnglish = "New English Name",
                 MobileNo = "9921759522",
-                EmailId = "new@example.com"
+                AlternateMobileNo = "9503825102",
+                EmailId = "new@example.com",
+                PinCode = "456125"
             };
 
             var result = await service.UpdateKycDetailsAsync(549357, dto);
@@ -376,7 +394,9 @@ public class PropertyKycDetailsTests
             Assert.Equal("NEW NAME", result.OwnerName);
             Assert.Equal("New English Name", result.OwnerNameEnglish);
             Assert.Equal("9921759522", result.MobileNo);
+            Assert.Equal("9503825102", result.AlternateMobileNo);
             Assert.Equal("new@example.com", result.EmailId);
+            Assert.Equal("456125", result.PinCode);
         }
 
         [Fact]
@@ -563,7 +583,9 @@ public class PropertyKycDetailsTests
                 FlatOrShopNo = "101",
                 FlatOrShopNoEnglish = "101",
                 MobileNo = "9876543210",
-                EmailId = "test@test.com"
+                AlternateMobileNo = "9503825102",
+                EmailId = "test@test.com",
+                PinCode = "456125"
             };
 
             var result = await service.UpdateKycDetailsAsync(549357, dto);
@@ -582,7 +604,9 @@ public class PropertyKycDetailsTests
             Assert.Equal("101", result.FlatOrShopNo);
             Assert.Equal("101", result.FlatOrShopNoEnglish);
             Assert.Equal("9876543210", result.MobileNo);
+            Assert.Equal("9503825102", result.AlternateMobileNo);
             Assert.Equal("test@test.com", result.EmailId);
+            Assert.Equal("456125", result.PinCode);
         }
     }
 

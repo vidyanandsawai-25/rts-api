@@ -24,7 +24,8 @@ public interface IPropertySocialDetailsDocumentService
         int uploadedBy,
         bool isPhoto = false,
         CancellationToken cancellationToken = default,
-        bool restrictToDiscount = true);
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false);
 
     /// <summary>
     /// Replaces an existing document for a PropertySocialDetails record
@@ -39,5 +40,6 @@ public interface IPropertySocialDetailsDocumentService
         int uploadedBy,
         bool isPhoto = false,
         CancellationToken cancellationToken = default,
-        bool restrictToDiscount = true);
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false);
 }

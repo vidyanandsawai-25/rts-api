@@ -275,7 +275,8 @@ public class PropertySocialDetailsController : ControllerBase
                 GetUserId(),
                 formDto.IsPhoto,
                 ct,
-                restrictToDiscount: false);
+                restrictToDiscount: false,
+                restrictToSocial: true);
 
             return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
             {
@@ -366,7 +367,8 @@ public class PropertySocialDetailsController : ControllerBase
                 GetUserId(),
                 formDto.IsPhoto,
                 ct,
-                restrictToDiscount: false);
+                restrictToDiscount: false,
+                restrictToSocial: true);
 
             return Ok(new ApiResponse<PropertySocialDetailsDocumentResponseDto>
             {

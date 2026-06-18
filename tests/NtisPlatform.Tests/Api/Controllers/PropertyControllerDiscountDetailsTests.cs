@@ -282,6 +282,7 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ThrowsAsync(new ArgumentException("Property with ID 999 not found", "propertyId"));
 
@@ -347,6 +348,7 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ReturnsAsync(expectedResponse);
 
@@ -380,6 +382,7 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ThrowsAsync(new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found"));
 
@@ -454,6 +457,7 @@ public class PropertyControllerDiscountDetailsTests
             It.IsAny<int>(),
             It.IsAny<bool>(),
             It.IsAny<CancellationToken>(),
+            It.IsAny<bool>(),
             It.IsAny<bool>()))
             .ThrowsAsync(new ArgumentException(
                 $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute.",

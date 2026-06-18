@@ -98,6 +98,11 @@ public class PropertySocialDetailsServiceTests
             .ReturnsAsync(entity);
         _mockMapper.Setup(m => m.Map<PropertySocialDetailsDto>(It.IsAny<PropertySocialDetailsEntity>()))
             .Returns(dto);
+        _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialAttributesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<SocialAttributeEntity>
+            {
+                new() { Id = 5, SocialAttributeCode = "HAS_FAMILY_PLANNING", IsActive = true, IsDiscountApplicable = false }
+            });
 
         // Act
         var result = await _service.GetByIdAsync(entityId, CancellationToken.None);
@@ -378,6 +383,73 @@ public class PropertySocialDetailsServiceTests
         Assert.False(result);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Discount Applicability Filtering Tests
+
+    [Fact]
+    public async Task GetPropertySocialInfoAsync_FiltersOutDiscountApplicableBranches()
+    {
+        // Arrange
+        var allAttributes = new List<SocialAttributeEntity>
+        {
+            // Branch A: Parent allowed, child is discount applicable -> entire branch should be filtered out
+            new() { Id = 1, SocialAttributeCode = "PARENT_A", IsDiscountApplicable = false, ParentAttributeId = null, IsActive = true },
+            new() { Id = 2, SocialAttributeCode = "CHILD_A", IsDiscountApplicable = true, ParentAttributeId = 1, IsActive = true },
+            
+            // Branch B: Parent is discount applicable -> entire branch filtered out
+            new() { Id = 3, SocialAttributeCode = "PARENT_B", IsDiscountApplicable = true, ParentAttributeId = null, IsActive = true },
+            new() { Id = 4, SocialAttributeCode = "CHILD_B", IsDiscountApplicable = false, ParentAttributeId = 3, IsActive = true },
+
+            // Branch C: Parent and child allowed -> entire branch preserved
+            new() { Id = 5, SocialAttributeCode = "PARENT_C", IsDiscountApplicable = false, ParentAttributeId = null, IsActive = true },
+            new() { Id = 6, SocialAttributeCode = "CHILD_C", IsDiscountApplicable = false, ParentAttributeId = 5, IsActive = true }
+        };
+
+        _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialAttributesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(allAttributes);
+        _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialDetailsByPropertyAsync(100, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertySocialDetailsEntity>());
+
+        // Act
+        var result = await _service.GetPropertySocialInfoAsync(100, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.SocialAttributes);
+        var activeParent = result.SocialAttributes[0];
+        Assert.Equal(5, activeParent.Id);
+        Assert.Single(activeParent.Children);
+        Assert.Equal(6, activeParent.Children[0].Id);
+    }
+
+    [Fact]
+    public async Task UpsertPropertySocialInfoAsync_WithDiscountApplicableAttribute_ThrowsPropertyValidationException()
+    {
+        // Arrange
+        var allAttributes = new List<SocialAttributeEntity>
+        {
+            new() { Id = 1, SocialAttributeCode = "DISCOUNT_ATTR", IsDiscountApplicable = true, ParentAttributeId = null, IsActive = true }
+        };
+
+        _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialAttributesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(allAttributes);
+
+        var upsertDto = new UpsertPropertySocialInfoDto
+        {
+            PropertyId = 100,
+            UpdatedBy = 1,
+            SocialAttributes = new List<PropertySocialInfoItemDto>
+            {
+                new() { SocialAttributeId = 1, BitValue = true }
+            }
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.PropertyValidationException>(() =>
+            _service.UpsertPropertySocialInfoAsync(upsertDto, CancellationToken.None));
     }
 
     #endregion

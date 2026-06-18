@@ -73,7 +73,15 @@ public class UpdatePropertyKycDetailsDto
     [RegularExpression(@"^[0-9+\-\s()]*$", ErrorMessage = "MobileNo contains invalid characters.")]
     public string? MobileNo { get; set; }
 
+    [StringLength(13, ErrorMessage = "AlternateMobileNo cannot exceed 13 characters.")]
+    [RegularExpression(@"^[0-9+\-\s()]*$", ErrorMessage = "AlternateMobileNo contains invalid characters.")]
+    public string? AlternateMobileNo { get; set; }
+
     [StringLength(100, ErrorMessage = "EmailId cannot exceed 100 characters.")]
     [RegularExpression(@"^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", ErrorMessage = "EmailId must be a valid email address.")]
     public string? EmailId { get; set; }
+
+    [StringLength(6, ErrorMessage = "PinCode must be exactly 6 digits or empty.")]
+    [RegularExpression(@"^$|^\d{6}$", ErrorMessage = "PinCode must be exactly 6 digits or empty.")]
+    public string? PinCode { get; set; }
 }

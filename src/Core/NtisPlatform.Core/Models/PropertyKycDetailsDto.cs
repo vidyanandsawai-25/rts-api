@@ -41,5 +41,7 @@ public class PropertyKycDetailsDto
     
     // From PropertyMast - Contact Information
     public string? MobileNo { get; set; }
+    public string? AlternateMobileNo { get; set; }
     public string? EmailId { get; set; }
+    public string? PinCode { get; set; }
 }

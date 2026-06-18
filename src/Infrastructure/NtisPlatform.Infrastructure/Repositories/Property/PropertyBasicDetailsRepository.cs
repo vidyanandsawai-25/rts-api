@@ -123,6 +123,19 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
+        // Retrieve RateSectionDescription if WardId is set
+        string? rateSectionDescription = null;
+        if (mainResult.Property.WardId > 0)
+        {
+            rateSectionDescription = await (
+                from rsd in _context.RateSectionDetails.AsNoTracking()
+                where rsd.WardId == mainResult.Property.WardId && rsd.IsActive
+                join rs in _context.RateSection.AsNoTracking() on rsd.RateSectionId equals rs.Id
+                where rs.IsActive
+                select rs.Description
+            ).FirstOrDefaultAsync(cancellationToken);
+        }
+
         // Build and return DTO
         return new PropertyBasicDetailsDto
         {
@@ -159,7 +172,8 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             PlotAreaMtrLength = plot?.PlotAreaMtrLength != null ? Math.Round(plot.PlotAreaMtrLength.Value, 2) : null,
             PlotAreaMtrWidth = plot?.PlotAreaMtrWidth != null ? Math.Round(plot.PlotAreaMtrWidth.Value, 2) : null,
             WingId = society?.WingId,
-            WingName = society?.WingName
+            WingName = society?.WingName,
+            RateSectionDescription = rateSectionDescription
         };
     }
 

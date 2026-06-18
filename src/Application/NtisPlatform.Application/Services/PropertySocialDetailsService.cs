@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
@@ -51,15 +52,32 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     public override async Task<PagedResult<PropertySocialDetailsDto>> GetAllAsync(PropertySocialDetailsQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
         var result = await base.GetAllAsync(queryParameters, cancellationToken);
-        await EnrichDtosAsync(result.Items.ToList(), cancellationToken);
-        return result;
+        var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
+        var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
+        var allowedIds = allowedSocialAttributes.Select(x => x.Id).ToHashSet();
+        
+        var filteredItems = result.Items.Where(x => allowedIds.Contains(x.SocialAttributeId)).ToList();
+        await EnrichDtosAsync(filteredItems, cancellationToken);
+        
+        return new PagedResult<PropertySocialDetailsDto>(filteredItems, filteredItems.Count, result.PageNumber, result.PageSize);
     }
 
     public override async Task<PropertySocialDetailsDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         var result = await base.GetByIdAsync(id, cancellationToken);
         if (result != null)
+        {
+            var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
+            var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
+            var allowedIds = allowedSocialAttributes.Select(x => x.Id).ToHashSet();
+            
+            if (!allowedIds.Contains(result.SocialAttributeId))
+            {
+                return null;
+            }
+            
             await EnrichDtosAsync(new List<PropertySocialDetailsDto> { result }, cancellationToken);
+        }
         return result;
     }
 
@@ -143,6 +161,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     {
         // Step 1: Get ALL active social attributes
         var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
+        var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
 
         // Step 2: Get existing property social details for this property
         var existingDetails = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(propertyId, cancellationToken);
@@ -170,11 +189,11 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         }
 
         // Step 3: Build parent-child hierarchy
-        var parentAttributes = allSocialAttributes.Where(x => x.ParentAttributeId == null).ToList();
+        var parentAttributes = allowedSocialAttributes.Where(x => x.ParentAttributeId == null).ToList();
         var result = new PropertySocialInfoResponseDto
         {
             PropertyId = propertyId,
-            SocialAttributes = parentAttributes.Select(parent => BuildHierarchy(parent, allSocialAttributes, existingDetails, bindings)).ToList()
+            SocialAttributes = parentAttributes.Select(parent => BuildHierarchy(parent, allowedSocialAttributes, existingDetails, bindings)).ToList()
         };
 
         return result;
@@ -256,6 +275,36 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
 
     public async Task<List<PropertySocialDetailsDto>> UpsertPropertySocialInfoAsync(UpsertPropertySocialInfoDto dto, CancellationToken cancellationToken = default)
     {
+        var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
+        var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
+        var allowedIds = allowedSocialAttributes.Select(x => x.Id).ToHashSet();
+
+        if (dto.SocialAttributes != null && dto.SocialAttributes.Any())
+        {
+            foreach (var item in dto.SocialAttributes)
+            {
+                if (!allowedIds.Contains(item.SocialAttributeId))
+                {
+                    throw new PropertyValidationException(
+                        $"SocialAttribute with ID {item.SocialAttributeId} is marked as discount-applicable or has a discount-applicable parent/child. " +
+                        "It cannot be updated via the social-details endpoint.");
+                }
+            }
+        }
+
+        if (dto.SocialAttributeIdsToRemove != null && dto.SocialAttributeIdsToRemove.Any())
+        {
+            foreach (var id in dto.SocialAttributeIdsToRemove)
+            {
+                if (!allowedIds.Contains(id))
+                {
+                    throw new PropertyValidationException(
+                        $"SocialAttribute with ID {id} is marked as discount-applicable or has a discount-applicable parent/child. " +
+                        "It cannot be removed via the social-details endpoint.");
+                }
+            }
+        }
+
         var existingRecords = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
 
         // Step 1: Soft delete (mark as inactive) the social attributes to remove
@@ -349,5 +398,36 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         var dtos = _mapper.Map<List<PropertySocialDetailsDto>>(updatedRecords);
         await EnrichDtosAsync(dtos, cancellationToken);
         return dtos;
+    }
+
+    private List<SocialAttributeEntity> FilterOutDiscountApplicableAttributes(List<SocialAttributeEntity> allAttributes)
+    {
+        // Find all attribute IDs that are directly discount-applicable
+        var directlyDiscountApplicableIds = allAttributes
+            .Where(x => x.IsDiscountApplicable)
+            .Select(x => x.Id)
+            .ToHashSet();
+
+        // An attribute is NOT allowed in social details if:
+        // 1. It is directly discount-applicable.
+        // 2. It has a parent that is directly discount-applicable.
+        // 3. It has a child that is directly discount-applicable.
+        return allAttributes.Where(sa =>
+        {
+            // 1. Directly discount-applicable?
+            if (directlyDiscountApplicableIds.Contains(sa.Id))
+                return false;
+
+            // 2. Parent is directly discount-applicable?
+            if (sa.ParentAttributeId.HasValue && directlyDiscountApplicableIds.Contains(sa.ParentAttributeId.Value))
+                return false;
+
+            // 3. Any child is directly discount-applicable?
+            var hasDiscountApplicableChild = allAttributes.Any(c => c.ParentAttributeId == sa.Id && directlyDiscountApplicableIds.Contains(c.Id));
+            if (hasDiscountApplicableChild)
+                return false;
+
+            return true;
+        }).ToList();
     }
 }
