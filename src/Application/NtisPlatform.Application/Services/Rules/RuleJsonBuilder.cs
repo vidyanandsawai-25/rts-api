@@ -24,8 +24,9 @@ namespace NtisPlatform.Application.Services.Rules
             ["LESS_THAN_OR_EQUALS"] = "<=",
             ["IN"] = "in",
             ["NOT_IN"] = "not in",
-            ["CONTAINS_ANY"] = "contains",
-            ["CONTAINS_ALL"] = "contains",
+            ["CONTAINS"] = "in",
+            ["CONTAINS_ANY"] = "in",
+            ["CONTAINS_ALL"] = "in",
 
             // Literal operator mappings
             ["="] = "==",
@@ -43,10 +44,10 @@ namespace NtisPlatform.Application.Services.Rules
             ["LESS_THAN_OR_EQUAL_TO"] = "<=",
             ["VALUE_EXISTS_IN_LIST"] = "in",
             ["VALUE_DOES_NOT_EXIST_IN_LIST"] = "not in",
-            ["CONTAINS_ANY_MATCHING_VALUE"] = "contains",
-            ["CONTAINS_ALL_MATCHING_VALUES"] = "contains",
-            ["CONTAINS_ANY_MATCHING_VALUES"] = "contains",
-            ["CONTAINS_ALL_MATCHING_VALUE"] = "contains",
+            ["CONTAINS_ANY_MATCHING_VALUE"] = "in",
+            ["CONTAINS_ALL_MATCHING_VALUES"] = "in",
+            ["CONTAINS_ANY_MATCHING_VALUES"] = "in",
+            ["CONTAINS_ALL_MATCHING_VALUE"] = "in",
         };
 
         /// <summary>
@@ -224,7 +225,7 @@ namespace NtisPlatform.Application.Services.Rules
             var valueEl = cond.TryGetProperty("value", out var v) ? v : default;
 
             var prop = ResolveInputProp(fieldId);
-            
+
             // Normalize operator code: e.g. "Not In" -> "NOT_IN", "contains any" -> "CONTAINS_ANY"
             var normalizedOperCode = operCode.Trim().Replace(" ", "_").ToUpperInvariant();
 

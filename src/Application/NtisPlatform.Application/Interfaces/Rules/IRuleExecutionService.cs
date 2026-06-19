@@ -30,5 +30,20 @@ namespace NtisPlatform.Application.Interfaces.Rules
         /// </summary>
         Task<List<RuleCategoryDto>> GetCategoriesAsync(
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Performs a full dry-run evaluation of rules for the given category and input,
+        /// returning a detailed trace of every sub-rule — both matched and unmatched —
+        /// without persisting any results.
+        ///
+        /// <para>
+        /// If <see cref="RuleDryRunInputDto.RuleJson"/> is provided, that JSON is used
+        /// directly instead of loading rules from the database, allowing rule authors
+        /// to validate a new rule JSON before saving it.
+        /// </para>
+        /// </summary>
+        Task<RuleDryRunResultDto> DryRunAsync(
+            RuleDryRunInputDto input,
+            CancellationToken cancellationToken = default);
     }
 }

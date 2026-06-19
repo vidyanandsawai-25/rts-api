@@ -1,39 +1,17 @@
+using NtisPlatform.Application.DTOs;
+
 namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
 {
     /// <summary>
-    /// DTO for retrieving rule engine configuration
+    /// Lightweight DTO for rule engine configuration summaries
+    /// Excludes the heavy JSON properties (RuleJson, ConditionsJson, EffectJson, TargetFiltersJson)
     /// </summary>
-    public class RuleEngineDto : BaseDtos
+    public class RuleEngineSummaryDto : BaseDtos
     {
         public string RuleCode { get; set; } = string.Empty;
         public string RuleName { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? RuleCategory { get; set; }
-
-        /// <summary>
-        /// MS Rules Engine-compatible policy JSON.
-        /// Populated only by GetById — stripped from GetAll to keep list payloads lightweight.
-        /// </summary>
-        public string? RuleJson { get; set; }
-
-        /// <summary>
-        /// Serialized ConditionGroupState — for re-hydrating the visual rule builder on edit.
-        /// Populated only by GetById.
-        /// </summary>
-        public string? ConditionsJson { get; set; }
-
-        /// <summary>
-        /// Serialized EffectState — for re-hydrating the effect panel on edit.
-        /// Populated only by GetById.
-        /// </summary>
-        public string? EffectJson { get; set; }
-
-        /// <summary>
-        /// Serialized TargetFilterState — for re-hydrating the target filters on edit.
-        /// Populated only by GetById.
-        /// </summary>
-        public string? TargetFiltersJson { get; set; }
-
         public int Priority { get; set; }
         public bool IsEnabled { get; set; }
         public bool StopProcessing { get; set; }
@@ -54,4 +32,3 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
         public List<SubRuleMetaDto>? SubRules { get; set; }
     }
 }
-

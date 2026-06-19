@@ -7,6 +7,7 @@ using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
+using System.Text.Json;
 
 namespace NtisPlatform.Application.Services.Rules
 {
@@ -39,17 +40,22 @@ namespace NtisPlatform.Application.Services.Rules
         }
 
         /// <summary>
-        /// Override GetByIdAsync to include rule exclusions and check MarkedForDeletion
+        /// Override GetByIdAsync to include RuleScope navigation property and enrich sub-rule metadata.
         /// </summary>
         public override async Task<RuleEngineDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
+            // ✅ Include RuleScope so RuleScopeName is populated in the DTO
             var entity = await _repository.GetQueryable()
+                .Include(r => r.RuleScope)
                 .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
 
             if (entity == null)
                 return null;
 
             var dto = _mapper.Map<RuleEngineDto>(entity);
+
+            // ✅ Parse sub-rule metadata from ConditionsJson array (if present)
+            EnrichWithSubRuleMeta(dto);
 
             return dto;
         }
@@ -67,7 +73,7 @@ namespace NtisPlatform.Application.Services.Rules
             // Apply search
             query = query.ApplySearch(queryParameters);
 
-            // Apply sorting
+            // Apply sorting — defaults to Priority ASC (set in RuleEngineQueryParameters constructor)
             query = query.ApplySort(queryParameters);
 
             // Get total count
@@ -184,7 +190,7 @@ namespace NtisPlatform.Application.Services.Rules
 
                 // ✅ Ensure StopProcessing and RuleScopeId are explicitly set
                 entity.StopProcessing = updateDto.StopProcessing;
-                entity.RuleScopeId    = updateDto.RuleScopeId;
+                entity.RuleScopeId = updateDto.RuleScopeId;
 
                 // ── Backend re-generates ruleJson whenever rule is updated ──────────────
                 entity.RuleJson = RuleJsonBuilder.Build(
@@ -258,6 +264,54 @@ namespace NtisPlatform.Application.Services.Rules
                 .ToListAsync(cancellationToken);
 
             return _mapper.Map<List<RuleVersionHistoryDto>>(history);
+        }
+
+        /// <summary>
+        /// Returns a lightweight, priority-ordered summary list of all active (non-deleted) rules with pagination.
+        /// Includes: RuleCode, RuleName, Description, RuleCategory, Priority, IsEnabled,
+        /// StopProcessing, RuleScopeId, RuleScopeName, and SubRules metadata.
+        /// Heavy JSON blobs (RuleJson, ConditionsJson, EffectJson, TargetFiltersJson) are excluded.
+        /// </summary>
+        public async Task<Models.PagedResult<RuleEngineSummaryDto>> GetSummaryAsync(RuleEngineQueryParameters queryParameters, CancellationToken cancellationToken = default)
+        {
+            var query = _repository.GetQueryable()
+                .Where(r => !r.MarkedForDeletion);
+
+            // Apply filters
+            query = query.ApplyFilters(queryParameters);
+
+            // Apply search
+            query = query.ApplySearch(queryParameters);
+
+            // Apply sorting
+            query = query.ApplySort(queryParameters);
+
+            // Get total count before pagination
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            // Apply pagination
+            var pagedQuery = query
+                .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+                .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
+                .Include(r => r.RuleScope);
+
+            var entities = await pagedQuery.ToListAsync(cancellationToken);
+
+            var dtos = _mapper.Map<List<RuleEngineSummaryDto>>(entities);
+
+            for (int i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                var dto = dtos[i];
+
+                // Parse sub-rule metadata from the entity's ConditionsJson
+                dto.SubRules = ParseSubRules(entity.ConditionsJson);
+            }
+
+            var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+            var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+            return new Models.PagedResult<RuleEngineSummaryDto>(dtos, totalCount, pageNumber, pageSize);
         }
 
         #region Helper Methods
@@ -359,6 +413,72 @@ namespace NtisPlatform.Application.Services.Rules
 
             return ruleCode;
         }
+        /// <summary>
+        /// Parses ConditionsJson when it is a JSON array of sub-rules and populates
+        /// <see cref="RuleEngineDto.SubRules"/> with lightweight metadata (id, description, enabled, stopProcessing).
+        /// Does nothing if ConditionsJson is null, empty, or a single-group object (not an array).
+        /// </summary>
+        private static void EnrichWithSubRuleMeta(RuleEngineDto dto)
+        {
+            dto.SubRules = ParseSubRules(dto.ConditionsJson);
+        }
+
+        /// <summary>
+        /// Shared helper to parse ConditionsJson array into SubRuleMetaDto list.
+        /// </summary>
+        private static List<SubRuleMetaDto>? ParseSubRules(string? conditionsJson)
+        {
+            if (string.IsNullOrWhiteSpace(conditionsJson))
+                return null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(conditionsJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Array)
+                    return null; // Single-group conditions — no sub-rules to enumerate
+
+                var subRules = new List<SubRuleMetaDto>();
+
+                foreach (var element in doc.RootElement.EnumerateArray())
+                {
+                    var id = element.TryGetProperty("id", out var idEl)
+                        ? idEl.GetString() ?? string.Empty
+                        : string.Empty;
+
+                    var description = element.TryGetProperty("description", out var descEl)
+                        ? descEl.GetString()
+                        : null;
+
+                    var isEnabled = true;
+                    if (element.TryGetProperty("enabled", out var enabledEl) && enabledEl.ValueKind == JsonValueKind.False)
+                        isEnabled = false;
+                    else if (element.TryGetProperty("isEnabled", out var isEnabledEl) && isEnabledEl.ValueKind == JsonValueKind.False)
+                        isEnabled = false;
+
+                    var stopProcessing = false;
+                    if (element.TryGetProperty("stopProcessing", out var stopEl) && stopEl.ValueKind == JsonValueKind.True)
+                        stopProcessing = true;
+                    else if (element.TryGetProperty("StopProcessing", out var stopElCaps) && stopElCaps.ValueKind == JsonValueKind.True)
+                        stopProcessing = true;
+
+                    subRules.Add(new SubRuleMetaDto
+                    {
+                        Id = id,
+                        Description = description,
+                        IsEnabled = isEnabled,
+                        StopProcessing = stopProcessing,
+                    });
+                }
+
+                return subRules.Count > 0 ? subRules : null;
+            }
+            catch
+            {
+                // Malformed JSON — leave SubRules as null; do not fail the request
+                return null;
+            }
+        }
+
         #endregion
     }
 }

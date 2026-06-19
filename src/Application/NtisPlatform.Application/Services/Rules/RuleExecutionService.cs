@@ -40,10 +40,10 @@ namespace NtisPlatform.Application.Services.Rules
             IEnumerable<IRuleEffectApplicator> effectApplicators,
             ILogger<RuleExecutionService> logger)
         {
-            _ruleRepository          = ruleRepository;
-            _categoryRepository      = categoryRepository;
-            _effectApplicators       = effectApplicators;
-            _logger                  = logger;
+            _ruleRepository = ruleRepository;
+            _categoryRepository = categoryRepository;
+            _effectApplicators = effectApplicators;
+            _logger = logger;
         }
 
         // ─── Public API ─────────────────────────────────────────────────────────────
@@ -59,8 +59,8 @@ namespace NtisPlatform.Application.Services.Rules
 
             return categories.Select(c => new RuleCategoryDto
             {
-                Value     = c.CategoryCode,
-                Label     = c.CategoryName,
+                Value = c.CategoryCode,
+                Label = c.CategoryName,
                 SortOrder = c.SortOrder
             }).ToList();
         }
@@ -103,13 +103,13 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Step 3: Build the engine and the typed dynamic input ─────────────────────────
             // RuleParameter named "input" makes expressions like "input.Floor == 65" work.
-            var rulesEngine    = new global::RulesEngine.RulesEngine(ruleWorkflows.Select(w => w.Workflow).ToArray());
-            var dynamicInput   = BuildDynamicInput(input.Input);
+            var rulesEngine = new global::RulesEngine.RulesEngine(ruleWorkflows.Select(w => w.Workflow).ToArray());
+            var dynamicInput = BuildDynamicInput(input.Input);
             var engineParameter = new RuleParameter("input", dynamicInput);
 
             // ── Step 4: Evaluate each workflow with stop-processing logic ────────
             var appliedRuleIds = new HashSet<int>();
-            var results        = new List<RuleExecutionResultDto>();
+            var results = new List<RuleExecutionResultDto>();
 
             foreach (var (workflow, ruleEffectsMap, ruleStopProcessingMap, ruleId, stopOnMatch, ruleOrderIndex) in ruleWorkflows)
             {
@@ -176,6 +176,380 @@ namespace NtisPlatform.Application.Services.Rules
             return results;
         }
 
+        /// <inheritdoc/>
+        public async Task<RuleDryRunResultDto> DryRunAsync(
+            RuleDryRunInputDto input,
+            CancellationToken cancellationToken = default)
+        {
+            if (input == null)
+                throw new ArgumentNullException(nameof(input));
+
+            if (input.Input == null || !input.Input.Any())
+                throw new ArgumentException("Input dictionary cannot be null or empty.", nameof(input));
+
+            var dryRunResult = new RuleDryRunResultDto
+            {
+                Category = input.Category,
+                ResolvedInput = input.Input.ToDictionary(k => k.Key, k => k.Value?.ToString() ?? "null")
+            };
+
+            // ── Step 1: Resolve rule entities — from DB or from raw RuleJson ────────
+            List<RuleEngineEntity> ruleEntities;
+
+            if (!string.IsNullOrWhiteSpace(input.RuleJson))
+            {
+                // Ad-hoc test mode: wrap the supplied JSON into a synthetic entity
+                ruleEntities = new List<RuleEngineEntity>
+                {
+                    new RuleEngineEntity
+                    {
+                        Id         = 0,
+                        RuleCode   = "DRY-RUN-ADHOC",
+                        RuleName   = "Ad-hoc Dry Run",
+                        RuleJson   = input.RuleJson,
+                        RuleCategory = input.Category,
+                        Priority   = 1,
+                        IsEnabled  = true,
+                        IsActive   = true,
+                        StopProcessing = false
+                    }
+                };
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(input.Category))
+                    throw new ArgumentException("Category is required when RuleJson is not provided.", nameof(input));
+
+                ruleEntities = await _ruleRepository.GetQueryable()
+                    .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive)
+                    .OrderBy(r => r.Priority)
+                    .ThenBy(r => r.Id)
+                    .AsNoTracking()
+                    .ToListAsync(cancellationToken);
+            }
+
+            dryRunResult.TotalRulesLoaded = ruleEntities.Count;
+
+            if (!ruleEntities.Any())
+                return dryRunResult;
+
+            // ── Step 2: Build the engine input ──────────────────────────────────────
+            // If the caller provided an explicit BaseValue, inject it into the input
+            // dictionary so ResolveBaseRate finds it via the standard fallback keys.
+            // We inject under all three well-known fallback keys so any ParameterCode works.
+            var effectiveInput = new Dictionary<string, object>(input.Input);
+            if (input.BaseValue.HasValue)
+            {
+                effectiveInput["Rate"] = input.BaseValue.Value;
+                effectiveInput["BaseRate"] = input.BaseValue.Value;
+                effectiveInput["RatePerSqMt"] = input.BaseValue.Value;
+
+                // Also keep it visible in the resolved-input snapshot
+                dryRunResult.ResolvedInput["BaseValue (override)"] = input.BaseValue.Value.ToString("G");
+            }
+
+            var dynamicInput = BuildDynamicInput(effectiveInput);
+            var engineParameter = new RuleParameter("input", dynamicInput);
+
+            // ── Step 3: Evaluate each entity and collect the full trace ─────────────
+            foreach (var entity in ruleEntities)
+            {
+                var workflowResult = await EvaluateDryRunEntityAsync(
+                    entity, engineParameter, effectiveInput, cancellationToken);
+
+                dryRunResult.Workflows.Add(workflowResult);
+                dryRunResult.TotalSubRulesEvaluated += workflowResult.SubRules.Count;
+                dryRunResult.MatchedCount += workflowResult.SubRules.Count(r => r.IsMatch && !r.WasSkipped);
+
+                // Check if any matched sub-rule triggered stop processing
+                var stopTriggered = workflowResult.SubRules
+                    .Where(r => r.IsMatch && !r.WasSkipped)
+                    .Any(r => r.StopProcessing || workflowResult.EntityStopOnMatch);
+
+                if (stopTriggered)
+                {
+                    dryRunResult.StoppedEarly = true;
+                    break;
+                }
+            }
+
+            return dryRunResult;
+        }
+
+        /// <summary>
+        /// Evaluates all sub-rules within a single <see cref="RuleEngineEntity"/> and returns
+        /// a per-workflow dry-run trace containing both matched and unmatched sub-rule results.
+        /// </summary>
+        private async Task<RuleDryRunWorkflowResult> EvaluateDryRunEntityAsync(
+            RuleEngineEntity entity,
+            RuleParameter engineParameter,
+            Dictionary<string, object> inputValues,
+            CancellationToken cancellationToken)
+        {
+            var workflowResult = new RuleDryRunWorkflowResult
+            {
+                RuleEntityId = entity.Id,
+                Priority = entity.Priority,
+                EntityStopOnMatch = entity.StopProcessing,
+                WorkflowName = entity.RuleCode
+            };
+
+            if (string.IsNullOrWhiteSpace(entity.RuleJson))
+            {
+                workflowResult.WorkflowName = entity.RuleCode + " [empty RuleJson]";
+                return workflowResult;
+            }
+
+            try
+            {
+                var ruleJson = JsonSerializer.Deserialize<JsonElement>(entity.RuleJson);
+
+                if (ruleJson.TryGetProperty("RuleName", out var ruleNameProp))
+                    workflowResult.WorkflowName = ruleNameProp.GetString() ?? entity.RuleCode;
+
+                if (!ruleJson.TryGetProperty("rules", out var rulesArray) ||
+                    rulesArray.ValueKind != JsonValueKind.Array)
+                    return workflowResult;
+
+                // Parse sub-rules — tracking every sub-rule even skipped ones
+                var rules = new List<Rule>();
+                var ruleEffectsMap = new Dictionary<string, JsonElement>();
+                var ruleStopMap = new Dictionary<string, bool>();
+                var ruleOrderIndex = new Dictionary<string, int>();
+                var skippedSubRules = new List<RuleDryRunSubRuleResult>();
+
+                int arrayPos = 0;
+                foreach (var subRuleElement in rulesArray.EnumerateArray())
+                {
+                    var subRuleTrace = ParseSubRuleForDryRun(
+                        subRuleElement, entity, arrayPos,
+                        rules, ruleEffectsMap, ruleStopMap, ruleOrderIndex);
+                    arrayPos++;
+
+                    if (subRuleTrace.WasSkipped)
+                        skippedSubRules.Add(subRuleTrace);
+                }
+
+                if (!rules.Any())
+                {
+                    // All sub-rules were skipped — add them to trace and return
+                    workflowResult.SubRules.AddRange(skippedSubRules);
+                    return workflowResult;
+                }
+
+                // Execute the workflow
+                var workflow = new Workflow { WorkflowName = workflowResult.WorkflowName, Rules = rules };
+                var rulesEngine = new global::RulesEngine.RulesEngine(new[] { workflow });
+
+                var ruleResults = await rulesEngine.ExecuteAllRulesAsync(
+                    workflow.WorkflowName,
+                    new[] { engineParameter });
+
+                // Re-sort by original JSON order
+                var orderedResults = ruleResults
+                    .OrderBy(r => ruleOrderIndex.TryGetValue(r.Rule.RuleName, out var idx) ? idx : int.MaxValue);
+
+                // Build sub-rule trace entries for all evaluated rules
+                var evaluatedTrace = new Dictionary<string, RuleDryRunSubRuleResult>();
+
+                foreach (var ruleResult in orderedResults)
+                {
+                    var idx = ruleOrderIndex.TryGetValue(ruleResult.Rule.RuleName, out var i) ? i : -1;
+
+                    var subTrace = new RuleDryRunSubRuleResult
+                    {
+                        ArrayIndex = idx,
+                        RuleCode = ruleResult.Rule.RuleName,
+                        RuleName = ruleResult.Rule.ErrorMessage ?? ruleResult.Rule.RuleName,
+                        Expression = ruleResult.Rule.Expression,
+                        IsMatch = ruleResult.IsSuccess,
+                        StopProcessing = ruleStopMap.TryGetValue(ruleResult.Rule.RuleName, out var sp) && sp,
+                        MatchStatus = ruleResult.IsSuccess
+                            ? "Matched"
+                            : (!string.IsNullOrWhiteSpace(ruleResult.ExceptionMessage)
+                                ? $"Not matched: {ruleResult.ExceptionMessage}"
+                                : "Not matched: condition evaluated to false")
+                    };
+
+                    // If matched, extract effect details and compute the actual rate
+                    if (ruleResult.IsSuccess &&
+                        ruleEffectsMap.TryGetValue(ruleResult.Rule.RuleName, out var effectJson))
+                    {
+                        subTrace.Effect = ExtractDryRunEffect(effectJson, ruleResult.Rule.RuleName);
+
+                        // Reuse BuildRuleResultAsync to get the exact same BaseRate + ComputedRate
+                        // as the Execute endpoint would produce — no duplication of applicator logic.
+                        var computedResult = await BuildRuleResultAsync(
+                            ruleResult.Rule.RuleName,
+                            ruleResult.Rule.ErrorMessage ?? ruleResult.Rule.RuleName,
+                            effectJson,
+                            inputValues);
+
+                        if (computedResult != null)
+                        {
+                            subTrace.BaseRate = computedResult.BaseRate;
+                            subTrace.ComputedValue = computedResult.ComputedRate;
+                        }
+                    }
+
+                    evaluatedTrace[ruleResult.Rule.RuleName] = subTrace;
+                }
+
+                // Merge: skipped first, then evaluated in array order
+                var allSubRules = new List<RuleDryRunSubRuleResult>(skippedSubRules);
+                allSubRules.AddRange(evaluatedTrace.Values.OrderBy(r => r.ArrayIndex));
+                workflowResult.SubRules = allSubRules.OrderBy(r => r.ArrayIndex).ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Dry-run evaluation failed for RuleCode='{RuleCode}'.", entity.RuleCode);
+                workflowResult.WorkflowName = entity.RuleCode + $" [parse error: {ex.Message}]";
+            }
+
+            return workflowResult;
+        }
+
+        /// <summary>
+        /// Parses a single sub-rule JSON element for dry-run evaluation.
+        /// Adds valid rules to <paramref name="rules"/> and populates the side dictionaries.
+        /// Returns a <see cref="RuleDryRunSubRuleResult"/> marked as skipped if the sub-rule
+        /// is disabled, has no expression, or fails the safety check.
+        /// </summary>
+        private RuleDryRunSubRuleResult ParseSubRuleForDryRun(
+            JsonElement subRuleElement,
+            RuleEngineEntity entity,
+            int arrayPos,
+            List<Rule> rules,
+            Dictionary<string, JsonElement> ruleEffectsMap,
+            Dictionary<string, bool> ruleStopMap,
+            Dictionary<string, int> ruleOrderIndex)
+        {
+            // Determine rule name
+            var ruleName = entity.RuleCode;
+            if (subRuleElement.TryGetProperty("RuleCode", out var ruleCodeProp) && !string.IsNullOrWhiteSpace(ruleCodeProp.GetString()))
+                ruleName = ruleCodeProp.GetString()!;
+            else if (subRuleElement.TryGetProperty("ruleName", out var ruleNameFallback) && !string.IsNullOrWhiteSpace(ruleNameFallback.GetString()))
+                ruleName = ruleNameFallback.GetString()!;
+
+            // Determine human-readable name
+            var errorMessage = string.Empty;
+            if (subRuleElement.TryGetProperty("errorMessage", out var errMsg) && !string.IsNullOrWhiteSpace(errMsg.GetString()))
+                errorMessage = errMsg.GetString()!;
+            else if (subRuleElement.TryGetProperty("ErrorMessage", out var errMsgAlt) && !string.IsNullOrWhiteSpace(errMsgAlt.GetString()))
+                errorMessage = errMsgAlt.GetString()!;
+            else if (subRuleElement.TryGetProperty("description", out var desc) && !string.IsNullOrWhiteSpace(desc.GetString()))
+                errorMessage = desc.GetString()!;
+            else if (subRuleElement.TryGetProperty("Description", out var descAlt) && !string.IsNullOrWhiteSpace(descAlt.GetString()))
+                errorMessage = descAlt.GetString()!;
+
+            if (string.IsNullOrWhiteSpace(errorMessage))
+                errorMessage = !string.IsNullOrWhiteSpace(entity.Description) ? entity.Description : entity.RuleName ?? ruleName;
+
+            var baseTrace = new RuleDryRunSubRuleResult
+            {
+                ArrayIndex = arrayPos,
+                RuleCode = ruleName,
+                RuleName = errorMessage
+            };
+
+            // Check: disabled flag
+            if (subRuleElement.TryGetProperty("enabled", out var enabledProp) && !enabledProp.GetBoolean())
+            {
+                baseTrace.WasSkipped = true;
+                baseTrace.SkipReason = "disabled (\"enabled\": false)";
+                baseTrace.MatchStatus = "Skipped";
+                return baseTrace;
+            }
+
+            // Check: missing expression
+            if (!subRuleElement.TryGetProperty("expression", out var expressionProp))
+            {
+                baseTrace.WasSkipped = true;
+                baseTrace.SkipReason = "missing \"expression\" field";
+                baseTrace.MatchStatus = "Skipped";
+                return baseTrace;
+            }
+            var expression = expressionProp.GetString();
+            if (string.IsNullOrWhiteSpace(expression))
+            {
+                baseTrace.WasSkipped = true;
+                baseTrace.SkipReason = "empty expression";
+                baseTrace.MatchStatus = "Skipped";
+                return baseTrace;
+            }
+
+            // Check: safety
+            if (!IsExpressionSafe(expression))
+            {
+                baseTrace.WasSkipped = true;
+                baseTrace.SkipReason = "blocked by security check (unsafe expression)";
+                baseTrace.MatchStatus = "Skipped";
+                baseTrace.Expression = expression;
+                return baseTrace;
+            }
+
+            // Normalise and register
+            var normalised = NormalizeLogicalOperators(expression);
+            baseTrace.Expression = normalised;
+
+            ruleOrderIndex[ruleName] = rules.Count;
+
+            rules.Add(new Rule
+            {
+                RuleName = ruleName,
+                Expression = normalised,
+                RuleExpressionType = RuleExpressionType.LambdaExpression,
+                ErrorMessage = errorMessage
+            });
+
+            // Store effects
+            if (subRuleElement.TryGetProperty("Actions", out var actionsEl) &&
+                actionsEl.ValueKind != JsonValueKind.Null)
+                ruleEffectsMap[ruleName] = actionsEl;
+            else if (!string.IsNullOrWhiteSpace(entity.EffectJson))
+                ruleEffectsMap[ruleName] = WrapEffectJson(entity.EffectJson, ruleName);
+
+            // Store stop flag
+            var stopFlag = false;
+            if (subRuleElement.TryGetProperty("stopProcessing", out var spProp))
+                stopFlag = spProp.ValueKind == JsonValueKind.True;
+            else if (subRuleElement.TryGetProperty("StopProcessing", out var spPropAlt))
+                stopFlag = spPropAlt.ValueKind == JsonValueKind.True;
+            ruleStopMap[ruleName] = stopFlag;
+
+            return baseTrace; // will be updated with IsMatch after engine runs
+        }
+
+        /// <summary>
+        /// Extracts effect details from an <c>Actions.OnSuccess.Context</c> JSON element
+        /// for inclusion in the dry-run sub-rule trace.
+        /// </summary>
+        private static RuleDryRunEffect? ExtractDryRunEffect(JsonElement actionsJson, string ruleName)
+        {
+            try
+            {
+                if (!actionsJson.TryGetProperty("OnSuccess", out var onSuccess) ||
+                    !onSuccess.TryGetProperty("Context", out var context))
+                    return null;
+
+                var contextDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(context.GetRawText())
+                                  ?? new Dictionary<string, JsonElement>();
+
+                return new RuleDryRunEffect
+                {
+                    EffectType = ReadStringFromContext(contextDict, "effectType"),
+                    EffectValue = decimal.TryParse(ReadStringFromContext(contextDict, "value"), out var ev) ? ev : 0m,
+                    ParameterCode = ReadStringFromContext(contextDict, "ParameterCode"),
+                    Context = contextDict.ToDictionary(k => k.Key, k => k.Value.ToString())
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         // ─── Private Helpers ─────────────────────────────────────────────────────────
 
         /// <summary>
@@ -214,10 +588,10 @@ namespace NtisPlatform.Application.Services.Rules
                         rulesArrayJsonProp.ValueKind != JsonValueKind.Array)
                         continue;
 
-                    var rules             = new List<Rule>();
-                    var ruleEffectsMap    = new Dictionary<string, JsonElement>();
+                    var rules = new List<Rule>();
+                    var ruleEffectsMap = new Dictionary<string, JsonElement>();
                     var ruleStopProcessingMap = new Dictionary<string, bool>();
-                    var ruleOrderIndex    = new Dictionary<string, int>(); // tracks original array position
+                    var ruleOrderIndex = new Dictionary<string, int>(); // tracks original array position
 
                     foreach (var subRuleElement in rulesArrayJsonProp.EnumerateArray())
                     {
@@ -272,10 +646,10 @@ namespace NtisPlatform.Application.Services.Rules
 
                         rules.Add(new Rule
                         {
-                            RuleName           = ruleName,
-                            Expression         = NormalizeLogicalOperators(expression),
+                            RuleName = ruleName,
+                            Expression = NormalizeLogicalOperators(expression),
                             RuleExpressionType = RuleExpressionType.LambdaExpression,
-                            ErrorMessage       = errorMessage
+                            ErrorMessage = errorMessage
                             // Note: we do NOT set rule.Actions here.
                             // MS Rules Engine would try to invoke our effect names as registered IAction plugins.
                             // We handle effect application ourselves via IRuleEffectApplicator.
@@ -383,9 +757,9 @@ namespace NtisPlatform.Application.Services.Rules
                 var context = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectContextBlock.GetRawText())
                               ?? new Dictionary<string, JsonElement>();
 
-                var effectType    = ReadStringFromContext(context, "effectType");
-                var effectValue   = decimal.TryParse(ReadStringFromContext(context, "value"), out var ev) ? ev : 0m;
-                var expression    = ReadStringFromContext(context, "Expression");
+                var effectType = ReadStringFromContext(context, "effectType");
+                var effectValue = decimal.TryParse(ReadStringFromContext(context, "value"), out var ev) ? ev : 0m;
+                var expression = ReadStringFromContext(context, "Expression");
                 var parameterCode = ReadStringFromContext(context, "ParameterCode");
 
                 var baseRate = ResolveBaseRate(ruleName, parameterCode, inputValues);
@@ -414,14 +788,14 @@ namespace NtisPlatform.Application.Services.Rules
 
                 return new RuleExecutionResultDto
                 {
-                    RuleCode     = ruleName,
-                    RuleName     = !string.IsNullOrWhiteSpace(ruleErrorMessage) ? ruleErrorMessage : ruleName,
-                    EffectType   = effectType,
-                    EffectValue  = effectValue,
-                    BaseRate     = baseRate,
+                    RuleCode = ruleName,
+                    RuleName = !string.IsNullOrWhiteSpace(ruleErrorMessage) ? ruleErrorMessage : ruleName,
+                    EffectType = effectType,
+                    EffectValue = effectValue,
+                    BaseRate = baseRate,
                     ComputedRate = Math.Round(computedRate, 4, MidpointRounding.AwayFromZero),
-                    Expression   = expression,
-                    Context      = context.ToDictionary(k => k.Key, k => k.Value.ToString())
+                    Expression = expression,
+                    Context = context.ToDictionary(k => k.Key, k => k.Value.ToString())
                 };
             }
             catch (Exception ex)
@@ -472,8 +846,9 @@ namespace NtisPlatform.Application.Services.Rules
         private static string NormalizeLogicalOperators(string expression)
         {
             expression = Regex.Replace(expression, @"\bAND\b", "&&", RegexOptions.IgnoreCase);
-            expression = Regex.Replace(expression, @"\bOR\b",  "||", RegexOptions.IgnoreCase);
-            expression = Regex.Replace(expression, @"\bNOT\b", "!",  RegexOptions.IgnoreCase);
+            expression = Regex.Replace(expression, @"\bOR\b", "||", RegexOptions.IgnoreCase);
+            expression = Regex.Replace(expression, @"\bNOT\b", "!", RegexOptions.IgnoreCase);
+            expression = Regex.Replace(expression, @"(?<!\.)\bcontains\b", "in", RegexOptions.IgnoreCase);
             return expression;
         }
 
@@ -548,8 +923,8 @@ namespace NtisPlatform.Application.Services.Rules
             if (inputDict == null || !inputDict.Any())
                 throw new ArgumentException("Input dictionary cannot be null or empty.", nameof(inputDict));
 
-            var expando      = (IDictionary<string, object>)new ExpandoObject();
-            var validCount   = 0;
+            var expando = (IDictionary<string, object>)new ExpandoObject();
+            var validCount = 0;
 
             foreach (var kvp in inputDict)
             {
@@ -582,13 +957,14 @@ namespace NtisPlatform.Application.Services.Rules
             {
                 return jsonEl.ValueKind switch
                 {
-                    JsonValueKind.Number when jsonEl.TryGetInt32(out int i)    => i,
+                    JsonValueKind.Number when jsonEl.TryGetInt32(out int i) => i,
                     JsonValueKind.Number when jsonEl.TryGetDouble(out double d) => d,
-                    JsonValueKind.True   => true,
-                    JsonValueKind.False  => false,
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
                     JsonValueKind.String => jsonEl.GetString() ?? string.Empty,
                     JsonValueKind.Object => JsonObjectToExpando(jsonEl),
-                    _                   => jsonEl.ToString()
+                    JsonValueKind.Array => JsonArrayToList(jsonEl),
+                    _ => jsonEl.ToString()
                 };
             }
 
@@ -596,6 +972,20 @@ namespace NtisPlatform.Application.Services.Rules
                 return BuildDynamicInput(nested);
 
             return value;
+        }
+
+        /// <summary>
+        /// Converts a <see cref="JsonElement"/> of kind <c>Array</c>
+        /// into a <see cref="List{Object}"/> of unwrapped values.
+        /// </summary>
+        private static List<object> JsonArrayToList(JsonElement array)
+        {
+            var list = new List<object>();
+            foreach (var item in array.EnumerateArray())
+            {
+                list.Add(UnwrapJsonValue(item));
+            }
+            return list;
         }
 
         /// <summary>
@@ -633,15 +1023,15 @@ namespace NtisPlatform.Application.Services.Rules
         {
             return element.ValueKind switch
             {
-                JsonValueKind.Number when element.TryGetInt32(out int i)      => i,
-                JsonValueKind.Number when element.TryGetInt64(out long l)     => l,
+                JsonValueKind.Number when element.TryGetInt32(out int i) => i,
+                JsonValueKind.Number when element.TryGetInt64(out long l) => l,
                 JsonValueKind.Number when element.TryGetDecimal(out decimal d) => d,
                 JsonValueKind.Number when element.TryGetDouble(out double dbl) => dbl,
-                JsonValueKind.True   => true,
-                JsonValueKind.False  => false,
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
                 JsonValueKind.String => element.GetString() ?? string.Empty,
-                JsonValueKind.Null   => null!,
-                _                   => element.ToString()
+                JsonValueKind.Null => null!,
+                _ => element.ToString()
             };
         }
     }

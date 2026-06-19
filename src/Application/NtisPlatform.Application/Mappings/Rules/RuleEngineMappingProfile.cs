@@ -14,7 +14,13 @@ namespace NtisPlatform.Application.Mappings.Rules
             // Entity to DTO mapping
             CreateMap<RuleEngineEntity, RuleEngineDto>()
                 .ForMember(dest => dest.RuleScopeName,
-                    opt => opt.MapFrom(src => src.RuleScope != null ? src.RuleScope.RuleScope : null));
+                    opt => opt.MapFrom(src => src.RuleScope != null ? src.RuleScope.RuleScope : null))
+                .ForMember(dest => dest.SubRules, opt => opt.Ignore());
+
+            CreateMap<RuleEngineEntity, RuleEngineSummaryDto>()
+                .ForMember(dest => dest.RuleScopeName,
+                    opt => opt.MapFrom(src => src.RuleScope != null ? src.RuleScope.RuleScope : null))
+                .ForMember(dest => dest.SubRules, opt => opt.Ignore());
 
             // Create DTO to Entity mapping
             CreateMap<CreateRuleEngineDto, RuleEngineEntity>()

@@ -1053,6 +1053,84 @@ public class RuleExecutionServiceTests
         Assert.Equal("Entity Description Fallback", result[1].RuleName);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WithContainsOperator_NormalizesToInAndExecutesSuccessfully()
+    {
+        // Arrange - rule has "TypeOfUseGroupId contains (1, 2, 3)" which is SQL-style
+        var rules = new List<RuleEngineEntity>
+        {
+            CreateRuleWithEffect(
+                ruleCode: "CONTAINS-TEST",
+                category: "RV",
+                priority: 10,
+                expression: "input.TypeOfUseGroupId contains (1, 2, 3) && input.FloorId == 76",
+                effectType: "DecreasePercent",
+                effectValue: 30
+            )
+        };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m },
+                { "TypeOfUseGroupId", 2 },
+                { "FloorId", 76 }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Rule should match and calculate rate correctly (1000 - 30% = 700)
+        Assert.Single(result);
+        Assert.Equal("CONTAINS-TEST", result[0].RuleCode);
+        Assert.Equal(700m, result[0].ComputedRate);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithDotContainsMethodCall_DoesNotNormalizeToDotInAndExecutesSuccessfully()
+    {
+        // Arrange - rule has "input.SocialAttributeId.Contains(28)" which uses dot-Contains method call
+        var rules = new List<RuleEngineEntity>
+        {
+            CreateRuleWithEffect(
+                ruleCode: "DOT-CONTAINS-TEST",
+                category: "RV",
+                priority: 10,
+                expression: "input.TypeOfUseGroupId == 1 && input.SocialAttributeId.Contains(28)",
+                effectType: "DecreasePercent",
+                effectValue: 10
+            )
+        };
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(rules);
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m },
+                { "TypeOfUseGroupId", 1 },
+                { "SocialAttributeId", new List<int> { 28, 42 } }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Rule should match and execute successfully
+        Assert.Single(result);
+        Assert.Equal("DOT-CONTAINS-TEST", result[0].RuleCode);
+        Assert.Equal(900m, result[0].ComputedRate);
+    }
+
     #endregion
 
     #region Helper Methods
@@ -1103,6 +1181,714 @@ public class RuleExecutionServiceTests
             RuleJson = ruleJson,
             StopProcessing = false
         };
+    }
+
+    #endregion
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    #region DryRunAsync Tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── Input Validation ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_NullInput_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentNullException>(
+            async () => await _service.DryRunAsync(null!));
+    }
+
+    [Fact]
+    public async Task DryRunAsync_EmptyInputDictionary_ThrowsArgumentException()
+    {
+        // Arrange
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object>()
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await _service.DryRunAsync(input));
+    }
+
+    [Fact]
+    public async Task DryRunAsync_NoCategoryAndNoRuleJson_ThrowsArgumentException()
+    {
+        // Arrange
+        var input = new RuleDryRunInputDto
+        {
+            Category = "",
+            RuleJson = null,
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await _service.DryRunAsync(input));
+    }
+
+    // ── Empty / No Rules Cases ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_NoRulesInDb_ReturnsEmptyWorkflowList()
+    {
+        // Arrange
+        var empty = new List<RuleEngineEntity>();
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(empty));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.Equal("ARV", result.Category);
+        Assert.Equal(0, result.TotalRulesLoaded);
+        Assert.Empty(result.Workflows);
+        Assert.False(result.StoppedEarly);
+    }
+
+    // ── Ad-hoc RuleJson Mode (no DB) ─────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_WithAdHocRuleJson_DoesNotQueryDatabase()
+    {
+        // Arrange — ruleJson provided, DB should NOT be queried at all
+        var ruleJson = """
+        {
+            "RuleName": "AdHoc Workflow",
+            "rules": [
+                {
+                    "RuleCode": "ADHOC-001",
+                    "expression": "input.Rate > 0",
+                    "errorMessage": "Rate is positive",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": {
+                                "effectType": "Decrease %",
+                                "value": "10",
+                                "ParameterCode": "input.Rate"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — DB was never called
+        _mockRuleRepository.Verify(r => r.GetQueryable(), Times.Never);
+
+        Assert.Equal(1, result.TotalRulesLoaded);
+        Assert.Single(result.Workflows);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_WithAdHocRuleJson_MatchingRule_PopulatesTrace()
+    {
+        // Arrange
+        var ruleJson = """
+        {
+            "RuleName": "AdHoc Workflow",
+            "rules": [
+                {
+                    "RuleCode": "ADHOC-001",
+                    "expression": "input.Rate > 500",
+                    "errorMessage": "Rate exceeds 500",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": {
+                                "effectType": "Decrease %",
+                                "value": "20",
+                                "ParameterCode": "input.Rate"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.Equal(1, result.MatchedCount);
+        Assert.False(result.StoppedEarly);
+
+        var workflow = Assert.Single(result.Workflows);
+        var subRule  = Assert.Single(workflow.SubRules);
+
+        Assert.Equal("ADHOC-001", subRule.RuleCode);
+        Assert.Equal("Rate exceeds 500", subRule.RuleName);
+        Assert.True(subRule.IsMatch);
+        Assert.Equal("Matched", subRule.MatchStatus);
+        Assert.False(subRule.WasSkipped);
+        Assert.NotNull(subRule.Effect);
+        Assert.Equal("Decrease %", subRule.Effect!.EffectType);
+        Assert.Equal(20m, subRule.Effect.EffectValue);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_WithAdHocRuleJson_NonMatchingRule_PopulatesNotMatchedStatus()
+    {
+        // Arrange — expression will NOT match (Rate == 500 but rule requires Rate > 999)
+        var ruleJson = """
+        {
+            "RuleName": "AdHoc Workflow",
+            "rules": [
+                {
+                    "RuleCode": "ADHOC-002",
+                    "expression": "input.Rate > 999",
+                    "errorMessage": "Rate exceeds 999",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": { "effectType": "Decrease %", "value": "10" }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 500.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.Equal(0, result.MatchedCount);
+        Assert.False(result.StoppedEarly);
+
+        var subRule = result.Workflows[0].SubRules[0];
+        Assert.False(subRule.IsMatch);
+        Assert.StartsWith("Not matched", subRule.MatchStatus);
+        Assert.Null(subRule.Effect); // no effect because no match
+    }
+
+    // ── Skipped Sub-Rule Cases ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_DisabledSubRule_IsMarkedAsSkipped()
+    {
+        // Arrange
+        var ruleJson = """
+        {
+            "RuleName": "Test Workflow",
+            "rules": [
+                {
+                    "RuleCode": "SKIP-001",
+                    "expression": "input.Rate > 0",
+                    "enabled": false,
+                    "errorMessage": "Should be skipped"
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        var subRule = result.Workflows[0].SubRules[0];
+        Assert.True(subRule.WasSkipped);
+        Assert.Equal("Skipped", subRule.MatchStatus);
+        Assert.Contains("disabled", subRule.SkipReason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, result.MatchedCount);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_MissingExpressionField_IsMarkedAsSkipped()
+    {
+        // Arrange — sub-rule has no "expression" key at all
+        var ruleJson = """
+        {
+            "RuleName": "Test Workflow",
+            "rules": [
+                {
+                    "RuleCode": "SKIP-002",
+                    "errorMessage": "No expression provided"
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        var subRule = result.Workflows[0].SubRules[0];
+        Assert.True(subRule.WasSkipped);
+        Assert.Contains("expression", subRule.SkipReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_UnsafeExpression_IsMarkedAsSkippedWithSecurityReason()
+    {
+        // Arrange — expression contains a blocked keyword ("System.")
+        var ruleJson = """
+        {
+            "RuleName": "Test Workflow",
+            "rules": [
+                {
+                    "RuleCode": "UNSAFE-001",
+                    "expression": "System.IO.File.Exists(\"test.txt\")",
+                    "errorMessage": "Dangerous rule"
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        var subRule = result.Workflows[0].SubRules[0];
+        Assert.True(subRule.WasSkipped);
+        Assert.Contains("security", subRule.SkipReason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, result.MatchedCount);
+    }
+
+    // ── StopProcessing Logic ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_SubRuleStopProcessing_SetsStoppedEarlyOnFirstMatch()
+    {
+        // Arrange — two DB rules; first has stopProcessing=true on its sub-rule
+        var rule1 = CreateRuleWithEffect("RULE-STOP", "ARV", 1,
+            "input.Rate > 0", "Decrease %", 10);
+        // Inject stopProcessing into the JSON
+        rule1.RuleJson = rule1.RuleJson!.Replace(
+            "\"enabled\": true",
+            "\"enabled\": true, \"stopProcessing\": true");
+
+        var rule2 = CreateRuleWithEffect("RULE-AFTER", "ARV", 2,
+            "input.Rate > 0", "Decrease %", 5);
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { rule1, rule2 }));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — stopped after first workflow, second workflow not evaluated
+        Assert.True(result.StoppedEarly);
+        Assert.Single(result.Workflows); // only the first workflow was processed
+        Assert.Equal(1, result.MatchedCount);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_EntityLevelStopOnMatch_SetsStoppedEarlyWhenAnySubRuleMatches()
+    {
+        // Arrange — entity-level StopProcessing=true
+        var rule1 = CreateRuleWithEffect("RULE-ENTITY-STOP", "ARV", 1,
+            "input.Rate > 0", "Decrease %", 10);
+        rule1.StopProcessing = true; // entity-level stop
+
+        var rule2 = CreateRuleWithEffect("RULE-AFTER", "ARV", 2,
+            "input.Rate > 0", "Decrease %", 5);
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { rule1, rule2 }));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.True(result.StoppedEarly);
+        Assert.Single(result.Workflows); // second workflow should not be evaluated
+    }
+
+    [Fact]
+    public async Task DryRunAsync_NoStopProcessing_EvaluatesAllWorkflows()
+    {
+        // Arrange — two rules, neither stops processing
+        var rule1 = CreateRuleWithEffect("RULE-A", "ARV", 1, "input.Rate > 0", "Decrease %", 10);
+        var rule2 = CreateRuleWithEffect("RULE-B", "ARV", 2, "input.Rate > 0", "Decrease %", 5);
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { rule1, rule2 }));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — both workflows evaluated
+        Assert.False(result.StoppedEarly);
+        Assert.Equal(2, result.Workflows.Count);
+        Assert.Equal(2, result.MatchedCount);
+    }
+
+    // ── Mixed Matched / Unmatched in One Workflow ─────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_MixedSubRules_CountsOnlyMatched()
+    {
+        // Arrange — one workflow with two sub-rules: one matches, one does not
+        var ruleJson = """
+        {
+            "RuleName": "Mixed Workflow",
+            "rules": [
+                {
+                    "RuleCode": "MATCH-001",
+                    "expression": "input.FloorId == 1",
+                    "errorMessage": "Floor is 1 — matches",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": { "effectType": "Decrease %", "value": "10" }
+                        }
+                    }
+                },
+                {
+                    "RuleCode": "NOMATCH-001",
+                    "expression": "input.FloorId == 99",
+                    "errorMessage": "Floor is 99 — does not match",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": { "effectType": "Decrease %", "value": "20" }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "FloorId", 1 }, { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.Equal(1, result.MatchedCount);
+        Assert.Equal(2, result.TotalSubRulesEvaluated);
+
+        var subRules = result.Workflows[0].SubRules;
+        Assert.Equal(2, subRules.Count);
+
+        var matched   = subRules.First(r => r.RuleCode == "MATCH-001");
+        var unmatched = subRules.First(r => r.RuleCode == "NOMATCH-001");
+
+        Assert.True(matched.IsMatch);
+        Assert.Equal("Matched", matched.MatchStatus);
+        Assert.NotNull(matched.Effect);
+
+        Assert.False(unmatched.IsMatch);
+        Assert.StartsWith("Not matched", unmatched.MatchStatus);
+        Assert.Null(unmatched.Effect);
+    }
+
+    // ── Sub-Rule Array Order Preserved ───────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_SubRules_ReturnedInOriginalArrayOrder()
+    {
+        // Arrange — three sub-rules; engine may return them in any order
+        var ruleJson = """
+        {
+            "RuleName": "Order Test",
+            "rules": [
+                {
+                    "RuleCode": "RULE-FIRST",
+                    "expression": "input.Rate > 0",
+                    "errorMessage": "First"
+                },
+                {
+                    "RuleCode": "RULE-SECOND",
+                    "expression": "input.Rate > 0",
+                    "errorMessage": "Second"
+                },
+                {
+                    "RuleCode": "RULE-THIRD",
+                    "expression": "input.Rate > 0",
+                    "errorMessage": "Third"
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — ArrayIndex must reflect original JSON order
+        var subRules = result.Workflows[0].SubRules;
+        Assert.Equal(0, subRules.First(r => r.RuleCode == "RULE-FIRST").ArrayIndex);
+        Assert.Equal(1, subRules.First(r => r.RuleCode == "RULE-SECOND").ArrayIndex);
+        Assert.Equal(2, subRules.First(r => r.RuleCode == "RULE-THIRD").ArrayIndex);
+    }
+
+    // ── Resilience / Parse Error ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_MalformedRuleJson_GracefullySkipsAndContinues()
+    {
+        // Arrange — first entity has broken JSON, second is valid
+        var badEntity = new RuleEngineEntity
+        {
+            Id           = 1,
+            RuleCode     = "BAD-JSON",
+            RuleName     = "Bad",
+            RuleCategory = "ARV",
+            Priority     = 1,
+            IsEnabled    = true,
+            IsActive     = true,
+            RuleJson     = "{ NOT VALID JSON !!!",
+            StopProcessing = false
+        };
+
+        var goodEntity = CreateRuleWithEffect("GOOD-RULE", "ARV", 2,
+            "input.Rate > 0", "Decrease %", 10);
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(
+                new List<RuleEngineEntity> { badEntity, goodEntity }));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act — should not throw; bad entity is swallowed
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — 2 workflows returned; bad one has error suffix in name, good one evaluated
+        Assert.Equal(2, result.Workflows.Count);
+        Assert.Contains("[parse error", result.Workflows[0].WorkflowName);
+        Assert.True(result.Workflows[1].SubRules.Any(r => r.IsMatch));
+    }
+
+    [Fact]
+    public async Task DryRunAsync_EmptyRuleJson_WorkflowNameGetsEmptySuffix()
+    {
+        // Arrange — entity exists but RuleJson is blank
+        var entity = new RuleEngineEntity
+        {
+            Id           = 1,
+            RuleCode     = "EMPTY-JSON",
+            RuleName     = "Empty",
+            RuleCategory = "ARV",
+            Priority     = 1,
+            IsEnabled    = true,
+            IsActive     = true,
+            RuleJson     = "",
+            StopProcessing = false
+        };
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { entity }));
+
+        var input = new RuleDryRunInputDto
+        {
+            Category = "ARV",
+            Input    = new Dictionary<string, object> { { "Rate", 1000 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — workflow is present but has the empty suffix marker
+        Assert.Single(result.Workflows);
+        Assert.Contains("empty RuleJson", result.Workflows[0].WorkflowName);
+        Assert.Empty(result.Workflows[0].SubRules);
+    }
+
+    // ── ResolvedInput Snapshot ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_ResolvedInput_ContainsAllInputKeysAsStrings()
+    {
+        // Arrange
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = """{ "rules": [] }""",
+            Input    = new Dictionary<string, object>
+            {
+                { "Rate",    1000.0 },
+                { "FloorId", 65     },
+                { "IsRented", true  }
+            }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert — every input key must appear in ResolvedInput
+        Assert.True(result.ResolvedInput.ContainsKey("Rate"));
+        Assert.True(result.ResolvedInput.ContainsKey("FloorId"));
+        Assert.True(result.ResolvedInput.ContainsKey("IsRented"));
+        Assert.Equal(3, result.ResolvedInput.Count);
+    }
+
+    // ── Effect Extraction ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task DryRunAsync_MatchedRule_EffectContainsCorrectTypeAndValue()
+    {
+        // Arrange
+        var ruleJson = """
+        {
+            "RuleName": "Effect Test",
+            "rules": [
+                {
+                    "RuleCode": "EFF-001",
+                    "expression": "input.Rate > 0",
+                    "errorMessage": "Effect rule",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": {
+                                "effectType": "Multiply",
+                                "value": "1.5",
+                                "ParameterCode": "input.Rate"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> { { "Rate", 1000.0 } }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        var effect = result.Workflows[0].SubRules[0].Effect;
+        Assert.NotNull(effect);
+        Assert.Equal("Multiply", effect!.EffectType);
+        Assert.Equal(1.5m, effect.EffectValue);
+        Assert.Equal("input.Rate", effect.ParameterCode);
+    }
+
+    [Fact]
+    public async Task DryRunAsync_WithMissingReferencedField_DefaultsToCorrectTypeAndEvaluatesWithoutException()
+    {
+        // Arrange - rule references input.TypeOfUseId which will be missing from Input dictionary
+        var ruleJson = """
+        {
+            "RuleName": "Missing Field Test",
+            "rules": [
+                {
+                    "RuleCode": "MISS-001",
+                    "expression": "input.TypeOfUseId == 21",
+                    "errorMessage": "Missing field rule",
+                    "enabled": true,
+                    "Actions": {
+                        "OnSuccess": {
+                            "Context": {
+                                "effectType": "Multiply",
+                                "value": "1.5",
+                                "ParameterCode": "input.Rate"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = ruleJson,
+            Input    = new Dictionary<string, object> 
+            { 
+                { "Rate", 1000.0 } 
+            }
+        };
+
+        // Act - should not throw "binary operator Equal is not defined for System.Object and System.Int32"
+        var result = await _service.DryRunAsync(input);
+
+        // Assert - Rule parsed and evaluated without method-level exception, capturing property missing trace
+        Assert.Single(result.Workflows);
+        var subRule = result.Workflows[0].SubRules[0];
+        Assert.Equal("MISS-001", subRule.RuleCode);
+        Assert.False(subRule.IsMatch);
+        Assert.Contains("Exception while parsing expression", subRule.MatchStatus);
     }
 
     #endregion

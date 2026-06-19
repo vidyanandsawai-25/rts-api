@@ -290,8 +290,8 @@ namespace NtisPlatform.Tests.Application
             Assert.Contains("input.Field4 <= 10", expr);
             Assert.Contains("(input.Field5 == \"X\" || input.Field5 == \"Y\")", expr);
             Assert.Contains("(input.Field6 != \"W\" && input.Field6 != \"Z\")", expr);
-            Assert.Contains("input.Field7 contains (\"M\", \"N\")", expr);
-            Assert.Contains("input.Field8 contains (\"O\", \"P\")", expr);
+            Assert.Contains("input.Field7 in (\"M\", \"N\")", expr);
+            Assert.Contains("input.Field8 in (\"O\", \"P\")", expr);
             Assert.Contains("input.Field9 >= 20 && input.Field9 <= 50", expr);
         }
 

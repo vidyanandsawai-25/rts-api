@@ -110,6 +110,33 @@ namespace NtisPlatform.Api.Controllers.Rules
         }
 
         /// <summary>
+        /// Get a lightweight, priority-ordered summary list of all active rules with pagination.
+        /// Returns RuleCode, RuleName, Description, RuleCategory, Priority, IsEnabled,
+        /// StopProcessing, RuleScopeId, RuleScopeName, and SubRules metadata.
+        /// Heavy JSON blobs (RuleJson, ConditionsJson, EffectJson, TargetFiltersJson) are excluded.
+        /// Use GET /{id} to fetch the full rule detail needed for editing.
+        /// </summary>
+        [HttpGet("summary")]
+        [ProducesResponseType(typeof(PagedResult<RuleEngineSummaryDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetSummary([FromQuery] RuleEngineQueryParameters queryParameters, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var summary = await _ruleEngineService.GetSummaryAsync(queryParameters, cancellationToken);
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving rule engine summary list");
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "An error occurred while retrieving the rule summary list"
+                });
+            }
+        }
+
+        /// <summary>
         /// Get all available rule categories from RuleCategoryMaster.
         /// Used by the frontend rule builder to populate the category dropdown dynamically.
         /// </summary>
@@ -129,6 +156,51 @@ namespace NtisPlatform.Api.Controllers.Rules
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     message = "An error occurred while retrieving rule categories"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Performs a full dry-run of all rules for the given category and input.
+        /// Returns a detailed trace of every sub-rule — both matched and unmatched —
+        /// so rule authors can debug expressions before deploying them to production.
+        ///
+        /// Optionally accepts a raw <c>ruleJson</c> in the body to test a rule
+        /// without saving it to the database first.
+        /// </summary>
+        [HttpPost("dry-run")]
+        [ProducesResponseType(typeof(RuleDryRunResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> DryRun(
+            [FromBody] RuleDryRunInputDto inputDto,
+            CancellationToken cancellationToken)
+        {
+            if (inputDto == null)
+                return BadRequest(new { message = "Request body is required." });
+
+            if (string.IsNullOrWhiteSpace(inputDto.Category) && string.IsNullOrWhiteSpace(inputDto.RuleJson))
+                return BadRequest(new { message = "Either Category (to load rules from DB) or RuleJson (ad-hoc test) must be provided." });
+
+            if (inputDto.Input == null || !inputDto.Input.Any())
+                return BadRequest(new { message = "Input dictionary cannot be null or empty." });
+
+            try
+            {
+                var result = await _ruleExecutionService.DryRunAsync(inputDto, cancellationToken);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid dry-run input for category={Category}", inputDto.Category);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during dry-run for category={Category}", inputDto.Category);
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    message = "An error occurred during the dry-run."
                 });
             }
         }
