@@ -130,9 +130,8 @@ namespace NtisPlatform.Tests.Repositories
         }
 
         [Fact]
-        public async Task IsPropertyExists_ShouldReturnTrue_WhenPropertyIsMarkedForDeletion()
+        public async Task IsPropertyExists_ShouldReturnFalse_WhenPropertyIsMarkedForDeletion()
         {
-            // Arrange - IsPropertyExists does NOT filter by MarkedForDeletion per current implementation
             _context.PropertyMast.Add(new PropertyEntity
             {
                 Id = 30,
@@ -141,13 +140,16 @@ namespace NtisPlatform.Tests.Repositories
                 IsActive = true,
                 MarkedForDeletion = true
             });
+
             await _context.SaveChangesAsync();
 
-            // Act
-            var result = await _repository.IsPropertyExists(wardId: 5, propertyNo: "DELETED-PROP", propertyId: null);
+            var result = await _repository.IsPropertyExists(
+                wardId: 5,
+                propertyNo: "DELETED-PROP",
+                propertyId: null
+            );
 
-            // Assert - Property exists regardless of MarkedForDeletion status
-            Assert.True(result);
+            Assert.False(result);
         }
 
         [Fact]

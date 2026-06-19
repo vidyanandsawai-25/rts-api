@@ -558,7 +558,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return await _context.PropertyMast.AnyAsync(x => 
             x.WardId == wardId && 
             x.PropertyNo == propertyNo && 
-            (x.PartitionNo == "" || x.PartitionNo == null) &&
+            (x.PartitionNo == "" || x.PartitionNo == null) && x.MarkedForDeletion==false &&
             (!propertyId.HasValue || x.Id != propertyId.Value));
     }
 
@@ -964,7 +964,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     }
     public async Task<PropertyEntity?> CheckBuildingIfExists(CreateBulkPropertyDto dto, CancellationToken cancellationToken = default)
     {
-        return await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "", cancellationToken);
+        return await _context.PropertyMast.FirstOrDefaultAsync(x => x.WardId == dto.WardId && x.PropertyNo == dto.PropertyNo && x.PartitionNo == "" && x.MarkedForDeletion==false, cancellationToken);
     }
     public async Task<PropertyCategoryEntity?> GetBuildingCategory(int CategoryId, CancellationToken cancellationToken = default)
     {
@@ -981,7 +981,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         return await _context.PropertyMast.AnyAsync(
             x => x.WardId == dto.WardId
               && x.PropertyNo == dto.PropertyNo
-              && x.PartitionNo == dto.PartitionNo,
+              && x.PartitionNo == dto.PartitionNo && x.MarkedForDeletion==false,
             cancellationToken);
     }
     public async Task<bool> CheckPropertyFlatIfExists(
@@ -992,7 +992,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             x => x.WardId == dto.WardId
               && x.PropertyNo == dto.PropertyNo
               && x.SocietyDetailId == dto.SocietyDetailId
-              && x.FlatOrShopNo == dto.FlatOrShopNo,
+              && x.FlatOrShopNo == dto.FlatOrShopNo && x.MarkedForDeletion == false,
             cancellationToken);
     }
 
