@@ -117,6 +117,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                     from ptm in ptmJoin.DefaultIfEmpty()
                     where pm.WardId == queryParams.WardId.Value &&
                           pm.IsActive == true &&
+                          !pm.MarkedForDeletion &&
                           // PropertyNo filter is optional, supports comma-separated values
                           (propertyNumbers.Count == 0 || (pm.PropertyNo != null && propertyNumbers.Contains(pm.PropertyNo!))) &&
                           // PartitionNo filter logic - EXACT MATCH on specified partitions:
@@ -189,13 +190,13 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         }
 
         var taxAmounts = await _transMastRepository.GetQueryable()
-             .Where(tm => propertyIds.Contains(tm.PropertyId) && tm.IsActive == true)
+             .Where(tm => propertyIds.Contains(tm.PropertyId) && tm.IsActive == true && !tm.MarkedForDeletion)
             .GroupBy(tm => tm.PropertyId)
             .Select(g => new { PropertyId = g.Key, TaxAmount = g.Sum(tm => tm.TaxAmount) })
             .ToListAsync(cancellationToken);
 
         var pendingAmounts = await _taxPendingRepository.GetQueryable()
-            .Where(tpd => propertyIds.Contains(tpd.PropertyId) && tpd.IsActive == true)
+            .Where(tpd => propertyIds.Contains(tpd.PropertyId) && tpd.IsActive == true && !tpd.MarkedForDeletion)
             .GroupBy(tpd => tpd.PropertyId)
             .Select(g => new { PropertyId = g.Key, PendingAmount = g.Sum(tpd => tpd.PendingAmount ?? 0) })
             .ToListAsync(cancellationToken);
@@ -218,14 +219,30 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     {
         // Start with IQueryable - no materialization yet
         var query = _repository.GetQueryable()
-            .Where(x => x.PropertyNo != null && x.IsActive == true);
+            .Where(x => x.PropertyNo != null && x.IsActive == true && !x.MarkedForDeletion);
 
-        // Exclude blank or single-character alphabetic partition numbers (like "A", "B", "C", "S").
-        // Only retain partitions that contain at least one numeric digit (0-9) (like "1", "C1", "A2", "C121").
-        query = query.Where(PropertyConstants.HasDigitInPartition);
+        bool isApartmentCategory = false;
+        if (queryParams.CategoryId.HasValue)
+        {
+            var category = await _categoryRepository.GetByIdAsync(queryParams.CategoryId.Value, cancellationToken);
+            if (category != null && !string.IsNullOrEmpty(category.PropertyCategoryName))
+            {
+                isApartmentCategory = category.PropertyCategoryName.Contains(
+                    CapitalValueConstants.PropertyCategory.ApartmentKeyword, 
+                    StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        // Apply partition filter only for apartment categories, or when no category is specified (to preserve original behavior)
+        if (!queryParams.CategoryId.HasValue || isApartmentCategory)
+        {
+            // Exclude blank or single-character alphabetic partition numbers (like "A", "B", "C", "S").
+            // Only retain partitions that contain at least one numeric digit (0-9) (like "1", "C1", "A2", "C121").
+            query = query.Where(PropertyConstants.HasDigitInPartition);
+        }
 
         // Apply filters in SQL
-        query = await ApplyFiltersAsync(query, queryParams, cancellationToken);
+        query = await ApplyFiltersAsync(query, queryParams, isApartmentCategory, cancellationToken);
 
         // Group by the de-duplication key (remove Id so grouping actually deduplicates rows)
         // Surface a representative PropertyId using Max(Id) (assumes higher Id is the preferred record)
@@ -651,7 +668,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                               join ptm in _propertyTypeMasterRepository.GetQueryable()
                                   on pm.PropertyTypeId equals (int?)ptm.Id into ptmJoin
                               from ptm in ptmJoin.DefaultIfEmpty()
-                              where propertyIdsToFetch.Contains(pm.Id)
+                              where propertyIdsToFetch.Contains(pm.Id) && !pm.MarkedForDeletion
                               select new
                               {
                                   Property = pm,
@@ -733,6 +750,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     private async Task<IQueryable<PropertyEntity>> ApplyFiltersAsync(
         IQueryable<PropertyEntity> query, 
         CombinePropertyQueryParameters queryParams,
+        bool isApartmentCategory,
         CancellationToken cancellationToken)
     {
         // Track if we're dealing with standalone properties (standalone apartments or non-apartments)
@@ -744,20 +762,9 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         // but do NOT filter by PartitionNo so all properties from that wing are returned
         bool isMultiUnitApartment = false;
 
-        // Check if category is apartment-related (Apartment or Multi Commercial Apartment)
-        bool isApartmentCategory = false;
+        // Filter by CategoryId - only return properties matching the selected category
         if (queryParams.CategoryId.HasValue)
         {
-            var category = await _categoryRepository.GetByIdAsync(queryParams.CategoryId.Value, cancellationToken);
-            if (category != null && !string.IsNullOrEmpty(category.PropertyCategoryName))
-            {
-                // Check if category name contains "Apartment" (case-insensitive)
-                isApartmentCategory = category.PropertyCategoryName.Contains(
-                    CapitalValueConstants.PropertyCategory.ApartmentKeyword, 
-                    StringComparison.OrdinalIgnoreCase);
-            }
-
-            // Filter by CategoryId - only return properties matching the selected category
             query = query.Where(x => x.CategoryId == queryParams.CategoryId);
         }
 
@@ -786,6 +793,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                                     x.WardId == queryParams.WardId &&
                                     x.PropertyNo != null && x.PropertyNo.Contains(queryParams.PropertyNo!) &&
                                     x.IsActive == true &&
+                                    !x.MarkedForDeletion &&
                                     !string.IsNullOrWhiteSpace(x.PartitionNo) &&
                                     x.SocietyDetailId.HasValue) // Must have SocietyDetailId to be considered a wing
                         .GroupBy(x => new { x.PropertyNo, x.SocietyDetailId })

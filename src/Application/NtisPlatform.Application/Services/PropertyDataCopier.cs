@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
@@ -124,7 +124,7 @@ public class PropertyDataCopier : IPropertyDataCopier
 
         // Get all combined properties' owner names
         var combineProperties = await _propertyRepository.GetQueryable()
-            .Where(p => combinePropertyIds.Contains(p.Id) && p.IsActive)
+            .Where(p => combinePropertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
             .Select(p => p.OwnerName)
             .ToListAsync(cancellationToken);
 
@@ -173,7 +173,7 @@ public class PropertyDataCopier : IPropertyDataCopier
         CancellationToken cancellationToken)
     {
         var toiletSums = await _propertyAssessmentRepository.GetQueryable()
-            .Where(pmd => combinePropertyIds.Contains(pmd.PropertyId) && pmd.IsActive == true)
+            .Where(pmd => combinePropertyIds.Contains(pmd.PropertyId) && pmd.IsActive == true && !pmd.MarkedForDeletion)
             .GroupBy(pmd => 1)
             .Select(g => new
             {
@@ -188,7 +188,7 @@ public class PropertyDataCopier : IPropertyDataCopier
         }
 
         var mainPropertyAssessment = await _propertyAssessmentRepository.GetQueryable()
-            .Where(pmd => pmd.PropertyId == mainPropertyId && pmd.IsActive == true)
+            .Where(pmd => pmd.PropertyId == mainPropertyId && pmd.IsActive == true && !pmd.MarkedForDeletion)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (mainPropertyAssessment == null)
@@ -197,7 +197,7 @@ public class PropertyDataCopier : IPropertyDataCopier
         }
 
         await _propertyAssessmentRepository.GetQueryable()
-            .Where(pmd => pmd.PropertyId == mainPropertyId && pmd.IsActive == true)
+            .Where(pmd => pmd.PropertyId == mainPropertyId && pmd.IsActive == true && !pmd.MarkedForDeletion)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(p => p.NoOfResidentialToilets,
                     (mainPropertyAssessment.NoOfResidentialToilets ?? 0) + toiletSums.TotalResidentialToilets)
@@ -215,7 +215,7 @@ public class PropertyDataCopier : IPropertyDataCopier
         var propertyDetailsMap = new Dictionary<int, int>();
 
         var sourcePropertyDetails = await _propertyDetailsRepository.GetQueryable()
-            .Where(pd => combinePropertyIds.Contains(pd.PropertyId) && pd.IsActive == true)
+            .Where(pd => combinePropertyIds.Contains(pd.PropertyId) && pd.IsActive == true && !pd.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
         if (sourcePropertyDetails.Count == 0)
@@ -277,7 +277,8 @@ public class PropertyDataCopier : IPropertyDataCopier
             .Where(rwsd => rwsd.PropertyId.HasValue &&
                           combinePropertyIds.Contains(rwsd.PropertyId.Value) &&
                           rwsd.PropertyDetailsId.HasValue &&
-                          rwsd.IsActive == true)
+                          rwsd.IsActive == true &&
+                          !rwsd.MarkedForDeletion)
             .Select(rwsd => new
             {
                 rwsd.Id,
@@ -380,7 +381,7 @@ public class PropertyDataCopier : IPropertyDataCopier
 
         // Use projection to avoid SqlNullValueException when IsActive column has NULL in database
         var sourceMinusData = await _roomWiseMinusDataRepository.GetQueryable()
-            .Where(rwmd => oldSubmissionIds.Contains(rwmd.RoomWiseSubmissionId) && rwmd.IsActive == true)
+            .Where(rwmd => oldSubmissionIds.Contains(rwmd.RoomWiseSubmissionId) && rwmd.IsActive == true && !rwmd.MarkedForDeletion)
             .Select(rwmd => new
             {
                 rwmd.RoomWiseSubmissionId,

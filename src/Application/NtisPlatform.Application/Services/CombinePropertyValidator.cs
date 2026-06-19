@@ -268,7 +268,8 @@ public class CombinePropertyValidator : ICombinePropertyValidator
                 .Where(x => x.CategoryId == group.CategoryId &&
                             x.WardId == group.WardId &&
                             x.PropertyNo == group.PropertyNo &&
-                            x.IsActive == true)
+                            x.IsActive == true &&
+                            !x.MarkedForDeletion)
                 .Select(x => new { x.Id, x.PartitionNo })
                 .ToListAsync(cancellationToken);
 
