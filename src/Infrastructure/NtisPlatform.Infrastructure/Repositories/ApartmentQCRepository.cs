@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Property.ApartmentQC;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
@@ -39,7 +40,6 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
     {
         var typeIds = await ResolveTypeIdsAsync(query.Type, cancellationToken);
         var raw = await BuildJoinedQuery(query, typeIds)
-            .OrderBy(p => p.Id)
             .Skip(skip)
             .Take(take)
             .ToListAsync(cancellationToken);
@@ -452,7 +452,35 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         if (!string.IsNullOrWhiteSpace(query.PropertyNo))
         {
             var trimmedPropertyNo = query.PropertyNo.Trim();
-            baseQuery = baseQuery.Where(pm => pm.PropertyNo != null && pm.PropertyNo.Contains(trimmedPropertyNo));
+            baseQuery = baseQuery.Where(pm => pm.PropertyNo != null && pm.PropertyNo==trimmedPropertyNo);
+        }
+
+
+        var totalwingList = _context.WingEntity.AsNoTracking()
+            .Where(d => d.IsActive)
+            .Select(d => d.WingNo)
+            .ToList();  
+
+        baseQuery = baseQuery.Where(pm =>
+            pm.PartitionNo != null &&
+            pm.PartitionNo != "" &&
+            !totalwingList.Contains(pm.PartitionNo));  
+
+        if (!string.IsNullOrWhiteSpace(query.PartitionNo))
+        {
+            var trimmedPartitionNo = query.PartitionNo.Trim();  
+
+            if (totalwingList.Contains(trimmedPartitionNo))     
+            {
+                baseQuery = baseQuery.Where(pm =>
+                    pm.PartitionNo != null &&
+                    pm.PartitionNo.Contains(trimmedPartitionNo));
+            }
+            else
+            {
+                baseQuery = baseQuery.Where(pm =>
+                    pm.PartitionNo == trimmedPartitionNo);
+            }
         }
 
         if (query.PropertyId.HasValue)
@@ -473,6 +501,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         if (query.PropertyType.HasValue)
             baseQuery = baseQuery.Where(pm => pm.PropertyTypeId == query.PropertyType);
 
+
         // Type filter: use pre-fetched IDs (single-level EXISTS + IN) rather than a double-nested
         // correlated EXISTS that would resolve TypeOfUse on every candidate property row.
         if (typeIds != null)
@@ -491,9 +520,10 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                         && typeIds.Contains(pd.TypeOfUseId)));
             }
         }
-
         // Use correlated subqueries to avoid Cartesian explosion from PropertyMastDetails
         // and SocietyDetailsMast having multiple rows per property.
+       
+
         var joined =
             from pm in baseQuery
             join ptm in _context.PropertyTypeMasters.AsNoTracking()
@@ -544,6 +574,18 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             var trimmedWing = query.Wing.Trim();
             joined = joined.Where(x => x.Wing != null && x.Wing.Contains(trimmedWing));
         }
+        // Step 5: Apply sorting
+        var isDescending = query.SortOrder?.ToLower() == "desc";
+        var sortBy = query.SortBy?.ToLower();
+
+        joined = sortBy switch
+        {
+            "wardid"      => isDescending ? joined.OrderByDescending(x => x.WardId)     : joined.OrderBy(x => x.WardId),
+            "propertyno"  => isDescending ? joined.OrderByDescending(x => x.PropertyNo) : joined.OrderBy(x => x.PropertyNo),
+            "partitionno" => joined.OrderByNatural(x => x.PartitionNo,  isDescending),
+            "flatorshopno" => joined.OrderByNatural(x => x.FlatOrShopNo, isDescending),
+            _ => joined.OrderBy(x => x.Id)
+        };
 
         return joined;
     }
@@ -564,7 +606,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             join ctm in _context.ConstructionTypeEntity.AsNoTracking()
                 on pmo.OldConstructionTypeOfUseId equals ctm.ConstructionCode into ctj
             from ctm in ctj.DefaultIfEmpty()
-            where propertyIds.Contains(pm.Id)
+            where propertyIds.Contains(pm.Id) && pm.IsActive && !pm.MarkedForDeletion
             select new OldDataRow(
                 pm.Id,
                 pmo.OldPropertyNo,
@@ -581,7 +623,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             from wm in _context.WardMaster.AsNoTracking()
             join zm in _context.ZoneMaster.AsNoTracking() on wm.ZoneId equals zm.Id into zmj
             from zm in zmj.DefaultIfEmpty()
-            where wardIds.Contains(wm.Id)
+            where wardIds.Contains(wm.Id) && wm.IsActive
             select new WardZoneRow(wm.Id, wm.WardNo, zm != null ? zm.Description : null))
             .ToListAsync(cancellationToken);
 
@@ -647,7 +689,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var transMastList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRow(
                 g.Key,
@@ -657,7 +699,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var transMastCVList = await _context.TransMastCV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastCVRow(
                 g.Key,
@@ -667,7 +709,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var transMastRVList = await _context.TransMastRV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRVRow(
                 g.Key,
@@ -677,21 +719,21 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var taxPendingList = await _context.TaxPendingDetails
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
         var taxPendingCVList = await _context.TaxPendingDetailsCV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
         var taxPendingRVList = await _context.TaxPendingDetailsRV
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.PendingYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TaxPendingRow(g.Key, g.Sum(x => (decimal?)x.PendingAmount) ?? 0m))
             .ToListAsync(cancellationToken);
@@ -705,13 +747,13 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 .GroupBy(x => x.PropertyDetailsId)
                 .Select(g => new ApartmentQCRvCalcData(
                     g.Key,
-                    g.Max(x => (decimal?)x.YearlyRent),
-                    g.Max(x => (decimal?)x.MonthlyRate),
-                    g.Max(x => (decimal?)x.YearlyRate),
-                    g.Max(x => (decimal?)x.Depreciation),
-                    g.Max(x => (decimal?)x.AnnualRentalValue),
-                    g.Max(x => (decimal?)x.Maintenance),
-                    g.Max(x => (decimal?)x.RateableValue)))
+                    g.Max(x => x.YearlyRent != null ? (decimal?)Convert.ToDecimal(x.YearlyRent) : null),
+                    g.Max(x => x.MonthlyRate != null ? (decimal?)Convert.ToDecimal(x.MonthlyRate) : null),
+                    g.Max(x => x.YearlyRate != null ? (decimal?)Convert.ToDecimal(x.YearlyRate) : null),
+                    g.Max(x => x.Depreciation != null ? (decimal?)Convert.ToDecimal(x.Depreciation) : null),
+                    g.Max(x => x.AnnualRentalValue != null ? (decimal?)Convert.ToDecimal(x.AnnualRentalValue) : null),
+                    g.Max(x => x.Maintenance != null ? (decimal?)Convert.ToDecimal(x.Maintenance) : null),
+                    g.Max(x => x.RateableValue != null ? (decimal?)Convert.ToDecimal(x.RateableValue) : null)))
                 .ToListAsync(cancellationToken);
             rvCalc = rvCalcList.ToDictionary(x => x.PropertyDetailsId);
         }
@@ -733,7 +775,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 from natureFactor  in nfm.DefaultIfEmpty()
                 join fu in _context.UseFactorCVMaster.AsNoTracking()      on pd.UseFactorCVId equals fu.Id into ufm
                 from useFactor     in ufm.DefaultIfEmpty()
-                where propertyDetailIds.Contains(pd.PropertyDetailsId) && pd.IsActive
+                where propertyDetailIds.Contains(pd.PropertyDetailsId) && pd.IsActive == true && pd.MarkedForDeletion != true
                 group new { pd, floorFactor, ageFactor, natureFactor, useFactor }
                     by pd.PropertyDetailsId into grp
                 select new ApartmentQCCvCalcData(

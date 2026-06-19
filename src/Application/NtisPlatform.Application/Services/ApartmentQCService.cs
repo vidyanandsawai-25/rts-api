@@ -37,7 +37,7 @@ public class ApartmentQCService : IApartmentQCService
     {
         var totalCount = await _repository.CountAsync(query, cancellationToken);
         var (pageNumber, pageSize, skip, take) = ResolvePagination(query, totalCount);
-        var fetched = await _repository.FetchPagedDataAsync(query, skip, take, cancellationToken: cancellationToken);
+        var fetched = await _repository.FetchPagedDataAsync(query, skip, take, query.ResultType, cancellationToken: cancellationToken);
         var items   = BuildPerProperty(fetched);
         return new PagedResult<PropertyApartmentTaxDto>(
             items.Select(BuildDto).ToList(), totalCount, pageNumber, pageSize);

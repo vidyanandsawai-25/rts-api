@@ -67,7 +67,7 @@ public class RoomWiseSubmissionDetailsMappingProfile : Profile
         // ────────────────────────────────────────────────────────────────
         CreateMap<RoomWiseSubmissionDetailsEntity, RoomWiseSubmissionDetailsDto>()
              .ForMember(dest => dest.RoomWiseMinusData,
-                 opt => opt.MapFrom(src => src.PropertyRoomMinus))  // ✅ Map to DTO collection
+                 opt => opt.MapFrom(src => src.PropertyRoomMinus.Where(x => !x.MarkedForDeletion)))
              .ForMember(dest => dest.RoomTypeDescription,
                  opt => opt.MapFrom(src => src.RoomTypeMaster != null ? src.RoomTypeMaster.RoomTypeName : null));  // ✅ Map RoomType description
 

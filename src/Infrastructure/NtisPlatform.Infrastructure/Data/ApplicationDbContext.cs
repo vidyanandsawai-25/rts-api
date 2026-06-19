@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Rules;
@@ -180,6 +181,12 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
+        modelBuilder.HasDbFunction(
+            typeof(SqlDbFunctions).GetMethod(
+                nameof(SqlDbFunctions.PatIndex),
+                [typeof(string), typeof(string)])!)
+            .HasName("PATINDEX")
+            .IsBuiltIn(true);
 
         modelBuilder.Entity<PolicyTaxDetailsEntity>(entity =>
         {

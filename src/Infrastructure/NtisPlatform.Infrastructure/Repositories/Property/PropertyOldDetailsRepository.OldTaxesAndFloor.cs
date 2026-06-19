@@ -605,7 +605,7 @@ public partial class PropertyOldDetailsRepository
                 (x.SubTypeOfUseDescription != null && x.SubTypeOfUseDescription.ToLower().Contains(searchTerm))
             );
         }
-
+         
         // Step 5: Apply sorting
         var isDescending = query.SortOrder?.ToLower() == "desc";
         var sortBy = query.SortBy?.ToLower();
