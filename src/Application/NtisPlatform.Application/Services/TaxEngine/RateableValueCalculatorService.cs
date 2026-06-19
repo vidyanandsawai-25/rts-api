@@ -52,6 +52,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 return CreateZeroResult(detail, "TypeOfUse Not Found");
             }
 
+            if (string.Equals(typeOfUse.Type, "N", StringComparison.OrdinalIgnoreCase))
+                return CreateZeroResult(detail, "Type is N");
+
             var rate = rates.FirstOrDefault(x =>
                 x.TaxZoneId == taxZoneId &&
                 x.ConstructionTypeId == detail.ConstructionTypeId &&

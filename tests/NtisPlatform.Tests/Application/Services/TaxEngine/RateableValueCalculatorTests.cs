@@ -182,5 +182,65 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.Equal(0m, result.RateableValue);
             Assert.Equal(0m, result.RAreaSqMtr);
         }
+
+        [Fact]
+        public void CalculateBaseValues_WhenTypeOfUseTypeIsN_ReturnsZeroedResult()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 100d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, Type = "N", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            var result = Calculate(detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>());
+
+            Assert.NotNull(result);
+            Assert.Equal(1, result.PropertyId);
+            Assert.Equal(100, result.PropertyDetailsId);
+            Assert.Equal(0m, result.MonthlyRate);
+            Assert.Equal(0m, result.YearlyRate);
+            Assert.Equal(0m, result.YearlyRent);
+            Assert.Equal(0m, result.Depreciation);
+            Assert.Equal(0m, result.DepreciationPer);
+            Assert.Equal("Type is N", result.AppliedOn);
+            Assert.Equal(0m, result.AnnualRentalValue);
+            Assert.Equal(0m, result.Maintenance);
+            Assert.Equal(0m, result.RateableValue);
+            Assert.Equal(0m, result.RAreaSqMtr);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WhenTypeOfUseTypeIsNLowercase_ReturnsZeroedResult()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 100d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, Type = "n", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            var result = Calculate(detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>());
+
+            Assert.NotNull(result);
+            Assert.Equal("Type is N", result.AppliedOn);
+            Assert.Equal(0m, result.RateableValue);
+        }
     }
 }
