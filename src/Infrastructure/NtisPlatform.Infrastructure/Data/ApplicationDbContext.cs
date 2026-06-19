@@ -2687,35 +2687,34 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("PolicyTaxDetailsCV", "PTIS");
             entity.HasKey(e => e.Id).HasName("PK_PolicyTaxDetailsCV");
+            entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.PolicyCode).HasMaxLength(20).IsUnicode(false).IsRequired();
+            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
             entity.Property(e => e.PolicyDate).HasColumnType("datetime");
             entity.Property(e => e.PolicyYear);
-            entity.Property(e => e.PolicyReason);
-            entity.Property(e => e.PolicyRVorCVvalue);
+            entity.Property(e => e.PolicyReason).HasMaxLength(200);
+            entity.Property(e => e.PolicyRVorCVvalue).HasColumnType("money");
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
-            entity.Property(e => e.MarkedForDeletion).HasDefaultValue(false).IsRequired();
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
-            entity.Property(e => e.IsActive).HasDefaultValue(true).IsRequired();
-            entity.Property(e => e.CreatedBy).HasColumnName("CreatedBy");
-            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").HasDefaultValueSql("getdate()").IsRequired();
-            entity.Property(e => e.UpdatedBy).HasColumnName("UpdatedBy");
-            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime");
+            entity.Property(e => e.TaxAmount).HasColumnType("money");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
-            // Configure foreign key relationships explicitly
-            entity.HasOne(e => e.PropertyMast)
-                  .WithMany(p => p.PolicyTaxDetailsCV)
-                  .HasForeignKey(e => e.PropertyId)
-                  .HasConstraintName("FK_PolicyTaxDetailsCV_PropertyMast_PropertyId")
-                  .OnDelete(DeleteBehavior.Restrict);
-
+            // Configure foreign key relationships
             entity.HasOne(e => e.TaxMaster)
-                  .WithMany(t => t.PolicyTaxDetailsCV)
-                  .HasForeignKey(e => e.TaxId)
-                  .HasConstraintName("FK_PolicyTaxDetailsCV_TaxMaster_TaxId")
-                  .OnDelete(DeleteBehavior.Restrict);
+                .WithMany(p => p.PolicyTaxDetailsCV)
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.PropertyMast)
+                .WithMany(p => p.PolicyTaxDetailsCV)
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes for better query performance
+            entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => e.TaxId);
         });
 
         modelBuilder.Entity<TransMastCVEntity>(entity =>

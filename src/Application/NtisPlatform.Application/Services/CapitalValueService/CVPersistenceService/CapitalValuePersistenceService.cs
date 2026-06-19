@@ -15,13 +15,13 @@ namespace NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
 public class CapitalValuePersistenceService : ICapitalValuePersistenceService
 {
     private readonly IPropertyTaxCalculationCVResultsService _cvResultsService;
-    private readonly IPolicyTaxDetailsService _policyTaxService;
+    private readonly IPolicyTaxDetailsCVService _policyTaxService;
     private readonly ITransMastService _transMastService;
     private readonly ILogger<CapitalValuePersistenceService> _logger;
 
     public CapitalValuePersistenceService(
         IPropertyTaxCalculationCVResultsService cvResultsService,
-        IPolicyTaxDetailsService policyTaxService,
+        IPolicyTaxDetailsCVService policyTaxService,
         ITransMastService transMastService,
         ILogger<CapitalValuePersistenceService> logger)
     {
@@ -49,7 +49,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
     }
 
     public async Task PersistAggregatedDataAsync(
-        int propertyId, YearMasterEntity financeYear, Dictionary<int, (decimal TotalTax, decimal TotalCV)> aggregatedTaxes, Dictionary<int, PolicyTaxDetailsDto> existingPolicies,
+        int propertyId, YearMasterEntity financeYear, Dictionary<int, (decimal TotalTax, decimal TotalCV)> aggregatedTaxes, Dictionary<int, PolicyTaxDetailsCVDto> existingPolicies,
         Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto> existingTransMast, string policyCode, DateTime policyDate, int policyYear, string? policyReason,
         int createdBy, CancellationToken cancellationToken = default)
     {
@@ -57,8 +57,8 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
             return;
 
         // Prepare bulk operations
-        var policyUpdates = new List<BulkUpdateItem<int, UpdatePolicyTaxDetailsDto>>();
-        var policyCreates = new List<CreatePolicyTaxDetailsDto>();
+        var policyUpdates = new List<BulkUpdateItem<int, UpdatePolicyTaxDetailsCVDto>>();
+        var policyCreates = new List<CreatePolicyTaxDetailsCVDto>();
         var transMastUpdates = new List<BulkUpdateItem<int, UpdateTransMastDto>>();
         var transMastCreates = new List<CreateTransMastDto>();
 
@@ -67,16 +67,16 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
             // Prepare PolicyTaxDetailsCV upserts
             if (existingPolicies.TryGetValue(taxId, out var existingPolicy))
             {
-                policyUpdates.Add(new BulkUpdateItem<int, UpdatePolicyTaxDetailsDto>(
+                policyUpdates.Add(new BulkUpdateItem<int, UpdatePolicyTaxDetailsCVDto>(
                     existingPolicy.Id,
-                    new UpdatePolicyTaxDetailsDto
+                    new UpdatePolicyTaxDetailsCVDto
                     {
                         PolicyCode = policyCode,
                         PolicyDate = policyDate,
                         PolicyYear = (short)policyYear,
                         PolicyReason = policyReason,
                         PolicyRVorCVvalue = totalCV,
-                        TaxAmount = totalTax,
+                         TaxAmount = totalTax,
                         UpdatedBy = createdBy,
                         UpdatedDate = DateTime.UtcNow
 
@@ -85,7 +85,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
             }
             else
             {
-                policyCreates.Add(new CreatePolicyTaxDetailsDto
+                policyCreates.Add(new CreatePolicyTaxDetailsCVDto
                 {
                     PropertyId = propertyId,
                     PolicyCode = policyCode,
@@ -95,7 +95,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     PolicyRVorCVvalue = totalCV,
                     TaxId = taxId,
                     TaxAmount = totalTax,
-                    CreatedBy = createdBy,
+                     CreatedBy = createdBy,
                     IsActive=true,
                     CreatedDate=DateTime.UtcNow
                 });
@@ -141,7 +141,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
         await ExecuteTransMastBulkOperationsAsync(transMastCreates, transMastUpdates, cancellationToken);
     }
 
-    private async Task ExecutePolicyBulkOperationsAsync(List<CreatePolicyTaxDetailsDto> creates,List<BulkUpdateItem<int, UpdatePolicyTaxDetailsDto>> updates,CancellationToken cancellationToken)
+    private async Task ExecutePolicyBulkOperationsAsync(List<CreatePolicyTaxDetailsCVDto> creates,List<BulkUpdateItem<int, UpdatePolicyTaxDetailsCVDto>> updates,CancellationToken cancellationToken)
     {
         if (creates.Any())
         {

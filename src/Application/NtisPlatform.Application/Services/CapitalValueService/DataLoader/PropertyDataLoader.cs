@@ -66,8 +66,8 @@ public class PropertyDataLoader : IPropertyDataLoader
 
         var details = await query.ToListAsync(cancellationToken);
 
-        if (!details.Any())
-            throw new PropertyDetailsNotFoundException(propertyId, propertyDetailsId ?? 0);
+        //if (!details.Any())
+        //    throw new PropertyDetailsNotFoundException(propertyId, propertyDetailsId ?? 0);
 
         return details;
     }

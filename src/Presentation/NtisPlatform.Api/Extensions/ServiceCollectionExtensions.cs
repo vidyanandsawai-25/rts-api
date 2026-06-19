@@ -194,7 +194,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPaymentModeService, PaymentModeService>();
         services.AddScoped<ICapitalValueService, CapitalValueService>();
         services.AddScoped<IPropertyTaxCalculationCVResultsService, PropertyTaxCalculationCVResultsService>();
-        services.AddScoped<IPolicyTaxDetailsService, PolicyTaxDetailsService>();
+        services.AddScoped<IPolicyTaxDetailsCVService, PolicyTaxDetailsCVService>();
         services.AddScoped<ITransMastService, TransMastService>();
         // Capital Value Supporting Services - Data Loaders
         services.AddScoped<IPropertyDataLoader, PropertyDataLoader>();

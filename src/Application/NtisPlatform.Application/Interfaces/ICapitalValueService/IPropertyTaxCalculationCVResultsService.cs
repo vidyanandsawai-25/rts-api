@@ -15,6 +15,7 @@ public interface IPropertyTaxCalculationCVResultsService : ICommonCrudService<Pr
     /// Sets IsActive = false (soft delete).
     /// </summary>
     Task DeactivateByPropertyDetailsIdAsync(int propertyDetailsId, int? updatedBy = null, CancellationToken cancellationToken = default);
+    Task DeactivateByPropertyIdAsync(int propertyId, int? updatedBy = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets the CVInputHash for a PropertyDetailsId to detect changes.

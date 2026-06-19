@@ -26,7 +26,7 @@ namespace NtisPlatform.Tests.Application.Services;
 public class CapitalValueServiceTests
 {
     private readonly Mock<IPropertyTaxCalculationCVResultsService> _cvResultsService;
-    private readonly Mock<IPolicyTaxDetailsService> _policyTaxService;
+    private readonly Mock<IPolicyTaxDetailsCVService> _policyTaxService;
     private readonly Mock<ITransMastService> _transMastService;
     private readonly Mock<IPropertyDataLoader> _propertyDataLoader;
     private readonly Mock<ICapitalValueMasterDataProvider> _masterDataProvider;
@@ -40,7 +40,7 @@ public class CapitalValueServiceTests
     public CapitalValueServiceTests()
     {
         _cvResultsService = new Mock<IPropertyTaxCalculationCVResultsService>();
-        _policyTaxService = new Mock<IPolicyTaxDetailsService>();
+        _policyTaxService = new Mock<IPolicyTaxDetailsCVService>();
         _transMastService = new Mock<ITransMastService>();
         _propertyDataLoader = new Mock<IPropertyDataLoader>();
         _masterDataProvider = new Mock<ICapitalValueMasterDataProvider>();
@@ -271,6 +271,7 @@ public class CapitalValueServiceTests
         _cvResultsService.Setup(x => x.DeactivateByPropertyDetailsIdAsync(10, null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+
         // Setup mocks for PolicyTaxDetails and TransMast deactivation
         _policyTaxService.Setup(x => x.DeactivateByPropertyIdAsync(propertyId, null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
@@ -298,6 +299,8 @@ public class CapitalValueServiceTests
         // Assert
         _cvResultsService.Verify(x => x.DeactivateByPropertyDetailsIdAsync(10, null, It.IsAny<CancellationToken>()), Times.Once, 
             "Should deactivate old CV records when hash changes");
+
+
         _cvResultsService.Verify(x => x.GetCVInputHashAsync(10, It.IsAny<CancellationToken>()), Times.Once,
             "Should check existing hash");
 
@@ -434,7 +437,7 @@ public class CapitalValueServiceTests
             });
 
         _policyTaxService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PolicyTaxDetailsDto>());
+            .ReturnsAsync(new List<PolicyTaxDetailsCVDto>());
 
         _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, "CV", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TransMastDto>());
@@ -456,7 +459,7 @@ public class CapitalValueServiceTests
             propertyId,
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             It.IsAny<string>(),
             It.IsAny<DateTime>(),
@@ -608,7 +611,7 @@ public class CapitalValueServiceTests
             propertyId,
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             It.IsAny<string>(),
             It.IsAny<DateTime>(),
@@ -639,7 +642,7 @@ public class CapitalValueServiceTests
             It.IsAny<int>(),
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             It.IsAny<string>(),
             It.IsAny<DateTime>(),
@@ -669,7 +672,7 @@ public class CapitalValueServiceTests
             propertyId,
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             "NETTAX", // Default policy code
             It.IsAny<DateTime>(),
@@ -704,7 +707,7 @@ public class CapitalValueServiceTests
             propertyId,
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             "CUSTOM",
             It.IsAny<DateTime>(),
@@ -900,7 +903,7 @@ public class CapitalValueServiceTests
             .ReturnsAsync(existingCVResults ?? new List<PropertyTaxCalculationCVResultsDto>());
 
         _policyTaxService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PolicyTaxDetailsDto>());
+            .ReturnsAsync(new List<PolicyTaxDetailsCVDto>());
 
         _transMastService.Setup(x => x.GetByPropertyIdAsync(propertyId, "CV", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<TransMastDto>());
@@ -914,7 +917,7 @@ public class CapitalValueServiceTests
             It.IsAny<int>(),
             It.IsAny<YearMasterEntity>(),
             It.IsAny<Dictionary<int, (decimal TotalTax, decimal TotalCV)>>(),
-            It.IsAny<Dictionary<int, PolicyTaxDetailsDto>>(),
+            It.IsAny<Dictionary<int, PolicyTaxDetailsCVDto>>(),
             It.IsAny<Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto>>(),
             It.IsAny<string>(),
             It.IsAny<DateTime>(),

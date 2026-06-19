@@ -136,7 +136,9 @@ public class AutoMapperValidationTest
              "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
              "PrarupYadiPublishDate", "AntimYadiPublishDate", "PartOCDate", "BHK", "WingNo",
              "TotalBuiltupAreaSqFeet", "TotalBuiltupAreaSqMeter", "Latitude", "Longitude",
-             "NoOfCommercialToilets", "WingName", "PartitionNo"
+             "NoOfCommercialToilets", "WingName", "PartitionNo",
+             // Local record types used in data layer projections (not entity mappings)
+             "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount"
           };
 
             // Check if all unmapped properties are in the expected list

@@ -9,11 +9,11 @@ public class PolicyTaxDetailsMappingProfile : Profile
     public PolicyTaxDetailsMappingProfile()
     {
         // Entity to DTO mapping
-        CreateMap<PolicyTaxDetailsEntity, PolicyTaxDetailsDto>()
+        CreateMap<PolicyTaxDetailsCVEntity, PolicyTaxDetailsCVDto>()
             .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => src.TaxMaster != null ? src.TaxMaster.TaxName : null));
 
         // CreateDto to Entity mapping
-        CreateMap<CreatePolicyTaxDetailsDto, PolicyTaxDetailsEntity>()
+        CreateMap<CreatePolicyTaxDetailsCVDto, PolicyTaxDetailsCVEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
@@ -23,7 +23,7 @@ public class PolicyTaxDetailsMappingProfile : Profile
             .ForMember(dest => dest.TaxMaster, opt => opt.Ignore());
 
         // UpdateDto to Entity mapping
-        CreateMap<UpdatePolicyTaxDetailsDto, PolicyTaxDetailsEntity>()
+        CreateMap<UpdatePolicyTaxDetailsCVDto, PolicyTaxDetailsCVEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
             .ForMember(dest => dest.TaxId, opt => opt.Ignore())

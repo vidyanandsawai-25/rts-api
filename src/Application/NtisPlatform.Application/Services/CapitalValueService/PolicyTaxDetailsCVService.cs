@@ -7,32 +7,32 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.CapitalValueService;
 
-public class PolicyTaxDetailsService : BaseCommonCrudService<PolicyTaxDetailsEntity, PolicyTaxDetailsDto, CreatePolicyTaxDetailsDto, UpdatePolicyTaxDetailsDto, PolicyTaxDetailsQueryParameters, int>, IPolicyTaxDetailsService
+public class PolicyTaxDetailsCVService : BaseCommonCrudService<PolicyTaxDetailsCVEntity, PolicyTaxDetailsCVDto, CreatePolicyTaxDetailsCVDto, UpdatePolicyTaxDetailsCVDto, PolicyTaxDetailsCVQueryParameters, int>, IPolicyTaxDetailsCVService
 {
-    public PolicyTaxDetailsService(
-        IRepository<PolicyTaxDetailsEntity, int> repository,
+    public PolicyTaxDetailsCVService(
+        IRepository<PolicyTaxDetailsCVEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
         : base(repository, unitOfWork, mapper)
     {
     }
 
-    public async Task<PolicyTaxDetailsDto?> GetByPropertyAndTaxIdAsync(long propertyId, int taxId, CancellationToken cancellationToken = default)
+    public async Task<PolicyTaxDetailsCVDto?> GetByPropertyAndTaxIdAsync(long propertyId,int taxId, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.TaxId == taxId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.TaxId == taxId && !x.MarkedForDeletion)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return entity == null ? null : _mapper.Map<PolicyTaxDetailsDto>(entity);
+        return entity == null ? null : _mapper.Map<PolicyTaxDetailsCVDto>(entity);
     }
 
-    public async Task<List<PolicyTaxDetailsDto>> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    public async Task<List<PolicyTaxDetailsCVDto>> GetByPropertyIdAsync(int propertyId,CancellationToken cancellationToken = default)
     {
         var entities = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion )
             .ToListAsync(cancellationToken);
 
-        return _mapper.Map<List<PolicyTaxDetailsDto>>(entities);
+        return _mapper.Map<List<PolicyTaxDetailsCVDto>>(entities);
     }
 
     public async Task DeactivateByPropertyIdAsync(int propertyId, int? updatedBy = null, CancellationToken cancellationToken = default)
@@ -52,4 +52,6 @@ public class PolicyTaxDetailsService : BaseCommonCrudService<PolicyTaxDetailsEnt
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
+
+
 }

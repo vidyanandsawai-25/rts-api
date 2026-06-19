@@ -11,10 +11,11 @@ using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueServ
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Mappings; 
+using NtisPlatform.Application.Services.CapitalValue.Utils;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
-using NtisPlatform.Application.Services.CapitalValue.Utils;
+using static NtisPlatform.Core.Constants.CapitalValueConstants;
 
 
 namespace NtisPlatform.Application.Services.CapitalValue
@@ -23,21 +24,21 @@ namespace NtisPlatform.Application.Services.CapitalValue
     public class CapitalValueService : ICapitalValueService
     {
         private readonly IPropertyTaxCalculationCVResultsService _cvResultsService;
-        private readonly IPolicyTaxDetailsService _policyTaxService;
+        private readonly IPolicyTaxDetailsCVService _policyTaxService;
         private readonly ITransMastService _transMastService;
         private readonly IPropertyDataLoader _propertyDataLoader;
         private readonly ICapitalValueMasterDataProvider _masterDataProvider;
         private readonly ICapitalValueCalculator _calculator;
         private readonly ICapitalValuePersistenceService _persistenceService;
         private readonly IUnitOfWork _unitOfWork;
-
         private readonly IMapper _mapper;
         private readonly CapitalValueOptions _options;
         private readonly ILogger<CapitalValueService> _logger;
 
+
         public CapitalValueService(
             IPropertyTaxCalculationCVResultsService cvResultsService,
-            IPolicyTaxDetailsService policyTaxService,
+            IPolicyTaxDetailsCVService policyTaxService,
             ITransMastService transMastService,
             IPropertyDataLoader propertyDataLoader,
             ICapitalValueMasterDataProvider masterDataProvider,
@@ -70,7 +71,11 @@ namespace NtisPlatform.Application.Services.CapitalValue
             var allActivePropertyDetails = await _propertyDataLoader.LoadPropertyDetailsAsync(propertyId, null, cancellationToken);
              if (!allActivePropertyDetails.Any())
              {
-                 throw new PropertyDetailsNotFoundException(propertyId);
+                await _policyTaxService.DeactivateByPropertyIdAsync(propertyId, null, cancellationToken);
+                await _transMastService.DeactivateByPropertyIdAsync(propertyId, "CV", null, cancellationToken);
+                await _cvResultsService.DeactivateByPropertyIdAsync(propertyId, null, cancellationToken);
+
+                throw new PropertyDetailsNotFoundException(propertyId);
              }
 
             // Load property-level data needed for hash generation
@@ -148,7 +153,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
 
         /// <summary>
         /// Creates or updates capital value calculations for a property.
-         /// </summary>
+        /// </summary>
         public async Task<List<CapitalValueDto>> CreateAsync(CreateCapitalValueDto dto, CancellationToken cancellationToken = default)
         {
             try
@@ -190,7 +195,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 // Step 2: Check for existing CV records to determine if we need to calculate or update, and to prepare for bulk insert (avoid duplicates)
                 var existingCVs = await _cvResultsService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
                 var existingCVKeys = existingCVs.Select(x => (x.PropertyDetailsId, x.TaxId)).ToHashSet();
-                Dictionary<int, PolicyTaxDetailsDto> existingPolicies = new();
+                Dictionary<int, PolicyTaxDetailsCVDto> existingPolicies = new();
                 Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto> existingTransMast = new();
 
                 if (dto.PropertyDetailsId == 0)
@@ -273,7 +278,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
         // converts CapitalValueDto to a list of CreatePropertyTaxCalculationCVResultsDto for database insertion.
         // Now stores factor IDs instead of factor values.
         //  </summary>
-        private void BuildCVResultEntities( CapitalValueDto cvDto,  RateMasterForCVEntity rateMaster,  TaxMasterEntity taxTotalHead,  HashSet<(int PropertyDetailsId, int TaxId)> existingCVKeys,  List<CreatePropertyTaxCalculationCVResultsDto> cvResultsToCreate,  CreateCapitalValueDto dto, FloorFactorCVMasterEntity? floorFactorEntity, AgeFactorCVMasterEntity? ageFactorEntity, NatureFactorCVMasterEntity? ntbFactorEntity, UseFactorCVMasterEntity? useFactorEntity, string cvInputHash)
+        private void BuildCVResultEntities(CapitalValueDto cvDto, RateMasterForCVEntity rateMaster,TaxMasterEntity taxTotalHead,HashSet<(int PropertyDetailsId, int TaxId)> existingCVKeys,  List<CreatePropertyTaxCalculationCVResultsDto> cvResultsToCreate,  CreateCapitalValueDto dto, FloorFactorCVMasterEntity? floorFactorEntity, AgeFactorCVMasterEntity? ageFactorEntity, NatureFactorCVMasterEntity? ntbFactorEntity, UseFactorCVMasterEntity? useFactorEntity, string cvInputHash)
         {
 
              // Build CV result entities for each tax

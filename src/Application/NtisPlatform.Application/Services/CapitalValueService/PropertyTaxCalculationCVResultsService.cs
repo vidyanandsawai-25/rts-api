@@ -116,6 +116,22 @@ public class PropertyTaxCalculationCVResultsService : BaseCommonCrudService<Prop
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task DeactivateByPropertyIdAsync(int propertyId, int? updatedBy = null, CancellationToken cancellationToken = default)
+    {
+        var entities = await _repository.GetQueryable()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && x.MarkedForDeletion == false).ToListAsync(cancellationToken);
+
+        foreach (var entity in entities)
+        {
+            entity.IsActive = false;
+            entity.MarkedForDeletion = true;
+            entity.MarkedForDeletionDate = DateTime.Now;
+            entity.UpdatedDate = DateTime.Now;
+            entity.UpdatedBy = updatedBy;
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
     public async Task<string?> GetCVInputHashAsync(int propertyDetailsId, CancellationToken cancellationToken = default)
     {
         return await _repository.GetQueryable() .Where(x => x.PropertyDetailsId == propertyDetailsId && x.IsActive && x.MarkedForDeletion == false)

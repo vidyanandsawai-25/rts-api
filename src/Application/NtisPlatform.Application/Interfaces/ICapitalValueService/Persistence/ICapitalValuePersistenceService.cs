@@ -25,7 +25,7 @@ public interface ICapitalValuePersistenceService
         int propertyId,
         YearMasterEntity financeYear,
         Dictionary<int, (decimal TotalTax, decimal TotalCV)> aggregatedTaxes,
-        Dictionary<int, PolicyTaxDetailsDto> existingPolicies,
+        Dictionary<int, PolicyTaxDetailsCVDto> existingPolicies,
         Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto> existingTransMast,
         string policyCode,
         DateTime policyDate,
