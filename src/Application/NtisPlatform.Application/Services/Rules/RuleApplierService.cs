@@ -107,12 +107,34 @@ namespace NtisPlatform.Application.Services.Rules
 
                     foreach (var rule in ruleResults)
                     {
-                        var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(rule.EffectType));
+                        var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(rule.EffectType ?? string.Empty));
                         if (applicator == null)
                             continue;
 
                         applyOrder++;
                         decimal nextValue = await applicator.Apply(cumulativeValue, rule.EffectValue);
+
+                        decimal applyRate = rule.EffectValue;
+                        if (rule.EffectType != null)
+                        {
+                            var effectLower = rule.EffectType.ToLowerInvariant();
+                            if (effectLower.Contains("decrease") && (effectLower.Contains("%") || effectLower.Contains("percent")))
+                            {
+                                applyRate = 100m - rule.EffectValue;
+                            }
+                            else if (effectLower.Contains("increase") && (effectLower.Contains("%") || effectLower.Contains("percent")))
+                            {
+                                applyRate = 100m + rule.EffectValue;
+                            }
+                            else if (effectLower.Contains("exempt"))
+                            {
+                                applyRate = 0m;
+                            }
+                            else if (effectLower.Contains("multiply"))
+                            {
+                                applyRate = rule.EffectValue * 100m;
+                            }
+                        }
 
                         appliedRules.Add(new RuleApplicationTraceEntry
                         {
@@ -120,6 +142,7 @@ namespace NtisPlatform.Application.Services.Rules
                             RuleName = rule.RuleName,
                             EffectType = rule.EffectType,
                             EffectValue = rule.EffectValue,
+                            ApplyRate = applyRate,
                             BaseValue = context.InitialValue,
                             ComputedValue = nextValue,
                             CumulativeValue = nextValue,
@@ -196,6 +219,16 @@ namespace NtisPlatform.Application.Services.Rules
             // Used in rule expressions as: input.SocialAttributeId.Contains(38)
             // Reflection skips collections, so this must be set manually.
             entityScalarPropertiesDict["SocialAttributeId"] = p.SocialAttributeId;
+
+            // Building floor properties
+            entityScalarPropertiesDict["BuildingMaxFloorSequence"] = p.BuildingMaxFloorSequence;
+
+            // Current floor properties for the detail scope
+            if (detail?.Floor != null)
+            {
+                entityScalarPropertiesDict["FloorCode"] = detail.Floor.FloorCode ?? string.Empty;
+                entityScalarPropertiesDict["FloorSequenceNo"] = detail.Floor.SequenceNo ?? 0;
+            }
 
             // ── Step 2b: Social attributes (dynamic — keyed by SocialAttributeCode) ─
             // Any attribute from PTIS.SocialAttributeMaster is injected here automatically.

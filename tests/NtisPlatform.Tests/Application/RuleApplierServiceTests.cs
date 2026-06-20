@@ -451,6 +451,107 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal(1000.0, inputDict["Rate"]); // (double)context.InitialValue
         }
 
+        [Fact]
+        public async Task ApplyRulesAsync_MapsBuildingAndDetailFloorAttributesCorrectly()
+        {
+            // Arrange
+            RuleExecutionInputDto? capturedInput = null;
+
+            _ruleExecutionServiceMock
+                .Setup(x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
+                .Callback<RuleExecutionInputDto, CancellationToken>((dto, _) => capturedInput = dto)
+                .ReturnsAsync(new List<RuleExecutionResultDto>());
+
+            var property = new PropertyEntity { Id = 42 };
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 99,
+                FloorId = 4,
+                Floor = new FloorEntity
+                {
+                    FloorCode = "10",
+                    SequenceNo = 21
+                }
+            };
+
+            var detailTypeOfUse = new TypeOfUseEntity { TypeOfUseGroupId = 2 };
+
+            var propertyContext = new PropertyCalculationContext
+            {
+                Property = property,
+                Parameters = new PropertyCalculationParameters
+                {
+                    FinanceYear = 2026,
+                    ConstructionYearValue = 2020,
+                    Detail = detail,
+                    DetailTypeOfUse = detailTypeOfUse,
+                    BuildingMaxFloorSequence = 23
+                }
+            };
+
+            var context = new RuleApplierContext
+            {
+                Category = "RV",
+                ValueKey = "Rate",
+                InitialValue = 1000m,
+                PropertyContext = propertyContext
+            };
+
+            // Act
+            await _service.ApplyRulesAsync(context);
+
+            // Assert
+            Assert.NotNull(capturedInput);
+            var inputDict = capturedInput.Input;
+
+            Assert.Equal(23, inputDict["BuildingMaxFloorSequence"]);
+            Assert.Equal("10", inputDict["FloorCode"]);
+            Assert.Equal(21, inputDict["FloorSequenceNo"]);
+        }
+
+        [Fact]
+        public async Task ApplyRulesAsync_CalculatesCorrectApplyRateForVariousEffectTypes()
+        {
+            // Arrange
+            var context = CreateTestContext(
+                new PropertyDetailsEntity { FloorId = 1, Id = 1 },
+                new TypeOfUseEntity { TypeOfUseGroupId = 2 },
+                new PropertyEntity { Id = 1 });
+
+            _ruleExecutionServiceMock
+                .Setup(x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<RuleExecutionResultDto>
+                {
+                    new() { RuleCode = "R1", EffectType = "DecreasePercent", EffectValue = 60m },
+                    new() { RuleCode = "R2", EffectType = "IncreasePercent", EffectValue = 20m },
+                    new() { RuleCode = "R3", EffectType = "Exemption",        EffectValue = 100m },
+                    new() { RuleCode = "R4", EffectType = "Override",         EffectValue = 15m },
+                    new() { RuleCode = "R5", EffectType = "Multiply",         EffectValue = 1.5m }
+                });
+
+            // Act
+            var result = await _service.ApplyRulesAsync(context);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(5, result.AppliedRules.Count);
+            
+            // R1: DecreasePercent 60% -> Applied 40%
+            Assert.Equal(40m, result.AppliedRules[0].ApplyRate);
+            
+            // R2: IncreasePercent 20% -> Applied 120%
+            Assert.Equal(120m, result.AppliedRules[1].ApplyRate);
+            
+            // R3: Exemption -> Applied 0%
+            Assert.Equal(0m, result.AppliedRules[2].ApplyRate);
+            
+            // R4: Override 15 -> Applied 15
+            Assert.Equal(15m, result.AppliedRules[3].ApplyRate);
+            
+            // R5: Multiply 1.5 -> Applied 150%
+            Assert.Equal(150m, result.AppliedRules[4].ApplyRate);
+        }
+
         // ─── Factory Helper ────────────────────────────────────────────────────────
 
         /// <summary>

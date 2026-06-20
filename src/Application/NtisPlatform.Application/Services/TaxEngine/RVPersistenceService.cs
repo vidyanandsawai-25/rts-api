@@ -219,6 +219,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 RuleName = rule.RuleName,
                 EffectType = rule.EffectType,
                 EffectValue = rule.EffectValue,
+                ApplyRate = rule.ApplyRate,
                 BaseValue = rule.BaseValue,
                 ComputedValue = rule.ComputedValue,
                 CumulativeValue = rule.CumulativeValue,

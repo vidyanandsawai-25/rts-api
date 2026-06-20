@@ -51,7 +51,7 @@ namespace NtisPlatform.Application.Services.Rules
         private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ILogger<PropertyContextLoaderService> _logger;
-       
+
 
         public PropertyContextLoaderService(
             IRepository<PropertyEntity, int> propertyRepo,
@@ -131,6 +131,7 @@ namespace NtisPlatform.Application.Services.Rules
                 .ToListAsync(cancellationToken);
 
             var details = await _propertyDetailsRepo.GetQueryable()
+                .Include(x => x.Floor)
                 .AsNoTracking()
                 .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
                 .OrderBy(x => x.Id)
@@ -241,6 +242,13 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Phase 6: Assemble and return the context ───────────────────────────
 
+            // Calculate building's max floor sequence number
+            var maxFloorSequence = details
+                .Where(d => d.Floor != null)
+                .Select(d => d.Floor!.SequenceNo ?? 0)
+                .DefaultIfEmpty(0)
+                .Max();
+
             return new PropertyCalculationContext
             {
                 Property = property,
@@ -255,7 +263,8 @@ namespace NtisPlatform.Application.Services.Rules
                     ConstructionYearValue = constructionYearValue,
                     YearRangeRVId = yearRange.Id,
                     SocialAttributeId = socialAttributeIds,
-                    SocialAttributes = socialAttributeDict
+                    SocialAttributes = socialAttributeDict,
+                    BuildingMaxFloorSequence = maxFloorSequence
                     // Detail and DetailTypeOfUse remain null at the root context level.
                     // They are populated per-detail by PropertyCalculationContext.CloneForDetail().
                 }

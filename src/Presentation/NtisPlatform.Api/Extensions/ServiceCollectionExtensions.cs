@@ -343,6 +343,7 @@ public static class ServiceCollectionExtensions
         // Rules namespace registrations
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();
+        services.AddScoped<IPropertyRuleApplicationLogService, PropertyRuleApplicationLogService>();
         services.AddScoped<IFieldConfigurationService, FieldConfigurationService>();
         services.AddScoped<IRuleApplierService, RuleApplierService>();
         services.AddScoped<IPropertyContextLoaderService, PropertyContextLoaderService>();

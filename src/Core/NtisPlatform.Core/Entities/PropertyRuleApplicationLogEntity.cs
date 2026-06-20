@@ -15,6 +15,7 @@ namespace NtisPlatform.Core.Entities
         public string RuleName { get; set; } = string.Empty; // human-readable name
         public string EffectType { get; set; } = string.Empty; // "Increase %", "Decrease %", "Override", etc.
         public decimal EffectValue { get; set; } // e.g. 5.0 for 5%
+        public decimal ApplyRate { get; set; } // actual applied percentage/value, e.g. 40.0 when 60% is decreased
         public decimal BaseValue { get; set; } // initial rate BEFORE any rule in the chain
         public decimal ComputedValue { get; set; } // result of THIS rule applied to previous cumulative
         public decimal CumulativeValue { get; set; } // running total AFTER this rule

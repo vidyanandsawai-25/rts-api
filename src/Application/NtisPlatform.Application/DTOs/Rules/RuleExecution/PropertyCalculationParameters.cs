@@ -44,6 +44,11 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         public int YearRangeRVId { get; set; }
 
         /// <summary>
+        /// The highest SequenceNo among all floor details of the property.
+        /// </summary>
+        public int BuildingMaxFloorSequence { get; set; }
+
+        /// <summary>
         /// A list of selected SocialAttributeIds against the property (from PropertySocialDetailsEntity).
         /// Used for multi-select rules (e.g. Contains Any, Contains All).
         /// </summary>
@@ -95,6 +100,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
                 YearRangeRVId = this.YearRangeRVId,
                 SocialAttributeId = this.SocialAttributeId,
                 SocialAttributes = this.SocialAttributes,
+                BuildingMaxFloorSequence = this.BuildingMaxFloorSequence,
 
                 // Per-detail — overridden for this clone
                 Detail = detail,

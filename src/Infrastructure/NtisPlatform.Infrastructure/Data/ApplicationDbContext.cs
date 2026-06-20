@@ -4908,6 +4908,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.RuleName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.EffectType).IsRequired().HasMaxLength(100);
             entity.Property(e => e.EffectValue).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ApplyRate).HasColumnType("decimal(18,4)");
             entity.Property(e => e.BaseValue).HasColumnType("decimal(18,4)");
             entity.Property(e => e.ComputedValue).HasColumnType("decimal(18,4)");
             entity.Property(e => e.CumulativeValue).HasColumnType("decimal(18,4)");

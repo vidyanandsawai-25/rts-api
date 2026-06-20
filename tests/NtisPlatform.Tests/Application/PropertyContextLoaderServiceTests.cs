@@ -37,7 +37,7 @@ namespace NtisPlatform.Tests.Application
         private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
         private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
         private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
-        private readonly Mock<TaxMasterDataService> _masterDataService;
+        private readonly Mock<ITaxMasterDataService> _masterDataService;
 
         private readonly Mock<IFinanceYearProvider> _financeYearProvider;
         private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
@@ -67,38 +67,7 @@ namespace NtisPlatform.Tests.Application
             _rvCalculationCleanupService = new Mock<IRVCalculationCleanupService>();
             _unitOfWork = new Mock<IUnitOfWork>();
 
-            // Build TaxMasterDataService mock with the minimal constructor repos it needs
-            var typeOfUseRepo = new Mock<IRepository<TypeOfUseEntity, int>>();
-            var subTypeOfUseRepo = new Mock<IRepository<SubTypeOfUseEntity, int>>();
-            var floorRepo = new Mock<IRepository<FloorEntity, int>>();
-            var subFloorRepo = new Mock<IRepository<SubFloorEntity, int>>();
-            var constructionTypeRepo = new Mock<IRepository<ConstructionTypeEntity, int>>();
-            var rateRepo = new Mock<IRepository<RateEntity, int>>();
-            var rateSectionRepo = new Mock<IRepository<RateSectionEntity, int>>();
-            var rateSectionDetailsRepo = new Mock<IRepository<RateSectionDetailsEntity, int>>();
-            var depreciationRepo = new Mock<IRepository<DepreciationMasterEntity, int>>();
-            var yearRangeRepo = new Mock<IRepository<AssessmentYearRangeEntity, int>>();
-            var taxMasterRepo = new Mock<IRepository<TaxMasterEntity, int>>();
-            var taxPercentageRepo = new Mock<IRepository<TaxPercentageMasterRVEntity, int>>();
-            var educationTaxRepo = new Mock<IRepository<EducationTaxMasterEntity, int>>();
-            var employmentTaxRepo = new Mock<IRepository<EmploymentTaxMasterEntity, int>>();
-
-            _masterDataService = new Mock<TaxMasterDataService>(
-                new MemoryCache(new MemoryCacheOptions()),
-                typeOfUseRepo.Object,
-                subTypeOfUseRepo.Object,
-                floorRepo.Object,
-                subFloorRepo.Object,
-                constructionTypeRepo.Object,
-                rateRepo.Object,
-                rateSectionRepo.Object,
-                rateSectionDetailsRepo.Object,
-                depreciationRepo.Object,
-                yearRangeRepo.Object,
-                taxMasterRepo.Object,
-                taxPercentageRepo.Object,
-                educationTaxRepo.Object,
-                employmentTaxRepo.Object);
+            _masterDataService = new Mock<ITaxMasterDataService>();
 
             // Default: all repos return empty async-capable mocks.
             _propertyRepo.Setup(r => r.GetQueryable())
@@ -125,7 +94,7 @@ namespace NtisPlatform.Tests.Application
             _yearMasterRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<YearMasterEntity>().BuildMockDbSet().Object);
 
-            _unitOfWork.Setup(x => x.SaveChangesAsync())
+            _unitOfWork.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
                 .ReturnsAsync(1);
         }
 
@@ -193,7 +162,7 @@ namespace NtisPlatform.Tests.Application
                 Times.Once);
 
             _unitOfWork.Verify(
-                x => x.SaveChangesAsync(),
+                x => x.SaveChangesAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
         }
 
@@ -291,6 +260,54 @@ namespace NtisPlatform.Tests.Application
             // Per-detail fields are null at root context level
             Assert.Null(ctx.Parameters.Detail);
             Assert.Null(ctx.Parameters.DetailTypeOfUse);
+        }
+
+        [Fact]
+        public async Task LoadPropertyContextAsync_ValidInput_CalculatesBuildingMaxFloorParametersCorrectly()
+        {
+            // Arrange
+            const int propertyId = 1;
+            SetupValidProperty(propertyId);
+
+            var floor10 = new FloorEntity { FloorCode = "10", SequenceNo = 21 };
+            var floor2 = new FloorEntity { FloorCode = "2", SequenceNo = 13 };
+
+            _propertyDetailsRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyDetailsEntity>
+                {
+                    new()
+                    {
+                        Id = 1,
+                        PropertyId = propertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        ConstructionYear = "2015",
+                        FloorId = 1,
+                        Floor = floor2
+                    },
+                    new()
+                    {
+                        Id = 2,
+                        PropertyId = propertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        ConstructionYear = "2015",
+                        FloorId = 2,
+                        Floor = floor10
+                    }
+                }.BuildMockDbSet().Object);
+
+            _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
+                .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
+
+            var sut = CreateService();
+
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(propertyId, 2026);
+
+            // Assert
+            Assert.NotNull(ctx);
+            Assert.Equal(21, ctx.Parameters.BuildingMaxFloorSequence);
         }
 
         [Fact]
