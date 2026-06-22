@@ -52,5 +52,13 @@ public interface IPropertyCertificateApplicationService
         PropertyCertificateBulkSaveDto bulkDto,
         int userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes the document associated with a property certificate.
+    /// </summary>
+    Task DeleteDocumentAsync(
+        int propertyCertificateId,
+        int deletedBy,
+        CancellationToken cancellationToken = default);
 }
 

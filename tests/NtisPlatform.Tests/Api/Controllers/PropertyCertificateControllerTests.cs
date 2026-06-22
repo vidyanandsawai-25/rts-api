@@ -9,6 +9,7 @@ using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Models;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -423,6 +424,76 @@ public class PropertyCertificateControllerTests
         };
 
         var result = await controller.BulkSaveAll(dto, CancellationToken.None);
+
+        var objectResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    #endregion
+
+    #region DeleteDocument
+
+    [Fact]
+    public async Task DeleteDocument_ReturnsBadRequest_WhenPropertyCertificateIdInvalid()
+    {
+        var controller = Create(out _);
+
+        var result = await controller.DeleteDocument(0, CancellationToken.None);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid PropertyCertificateId", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteDocument_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    {
+        var controller = Create(out _, userId: null);
+
+        var result = await controller.DeleteDocument(123, CancellationToken.None);
+
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task DeleteDocument_ReturnsBadRequest_OnInvalidOperationException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.DeleteDocumentAsync(123, 42, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Not found"));
+
+        var result = await controller.DeleteDocument(123, CancellationToken.None);
+
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Not found", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteDocument_ReturnsOk_OnSuccessfulDelete()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.DeleteDocumentAsync(123, 42, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var result = await controller.DeleteDocument(123, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Contains("Certificate document deleted successfully", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteDocument_Returns500_OnGenericException()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.DeleteDocumentAsync(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("unexpected error"));
+
+        var result = await controller.DeleteDocument(123, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, objectResult.StatusCode);

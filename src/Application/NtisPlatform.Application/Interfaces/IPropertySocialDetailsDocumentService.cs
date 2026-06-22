@@ -42,4 +42,15 @@ public interface IPropertySocialDetailsDocumentService
         CancellationToken cancellationToken = default,
         bool restrictToDiscount = true,
         bool restrictToSocial = false);
+
+    /// <summary>
+    /// Deletes the document associated with a property social details record.
+    /// </summary>
+    Task<bool> DeleteSocialDetailsDocumentAsync(
+        int propertySocialDetailId,
+        int deletedBy,
+        CancellationToken cancellationToken = default,
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false,
+        bool isPhoto = false);
 }

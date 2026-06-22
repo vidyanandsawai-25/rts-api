@@ -488,6 +488,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         // Get existing certificate
         var certificate = await _propertyCertificateService.GetByIdAsync(
             propertyCertificateId,
+            PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
             cancellationToken);
 
         if (certificate == null)
@@ -772,6 +773,72 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 response.EnabledCount, response.DisabledCount, response.Errors.Count);
 
             return response;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task DeleteDocumentAsync(
+        int propertyCertificateId,
+        int deletedBy,
+        CancellationToken cancellationToken = default)
+    {
+        Guard.AgainstNegativeOrZero(propertyCertificateId, nameof(propertyCertificateId));
+        Guard.AgainstNegativeOrZero(deletedBy, nameof(deletedBy));
+
+        _logger.LogInformation("Deleting document for PropertyCertificateId={Id}, User={UserId}",
+            propertyCertificateId, deletedBy);
+
+        var certificate = await _propertyCertificateService.GetByIdAsync(
+            propertyCertificateId,
+            PropertyCertificateIncludeOptions.DocumentBinding | PropertyCertificateIncludeOptions.Document,
+            cancellationToken);
+
+        if (certificate == null)
+        {
+            throw new InvalidOperationException($"PropertyCertificate with ID {propertyCertificateId} not found.");
+        }
+
+        if (certificate.DocumentBinding == null)
+        {
+            throw new InvalidOperationException($"PropertyCertificate with ID {propertyCertificateId} does not have an associated document.");
+        }
+
+        var documentGuid = certificate.DocumentBinding.Document?.DocumentGuid;
+        var storagePath = certificate.DocumentBinding.Document?.StoragePath;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // 1. Unlink the document binding from the certificate
+            await _propertyCertificateService.UnlinkDocumentBindingAsync(
+                propertyCertificateId,
+                deletedBy,
+                cancellationToken);
+
+            // 2. Soft-delete the document in CORE.Document
+            if (documentGuid.HasValue)
+            {
+                await _documentService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            // 3. Delete physical file from storage
+            if (!string.IsNullOrEmpty(storagePath))
+            {
+                try
+                {
+                    await _fileStorageService.DeleteFileAsync(storagePath, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete storage file {Path} for PropertyCertificate {Id}", storagePath, propertyCertificateId);
+                }
+            }
         }
         catch
         {

@@ -262,7 +262,72 @@ public class PropertyCertificateController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// DELETE - Delete the document associated with a property certificate.
+    /// Called when the user clicks the delete document button.
+    /// </summary>
+    [HttpDelete("{propertyCertificateId}/document")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteDocument(
+        int propertyCertificateId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (propertyCertificateId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid PropertyCertificateId" });
 
+            await _service.DeleteDocumentAsync(propertyCertificateId, GetUserId(), cancellationToken);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Certificate document deleted successfully"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access attempt. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Document deletion failed (not found or invalid state): {Id}. CorrelationId: {CorrelationId}",
+                propertyCertificateId, correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error deleting document for certificate: {Id}. CorrelationId: {CorrelationId}",
+                propertyCertificateId, correlationId);
+
+            var errorMessage = _environment.IsDevelopment()
+                ? $"An error occurred: {ex.Message}"
+                : "An error occurred";
+
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = errorMessage,
+                CorrelationId = correlationId
+            });
+        }
+    }
 
     /// <summary>
     /// 4. POST - Save all certificate changes with a single button.

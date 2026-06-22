@@ -575,4 +575,151 @@ public class PropertySocialDetailsDocumentService : IPropertySocialDetailsDocume
 
         return (department.Id, module.Id);
     }
+
+    public async Task<bool> DeleteSocialDetailsDocumentAsync(
+        int propertySocialDetailId,
+        int deletedBy,
+        CancellationToken cancellationToken = default,
+        bool restrictToDiscount = true,
+        bool restrictToSocial = false,
+        bool isPhoto = false)
+    {
+        Guard.AgainstNegativeOrZero(propertySocialDetailId, nameof(propertySocialDetailId));
+        Guard.AgainstNegativeOrZero(deletedBy, nameof(deletedBy));
+
+        _logger.LogInformation("Deleting document for PropertySocialDetailId: {Id}, IsPhoto: {IsPhoto}", propertySocialDetailId, isPhoto);
+
+        // Get existing record with DocumentBinding and Document loaded
+        var propertySocialDetail = await _context.Set<PropertySocialDetailsEntity>()
+            .Include(x => x.DocumentBinding)
+                .ThenInclude(db => db!.Document)
+            .FirstOrDefaultAsync(x => x.Id == propertySocialDetailId && x.IsActive, cancellationToken);
+
+        if (propertySocialDetail == null)
+        {
+            throw new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} not found");
+        }
+
+        var attributeExists = await _context.Set<SocialAttributeEntity>().AnyAsync(
+            sa => sa.Id == propertySocialDetail.SocialAttributeId && sa.IsActive && (!restrictToDiscount || sa.IsDiscountApplicable),
+            cancellationToken);
+
+        if (!attributeExists)
+        {
+            var msg = restrictToDiscount 
+                ? $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a discount-applicable SocialAttribute."
+                : $"PropertySocialDetails with ID {propertySocialDetailId} is not linked to a valid active SocialAttribute.";
+            throw new ArgumentException(msg, nameof(propertySocialDetailId));
+        }
+
+        if (restrictToSocial)
+        {
+            var attribute = await _context.Set<SocialAttributeEntity>()
+                .FirstOrDefaultAsync(sa => sa.Id == propertySocialDetail.SocialAttributeId && sa.IsActive, cancellationToken);
+            if (attribute == null)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} is not a valid active attribute", nameof(propertySocialDetailId));
+            }
+
+            if (attribute.IsDiscountApplicable)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} is a discount-applicable attribute and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+            }
+
+            if (attribute.ParentAttributeId.HasValue)
+            {
+                var parentIsDiscountApplicable = await _context.Set<SocialAttributeEntity>()
+                    .AnyAsync(sa => sa.Id == attribute.ParentAttributeId.Value && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+                if (parentIsDiscountApplicable)
+                {
+                    throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} has a discount-applicable parent and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+                }
+            }
+
+            var hasDiscountApplicableChild = await _context.Set<SocialAttributeEntity>()
+                .AnyAsync(sa => sa.ParentAttributeId == attribute.Id && sa.IsActive && sa.IsDiscountApplicable, cancellationToken);
+            if (hasDiscountApplicableChild)
+            {
+                throw new ArgumentException($"SocialAttributeId {propertySocialDetail.SocialAttributeId} has a discount-applicable child and cannot be used in the social-details flow", nameof(propertySocialDetailId));
+            }
+        }
+
+        Guid? documentGuid = null;
+        string? storagePath = null;
+        DocumentBindingEntity? photoBinding = null;
+
+        if (isPhoto)
+        {
+            photoBinding = await _context.Set<DocumentBindingEntity>()
+                .Include(db => db.Document)
+                .FirstOrDefaultAsync(db => db.ReferenceTableName == "PropertySocialDetails"
+                                          && db.ReferenceTableId == propertySocialDetailId
+                                          && db.BindingPurpose == "Photo"
+                                          && db.IsActive
+                                          && !db.MarkedForDeletion, cancellationToken);
+
+            if (photoBinding == null)
+            {
+                throw new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} does not have an associated photo.");
+            }
+
+            documentGuid = photoBinding.Document?.DocumentGuid;
+            storagePath = photoBinding.Document?.StoragePath;
+        }
+        else
+        {
+            if (propertySocialDetail.DocumentBindingId == null || propertySocialDetail.DocumentBinding == null)
+            {
+                throw new InvalidOperationException($"PropertySocialDetails with ID {propertySocialDetailId} does not have an associated document.");
+            }
+
+            documentGuid = propertySocialDetail.DocumentBinding.Document?.DocumentGuid;
+            storagePath = propertySocialDetail.DocumentBinding.Document?.StoragePath;
+        }
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (isPhoto)
+            {
+                photoBinding!.MarkForDeletion();
+            }
+            else
+            {
+                propertySocialDetail.DocumentBindingId = null;
+            }
+
+            propertySocialDetail.UpdatedBy = deletedBy;
+            propertySocialDetail.UpdatedDate = DateTime.Now;
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // 2. Soft-delete document
+            if (documentGuid.HasValue)
+            {
+                await _documentService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            // 3. Delete physical file from storage
+            if (!string.IsNullOrEmpty(storagePath))
+            {
+                try
+                {
+                    await _fileStorageService.DeleteFileAsync(storagePath, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete storage file {Path} for PropertySocialDetail {Id}", storagePath, propertySocialDetailId);
+                }
+            }
+
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
 }

@@ -861,6 +861,107 @@ public class PropertySocialDetailsControllerTests
 
     #endregion
 
+    #region Delete Social Document Tests
+
+    [Fact]
+    public async Task DeleteSocialDocument_ReturnsBadRequest_WhenIdInvalid()
+    {
+        // Act
+        var result = await _controller.DeleteSocialDocument(0, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid PropertySocialDetailId", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteSocialDocument_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    {
+        // Arrange
+        var httpContext = new DefaultHttpContext(); // No user identity
+        _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+
+        // Act
+        var result = await _controller.DeleteSocialDocument(123, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task DeleteSocialDocument_ReturnsBadRequest_OnInvalidOperationException()
+    {
+        // Arrange
+        _mockSocialDetailsDocumentService.Setup(s => s.DeleteSocialDetailsDocumentAsync(
+            123, 1, It.IsAny<CancellationToken>(), false, true, false))
+            .ThrowsAsync(new InvalidOperationException("Not found"));
+
+        // Act
+        var result = await _controller.DeleteSocialDocument(123, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Not found", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteSocialDocument_ReturnsBadRequest_OnArgumentException()
+    {
+        // Arrange
+        _mockSocialDetailsDocumentService.Setup(s => s.DeleteSocialDetailsDocumentAsync(
+            123, 1, It.IsAny<CancellationToken>(), false, true, false))
+            .ThrowsAsync(new ArgumentException("Invalid attribute"));
+
+        // Act
+        var result = await _controller.DeleteSocialDocument(123, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(badRequestResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Contains("Invalid attribute", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteSocialDocument_ReturnsOk_OnSuccessfulDelete()
+    {
+        // Arrange
+        _mockSocialDetailsDocumentService.Setup(s => s.DeleteSocialDetailsDocumentAsync(
+            123, 1, It.IsAny<CancellationToken>(), false, true, false))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.DeleteSocialDocument(123, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var apiResponse = Assert.IsType<ApiResponse<object>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Contains("Document deleted successfully", apiResponse.Message);
+    }
+
+    [Fact]
+    public async Task DeleteSocialDocument_Returns500_OnGenericException()
+    {
+        // Arrange
+        _mockSocialDetailsDocumentService.Setup(s => s.DeleteSocialDetailsDocumentAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>()))
+            .ThrowsAsync(new Exception("unexpected"));
+
+        // Act
+        var result = await _controller.DeleteSocialDocument(123, CancellationToken.None);
+
+        // Assert
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusCodeResult.StatusCode);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static IFormFile CreateMockFormFile(string fileName, string contentType)

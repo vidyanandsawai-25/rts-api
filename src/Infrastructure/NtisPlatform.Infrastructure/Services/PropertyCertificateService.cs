@@ -312,4 +312,24 @@ public class PropertyCertificateService : IPropertyCertificateService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task UnlinkDocumentBindingAsync(
+        int propertyCertificateId,
+        int updatedBy,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.PropertyCertificates
+            .FirstOrDefaultAsync(x => x.Id == propertyCertificateId && x.IsActive, cancellationToken);
+
+        if (entity == null)
+        {
+            throw new PropertyCertificateNotFoundException(propertyCertificateId);
+        }
+
+        entity.UnlinkDocumentBinding();
+        entity.UpdatedBy = updatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
 }

@@ -431,6 +431,93 @@ public class PropertySocialDetailsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Delete the document associated with a property social details record.
+    /// Called when the user clicks the delete document button on a social detail card.
+    /// </summary>
+    [Authorize]
+    [HttpDelete("{propertySocialDetailId}/document")]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteSocialDocument(
+        int propertySocialDetailId,
+        CancellationToken ct,
+        [FromQuery] bool isPhoto = false)
+    {
+        try
+        {
+            if (propertySocialDetailId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid PropertySocialDetailId" });
+
+            await _socialDetailsDocumentService.DeleteSocialDetailsDocumentAsync(
+                propertySocialDetailId,
+                GetUserId(),
+                ct,
+                restrictToDiscount: false,
+                restrictToSocial: true,
+                isPhoto: isPhoto);
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Document deleted successfully"
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access attempt. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Document deletion failed (not found or invalid state): {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error deleting document: {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message,
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error deleting document: {Id}. CorrelationId: {CorrelationId}",
+                propertySocialDetailId, correlationId);
+
+            var errorMessage = _environment.IsDevelopment()
+                ? $"An error occurred: {ex.Message}"
+                : "An error occurred";
+
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = errorMessage,
+                CorrelationId = correlationId
+            });
+        }
+    }
+
     private int GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

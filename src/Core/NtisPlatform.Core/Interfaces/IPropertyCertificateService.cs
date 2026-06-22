@@ -125,4 +125,12 @@ public interface IPropertyCertificateService
         int id,
         int deletedBy,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Unlinks the document binding from a property certificate.
+    /// </summary>
+    Task UnlinkDocumentBindingAsync(
+        int propertyCertificateId,
+        int updatedBy,
+        CancellationToken cancellationToken = default);
 }
