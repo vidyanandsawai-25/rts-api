@@ -45,5 +45,8 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// When true, no more rules will be evaluated after this one is applied.
         /// </summary>
         public bool StopProcessing { get; set; }
+
+        public int? RuleScopeId { get; set; }
+        public string? RuleScopeName { get; set; }
     }
 }

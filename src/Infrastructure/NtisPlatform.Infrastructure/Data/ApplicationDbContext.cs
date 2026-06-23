@@ -4918,6 +4918,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
+            entity.Property(e => e.RuleScopeId).IsRequired(false);
+            entity.Property(e => e.RuleScopeName).HasMaxLength(200).IsRequired(false);
+            entity.Property(e => e.Name).HasMaxLength(200).IsRequired(false);
+
             entity.HasOne(e => e.PropertyMast)
                 .WithMany()
                 .HasForeignKey(e => e.PropertyId)

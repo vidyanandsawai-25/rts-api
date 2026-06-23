@@ -86,6 +86,7 @@ namespace NtisPlatform.Application.Services.Rules
             // which DB row (and its contained RuleJson sub-rules) executes first.
             // RuleScopeId is retained on the entity for future use but is not used here.
             var ruleEntities = await _ruleRepository.GetQueryable()
+                .Include(r => r.RuleScope)
                 .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive)
                 .OrderBy(r => r.Priority)
                 .ThenBy(r => r.Id)
@@ -111,7 +112,7 @@ namespace NtisPlatform.Application.Services.Rules
             var appliedRuleIds = new HashSet<int>();
             var results = new List<RuleExecutionResultDto>();
 
-            foreach (var (workflow, ruleEffectsMap, ruleStopProcessingMap, ruleId, stopOnMatch, ruleOrderIndex) in ruleWorkflows)
+            foreach (var (workflow, ruleEffectsMap, ruleStopProcessingMap, ruleId, stopOnMatch, ruleOrderIndex, entity) in ruleWorkflows)
             {
                 try
                 {
@@ -148,6 +149,8 @@ namespace NtisPlatform.Application.Services.Rules
                         var shouldStop = stopOnMatch || ruleStop;
 
                         result.StopProcessing = shouldStop;
+                        result.RuleScopeId = entity.RuleScopeId;
+                        result.RuleScopeName = entity.RuleScope != null ? entity.RuleScope.RuleScope : null;
                         results.Add(result);
                         appliedRuleIds.Add(ruleId);
 
@@ -565,10 +568,10 @@ namespace NtisPlatform.Application.Services.Rules
         /// — <c>StopOnMatch</c>: mirrors <see cref="RuleEngineEntity.StopProcessing"/>.
         /// </para>
         /// </summary>
-        private List<(Workflow Workflow, Dictionary<string, JsonElement> RuleEffectsMap, Dictionary<string, bool> RuleStopProcessingMap, int RuleId, bool StopOnMatch, Dictionary<string, int> RuleOrderIndex)>
+        private List<(Workflow Workflow, Dictionary<string, JsonElement> RuleEffectsMap, Dictionary<string, bool> RuleStopProcessingMap, int RuleId, bool StopOnMatch, Dictionary<string, int> RuleOrderIndex, RuleEngineEntity Entity)>
             ParseRuleEntitiesToWorkflows(List<RuleEngineEntity> ruleEntities)
         {
-            var ruleWorkflows = new List<(Workflow, Dictionary<string, JsonElement>, Dictionary<string, bool>, int, bool, Dictionary<string, int>)>();
+            var ruleWorkflows = new List<(Workflow, Dictionary<string, JsonElement>, Dictionary<string, bool>, int, bool, Dictionary<string, int>, RuleEngineEntity)>();
 
             foreach (var entity in ruleEntities)
             {
@@ -697,7 +700,8 @@ namespace NtisPlatform.Application.Services.Rules
                         ruleStopProcessingMap,
                         entity.Id,
                         entity.StopProcessing,
-                        ruleOrderIndex
+                        ruleOrderIndex,
+                        entity
                     ));
                 }
                 catch (Exception ex)

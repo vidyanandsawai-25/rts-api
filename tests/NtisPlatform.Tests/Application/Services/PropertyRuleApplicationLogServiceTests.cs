@@ -5,6 +5,7 @@ using NtisPlatform.Application.DTOs.Rules;
 using NtisPlatform.Application.Mappings.Rules;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -131,6 +132,42 @@ namespace NtisPlatform.Tests.Application.Services
             // Assert
             Assert.Null(result1);
             Assert.Null(result2);
+        }
+
+        [Fact]
+        public async Task GetLogsAsync_PopulatesRuleScopeDetails()
+        {
+            // Arrange
+            var logs = new List<PropertyRuleApplicationLogEntity>
+            {
+                new()
+                {
+                    Id = 1,
+                    RuleCode = "RULE_01",
+                    RuleName = "Rule A",
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    RuleScopeId = 10,
+                    RuleScopeName = "Commercial",
+                    Name = "Commercial"
+                }
+            };
+
+            var mockLogsQueryable = MockQueryableExtensions.BuildMock(logs);
+            _mockRepository.Setup(r => r.GetQueryable()).Returns(mockLogsQueryable);
+
+            var queryParams = new PropertyRuleApplicationLogQueryParameters { PageNumber = 1, PageSize = 10 };
+
+            // Act
+            var result = await _service.GetLogsAsync(queryParams, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result.Items);
+            var item = result.Items.First();
+            Assert.Equal(10, item.RuleScopeId);
+            Assert.Equal("Commercial", item.RuleScopeName);
+            Assert.Equal("Commercial", item.Name);
         }
     }
 }

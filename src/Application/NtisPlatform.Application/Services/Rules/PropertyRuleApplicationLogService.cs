@@ -6,6 +6,7 @@ using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.Rules
@@ -58,7 +59,34 @@ namespace NtisPlatform.Application.Services.Rules
                 .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize);
 
             var items = await pagedQuery
-                .ProjectTo<PropertyRuleApplicationLogDto>(_mapper.ConfigurationProvider)
+                .Select(log => new PropertyRuleApplicationLogDto
+                {
+                    Id = log.Id,
+                    PropertyId = log.PropertyId,
+                    PropertyDetailsId = log.PropertyDetailsId,
+                    FinanceYear = log.FinanceYear,
+                    RuleCategory = log.RuleCategory,
+                    RuleCode = log.RuleCode,
+                    RuleName = log.RuleName,
+                    EffectType = log.EffectType,
+                    EffectValue = log.EffectValue,
+                    ApplyRate = log.ApplyRate,
+                    BaseValue = log.BaseValue,
+                    ComputedValue = log.ComputedValue,
+                    CumulativeValue = log.CumulativeValue,
+                    ApplyOrder = log.ApplyOrder,
+                    StopProcessing = log.StopProcessing,
+                    AppliedAt = log.AppliedAt,
+                    IsActive = log.IsActive,
+                    MarkedForDeletion = log.MarkedForDeletion,
+                    CreatedDate = log.CreatedDate,
+                    UpdatedDate = log.UpdatedDate,
+                    CreatedBy = log.CreatedBy,
+                    UpdatedBy = log.UpdatedBy,
+                    RuleScopeId = log.RuleScopeId,
+                    RuleScopeName = log.RuleScopeName,
+                    Name = log.Name
+                })
                 .ToListAsync(cancellationToken);
 
             var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
@@ -69,13 +97,39 @@ namespace NtisPlatform.Application.Services.Rules
 
         public async Task<PropertyRuleApplicationLogDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            var entity = await _repository.GetQueryable()
-                .FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+            var logQuery = _repository.GetQueryable()
+                .Where(x => x.Id == id && x.IsActive && !x.MarkedForDeletion);
 
-            if (entity == null)
-                return null;
-
-            return _mapper.Map<PropertyRuleApplicationLogDto>(entity);
+            return await logQuery
+                .Select(log => new PropertyRuleApplicationLogDto
+                {
+                    Id = log.Id,
+                    PropertyId = log.PropertyId,
+                    PropertyDetailsId = log.PropertyDetailsId,
+                    FinanceYear = log.FinanceYear,
+                    RuleCategory = log.RuleCategory,
+                    RuleCode = log.RuleCode,
+                    RuleName = log.RuleName,
+                    EffectType = log.EffectType,
+                    EffectValue = log.EffectValue,
+                    ApplyRate = log.ApplyRate,
+                    BaseValue = log.BaseValue,
+                    ComputedValue = log.ComputedValue,
+                    CumulativeValue = log.CumulativeValue,
+                    ApplyOrder = log.ApplyOrder,
+                    StopProcessing = log.StopProcessing,
+                    AppliedAt = log.AppliedAt,
+                    IsActive = log.IsActive,
+                    MarkedForDeletion = log.MarkedForDeletion,
+                    CreatedDate = log.CreatedDate,
+                    UpdatedDate = log.UpdatedDate,
+                    CreatedBy = log.CreatedBy,
+                    UpdatedBy = log.UpdatedBy,
+                    RuleScopeId = log.RuleScopeId,
+                    RuleScopeName = log.RuleScopeName,
+                    Name = log.Name
+                })
+                .FirstOrDefaultAsync(cancellationToken);
         }
     }
 }

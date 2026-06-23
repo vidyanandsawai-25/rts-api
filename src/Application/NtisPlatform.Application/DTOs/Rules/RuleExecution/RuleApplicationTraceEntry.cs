@@ -13,5 +13,9 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         public decimal CumulativeValue { get; set; }    // running total after this rule
         public int ApplyOrder { get; set; }
         public bool StopProcessing { get; set; }
+
+        public int? RuleScopeId { get; set; }
+        public string? RuleScopeName { get; set; }
+        public string? Name { get; set; }
     }
 }

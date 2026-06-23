@@ -26,5 +26,8 @@ namespace NtisPlatform.Application.DTOs.Rules
         public DateTime? UpdatedDate { get; set; }
         public int? CreatedBy { get; set; }
         public int? UpdatedBy { get; set; }
+        public int? RuleScopeId { get; set; }
+        public string? RuleScopeName { get; set; }
+        public string? Name { get; set; }
     }
 }

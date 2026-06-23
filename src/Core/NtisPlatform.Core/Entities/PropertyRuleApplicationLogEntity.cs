@@ -25,5 +25,9 @@ namespace NtisPlatform.Core.Entities
 
         public bool MarkedForDeletion { get; set; } = false;
         public DateTime? MarkedForDeletionDate { get; set; }
+
+        public int? RuleScopeId { get; set; }
+        public string? RuleScopeName { get; set; }
+        public string? Name { get; set; }
     }
 }
