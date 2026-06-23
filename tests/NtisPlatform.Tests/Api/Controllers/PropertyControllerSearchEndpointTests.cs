@@ -7,6 +7,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Models;
 using Xunit;
 
@@ -576,6 +577,80 @@ public class PropertyControllerSearchEndpointTests
         var response = Assert.IsType<ApiResponse<PagedResult<PropertySearchResponseDto>>>(okResult.Value);
         Assert.True(response.Success);
         Assert.Equal(3, response.Items!.TotalCount);
+    }
+
+    #endregion
+
+    #region GET /api/Property/search/scope-options Tests
+
+    [Fact]
+    public void GetScopeOptions_WithNullCategory_ReturnsAllCategories()
+    {
+        // Arrange
+        var mockCategories = new List<ScopeCategoryDto>
+        {
+            new ScopeCategoryDto { Id = 1, Name = "AllProperties", DisplayName = "All Properties", Description = "Entire corporation", Options = new List<string>() },
+            new ScopeCategoryDto { Id = 2, Name = "ZoneNode", DisplayName = "Zone / Node", Description = "Zone-wise selection", Options = new List<string> { "Zone", "Property Type" } },
+            new ScopeCategoryDto { Id = 3, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type" } },
+            new ScopeCategoryDto { Id = 4, Name = "BuildingWise", DisplayName = "Building Wise", Description = "Building level", Options = new List<string> { "Zone", "Ward", "Property No" } },
+            new ScopeCategoryDto { Id = 5, Name = "PropertyRange", DisplayName = "Property Range", Description = "From-to property range", Options = new List<string> { "Ward", "From Property", "To Property" } }
+        };
+        _mockSearchService.Setup(s => s.GetScopeOptions(null)).Returns(mockCategories);
+
+        // Act
+        var result = _controller.GetScopeOptions(category: null);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<List<ScopeCategoryDto>>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("All scope category options retrieved successfully", response.Message);
+        Assert.NotNull(response.Items);
+        Assert.Equal(5, response.Items.Count);
+
+        // Verify some specific items to ensure proper mapping
+        var allProps = response.Items.Find(c => c.Id == (int)ScopeCategory.AllProperties);
+        Assert.NotNull(allProps);
+        Assert.Equal("AllProperties", allProps.Name);
+        Assert.Equal("All Properties", allProps.DisplayName);
+        Assert.Equal("Entire corporation", allProps.Description);
+        Assert.Empty(allProps.Options);
+
+        var zoneNode = response.Items.Find(c => c.Id == (int)ScopeCategory.ZoneNode);
+        Assert.NotNull(zoneNode);
+        Assert.Equal("ZoneNode", zoneNode.Name);
+        Assert.Equal("Zone / Node", zoneNode.DisplayName);
+        Assert.Equal("Zone-wise selection", zoneNode.Description);
+        Assert.Equal(new List<string> { "Zone", "Property Type" }, zoneNode.Options);
+    }
+
+    [Fact]
+    public void GetScopeOptions_WithValidCategory_ReturnsFilteredCategory()
+    {
+        // Arrange
+        var mockCategories = new List<ScopeCategoryDto>
+        {
+            new ScopeCategoryDto { Id = 3, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type" } }
+        };
+        _mockSearchService.Setup(s => s.GetScopeOptions(ScopeCategory.WardSector)).Returns(mockCategories);
+
+        // Act
+        var result = _controller.GetScopeOptions(category: ScopeCategory.WardSector);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<List<ScopeCategoryDto>>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal("Scope category 'WardSector' options retrieved successfully", response.Message);
+        Assert.NotNull(response.Items);
+        Assert.Single(response.Items);
+
+        var wardSector = response.Items[0];
+        Assert.Equal((int)ScopeCategory.WardSector, wardSector.Id);
+        Assert.Equal("WardSector", wardSector.Name);
+        Assert.Equal("Ward / Sector", wardSector.DisplayName);
+        Assert.Equal("Multi ward selection", wardSector.Description);
+        Assert.Equal(new List<string> { "Zone", "Ward", "Property Type" }, wardSector.Options);
     }
 
     #endregion

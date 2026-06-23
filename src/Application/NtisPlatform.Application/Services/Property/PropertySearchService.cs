@@ -1,8 +1,11 @@
+using System;
+using System.Collections.Generic;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
 
@@ -127,4 +130,27 @@ public class PropertySearchService : IPropertySearchService
 
     public Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default)
         => _repository.GetPropertyDashboardStatsAsync(cancellationToken);
+
+    public List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category)
+    {
+        var categories = Enum.GetValues<ScopeCategory>();
+        var resultList = new List<ScopeCategoryDto>();
+
+        foreach (var cat in categories)
+        {
+            if (category == null || category == cat)
+            {
+                resultList.Add(new ScopeCategoryDto
+                {
+                    Id = (int)cat,
+                    Name = cat.ToString(),
+                    DisplayName = cat.GetDisplayName(),
+                    Description = cat.GetDescription(),
+                    Options = cat.GetOptions()
+                });
+            }
+        }
+
+        return resultList;
+    }
 }

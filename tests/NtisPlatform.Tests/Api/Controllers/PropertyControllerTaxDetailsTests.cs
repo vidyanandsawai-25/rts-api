@@ -291,7 +291,7 @@ public class PropertyControllerTaxDetailsTests
     public async Task GetApartmentPropertyTaxDetailsRV_MapsQueryParamsToDto()
     {
         // Arrange
-        var query = new PropertyQueryParameters { WardId = 5, PropertyNo = "P123", PartType = "A", Type = "Flat", Id = 42 };
+        var query = new PropertyQueryParameters { WardId = 5, PropertyNo = "P123", PartType = "A", Type = "Flat", Id = 42, PartitionNo = "A" };
         PropertyApartmentTaxRequestDto? capturedDto = null;
         _mockPropertyService
             .Setup(s => s.GetAggregatedPropertyTaxDetailsAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
@@ -308,6 +308,7 @@ public class PropertyControllerTaxDetailsTests
         Assert.Equal("A", capturedDto.PartType);
         Assert.Equal("Flat", capturedDto.Type);
         Assert.Equal(42, capturedDto.PropertyId);
+        Assert.Equal("A", capturedDto.PartitionNo);
     }
 
     #endregion
@@ -380,7 +381,7 @@ public class PropertyControllerTaxDetailsTests
     public async Task GetApartmentPropertyTaxDetailsCV_MapsQueryParamsToDto()
     {
         // Arrange
-        var query = new PropertyQueryParameters { WardId = 7, PropertyNo = "P999", PartType = "B", Type = "Shop", Id = 99 };
+        var query = new PropertyQueryParameters { WardId = 7, PropertyNo = "P999", PartType = "B", Type = "Shop", Id = 99, PartitionNo = "A" };
         PropertyApartmentTaxRequestDto? capturedDto = null;
         _mockPropertyService
             .Setup(s => s.GetAggregatedPropertyTaxDetailsCVAsync(It.IsAny<PropertyApartmentTaxRequestDto>(), It.IsAny<CancellationToken>()))
@@ -397,6 +398,7 @@ public class PropertyControllerTaxDetailsTests
         Assert.Equal("B", capturedDto.PartType);
         Assert.Equal("Shop", capturedDto.Type);
         Assert.Equal(99, capturedDto.PropertyId);
+        Assert.Equal("A", capturedDto.PartitionNo);
     }
 
     #endregion

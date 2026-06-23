@@ -89,7 +89,8 @@ public partial class PropertyController
                 PropertyNo = query.PropertyNo,
                 PartType = query.PartType,
                 Type = query.Type,
-                PropertyId = query.Id
+                PropertyId = query.Id,
+                PartitionNo = query.PartitionNo
             };
 
             var result = await _propertyService.GetAggregatedPropertyTaxDetailsAsync(dto, ct);
@@ -198,7 +199,8 @@ public partial class PropertyController
                 PropertyNo = query.PropertyNo,
                 PartType = query.PartType,
                 Type = query.Type,
-                PropertyId = query.Id
+                PropertyId = query.Id,
+                PartitionNo = query.PartitionNo
             };
 
             var result = await _propertyService.GetAggregatedPropertyTaxDetailsCVAsync(dto, ct);

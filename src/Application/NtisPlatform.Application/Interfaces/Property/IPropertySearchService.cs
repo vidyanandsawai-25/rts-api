@@ -1,5 +1,6 @@
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.Interfaces.Property;
@@ -36,4 +37,10 @@ public interface IPropertySearchService
     /// Unassessed, Survey) for the dashboard overview panel.
     /// </summary>
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the list of available scope categories and their input options.
+    /// </summary>
+    /// <param name="category">Optional scope category filter</param>
+    List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category);
 }

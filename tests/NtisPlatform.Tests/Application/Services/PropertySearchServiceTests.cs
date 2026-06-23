@@ -6,6 +6,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
@@ -541,6 +542,54 @@ namespace NtisPlatform.Tests.Application.Services
             _mockSearchRepository.Verify(
                 x => x.GetPropertyDashboardStatsAsync(token),
                 Times.Once);
+        }
+
+        #endregion
+
+        #region GetScopeOptions Tests
+
+        [Fact]
+        public void GetScopeOptions_WithNullCategory_ReturnsAllScopeCategories()
+        {
+            // Act
+            var result = _service.GetScopeOptions(category: null);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(5, result.Count);
+
+            // Verify mapping accuracy
+            var allProps = result.Find(c => c.Id == (int)ScopeCategory.AllProperties);
+            Assert.NotNull(allProps);
+            Assert.Equal("AllProperties", allProps.Name);
+            Assert.Equal("All Properties", allProps.DisplayName);
+            Assert.Equal("Entire corporation", allProps.Description);
+            Assert.Empty(allProps.Options);
+
+            var buildingWise = result.Find(c => c.Id == (int)ScopeCategory.BuildingWise);
+            Assert.NotNull(buildingWise);
+            Assert.Equal("BuildingWise", buildingWise.Name);
+            Assert.Equal("Building Wise", buildingWise.DisplayName);
+            Assert.Equal("Building level", buildingWise.Description);
+            Assert.Equal(new List<string> { "Zone", "Ward", "Property No" }, buildingWise.Options);
+        }
+
+        [Fact]
+        public void GetScopeOptions_WithValidCategory_ReturnsOnlyThatCategory()
+        {
+            // Act
+            var result = _service.GetScopeOptions(category: ScopeCategory.PropertyRange);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result);
+
+            var propertyRange = result[0];
+            Assert.Equal((int)ScopeCategory.PropertyRange, propertyRange.Id);
+            Assert.Equal("PropertyRange", propertyRange.Name);
+            Assert.Equal("Property Range", propertyRange.DisplayName);
+            Assert.Equal("From-to property range", propertyRange.Description);
+            Assert.Equal(new List<string> { "Ward", "From Property", "To Property" }, propertyRange.Options);
         }
 
         #endregion

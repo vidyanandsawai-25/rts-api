@@ -10,4 +10,5 @@ public class PropertyApartmentTaxRequestDto
     public string? PartType { get; set; }
     public string? Type { get; set; }
     public int? PropertyId { get; set; }
+    public string? PartitionNo { get; set; }
 }
