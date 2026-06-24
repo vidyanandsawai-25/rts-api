@@ -40,6 +40,11 @@ public partial class PropertyOldDetailsService : IPropertyOldDetailsService
 
     public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
     {
+        // Normalize default/placeholder values (0 or int.MaxValue) to null for optional master IDs
+        if (dto.OldFloorId == 0 || dto.OldFloorId == int.MaxValue) dto.OldFloorId = null;
+        if (dto.OldConstructionTypeId == 0 || dto.OldConstructionTypeId == int.MaxValue) dto.OldConstructionTypeId = null;
+        if (dto.OldTypeOfUseId == 0 || dto.OldTypeOfUseId == int.MaxValue) dto.OldTypeOfUseId = null;
+
         // A missing property is reported as null (→ 404). Check before opening a transaction.
         var property = await _repository.GetActivePropertyAsync(propertyId, cancellationToken);
         if (property == null) return null;
@@ -86,9 +91,12 @@ public partial class PropertyOldDetailsService : IPropertyOldDetailsService
             if (dto.OldFloorId.HasValue || dto.OldConstructionTypeId.HasValue || dto.OldTypeOfUseId.HasValue)
                 await ValidateFloorReferencesAsync(dto.OldFloorId, null, dto.OldConstructionTypeId, dto.OldTypeOfUseId, null, cancellationToken);
 
-            bool hasOldDetailsData = dto.OldConstructionYear != null || dto.OldCarpetAreaSqFeet.HasValue ||
-                                     dto.OldCarpetAreaSqMeter.HasValue ||
-                                     dto.OldConstructionTypeId.HasValue || dto.OldTypeOfUseId.HasValue;
+            bool hasOldDetailsData = !string.IsNullOrWhiteSpace(dto.OldConstructionYear) || 
+                                     (dto.OldCarpetAreaSqFeet.HasValue && dto.OldCarpetAreaSqFeet.Value > 0) ||
+                                     (dto.OldCarpetAreaSqMeter.HasValue && dto.OldCarpetAreaSqMeter.Value > 0) ||
+                                     dto.OldConstructionTypeId.HasValue || 
+                                     dto.OldTypeOfUseId.HasValue ||
+                                     dto.OldFloorId.HasValue;
             if (oldDetailsId > 0)
             {
                 var oldDetailsData = await _repository.GetOldDetailsByIdAsync(oldDetailsId, cancellationToken);

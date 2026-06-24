@@ -183,6 +183,13 @@ public partial class PropertyOldDetailsService
 
     public async Task<PropertyDetailsOldDto?> AddFloorDetailsOldAsync(int propertyId, AddPropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
     {
+        // Normalize default/placeholder values (0 or int.MaxValue) to null for optional master IDs
+        if (dto.OldFloorId == 0 || dto.OldFloorId == int.MaxValue) dto.OldFloorId = null;
+        if (dto.OldSubFloorId == 0 || dto.OldSubFloorId == int.MaxValue) dto.OldSubFloorId = null;
+        if (dto.OldConstructionTypeId == 0 || dto.OldConstructionTypeId == int.MaxValue) dto.OldConstructionTypeId = null;
+        if (dto.OldTypeOfUseId == 0 || dto.OldTypeOfUseId == int.MaxValue) dto.OldTypeOfUseId = null;
+        if (dto.OldSubTypeOfUseId == 0 || dto.OldSubTypeOfUseId == int.MaxValue) dto.OldSubTypeOfUseId = null;
+
         // A missing property is reported as null (→ 404).
         var property = await _repository.GetActivePropertyAsync(propertyId, cancellationToken);
         if (property == null) return null;
@@ -198,6 +205,13 @@ public partial class PropertyOldDetailsService
 
     public async Task<PropertyDetailsOldDto?> UpdateFloorDetailsOldAsync(int propertyId, int floorId, UpdatePropertyDetailsOldDto dto, CancellationToken cancellationToken = default)
     {
+        // Normalize default/placeholder values (0 or int.MaxValue) to null for optional master IDs
+        if (dto.OldFloorId == 0 || dto.OldFloorId == int.MaxValue) dto.OldFloorId = null;
+        if (dto.OldSubFloorId == 0 || dto.OldSubFloorId == int.MaxValue) dto.OldSubFloorId = null;
+        if (dto.OldConstructionTypeId == 0 || dto.OldConstructionTypeId == int.MaxValue) dto.OldConstructionTypeId = null;
+        if (dto.OldTypeOfUseId == 0 || dto.OldTypeOfUseId == int.MaxValue) dto.OldTypeOfUseId = null;
+        if (dto.OldSubTypeOfUseId == 0 || dto.OldSubTypeOfUseId == int.MaxValue) dto.OldSubTypeOfUseId = null;
+
         var property = await _repository.GetActivePropertyAsync(propertyId, cancellationToken);
         if (property == null) return null;
 
@@ -218,19 +232,19 @@ public partial class PropertyOldDetailsService
     /// </summary>
     private async Task ValidateFloorReferencesAsync(int? oldFloorId, int? oldSubFloorId, int? oldConstructionTypeId, int? oldTypeOfUseId, int? oldSubTypeOfUseId, CancellationToken cancellationToken)
     {
-        if (oldFloorId.HasValue && !await _masterRepository.FloorExistsAsync(oldFloorId.Value, cancellationToken))
+        if (oldFloorId.HasValue && oldFloorId.Value > 0 && !await _masterRepository.FloorExistsAsync(oldFloorId.Value, cancellationToken))
             throw new PropertyValidationException($"Invalid or inactive Floor ID: {oldFloorId.Value}");
 
-        if (oldSubFloorId.HasValue && !await _masterRepository.SubFloorExistsAsync(oldSubFloorId.Value, cancellationToken))
+        if (oldSubFloorId.HasValue && oldSubFloorId.Value > 0 && !await _masterRepository.SubFloorExistsAsync(oldSubFloorId.Value, cancellationToken))
             throw new PropertyValidationException($"Invalid or inactive SubFloor ID: {oldSubFloorId.Value}");
 
-        if (oldConstructionTypeId.HasValue && !await _masterRepository.ConstructionTypeExistsAsync(oldConstructionTypeId.Value, cancellationToken))
+        if (oldConstructionTypeId.HasValue && oldConstructionTypeId.Value > 0 && !await _masterRepository.ConstructionTypeExistsAsync(oldConstructionTypeId.Value, cancellationToken))
             throw new PropertyValidationException($"Invalid or inactive ConstructionType ID: {oldConstructionTypeId.Value}");
 
-        if (oldTypeOfUseId.HasValue && !await _masterRepository.TypeOfUseExistsAsync(oldTypeOfUseId.Value, cancellationToken))
+        if (oldTypeOfUseId.HasValue && oldTypeOfUseId.Value > 0 && !await _masterRepository.TypeOfUseExistsAsync(oldTypeOfUseId.Value, cancellationToken))
             throw new PropertyValidationException($"Invalid or inactive TypeOfUse ID: {oldTypeOfUseId.Value}");
 
-        if (oldSubTypeOfUseId.HasValue && !await _masterRepository.SubTypeOfUseExistsAsync(oldSubTypeOfUseId.Value, cancellationToken))
+        if (oldSubTypeOfUseId.HasValue && oldSubTypeOfUseId.Value > 0 && !await _masterRepository.SubTypeOfUseExistsAsync(oldSubTypeOfUseId.Value, cancellationToken))
             throw new PropertyValidationException($"Invalid or inactive SubTypeOfUse ID: {oldSubTypeOfUseId.Value}");
     }
 

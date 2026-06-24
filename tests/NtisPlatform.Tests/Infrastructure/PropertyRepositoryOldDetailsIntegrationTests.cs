@@ -597,6 +597,134 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Null(details);
     }
 
+    [Fact]
+    public async Task UpdateOldDetailsAsync_ZeroPlaceholderValues_DoesNotCreatePropertyDetailsOld()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 14,
+            OldWardNo = "5",
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 15,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 14,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldDetailsDto
+        {
+            OldWardNo = "10",
+            OldFloorId = 0,
+            OldConstructionTypeId = 0,
+            OldTypeOfUseId = 0,
+            OldCarpetAreaSqFeet = 0
+        };
+
+        // Act & Assert (Should not throw and should not create a Details record)
+        var result = await _oldDetailsService.UpdateOldDetailsAsync(15, dto, CancellationToken.None);
+        Assert.NotNull(result);
+
+        var details = await _context.PropertyDetailsOld
+            .FirstOrDefaultAsync(pd => pd.PropertyMastOldId == 14);
+        Assert.Null(details);
+    }
+
+    [Fact]
+    public async Task UpdateOldDetailsAsync_MaxValuePlaceholderValues_DoesNotCreatePropertyDetailsOld()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 15,
+            OldWardNo = "5",
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 16,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 15,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldDetailsDto
+        {
+            OldWardNo = "10",
+            OldFloorId = int.MaxValue,
+            OldConstructionTypeId = int.MaxValue,
+            OldTypeOfUseId = int.MaxValue
+        };
+
+        // Act & Assert (Should not throw and should not create a Details record)
+        var result = await _oldDetailsService.UpdateOldDetailsAsync(16, dto, CancellationToken.None);
+        Assert.NotNull(result);
+
+        var details = await _context.PropertyDetailsOld
+            .FirstOrDefaultAsync(pd => pd.PropertyMastOldId == 15);
+        Assert.Null(details);
+    }
+
+    [Fact]
+    public async Task UpdateOldDetailsAsync_EmptyStringConstructionYear_DoesNotCreatePropertyDetailsOld()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 16,
+            OldWardNo = "5",
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 17,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 16,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyOldDetailsDto
+        {
+            OldWardNo = "10",
+            OldConstructionYear = ""
+        };
+
+        // Act & Assert (Should not throw and should not create a Details record)
+        var result = await _oldDetailsService.UpdateOldDetailsAsync(17, dto, CancellationToken.None);
+        Assert.NotNull(result);
+
+        var details = await _context.PropertyDetailsOld
+            .FirstOrDefaultAsync(pd => pd.PropertyMastOldId == 16);
+        Assert.Null(details);
+    }
+
     #endregion
 
     #region GetOldTaxesDetailsAsync Tests
@@ -2334,6 +2462,88 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Null(result.ConstructionYearValue);
     }
 
+    [Fact]
+    public async Task AddFloorDetailsOldAsync_ZeroPlaceholderValues_NormalizesToNull()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 100, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 150,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 100,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new AddPropertyDetailsOldDto
+        {
+            OldFloorId = 0,
+            OldSubFloorId = 0,
+            OldConstructionTypeId = 0,
+            OldTypeOfUseId = 0,
+            OldSubTypeOfUseId = 0
+        };
+
+        // Act
+        var result = await _oldDetailsService.AddFloorDetailsOldAsync(150, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.OldFloorId);
+        Assert.Null(result.OldSubFloorId);
+        Assert.Null(result.OldConstructionTypeId);
+        Assert.Null(result.OldTypeOfUseId);
+        Assert.Null(result.OldSubTypeOfUseId);
+    }
+
+    [Fact]
+    public async Task AddFloorDetailsOldAsync_MaxValuePlaceholderValues_NormalizesToNull()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 101, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 151,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 101,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        var dto = new AddPropertyDetailsOldDto
+        {
+            OldFloorId = int.MaxValue,
+            OldSubFloorId = int.MaxValue,
+            OldConstructionTypeId = int.MaxValue,
+            OldTypeOfUseId = int.MaxValue,
+            OldSubTypeOfUseId = int.MaxValue
+        };
+
+        // Act
+        var result = await _oldDetailsService.AddFloorDetailsOldAsync(151, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.OldFloorId);
+        Assert.Null(result.OldSubFloorId);
+        Assert.Null(result.OldConstructionTypeId);
+        Assert.Null(result.OldTypeOfUseId);
+        Assert.Null(result.OldSubTypeOfUseId);
+    }
+
     #endregion
 
     #region UpdateFloorDetailsOldAsync Tests
@@ -2626,6 +2836,112 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.NotNull(updatedFloor);
         Assert.NotNull(updatedFloor.UpdatedDate);
         Assert.True(updatedFloor.UpdatedDate > oldDate);
+    }
+
+    [Fact]
+    public async Task UpdateFloorDetailsOldAsync_ZeroPlaceholderValues_NormalizesToNull()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 200, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 250,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 200,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+
+        var floor = new PropertyDetailsOldEntity
+        {
+            Id = 300,
+            PropertyMastOldId = 200,
+            OldFloorId = 1,
+            OldConstructionTypeId = 1,
+            OldTypeOfUseId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyDetailsOld.Add(floor);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyDetailsOldDto
+        {
+            OldFloorId = 0,
+            OldSubFloorId = 0,
+            OldConstructionTypeId = 0,
+            OldTypeOfUseId = 0,
+            OldSubTypeOfUseId = 0
+        };
+
+        // Act
+        var result = await _oldDetailsService.UpdateFloorDetailsOldAsync(250, 300, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.OldFloorId);
+        Assert.Null(result.OldSubFloorId);
+        Assert.Null(result.OldConstructionTypeId);
+        Assert.Null(result.OldTypeOfUseId);
+        Assert.Null(result.OldSubTypeOfUseId);
+    }
+
+    [Fact]
+    public async Task UpdateFloorDetailsOldAsync_MaxValuePlaceholderValues_NormalizesToNull()
+    {
+        // Arrange
+        var propertyMastOld = new PropertyMastOldEntity { Id = 201, IsActive = true, MarkedForDeletion = false };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var property = new PropertyEntity
+        {
+            Id = 251,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyMastOldId = 201,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyMast.Add(property);
+
+        var floor = new PropertyDetailsOldEntity
+        {
+            Id = 301,
+            PropertyMastOldId = 201,
+            OldFloorId = 1,
+            OldConstructionTypeId = 1,
+            OldTypeOfUseId = 1,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+        _context.PropertyDetailsOld.Add(floor);
+        await _context.SaveChangesAsync();
+
+        var dto = new UpdatePropertyDetailsOldDto
+        {
+            OldFloorId = int.MaxValue,
+            OldSubFloorId = int.MaxValue,
+            OldConstructionTypeId = int.MaxValue,
+            OldTypeOfUseId = int.MaxValue,
+            OldSubTypeOfUseId = int.MaxValue
+        };
+
+        // Act
+        var result = await _oldDetailsService.UpdateFloorDetailsOldAsync(251, 301, dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.OldFloorId);
+        Assert.Null(result.OldSubFloorId);
+        Assert.Null(result.OldConstructionTypeId);
+        Assert.Null(result.OldTypeOfUseId);
+        Assert.Null(result.OldSubTypeOfUseId);
     }
 
     #endregion
