@@ -228,7 +228,6 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 AppliedAt = appliedAt,
                 RuleScopeId = rule.RuleScopeId,
                 RuleScopeName = rule.RuleScopeName,
-                Name = rule.Name,
                 IsActive = true,
                 MarkedForDeletion = false,
                 MarkedForDeletionDate = null,

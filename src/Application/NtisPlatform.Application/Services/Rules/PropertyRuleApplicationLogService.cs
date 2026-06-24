@@ -84,8 +84,7 @@ namespace NtisPlatform.Application.Services.Rules
                     CreatedBy = log.CreatedBy,
                     UpdatedBy = log.UpdatedBy,
                     RuleScopeId = log.RuleScopeId,
-                    RuleScopeName = log.RuleScopeName,
-                    Name = log.Name
+                    RuleScopeName = log.RuleScopeName
                 })
                 .ToListAsync(cancellationToken);
 
@@ -126,8 +125,7 @@ namespace NtisPlatform.Application.Services.Rules
                     CreatedBy = log.CreatedBy,
                     UpdatedBy = log.UpdatedBy,
                     RuleScopeId = log.RuleScopeId,
-                    RuleScopeName = log.RuleScopeName,
-                    Name = log.Name
+                    RuleScopeName = log.RuleScopeName
                 })
                 .FirstOrDefaultAsync(cancellationToken);
         }

@@ -148,8 +148,7 @@ namespace NtisPlatform.Tests.Application.Services
                     IsActive = true,
                     MarkedForDeletion = false,
                     RuleScopeId = 10,
-                    RuleScopeName = "Commercial",
-                    Name = "Commercial"
+                    RuleScopeName = "Commercial"
                 }
             };
 
@@ -167,7 +166,6 @@ namespace NtisPlatform.Tests.Application.Services
             var item = result.Items.First();
             Assert.Equal(10, item.RuleScopeId);
             Assert.Equal("Commercial", item.RuleScopeName);
-            Assert.Equal("Commercial", item.Name);
         }
     }
 }

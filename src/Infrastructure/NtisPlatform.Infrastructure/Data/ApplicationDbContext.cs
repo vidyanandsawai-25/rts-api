@@ -4920,7 +4920,6 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.RuleScopeId).IsRequired(false);
             entity.Property(e => e.RuleScopeName).HasMaxLength(200).IsRequired(false);
-            entity.Property(e => e.Name).HasMaxLength(200).IsRequired(false);
 
             entity.HasOne(e => e.PropertyMast)
                 .WithMany()

@@ -28,6 +28,5 @@ namespace NtisPlatform.Core.Entities
 
         public int? RuleScopeId { get; set; }
         public string? RuleScopeName { get; set; }
-        public string? Name { get; set; }
     }
 }

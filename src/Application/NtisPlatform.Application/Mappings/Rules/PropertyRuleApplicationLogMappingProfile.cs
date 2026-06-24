@@ -10,8 +10,7 @@ namespace NtisPlatform.Application.Mappings.Rules
         {
             CreateMap<PropertyRuleApplicationLogEntity, PropertyRuleApplicationLogDto>()
                 .ForMember(dest => dest.RuleScopeId, opt => opt.Ignore())
-                .ForMember(dest => dest.RuleScopeName, opt => opt.Ignore())
-                .ForMember(dest => dest.Name, opt => opt.Ignore());
+                .ForMember(dest => dest.RuleScopeName, opt => opt.Ignore());
         }
     }
 }

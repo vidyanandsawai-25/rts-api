@@ -149,8 +149,7 @@ namespace NtisPlatform.Application.Services.Rules
                             ApplyOrder = applyOrder,
                             StopProcessing = rule.StopProcessing,
                             RuleScopeId = rule.RuleScopeId,
-                            RuleScopeName = rule.RuleScopeName,
-                            Name = rule.RuleScopeName
+                            RuleScopeName = rule.RuleScopeName
                         });
 
                         cumulativeValue = nextValue;

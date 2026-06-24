@@ -156,12 +156,6 @@ namespace NtisPlatform.Application.Services.Rules
 
                 await _unitOfWork.SaveChangesAsync();
 
-                _logger.LogInformation(
-                    "No PropertyDetails found for PropertyId={PropertyId}. Existing RV calculations deactivated for FinanceYear={FinanceYear}, YearMasterId={YearMasterId}",
-                    propertyId,
-                    financeYearForCleanup,
-                    yearMasterForCleanup?.Id);
-
                 return new PropertyCalculationContext
                 {
                     Property = property,
@@ -192,16 +186,6 @@ namespace NtisPlatform.Application.Services.Rules
                 };
                 if (val != null)
                     socialAttributeDict[attr.Code] = val;
-            }
-
-            // ── Phase 3: Core validations ──────────────────────────────────────────
-
-            if (assessment == null)
-            {
-                _logger.LogWarning(
-                    "PropertyAssessmentEntity not found for PropertyId={PropertyId}. " +
-                    "OwnerType will default to 0 in the rule engine. This may cause incorrect rule matching.",
-                    propertyId);
             }
 
             // ── Phase 3: Parse construction year ───────────────────────────────────
