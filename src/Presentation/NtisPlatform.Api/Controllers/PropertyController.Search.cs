@@ -86,8 +86,8 @@ public partial class PropertyController
         return Ok(new ApiResponse<List<ScopeCategoryDto>>
         {
             Success = true,
-            Message = category != null 
-                ? $"Scope category '{category}' options retrieved successfully" 
+            Message = category != null
+                ? $"Scope category '{category}' options retrieved successfully"
                 : "All scope category options retrieved successfully",
             Items = resultList
         });

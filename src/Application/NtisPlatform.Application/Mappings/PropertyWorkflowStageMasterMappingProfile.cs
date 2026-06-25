@@ -15,6 +15,7 @@ public class PropertyWorkflowStageMasterMappingProfile : Profile
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
           .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
           .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+          .ForMember(dest => dest.WorkflowDetails, opt => opt.Ignore())
           .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdatePropertyWorkflowStageMasterDto, PropertyWorkflowStageMasterEntity>()
@@ -22,6 +23,7 @@ public class PropertyWorkflowStageMasterMappingProfile : Profile
           .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
           .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
           .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+          .ForMember(dest => dest.WorkflowDetails, opt => opt.Ignore())
           .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
 
     }

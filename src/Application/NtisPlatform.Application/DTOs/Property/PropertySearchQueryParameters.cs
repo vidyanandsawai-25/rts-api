@@ -104,6 +104,19 @@ public class PropertySearchQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     public int? PropertyAssessmentStatusId { get; set; }
 
+    /// <summary>
+    /// Filter workflow cards by a specific stage (PropertyWorkflowStageMaster.Id).
+    /// When set, workflow-card API returns only that stage's counts.
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    public int? WorkflowStageId { get; set; }
+
+    /// <summary>
+    /// Filter by Property Description (PropertyTypeMaster.Id → PropertyMast.PropertyTypeId).
+    /// </summary>
+    [Filterable(FilterOperator.Equals)]
+    public int? PropertyDescriptionId { get; set; }
+
     // KYC Search Tab Parameters
 
     /// <summary>

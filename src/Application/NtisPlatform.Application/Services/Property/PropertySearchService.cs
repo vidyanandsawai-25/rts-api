@@ -91,6 +91,8 @@ public class PropertySearchService : IPropertySearchService
             SubZoneNo = queryParameters.SubZoneNo,
             PlotNo = queryParameters.PlotNo,
             PropertyAssessmentStatusId = queryParameters.PropertyAssessmentStatusId,
+            WorkflowStageId = queryParameters.WorkflowStageId,
+            PropertyDescriptionId = queryParameters.PropertyDescriptionId,
             MobileNo = queryParameters.MobileNo,
             OwnerName = queryParameters.OwnerName,
             OccupierName = queryParameters.OccupierName,
@@ -131,26 +133,29 @@ public class PropertySearchService : IPropertySearchService
     public Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default)
         => _repository.GetPropertyDashboardStatsAsync(cancellationToken);
 
+    public Task<MainCardsResponseDto> GetMainCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default)
+        => _repository.GetMainCardsAsync(searchRequest, cancellationToken);
+
+    public Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default)
+        => _repository.GetWorkflowCardsAsync(searchRequest, cancellationToken);
+
     public List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category)
     {
-        var categories = Enum.GetValues<ScopeCategory>();
-        var resultList = new List<ScopeCategoryDto>();
+        var categories = category.HasValue
+            ? new[] { category.Value }
+            : Enum.GetValues<ScopeCategory>();
 
-        foreach (var cat in categories)
+        return categories.Select(c => new ScopeCategoryDto
         {
-            if (category == null || category == cat)
-            {
-                resultList.Add(new ScopeCategoryDto
-                {
-                    Id = (int)cat,
-                    Name = cat.ToString(),
-                    DisplayName = cat.GetDisplayName(),
-                    Description = cat.GetDescription(),
-                    Options = cat.GetOptions()
-                });
-            }
-        }
-
-        return resultList;
+            Id = (int)c,
+            Name = c.ToString(),
+            DisplayName = c.GetDisplayName(),
+            Description = c.GetDescription(),
+            Options = c.GetOptions()
+        }).ToList();
     }
 }

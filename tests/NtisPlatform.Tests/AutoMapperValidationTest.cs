@@ -125,6 +125,8 @@ public class AutoMapperValidationTest
               "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
               "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
              "TransMastRV",
+             // Workflow navigation properties (intentionally unmapped - EF Core managed)
+             "WorkflowHistory", "WorkflowDetails", "WorkflowStage",
              // Rule exclusion properties (navigation properties)
              "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy",
              // RuleScope navigation property and derived display name

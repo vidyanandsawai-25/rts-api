@@ -1,0 +1,31 @@
+namespace NtisPlatform.Core.Models;
+
+public class DashboardCardBreakdownDto
+{
+    public int PropertyCount { get; set; }
+    public int StructureCount { get; set; }
+    public int UnitCount { get; set; }
+    public decimal Demand { get; set; }
+}
+
+public class AssessmentApprovedDto
+{
+    public DashboardCardBreakdownDto Assessed { get; set; } = new();
+    public DashboardCardBreakdownDto Unassessed { get; set; } = new();
+}
+
+public class MainCardsResponseDto
+{
+    public DashboardCardBreakdownDto PreviouslyRegistered { get; set; } = new();
+    public AssessmentApprovedDto AssessmentApproved { get; set; } = new();
+    public DashboardCardBreakdownDto AdditionalRevenueGenerated { get; set; } = new();
+}
+
+public class WorkflowStageCardDto
+{
+    public string StageName { get; set; } = string.Empty;
+    public int PropertyCount { get; set; }
+    public int StructureCount { get; set; }
+    public int UnitCount { get; set; }
+}
+

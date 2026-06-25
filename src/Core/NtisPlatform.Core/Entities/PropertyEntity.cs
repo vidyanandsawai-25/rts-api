@@ -187,5 +187,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public virtual ICollection<TransMastArchiveEntity> TransMastArchive { get; set; } = new List<TransMastArchiveEntity>();
     public virtual ICollection<TransMastLookupEntity> TransMastLookup { get; set; } = new List<TransMastLookupEntity>();
     public virtual ICollection<TransMastRVEntity> TransMastRV { get; set; } = new List<TransMastRVEntity>();
- 
+
+    public virtual ICollection<PropertyWorkflowDetailsEntity> WorkflowHistory { get; set; } = new List<PropertyWorkflowDetailsEntity>();
+
 }

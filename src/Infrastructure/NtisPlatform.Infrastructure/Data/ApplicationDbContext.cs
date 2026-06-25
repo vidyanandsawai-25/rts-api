@@ -4996,21 +4996,70 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PropertyWorkflowDetailsEntity>(entity =>
         {
             entity.ToTable("PropertyWorkflowDetails", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.WorkflowStageId).IsRequired();
-            entity.Property(e => e.ModuleId).IsRequired(false);
-            entity.Property(e => e.CurrentStatus).IsRequired(false);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy).IsRequired(false);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy).IsRequired(false);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
 
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyWorkflowDetails_PropertyId");
-            entity.HasIndex(e => e.WorkflowStageId).HasDatabaseName("IX_PropertyWorkflowDetails_WorkflowStageId");
-            entity.HasIndex(e => e.CurrentStatus).HasDatabaseName("IX_PropertyWorkflowDetails_CurrentStatus");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .UseIdentityColumn()
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.PropertyId)
+                .IsRequired();
+
+            entity.Property(e => e.WorkflowStageId)
+                .IsRequired();
+
+            entity.Property(e => e.ModuleId)
+                .IsRequired(false);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CurrentStatus)
+                .IsRequired(false)
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.CreatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.UpdatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime")
+                .IsRequired(false);
+
+            // FK → PropertyMast
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .HasConstraintName("FK_PropertyWorkflowDetails_PropertyMast")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK → PropertyWorkflowStageMaster
+            entity.HasOne(e => e.WorkflowStage)
+                .WithMany(s => s.WorkflowDetails)
+                .HasForeignKey(e => e.WorkflowStageId)
+                .HasConstraintName("FK_PropertyWorkflowDetails_WorkflowStage")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PropertyId)
+                .HasDatabaseName("IX_PropertyWorkflowDetails_PropertyId");
+
+            entity.HasIndex(e => e.WorkflowStageId)
+                .HasDatabaseName("IX_PropertyWorkflowDetails_WorkflowStageId");
+
+            entity.HasIndex(e => e.CurrentStatus)
+                .HasDatabaseName("IX_PropertyWorkflowDetails_CurrentStatus");
+
+            entity.HasIndex(e => e.IsActive)
+                .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
 
     }

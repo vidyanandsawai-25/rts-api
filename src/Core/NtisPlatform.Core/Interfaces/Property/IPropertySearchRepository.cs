@@ -21,7 +21,21 @@ public interface IPropertySearchRepository
     /// <summary>
     /// Gets property dashboard statistics for the property search screen.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Dashboard statistics with various property counts</returns>
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the 3 main dashboard cards: Previously Registered, Assessment Approved, Additional Revenue Generated.
+    /// Supports optional filters: property type, type of use, zone, ward, category.
+    /// </summary>
+    Task<MainCardsResponseDto> GetMainCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets workflow stage cards showing structure/unit counts at each stage.
+    /// Supports the same optional filters as GetMainCardsAsync.
+    /// </summary>
+    Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default);
 }

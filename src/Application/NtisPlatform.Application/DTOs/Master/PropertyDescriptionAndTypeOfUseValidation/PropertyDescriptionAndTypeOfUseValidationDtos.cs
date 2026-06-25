@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using NtisPlatform.Application.DTOs;
 
 namespace NtisPlatform.Application.DTOs.Master.PropertyDescriptionAndTypeOfUseValidation;
 

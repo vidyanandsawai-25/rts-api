@@ -33,14 +33,30 @@ public interface IPropertySearchService
     Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// <b>Query</b> — Returns per-status property counts (Registered, Geo-Sequenced, Assessed,
-    /// Unassessed, Survey) for the dashboard overview panel.
+    /// <b>Query</b> — Returns per-status property counts for the dashboard overview panel.
     /// </summary>
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the list of available scope categories and their input options.
+    /// <b>Query</b> — Returns the 3 main dashboard cards with structure/unit/demand breakdown.
+    /// Accepts optional filters: property type, type of use, zone, ward, category.
     /// </summary>
-    /// <param name="category">Optional scope category filter</param>
+    Task<MainCardsResponseDto> GetMainCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// <b>Query</b> — Returns workflow stage cards with structure/unit counts per stage.
+    /// Accepts the same optional filters as GetMainCardsAsync.
+    /// </summary>
+    Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
+        PropertySearchRequestDto? searchRequest = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// <b>Query</b> — Returns scope category options for the property search scope selector.
+    /// When <paramref name="category"/> is provided, returns only that category's options;
+    /// otherwise returns all categories.
+    /// </summary>
     List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category);
 }

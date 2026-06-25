@@ -87,6 +87,17 @@ public class PropertySearchRequestDto
     /// </summary>
     public int? PropertyAssessmentStatusId { get; set; }
 
+    /// <summary>
+    /// Filter workflow cards by a specific workflow stage.
+    /// When set, workflow-card API returns only that stage's result.
+    /// </summary>
+    public int? WorkflowStageId { get; set; }
+
+    /// <summary>
+    /// Filter by Property Description (PropertyTypeMaster.Id → PropertyMast.PropertyTypeId).
+    /// </summary>
+    public int? PropertyDescriptionId { get; set; }
+
     // KYC Search Tab Parameters
 
     /// <summary>
