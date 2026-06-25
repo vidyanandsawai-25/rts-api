@@ -112,6 +112,7 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = null!;
     public DbSet<ParkingTypeMasterEntity> ParkingTypeMaster { get; set; } = null!;
+    public DbSet<BuildingPlanTypeEntity> BuildingPlanType { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
@@ -271,6 +272,26 @@ public class ApplicationDbContext : DbContext
             .WithMany(c => c.ParkingTypeMaster)
             .HasForeignKey(e => e.TypeOfUseId)
             .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // BuildingPlanType configuration
+        modelBuilder.Entity<BuildingPlanTypeEntity>(entity =>
+        {
+            entity.ToTable("BuildingPlanType", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.Type).HasMaxLength(5);
+            entity.HasIndex(e => e.PropertyId);
+
+            // The PTIS.BuildingPlanType table has a MarkedForDeletion column but no
+            // MarkedForDeletionDate column, so exclude the IHardDeletable date property from mapping.
+            entity.Ignore(e => e.MarkedForDeletionDate);
+
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>

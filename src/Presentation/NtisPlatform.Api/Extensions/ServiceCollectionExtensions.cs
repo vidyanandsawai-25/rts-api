@@ -297,6 +297,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
 
         services.AddScoped<IDataEntryService, DataEntryService>();
+        services.AddScoped<IDataEntrySameAsService, DataEntrySameAsService>();
         services.AddScoped<IRenterDetailService, RenterDetailService>();
         services.AddScoped<IRenterMastService, RenterMastService>();
         services.AddScoped<IRoomWiseMinusService, RoomWiseMinusService>();
