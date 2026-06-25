@@ -145,6 +145,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyOldDetailsRepository, PropertyOldDetailsRepository>();
         services.AddScoped<IPropertySocialDetailsRepository, PropertySocialDetailsRepository>();
         services.AddScoped<IPropertySearchRepository, PropertySearchRepository>();
+        services.AddScoped<IPropertyWorkflowDetailsRepository, PropertyWorkflowDetailsRepository>();
         services.AddScoped<IRuleFieldsRepository, RuleFieldsRepository>();
         services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
 
@@ -242,6 +243,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDepreciationService, DepreciationService>();
         services.AddScoped<IWardService, WardService>();
         services.AddScoped<IBankMasterService, BankMasterService>();
+        services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
         services.AddScoped<IPropertyRuleEvaluationMasterService, PropertyRuleEvaluationMasterService>();
         services.AddScoped<IZoneService, ZoneService>();
         services.AddScoped<IRateSectionService, RateSectionService>();
@@ -268,6 +270,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDiscountService, PropertyDiscountService>();
         services.AddScoped<IPropertyOldDetailsService, PropertyOldDetailsService>();
         services.AddScoped<IPropertySearchService, PropertySearchService>();
+        services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();

@@ -39,6 +39,7 @@ public partial class PropertyController : ControllerBase
     private readonly IPropertySocialDetailsDocumentService _socialDetailsDocumentService;
     private readonly IWebHostEnvironment _environment;
     private readonly FileValidationHelper _fileValidationHelper;
+    private readonly IPropertyWorkflowDetailsService _propertyWorkflowDetailsService;
 
     /// <summary>
     /// Constructor follows codebase convention: Service dependencies first, then infrastructure.
@@ -54,7 +55,8 @@ public partial class PropertyController : ControllerBase
         ILogger<PropertyController> logger,
         IPropertySocialDetailsDocumentService socialDetailsDocumentService,
         IWebHostEnvironment environment,
-        FileValidationHelper fileValidationHelper)
+        FileValidationHelper fileValidationHelper,
+        IPropertyWorkflowDetailsService propertyWorkflowDetailsService)
     {
         _propertyService = propertyService;
         _propertyBasicDetailsService = propertyBasicDetailsService;
@@ -67,6 +69,7 @@ public partial class PropertyController : ControllerBase
         _socialDetailsDocumentService = socialDetailsDocumentService;
         _environment = environment;
         _fileValidationHelper = fileValidationHelper;
+        _propertyWorkflowDetailsService = propertyWorkflowDetailsService;
     }
 
     [HttpGet]

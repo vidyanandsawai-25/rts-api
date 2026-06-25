@@ -75,6 +75,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyPhotoTypeEntity> PropertyPhotoTypes { get; set; } = null!;
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<PropertyWorkflowStageMasterEntity> PropertyWorkflowStageMaster { get; set; } = null!;
+    public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
@@ -4989,6 +4990,27 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.StageName)
                 .IsUnique()
                 .HasDatabaseName("UQ_PropertyWorkflowStageMaster_StageName");
+        });
+
+        // PropertyWorkflowDetails configuration
+        modelBuilder.Entity<PropertyWorkflowDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertyWorkflowDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.WorkflowStageId).IsRequired();
+            entity.Property(e => e.ModuleId).IsRequired(false);
+            entity.Property(e => e.CurrentStatus).IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyWorkflowDetails_PropertyId");
+            entity.HasIndex(e => e.WorkflowStageId).HasDatabaseName("IX_PropertyWorkflowDetails_WorkflowStageId");
+            entity.HasIndex(e => e.CurrentStatus).HasDatabaseName("IX_PropertyWorkflowDetails_CurrentStatus");
         });
 
     }

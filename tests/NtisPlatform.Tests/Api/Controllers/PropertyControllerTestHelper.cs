@@ -29,7 +29,8 @@ public static class PropertyControllerTestHelper
         Mock<IPropertySocietyService>? societyService = null,
         Mock<IPropertyDiscountService>? discountService = null,
         Mock<IPropertyOldDetailsService>? oldDetailsService = null,
-        Mock<IPropertySearchService>? searchService = null)
+        Mock<IPropertySearchService>? searchService = null,
+        Mock<IPropertyWorkflowDetailsService>? workflowDetailsService = null)
     {
         basicDetailsService ??= new Mock<IPropertyBasicDetailsService>();
         kycService ??= new Mock<IPropertyKycService>();
@@ -37,6 +38,7 @@ public static class PropertyControllerTestHelper
         discountService ??= new Mock<IPropertyDiscountService>();
         oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
         searchService ??= new Mock<IPropertySearchService>();
+        workflowDetailsService ??= new Mock<IPropertyWorkflowDetailsService>();
         var mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
@@ -59,7 +61,8 @@ public static class PropertyControllerTestHelper
             logger.Object,
             mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
-            fileValidationHelper);
+            fileValidationHelper,
+            workflowDetailsService.Object);
     }
 
     /// <summary>
@@ -94,6 +97,8 @@ public static class PropertyControllerTestHelper
 
         var fileValidationHelper = new FileValidationHelper(configuration);
 
+        var mockWorkflowDetailsService = new Mock<IPropertyWorkflowDetailsService>();
+
         var controller = new PropertyController(
             mockPropertyService.Object,
             mockBasicDetailsService.Object,
@@ -105,7 +110,8 @@ public static class PropertyControllerTestHelper
             mockLogger.Object,
             mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
-            fileValidationHelper);
+            fileValidationHelper,
+            mockWorkflowDetailsService.Object);
 
         return (
             controller,
