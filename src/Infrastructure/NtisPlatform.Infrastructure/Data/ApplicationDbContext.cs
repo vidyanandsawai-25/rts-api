@@ -74,6 +74,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyTypeMasterEntity> PropertyTypeMasters { get; set; } = null!;
     public DbSet<PropertyPhotoTypeEntity> PropertyPhotoTypes { get; set; } = null!;
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
+    public DbSet<PropertyWorkflowStageMasterEntity> PropertyWorkflowStageMaster { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
@@ -4935,6 +4936,60 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyDetailsId);
         });
 
+        // PropertyWorkflowStageMaster configuration
+        modelBuilder.Entity<PropertyWorkflowStageMasterEntity>(entity =>
+        {
+            entity.ToTable("PropertyWorkflowStageMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            // Required string properties
+            entity.Property(e => e.StageName)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnType("varchar(100)");
+
+            // Optional string property
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnType("varchar(500)")
+                .IsRequired(false);
+
+            // Required integer property
+            entity.Property(e => e.DisplayOrder)
+                .IsRequired();
+
+            // Boolean property with default
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            // Audit properties
+            entity.Property(e => e.CreatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy)
+                .IsRequired(false);
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime")
+                .IsRequired(false);
+
+            // Indexes for query performance
+            entity.HasIndex(e => e.StageName).HasDatabaseName("IX_PropertyWorkflowStageMaster_StageName");
+            entity.HasIndex(e => e.DisplayOrder).HasDatabaseName("IX_PropertyWorkflowStageMaster_DisplayOrder");
+            entity.HasIndex(e => e.IsActive).HasDatabaseName("IX_PropertyWorkflowStageMaster_IsActive");
+
+            // Unique constraint on StageName
+            entity.HasIndex(e => e.StageName)
+                .IsUnique()
+                .HasDatabaseName("UQ_PropertyWorkflowStageMaster_StageName");
+        });
 
     }
 }

@@ -291,6 +291,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISubZoneDetailsForCVService, SubZoneDetailsForCVService>();
         services.AddScoped<IBulkUpdateFieldConfigService, BulkUpdateFieldConfigService>();
         services.AddScoped<IBulkUpdateMasterService, BulkUpdateMasterService>();
+        services.AddScoped<IPropertyWorkflowStageMasterService, PropertyWorkflowStageMasterService>();
 
         services.AddScoped<IDataEntryService, DataEntryService>();
         services.AddScoped<IRenterDetailService, RenterDetailService>();
