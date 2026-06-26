@@ -55,9 +55,9 @@ public class PropertyWorkflowDetailsService
         return _mapper.Map<List<PropertyWorkflowDetailsDto>>(entities);
     }
 
-    public async Task<PropertyWorkflowDetailsDto?> GetCurrentByPropertyNoAsync(string propertyNo, CancellationToken cancellationToken = default)
+    public async Task<PropertyWorkflowDetailsDto?> GetCurrentByPropertyNoAsync(string propertyid, CancellationToken cancellationToken = default)
     {
-        var entity = await _workflowDetailsRepository.GetCurrentByPropertyNoAsync(propertyNo, cancellationToken);
+        var entity = await _workflowDetailsRepository.GetCurrentByPropertyNoAsync(propertyid, cancellationToken);
         return entity is null ? null : _mapper.Map<PropertyWorkflowDetailsDto>(entity);
     }
 }

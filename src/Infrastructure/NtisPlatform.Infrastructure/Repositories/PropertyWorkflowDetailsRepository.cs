@@ -33,12 +33,12 @@ public class PropertyWorkflowDetailsRepository : Repository<PropertyWorkflowDeta
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<PropertyWorkflowDetailsEntity?> GetCurrentByPropertyNoAsync(string propertyNo, CancellationToken cancellationToken = default)
+    public async Task<PropertyWorkflowDetailsEntity?> GetCurrentByPropertyNoAsync(string propertyid, CancellationToken cancellationToken = default)
     {
         return await (
             from wd in _context.PropertyWorkflowDetails
-            join pm in _context.PropertyMast on wd.PropertyId equals pm.Id
-            where pm.PropertyNo == propertyNo && wd.CurrentStatus == true
+            join pm in _context.PropertyMast on wd.PropertyId equals pm.Id          
+            where wd.PropertyId.ToString() == propertyid && wd.CurrentStatus == true
             select wd
         ).FirstOrDefaultAsync(cancellationToken);
     }

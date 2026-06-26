@@ -47,6 +47,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
+    public DbSet<UlbImageMasterEntity> UlbImageMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
     public DbSet<RateSectionDetailsEntity> RateSectionDetails { get; set; } = null!;
     public DbSet<ScreenGroupMasterEntity> ScreenGroupMasters { get; set; } = null!;
@@ -1190,6 +1191,21 @@ public class ApplicationDbContext : DbContext
         });
 
 
+
+        // UlbImageMaster configuration
+        modelBuilder.Entity<UlbImageMasterEntity>(entity =>
+        {
+            entity.ToTable("UlbImageMaster", "CORE");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedOnAdd();
+            entity.Property(x => x.ImageType).HasMaxLength(50);
+            entity.Property(x => x.ImageId);
+            entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
+        });
 
         // ActiveTaxes configuration
         modelBuilder.Entity<ActiveTaxesEntity>(entity =>
@@ -5058,7 +5074,7 @@ public class ApplicationDbContext : DbContext
 
             // FK → PropertyMast
             entity.HasOne(e => e.Property)
-                .WithMany()
+                .WithMany(p => p.WorkflowHistory)
                 .HasForeignKey(e => e.PropertyId)
                 .HasConstraintName("FK_PropertyWorkflowDetails_PropertyMast")
                 .OnDelete(DeleteBehavior.Restrict);

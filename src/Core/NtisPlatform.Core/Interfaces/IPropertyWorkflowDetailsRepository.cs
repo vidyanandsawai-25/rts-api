@@ -6,5 +6,5 @@ public interface IPropertyWorkflowDetailsRepository : IRepository<PropertyWorkfl
 {
     Task ResetCurrentStatusAsync(int propertyId, CancellationToken cancellationToken = default);
     Task<List<PropertyWorkflowDetailsEntity>> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyWorkflowDetailsEntity?> GetCurrentByPropertyNoAsync(string propertyNo, CancellationToken cancellationToken = default);
+    Task<PropertyWorkflowDetailsEntity?> GetCurrentByPropertyNoAsync(string propertyid, CancellationToken cancellationToken = default);
 }

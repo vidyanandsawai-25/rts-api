@@ -126,33 +126,33 @@ public partial class PropertyController
     }
 
     /// <summary>
-    /// Retrieves the current workflow detail record (CurrentStatus=true) for a property by its PropertyNo.
+    /// Retrieves the current workflow detail record (CurrentStatus=true) for a property by its PropertyId.
     /// </summary>
     /// <response code="200">Returns the current workflow detail for the property</response>
-    /// <response code="400">PropertyNo is required</response>
-    /// <response code="404">No current workflow detail found for the given PropertyNo</response>
+    /// <response code="400">PropertyId is required</response>
+    /// <response code="404">No current workflow detail found for the given PropertyId</response>
     [HttpGet("workflow-details/current")]
     [ProducesResponseType(typeof(ApiResponse<PropertyWorkflowDetailsDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetCurrentWorkflowDetailByPropertyNo([FromQuery] string propertyNo, CancellationToken ct)
+    public async Task<IActionResult> GetCurrentWorkflowDetailByPropertyNo([FromQuery] string propertyid, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(propertyNo))
+        if (string.IsNullOrWhiteSpace(propertyid))
             return BadRequest(new ApiResponse<PropertyWorkflowDetailsDto>
             {
                 Success = false,
-                Message = "PropertyNo is required"
+                Message = "PropertyId is required"
             });
 
-        var result = await _propertyWorkflowDetailsService.GetCurrentByPropertyNoAsync(propertyNo, ct);
+        var result = await _propertyWorkflowDetailsService.GetCurrentByPropertyNoAsync(propertyid, ct);
 
         if (result is null)
         {
-            _logger.LogWarning("No current workflow detail found for PropertyNo {PropertyNo}", propertyNo);
+            _logger.LogWarning("No current workflow detail found for PropertyId {PropertyId}", propertyid);
             return NotFound(new ApiResponse<PropertyWorkflowDetailsDto>
             {
                 Success = false,
-                Message = $"No current workflow detail found for property number '{propertyNo}'"
+                Message = $"No current workflow detail found for property id '{propertyid}'"
             });
         }
 
