@@ -134,12 +134,19 @@ public class PropertySearchRequestDto
     // Values & Dues Search Tab Parameters
 
     /// <summary>
+    /// Valuation type for filtering: RV, CV, or TaxTotal.
+    /// Determines which value is used for amount filtering.
+    /// RV = Rateable Value, CV = Capital Value, TaxTotal = Total Tax Amount
+    /// </summary>
+    public string? ValuationTypeFilter { get; set; }
+
+    /// <summary>
     /// Filter by RV or CV type. Allowed values: RV, CV.
     /// </summary>
     public string? RVorCV { get; set; }
 
     /// <summary>
-    /// Filter operator for calculated Total Tax amount.
+    /// Filter operator for amount filtering (RV, CV, or Total Tax).
     /// Supported values: Equals, GreaterThan, LessThan, Between, Top.
     /// </summary>
     public string? AmountFilterOperator { get; set; }

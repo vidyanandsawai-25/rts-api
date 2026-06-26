@@ -38,4 +38,14 @@ public interface IPropertySearchRepository
     Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all units (children) of a given apartment or structure property.
+    /// If propertyId refers to an apartment, returns all structures.
+    /// If propertyId refers to a structure, returns all units of that structure.
+    /// </summary>
+    /// <param name="propertyId">Parent property ID (apartment or structure)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of child properties (structures or units)</returns>
+    Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(int propertyId, CancellationToken cancellationToken = default);
 }

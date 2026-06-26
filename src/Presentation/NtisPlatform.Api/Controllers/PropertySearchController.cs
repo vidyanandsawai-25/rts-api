@@ -171,6 +171,50 @@ public class PropertySearchController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Returns all units (children) of a given apartment or structure property.
+    /// If propertyId refers to an apartment (with empty PartitionNo), returns all structures.
+    /// If propertyId refers to a structure (with non-empty PartitionNo), returns all units of that structure.
+    /// </summary>
+    [HttpGet("apartmentunitlist")]
+    [ProducesResponseType(typeof(ApiResponse<List<PropertySearchResponseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ApiResponse<List<PropertySearchResponseDto>>>> GetApartmentUnitList(
+        [FromQuery(Name = "propertyId")] int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (propertyId <= 0)
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Invalid propertyId. Must be a positive integer."
+                });
+
+            _logger.LogInformation("Fetching apartment unit list for property {PropertyId}", propertyId);
+
+            var result = await _propertySearchService.GetApartmentUnitListAsync(propertyId, cancellationToken);
+
+            return Ok(new ApiResponse<List<PropertySearchResponseDto>>
+            {
+                Success = true,
+                Message = "Apartment unit list retrieved successfully",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving apartment unit list for property {PropertyId}", propertyId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while retrieving apartment unit list"
+            });
+        }
+    }
+
     private static PropertySearchRequestDto? BuildFilter(
         int? propertyAssessmentStatusId,
         int? workflowStageId,

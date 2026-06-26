@@ -99,6 +99,7 @@ public class PropertySearchService : IPropertySearchService
             FlatOrShopName = queryParameters.FlatOrShopName,
             SocietyName = queryParameters.SocietyName,
             Address = queryParameters.Address,
+            ValuationTypeFilter = queryParameters.ValuationTypeFilter,
             RVorCV = queryParameters.RVorCV,
             AmountFilterOperator = queryParameters.AmountFilterOperator,
             AmountValue = queryParameters.AmountValue,
@@ -158,4 +159,7 @@ public class PropertySearchService : IPropertySearchService
             Options = c.GetOptions()
         }).ToList();
     }
+
+    public Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(int propertyId, CancellationToken cancellationToken = default)
+        => _repository.GetApartmentUnitListAsync(propertyId, cancellationToken);
 }

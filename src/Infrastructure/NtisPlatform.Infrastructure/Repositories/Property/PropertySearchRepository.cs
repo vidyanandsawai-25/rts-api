@@ -79,6 +79,9 @@ public class PropertySearchRepository : IPropertySearchRepository
                     join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
                     from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
+                    join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
+                    from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
                     join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
                     from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
@@ -91,6 +94,7 @@ public class PropertySearchRepository : IPropertySearchRepository
                         Ward = w,
                         Zone = z,
                         Category = pc,
+                        PropertyType = pt,
                         OldProperty = pmo,
                         Society = sd
                     };
@@ -232,10 +236,12 @@ public class PropertySearchRepository : IPropertySearchRepository
 
             var applyAmountFilter = true;
 
-            var taxQuery = _context.TransMast
-                .Where(t => t.IsActive && !t.MarkedForDeletion)
-                .GroupBy(t => t.PropertyId)
-                .Select(g => new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) });
+            var taxQuery = (from t in _context.TransMast.AsNoTracking()
+                join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+                where t.IsActive && !t.MarkedForDeletion
+                      && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+                group t by t.PropertyId into g
+                select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) });
 
             if (op == FilterOperator.Top)
             {
@@ -274,6 +280,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     query = query.Where(x => taxQuery.Any(t => t.PropertyId == x.Property.Id));
             }
         }
+
+        // Exclude apartment units from grid results: show only structures/main properties
+        query = query.Where(x => x.Category == null ||
+                                x.Category.PropertyCategoryName != ApartmentCategoryName ||
+                                (x.Category.PropertyCategoryName == ApartmentCategoryName &&
+                                 (string.IsNullOrEmpty(x.Property.PartitionNo))));
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -345,7 +357,7 @@ public class PropertySearchRepository : IPropertySearchRepository
             {
                 PropertyId = pr.Property.Id,
                 UPICId = pr.Property.UPICId,
-                ZoneName = pr.Zone?.ZoneNo,
+                ZoneName = pr.Zone?.Description,
                 WardName = pr.Ward?.WardNo,
                 PropertyNo = pr.Property.PropertyNo,
                 PartitionNo = pr.Property.PartitionNo,
@@ -354,7 +366,7 @@ public class PropertySearchRepository : IPropertySearchRepository
                 PlotNo = pr.Property.PlotNo,
                 WingFlatNo = pr.Property.FlatOrShopNo,
                 CategoryName = pr.Category?.PropertyCategoryName,
-                PropertyDescription = pr.Property.Type,
+                PropertyDescription = pr.PropertyType?.PropertyDescription,
                 Mobile = pr.Property.MobileNo,
                 PropertyHolderName = pr.Property.OwnerName ?? pr.Property.OwnerNameEnglish,
                 OccupierName = pr.Property.OccupierName ?? pr.Property.OccupierNameEnglish,
@@ -447,6 +459,133 @@ public class PropertySearchRepository : IPropertySearchRepository
         }
 
         return cards;
+    }
+
+    public async Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var parentProperty = await _context.PropertyMast
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+
+        if (parentProperty == null)
+            return new List<PropertySearchResponseDto>();
+
+        var childrenQuery = _context.PropertyMast
+            .AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo == parentProperty.PropertyNo && p.Id != propertyId);
+
+        if (string.IsNullOrEmpty(parentProperty.PartitionNo))
+        {
+            childrenQuery = childrenQuery.Where(p => p.PartitionNo != null && p.PartitionNo != "");
+        }
+        else
+        {
+            childrenQuery = childrenQuery.Where(p => p.PartitionNo == parentProperty.PartitionNo);
+        }
+
+        var query = from p in childrenQuery
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
+                    from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join z in _context.ZoneMaster.AsNoTracking() on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
+                    from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
+                    from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
+                    from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                    from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                    from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
+
+                    select new
+                    {
+                        Property = p,
+                        Ward = w,
+                        Zone = z,
+                        Category = pc,
+                        PropertyType = pt,
+                        OldProperty = pmo,
+                        Society = sd
+                    };
+
+        var propertyResults = await query.OrderBy(x => x.Property.PartitionNo).ToListAsync(cancellationToken);
+
+        if (!propertyResults.Any())
+            return new List<PropertySearchResponseDto>();
+
+        var propertyIds = propertyResults.Select(x => x.Property.Id).ToList();
+
+        var rvValues = await _context.TransMastRV
+            .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
+            .GroupBy(t => t.PropertyId)
+            .Select(g => new
+            {
+                PropertyId = g.Key,
+                RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.RateableValue).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var cvValues = await _context.TransMastCV
+            .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
+            .GroupBy(t => t.PropertyId)
+            .Select(g => new
+            {
+                PropertyId = g.Key,
+                CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CapitalValue).FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+
+        var totalTaxAmounts = await (
+            from t in _context.TransMast.AsNoTracking()
+            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+            where propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion
+                  && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+            group t by t.PropertyId into g
+            select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
+        ).ToListAsync(cancellationToken);
+
+        var rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
+        var cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue);
+        var totalTaxDictionary = totalTaxAmounts.ToDictionary(x => x.PropertyId, x => x.TotalTax);
+
+        return propertyResults.Select(pr =>
+        {
+            rvDictionary.TryGetValue(pr.Property.Id, out var rv);
+            cvDictionary.TryGetValue(pr.Property.Id, out var cv);
+            totalTaxDictionary.TryGetValue(pr.Property.Id, out var totalTax);
+
+            return new PropertySearchResponseDto
+            {
+                PropertyId = pr.Property.Id,
+                UPICId = pr.Property.UPICId,
+                ZoneName = pr.Zone?.Description,
+                WardName = pr.Ward?.WardNo,
+                PropertyNo = pr.Property.PropertyNo,
+                PartitionNo = pr.Property.PartitionNo,
+                OldPropertyNo = pr.OldProperty?.OldPropertyNo,
+                CitySurveyNo = pr.Property.CSN,
+                PlotNo = pr.Property.PlotNo,
+                WingFlatNo = pr.Property.FlatOrShopNo,
+                CategoryName = pr.Category?.PropertyCategoryName,
+                PropertyDescription = pr.PropertyType?.PropertyDescription,
+                Mobile = pr.Property.MobileNo,
+                PropertyHolderName = pr.Property.OwnerName ?? pr.Property.OwnerNameEnglish,
+                OccupierName = pr.Property.OccupierName ?? pr.Property.OccupierNameEnglish,
+                ShopBuildingName = pr.Property.FlatOrShopName ?? pr.Property.FlatOrShopNameEnglish,
+                SocietyName = pr.Society?.SocietyName ?? pr.Society?.SocietyNameEnglish,
+                Address = pr.Property.Address ?? pr.Property.AddressEnglish,
+                RV = rv,
+                CV = cv,
+                TotalTax = totalTax
+            };
+        }).ToList();
     }
 
     // ──────────────────────────────────────────────────────────────────────────

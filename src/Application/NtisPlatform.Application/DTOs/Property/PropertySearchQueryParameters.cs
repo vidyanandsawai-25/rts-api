@@ -159,12 +159,22 @@ public class PropertySearchQueryParameters : BaseQueryParameters
     // Values & Dues Search Tab Parameters
 
     /// <summary>
+    /// Valuation type for filtering: RV, CV, or TaxTotal.
+    /// Determines which value is used for amount filtering.
+    /// <para>• <b>RV</b> - Filter by Rateable Value</para>
+    /// <para>• <b>CV</b> - Filter by Capital Value</para>
+    /// <para>• <b>TaxTotal</b> - Filter by Total Tax Amount</para>
+    /// </summary>
+    /// <example>RV</example>
+    public string? ValuationTypeFilter { get; set; }
+
+    /// <summary>
     /// Filter by RV or CV type. Allowed values: RV, CV.
     /// </summary>
     public string? RVorCV { get; set; }
 
     /// <summary>
-    /// Filter operator for Total Tax amount filtering.
+    /// Filter operator for amount filtering (RV, CV, or Total Tax).
     /// <para><b>Valid values for tax filtering:</b></para>
     /// <para>• <b>Equals</b> - Find properties with exact tax amount (requires AmountValue)</para>
     /// <para>• <b>GreaterThan</b> - Find properties with tax greater than amount (requires AmountValue)</para>
