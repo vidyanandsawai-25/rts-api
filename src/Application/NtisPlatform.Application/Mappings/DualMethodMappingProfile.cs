@@ -12,14 +12,14 @@ namespace NtisPlatform.Application.Mappings
     {
         public DualMethodMappingProfile()
         {
-            // TransMastEntity to TaxDataDto (unified approach for CV data)
-            CreateMap<TransMastEntity, TaxDataDto>()
+            // PolicyTaxDetailsCVEntity to TaxDataDto
+            CreateMap<PolicyTaxDetailsCVEntity, TaxDataDto>()
                 .ForMember(dest => dest.TaxId, opt => opt.MapFrom(src => src.TaxId))
                 .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => 
-                    src.Tax != null && !string.IsNullOrWhiteSpace(src.Tax.TaxName) 
-                        ? src.Tax.TaxName 
+                    src.TaxMaster != null && !string.IsNullOrWhiteSpace(src.TaxMaster.TaxName) 
+                        ? src.TaxMaster.TaxName 
                         : $"Tax_{src.TaxId}"))
-                .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount));
+                .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount ?? 0m));
 
             // TransMastCVEntity to TaxDataDto
             CreateMap<TransMastCVEntity, TaxDataDto>()
@@ -30,14 +30,14 @@ namespace NtisPlatform.Application.Mappings
                         : $"Tax_{src.TaxId}"))
                 .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount));
 
-            // TransMastRVEntity to TaxDataDto
-            CreateMap<TransMastRVEntity, TaxDataDto>()
+            // PolicyTaxDetailsEntity to TaxDataDto
+            CreateMap<PolicyTaxDetailsEntity, TaxDataDto>()
                 .ForMember(dest => dest.TaxId, opt => opt.MapFrom(src => src.TaxId))
                 .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => 
                     src.TaxMaster != null && !string.IsNullOrWhiteSpace(src.TaxMaster.TaxName) 
                         ? src.TaxMaster.TaxName 
                         : $"Tax_{src.TaxId}"))
-                .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount));
+                .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount ?? 0m));
 
             // TransMastOldEntity to TaxDataDto
             CreateMap<TransMastOldEntity, TaxDataDto>()

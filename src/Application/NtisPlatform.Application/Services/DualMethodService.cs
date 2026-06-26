@@ -21,23 +21,23 @@ namespace NtisPlatform.Application.Services
     /// </summary>
     public class DualMethodService : IDualMethodService
     {
-        private readonly IRepository<TransMastEntity, long> _transMastRepository;
-        private readonly IRepository<TransMastRVEntity, long> _transRVRepository;
+        private readonly IRepository<PolicyTaxDetailsCVEntity, int> _policyTaxDetailsCVRepository;
+        private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxDetailsRVRepository;
         private readonly IRepository<TransMastOldEntity, int> _oldTaxRepository;
         private readonly IRepository<PropertyEntity, int> _propertyRepository;
         private readonly IMapper _mapper;
         private readonly ILogger<DualMethodService> _logger;
 
         public DualMethodService(
-            IRepository<TransMastEntity, long> transMastRepository,
-            IRepository<TransMastRVEntity, long> transRVRepository,
+            IRepository<PolicyTaxDetailsCVEntity, int> policyTaxDetailsCVRepository,
+            IRepository<PolicyTaxDetailsEntity, int> policyTaxDetailsRVRepository,
             IRepository<TransMastOldEntity, int> oldTaxRepository,
             IRepository<PropertyEntity, int> propertyRepository,
             IMapper mapper,
             ILogger<DualMethodService> logger)
         {
-            _transMastRepository = transMastRepository ?? throw new ArgumentNullException(nameof(transMastRepository));
-            _transRVRepository = transRVRepository ?? throw new ArgumentNullException(nameof(transRVRepository));
+            _policyTaxDetailsCVRepository = policyTaxDetailsCVRepository ?? throw new ArgumentNullException(nameof(policyTaxDetailsCVRepository));
+            _policyTaxDetailsRVRepository = policyTaxDetailsRVRepository ?? throw new ArgumentNullException(nameof(policyTaxDetailsRVRepository));
             _oldTaxRepository = oldTaxRepository ?? throw new ArgumentNullException(nameof(oldTaxRepository));
             _propertyRepository = propertyRepository ?? throw new ArgumentNullException(nameof(propertyRepository));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -48,17 +48,17 @@ namespace NtisPlatform.Application.Services
         /// Query CV tax data with proper filters and eager loading
         /// Uses AutoMapper ProjectTo for optimized SQL generation
         /// </summary>
-        private IQueryable<TransMastEntity> QueryCVTaxesWithIncludes(int propertyId)
+        private IQueryable<PolicyTaxDetailsCVEntity> QueryCVTaxesWithIncludes(int propertyId)
         {
-            return _transMastRepository.GetQueryable()
+            return _policyTaxDetailsCVRepository.GetQueryable()
                 .Where(x => x.PropertyId == propertyId
-                    && x.RVorCV == "CV"
                     && x.IsActive
                     && !x.MarkedForDeletion
                     && x.TaxId != 0
-                    && x.Tax != null
-                    && x.Tax.IsActive)
-                .Include(x => x.Tax)
+                    && x.PolicyCode == "NETTAX"
+                    && x.TaxMaster != null
+                    && x.TaxMaster.IsActive)
+                .Include(x => x.TaxMaster)
                 .AsNoTracking();
         }
 
@@ -66,13 +66,14 @@ namespace NtisPlatform.Application.Services
         /// Query RV tax data with proper filters and eager loading
         /// Uses AutoMapper ProjectTo for optimized SQL generation
         /// </summary>
-        private IQueryable<TransMastRVEntity> QueryRVTaxesWithIncludes(int propertyId)
+        private IQueryable<PolicyTaxDetailsEntity> QueryRVTaxesWithIncludes(int propertyId)
         {
-            return _transRVRepository.GetQueryable()
+            return _policyTaxDetailsRVRepository.GetQueryable()
                 .Where(x => x.PropertyId == propertyId
                     && x.IsActive
                     && !x.MarkedForDeletion
                     && x.TaxId != 0
+                    && x.PolicyCode == "NETTAX"
                     && x.TaxMaster != null
                     && x.TaxMaster.IsActive)
                 .Include(x => x.TaxMaster)
