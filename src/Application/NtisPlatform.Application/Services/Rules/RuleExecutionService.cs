@@ -137,21 +137,27 @@ namespace NtisPlatform.Application.Services.Rules
                             ? (JsonElement?)matchedEffectJson
                             : null;
 
-                        var result = await BuildRuleResultAsync(
+                        var resultList = await BuildRuleResultAsync(
                             ruleResult.Rule.RuleName,
                             ruleResult.Rule.ErrorMessage,
                             effectsJson,
                             input.Input);
-                        if (result == null)
+
+                        if (!resultList.Any())
                             continue;
 
                         var ruleStop = ruleStopProcessingMap.TryGetValue(ruleResult.Rule.RuleName, out var shouldStopProcessing) && shouldStopProcessing;
                         var shouldStop = stopOnMatch || ruleStop;
 
-                        result.StopProcessing = shouldStop;
-                        result.RuleScopeId = entity.RuleScopeId;
-                        result.RuleScopeName = entity.RuleScope != null ? entity.RuleScope.RuleScope : null;
-                        results.Add(result);
+                        // Apply entity-level metadata to all results from this match
+                        foreach (var result in resultList)
+                        {
+                            result.StopProcessing = shouldStop;
+                            result.RuleScopeId = entity.RuleScopeId;
+                            result.RuleScopeName = entity.RuleScope != null ? entity.RuleScope.RuleScope : null;
+                            results.Add(result);
+                        }
+
                         appliedRuleIds.Add(ruleId);
 
                         if (shouldStop)
@@ -378,20 +384,24 @@ namespace NtisPlatform.Application.Services.Rules
                     if (ruleResult.IsSuccess &&
                         ruleEffectsMap.TryGetValue(ruleResult.Rule.RuleName, out var effectJson))
                     {
-                        subTrace.Effect = ExtractDryRunEffect(effectJson, ruleResult.Rule.RuleName);
+                        subTrace.Effects = ExtractDryRunEffects(effectJson, ruleResult.Rule.RuleName);
 
                         // Reuse BuildRuleResultAsync to get the exact same BaseRate + ComputedRate
                         // as the Execute endpoint would produce — no duplication of applicator logic.
-                        var computedResult = await BuildRuleResultAsync(
+                        var computedResults = await BuildRuleResultAsync(
                             ruleResult.Rule.RuleName,
                             ruleResult.Rule.ErrorMessage ?? ruleResult.Rule.RuleName,
                             effectJson,
                             inputValues);
 
-                        if (computedResult != null)
+                        if (computedResults.Any())
                         {
-                            subTrace.BaseRate = computedResult.BaseRate;
-                            subTrace.ComputedValue = computedResult.ComputedRate;
+                            subTrace.BaseRate = computedResults.First().BaseRate;
+                            subTrace.ComputedValue = computedResults.Last().ComputedRate;
+
+                            // Populate per-effect ComputedValue in the Effects list
+                            for (int effectIdx = 0; effectIdx < subTrace.Effects.Count && effectIdx < computedResults.Count; effectIdx++)
+                                subTrace.Effects[effectIdx].ComputedValue = computedResults[effectIdx].ComputedRate;
                         }
                     }
 
@@ -527,30 +537,53 @@ namespace NtisPlatform.Application.Services.Rules
         /// <summary>
         /// Extracts effect details from an <c>Actions.OnSuccess.Context</c> JSON element
         /// for inclusion in the dry-run sub-rule trace.
+        /// Supports both single-effect (flat Context) and multi-effect (Context.effects[] array).
         /// </summary>
-        private static RuleDryRunEffect? ExtractDryRunEffect(JsonElement actionsJson, string ruleName)
+        private static List<RuleDryRunEffect> ExtractDryRunEffects(JsonElement actionsJson, string ruleName)
         {
+            var results = new List<RuleDryRunEffect>();
             try
             {
                 if (!actionsJson.TryGetProperty("OnSuccess", out var onSuccess) ||
                     !onSuccess.TryGetProperty("Context", out var context))
-                    return null;
+                    return results;
 
                 var contextDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(context.GetRawText())
                                   ?? new Dictionary<string, JsonElement>();
 
-                return new RuleDryRunEffect
+                // ── Multi-effect: Context contains an "effects" JSON array ────────────────
+                if (contextDict.TryGetValue("effects", out var effectsEl) &&
+                    effectsEl.ValueKind == JsonValueKind.Array)
                 {
-                    EffectType = ReadStringFromContext(contextDict, "effectType"),
-                    EffectValue = decimal.TryParse(ReadStringFromContext(contextDict, "value"), out var ev) ? ev : 0m,
+                    foreach (var item in effectsEl.EnumerateArray())
+                    {
+                        var itemDict = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(item.GetRawText())
+                                       ?? new Dictionary<string, JsonElement>();
+                        results.Add(new RuleDryRunEffect
+                        {
+                            EffectType    = ReadStringFromContext(itemDict, "effectType"),
+                            EffectValue   = decimal.TryParse(ReadStringFromContext(itemDict, "value"), out var ev) ? ev : 0m,
+                            ParameterCode = ReadStringFromContext(itemDict, "ParameterCode"),
+                            Context       = itemDict.ToDictionary(k => k.Key, k => k.Value.ToString())
+                        });
+                    }
+                    return results;
+                }
+
+                // ── Single effect: existing flat Context ────────────────────────────────
+                results.Add(new RuleDryRunEffect
+                {
+                    EffectType    = ReadStringFromContext(contextDict, "effectType"),
+                    EffectValue   = decimal.TryParse(ReadStringFromContext(contextDict, "value"), out var ev2) ? ev2 : 0m,
                     ParameterCode = ReadStringFromContext(contextDict, "ParameterCode"),
-                    Context = contextDict.ToDictionary(k => k.Key, k => k.Value.ToString())
-                };
+                    Context       = contextDict.ToDictionary(k => k.Key, k => k.Value.ToString())
+                });
             }
             catch
             {
-                return null;
+                // Return whatever was built so far; do not abort the dry-run trace
             }
+            return results;
         }
 
         // ─── Private Helpers ─────────────────────────────────────────────────────────
@@ -739,35 +772,79 @@ namespace NtisPlatform.Application.Services.Rules
         /// After a rule condition matches, extracts the effect type and value from the
         /// stored <c>Actions.OnSuccess.Context</c> JSON, then applies the effect via
         /// the matching <see cref="IRuleEffectApplicator"/> to produce a computed rate.
+        /// Supports both single-effect and multi-effect (Context.effects[] array) rules.
+        /// Returns an empty list if the effect cannot be resolved.
         /// </summary>
-        private async Task<RuleExecutionResultDto?> BuildRuleResultAsync(
+        private async Task<List<RuleExecutionResultDto>> BuildRuleResultAsync(
             string ruleName,
             string ruleErrorMessage,
             JsonElement? effectsJson,
             Dictionary<string, object> inputValues)
         {
+            var results = new List<RuleExecutionResultDto>();
             try
             {
                 if (effectsJson == null)
-                    return null;
+                    return results;
 
                 var actionsJsonBlock = effectsJson.Value;
 
                 // Navigate: Actions → OnSuccess → Context
                 if (!actionsJsonBlock.TryGetProperty("OnSuccess", out var onSuccessBlock) ||
                     !onSuccessBlock.TryGetProperty("Context", out var effectContextBlock))
-                    return null;
+                    return results;
 
                 var context = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectContextBlock.GetRawText())
                               ?? new Dictionary<string, JsonElement>();
 
-                var effectType = ReadStringFromContext(context, "effectType");
-                var effectValue = decimal.TryParse(ReadStringFromContext(context, "value"), out var ev) ? ev : 0m;
-                var expression = ReadStringFromContext(context, "Expression");
+                // ── Multi-effect: Context contains an "effects" JSON array ────────────────
+                // Each array element has the same flat shape as a single-effect Context.
+                if (context.TryGetValue("effects", out var effectsArrayEl) &&
+                    effectsArrayEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var effectItem in effectsArrayEl.EnumerateArray())
+                    {
+                        var itemContext = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectItem.GetRawText())
+                                         ?? new Dictionary<string, JsonElement>();
+
+                        var dto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, itemContext, inputValues);
+                        if (dto != null)
+                            results.Add(dto);
+                    }
+                    return results;
+                }
+
+                // ── Single effect: existing flat Context (backward compat) ──────────────
+                var singleDto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, context, inputValues);
+                if (singleDto != null)
+                    results.Add(singleDto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to build result for rule '{RuleName}'.", ruleName);
+            }
+            return results;
+        }
+
+        /// <summary>
+        /// Applies a single effect context dictionary to produce one <see cref="RuleExecutionResultDto"/>.
+        /// Used by <see cref="BuildRuleResultAsync"/> for both single-effect and each element of a
+        /// multi-effect array.
+        /// </summary>
+        private async Task<RuleExecutionResultDto?> ApplySingleEffectAsync(
+            string ruleName,
+            string ruleErrorMessage,
+            Dictionary<string, JsonElement> context,
+            Dictionary<string, object> inputValues)
+        {
+            try
+            {
+                var effectType    = ReadStringFromContext(context, "effectType");
+                var effectValue   = decimal.TryParse(ReadStringFromContext(context, "value"), out var ev) ? ev : 0m;
+                var expression    = ReadStringFromContext(context, "Expression");
                 var parameterCode = ReadStringFromContext(context, "ParameterCode");
 
-                var baseRate = ResolveBaseRate(ruleName, parameterCode, inputValues);
-
+                var baseRate   = ResolveBaseRate(ruleName, parameterCode, inputValues);
                 var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(effectType));
                 decimal computedRate;
 
@@ -792,19 +869,19 @@ namespace NtisPlatform.Application.Services.Rules
 
                 return new RuleExecutionResultDto
                 {
-                    RuleCode = ruleName,
-                    RuleName = !string.IsNullOrWhiteSpace(ruleErrorMessage) ? ruleErrorMessage : ruleName,
-                    EffectType = effectType,
-                    EffectValue = effectValue,
-                    BaseRate = baseRate,
+                    RuleCode     = ruleName,
+                    RuleName     = !string.IsNullOrWhiteSpace(ruleErrorMessage) ? ruleErrorMessage : ruleName,
+                    EffectType   = effectType,
+                    EffectValue  = effectValue,
+                    BaseRate     = baseRate,
                     ComputedRate = Math.Round(computedRate, 4, MidpointRounding.AwayFromZero),
-                    Expression = expression,
-                    Context = context.ToDictionary(k => k.Key, k => k.Value.ToString())
+                    Expression   = expression,
+                    Context      = context.ToDictionary(k => k.Key, k => k.Value.ToString())
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to build result for rule '{RuleName}'.", ruleName);
+                _logger.LogWarning(ex, "Failed to apply effect for rule '{RuleName}'.", ruleName);
                 return null;
             }
         }

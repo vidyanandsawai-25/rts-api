@@ -73,7 +73,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>Human-readable label (from "errorMessage" / "description" in JSON).</summary>
         public string RuleName { get; set; } = string.Empty;
 
-        /// <summary>The normalised expression that was evaluated (SQL AND/OR replaced with C# &&/||).</summary>
+        /// <summary>The normalised expression that was evaluated (SQL AND/OR replaced with C# &amp;&amp;/||).</summary>
         public string Expression { get; set; } = string.Empty;
 
         /// <summary>Whether the rule's condition evaluated to true against the input.</summary>
@@ -86,10 +86,17 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         public string MatchStatus { get; set; } = string.Empty;
 
         /// <summary>
-        /// If matched: the effect that would be applied (effectType + value from Actions.OnSuccess.Context).
-        /// Null if the rule did not match or has no effect configured.
+        /// All effects that would be applied when this sub-rule matches.
+        /// Contains one entry for single-effect rules; two or more for multi-effect rules.
+        /// Empty if the rule did not match or has no effect configured.
         /// </summary>
-        public RuleDryRunEffect? Effect { get; set; }
+        public List<RuleDryRunEffect> Effects { get; set; } = new();
+
+        /// <summary>
+        /// Backward-compatible alias — returns the first effect in <see cref="Effects"/>, or null.
+        /// Prefer <see cref="Effects"/> for new code.
+        /// </summary>
+        public RuleDryRunEffect? Effect => Effects.FirstOrDefault();
 
         /// <summary>Whether this sub-rule carries a per-sub-rule StopProcessing flag.</summary>
         public bool StopProcessing { get; set; }
@@ -116,7 +123,9 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
     }
 
     /// <summary>
-    /// Describes the effect that would be applied by a matched rule, for display in dry-run output.
+    /// Describes a single effect that would be applied by a matched rule, for display in dry-run output.
+    /// A sub-rule may carry multiple effects (multi-effect rules); each appears as one entry in
+    /// <see cref="RuleDryRunSubRuleResult.Effects"/>.
     /// </summary>
     public class RuleDryRunEffect
     {
@@ -128,6 +137,13 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
 
         /// <summary>The ParameterCode from Context (the input key used as base rate).</summary>
         public string ParameterCode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The value computed after applying <em>this specific effect</em> to the base rate.
+        /// For multi-effect rules each entry shows its own step result;
+        /// <see cref="RuleDryRunSubRuleResult.ComputedValue"/> holds the final value after all effects.
+        /// </summary>
+        public decimal? ComputedValue { get; set; }
 
         /// <summary>Full OnSuccess.Context key-value pairs for transparency.</summary>
         public Dictionary<string, string> Context { get; set; } = new();

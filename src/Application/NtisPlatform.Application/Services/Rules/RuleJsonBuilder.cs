@@ -362,6 +362,66 @@ namespace NtisPlatform.Application.Services.Rules
         {
             try
             {
+                // ── Multi-effect: the "effect" field in ConditionsJson is a JSON array ────────
+                // Emits: Actions.OnSuccess.Context = { "effects": [ {...}, {...} ] }
+                // RuleExecutionService detects this and produces one RuleExecutionResultDto per entry.
+                if (effect.ValueKind == JsonValueKind.Array)
+                {
+                    var effectsList = new List<Dictionary<string, string>>();
+                    foreach (var item in effect.EnumerateArray())
+                    {
+                        var ctx = BuildSingleEffectContext(item);
+                        if (ctx != null)
+                            effectsList.Add(ctx);
+                    }
+
+                    if (!effectsList.Any())
+                        return null;
+
+                    return new
+                    {
+                        OnSuccess = new
+                        {
+                            Name = "MultiEffect",
+                            Context = new Dictionary<string, object>
+                            {
+                                ["effects"] = effectsList
+                            }
+                        }
+                    };
+                }
+
+                // ── Single effect: existing behavior ─────────────────────────────────────────
+                var singleCtx = BuildSingleEffectContext(effect);
+                if (singleCtx == null) return null;
+
+                var actionName = (singleCtx.TryGetValue("effectType", out var et) ? et : string.Empty)
+                    .Replace("%", "").Trim();
+
+                return new
+                {
+                    OnSuccess = new
+                    {
+                        Name = actionName,
+                        Context = singleCtx
+                    }
+                };
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Builds a single effect context dictionary from a JSON element representing one effect.
+        /// Returns a flat dictionary with keys: Expression, effectType, value, ParameterCode.
+        /// Returns null if the element cannot be parsed.
+        /// </summary>
+        private static Dictionary<string, string>? BuildSingleEffectContext(JsonElement effect)
+        {
+            try
+            {
                 var effectType = effect.TryGetProperty("effectType", out var et) ? et.GetString() ?? "" : "";
 
                 // Extract value without quotes: handle both JSON strings ("10") and numbers (10)
@@ -409,21 +469,12 @@ namespace NtisPlatform.Application.Services.Rules
                 else
                     expression = $"{param} * (1 - {value} / 100)"; // fallback
 
-                var actionName = effectType.Replace("%", "").Trim();
-
-                return new
+                return new Dictionary<string, string>
                 {
-                    OnSuccess = new
-                    {
-                        Name = actionName,
-                        Context = new Dictionary<string, string>
-                        {
-                            ["Expression"] = expression,
-                            ["effectType"] = effectType,
-                            ["value"] = value,
-                            ["ParameterCode"] = param,
-                        }
-                    }
+                    ["Expression"] = expression,
+                    ["effectType"] = effectType,
+                    ["value"] = value,
+                    ["ParameterCode"] = param,
                 };
             }
             catch
