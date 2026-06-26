@@ -222,6 +222,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             .Where(x => x.PropertyNo != null && x.IsActive == true && !x.MarkedForDeletion);
 
         bool isApartmentCategory = false;
+        bool isSelectedPropertyAmenity = false;
         if (queryParams.CategoryId.HasValue)
         {
             var category = await _categoryRepository.GetByIdAsync(queryParams.CategoryId.Value, cancellationToken);
@@ -230,6 +231,69 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                 isApartmentCategory = category.PropertyCategoryName.Contains(
                     CapitalValueConstants.PropertyCategory.ApartmentKeyword, 
                     StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        // Apply selected property logic (PartType amenity filtering and exclusion)
+        if (queryParams.WardId.HasValue && !string.IsNullOrWhiteSpace(queryParams.PropertyNo))
+        {
+            var selectedPropertyQuery = _repository.GetQueryable()
+                .Where(x => x.WardId == queryParams.WardId.Value &&
+                            x.PropertyNo == queryParams.PropertyNo &&
+                            x.IsActive == true &&
+                            !x.MarkedForDeletion);
+
+            if (string.IsNullOrWhiteSpace(queryParams.PartitionNo))
+            {
+                selectedPropertyQuery = selectedPropertyQuery.Where(x => string.IsNullOrWhiteSpace(x.PartitionNo));
+            }
+            else
+            {
+                selectedPropertyQuery = selectedPropertyQuery.Where(x => x.PartitionNo == queryParams.PartitionNo);
+            }
+
+            var selectedProperty = await selectedPropertyQuery.FirstOrDefaultAsync(cancellationToken);
+            if (selectedProperty != null)
+            {
+                // Exclude the selected property itself from candidates
+                query = query.Where(x => x.Id != selectedProperty.Id);
+
+                bool isSelectedPropertyApartment = false;
+                if (selectedProperty.CategoryId.HasValue)
+                {
+                    var selectedCategory = await _categoryRepository.GetByIdAsync(selectedProperty.CategoryId.Value, cancellationToken);
+                    if (selectedCategory != null && !string.IsNullOrEmpty(selectedCategory.PropertyCategoryName))
+                    {
+                        isSelectedPropertyApartment = selectedCategory.PropertyCategoryName.Contains(
+                            CapitalValueConstants.PropertyCategory.ApartmentKeyword, 
+                            StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+
+                if (isSelectedPropertyApartment)
+                {
+                    if (selectedProperty.PropertyTypeId.HasValue)
+                    {
+                        var propertyType = await _propertyTypeMasterRepository.GetByIdAsync(selectedProperty.PropertyTypeId.Value, cancellationToken);
+                        if (propertyType != null && string.Equals(propertyType.PartType, PartTypeConstants.Amenity, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isSelectedPropertyAmenity = true;
+                        }
+                    }
+
+                    var amenityTypeIdsQuery = _propertyTypeMasterRepository.GetQueryable()
+                        .Where(ptm => ptm.PartType == PartTypeConstants.Amenity && ptm.IsActive)
+                        .Select(ptm => (int?)ptm.Id);
+
+                    if (isSelectedPropertyAmenity)
+                    {
+                        query = query.Where(p => p.PropertyTypeId.HasValue && amenityTypeIdsQuery.Contains(p.PropertyTypeId));
+                    }
+                    else
+                    {
+                        query = query.Where(p => !p.PropertyTypeId.HasValue || !amenityTypeIdsQuery.Contains(p.PropertyTypeId));
+                    }
+                }
             }
         }
 
@@ -242,7 +306,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         }
 
         // Apply filters in SQL
-        query = await ApplyFiltersAsync(query, queryParams, isApartmentCategory, cancellationToken);
+        query = await ApplyFiltersAsync(query, queryParams, isApartmentCategory, isSelectedPropertyAmenity, cancellationToken);
 
         // Group by the de-duplication key (remove Id so grouping actually deduplicates rows)
         // Surface a representative PropertyId using Max(Id) (assumes higher Id is the preferred record)
@@ -751,6 +815,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         IQueryable<PropertyEntity> query, 
         CombinePropertyQueryParameters queryParams,
         bool isApartmentCategory,
+        bool isSelectedPropertyAmenity,
         CancellationToken cancellationToken)
     {
         // Track if we're dealing with standalone properties (standalone apartments or non-apartments)
@@ -810,7 +875,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
                     query = query.Where(x => !string.IsNullOrWhiteSpace(x.PartitionNo));
 
                     // Filter by SocietyDetailId (wing) for apartments to show only combinable properties
-                    if (queryParams.SocietyDetailId.HasValue)
+                    if (queryParams.SocietyDetailId.HasValue && !isSelectedPropertyAmenity)
                         query = query.Where(x => x.SocietyDetailId == queryParams.SocietyDetailId);
 
                     // Mark as multi-unit apartment - skip PartitionNo filter to return all properties from the wing

@@ -5,6 +5,7 @@ using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -1739,6 +1740,126 @@ public class CombinePropertyServiceTest
         Assert.DoesNotContain(1, itemIds); // A
         Assert.DoesNotContain(3, itemIds); // empty
         Assert.DoesNotContain(4, itemIds); // null
+    }
+
+    [Fact]
+    public async Task GetAllAsync_SelectedPropertyIsAmenity_ReturnsOnlyAmenityProperties()
+    {
+        // Arrange
+        var categoryId = 10;
+        
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 140, IsActive = true, PartitionNo = "1", SocietyDetailId = 5 }, // Selected property
+            new() { Id = 2, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 140, IsActive = true, PartitionNo = "2", SocietyDetailId = 6 }, // Amenity candidate (Different SocietyDetailId, should not be filtered out)
+            new() { Id = 3, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 200, IsActive = true, PartitionNo = "3", SocietyDetailId = 5 }  // Non-Amenity candidate
+        };
+        
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true }
+        };
+        
+        var category = new PropertyCategoryEntity
+        {
+            Id = categoryId,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+        
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 140, PartType = PartTypeConstants.Amenity, IsActive = true },
+            new() { Id = 200, PartType = "Residential", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(categoryId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(category);
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetByIdAsync(140, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(propertyTypes[0]);
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = categoryId,
+            WardId = 1,
+            PropertyNo = "100",
+            PartitionNo = "1",
+            SocietyDetailId = 5,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        // Should exclude selected property (Id: 1) and non-amenity candidate (Id: 3), leaving only Id: 2 (even though SocietyDetailId is 6)
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(2, result.Items.First().Id);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_SelectedPropertyIsNonAmenity_ExcludesAmenityProperties()
+    {
+        // Arrange
+        var categoryId = 10;
+        
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 200, IsActive = true, PartitionNo = "1", SocietyDetailId = 5 }, // Selected property (Non-Amenity)
+            new() { Id = 2, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 140, IsActive = true, PartitionNo = "2", SocietyDetailId = 5 }, // Amenity candidate
+            new() { Id = 3, WardId = 1, PropertyNo = "100", CategoryId = categoryId, PropertyTypeId = 200, IsActive = true, PartitionNo = "3", SocietyDetailId = 5 }  // Non-Amenity candidate
+        };
+        
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, WardNo = "WARD1", IsActive = true }
+        };
+        
+        var category = new PropertyCategoryEntity
+        {
+            Id = categoryId,
+            PropertyCategoryName = "Apartment",
+            IsActive = true
+        };
+        
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 140, PartType = PartTypeConstants.Amenity, IsActive = true },
+            new() { Id = 200, PartType = "Residential", IsActive = true }
+        };
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _mockCategoryRepository.Setup(r => r.GetByIdAsync(categoryId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(category);
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetByIdAsync(200, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(propertyTypes[1]);
+        _mockPropertyTypeMasterRepository.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
+
+        var queryParams = new CombinePropertyQueryParameters
+        {
+            CategoryId = categoryId,
+            WardId = 1,
+            PropertyNo = "100",
+            PartitionNo = "1",
+            SocietyDetailId = 5,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, default);
+
+        // Assert
+        Assert.NotNull(result);
+        // Should exclude selected property (Id: 1) and amenity candidate (Id: 2), leaving only Id: 3
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal(3, result.Items.First().Id);
     }
 
     #endregion

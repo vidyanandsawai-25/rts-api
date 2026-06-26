@@ -11,17 +11,14 @@ public enum ScopeCategory
     [Description("All Properties")]
     AllProperties = 1,
 
-    [Description("Zone / Node")]
-    ZoneNode = 2,
-
     [Description("Ward / Sector")]
-    WardSector = 3,
+    WardSector = 2,
 
     [Description("Building Wise")]
-    BuildingWise = 4,
+    BuildingWise = 3,
 
     [Description("Property Range")]
-    PropertyRange = 5
+    PropertyRange = 4
 }
 
 /// <summary>
@@ -34,7 +31,6 @@ public static class ScopeCategoryExtensions
         return category switch
         {
             ScopeCategory.AllProperties => "All Properties",
-            ScopeCategory.ZoneNode => "Zone / Node",
             ScopeCategory.WardSector => "Ward / Sector",
             ScopeCategory.BuildingWise => "Building Wise",
             ScopeCategory.PropertyRange => "Property Range",
@@ -47,7 +43,6 @@ public static class ScopeCategoryExtensions
         return category switch
         {
             ScopeCategory.AllProperties => "Entire corporation",
-            ScopeCategory.ZoneNode => "Zone-wise selection",
             ScopeCategory.WardSector => "Multi ward selection",
             ScopeCategory.BuildingWise => "Building level",
             ScopeCategory.PropertyRange => "From-to property range",
@@ -60,7 +55,6 @@ public static class ScopeCategoryExtensions
         return category switch
         {
             ScopeCategory.AllProperties => new List<string>(),
-            ScopeCategory.ZoneNode => new List<string> { "Zone", "Property Type" },
             ScopeCategory.WardSector => new List<string> { "Zone", "Ward", "Property Type" },
             ScopeCategory.BuildingWise => new List<string> { "Zone", "Ward", "Property No" },
             ScopeCategory.PropertyRange => new List<string> { "Ward", "From Property", "To Property" },

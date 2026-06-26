@@ -149,11 +149,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
         var normalizedPartitionNo = string.IsNullOrWhiteSpace(dto.PartitionNo) ? null : dto.PartitionNo.ToLower();
+
+        var totalwingList = await _context.Set<WingEntity>().AsNoTracking()
+            .Where(d => d.IsActive && d.WingNo != null)
+            .Select(d => d.WingNo.ToLower())
+            .ToListAsync(cancellationToken);
+
+        var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
+
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
-                                       (normalizedPartitionNo == null || (pm.PartitionNo != null && pm.PartitionNo.ToLower().Contains(normalizedPartitionNo))) &&
+                                       (normalizedPartitionNo == null || (pm.PartitionNo != null && 
+                                           (isPartitionInWingList 
+                                               ? pm.PartitionNo.ToLower().Contains(normalizedPartitionNo) 
+                                               : pm.PartitionNo.ToLower() == normalizedPartitionNo))) &&
                                        (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
                                        (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&
@@ -207,11 +218,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var normalizedPropertyNo = string.IsNullOrWhiteSpace(dto.PropertyNo) ? null : dto.PropertyNo.ToLower();
         var normalizedPartType = string.IsNullOrWhiteSpace(dto.PartType) ? null : dto.PartType.ToLower();
         var normalizedPartitionNo = string.IsNullOrWhiteSpace(dto.PartitionNo) ? null : dto.PartitionNo.ToLower();
+
+        var totalwingList = await _context.Set<WingEntity>().AsNoTracking()
+            .Where(d => d.IsActive && d.WingNo != null)
+            .Select(d => d.WingNo.ToLower())
+            .ToListAsync(cancellationToken);
+
+        var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
+
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
                                  join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
-                                       (normalizedPartitionNo == null || (pm.PartitionNo != null && pm.PartitionNo.ToLower().Contains(normalizedPartitionNo))) &&
+                                       (normalizedPartitionNo == null || (pm.PartitionNo != null && 
+                                           (isPartitionInWingList 
+                                               ? pm.PartitionNo.ToLower().Contains(normalizedPartitionNo) 
+                                               : pm.PartitionNo.ToLower() == normalizedPartitionNo))) &&
                                        (normalizedPartType == null || (pt.PartType != null && pt.PartType.ToLower().Contains(normalizedPartType))) &&
                                        (dto.PropertyId == null || pm.Id == dto.PropertyId) &&
                                        pm.IsActive && !pm.MarkedForDeletion &&

@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.DTOs.Queries;
 using System.ComponentModel.DataAnnotations;

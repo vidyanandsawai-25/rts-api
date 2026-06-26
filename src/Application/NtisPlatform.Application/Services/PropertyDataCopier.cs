@@ -56,6 +56,9 @@ public class PropertyDataCopier : IPropertyDataCopier
             await MergeOwnerNamesAsync(mainPropertyId, combinePropertyIds, cancellationToken);
         }
 
+        // Step 2.5: Merge FlatOrShopNo values
+        await MergeFlatOrShopNumbersAsync(mainPropertyId, combinePropertyIds, cancellationToken);
+
         // Step 3: Update PropertyTypeId on main property if provided
         if (propertyTypeId.HasValue)
         {
@@ -165,6 +168,68 @@ public class PropertyDataCopier : IPropertyDataCopier
             "Merged owner names for property {MainPropertyId}: {MergedOwnerName}",
             mainPropertyId,
             mergedOwnerName);
+    }
+
+    /// <summary>
+    /// Merges FlatOrShopNo from combined properties into the main property as a comma-separated string,
+    /// removing duplicate values and handling null/empty cases.
+    /// </summary>
+    private async Task MergeFlatOrShopNumbersAsync(
+        int mainPropertyId,
+        List<int> combinePropertyIds,
+        CancellationToken cancellationToken)
+    {
+        // Get main property
+        var mainProperty = await _propertyRepository.GetByIdAsync(mainPropertyId, cancellationToken);
+        if (mainProperty == null)
+        {
+            _logger.LogWarning("Main property {MainPropertyId} not found for FlatOrShopNo merge", mainPropertyId);
+            return;
+        }
+
+        // Get all combined properties' FlatOrShopNo values
+        var combineProperties = await _propertyRepository.GetQueryable()
+            .Where(p => combinePropertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => p.FlatOrShopNo)
+            .ToListAsync(cancellationToken);
+
+        // Collect all FlatOrShopNo values including main property
+        var allFlatOrShopNos = new List<string>();
+        if (!string.IsNullOrWhiteSpace(mainProperty.FlatOrShopNo))
+        {
+            allFlatOrShopNos.AddRange(mainProperty.FlatOrShopNo.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+
+        foreach (var flatOrShopNo in combineProperties)
+        {
+            if (!string.IsNullOrWhiteSpace(flatOrShopNo))
+            {
+                allFlatOrShopNos.AddRange(flatOrShopNo.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            }
+        }
+
+        // Get distinct, non-empty values
+        var distinctFlatOrShopNos = allFlatOrShopNos
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // Update main property's FlatOrShopNo
+        if (distinctFlatOrShopNos.Count > 0)
+        {
+            mainProperty.FlatOrShopNo = string.Join(", ", distinctFlatOrShopNos);
+        }
+        else
+        {
+            // "if null both then keep null only"
+            mainProperty.FlatOrShopNo = null;
+        }
+
+        await _propertyRepository.UpdateAsync(mainProperty, cancellationToken);
+
+        _logger.LogInformation(
+            "Merged FlatOrShopNo values for property {MainPropertyId}: {MergedFlatOrShopNo}",
+            mainPropertyId,
+            mainProperty.FlatOrShopNo);
     }
 
     public async Task UpdateMainPropertyToiletCountsAsync(

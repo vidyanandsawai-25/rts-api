@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Constants;
 
@@ -17,18 +18,18 @@ public class CombinePropertyValidator : ICombinePropertyValidator
 
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyCategoryEntity, int> _categoryRepository;
-    private readonly IPolicyConfigurationService _policyConfigurationService;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeMasterRepository;
     private readonly ILogger<CombinePropertyValidator> _logger;
 
     public CombinePropertyValidator(
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyCategoryEntity, int> categoryRepository,
-        IPolicyConfigurationService policyConfigurationService,
+        IRepository<PropertyTypeMasterEntity, int> propertyTypeMasterRepository,
         ILogger<CombinePropertyValidator> logger)
     {
         _propertyRepository = propertyRepository;
         _categoryRepository = categoryRepository;
-        _policyConfigurationService = policyConfigurationService;
+        _propertyTypeMasterRepository = propertyTypeMasterRepository;
         _logger = logger;
     }
 
@@ -238,6 +239,39 @@ public class CombinePropertyValidator : ICombinePropertyValidator
             .Where(c => combineCategoryIds.Contains(c.Id))
             .ToListAsync(cancellationToken);
 
+        // Validate PartType (Amenity can only be combined with Amenity)
+        var propertyTypeIds = new List<int>();
+        if (mainProperty.PropertyTypeId.HasValue)
+        {
+            propertyTypeIds.Add(mainProperty.PropertyTypeId.Value);
+        }
+        propertyTypeIds.AddRange(combineProperties.Where(p => p.PropertyTypeId.HasValue).Select(p => p.PropertyTypeId!.Value));
+        propertyTypeIds = propertyTypeIds.Distinct().ToList();
+
+        var propertyTypes = await _propertyTypeMasterRepository.GetQueryable()
+            .Where(pt => propertyTypeIds.Contains(pt.Id) && pt.IsActive)
+            .ToListAsync(cancellationToken);
+
+        var amenityTypeIds = propertyTypes
+            .Where(pt => string.Equals(pt.PartType, PartTypeConstants.Amenity, StringComparison.OrdinalIgnoreCase))
+            .Select(pt => pt.Id)
+            .ToHashSet();
+
+        bool isMainPropertyAmenity = mainProperty.PropertyTypeId.HasValue && amenityTypeIds.Contains(mainProperty.PropertyTypeId.Value);
+
+        foreach (var property in combineProperties)
+        {
+            bool isCombinePropertyAmenity = property.PropertyTypeId.HasValue && amenityTypeIds.Contains(property.PropertyTypeId.Value);
+            if (isMainPropertyAmenity && !isCombinePropertyAmenity)
+            {
+                return (false, "Amenity properties can only be combined with other amenity properties.");
+            }
+            if (!isMainPropertyAmenity && isCombinePropertyAmenity)
+            {
+                return (false, "Non-amenity properties cannot be combined with amenity properties.");
+            }
+        }
+
         // Determine if this is a TRUE multi-unit apartment (multiple properties with same PropertyNo)
         // A standalone apartment may have a PartitionNo (flat number) but only exists as a single property
         // A multi-unit apartment has multiple properties (wings) with the same PropertyNo
@@ -285,7 +319,7 @@ public class CombinePropertyValidator : ICombinePropertyValidator
         {
             // Multi-unit apartment validation (has wings)
             // Validate source property has SocietyDetailId for wing validation
-            if (!mainProperty.SocietyDetailId.HasValue)
+            if (!isMainPropertyAmenity && !mainProperty.SocietyDetailId.HasValue)
             {
                 return (false, "Source property's society details not found.");
             }
@@ -303,7 +337,7 @@ public class CombinePropertyValidator : ICombinePropertyValidator
 
                 // Wing validation: Properties with same SocietyDetailId are from the same wing
                 // This is the ONLY requirement for apartment combining - partition format doesn't matter
-                if (property.SocietyDetailId != mainProperty.SocietyDetailId)
+                if (!isMainPropertyAmenity && property.SocietyDetailId != mainProperty.SocietyDetailId)
                 {
                     return (false, "All properties must be from the same Wing.");
                 }
@@ -359,36 +393,6 @@ public class CombinePropertyValidator : ICombinePropertyValidator
             .Where(c => combineCategoryIds.Contains(c.Id))
             .ToListAsync(cancellationToken);
 
-        // Check if all properties have the same PropertyNo
-        var allHaveSamePropertyNo = combineProperties.All(p => p.PropertyNo == mainProperty.PropertyNo);
-
-        if (allHaveSamePropertyNo)
-        {
-            // Case 1: Same PropertyNo - allow combining with ANY partitions
-            // No partition format validation - can be 1,2,3 or A1,A2,A3 or A1,B2,C3 - anything is allowed
-        }
-        else
-        {
-            // Fetch policy limit, default to 2
-            var allowedRangeStr = await _policyConfigurationService.GetPolicyValueAsync("CombinePropertyLimit", "2", cancellationToken);
-            if (!int.TryParse(allowedRangeStr, out int allowedRange))
-            {
-                _logger.LogWarning("Invalid policy value for CombinePropertyLimit: '{PolicyValue}'. Defaulting to 2.", allowedRangeStr);
-                allowedRange = 2;
-            }
-
-            // Case 2: Different PropertyNo - apply dynamic range validation
-            // PropertyNo nearest check: must be within ±allowedRange of main property number
-            foreach (var property in combineProperties)
-            {
-                var propertyNoValidation = ValidatePropertyNoWithinRange(mainProperty.PropertyNo, property.PropertyNo, allowedRange);
-                if (!propertyNoValidation.IsValid)
-                {
-                    return (false, propertyNoValidation.ErrorMessage);
-                }
-            }
-        }
-
         // Validate category for all combined properties
         foreach (var property in combineProperties)
         {
@@ -407,44 +411,6 @@ public class CombinePropertyValidator : ICombinePropertyValidator
             {
                 return (false, "All properties must be from the same Zone and Ward.");
             }
-        }
-
-        return (true, null);
-    }
-
-    /// <summary>
-    /// Validates that the property number is within the specified range of the main property number.
-    /// For non-apartment properties, only nearest properties (within ±range) can be combined.
-    /// If either property number is non-numeric, this validation is skipped as the proximity check
-    /// only applies to numeric property numbers.
-    /// </summary>
-    /// <param name="mainPropertyNo">The main property number</param>
-    /// <param name="combinePropertyNo">The property number to validate</param>
-    /// <param name="allowedRange">The allowed range (e.g., 2 means ±2)</param>
-    /// <returns>Validation result with error message if invalid</returns>
-    private static (bool IsValid, string? ErrorMessage) ValidatePropertyNoWithinRange(
-        string? mainPropertyNo,
-        string? combinePropertyNo,
-        int allowedRange)
-    {
-        // If main property number is not numeric, skip this validation
-        // Non-numeric property numbers (e.g., "123A", "12-B") don't support proximity checks
-        if (!int.TryParse(mainPropertyNo, out int mainPropNo))
-        {
-            return (true, null); // Skip validation - proximity check not applicable
-        }
-
-        // If combine property number is not numeric, skip this validation
-        // Non-numeric property numbers don't support proximity checks
-        if (!int.TryParse(combinePropertyNo, out int propNo))
-        {
-            return (true, null); // Skip validation - proximity check not applicable
-        }
-
-        // Check if property number is within allowed range
-        if (Math.Abs(propNo - mainPropNo) > allowedRange)
-        {
-            return (false, $"PropertyNo {combinePropertyNo} is not within {allowedRange} of main property number {mainPropertyNo}. Only nearest properties can be combined.");
         }
 
         return (true, null);

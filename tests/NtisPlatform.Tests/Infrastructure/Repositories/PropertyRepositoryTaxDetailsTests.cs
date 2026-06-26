@@ -326,6 +326,94 @@ public class PropertyRepositoryTaxDetailsTests
         Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
     }
 
+    [Fact]
+    public async Task GetAggregatedPropertyTaxDetailsAsync_PartitionNoInWingList_UsesLikeFilter()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A1" };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A2" };
+        var property3 = new PropertyEntity { Id = 3, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "B1" };
+
+        var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv3 = new TransMastRVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.AddRange(property1, property2, property3);
+        context.Set<WingEntity>().Add(wing);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastRV.AddRange(rv1, rv2, rv3);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A" };
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Property Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(1500m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetAggregatedPropertyTaxDetailsAsync_PartitionNoNotInWingList_UsesEqualityFilter()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A1" };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A2" };
+        var property3 = new PropertyEntity { Id = 3, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "B1" };
+
+        var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv3 = new TransMastRVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.AddRange(property1, property2, property3);
+        context.Set<WingEntity>().Add(wing);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastRV.AddRange(rv1, rv2, rv3);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A1" };
+        var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Property Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(1000m, result.TaxAmounts[0].TaxAmount);
+    }
+
     #endregion
 
     #region GetAggregatedPropertyTaxDetailsCVAsync Tests
@@ -634,6 +722,94 @@ public class PropertyRepositoryTaxDetailsTests
 
         var repository = new PropertyRepository(context);
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A-1" };
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Capital Value Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(2000m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_PartitionNoInWingList_UsesLikeFilter()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A1" };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A2" };
+        var property3 = new PropertyEntity { Id = 3, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "B1" };
+
+        var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv3 = new TransMastCVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.AddRange(property1, property2, property3);
+        context.Set<WingEntity>().Add(wing);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastCV.AddRange(cv1, cv2, cv3);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A" };
+        var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.PropertyCount);
+        Assert.Single(result.TaxAmounts);
+        Assert.Equal("Capital Value Tax", result.TaxAmounts[0].TaxName);
+        Assert.Equal(2750m, result.TaxAmounts[0].TaxAmount);
+    }
+
+    [Fact]
+    public async Task GetAggregatedPropertyTaxDetailsCVAsync_PartitionNoNotInWingList_UsesEqualityFilter()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var propertyType = new PropertyTypeMasterEntity { Id = 1, PropertyDescription = "Residential", PartType = "Apartment", IsActive = true };
+
+        var property1 = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A1" };
+        var property2 = new PropertyEntity { Id = 2, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "A2" };
+        var property3 = new PropertyEntity { Id = 3, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, WardId = 1, PartitionNo = "B1" };
+
+        var wing = new WingEntity { Id = 1, WingNo = "A", IsActive = true };
+
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
+
+        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv3 = new TransMastCVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyTypeMasters.Add(propertyType);
+        context.PropertyMast.AddRange(property1, property2, property3);
+        context.Set<WingEntity>().Add(wing);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year);
+        context.TransMastCV.AddRange(cv1, cv2, cv3);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context);
+        
+        var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A1" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
         Assert.NotNull(result);

@@ -556,7 +556,7 @@ namespace NtisPlatform.Tests.Application.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(5, result.Count);
+            Assert.Equal(4, result.Count);
 
             // Verify mapping accuracy
             var allProps = result.Find(c => c.Id == (int)ScopeCategory.AllProperties);

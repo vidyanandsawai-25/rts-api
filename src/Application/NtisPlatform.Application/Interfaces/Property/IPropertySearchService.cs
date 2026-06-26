@@ -38,6 +38,9 @@ public interface IPropertySearchService
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the list of available scope categories and their input options.
+    /// </summary>
+    /// <param name="category">Optional scope category filter</param>
     /// <b>Query</b> — Returns the 3 main dashboard cards with structure/unit/demand breakdown.
     /// Accepts optional filters: property type, type of use, zone, ward, category.
     /// </summary>
