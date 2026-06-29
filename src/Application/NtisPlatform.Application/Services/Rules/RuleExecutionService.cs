@@ -802,14 +802,18 @@ namespace NtisPlatform.Application.Services.Rules
                 if (context.TryGetValue("effects", out var effectsArrayEl) &&
                     effectsArrayEl.ValueKind == JsonValueKind.Array)
                 {
+                    decimal? runningRate = null;
                     foreach (var effectItem in effectsArrayEl.EnumerateArray())
                     {
                         var itemContext = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectItem.GetRawText())
                                          ?? new Dictionary<string, JsonElement>();
 
-                        var dto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, itemContext, inputValues);
+                        var dto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, itemContext, inputValues, runningRate);
                         if (dto != null)
+                        {
                             results.Add(dto);
+                            runningRate = dto.ComputedRate;
+                        }
                     }
                     return results;
                 }
@@ -835,7 +839,8 @@ namespace NtisPlatform.Application.Services.Rules
             string ruleName,
             string ruleErrorMessage,
             Dictionary<string, JsonElement> context,
-            Dictionary<string, object> inputValues)
+            Dictionary<string, object> inputValues,
+            decimal? runningRateOverride = null)
         {
             try
             {
@@ -844,7 +849,7 @@ namespace NtisPlatform.Application.Services.Rules
                 var expression    = ReadStringFromContext(context, "Expression");
                 var parameterCode = ReadStringFromContext(context, "ParameterCode");
 
-                var baseRate   = ResolveBaseRate(ruleName, parameterCode, inputValues);
+                var baseRate   = runningRateOverride ?? ResolveBaseRate(ruleName, parameterCode, inputValues);
                 var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(effectType));
                 decimal computedRate;
 

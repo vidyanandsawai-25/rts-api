@@ -154,8 +154,8 @@ public class RuleExecutionServiceMultiEffectTests
 
         Assert.Equal("Decrease %", results[1].EffectType);
         Assert.Equal(10m,          results[1].EffectValue);
-        Assert.Equal(1000m,        results[1].BaseRate);
-        Assert.Equal(900m,         results[1].ComputedRate);  // 1000 * 0.90
+        Assert.Equal(1050m,        results[1].BaseRate);
+        Assert.Equal(945m,         results[1].ComputedRate);  // 1050 * 0.90
     }
 
     [Fact]
@@ -196,6 +196,53 @@ public class RuleExecutionServiceMultiEffectTests
 
         Assert.Equal(2, results.Count);
         Assert.All(results, r => Assert.Equal("FLOOR-RULE", r.RuleCode));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MultiEffectRule_ChainsRatesSequentially()
+    {
+        // GIVEN a multi-effect rule with +10% and -10% on rate
+        // WHEN base rate is 100
+        // THEN computed rate must be 110 for the first effect, and 99 for the second effect
+        var multiConditions = @"[
+            {
+                ""id"": ""FLOOR-CHAIN"",
+                ""description"": ""Chained rates"",
+                ""conditions"": { ""logicalOperator"": ""AND"", ""conditions"": [
+                    { ""fieldId"": ""Floor"", ""operator"": ""EQUALS"", ""value"": 2 }
+                ]},
+                ""effect"": [
+                    { ""effectType"": ""Increase %"", ""value"": ""10"" },
+                    { ""effectType"": ""Decrease %"", ""value"": ""10"" }
+                ]
+            }
+        ]";
+
+        var ruleJson = RuleJsonBuilder.Build("Floor Chain", "FLOOR-CHAIN", true, "RV", multiConditions, null);
+        var entity = new RuleEngineEntity
+        {
+            Id = 1, RuleCode = "FLOOR-CHAIN", RuleName = "Floor Chain", RuleCategory = "RV",
+            Priority = 10, IsEnabled = true, IsActive = true,
+            RuleJson = ruleJson, ConditionsJson = multiConditions
+        };
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+                           .Returns(MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { entity }));
+
+        var results = await _service.ExecuteAsync(new RuleExecutionInputDto
+        {
+            Category = "RV",
+            Input = new Dictionary<string, object> { { "Rate", 100m }, { "Floor", 2 } }
+        });
+
+        Assert.Equal(2, results.Count);
+        // Effect 1: BaseRate 100 -> ComputedRate 110
+        Assert.Equal(100m, results[0].BaseRate);
+        Assert.Equal(110m, results[0].ComputedRate);
+
+        // Effect 2: BaseRate 110 -> ComputedRate 99
+        Assert.Equal(110m, results[1].BaseRate);
+        Assert.Equal(99m, results[1].ComputedRate);
     }
 
     [Fact]
@@ -398,9 +445,9 @@ public class RuleExecutionServiceMultiEffectTests
     public async Task DryRunAsync_MultiEffectRule_ComputedValueIsAppliedAfterAllEffects()
     {
         // GIVEN +5% then -10%
-        // THEN subTrace.ComputedValue = final value after last effect (from original base)
+        // THEN subTrace.ComputedValue = final value after last effect (chained sequentially)
         //      Effects[0].ComputedValue = 1050 (1000 * 1.05)
-        //      Effects[1].ComputedValue = 900  (1000 * 0.90)
+        //      Effects[1].ComputedValue = 945  (1050 * 0.90)
         var multiConditions = @"[
             {
                 ""id"": ""DR-CV"",
@@ -435,12 +482,12 @@ public class RuleExecutionServiceMultiEffectTests
 
         var sub = result.Workflows[0].SubRules.Single(s => s.IsMatch);
 
-        // Each effect shows its own ComputedValue (from original base 1000)
+        // Each effect shows its computed rate (chained sequentially)
         Assert.Equal(1050m, sub.Effects[0].ComputedValue);  // +5%
-        Assert.Equal(900m,  sub.Effects[1].ComputedValue);  // -10%
+        Assert.Equal(945m,  sub.Effects[1].ComputedValue);  // -10% on 1050
 
         // SubTrace.ComputedValue = last effect's computed rate
-        Assert.Equal(900m, sub.ComputedValue);
+        Assert.Equal(945m, sub.ComputedValue);
         Assert.Equal(1000m, sub.BaseRate);
     }
 
