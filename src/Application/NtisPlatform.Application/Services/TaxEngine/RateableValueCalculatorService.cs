@@ -29,7 +29,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IReadOnlyList<RenterMastEntity> renters,
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
-            decimal? overrideRate = null)
+            decimal? overrideRate = null,
+            int? detailYearRangeRVId = null)
         {
             if (detail == null)
                 throw new ArgumentNullException(nameof(detail));
@@ -39,7 +40,19 @@ namespace NtisPlatform.Application.Services.TaxEngine
             if (detail.IsTaxable == false)
                 return CreateZeroResult(detail, "Not Taxable");
 
-            var yearRange = ResolveYearRange(financeYear, yearRanges);
+            // Use the detail's resolved year range ID
+            // If year range ID is 0 (means AssessmentYear not found), apply zero tax
+            AssessmentYearRangeEntity? yearRange = null;
+            if (detailYearRangeRVId.HasValue && detailYearRangeRVId.Value == 0)
+            {
+                return CreateZeroResult(detail, "AssessmentYear not found in year range entity");
+            }
+
+            if (detailYearRangeRVId.HasValue)
+            {
+                yearRange = yearRanges.FirstOrDefault(y => y.Id == detailYearRangeRVId.Value && y.IsActive);
+            }
+
             if (yearRange == null)
                 return CreateZeroResult(detail, "Year Range Not Found");
 

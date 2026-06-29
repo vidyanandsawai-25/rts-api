@@ -922,8 +922,12 @@ public class PropertyRepositoryTaxDetailsTests
             MarkedForDeletion = false
         };
 
-        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
-        var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Education Cess", TaxCode = "EDU", DisplayOrder = 2, IsActive = true };
+        // Create tax category masters required by the new join logic
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+        var categoryEdu = new TaxCategoryMasterEntity { Id = 2, CategoryCode = "EDU", CategoryName = "Education", IsActive = true };
+
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Education Cess", TaxCode = "EDU", DisplayOrder = 2, TaxCategoryId = 2, IsActive = true };
 
         var policyTaxCV1 = new PolicyTaxDetailsCVEntity
         {
@@ -950,6 +954,7 @@ public class PropertyRepositoryTaxDetailsTests
         };
 
         context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.AddRange(categoryTax, categoryEdu);
         context.TaxMaster.AddRange(tax1, tax2);
         context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
         await context.SaveChangesAsync();
@@ -1157,7 +1162,10 @@ public class PropertyRepositoryTaxDetailsTests
             MarkedForDeletion = false
         };
 
-        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
+        // Create tax category master required by the new join logic
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+
+        var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
 
         // Same PolicyCode and TaxName - should be summed
         var policyTaxCV1 = new PolicyTaxDetailsCVEntity
@@ -1185,6 +1193,7 @@ public class PropertyRepositoryTaxDetailsTests
         };
 
         context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
         context.TaxMaster.Add(tax1);
         context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
         await context.SaveChangesAsync();

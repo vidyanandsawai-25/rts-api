@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
 {
@@ -35,6 +36,15 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>All active occupancy records linked to the detail IDs of this property.</summary>
         public IReadOnlyList<PropertyOccupancyDetailsEntity> Occupancies { get; set; } = [];
 
+        /// <summary>All active assessment year ranges. Used to resolve per-detail YearRangeRVId during CloneForDetail.</summary>
+        public IReadOnlyList<AssessmentYearRangeEntity> YearRanges { get; set; } = [];
+
+        /// <summary>
+        /// Pre-computed mapping of DetailId to YearRangeRVId based on each detail's AssessmentYear.
+        /// Resolved once during context loading for efficient direct lookup during calculations.
+        /// </summary>
+        public IReadOnlyDictionary<int, int> DetailYearRangeRVIdMap { get; set; } = new Dictionary<int, int>();
+
         // ─── Calculation Parameters ─────────────────────────────────────────────────
 
         /// <summary>
@@ -70,9 +80,10 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
                 Details = this.Details,
                 Renters = this.Renters,
                 Occupancies = this.Occupancies,
+                YearRanges = this.YearRanges,
 
                 // Deep-cloned with per-detail overrides applied
-                Parameters = this.Parameters.CloneForDetail(detail, detailTypeOfUse)
+                Parameters = this.Parameters.CloneForDetail(detail, detailTypeOfUse, this.YearRanges.ToList())
             };
         }
     }

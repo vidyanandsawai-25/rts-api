@@ -9,7 +9,7 @@ public static class RateableValuePolicyConstants
     public const string RateableValueAreaType = "RateableValueAreaType";
     public const string RateMasterAreaUnit = "RateMasterAreaUnit";
     public const string RateMonthlyOrYearly = "RateMonthlyOrYearly";
-    public const string EducationEmploymentTaxOnRV = "EducationEmploymentTaxOnRV";
+    public const string EducationEmploymentTaxCalculationMethod = "EducationEmploymentTaxCalculationMethod";
 
     // Area Type Values
     public const string CarpetArea = "CarpetArea";
@@ -22,6 +22,10 @@ public static class RateableValuePolicyConstants
     // Rate Period Values
     public const string Monthly = "Monthly";
     public const string Yearly = "Yearly";
+
+    // Education/Employment Tax Calculation Method Values
+    public const string RV = "RV";      // RateableValue
+    public const string ALV = "ALV";    // AnnualRentalValue
 
     // Boolean Policy Values
     public const string PolicyValueTrue = "1";
@@ -39,5 +43,5 @@ public static class RateableValuePolicyConstants
     public const string DefaultAreaType = CarpetArea;
     public const string DefaultAreaUnit = SqMeter;
     public const string DefaultRatePeriod = Yearly;
-    public const string DefaultEducationEmploymentTaxOnRV = PolicyValueFalse;
+    public const string DefaultEducationEmploymentTaxCalculationMethod = ALV;
 }

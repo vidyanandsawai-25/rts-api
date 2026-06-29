@@ -16,8 +16,8 @@ public class RateableValuePolicyOptions
     /// <summary>Rate period: Monthly or Yearly</summary>
     public string RatePeriod { get; set; } = RateableValuePolicyConstants.DefaultRatePeriod;
 
-    /// <summary>Education/Employment tax base: "1" = RateableValue, "0" = AnnualRentalValue</summary>
-    public string EducationEmploymentTaxOnRV { get; set; } = RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV;
+    /// <summary>Education/Employment tax calculation method: "RV" = RateableValue, "ALV" = AnnualRentalValue (default)</summary>
+    public string EducationEmploymentTaxCalculationMethod { get; set; } = RateableValuePolicyConstants.DefaultEducationEmploymentTaxCalculationMethod;
 
     /// <summary>
     /// Maintenance deduction as a percentage of AnnualRentalValue (e.g. 10 means 10%).
@@ -33,10 +33,6 @@ public class RateableValuePolicyOptions
     public bool IsSqFeetUnit =>
         string.Equals(AreaUnit, RateableValuePolicyConstants.SqFeet, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>Returns true if Education/Employment tax should be calculated on RateableValue.</summary>
-    public bool IsEducationEmploymentTaxOnRV =>
-        string.Equals(EducationEmploymentTaxOnRV, RateableValuePolicyConstants.PolicyValueTrue, StringComparison.OrdinalIgnoreCase);
-
     /// <summary>Creates policy options with default values.</summary>
     public static RateableValuePolicyOptions Default => new();
 
@@ -44,6 +40,9 @@ public class RateableValuePolicyOptions
     public static RateableValuePolicyOptions FromPolicies(Dictionary<string, string> policies, ILogger? logger = null)
     {
         var options = new RateableValuePolicyOptions();
+
+        // Log all available policy keys for debugging
+        logger?.LogInformation("[Policies] Available policy keys: {Keys}", string.Join(", ", policies.Keys));
 
         if (policies.TryGetValue(RateableValuePolicyConstants.RateableValueAreaType, out var areaType))
         {
@@ -72,13 +71,44 @@ public class RateableValuePolicyOptions
                     ratePeriod, RateableValuePolicyConstants.DefaultRatePeriod);
         }
 
-        if (policies.TryGetValue(RateableValuePolicyConstants.EducationEmploymentTaxOnRV, out var eduEmpTaxOnRV))
+        // Try new policy key first
+        logger?.LogInformation("[Policy] Attempting to load policy key: '{Key}'", RateableValuePolicyConstants.EducationEmploymentTaxCalculationMethod);
+        if (policies.TryGetValue(RateableValuePolicyConstants.EducationEmploymentTaxCalculationMethod, out var taxCalcMethod))
         {
-            if (IsValidBooleanPolicy(eduEmpTaxOnRV))
-                options.EducationEmploymentTaxOnRV = eduEmpTaxOnRV;
+            // Trim whitespace, remove BOM, and normalize
+            var rawValue = taxCalcMethod ?? string.Empty;
+            var normalizedMethod = rawValue
+                .Trim()  // Remove leading/trailing whitespace
+                .Replace("﻿", "")  // Remove BOM
+                .ToUpperInvariant();  // Uppercase for consistency
+
+            logger?.LogInformation("[Policy] ✓ FOUND policy '{Key}' with raw value: '{RawValue}' (length={Length}, bytes={Bytes})",
+                RateableValuePolicyConstants.EducationEmploymentTaxCalculationMethod,
+                rawValue,
+                rawValue.Length,
+                string.Join(",", rawValue.Select(c => (int)c)));
+            logger?.LogInformation("[Policy] After normalization: '{NormalizedValue}' (length={Length})",
+                normalizedMethod, normalizedMethod.Length);
+
+            if (IsValidTaxCalculationMethod(normalizedMethod))
+            {
+                options.EducationEmploymentTaxCalculationMethod = normalizedMethod;
+                logger?.LogInformation("[Policy] ✓✓ VALIDATION PASSED: Set EducationEmploymentTaxCalculationMethod to: '{Value}'", normalizedMethod);
+            }
             else
-                logger?.LogWarning("Invalid EducationEmploymentTaxOnRV policy value '{Value}'. Using default '{Default}'",
-                    eduEmpTaxOnRV, RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV);
+            {
+                logger?.LogWarning("[Policy] ✗✗ VALIDATION FAILED: Invalid EducationEmploymentTaxCalculationMethod value '{Value}'. " +
+                    "Expected 'RV' or 'ALV'. Using default '{Default}'. Character codes: {CharCodes}",
+                    normalizedMethod, RateableValuePolicyConstants.DefaultEducationEmploymentTaxCalculationMethod,
+                    string.Join(",", normalizedMethod.Select(c => (int)c)));
+            }
+        }
+        else
+        {
+            logger?.LogWarning("[Policy] ✗ EducationEmploymentTaxCalculationMethod not found in policies. " +
+                "Using default: '{Default}'. Available keys: {AllKeys}",
+                RateableValuePolicyConstants.DefaultEducationEmploymentTaxCalculationMethod,
+                string.Join(", ", policies.Keys));
         }
 
         if (policies.TryGetValue(RateableValuePolicyConstants.MaintenanceRateKey, out var maintenanceStr) &&
@@ -112,4 +142,16 @@ public class RateableValuePolicyOptions
     private static bool IsValidBooleanPolicy(string value) =>
         string.Equals(value, RateableValuePolicyConstants.PolicyValueTrue, StringComparison.OrdinalIgnoreCase) ||
         string.Equals(value, RateableValuePolicyConstants.PolicyValueFalse, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidTaxCalculationMethod(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        bool isRV = string.Equals(value, RateableValuePolicyConstants.RV, StringComparison.OrdinalIgnoreCase);
+        bool isALV = string.Equals(value, RateableValuePolicyConstants.ALV, StringComparison.OrdinalIgnoreCase);
+        bool isValid = isRV || isALV;
+
+        return isValid;
+    }
 }

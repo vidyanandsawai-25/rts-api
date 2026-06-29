@@ -26,9 +26,18 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
         {
             var options = policyOptions ?? RateableValuePolicyOptions.Default;
             var selectedArea = RateableValuePolicyHelper.GetSelectedArea(detail, options);
+
+            // If year ranges are provided, use the first active one's ID
+            int? detailYearRangeRVId = null;
+            if (yearRanges?.Any() == true)
+            {
+                var yearRange = yearRanges.FirstOrDefault(y => y.IsActive);
+                detailYearRangeRVId = yearRange?.Id ?? (yearRanges.Count > 0 ? yearRanges[0].Id : null);
+            }
+
             return new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance)
                 .CalculateBaseValues(detail, financeYear, taxZoneId, wardId, typeOfUses, rates,
-                    depreciations, yearRanges, renters, selectedArea, options);
+                    depreciations, yearRanges ?? new List<AssessmentYearRangeEntity>(), renters, selectedArea, options, null, detailYearRangeRVId);
         }
 
         [Fact]

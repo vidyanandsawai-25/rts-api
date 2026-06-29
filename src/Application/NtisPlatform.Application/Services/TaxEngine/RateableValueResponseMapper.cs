@@ -50,17 +50,26 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedDate).FirstOrDefault());
 
 
-            var detailDtos = resultRows
-                .GroupBy(x => x.PropertyDetailsId)
-                .Select(g =>
+            // Include ALL details, even those with no tax rows (when detailYearRangeRVId == 0)
+            var resultsByDetail = resultRows.GroupBy(x => x.PropertyDetailsId).ToDictionary(g => g.Key, g => g.ToList());
+
+            var detailDtos = details
+                .Select(detail =>
                 {
-                    var first = g.First();
-                    var detail = detailMap[g.Key];
+                    var taxRows = resultsByDetail.TryGetValue(detail.Id, out var rows) ? rows : new List<PropertyTaxCalculationRVResultsEntity>();
+                    var first = taxRows.FirstOrDefault();
 
                     var renter = renterMap.TryGetValue(detail.Id, out var r) ? r : null;
                     var occupancy = occupancyMap.TryGetValue(detail.Id, out var o) ? o : null;
 
-                    var taxes = g
+                    // Exclude Education (EDU) and Employment (EMP) taxes from details response
+                    var taxes = taxRows
+                        .Where(x =>
+                        {
+                            var categoryCode = taxMasterCache.GetTaxCategoryCode(x.TaxId);
+                            // Exclude if category code is EDU or EMP
+                            return categoryCode != "EDU" && categoryCode != "EMP";
+                        })
                         .OrderBy(x => x.TaxId)
                         .GroupBy(x => taxMasterCache.GetTaxName(x.TaxId), StringComparer.OrdinalIgnoreCase)
                         .ToDictionary(
@@ -93,16 +102,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             : (renter?.RenterName ?? string.Empty),
                         RentMonthly = ToDecimal(renter?.RentMonthly),
                         RentYearly = ToDecimal(renter?.FinalYearlyRent > 0 ? renter.FinalYearlyRent : ((renter?.RentMonthly ?? 0d) * 12d)),
-                        MonthlyRate = first.MonthlyRate ?? 0m,
-                        YearlyRate = first.YearlyRate ?? 0m,
-                        YearlyRent = first.YearlyRent ?? 0m,
-                        Depreciation = first.Depreciation ?? 0m,
-                        DepreciationPer = Math.Round(first.DepreciationPer ?? 0m, 2),
-                        AppliedOn = first.AppliedOn ?? string.Empty,
-                        AnnualRentalValue = first.AnnualRentalValue ?? 0m,
-                        Maintenance = first.Maintenance ?? 0m,
-                        RateableValue = first.RateableValue ?? 0m,
-                        TaxTotal = g.Sum(x => x.TaxAmount ?? 0m),
+                        MonthlyRate = first?.MonthlyRate ?? 0m,
+                        YearlyRate = first?.YearlyRate ?? 0m,
+                        YearlyRent = first?.YearlyRent ?? 0m,
+                        Depreciation = first?.Depreciation ?? 0m,
+                        DepreciationPer = Math.Round(first?.DepreciationPer ?? 0m, 2),
+                        AppliedOn = first?.AppliedOn ?? string.Empty,
+                        AnnualRentalValue = first?.AnnualRentalValue ?? 0m,
+                        Maintenance = first?.Maintenance ?? 0m,
+                        RateableValue = first?.RateableValue ?? 0m,
+                        TaxTotal = taxRows.Sum(x => x.TaxAmount ?? 0m),
                         Taxes = taxes
                     };
                 })

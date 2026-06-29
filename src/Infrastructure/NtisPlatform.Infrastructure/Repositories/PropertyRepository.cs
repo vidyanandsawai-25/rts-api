@@ -26,6 +26,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var policies = await GetTaxDetailsPivotedAsync(
             propertyId,
             isCapitalValue: false,
+            excludeEducationEmploymentTax: true,  // Hide education/employment tax in details-taxes API
             cancellationToken);
 
         if (policies == null)
@@ -42,19 +43,16 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     /// Private helper method to query and pivot tax details from a given tax details table.
     /// Joins with TaxMaster, filters by active/deleted flags, orders by DisplayOrder, and groups by PolicyCode.
     /// </summary>
-    /// <typeparam name="TTaxDetail">The tax detail entity type (PolicyTaxDetails or PolicyTaxDetailsCV)</typeparam>
     /// <param name="propertyId">The property identifier</param>
-    /// <param name="taxDetailsSet">The DbSet of tax details to query</param>
-    /// <param name="propertyIdSelector">Function to extract PropertyId from the entity</param>
-    /// <param name="policyCodeSelector">Function to extract PolicyCode from the entity</param>
-    /// <param name="taxIdSelector">Function to extract TaxId from the entity</param>
-    /// <param name="taxAmountSelector">Function to extract TaxAmount from the entity</param>
+    /// <param name="isCapitalValue">Whether to query CapitalValue or RateableValue tax details</param>
+    /// <param name="excludeEducationEmploymentTax">If true, excludes Education and Employment taxes from results</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>List of pivoted PolicyTaxDetail objects, or null if property not found or no data exists</returns>
     private async Task<List<PolicyTaxDetail>?> GetTaxDetailsPivotedAsync(
         int propertyId,
         bool isCapitalValue,
-        CancellationToken cancellationToken)
+        bool excludeEducationEmploymentTax = false,
+        CancellationToken cancellationToken = default)
     {
         // Step 1: Check if property exists
         var propertyExists = await _context.PropertyMast
@@ -70,8 +68,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         {
             taxData = await (from td in _context.PolicyTaxDetailsCV
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
+                             join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive
+                                && (!excludeEducationEmploymentTax ||
+                                    (tc.CategoryCode != "EDU" && tc.CategoryCode != "EMP"))
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
                                  td.PolicyCode,
@@ -84,8 +85,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         {
             taxData = await (from td in _context.PolicyTaxDetails
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
+                             join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive
+                                && (!excludeEducationEmploymentTax ||
+                                    (tc.CategoryCode != "EDU" && tc.CategoryCode != "EMP"))
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
                                  td.PolicyCode,
@@ -132,6 +136,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var policies = await GetTaxDetailsPivotedAsync(
             propertyId,
             isCapitalValue: true,
+            excludeEducationEmploymentTax: false,  // Show all taxes for CV
             cancellationToken);
 
         if (policies == null)

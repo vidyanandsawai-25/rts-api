@@ -855,7 +855,7 @@ public class RateableValueServiceTests
             { RateableValuePolicyConstants.RateableValueAreaType, RateableValuePolicyConstants.CarpetArea },
             { RateableValuePolicyConstants.RateMasterAreaUnit, RateableValuePolicyConstants.SqFeet },  // ← Configure to use SqFeet
             { RateableValuePolicyConstants.RateMonthlyOrYearly, RateableValuePolicyConstants.Monthly },
-            { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, RateableValuePolicyConstants.PolicyValueFalse }
+            { RateableValuePolicyConstants.EducationEmploymentTaxCalculationMethod, RateableValuePolicyConstants.ALV }
         };
 
         _policyConfigurationService

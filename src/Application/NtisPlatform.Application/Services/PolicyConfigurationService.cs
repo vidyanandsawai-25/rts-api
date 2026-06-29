@@ -52,18 +52,50 @@ public class PolicyConfigurationService
         var result = new Dictionary<string, string>(policyCodes);
         var codes = policyCodes.Keys.ToList();
 
+        _logger.LogInformation("[PolicyService] Requested codes: {Codes}", string.Join(", ", codes));
+
         var policies = await _repository.GetQueryable()
             .AsNoTracking()
             .Where(x => codes.Contains(x.PolicyCode) && x.IsActive)
             .ToListAsync(cancellationToken);
 
+        _logger.LogInformation("[PolicyService] Retrieved {Count} policies from database: {RetrievedCodes}",
+            policies.Count, string.Join(", ", policies.Select(p => $"'{p.PolicyCode}'")));
+
         foreach (var code in codes)
         {
+            // Try exact match first
             var policy = policies.FirstOrDefault(x => x.PolicyCode == code);
+
+            // Fallback: try trimmed match (handles trailing spaces in database)
             if (policy == null)
             {
-                _logger.LogWarning("Policy '{PolicyCode}' not found. Using default value '{DefaultValue}'", code, policyCodes[code]);
-                continue;
+                policy = policies.FirstOrDefault(x =>
+                    string.Equals(x.PolicyCode?.Trim(), code, StringComparison.Ordinal));
+
+                if (policy != null)
+                {
+                    _logger.LogWarning("[PolicyService] Found policy '{RequestedCode}' with whitespace in DB: '{DbCode}'",
+                        code, policy.PolicyCode);
+                }
+            }
+
+            // Final fallback: try case-insensitive + trimmed
+            if (policy == null)
+            {
+                policy = policies.FirstOrDefault(x =>
+                    string.Equals(x.PolicyCode?.Trim(), code, StringComparison.OrdinalIgnoreCase));
+
+                if (policy != null)
+                {
+                    _logger.LogWarning("[PolicyService] Found policy '{RequestedCode}' with different case and/or whitespace in DB: '{DbCode}'",
+                        code, policy.PolicyCode);
+                }
+                else
+                {
+                    _logger.LogWarning("Policy '{PolicyCode}' not found. Using default value '{DefaultValue}'", code, policyCodes[code]);
+                    continue;
+                }
             }
 
             if (string.IsNullOrWhiteSpace(policy.PolicyValue))
@@ -72,6 +104,7 @@ public class PolicyConfigurationService
                 continue;
             }
 
+            _logger.LogInformation("[PolicyService] ✓ Policy '{PolicyCode}' = '{PolicyValue}'", code, policy.PolicyValue);
             result[code] = policy.PolicyValue;
         }
 

@@ -19,6 +19,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
             IReadOnlyList<RenterMastEntity> renters,
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
-            decimal? overrideRate = null);
+            decimal? overrideRate = null,
+            int? detailYearRangeRVId = null);
     }
 }

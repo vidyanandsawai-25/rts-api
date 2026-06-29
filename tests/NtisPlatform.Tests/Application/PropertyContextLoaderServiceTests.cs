@@ -426,7 +426,7 @@ namespace NtisPlatform.Tests.Application
         {
             // Arrange
             SetupValidProperty(propertyId: 1);
-            SetupPropertyDetails(propertyId: 1, constructionYear: "2010");
+            SetupPropertyDetails(propertyId: 1, constructionYear: "2010", assessmentYear: "2015");
 
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
@@ -444,16 +444,22 @@ namespace NtisPlatform.Tests.Application
             // Act
             var cloned = ctx.CloneForDetail(detail, detailTypeOfUse);
 
-            // Assert
+            // Assert — per-detail fields
             Assert.Same(detail, cloned.Parameters.Detail);
             Assert.Same(detailTypeOfUse, cloned.Parameters.DetailTypeOfUse);
+            Assert.NotNull(cloned.Parameters.AssessmentYearValue);
+            Assert.NotNull(cloned.Parameters.YearRangeRVIdForDetail);
 
+            // Assert — global parameters (should be same across all details)
             Assert.Equal(ctx.Parameters.FinanceYear, cloned.Parameters.FinanceYear);
             Assert.Equal(ctx.Parameters.ConstructionYearValue, cloned.Parameters.ConstructionYearValue);
+            Assert.Equal(ctx.Parameters.YearRangeRVId, cloned.Parameters.YearRangeRVId);
             Assert.Equal(ctx.Parameters.SocialAttributeId, cloned.Parameters.SocialAttributeId);
 
+            // Assert — entity references (shared read-only)
             Assert.Same(ctx.Property, cloned.Property);
             Assert.Same(ctx.Details, cloned.Details);
+            Assert.Same(ctx.YearRanges, cloned.YearRanges);
         }
 
         // ─── Private Helpers ─────────────────────────────────────────────────────
@@ -494,7 +500,8 @@ namespace NtisPlatform.Tests.Application
         private void SetupPropertyDetails(
             int propertyId,
             string? constructionYear,
-            int detailId = 1)
+            int detailId = 1,
+            string? assessmentYear = null)
         {
             _propertyDetailsRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyDetailsEntity>
@@ -506,6 +513,7 @@ namespace NtisPlatform.Tests.Application
                         IsActive = true,
                         MarkedForDeletion = false,
                         ConstructionYear = constructionYear,
+                        AssessmentYear = assessmentYear,
                         FloorId = 1,
                         TypeOfUseId = 1
                     }

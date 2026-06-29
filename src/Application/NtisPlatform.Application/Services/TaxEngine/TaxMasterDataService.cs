@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -12,17 +11,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
 {
     /// <summary>
     /// EF Core-backed implementation of <see cref="ITaxMasterDataService"/>.
-    /// Results are cached in <see cref="IMemoryCache"/> for <see cref="CacheTtlMinutes"/> minutes
-    /// so that sequential calls within a single RV-calculation request never touch the DB
-    /// more than once per table per cache window.
     /// </summary>
     public class TaxMasterDataService : ITaxMasterDataService
     {
-        // Master data is admin-managed and changes rarely.  5 minutes is a safe default;
-        // raise to 60 for production environments with infrequent master-data edits.
-        private const int CacheTtlMinutes = 5;
-
-        private readonly IMemoryCache _cache;
 
         private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepo;
         private readonly IRepository<SubTypeOfUseEntity, int> _subTypeOfUseRepo;
@@ -40,7 +31,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly IRepository<EmploymentTaxMasterEntity, int> _employmentTaxRepo;
 
         public TaxMasterDataService(
-            IMemoryCache cache,
             IRepository<TypeOfUseEntity, int> typeOfUseRepo,
             IRepository<SubTypeOfUseEntity, int> subTypeOfUseRepo,
             IRepository<FloorEntity, int> floorRepo,
@@ -56,7 +46,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRepository<EducationTaxMasterEntity, int> educationTaxRepo,
             IRepository<EmploymentTaxMasterEntity, int> employmentTaxRepo)
         {
-            _cache = cache;
             _typeOfUseRepo = typeOfUseRepo;
             _subTypeOfUseRepo = subTypeOfUseRepo;
             _floorRepo = floorRepo;
@@ -76,12 +65,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         // ── helpers ──────────────────────────────────────────────────────────────
 
         private Task<List<T>> GetOrCacheAsync<T>(string key, System.Func<Task<List<T>>> factory)
-            => _cache.GetOrCreateAsync(key, _ =>
-            {
-                _.SetAbsoluteExpiration(System.TimeSpan.FromMinutes(CacheTtlMinutes));
-                _.SetSize(1); // required when IMemoryCache is configured with SizeLimit
-                return factory();
-            })!;
+            => factory();
 
         // ── ITaxMasterDataService ─────────────────────────────────────────────────
 
@@ -109,19 +93,12 @@ namespace NtisPlatform.Application.Services.TaxEngine
         {
             if (!wardId.HasValue) return 0;
 
-            var key = $"tmd:RateSectionId:{wardId.Value}";
-            if (_cache.TryGetValue(key, out int cached)) return cached;
-
             var sectionDetail = await _rateSectionDetailsRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(x => x.WardId == wardId.Value && x.IsActive)
                 .FirstOrDefaultAsync();
 
-            var result = sectionDetail?.RateSectionId ?? 0;
-            _cache.Set(key, result, new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(System.TimeSpan.FromMinutes(CacheTtlMinutes))
-                .SetSize(1));
-            return result;
+            return sectionDetail?.RateSectionId ?? 0;
         }
 
         public virtual Task<List<RateEntity>> GetRatesForSectionAsync(int rateSectionId) =>

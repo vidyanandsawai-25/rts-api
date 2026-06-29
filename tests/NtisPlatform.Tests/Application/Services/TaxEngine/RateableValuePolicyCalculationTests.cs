@@ -42,9 +42,20 @@ public class RateableValuePolicyCalculationTests
     {
         var options = policyOptions ?? RateableValuePolicyOptions.Default;
         var selectedArea = RateableValuePolicyHelper.GetSelectedArea(detail, options);
+
+        // If year ranges are provided and contain an active entry, use its ID.
+        // This matches the new method signature requirement for detailYearRangeRVId.
+        int? detailYearRangeRVId = null;
+        var safeYearRanges = yearRanges ?? new List<AssessmentYearRangeEntity>();
+        if (safeYearRanges.Any())
+        {
+            var yearRange = safeYearRanges.FirstOrDefault(y => y.IsActive);
+            detailYearRangeRVId = yearRange?.Id ?? (safeYearRanges.Count > 0 ? safeYearRanges[0].Id : null);
+        }
+
         return new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance)
             .CalculateBaseValues(detail, financeYear, taxZoneId, wardId, typeOfUses, rates,
-                depreciations, yearRanges, renters, selectedArea, options);
+                depreciations, safeYearRanges, renters, selectedArea, options, null, detailYearRangeRVId);
     }
 
     #region GetSelectedArea Tests
@@ -381,52 +392,53 @@ public class RateableValuePolicyCalculationTests
     }
 
     [Fact]
-    public void IsEducationEmploymentTaxOnRV_WhenTrue_ReturnsTrue()
+    public void EducationEmploymentTaxCalculationMethod_WhenRV_CalculatesOnRV()
     {
         // Arrange
-        var options = new RateableValuePolicyOptions { EducationEmploymentTaxOnRV = RateableValuePolicyConstants.PolicyValueTrue };
+        var options = new RateableValuePolicyOptions { EducationEmploymentTaxCalculationMethod = RateableValuePolicyConstants.RV };
 
         // Assert
-        Assert.True(options.IsEducationEmploymentTaxOnRV);
+        Assert.Equal(RateableValuePolicyConstants.RV, options.EducationEmploymentTaxCalculationMethod);
     }
 
     [Fact]
-    public void IsEducationEmploymentTaxOnRV_WhenFalse_ReturnsFalse()
+    public void EducationEmploymentTaxCalculationMethod_WhenALV_CalculatesOnALV()
     {
         // Arrange
-        var options = new RateableValuePolicyOptions { EducationEmploymentTaxOnRV = RateableValuePolicyConstants.PolicyValueFalse };
+        var options = new RateableValuePolicyOptions { EducationEmploymentTaxCalculationMethod = RateableValuePolicyConstants.ALV };
 
         // Assert
-        Assert.False(options.IsEducationEmploymentTaxOnRV);
+        Assert.Equal(RateableValuePolicyConstants.ALV, options.EducationEmploymentTaxCalculationMethod);
     }
 
     [Fact]
-    public void IsEducationEmploymentTaxOnRV_Default_ReturnsFalse()
+    public void EducationEmploymentTaxCalculationMethod_Default_IsALV()
     {
         // Arrange
         var options = RateableValuePolicyOptions.Default;
 
-        // Assert - Default should calculate on AnnualRentalValue (false)
-        Assert.False(options.IsEducationEmploymentTaxOnRV);
+        // Assert - Default should calculate on AnnualRentalValue (ALV)
+        Assert.Equal(RateableValuePolicyConstants.ALV, options.EducationEmploymentTaxCalculationMethod);
     }
 
     [Theory]
-    [InlineData("1", true)]
-    [InlineData("0", false)]
-    [InlineData("invalid", false)] // Invalid values should use default (false)
-    public void IsEducationEmploymentTaxOnRV_FromPolicies(string policyValue, bool expected)
+    [InlineData("RV", "RV")]
+    [InlineData("ALV", "ALV")]
+    [InlineData("rv", "RV")]
+    [InlineData("invalid", "ALV")] // Invalid values should use default (ALV)
+    public void EducationEmploymentTaxCalculationMethod_FromPolicies(string policyValue, string expected)
     {
         // Arrange
         var policies = new Dictionary<string, string>
         {
-            { RateableValuePolicyConstants.EducationEmploymentTaxOnRV, policyValue }
+            { RateableValuePolicyConstants.EducationEmploymentTaxCalculationMethod, policyValue }
         };
 
         // Act
         var options = RateableValuePolicyOptions.FromPolicies(policies);
 
-        // Assert
-        Assert.Equal(expected, options.IsEducationEmploymentTaxOnRV);
+        // Assert - Code normalizes to uppercase for consistency
+        Assert.Equal(expected, options.EducationEmploymentTaxCalculationMethod);
     }
 
     #endregion
@@ -443,7 +455,7 @@ public class RateableValuePolicyCalculationTests
         Assert.Equal(RateableValuePolicyConstants.DefaultAreaType, options.AreaType);
         Assert.Equal(RateableValuePolicyConstants.DefaultAreaUnit, options.AreaUnit);
         Assert.Equal(RateableValuePolicyConstants.DefaultRatePeriod, options.RatePeriod);
-        Assert.Equal(RateableValuePolicyConstants.DefaultEducationEmploymentTaxOnRV, options.EducationEmploymentTaxOnRV);
+        Assert.Equal(RateableValuePolicyConstants.DefaultEducationEmploymentTaxCalculationMethod, options.EducationEmploymentTaxCalculationMethod);
     }
 
     [Fact]

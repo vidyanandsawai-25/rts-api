@@ -40,8 +40,23 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>
         /// The primary key of the <c>AssessmentYearRangeEntity</c> that matches
         /// <see cref="ConstructionYearValue"/>. Used to filter tax percentage records.
+        /// This is the default/property-level value; per-detail overrides are applied in <see cref="CloneForDetail"/>.
         /// </summary>
         public int YearRangeRVId { get; set; }
+
+        /// <summary>
+        /// Per-detail assessment year for the current detail evaluation.
+        /// Set during <see cref="CloneForDetail"/> from <see cref="Detail"/>.AssessmentYear.
+        /// Used to resolve the correct <see cref="YearRangeRVIdForDetail"/> when assessment years vary.
+        /// </summary>
+        public int? AssessmentYearValue { get; set; }
+
+        /// <summary>
+        /// Per-detail assessment year range ID resolved from <see cref="AssessmentYearValue"/>.
+        /// Overrides <see cref="YearRangeRVId"/> during detail-level tax calculations.
+        /// Set during <see cref="CloneForDetail"/> and used for filtering tax percentages per detail.
+        /// </summary>
+        public int? YearRangeRVIdForDetail { get; set; }
 
         /// <summary>
         /// The highest SequenceNo among all floor details of the property.
@@ -90,8 +105,21 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// </summary>
         internal PropertyCalculationParameters CloneForDetail(
             PropertyDetailsEntity detail,
-            TypeOfUseEntity detailTypeOfUse)
+            TypeOfUseEntity detailTypeOfUse,
+            List<AssessmentYearRangeEntity> yearRanges)
         {
+            int? assessmentYearValue = null;
+            int? yearRangeRVIdForDetail = null;
+
+            if (!string.IsNullOrWhiteSpace(detail.AssessmentYear) &&
+                int.TryParse(detail.AssessmentYear, out int parsedAssessmentYear))
+            {
+                assessmentYearValue = parsedAssessmentYear;
+                var matchingYearRange = yearRanges.FirstOrDefault(
+                    y => y.FromYear <= parsedAssessmentYear && y.ToYear >= parsedAssessmentYear);
+                yearRangeRVIdForDetail = matchingYearRange?.Id;
+            }
+
             return new PropertyCalculationParameters
             {
                 // Global — unchanged across all detail iterations
@@ -104,7 +132,9 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
 
                 // Per-detail — overridden for this clone
                 Detail = detail,
-                DetailTypeOfUse = detailTypeOfUse
+                DetailTypeOfUse = detailTypeOfUse,
+                AssessmentYearValue = assessmentYearValue,
+                YearRangeRVIdForDetail = yearRangeRVIdForDetail
             };
         }
     }
