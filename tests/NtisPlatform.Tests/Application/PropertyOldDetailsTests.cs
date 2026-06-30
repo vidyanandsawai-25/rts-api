@@ -4785,5 +4785,56 @@ public class PropertyOldDetailsTests
     }
 
     #endregion
+
+    public class PropertyOldDetailsServiceTests
+    {
+        [Fact]
+        public async Task GetTabHeaderInfoAsync_CallsRepository()
+        {
+            var mockRepo = new Mock<IPropertyOldDetailsRepository>();
+            var mockMasterRepo = new Mock<IMasterRepository>();
+            var mockUnitOfWork = new Mock<IUnitOfWork>();
+            var mockInvariantPolicy = new Mock<IPropertyMutationInvariantPolicy>();
+
+            var expectedDto = new PropertyTabHeaderInfoDto
+            {
+                PropertyId = 549357,
+                StatusName = "UNASSESSED",
+                OldWardNo = "W79",
+                Description = "Residential Property",
+                Type = "RES",
+                Category = "Category A",
+                UPICId = "MM0100850000UPIC",
+                OwnerName = "John Doe",
+                Address = "123 Main St",
+                TypeOfUse = "Residential"
+            };
+
+            mockRepo
+                .Setup(r => r.GetTabHeaderInfoAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expectedDto);
+
+            var service = new PropertyOldDetailsService(
+                mockRepo.Object,
+                mockMasterRepo.Object,
+                mockUnitOfWork.Object,
+                mockInvariantPolicy.Object);
+
+            var result = await service.GetTabHeaderInfoAsync(549357);
+
+            Assert.NotNull(result);
+            Assert.Equal(549357, result.PropertyId);
+            Assert.Equal("UNASSESSED", result.StatusName);
+            Assert.Equal("W79", result.OldWardNo);
+            Assert.Equal("Residential Property", result.Description);
+            Assert.Equal("RES", result.Type);
+            Assert.Equal("Category A", result.Category);
+            Assert.Equal("MM0100850000UPIC", result.UPICId);
+            Assert.Equal("John Doe", result.OwnerName);
+            Assert.Equal("123 Main St", result.Address);
+            Assert.Equal("Residential", result.TypeOfUse);
+            mockRepo.Verify(r => r.GetTabHeaderInfoAsync(549357, It.IsAny<CancellationToken>()), Times.Once);
+        }
+    }
 }
 

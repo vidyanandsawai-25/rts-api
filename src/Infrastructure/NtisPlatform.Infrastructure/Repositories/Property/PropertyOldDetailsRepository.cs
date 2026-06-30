@@ -139,6 +139,61 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
         };
     }
 
+    public async Task<PropertyTabHeaderInfoDto?> GetTabHeaderInfoAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var result = await (from p in _context.PropertyMast.AsNoTracking()
+                            where p.Id == propertyId && p.IsActive && !p.MarkedForDeletion
+
+                            join pas in _context.PropertyAssessmentStatuses.AsNoTracking() on p.PropertyAssessmentStatusId equals pas.Id into pasJoin
+                            from pas in pasJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into pmoJoin
+                            from pmo in pmoJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
+
+                            join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
+                            from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                            join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into typeJoin
+                            from pt in typeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                            select new PropertyTabHeaderInfoDto
+                            {
+                                PropertyId = p.Id,
+                                StatusName = pas != null ? pas.StatusName : null,
+                                OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                                OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                                OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null,
+                                Description = pt != null ? pt.PropertyDescription : null,
+                                Type = p.Type ?? (pt != null ? pt.Type : null),
+                                Category = pc != null ? pc.PropertyCategoryName : null,
+                                UPICId = p.UPICId,
+                                OwnerName = p.OwnerName ?? p.OwnerNameEnglish,
+                                Address = p.Address ?? p.AddressEnglish
+                            })
+                           .FirstOrDefaultAsync(cancellationToken);
+
+        if (result != null)
+        {
+            var firstDetail = await _context.PropertyDetails
+                .AsNoTracking()
+                .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                .OrderBy(x => x.Id)
+                .Select(x => x.TypeOfUseId)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (firstDetail > 0)
+            {
+                result.TypeOfUse = await _context.TypeOfUse
+                    .AsNoTracking()
+                    .Where(x => x.Id == firstDetail && x.IsActive)
+                    .Select(x => x.Description)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
+        }
+
+        return result;
+    }
+
     public async Task AddPropertyMastOldAsync(PropertyMastOldEntity entity, CancellationToken cancellationToken = default)
     {
         await _context.PropertyMastOld.AddAsync(entity, cancellationToken);

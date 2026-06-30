@@ -38,6 +38,9 @@ public partial class PropertyOldDetailsService : IPropertyOldDetailsService
     public Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
         => _repository.GetOldDetailsAsync(propertyId, cancellationToken);
 
+    public Task<PropertyTabHeaderInfoDto?> GetTabHeaderInfoAsync(int propertyId, CancellationToken cancellationToken = default)
+        => _repository.GetTabHeaderInfoAsync(propertyId, cancellationToken);
+
     public async Task<PropertyOldDetailsDto?> UpdateOldDetailsAsync(int propertyId, UpdatePropertyOldDetailsDto dto, CancellationToken cancellationToken = default)
     {
         // Normalize default/placeholder values (0 or int.MaxValue) to null for optional master IDs

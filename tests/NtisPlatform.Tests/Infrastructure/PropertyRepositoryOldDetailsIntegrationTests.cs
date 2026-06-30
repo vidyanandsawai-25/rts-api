@@ -311,6 +311,208 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
     #endregion
 
+    #region GetTabHeaderInfoAsync Tests
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_PropertyNotFound_ReturnsNull()
+    {
+        // Arrange
+        int nonExistentPropertyId = 99999;
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(nonExistentPropertyId, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_WithFullData_ReturnsCompleteDto()
+    {
+        // Arrange
+        var status = new PropertyAssessmentStatusEntity
+        {
+            Id = 2,
+            StatusName = "UNASSESSED",
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyAssessmentStatuses.Add(status);
+
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 50,
+            OldWardNo = "MM-17",
+            OldPropertyNo = "500722",
+            OldPartitionNo = "1",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMastOld.Add(propertyMastOld);
+
+        var category = new PropertyCategoryEntity
+        {
+            Id = 10,
+            PropertyCategoryName = "Category A",
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyCategoryMaster.Add(category);
+
+        var propertyType = new PropertyTypeMasterEntity
+        {
+            Id = 20,
+            PropertyDescription = "Residential Property",
+            Type = "RES",
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyTypeMasters.Add(propertyType);
+
+        var typeOfUse = new TypeOfUseEntity
+        {
+            Id = 5,
+            Description = "Residential",
+            TypeOfUseGroupId = 1,
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.TypeOfUse.Add(typeOfUse);
+
+        var propertyDetails = new PropertyDetailsEntity
+        {
+            Id = 1,
+            PropertyId = 10,
+            FloorId = 1,
+            TypeOfUseId = 5,
+            ConstructionTypeId = 1,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyDetails.Add(propertyDetails);
+
+        var property = new PropertyEntity
+        {
+            Id = 10,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "100",
+            PropertyAssessmentStatusId = 2,
+            PropertyMastOldId = 50,
+            CategoryId = 10,
+            PropertyTypeId = 20,
+            UPICId = "MM0100850000UPIC",
+            OwnerName = "John Doe",
+            Address = "123 Main St",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(10, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(10, result.PropertyId);
+        Assert.Equal("UNASSESSED", result.StatusName);
+        Assert.Equal("MM-17", result.OldWardNo);
+        Assert.Equal("500722", result.OldPropertyNo);
+        Assert.Equal("1", result.OldPartitionNo);
+        Assert.Equal("Residential Property", result.Description);
+        Assert.Equal("RES", result.Type);
+        Assert.Equal("Category A", result.Category);
+        Assert.Equal("MM0100850000UPIC", result.UPICId);
+        Assert.Equal("John Doe", result.OwnerName);
+        Assert.Equal("123 Main St", result.Address);
+        Assert.Equal("Residential", result.TypeOfUse);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_WithNoAssociatedStatusAndOldMast_ReturnsEmptyDtoExceptPropertyId()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 11,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "101",
+            PropertyAssessmentStatusId = null,
+            PropertyMastOldId = null,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(11, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(11, result.PropertyId);
+        Assert.Null(result.StatusName);
+        Assert.Null(result.OldWardNo);
+        Assert.Null(result.OldPropertyNo);
+        Assert.Null(result.OldPartitionNo);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_PropertyInactive_ReturnsNull()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 12,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "102",
+            IsActive = false,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(12, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_PropertyMarkedForDeletion_ReturnsNull()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 13,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "103",
+            IsActive = true,
+            MarkedForDeletion = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(13, CancellationToken.None);
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
     #region UpdateOldDetailsAsync Tests
 
     [Fact]

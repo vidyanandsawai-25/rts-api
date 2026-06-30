@@ -37,6 +37,11 @@ public interface IPropertyOldDetailsService
     Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Retrieves the tab header info (StatusName and Old Property details) for a given property.
+    /// </summary>
+    Task<PropertyTabHeaderInfoDto?> GetTabHeaderInfoAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// <b>Command</b> — Upserts the legacy property record (PropertyMastOld + first
     /// PropertyDetailsOld row). Returns the refreshed projection, or <see langword="null"/>
     /// when the property is not found.
