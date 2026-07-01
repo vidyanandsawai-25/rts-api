@@ -214,4 +214,55 @@ public class WaterConnectionSizeServiceTests
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Theory]
+    [InlineData("inch", new[] { 1 })]
+    [InlineData("0.5", new[] { 1 })]
+    [InlineData("0.5 inch", new[] { 1 })]
+    [InlineData("0.5inch", new[] { 1 })]
+    [InlineData("1.0", new[] { 2 })]
+    [InlineData("cm", new[] { 2 })]
+    [InlineData("1.0 cm", new[] { 2 })]
+    [InlineData("1.0cm", new[] { 2 })]
+    [InlineData("12", new[] { 3 })]
+    public async Task GetAllAsync_SearchTermMatchesVariousFormats_ReturnsExpectedIds(string searchTerm, int[] expectedIds)
+    {
+        // Arrange
+        var entities = new List<WaterConnectionSizeEntity>
+        {
+            new() { Id = 1, ConnectionSize = 0.5m, ConnectionSizeUnit = "inch", IsActive = true },
+            new() { Id = 2, ConnectionSize = 1.0m, ConnectionSizeUnit = "cm", IsActive = true },
+            new() { Id = 3, ConnectionSize = 12.0m, ConnectionSizeUnit = "mm", IsActive = true }
+        };
+
+        var mockQueryable = entities.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        _mockMapper.Setup(m => m.Map<List<WaterConnectionSizeDto>>(It.IsAny<List<WaterConnectionSizeEntity>>()))
+            .Returns((List<WaterConnectionSizeEntity> src) => src.Select(x => new WaterConnectionSizeDto
+            {
+                Id = x.Id,
+                ConnectionSize = x.ConnectionSize,
+                ConnectionSizeUnit = x.ConnectionSizeUnit,
+                IsActive = x.IsActive
+            }).ToList());
+
+        var queryParams = new WaterConnectionSizeQueryParameters
+        {
+            SearchTerm = searchTerm,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(expectedIds.Length, result.Items.Count());
+        foreach (var expectedId in expectedIds)
+        {
+            Assert.Contains(result.Items, item => item.Id == expectedId);
+        }
+    }
 }

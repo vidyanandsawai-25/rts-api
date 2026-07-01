@@ -38,6 +38,14 @@ public class WaterConnectionSizeQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     public bool? IsActive { get; set; }
+
+    [Filterable]
+    [Searchable]
+    [Sortable]
+    public string? ConnectionSizeUnit { get; set; }
+
+    public string? ConnectionSize { get; set; }
+    public string? DisplayLabel { get; set; }
 }
 
 public class WaterConnectionStatusQueryParameters : BaseQueryParameters
@@ -66,6 +74,14 @@ public class WaterRateMasterQueryParameters : BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     public bool? IsActive { get; set; }
+
+    [Filterable]
+    public decimal? YearlyRate { get; set; }
+
+    public string? ConnectionTypeName { get; set; }
+    public string? ConnectionSizeUnit { get; set; }
+    public string? ConnectionSize { get; set; }
+    public string? YearCode { get; set; }
 }
 
 public class WaterConnectionDetailsQueryParameters : BaseQueryParameters

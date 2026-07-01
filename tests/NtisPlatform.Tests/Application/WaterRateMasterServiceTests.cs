@@ -238,4 +238,90 @@ public class WaterRateMasterServiceTests
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Theory]
+    [InlineData("inch", new[] { 1 })]
+    [InlineData("0.5", new[] { 1 })]
+    [InlineData("0.5 inch", new[] { 1 })]
+    [InlineData("0.5inch", new[] { 1 })]
+    [InlineData("1.0", new[] { 2 })]
+    [InlineData("cm", new[] { 2 })]
+    [InlineData("1.0 cm", new[] { 2 })]
+    [InlineData("1.0cm", new[] { 2 })]
+    [InlineData("1200", new[] { 1 })]
+    [InlineData("1500", new[] { 2 })]
+    [InlineData("domestic", new[] { 1, 2 })]
+    [InlineData("2026", new[] { 1, 2 })]
+    public async Task GetAllAsync_SearchTermMatchesVariousFilters_ReturnsExpectedIds(string searchTerm, int[] expectedIds)
+    {
+        // Arrange
+        var connectionType = new WaterConnectionTypeEntity { Id = 1, ConnectionTypeName = "Domestic" };
+        var financeYear = new YearMasterEntity { Id = 1, YearCode = "2026-27" };
+
+        var size1 = new WaterConnectionSizeEntity { Id = 1, ConnectionSize = 0.5m, ConnectionSizeUnit = "inch" };
+        var size2 = new WaterConnectionSizeEntity { Id = 2, ConnectionSize = 1.0m, ConnectionSizeUnit = "cm" };
+
+        var entities = new List<WaterRateMasterEntity>
+        {
+            new()
+            {
+                Id = 1,
+                WaterConnectionTypeId = 1,
+                WaterConnectionType = connectionType,
+                WaterConnectionSizeId = 1,
+                WaterConnectionSize = size1,
+                FinanceYearId = 1,
+                FinanceYear = financeYear,
+                YearlyRate = 1200m,
+                IsActive = true
+            },
+            new()
+            {
+                Id = 2,
+                WaterConnectionTypeId = 1,
+                WaterConnectionType = connectionType,
+                WaterConnectionSizeId = 2,
+                WaterConnectionSize = size2,
+                FinanceYearId = 1,
+                FinanceYear = financeYear,
+                YearlyRate = 1500m,
+                IsActive = true
+            }
+        };
+
+        var mockQueryable = entities.BuildMock();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        _mockMapper.Setup(m => m.Map<List<WaterRateMasterDto>>(It.IsAny<List<WaterRateMasterEntity>>()))
+            .Returns((List<WaterRateMasterEntity> src) => src.Select(x => new WaterRateMasterDto
+            {
+                Id = x.Id,
+                WaterConnectionTypeId = x.WaterConnectionTypeId,
+                ConnectionTypeName = x.WaterConnectionType.ConnectionTypeName,
+                WaterConnectionSizeId = x.WaterConnectionSizeId,
+                ConnectionSizeDisplay = x.WaterConnectionSize.ConnectionSize + " " + x.WaterConnectionSize.ConnectionSizeUnit,
+                FinanceYearId = x.FinanceYearId,
+                YearCode = x.FinanceYear.YearCode,
+                YearlyRate = x.YearlyRate,
+                IsActive = x.IsActive
+            }).ToList());
+
+        var queryParams = new WaterRateMasterQueryParameters
+        {
+            SearchTerm = searchTerm,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _service.GetAllAsync(queryParams, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(expectedIds.Length, result.Items.Count());
+        foreach (var expectedId in expectedIds)
+        {
+            Assert.Contains(result.Items, item => item.Id == expectedId);
+        }
+    }
 }
