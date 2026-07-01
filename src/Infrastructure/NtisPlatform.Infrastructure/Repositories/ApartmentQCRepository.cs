@@ -580,10 +580,27 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         joined = sortBy switch
         {
-            "wardid"      => isDescending ? joined.OrderByDescending(x => x.WardId)     : joined.OrderBy(x => x.WardId),
-            "propertyno"  => isDescending ? joined.OrderByDescending(x => x.PropertyNo) : joined.OrderBy(x => x.PropertyNo),
-            "partitionno" => joined.OrderByNatural(x => x.PartitionNo,  isDescending),
+            "id" => isDescending ? joined.OrderByDescending(x => x.Id) : joined.OrderBy(x => x.Id),
+            "taxzoneid" => isDescending ? joined.OrderByDescending(x => x.TaxZoneId) : joined.OrderBy(x => x.TaxZoneId),
+            "wardid" => isDescending ? joined.OrderByDescending(x => x.WardId) : joined.OrderBy(x => x.WardId),
+            "propertyno" => joined.OrderByNatural(x => x.PropertyNo, isDescending),
+            "partitionno" => joined.OrderByNatural(x => x.PartitionNo, isDescending),
+            "mobileno" => joined.OrderByNatural(x => x.MobileNo, isDescending),
+            "emailid" => joined.OrderByNatural(x => x.EmailId, isDescending),
             "flatorshopno" => joined.OrderByNatural(x => x.FlatOrShopNo, isDescending),
+            "flatorshopname" => joined.OrderByNatural(x => x.FlatOrShopName, isDescending),
+            "flatorshopnoenglish" => joined.OrderByNatural(x => x.FlatOrShopNoEnglish, isDescending),
+            "flatorshopnameenglish" => joined.OrderByNatural(x => x.FlatOrShopNameEnglish, isDescending),
+            "ownername" => joined.OrderByNatural(x => x.OwnerName, isDescending),
+            "ownernameenglish" => joined.OrderByNatural(x => x.OwnerNameEnglish, isDescending),
+            "occupiername" => joined.OrderByNatural(x => x.OccupierName, isDescending),
+            "occupiernameenglish" => joined.OrderByNatural(x => x.OccupierNameEnglish, isDescending),
+            "parttype" => joined.OrderByNatural(x => x.PartType, isDescending),
+            "propertytype" => joined.OrderByNatural(x => Convert.ToString(x.PropertyType), isDescending),
+            "propertytypename" => joined.OrderByNatural(x => x.PropertyTypeName, isDescending),
+            "bhk" => joined.OrderByNatural(x => x.BHK, isDescending),
+            "wing" => joined.OrderByNatural(x => x.Wing, isDescending),
+            "apartmenttype" => joined.OrderByNatural(x => x.ApartmentType, isDescending),
             _ => joined.OrderBy(x => x.Id)
         };
 

@@ -17,19 +17,24 @@ public static class AlphanumericSortExtensions
         Expression<Func<T, string?>> keySelector,
         bool descending = false)
     {
-        var (alphaPrefix, numSuffixLen, param) = BuildParts(keySelector);
+        var (alphaPrefix, numSuffixLen, isNull, param) = BuildParts(keySelector);
 
         var alphaPrefixLambda  = Expression.Lambda<Func<T, string>>(alphaPrefix,  param);
         var numSuffixLenLambda = Expression.Lambda<Func<T, int>>(numSuffixLen, param);
+        var isNullLambda       = Expression.Lambda<Func<T, bool>>(isNull, param);
 
+        // Always order nulls last (false < true), independent of the sort direction,
+        // so a blank column value never floats to the top on ascending sorts.
         if (descending)
             return source
-                .OrderByDescending(alphaPrefixLambda)
+                .OrderBy(isNullLambda)
+                .ThenByDescending(alphaPrefixLambda)
                 .ThenByDescending(numSuffixLenLambda)
                 .ThenByDescending(keySelector!);
 
         return source
-            .OrderBy(alphaPrefixLambda)
+            .OrderBy(isNullLambda)
+            .ThenBy(alphaPrefixLambda)
             .ThenBy(numSuffixLenLambda)
             .ThenBy(keySelector!);
     }
@@ -39,18 +44,22 @@ public static class AlphanumericSortExtensions
         Expression<Func<T, string?>> keySelector,
         bool descending = false)
     {
-        var (alphaPrefix, numSuffixLen, param) = BuildParts(keySelector);
+        var (alphaPrefix, numSuffixLen, isNull, param) = BuildParts(keySelector);
 
         var alphaPrefixLambda  = Expression.Lambda<Func<T, string>>(alphaPrefix,  param);
         var numSuffixLenLambda = Expression.Lambda<Func<T, int>>(numSuffixLen, param);
+        var isNullLambda       = Expression.Lambda<Func<T, bool>>(isNull, param);
 
+        // Always order nulls last (false < true), independent of the sort direction.
         if (descending)
             return source
+                .ThenBy(isNullLambda)
                 .ThenByDescending(alphaPrefixLambda)
                 .ThenByDescending(numSuffixLenLambda)
                 .ThenByDescending(keySelector!);
 
         return source
+            .ThenBy(isNullLambda)
             .ThenBy(alphaPrefixLambda)
             .ThenBy(numSuffixLenLambda)
             .ThenBy(keySelector!);
@@ -58,7 +67,7 @@ public static class AlphanumericSortExtensions
 
     // Appending '0' before PATINDEX ensures a digit is always found, preventing a zero
     // return that would produce a negative substring length for all-alpha values.
-    private static (Expression alphaPrefix, Expression numSuffixLen, ParameterExpression param)
+    private static (Expression alphaPrefix, Expression numSuffixLen, Expression isNull, ParameterExpression param)
         BuildParts<T>(Expression<Func<T, string?>> keySelector)
     {
         var param  = keySelector.Parameters[0];
@@ -91,6 +100,6 @@ public static class AlphanumericSortExtensions
                 Expression.Subtract(Expression.Property(col, "Length"), patIndex),
                 Expression.Constant(1)));
 
-        return (alphaPrefix, numSuffixLen, param);
+        return (alphaPrefix, numSuffixLen, isNull, param);
     }
 }
