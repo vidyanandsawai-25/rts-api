@@ -6,6 +6,7 @@ public class InventoryItemNameDto : BaseDtos
     public int InventoryItemCategoryId { get; set; }
     public string SubTypeCode { get; set; } = string.Empty;
     public string SubTypeName { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }
 public class CreateInventoryItemNameDto : CreateBaseDtos
@@ -22,6 +23,8 @@ public class CreateInventoryItemNameDto : CreateBaseDtos
     [Required(ErrorMessage = "InventoryItemName_SubTypeName_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeName_MaxLen_50")]
     public string SubTypeName { get; set; } = string.Empty;
+    [StringLength(500, ErrorMessage = "InventoryItemName_Description_MaxLen_500")]
+    public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }
 
@@ -38,5 +41,7 @@ public class UpdateInventoryItemNameDto : UpdateBaseDtos
     [Required(ErrorMessage = "InventoryItemName_SubTypeName_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeName_MaxLen_50")]
     public string SubTypeName { get; set; } = string.Empty;
+    [StringLength(500, ErrorMessage = "InventoryItemName_Description_MaxLen_500")]
+    public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }

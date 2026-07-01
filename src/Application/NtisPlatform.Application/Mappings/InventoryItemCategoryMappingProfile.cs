@@ -5,7 +5,8 @@ using NtisPlatform.Core.Entities.Master;
 namespace NtisPlatform.Application.Mappings;
 public class InventoryItemCategoryMappingProfile : Profile
 {
-    public InventoryItemCategoryMappingProfile() {
+    public InventoryItemCategoryMappingProfile()
+    {
         CreateMap<InventoryItemCategoryEntity, InventoryItemCategoryDto>();
 
         CreateMap<CreateInventoryItemCategoryDto, InventoryItemCategoryEntity>()

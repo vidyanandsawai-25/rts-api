@@ -5,6 +5,7 @@ public class InventoryItemModelDto : BaseDtos
 {
     public int InventoryItemNameId { get; set; }
     public string ModelName { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }
 public class CreateInventoryItemModelDto : CreateBaseDtos
@@ -19,6 +20,9 @@ public class CreateInventoryItemModelDto : CreateBaseDtos
 
     [Required(ErrorMessage = "InventoryItemModel_DisplayOrder_Required")]
     public int? DisplayOrder { get; set; }
+    [StringLength(500, ErrorMessage = "InventoryItemModel_Description_MaxLen_500")]
+    public string? Description { get; set; }
+
 }
 public class UpdateInventoryItemModelDto : UpdateBaseDtos
 {
@@ -32,4 +36,7 @@ public class UpdateInventoryItemModelDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "InventoryItemModel_DisplayOrder_Required")]
     public int? DisplayOrder { get; set; }
+    [StringLength(500, ErrorMessage = "InventoryItemModel_Description_MaxLen_500")]
+    public string? Description { get; set; }
+
 }

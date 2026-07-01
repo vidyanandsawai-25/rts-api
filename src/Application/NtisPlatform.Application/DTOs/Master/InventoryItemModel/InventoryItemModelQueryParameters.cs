@@ -3,12 +3,13 @@ using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
 namespace NtisPlatform.Application.DTOs.Master;
+
 public class InventoryItemModelQueryParameters : BaseQueryParameters
 {
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     public int? InventoryItemNameId { get; set; }
-    
+
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]

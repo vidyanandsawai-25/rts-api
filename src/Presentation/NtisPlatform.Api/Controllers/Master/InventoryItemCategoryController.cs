@@ -19,7 +19,7 @@ public class InventoryItemCategoryController : ControllerBase
         _logger = logger;
         _service = service;
     }
-  
+
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] InventoryItemCategoryQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);

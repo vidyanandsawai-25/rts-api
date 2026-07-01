@@ -142,15 +142,15 @@ public class InventoryItemCategoryServiceTests
     [Fact]
     public void CreateDto_TypeNameTooLong_FailsValidation()
     {
-    var dto = new CreateInventoryItemCategoryDto
-      {
+        var dto = new CreateInventoryItemCategoryDto
+        {
             TypeCode = "CAT001",
-  TypeName = new string('A', 101),
-          DisplayOrder = 1
+            TypeName = new string('A', 101),
+            DisplayOrder = 1
         };
         var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         var isValid = Validator.TryValidateObject(dto, new ValidationContext(dto), results, true);
-    Assert.False(isValid);
+        Assert.False(isValid);
         Assert.Contains(results, v => v.ErrorMessage == "InventoryItemCategory_TypeName_MaxLen_100");
     }
 
@@ -161,7 +161,7 @@ public class InventoryItemCategoryServiceTests
         var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         var isValid = Validator.TryValidateObject(dto, new ValidationContext(dto), results, true);
         Assert.False(isValid);
-     Assert.Contains(results, v => v.ErrorMessage == "InventoryItemCategory_DisplayOrder_Required");
+        Assert.Contains(results, v => v.ErrorMessage == "InventoryItemCategory_DisplayOrder_Required");
     }
 
     [Fact]

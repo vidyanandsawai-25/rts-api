@@ -220,13 +220,13 @@ public class InventoryItemNameServiceTests
     public void CreateDto_NegativeInventoryItemCategoryId_FailsValidation()
     {
         var dto = new CreateInventoryItemNameDto
-      {
-      InventoryItemCategoryId = -1,
+        {
+            InventoryItemCategoryId = -1,
             SubTypeName = "Name"
         };
- var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         var isValid = Validator.TryValidateObject(dto, new ValidationContext(dto), results, true);
-    Assert.False(isValid);
+        Assert.False(isValid);
         Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_InventoryItemCategoryId_Required");
     }
 
@@ -234,29 +234,29 @@ public class InventoryItemNameServiceTests
     public void CreateDto_MissingSubTypeName_FailsValidation()
     {
         var dto = new CreateInventoryItemNameDto
-  {
-      SubTypeCode = "CODE",
-   SubTypeName = null!,
-        DisplayOrder = 2
+        {
+            SubTypeCode = "CODE",
+            SubTypeName = null!,
+            DisplayOrder = 2
         };
-   var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         var isValid = Validator.TryValidateObject(dto, new ValidationContext(dto), results, true);
         Assert.False(isValid);
-      Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_SubTypeName_Required");
+        Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_SubTypeName_Required");
     }
 
     [Fact]
     public void CreateDto_SubTypeNameTooLong_FailsValidation()
     {
-    var dto = new CreateInventoryItemNameDto
-  {
-    InventoryItemCategoryId = 1,
-   SubTypeName = new string('A', 51)
+        var dto = new CreateInventoryItemNameDto
+        {
+            InventoryItemCategoryId = 1,
+            SubTypeName = new string('A', 51)
         };
         var results = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         var isValid = Validator.TryValidateObject(dto, new ValidationContext(dto), results, true);
         Assert.False(isValid);
-Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_SubTypeName_MaxLen_50");
+        Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_SubTypeName_MaxLen_50");
     }
 
     #endregion
@@ -373,7 +373,7 @@ Assert.Contains(results, v => v.ErrorMessage == "InventoryItemName_SubTypeName_M
     [Fact]
     public async Task Service_DeleteAsync_ExistingEntity_DeletesSuccessfully()
     {
-        var entity = new InventoryItemNameEntity { Id =1 };
+        var entity = new InventoryItemNameEntity { Id = 1 };
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
         _mockRepository.Setup(r => r.DeleteAsync(entity, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         var result = await _service.DeleteAsync(1, CancellationToken.None);
