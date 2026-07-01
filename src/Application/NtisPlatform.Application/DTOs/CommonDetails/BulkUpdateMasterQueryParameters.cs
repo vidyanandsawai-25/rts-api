@@ -23,9 +23,4 @@ public class BulkUpdateMasterQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     public int? DisplaySequence { get; set; }
-
-    [Filterable]
-    [Sortable]
-    [Searchable]
-    public string? ApiRoute { get; set; }
 }

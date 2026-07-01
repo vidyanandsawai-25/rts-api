@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.CommonDetails;
+using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using System.Security.Claims;
@@ -14,7 +16,8 @@ public class CommonDetailsControllerTests
     private static CommonDetailsController Create(out Mock<ICommonDetailsService> service)
     {
         service = new Mock<ICommonDetailsService>();
-        return new CommonDetailsController(service.Object);
+        var fileValidationHelper = new FileValidationHelper(new ConfigurationBuilder().Build());
+        return new CommonDetailsController(service.Object, fileValidationHelper);
     }
 
     // ============== GetMaster Tests ==============

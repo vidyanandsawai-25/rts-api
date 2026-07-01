@@ -37,10 +37,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
-            IconName = "property_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             Description = "Bulk update for property types",
             IsActive = true,
             CreatedDate = DateTime.Now
@@ -51,10 +49,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
-            IconName = "property_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             Description = "Bulk update for property types",
             IsActive = true
         };
@@ -102,10 +98,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             CreatedBy = 1
         };
@@ -115,10 +109,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             CreatedBy = 1
         };
@@ -128,10 +120,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -143,10 +133,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             IsActive = true
         };
@@ -183,7 +171,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "PROP_TYPE" };
@@ -207,10 +194,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
             UpdateNameMarathi = string.Empty,
-            IconName = string.Empty,
             ReferenceTableName = "ZoneMaster",
             DisplaySequence = 3,
-            ApiRoute = "/api/Zone/BulkUpdate",
             Description = null,
             CreatedBy = 1
         };
@@ -220,7 +205,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
             DisplaySequence = 3,
-            ApiRoute = "/api/Zone/BulkUpdate",
             CreatedBy = 1
         };
         var savedEntity = new BulkUpdateMasterEntity
@@ -230,7 +214,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
             DisplaySequence = 3,
-            ApiRoute = "/api/Zone/BulkUpdate",
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -242,7 +225,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
             DisplaySequence = 3,
-            ApiRoute = "/api/Zone/BulkUpdate",
             IsActive = true
         };
 
@@ -278,10 +260,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
-            IconName = "updated_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate/v2",
             Description = "Updated bulk update for property types",
             UpdatedBy = 1
         };
@@ -292,7 +272,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             IsActive = true
         };
         var updatedEntity = new BulkUpdateMasterEntity
@@ -301,10 +280,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
-            IconName = "updated_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate/v2",
             Description = "Updated bulk update for property types",
             IsActive = true,
             UpdatedBy = 1,
@@ -316,10 +293,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
-            IconName = "updated_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate/v2",
             Description = "Updated bulk update for property types",
             IsActive = true
         };
@@ -341,7 +316,6 @@ public class BulkUpdateMasterServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.UpdateName.Should().Be("Property Type Update (Modified)");
-        result.ApiRoute.Should().Be("/api/PropertyType/BulkUpdate/v2");
         result.Description.Should().Be("Updated bulk update for property types");
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<BulkUpdateMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -358,7 +332,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Non Existent",
             ReferenceTableName = "NonExistentTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/NonExistent",
             UpdatedBy = 1
         };
 
@@ -383,10 +356,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
-            IconName = "property_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 10, // Changed from 1 to 10
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             Description = "Bulk update for property types",
             UpdatedBy = 1
         };
@@ -448,7 +419,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             IsActive = true
         };
 
@@ -498,10 +468,8 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "COMPLEX_UPDATE",
             UpdateName = "Complex Bulk Update",
             UpdateNameMarathi = "जटिल थोक अद्यतन",
-            IconName = "complex_icon",
             ReferenceTableName = "ComplexTable",
             DisplaySequence = 4,
-            ApiRoute = "/api/Complex/BulkUpdate",
             Description = new string('A', 500), // Long description
             CreatedBy = 1
         };
@@ -511,7 +479,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Complex Bulk Update",
             ReferenceTableName = "ComplexTable",
             DisplaySequence = 4,
-            ApiRoute = "/api/Complex/BulkUpdate",
             Description = new string('A', 500),
             CreatedBy = 1
         };
@@ -522,7 +489,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Complex Bulk Update",
             ReferenceTableName = "ComplexTable",
             DisplaySequence = 4,
-            ApiRoute = "/api/Complex/BulkUpdate",
             Description = new string('A', 500),
             IsActive = true,
             CreatedDate = DateTime.Now,
@@ -535,7 +501,6 @@ public class BulkUpdateMasterServiceTests
             UpdateName = "Complex Bulk Update",
             ReferenceTableName = "ComplexTable",
             DisplaySequence = 4,
-            ApiRoute = "/api/Complex/BulkUpdate",
             Description = new string('A', 500),
             IsActive = true
         };
@@ -555,65 +520,6 @@ public class BulkUpdateMasterServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Description.Should().HaveLength(500);
-    }
-
-    [Fact]
-    public async Task UpdateAsync_ChangeApiRoute_UpdatesSuccessfully()
-    {
-        // Arrange
-        var id = 1;
-        var updateDto = new UpdateBulkUpdateMasterDto
-        {
-            UpdateCode = "PROP_TYPE",
-            UpdateName = "Property Type Update",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
-            IconName = "property_icon",
-            ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            ApiRoute = "/api/v2/PropertyType/BulkUpdate", // Changed API route
-            Description = "Bulk update for property types",
-            UpdatedBy = 1
-        };
-        var existingEntity = new BulkUpdateMasterEntity
-        {
-            Id = id,
-            UpdateCode = "PROP_TYPE",
-            ApiRoute = "/api/PropertyType/BulkUpdate",
-            IsActive = true
-        };
-        var updatedEntity = new BulkUpdateMasterEntity
-        {
-            Id = id,
-            UpdateCode = "PROP_TYPE",
-            ApiRoute = "/api/v2/PropertyType/BulkUpdate",
-            IsActive = true,
-            UpdatedBy = 1
-        };
-        var expectedDto = new BulkUpdateMasterDto
-        {
-            Id = id,
-            UpdateCode = "PROP_TYPE",
-            ApiRoute = "/api/v2/PropertyType/BulkUpdate",
-            IsActive = true
-        };
-
-        _repositoryMock.Setup(r => r.GetByIdAsync(id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(existingEntity);
-        _mapperMock.Setup(m => m.Map(updateDto, existingEntity))
-            .Returns(updatedEntity);
-        _repositoryMock.Setup(r => r.UpdateAsync(It.IsAny<BulkUpdateMasterEntity>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterDto>(It.IsAny<BulkUpdateMasterEntity>()))
-            .Returns(expectedDto);
-
-        // Act
-        var result = await _service.UpdateAsync(id, updateDto, CancellationToken.None);
-
-        // Assert
-        result.Should().NotBeNull();
-        result!.ApiRoute.Should().Be("/api/v2/PropertyType/BulkUpdate");
     }
 
     #endregion

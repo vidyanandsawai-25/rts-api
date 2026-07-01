@@ -41,7 +41,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateName = "Property Type Update (v2)",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             UpdatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
@@ -80,10 +79,8 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
             UpdateNameMarathi = "अद्यतनित नाव",
-            IconName = "new_icon",
             ReferenceTableName = "UpdatedTable",
             DisplaySequence = 99,
-            ApiRoute = "/api/Updated/Route",
             Description = "Updated description",
             UpdatedBy = 1
         };
@@ -100,10 +97,8 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
             UpdateNameMarathi = "अद्यतनित नाव",
-            IconName = "new_icon",
             ReferenceTableName = "UpdatedTable",
             DisplaySequence = 99,
-            ApiRoute = "/api/Updated/Route",
             Description = "Updated description",
             IsActive = true,
             UpdatedBy = 1,
@@ -115,10 +110,8 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
             UpdateNameMarathi = "अद्यतनित नाव",
-            IconName = "new_icon",
             ReferenceTableName = "UpdatedTable",
             DisplaySequence = 99,
-            ApiRoute = "/api/Updated/Route",
             Description = "Updated description",
             IsActive = true
         };
@@ -131,10 +124,8 @@ public class BulkUpdateMasterAdditionalTests
                 entity.UpdateCode = dto.UpdateCode;
                 entity.UpdateName = dto.UpdateName;
                 entity.UpdateNameMarathi = dto.UpdateNameMarathi;
-                entity.IconName = dto.IconName;
                 entity.ReferenceTableName = dto.ReferenceTableName;
                 entity.DisplaySequence = dto.DisplaySequence;
-                entity.ApiRoute = dto.ApiRoute;
                 entity.Description = dto.Description;
                 entity.UpdatedBy = dto.UpdatedBy;
                 entity.UpdatedDate = DateTime.Now;
@@ -155,10 +146,8 @@ public class BulkUpdateMasterAdditionalTests
         result!.UpdateCode.Should().Be("UPDATED_CODE");
         result.UpdateName.Should().Be("Updated Name");
         result.UpdateNameMarathi.Should().Be("अद्यतनित नाव");
-        result.IconName.Should().Be("new_icon");
         result.ReferenceTableName.Should().Be("UpdatedTable");
         result.DisplaySequence.Should().Be(99);
-        result.ApiRoute.Should().Be("/api/Updated/Route");
         result.Description.Should().Be("Updated description");
     }
 
@@ -176,7 +165,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateName = "Minimum Sequence",
             ReferenceTableName = "TestTable",
             DisplaySequence = 1, // Minimum valid value
-            ApiRoute = "/api/Test",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "MIN_SEQ", DisplaySequence = 1 };
@@ -207,7 +195,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateName = "Maximum Sequence",
             ReferenceTableName = "TestTable",
             DisplaySequence = 9999, // Maximum valid value
-            ApiRoute = "/api/Test",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "MAX_SEQ", DisplaySequence = 9999 };
@@ -243,7 +230,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateNameMarathi = "मराठी चाचणी मजकूर संपूर्ण",
             ReferenceTableName = "TestTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/Test",
             Description = "विवरण: मराठी भाषेत",
             CreatedBy = 1
         };
@@ -288,54 +274,6 @@ public class BulkUpdateMasterAdditionalTests
 
     #endregion
 
-    #region ApiRoute Validation Tests
-
-    [Fact]
-    public async Task CreateAsync_WithComplexApiRoute_CreatesSuccessfully()
-    {
-        // Arrange
-        var createDto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "COMPLEX_ROUTE",
-            UpdateName = "Complex API Route",
-            ReferenceTableName = "TestTable",
-            DisplaySequence = 1,
-            ApiRoute = "/api/v2/master/property-type/bulk-update?version=2.0",
-            CreatedBy = 1
-        };
-        var entity = new BulkUpdateMasterEntity { UpdateCode = "COMPLEX_ROUTE", ApiRoute = "/api/v2/master/property-type/bulk-update?version=2.0" };
-        var savedEntity = new BulkUpdateMasterEntity
-        {
-            Id = 1,
-            UpdateCode = "COMPLEX_ROUTE",
-            ApiRoute = "/api/v2/master/property-type/bulk-update?version=2.0",
-            IsActive = true
-        };
-        var expectedDto = new BulkUpdateMasterDto
-        {
-            Id = 1,
-            UpdateCode = "COMPLEX_ROUTE",
-            ApiRoute = "/api/v2/master/property-type/bulk-update?version=2.0",
-            IsActive = true
-        };
-
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterEntity>(createDto)).Returns(entity);
-        _repositoryMock.Setup(r => r.AddAsync(entity, It.IsAny<CancellationToken>()))
-            .Callback<BulkUpdateMasterEntity, CancellationToken>((e, ct) => e.Id = 1)
-            .ReturnsAsync(entity);
-        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterDto>(entity)).Returns(expectedDto);
-
-        // Act
-        var result = await _service.CreateAsync(createDto, CancellationToken.None);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.ApiRoute.Should().Be("/api/v2/master/property-type/bulk-update?version=2.0");
-    }
-
-    #endregion
-
     #region Null and Empty String Tests
 
     [Fact]
@@ -347,10 +285,8 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "NULL_FIELDS",
             UpdateName = "Null Fields Test",
             UpdateNameMarathi = string.Empty,
-            IconName = string.Empty,
             ReferenceTableName = "TestTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/Test",
             Description = null,
             CreatedBy = 1
         };
@@ -463,7 +399,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateName = "Test",
             ReferenceTableName = "TestTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/test",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "TEST" };

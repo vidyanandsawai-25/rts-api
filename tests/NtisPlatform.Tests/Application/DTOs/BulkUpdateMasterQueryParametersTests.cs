@@ -84,23 +84,6 @@ public class BulkUpdateMasterQueryParametersTests
     }
 
     [Fact]
-    public void BulkUpdateMasterQueryParameters_ApiRoute_HasFilterableSortableSearchableAttributes()
-    {
-        // Arrange
-        var property = typeof(BulkUpdateMasterQueryParameters).GetProperty(nameof(BulkUpdateMasterQueryParameters.ApiRoute));
-
-        // Act
-        var hasFilterable = property?.GetCustomAttributes(typeof(FilterableAttribute), false).Any();
-        var hasSortable = property?.GetCustomAttributes(typeof(SortableAttribute), false).Any();
-        var hasSearchable = property?.GetCustomAttributes(typeof(SearchableAttribute), false).Any();
-
-        // Assert
-        hasFilterable.Should().BeTrue();
-        hasSortable.Should().BeTrue();
-        hasSearchable.Should().BeTrue();
-    }
-
-    [Fact]
     public void BulkUpdateMasterQueryParameters_CanSetUpdateCode()
     {
         // Arrange
@@ -153,19 +136,6 @@ public class BulkUpdateMasterQueryParametersTests
     }
 
     [Fact]
-    public void BulkUpdateMasterQueryParameters_CanSetApiRoute()
-    {
-        // Arrange
-        var queryParameters = new BulkUpdateMasterQueryParameters();
-
-        // Act
-        queryParameters.ApiRoute = "/api/PropertyType/BulkUpdate";
-
-        // Assert
-        queryParameters.ApiRoute.Should().Be("/api/PropertyType/BulkUpdate");
-    }
-
-    [Fact]
     public void BulkUpdateMasterQueryParameters_AllPropertiesAreNullableOrOptional()
     {
         // Arrange & Act
@@ -176,7 +146,6 @@ public class BulkUpdateMasterQueryParametersTests
         queryParameters.UpdateName.Should().BeNull();
         queryParameters.ReferenceTableName.Should().BeNull();
         queryParameters.DisplaySequence.Should().BeNull();
-        queryParameters.ApiRoute.Should().BeNull();
     }
 
     [Fact]
@@ -190,13 +159,11 @@ public class BulkUpdateMasterQueryParametersTests
         queryParameters.UpdateName = "Property";
         queryParameters.ReferenceTableName = "PropertyTypeMaster";
         queryParameters.DisplaySequence = 1;
-        queryParameters.ApiRoute = "/api/PropertyType";
 
         // Assert
         queryParameters.UpdateCode.Should().Be("PROP");
         queryParameters.UpdateName.Should().Be("Property");
         queryParameters.ReferenceTableName.Should().Be("PropertyTypeMaster");
         queryParameters.DisplaySequence.Should().Be(1);
-        queryParameters.ApiRoute.Should().Be("/api/PropertyType");
     }
 }

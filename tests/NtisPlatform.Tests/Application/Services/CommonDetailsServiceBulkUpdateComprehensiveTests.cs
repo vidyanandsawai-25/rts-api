@@ -47,7 +47,6 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
             ReferenceTableName = referenceTable,
             IsActive = true,
             DisplaySequence = 1,
-            ApiRoute = "/x",
         };
         ctx.BulkUpdateMasters.Add(master);
 
@@ -529,7 +528,6 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
             ReferenceTableName = "UnknownTable", // Not in registry
             IsActive = true,
             DisplaySequence = 1,
-            ApiRoute = "/x",
         };
         ctx.BulkUpdateMasters.Add(master);
         ctx.BulkUpdateFieldConfigs.Add(new BulkUpdateFieldConfigEntity
@@ -567,7 +565,6 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
                 UpdateName = "Second",
                 ReferenceTableName = "Table2",
                 DisplaySequence = 2,
-                ApiRoute = "/api/2",
                 IsActive = true
             },
             new BulkUpdateMasterEntity
@@ -577,7 +574,6 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
                 UpdateName = "First",
                 ReferenceTableName = "Table1",
                 DisplaySequence = 1,
-                ApiRoute = "/api/1",
                 IsActive = true
             },
             new BulkUpdateMasterEntity
@@ -587,7 +583,6 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
                 UpdateName = "Inactive",
                 ReferenceTableName = "Table3",
                 DisplaySequence = 0,
-                ApiRoute = "/api/3",
                 IsActive = false // Should not be returned
             });
         await ctx.SaveChangesAsync();
@@ -614,8 +609,7 @@ public class CommonDetailsServiceBulkUpdateComprehensiveTests
             UpdateName = "Test",
             ReferenceTableName = "TestTable",
             IsActive = true,
-            DisplaySequence = 1,
-            ApiRoute = "/x"
+            DisplaySequence = 1
         };
         ctx.BulkUpdateMasters.Add(master);
         ctx.BulkUpdateFieldConfigs.AddRange(

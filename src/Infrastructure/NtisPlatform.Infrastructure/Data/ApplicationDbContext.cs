@@ -3544,10 +3544,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.IconName).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.ApiRoute).HasMaxLength(300).IsUnicode(false);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
@@ -3639,10 +3637,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
             entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.IconName).HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.ApiRoute).HasMaxLength(300).IsUnicode(false);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");

@@ -31,7 +31,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -52,7 +51,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -74,7 +72,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = new string('B', 200), // Max length
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -95,7 +92,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = new string('B', 201), // Exceeds max length
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -118,7 +114,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateNameMarathi = new string('म', 200), // Max length
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -140,7 +135,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateNameMarathi = new string('म', 201), // Exceeds max length
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -153,51 +147,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
     }
 
     [Fact]
-    public void CreateBulkUpdateMasterDto_WithMaxLengthIconName_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            IconName = new string('I', 100), // Max length
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            ApiRoute = "/api/valid",
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithExceedingIconNameLength_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            IconName = new string('I', 101), // Exceeds max length
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            ApiRoute = "/api/valid",
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_IconName_MaxLen_100"));
-    }
-
-    [Fact]
     public void CreateBulkUpdateMasterDto_WithMaxLengthReferenceTableName_PassesValidation()
     {
         // Arrange
@@ -207,7 +156,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = new string('T', 200), // Max length
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -228,7 +176,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = new string('T', 201), // Exceeds max length
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -241,49 +188,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
     }
 
     [Fact]
-    public void CreateBulkUpdateMasterDto_WithMaxLengthApiRoute_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            ApiRoute = new string('/', 500), // Max length
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithExceedingApiRouteLength_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            ApiRoute = new string('/', 501), // Exceeds max length
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_ApiRoute_MaxLen_500"));
-    }
-
-    [Fact]
     public void CreateBulkUpdateMasterDto_WithMaxLengthDescription_PassesValidation()
     {
         // Arrange
@@ -293,7 +197,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = new string('D', 1000), // Max length
             CreatedBy = 1
         };
@@ -315,7 +218,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = new string('D', 1001), // Exceeds max length
             CreatedBy = 1
         };
@@ -342,7 +244,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 0, // Below minimum
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -364,7 +265,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = -1, // Negative
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -386,7 +286,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 10000, // Exceeds maximum
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -408,7 +307,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1, // Minimum valid
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -429,7 +327,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 9999, // Maximum valid
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -453,10 +350,8 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
             UpdateNameMarathi = "वैध नाव",
-            IconName = "valid_icon",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 5,
-            ApiRoute = "/api/valid",
             Description = "Valid description",
             UpdatedBy = 1
         };
@@ -478,7 +373,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = string.Empty,
             ReferenceTableName = string.Empty,
             DisplaySequence = 0,
-            ApiRoute = string.Empty,
             UpdatedBy = 1
         };
 
@@ -504,7 +398,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -525,7 +418,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = "Description with special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`",
             CreatedBy = 1
         };
@@ -548,7 +440,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateNameMarathi = "मराठी नाव with English मिश्रित",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = "Mixed: English and मराठी together",
             CreatedBy = 1
         };
@@ -574,7 +465,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             CreatedBy = 1
         };
 
@@ -596,7 +486,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "  Valid Name  ",
             ReferenceTableName = "  ValidTable  ",
             DisplaySequence = 1,
-            ApiRoute = "  /api/valid  ",
             CreatedBy = 1
         };
 
@@ -621,7 +510,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = string.Empty, // Required
             ReferenceTableName = new string('T', 201), // Too long
             DisplaySequence = 0, // Out of range
-            ApiRoute = string.Empty, // Required
             CreatedBy = 1
         };
 
@@ -647,7 +535,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = null, // Optional field
             CreatedBy = 1
         };
@@ -669,7 +556,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = null, // Optional field
             UpdatedBy = 1
         };
@@ -694,10 +580,8 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
             UpdateNameMarathi = string.Empty, // Optional
-            IconName = string.Empty, // Optional
             ReferenceTableName = "ValidTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/valid",
             Description = string.Empty, // Optional
             CreatedBy = 1
         };

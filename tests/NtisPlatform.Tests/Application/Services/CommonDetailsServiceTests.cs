@@ -58,7 +58,6 @@ public class CommonDetailsServiceTests
             ReferenceTableName = referenceTable,
             IsActive = true,
             DisplaySequence = 1,
-            ApiRoute = "/x",
         };
         ctx.BulkUpdateMasters.Add(master);
 

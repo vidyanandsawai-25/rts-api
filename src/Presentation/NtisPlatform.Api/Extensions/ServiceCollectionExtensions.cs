@@ -163,6 +163,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
+        services.AddScoped<IFieldRegistryService, FieldRegistryService>();
 
         // Translation Management
         services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();

@@ -34,7 +34,6 @@ public class BulkUpdateMasterControllerTests
                     UpdateName = "Property Type Update",
                     ReferenceTableName = "PropertyTypeMaster",
                     DisplaySequence = 1,
-                    ApiRoute = "/api/PropertyType/BulkUpdate",
                     IsActive = true
                 }
             }, 1, 1, 10);
@@ -62,7 +61,6 @@ public class BulkUpdateMasterControllerTests
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate",
             IsActive = true
         };
         service.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>()))
@@ -103,10 +101,8 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             CreatedBy = 1
         };
@@ -116,10 +112,8 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
             UpdateNameMarathi = "प्रभाग थोक अद्यतन",
-            IconName = "ward_icon",
             ReferenceTableName = "WardMaster",
             DisplaySequence = 2,
-            ApiRoute = "/api/Ward/BulkUpdate",
             Description = "Bulk update for wards",
             IsActive = true
         };
@@ -145,10 +139,8 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
             UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
-            IconName = "updated_icon",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate/v2",
             Description = "Updated bulk update",
             UpdatedBy = 1
         };
@@ -159,7 +151,6 @@ public class BulkUpdateMasterControllerTests
             UpdateName = "Property Type Update (Modified)",
             ReferenceTableName = "PropertyTypeMaster",
             DisplaySequence = 1,
-            ApiRoute = "/api/PropertyType/BulkUpdate/v2",
             IsActive = true
         };
         service.Setup(s => s.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
@@ -185,7 +176,6 @@ public class BulkUpdateMasterControllerTests
             UpdateName = "Non Existent",
             ReferenceTableName = "NonExistentTable",
             DisplaySequence = 1,
-            ApiRoute = "/api/NonExistent",
             UpdatedBy = 1
         };
         service.Setup(s => s.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
