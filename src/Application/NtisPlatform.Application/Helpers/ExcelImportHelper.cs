@@ -37,6 +37,16 @@ public static class ExcelImportHelper
         if (headers.All(string.IsNullOrWhiteSpace))
             throw new ArgumentException("The uploaded worksheet has no header row.");
 
+        var duplicateHeaders = headers
+            .Where(h => !string.IsNullOrWhiteSpace(h))
+            .GroupBy(h => h, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+
+        if (duplicateHeaders.Count > 0)
+            throw new ArgumentException($"The uploaded worksheet has duplicate column header(s): {string.Join(", ", duplicateHeaders)}.");
+
         var rows = new List<ExcelRow>();
         for (var r = 2; r <= rowCount; r++)
         {

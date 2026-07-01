@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -385,7 +386,209 @@ public class CommonDetailsControllerTests
         Assert.Equal("Update type not found", response.Message);
     }
 
+    // ============== ExportExcel Tests ==============
+
+    [Fact]
+    public async Task ExportExcel_ReturnsFile_WithXlsxContentType()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new FilterPropertiesRequestDto { UpdateCode = "UPDATE_ADDRESS", WardId = 1 };
+        var bytes = new byte[] { 1, 2, 3, 4 };
+
+        service.Setup(s => s.ExportPropertiesToExcelAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bytes);
+
+        var result = await controller.ExportExcel(request, CancellationToken.None);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        Assert.Equal(bytes, fileResult.FileContents);
+        Assert.StartsWith("UPDATE_ADDRESS_", fileResult.FileDownloadName);
+        Assert.EndsWith(".xlsx", fileResult.FileDownloadName);
+    }
+
+    [Fact]
+    public async Task ExportExcel_Returns400_WhenServiceThrowsArgumentException()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new FilterPropertiesRequestDto { UpdateCode = "INVALID", WardId = 1 };
+
+        service.Setup(s => s.ExportPropertiesToExcelAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("Update type not found"));
+
+        var result = await controller.ExportExcel(request, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<object>>(badRequest.Value);
+        Assert.False(response.Success);
+        Assert.Equal("Update type not found", response.Message);
+    }
+
+    // ============== ImportExcel Tests ==============
+
+    [Fact]
+    public async Task ImportExcel_ReturnsOk_WhenAllRowsSucceed()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        var result = new BulkUpdateResultDto { TotalRequested = 3, SuccessCount = 3, FailedCount = 0 };
+        service.Setup(s => s.ImportPropertiesFromExcelAsync(
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+        var response = await controller.ImportExcel(form, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(response);
+        var apiResponse = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(okResult.Value);
+        Assert.True(apiResponse.Success);
+        Assert.Equal(3, apiResponse.Items?.SuccessCount);
+    }
+
+    [Fact]
+    public async Task ImportExcel_ReturnsOk_ResultFailure_WhenRowsFail()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        var result = new BulkUpdateResultDto
+        {
+            TotalRequested = 2,
+            SuccessCount = 0,
+            FailedCount = 1,
+            Errors = new List<string> { "Row 2: no property found for wardNo='MM11', propertyNo='10', partitionNo=''." }
+        };
+        service.Setup(s => s.ImportPropertiesFromExcelAsync(
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(result);
+
+        var response = await controller.ImportExcel(form, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(response);
+        var apiResponse = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(okResult.Value);
+        Assert.False(apiResponse.Success);
+        Assert.Equal(1, apiResponse.Items?.FailedCount);
+        Assert.NotNull(apiResponse.Errors);
+        Assert.Single(apiResponse.Errors!);
+    }
+
+    [Fact]
+    public async Task ImportExcel_Returns400_WhenFileIsEmpty()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", length: 0).Object
+        };
+
+        var result = await controller.ImportExcel(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
+        Assert.False(response.Success);
+        service.Verify(s => s.ImportPropertiesFromExcelAsync(
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportExcel_Returns400_WhenInvalidFileType()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("report.exe", "application/x-msdownload").Object
+        };
+
+        var result = await controller.ImportExcel(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
+        Assert.False(response.Success);
+        service.Verify(s => s.ImportPropertiesFromExcelAsync(
+            It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportExcel_Returns401_WhenUnauthenticated()
+    {
+        var controller = Create(out _);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext()
+        };
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        var result = await controller.ImportExcel(form, CancellationToken.None);
+
+        var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(unauthorized.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task ImportExcel_Returns400_WhenServiceThrowsArgumentException()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var form = new ExcelImportFormDto
+        {
+            UpdateCode = "UPDATE_ADDRESS",
+            File = MakeFile("data.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").Object
+        };
+
+        service.Setup(s => s.ImportPropertiesFromExcelAsync(
+                "UPDATE_ADDRESS", It.IsAny<Stream>(), 42, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("Update type not found"));
+
+        var result = await controller.ImportExcel(form, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
+        Assert.False(response.Success);
+        Assert.Equal("Update type not found", response.Message);
+    }
+
     // ============== Helper Methods ==============
+
+    private static Mock<IFormFile> MakeFile(string fileName, string contentType, long length = 10)
+    {
+        var file = new Mock<IFormFile>();
+        file.Setup(f => f.FileName).Returns(fileName);
+        file.Setup(f => f.ContentType).Returns(contentType);
+        file.Setup(f => f.Length).Returns(length);
+        file.Setup(f => f.OpenReadStream()).Returns(() => new MemoryStream(new byte[] { 1, 2, 3 }));
+        return file;
+    }
 
     private static void SetupAuthenticatedUser(CommonDetailsController controller)
     {

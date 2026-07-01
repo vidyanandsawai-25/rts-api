@@ -144,16 +144,16 @@ public class FieldRegistryController : ControllerBase
         }
     }
 
-    [HttpDelete("DeleteFieldRegistry/{updateCode}")]
+    [HttpPatch("SetFieldRegistryStatus/{updateCode}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> DeleteFieldRegistry(string updateCode,[FromQuery] int? updatedBy,CancellationToken cancellationToken)
+    public async Task<IActionResult> SetFieldRegistryStatus(string updateCode,[FromQuery] bool isActive,[FromQuery] int? updatedBy,CancellationToken cancellationToken)
     {
         try
         {
-            var deleted = await _fieldRegistryService.DeleteFieldRegistryAsync(updateCode, updatedBy, cancellationToken);
-            if (!deleted)
+            var updated = await _fieldRegistryService.SetActiveStatusAsync(updateCode, isActive, updatedBy, cancellationToken);
+            if (!updated)
             {
                 return NotFound(new
                 {
@@ -165,16 +165,16 @@ public class FieldRegistryController : ControllerBase
             return Ok(new
             {
                 success = true,
-                message = "Field registry deleted successfully"
+                message = isActive ? "Field registry activated successfully" : "Field registry deactivated successfully"
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error deleting field registry {UpdateCode}", updateCode);
+            _logger.LogError(ex, "Error updating status for field registry {UpdateCode}", updateCode);
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
                 success = false,
-                message = "An error occurred while deleting the field registry"
+                message = "An error occurred while updating the field registry status"
             });
         }
     }

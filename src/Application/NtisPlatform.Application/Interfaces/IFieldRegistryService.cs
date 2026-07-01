@@ -22,8 +22,9 @@ public interface IFieldRegistryService
         FieldRegistryQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
-    Task<bool> DeleteFieldRegistryAsync(
+    Task<bool> SetActiveStatusAsync(
         string updateCode,
+        bool isActive,
         int? updatedBy,
         CancellationToken cancellationToken = default);
 }

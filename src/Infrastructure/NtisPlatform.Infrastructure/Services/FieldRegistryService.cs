@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using NtisPlatform.Application.DTOs.FieldRegistry;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -9,55 +10,6 @@ namespace NtisPlatform.Infrastructure.Services;
 
 public class FieldRegistryService : IFieldRegistryService
 {
-    private const string GetAllSchemasSql = """
-        SELECT DISTINCT s.name AS SchemaName
-        FROM sys.schemas s
-        INNER JOIN sys.tables t ON s.schema_id = t.schema_id
-        WHERE s.schema_id > 4
-        ORDER BY s.name;
-        """;
-
-    private const string CountDetailsBySchemaBaseSql = """
-        SELECT COUNT(*)
-        FROM sys.schemas s
-        INNER JOIN sys.tables t
-            ON s.schema_id = t.schema_id
-        WHERE s.name = @SchemaName
-        """;
-
-    private const string GetDetailsBySchemaBaseSql = """
-        SELECT
-            s.name AS SchemaName,
-            t.name AS TableName
-        FROM sys.schemas s
-        INNER JOIN sys.tables t
-            ON s.schema_id = t.schema_id
-        WHERE s.name = @SchemaName
-        """;
-
-    private const string SchemaTableSearchFilter = " AND t.name LIKE @SearchTerm";
-
-    private const string CountDetailsByTableBaseSql = """
-        SELECT COUNT(*)
-        FROM sys.schemas s
-        INNER JOIN sys.tables t ON s.schema_id = t.schema_id
-        INNER JOIN sys.columns c ON t.object_id = c.object_id
-        WHERE s.name = @SchemaName
-          AND t.name = @TableName
-        """;
-
-    private const string GetDetailsByTableBaseSql = """
-        SELECT
-            c.name AS ColumnName
-        FROM sys.schemas s
-        INNER JOIN sys.tables t ON s.schema_id = t.schema_id
-        INNER JOIN sys.columns c ON t.object_id = c.object_id
-        WHERE s.name = @SchemaName
-          AND t.name = @TableName
-        """;
-
-    private const string TableColumnSearchFilter = " AND c.name LIKE @SearchTerm";
-
     private readonly ApplicationDbContext _context;
 
     public FieldRegistryService(ApplicationDbContext context)
@@ -65,226 +17,131 @@ public class FieldRegistryService : IFieldRegistryService
         _context = context;
     }
 
-    public async Task<IReadOnlyList<FieldRegistryDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<FieldRegistryDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var schemas = new List<FieldRegistryDto>();
-        var connection = _context.Database.GetDbConnection();
+        var schemas = GetMappedTables()
+            .Select(t => t.Schema)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .Select(s => new FieldRegistryDto { SchemaName = s })
+            .ToList();
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetAllSchemasSql;
-
-        if (connection.State != System.Data.ConnectionState.Open)
-        {
-            await connection.OpenAsync(cancellationToken);
-        }
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            schemas.Add(new FieldRegistryDto
-            {
-                SchemaName = reader.GetString(0)
-            });
-        }
-
-        if (connection.State == System.Data.ConnectionState.Open)
-        {
-            await connection.CloseAsync();
-        }
-        return schemas;
+        return Task.FromResult<IReadOnlyList<FieldRegistryDto>>(schemas);
     }
 
-    public async Task<PagedResult<FieldRegistryDetailsDto>> GetDetailsBySchemaAsync(
+    public Task<PagedResult<FieldRegistryDetailsDto>> GetDetailsBySchemaAsync(
         FieldRegistryDetailsQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var details = new List<FieldRegistryDetailsDto>();
-        var connection = _context.Database.GetDbConnection();
+        var tables = GetMappedTables()
+            .Where(t => string.Equals(t.Schema, queryParameters.SchemaName, StringComparison.OrdinalIgnoreCase));
 
-        if (connection.State != System.Data.ConnectionState.Open)
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm))
         {
-            await connection.OpenAsync(cancellationToken);
+            var term = queryParameters.SearchTerm.Trim();
+            tables = tables.Where(t => t.Table.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        var hasSearch = !string.IsNullOrWhiteSpace(queryParameters.SearchTerm);
-        var searchValue = hasSearch ? $"%{queryParameters.SearchTerm!.Trim()}%" : null;
+        var ordered = tables
+            .OrderBy(t => t.Table, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var totalCount = await GetDetailsCountAsync(queryParameters.SchemaName, queryParameters.SearchTerm, cancellationToken);
+        var totalCount = ordered.Count;
         var isUnpaged = queryParameters.PageSize == -1;
         var pageNumber = isUnpaged ? 1 : queryParameters.PageNumber;
         var pageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParameters.PageSize;
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetDetailsBySchemaBaseSql
-            + (hasSearch ? SchemaTableSearchFilter : string.Empty)
-            + " ORDER BY t.name"
-            + (isUnpaged ? ";" : " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;");
-
-        var schemaNameParameter = command.CreateParameter();
-        schemaNameParameter.ParameterName = "@SchemaName";
-        schemaNameParameter.Value = queryParameters.SchemaName;
-        command.Parameters.Add(schemaNameParameter);
-
-        if (hasSearch)
-        {
-            AddStringParameter(command, "@SearchTerm", searchValue!);
-        }
-
-        if (!isUnpaged)
-        {
-            var offsetParameter = command.CreateParameter();
-            offsetParameter.ParameterName = "@Offset";
-            offsetParameter.Value = (pageNumber - 1) * pageSize;
-            command.Parameters.Add(offsetParameter);
-
-            var pageSizeParameter = command.CreateParameter();
-            pageSizeParameter.ParameterName = "@PageSize";
-            pageSizeParameter.Value = pageSize;
-            command.Parameters.Add(pageSizeParameter);
-        }
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            details.Add(new FieldRegistryDetailsDto
+        var pageItems = (isUnpaged ? ordered : ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize))
+            .Select(t => new FieldRegistryDetailsDto
             {
-                SchemaName = reader.GetString(0),
-                TableName = reader.GetString(1)
-            });
-        }
+                SchemaName = t.Schema,
+                TableName = t.Table
+            })
+            .ToList();
 
-        var pagedResult = new PagedResult<FieldRegistryDetailsDto>(details, totalCount, pageNumber, pageSize);
-        if (connection.State == System.Data.ConnectionState.Open)
-        {
-            await connection.CloseAsync();
-        }
-        return pagedResult;
+        return Task.FromResult(new PagedResult<FieldRegistryDetailsDto>(pageItems, totalCount, pageNumber, pageSize));
     }
 
-    public async Task<PagedResult<FieldRegistryTableDetailsDto>> GetDetailsByTableAsync(
+    public Task<PagedResult<FieldRegistryTableDetailsDto>> GetDetailsByTableAsync(
         FieldRegistryTableDetailsQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var details = new List<FieldRegistryTableDetailsDto>();
-        var connection = _context.Database.GetDbConnection();
+        IEnumerable<string> columns = GetMappedColumns(queryParameters.SchemaName, queryParameters.TableName);
 
-        if (connection.State != System.Data.ConnectionState.Open)
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm))
         {
-            await connection.OpenAsync(cancellationToken);
+            var term = queryParameters.SearchTerm.Trim();
+            columns = columns.Where(c => c.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        var hasSearch = !string.IsNullOrWhiteSpace(queryParameters.SearchTerm);
+        var ordered = columns
+            .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var totalCount = await GetTableDetailsCountAsync(
-            queryParameters.SchemaName,
-            queryParameters.TableName,
-            queryParameters.SearchTerm,
-            cancellationToken);
-
+        var totalCount = ordered.Count;
         var isUnpaged = queryParameters.PageSize == -1;
         var pageNumber = isUnpaged ? 1 : queryParameters.PageNumber;
         var pageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParameters.PageSize;
 
-        await using var command = connection.CreateCommand();
-        command.CommandText = GetDetailsByTableBaseSql
-            + (hasSearch ? TableColumnSearchFilter : string.Empty)
-            + " ORDER BY c.column_id"
-            + (isUnpaged ? ";" : " OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;");
+        var pageItems = (isUnpaged ? ordered : ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize))
+            .Select(c => new FieldRegistryTableDetailsDto { ColumnName = c })
+            .ToList();
 
-        AddStringParameter(command, "@SchemaName", queryParameters.SchemaName);
-        AddStringParameter(command, "@TableName", queryParameters.TableName);
+        return Task.FromResult(new PagedResult<FieldRegistryTableDetailsDto>(pageItems, totalCount, pageNumber, pageSize));
+    }
 
-        if (hasSearch)
+    /// <summary>
+    /// Distinct (schema, table) pairs for every table-mapped entity in the EF model. Entities mapped to a
+    /// view / keyless (no table) are excluded; multiple entities sharing a table (TPH, owned) collapse via Distinct.
+    /// </summary>
+    private IEnumerable<(string Schema, string Table)> GetMappedTables()
+    {
+        var defaultSchema = _context.Model.GetDefaultSchema() ?? "dbo";
+        return _context.Model.GetEntityTypes()
+            .Where(e => e.GetTableName() is not null)
+            .Select(e => (Schema: e.GetSchema() ?? defaultSchema, Table: e.GetTableName()!))
+            .Distinct();
+    }
+
+    /// <summary>
+    /// Distinct column names mapped for the given schema/table across all entity types that map to it.
+    /// </summary>
+    private IEnumerable<string> GetMappedColumns(string schema, string table)
+    {
+        var defaultSchema = _context.Model.GetDefaultSchema() ?? "dbo";
+        var columns = new List<string>();
+
+        foreach (var entityType in _context.Model.GetEntityTypes())
         {
-            AddStringParameter(command, "@SearchTerm", $"%{queryParameters.SearchTerm!.Trim()}%");
-        }
-
-        if (!isUnpaged)
-        {
-            var offsetParameter = command.CreateParameter();
-            offsetParameter.ParameterName = "@Offset";
-            offsetParameter.Value = (pageNumber - 1) * pageSize;
-            command.Parameters.Add(offsetParameter);
-
-            var pageSizeParameter = command.CreateParameter();
-            pageSizeParameter.ParameterName = "@PageSize";
-            pageSizeParameter.Value = pageSize;
-            command.Parameters.Add(pageSizeParameter);
-        }
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            details.Add(new FieldRegistryTableDetailsDto
+            if (entityType.GetTableName() is not { } entityTable)
             {
-                ColumnName = reader.GetString(0)
-            });
+                continue;
+            }
+
+            var entitySchema = entityType.GetSchema() ?? defaultSchema;
+            if (!string.Equals(entitySchema, schema, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(entityTable, table, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var storeObject = StoreObjectIdentifier.Create(entityType, StoreObjectType.Table);
+            if (storeObject is null)
+            {
+                continue;
+            }
+
+            foreach (var property in entityType.GetProperties())
+            {
+                var columnName = property.GetColumnName(storeObject.Value);
+                if (!string.IsNullOrEmpty(columnName))
+                {
+                    columns.Add(columnName);
+                }
+            }
         }
 
-        var pagedResult = new PagedResult<FieldRegistryTableDetailsDto>(details, totalCount, pageNumber, pageSize);
-        if (connection.State == System.Data.ConnectionState.Open)
-        {
-            await connection.CloseAsync();
-        }
-        return pagedResult;
-    }
-
-    private async Task<int> GetDetailsCountAsync(string schemaName, string? searchTerm, CancellationToken cancellationToken)
-    {
-        var connection = _context.Database.GetDbConnection();
-        var hasSearch = !string.IsNullOrWhiteSpace(searchTerm);
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = CountDetailsBySchemaBaseSql
-            + (hasSearch ? SchemaTableSearchFilter : string.Empty)
-            + ";";
-
-        var schemaNameParameter = command.CreateParameter();
-        schemaNameParameter.ParameterName = "@SchemaName";
-        schemaNameParameter.Value = schemaName;
-        command.Parameters.Add(schemaNameParameter);
-
-        if (hasSearch)
-        {
-            AddStringParameter(command, "@SearchTerm", $"%{searchTerm!.Trim()}%");
-        }
-
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt32(result);
-    }
-
-    private async Task<int> GetTableDetailsCountAsync(
-        string schemaName,
-        string tableName,
-        string? searchTerm,
-        CancellationToken cancellationToken)
-    {
-        var connection = _context.Database.GetDbConnection();
-        var hasSearch = !string.IsNullOrWhiteSpace(searchTerm);
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = CountDetailsByTableBaseSql
-            + (hasSearch ? TableColumnSearchFilter : string.Empty)
-            + ";";
-
-        AddStringParameter(command, "@SchemaName", schemaName);
-        AddStringParameter(command, "@TableName", tableName);
-
-        if (hasSearch)
-        {
-            AddStringParameter(command, "@SearchTerm", $"%{searchTerm!.Trim()}%");
-        }
-
-        var result = await command.ExecuteScalarAsync(cancellationToken);
-        return Convert.ToInt32(result);
-    }
-
-    private static void AddStringParameter(System.Data.Common.DbCommand command, string name, string value)
-    {
-        var parameter = command.CreateParameter();
-        parameter.ParameterName = name;
-        parameter.Value = value;
-        command.Parameters.Add(parameter);
+        return columns.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     public async Task<FieldRegistryResponseDto> AddFieldRegistryAsync(
@@ -409,8 +266,9 @@ public class FieldRegistryService : IFieldRegistryService
         return new PagedResult<FieldRegistryResponseDto>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<bool> DeleteFieldRegistryAsync(
+    public async Task<bool> SetActiveStatusAsync(
         string updateCode,
+        bool isActive,
         int? updatedBy,
         CancellationToken cancellationToken = default)
     {
@@ -428,7 +286,7 @@ public class FieldRegistryService : IFieldRegistryService
         {
             var now = DateTime.UtcNow;
 
-            masterEntity.IsActive = false;
+            masterEntity.IsActive = isActive;
             masterEntity.UpdatedDate = now;
             if (updatedBy.HasValue)
             {
@@ -437,7 +295,7 @@ public class FieldRegistryService : IFieldRegistryService
 
             foreach (var fieldConfig in masterEntity.FieldConfigs)
             {
-                fieldConfig.IsActive = false;
+                fieldConfig.IsActive = isActive;
                 fieldConfig.UpdatedDate = now;
                 if (updatedBy.HasValue)
                 {

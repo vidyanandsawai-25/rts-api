@@ -70,7 +70,9 @@ public class CommonDetailsService : ICommonDetailsService
                 ReferenceTableName = m.ReferenceTableName,
                 IsActive = m.IsActive,
                 DisplaySequence = m.DisplaySequence,
-                Description = m.Description
+                Description = m.Description,
+                Category = m.Category,
+                IsApprovalRequired = m.IsApprovalRequired
             })
             .ToListAsync(ct);
     }
@@ -421,8 +423,7 @@ public class CommonDetailsService : ICommonDetailsService
         return stream.ToArray();
     }
 
-    public async Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(
-        string updateCode, Stream fileStream, int updatedBy, string? ipAddress, CancellationToken ct)
+    public async Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(string updateCode, Stream fileStream, int updatedBy, string? ipAddress, CancellationToken ct)
     {
         var master = await _masterRepo.GetQueryable()
             .FirstOrDefaultAsync(m => m.UpdateCode == updateCode && m.IsActive, ct)
@@ -522,9 +523,16 @@ public class CommonDetailsService : ICommonDetailsService
 
         foreach (var row in excelRows)
         {
-            var wardNo = row.Cells.GetValueOrDefault("wardNo");
-            var propertyNo = row.Cells.GetValueOrDefault("propertyNo");
-            var partitionNo = row.Cells.GetValueOrDefault("partitionNo");
+            var wardNo = row.Cells.GetValueOrDefault("wardNo")?.Trim();
+            var propertyNo = row.Cells.GetValueOrDefault("propertyNo")?.Trim();
+            var partitionNo = row.Cells.GetValueOrDefault("partitionNo")?.Trim();
+
+            if (string.IsNullOrWhiteSpace(wardNo) || string.IsNullOrWhiteSpace(propertyNo))
+            {
+                errors.Add($"Row {row.RowNumber}: wardNo and propertyNo are required.");
+                continue;
+            }
+
             var key = IdentityKey(wardNo, propertyNo, partitionNo);
 
             if (!idsByKey.TryGetValue(key, out var ids))
