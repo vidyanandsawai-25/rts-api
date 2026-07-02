@@ -3,6 +3,7 @@ using NtisPlatform.Application.DTOs.CapitalValue;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
 using NtisPlatform.Application.Services.CapitalValue.MasterDataProviders;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 
@@ -104,6 +105,8 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
             AssessmentYear = ruleAssessmentYear;
            
         }
+
+
         // Calculate age using the formula: AssessmentYear - constructionYear
         int ageOfProperty =  AssessmentYear - constructionYear;
 
@@ -181,26 +184,47 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
                     propertyDetail.Id, propertyDetail.FloorId, yearRange.Id);
             }
         }
+        double carpetArea = propertyDetail.CarpetAreaSqMeter ?? 0;
+        double builtupArea = propertyDetail.BuiltupAreaSqMeter ?? 0;
+        double selectedArea = 0;
+        var AreaRule = masterData.CapitalValueAreaTypeRule;
 
-        // Validate carpet area before calculation
-        if (!propertyDetail.CarpetAreaSqMeter.HasValue || propertyDetail.CarpetAreaSqMeter.Value <= 0)
+        if (AreaRule == null)
         {
-            throw new InvalidPropertyDataException( "CarpetAreaSqMeter", propertyDetail.CarpetAreaSqMeter, propertyDetail.Id);
+            throw new PolicyCodeNotFoundException("CapitalValueAreaType");
+        }
+ 
+        if (AreaRule.PolicyValue == "BuiltupArea")
+        {
+            selectedArea =  builtupArea > 0 ? builtupArea : carpetArea * 1.2;
+        }
+        else
+        {
+            selectedArea = carpetArea;
         }
 
         // Calculate capital value
-        decimal carpetArea = (decimal)propertyDetail.CarpetAreaSqMeter.Value;
+        decimal calculationArea = (decimal)selectedArea;
         decimal rate = rateMaster.RateAmount.Value;
-        decimal baseValue = rate * carpetArea;
+        decimal baseValue = rate * calculationArea;
         decimal capitalValue = baseValue * ntbFactor * useFactor * ageFactor * floorFactor;
 
-        _logger.LogDebug("Calculation complete for PropertyDetailsId: {PropertyDetailsId} - CV: {CapitalValue}",propertyDetail.Id, capitalValue);
-
-        // Get applicable taxes
+        // Check if renter conditions are met and apply 0.75 multiplier
+       
+        if (propertyDetail.IsRenter == true)
+        {
+            if (masterData.RenterData.TryGetValue(propertyDetail.Id, out var renterMast))
+            {
+                if (!string.IsNullOrWhiteSpace(renterMast.TaxLiability) && renterMast.TaxLiability.Equals("Renter", StringComparison.OrdinalIgnoreCase))
+                {
+                    capitalValue = capitalValue * 0.75m;
+                 }
+            }
+        }
+         // Get applicable taxes
         var taxes = masterData.TaxData
             .Where(x => x.TypeOfUseId == propertyDetail.TypeOfUseId && x.YearRangeCVId == yearRange.Id)
-            .OrderBy(x => x.TaxId)
-            .GroupBy(x => x.TaxId)
+             .GroupBy(x => x.TaxId)
             .Select(g => g.First())
             .ToList();
 

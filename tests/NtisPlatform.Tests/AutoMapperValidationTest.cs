@@ -131,17 +131,19 @@ public class AutoMapperValidationTest
              "SkipRules", "ExclusionsTriggered", "ExclusionsSkippedBy",
              // RuleScope navigation property and derived display name
              "RuleScope", "RuleScopeName",
-             // Additional entity fields that are unmapped
-             "IsActive", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
-             "BuiltupAreaSqMeter", "BuiltupAreaSqFeet", "NoOfRooms", "IsRenter", "IsTaxable",
-             "Renters", "RenterDetails", "AreaSqMtr", "HeightMtr", "Base1Mtr", "Base2Mtr", "Shape",
-             "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
-             "PrarupYadiPublishDate", "AntimYadiPublishDate", "PartOCDate", "BHK", "WingNo",
-             "TotalBuiltupAreaSqFeet", "TotalBuiltupAreaSqMeter", "Latitude", "Longitude",
-             "NoOfCommercialToilets", "WingName", "PartitionNo",
-             // Local record types used in data layer projections (not entity mappings)
-             "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount"
-          };
+                // Additional entity fields that are unmapped
+                "IsActive", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
+                "BuiltupAreaSqMeter", "BuiltupAreaSqFeet", "NoOfRooms", "IsRenter", "IsTaxable",
+                "Renters", "RenterDetails", "AreaSqMtr", "HeightMtr", "Base1Mtr", "Base2Mtr", "Shape",
+                "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
+                "PrarupYadiPublishDate", "AntimYadiPublishDate", "PartOCDate", "BHK", "WingNo",
+                "TotalBuiltupAreaSqFeet", "TotalBuiltupAreaSqMeter", "Latitude", "Longitude",
+                "NoOfCommercialToilets", "WingName", "PartitionNo",
+                // Computed/derived rate fields (populated from navigation properties after mapping)
+                "RateAmount",
+                // Local record types used in data layer projections (not entity mappings)
+                "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount"
+             };
 
             // Check if all unmapped properties are in the expected list
             var unexpectedUnmapped = unmappedMembers

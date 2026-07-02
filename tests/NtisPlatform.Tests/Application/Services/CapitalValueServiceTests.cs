@@ -422,7 +422,7 @@ public class CapitalValueServiceTests
         {
             TaxTotalHead = new TaxMasterEntity { Id = 999, TaxName = "TaxTotal" }
         };
-        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(1, "A1", It.IsAny<CancellationToken>()))
+        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(1, "A1", It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(masterData);
 
         var financeYear = new YearMasterEntity { Id = 1, Year = 2024, IsActive = true };
@@ -841,7 +841,7 @@ public class CapitalValueServiceTests
         _propertyDataLoader.Setup(x => x.LoadFinanceYearAsync(It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(financeYear);
 
-        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(masterData);
 
         // Create factor entities for ID storage

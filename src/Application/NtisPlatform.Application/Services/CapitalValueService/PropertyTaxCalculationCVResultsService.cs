@@ -24,6 +24,7 @@ public class PropertyTaxCalculationCVResultsService : BaseCommonCrudService<Prop
             .Include(x => x.AgeFactorCVMaster)
             .Include(x => x.NatureFactorCVMaster)
             .Include(x => x.UseFactorCVMaster)
+            .Include(x => x.RateCVMaster)
             .Include(x => x.TaxMaster)
             .Include(x => x.PropertyMast).ThenInclude(p => p.FlagMaster)
             .Where(x => x.PropertyId == propertyId && x.IsActive && x.MarkedForDeletion == false)
@@ -50,6 +51,9 @@ public class PropertyTaxCalculationCVResultsService : BaseCommonCrudService<Prop
 
             // ← ADDED: Map TaxName from TaxMaster
             dto.TaxName = entity.TaxMaster?.TaxName;
+
+            // Map the actual rate amount from RateCVMaster
+            dto.RateAmount = entity.RateCVMaster?.RateAmount;
         }
 
         return dtos;
@@ -62,6 +66,7 @@ public class PropertyTaxCalculationCVResultsService : BaseCommonCrudService<Prop
             .Include(x => x.AgeFactorCVMaster)
             .Include(x => x.NatureFactorCVMaster)
             .Include(x => x.UseFactorCVMaster)
+            .Include(x => x.RateCVMaster)
             .Include(x => x.TaxMaster)
             .Include(x => x.PropertyMast).ThenInclude(p => p.FlagMaster)
             .Where(x => x.PropertyDetailsId == propertyDetailsId && x.IsActive && x.MarkedForDeletion == false)
@@ -88,6 +93,9 @@ public class PropertyTaxCalculationCVResultsService : BaseCommonCrudService<Prop
 
             // ← ADDED: Map TaxName from TaxMaster
             dto.TaxName = entity.TaxMaster?.TaxName;
+
+            // Map the actual rate amount from RateCVMaster
+            dto.RateAmount = entity.RateCVMaster?.RateAmount;
         }
 
         return dtos;

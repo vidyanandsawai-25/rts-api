@@ -24,6 +24,7 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
     private readonly IRepository<TaxMasterEntity, int> _taxMasterRepository;
     private readonly IRepository<CSNDetailsEntity, int> _csnDetailsRepository;
     private readonly IRepository<PolicyConfigurationEntity, int> _ruleRepository;
+    private readonly IRepository<RenterMastEntity, int> _renterMastRepository;
     private readonly ILogger<CapitalValueMasterDataProvider> _logger;
 
     public CapitalValueMasterDataProvider(
@@ -37,6 +38,7 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
         IRepository<TaxMasterEntity, int> taxMasterRepository,
         IRepository<CSNDetailsEntity, int> csnDetailsRepository,
         IRepository<PolicyConfigurationEntity, int> ruleRepository,
+        IRepository<RenterMastEntity, int> renterMastRepository,
         ILogger<CapitalValueMasterDataProvider> logger)
     {
         _rateRepository = rateRepository;
@@ -49,13 +51,14 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
         _taxMasterRepository = taxMasterRepository;
         _csnDetailsRepository = csnDetailsRepository;
         _ruleRepository = ruleRepository;
+        _renterMastRepository = renterMastRepository;
         _logger = logger;
     }
 
     /// <summary>
     /// Loads all master data required for capital value calculation
     /// </summary>
-    public async Task<MasterDataContext> LoadMasterDataAsync(int moujaId, string csn, CancellationToken cancellationToken)
+    public async Task<MasterDataContext> LoadMasterDataAsync(int moujaId, string csn, List<int>? propertyDetailsIds = null, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading master data for MoujaId: {MoujaId}, CSN: {CSN}", moujaId, csn);
 
@@ -77,6 +80,13 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
             .GroupBy(x => (x.TypeOfUseId, x.YearRangeCVId, x.SubTypeOfUseId))
             .ToDictionary(g => g.Key, g => (decimal?)g.First().Factor);
 
+        // Load renter data if property details IDs are provided
+        var renterDataDict = new Dictionary<int, RenterMastEntity>();
+        if (propertyDetailsIds != null && propertyDetailsIds.Any())
+        {
+            renterDataDict = await LoadRenterDataAsync(propertyDetailsIds, cancellationToken);
+        }
+
         var context = new MasterDataContext
         {
             YearRanges = await LoadYearRangesAsync(cancellationToken),
@@ -89,7 +99,9 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
             RateMasters = await LoadRateMastersAsync(moujaId, csn, cancellationToken),
             TaxData = await LoadTaxDataAsync(cancellationToken),
             TaxTotalHead = await LoadTaxTotalHeadAsync(cancellationToken),
-            AssessmentYearRule = await LoadAssessmentYearRuleAsync(cancellationToken)
+            AssessmentYearRule = await LoadPolicyConfigurationAsync("AssessmentYear", cancellationToken),
+            CapitalValueAreaTypeRule = await LoadPolicyConfigurationAsync("CapitalValueAreaType", cancellationToken),
+            RenterData = renterDataDict
         };
 
         _logger.LogDebug("Master data loaded successfully. YearRanges: {YearRanges}, RateMasters: {RateMasters}, TaxData: {TaxData}",
@@ -164,11 +176,23 @@ public class CapitalValueMasterDataProvider : ICapitalValueMasterDataProvider
         return taxTotal;
     }
 
-    private async Task<PolicyConfigurationEntity?> LoadAssessmentYearRuleAsync(CancellationToken cancellationToken)
+    public async Task<PolicyConfigurationEntity?> LoadPolicyConfigurationAsync(string policyCode, CancellationToken cancellationToken = default)
     {
         return await _ruleRepository.GetQueryable()
-            .Where(x => x.IsActive && x.PolicyCode == "AssessmentYear")
+            .AsNoTracking()
+            .Where(x => x.IsActive && x.PolicyCode == policyCode)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<Dictionary<int, RenterMastEntity>> LoadRenterDataAsync(List<int> propertyDetailsIds, CancellationToken cancellationToken)
+    {
+        var renterData = await _renterMastRepository.GetQueryable()
+            .Where(x => x.IsActive && propertyDetailsIds.Contains(x.PropertyDetailsId) && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
+
+        return renterData
+            .GroupBy(x => x.PropertyDetailsId)
+            .ToDictionary(g => g.Key, g => g.First());
     }
 }
 
@@ -188,9 +212,13 @@ public class MasterDataContext
     public List<TaxPercentageMasterCVEntity> TaxData { get; set; } = new();
     public TaxMasterEntity TaxTotalHead { get; set; } = null!;
     public PolicyConfigurationEntity? AssessmentYearRule { get; set; }
+    public PolicyConfigurationEntity? CapitalValueAreaTypeRule { get; set; }
 
     // Entity lists for ID lookup (needed for storing IDs instead of values)
     public List<NatureFactorCVMasterEntity>? NatureFactorEntities { get; set; }
     public List<UseFactorCVMasterEntity>? UseFactorEntities { get; set; }
+
+    // Renter master data dictionary keyed by PropertyDetailsId
+    public Dictionary<int, RenterMastEntity> RenterData { get; set; } = new();
 }
 

@@ -27,6 +27,9 @@ public class PropertyTaxCalculationCVResultsDto
     public int? RateCVMasterId { get; set; }
     public double? BaseValue { get; set; }
 
+    // Actual rate amount from RateCVMaster
+    public decimal? RateAmount { get; set; }
+
     // Factor IDs
     public int? FloorFactorCVId { get; set; }
     public int? AgeFactorCVId { get; set; }

@@ -25,7 +25,9 @@ public static class CapitalValueConstants
         /// Default policy code for net tax calculation
         /// </summary>
         public const string DefaultPolicyCode = "NETTAX";
-    }
+     }
+
+ 
 
     /// <summary>
     /// Property details calculation constants

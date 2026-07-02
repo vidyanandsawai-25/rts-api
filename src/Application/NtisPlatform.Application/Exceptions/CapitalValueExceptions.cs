@@ -12,8 +12,7 @@ public class PropertyDataNotFoundException : EntityNotFoundException
     {
     }
 
-    public PropertyDataNotFoundException(int propertyId, string additionalInfo)
-        : base("Property", propertyId, "CV_PROPERTY_DATA_INVALID")
+    public PropertyDataNotFoundException(int propertyId, string additionalInfo) : base("Property", propertyId, "CV_PROPERTY_DATA_INVALID")
     {
         Data["AdditionalInfo"] = additionalInfo;
     }
@@ -24,8 +23,7 @@ public class PropertyDataNotFoundException : EntityNotFoundException
 /// </summary>
 public class PropertyDetailsNotFoundException : EntityNotFoundException
 {
-    public PropertyDetailsNotFoundException(int propertyId, int propertyDetailsId = 0)
-        : base("PropertyDetails", propertyDetailsId == 0 ? $"for Property {propertyId}" : propertyDetailsId, "CV_PROPERTY_DETAILS_NOT_FOUND")
+    public PropertyDetailsNotFoundException(int propertyId, int propertyDetailsId = 0) : base("PropertyDetails", propertyDetailsId == 0 ? $"for Property {propertyId}" : propertyDetailsId, "CV_PROPERTY_DETAILS_NOT_FOUND")
     {
         Data["PropertyId"] = propertyId;
     }
@@ -36,8 +34,7 @@ public class PropertyDetailsNotFoundException : EntityNotFoundException
 /// </summary>
 public class MasterDataNotFoundException : NtisPlatformException
 {
-    public MasterDataNotFoundException(string masterDataType, string criteria)
-        : base($"{masterDataType} not found for criteria: {criteria}", "CV_MASTER_DATA_NOT_FOUND")
+    public MasterDataNotFoundException(string masterDataType, string criteria) : base($"{masterDataType} not found for criteria: {criteria}", "CV_MASTER_DATA_NOT_FOUND")
     {
         Data["MasterDataType"] = masterDataType;
         Data["Criteria"] = criteria;
@@ -66,8 +63,7 @@ public class FinanceYearNotFoundException : NtisPlatformException
 /// </summary>
 public class YearRangeNotFoundException : NtisPlatformException
 {
-    public YearRangeNotFoundException(int assessmentYear, int propertyDetailsId)
-        : base($"Year range not found for assessment year {assessmentYear}", "CV_YEAR_RANGE_NOT_FOUND")
+    public YearRangeNotFoundException(int assessmentYear, int propertyDetailsId) : base($"Year range not found for assessment year {assessmentYear}", "CV_YEAR_RANGE_NOT_FOUND")
     {
         Data["AssessmentYear"] = assessmentYear;
         Data["PropertyDetailsId"] = propertyDetailsId;
@@ -160,4 +156,13 @@ public class FloorGroupNotFoundException : NtisPlatformException
     {
         Data["PropertyDetailsId"] = propertyDetailsId;
     }
+}
+
+public class PolicyCodeNotFoundException : NtisPlatformException
+{
+    public PolicyCodeNotFoundException(string policyName)
+        : base($"Policy Code not found for {policyName}", "CV_POLICY_CODE_NOT_FOUND")
+    {
+        Data["PolicyName"] = policyName;
+     }
 }

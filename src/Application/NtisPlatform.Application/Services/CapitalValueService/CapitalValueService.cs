@@ -10,13 +10,10 @@ using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueServ
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
-using NtisPlatform.Application.Mappings; 
 using NtisPlatform.Application.Services.CapitalValue.Utils;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
-using static NtisPlatform.Core.Constants.CapitalValueConstants;
-
 
 namespace NtisPlatform.Application.Services.CapitalValue
 {
@@ -188,7 +185,8 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 }
 
                 // Load master data only if there are property details to process
-                var masterData = await _masterDataProvider.LoadMasterDataAsync(property.MoujaId!.Value, property.CSN ?? string.Empty, cancellationToken);
+                var propertyDetailsIds = propertyDetailsList.Select(pd => pd.Id).ToList();
+                var masterData = await _masterDataProvider.LoadMasterDataAsync(property.MoujaId!.Value, property.CSN ?? string.Empty, propertyDetailsIds, cancellationToken);
                 var hasLift = await _propertyDataLoader.LoadLiftFlagAsync(dto.PropertyId, cancellationToken);
                 var financeYear = await _propertyDataLoader.LoadFinanceYearAsync(dto.FinanceYear, cancellationToken);
 
@@ -254,7 +252,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 }
                 else
                 {
-                    _logger.LogInformation( "No CV results to persist for PropertyId: {PropertyId} - all PropertyDetails had TypeOfUseGroupCVCode = 'N'",  dto.PropertyId);
+                    _logger.LogInformation("No CV results to persist for PropertyId: {PropertyId} - all PropertyDetails had TypeOfUseGroupCVCode = 'N'",  dto.PropertyId);
                 }
 
                 // Step 5: Insert Data Into Policy and TransMast tables for aggregated reporting at property level, only if this is a full property calculation (PropertyDetailsId = 0)
@@ -327,8 +325,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
                     RateCVMasterId = rateMaster.Id,
                     BaseValue = cvDto.BaseValue!.Value,
                     CapitalValue = cvDto.CapitalValue!.Value,
-
-                    // Store factor IDs instead of values
+                     // Store factor IDs instead of values
                     FloorFactorCVId = floorFactorEntity?.Id,
                     AgeFactorCVId = ageFactorEntity?.Id,
                     NatureFactorCVId = ntbFactorEntity?.Id,
@@ -377,9 +374,8 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 dto.SubTypeOfUseDescription = pd.SubTypeOfUse?.Description;
                 dto.SubFloorDescription = pd.SubFloor?.Description;
 
-                dto.SDRR = pd.CarpetAreaSqMeter.HasValue && pd.CarpetAreaSqMeter.Value > 0 && firstCv.BaseValue.HasValue
-                    ? firstCv.BaseValue.Value / pd.CarpetAreaSqMeter.Value
-                    : 0;
+                // Use the actual rate from RateCVMaster instead of recalculating
+                dto.SDRR = firstCv.RateAmount.HasValue ? (double)firstCv.RateAmount.Value : 0;
 
                 dto.Taxes = group.Select(cv => new TaxHeadDto
                 {
@@ -464,7 +460,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
 
                 // Load master data for TaxTotalHead
                 var property = await _propertyDataLoader.LoadPropertyAsync(propertyId, cancellationToken);
-                var masterData = await _masterDataProvider.LoadMasterDataAsync( property.MoujaId!.Value, property.CSN ?? string.Empty, cancellationToken);
+                var masterData = await _masterDataProvider.LoadMasterDataAsync(property.MoujaId!.Value, property.CSN ?? string.Empty, null, cancellationToken);
 
                 var financeYear = await _propertyDataLoader.LoadFinanceYearAsync(null, cancellationToken);
 
@@ -514,7 +510,7 @@ namespace NtisPlatform.Application.Services.CapitalValue
 
                 // Load existing PolicyTaxDetailsCV and TransMastCV for update
                 var existingPolicies = await _policyTaxService.GetByPropertyIdAsync(propertyId, cancellationToken);
-                var existingPoliciesDict = existingPolicies .GroupBy(p => p.TaxId) .ToDictionary(g => g.Key, g => g.First());
+                var existingPoliciesDict = existingPolicies .GroupBy(p => p.TaxId).ToDictionary(g => g.Key, g => g.First());
                 var existingTransMast = await _transMastService.GetByPropertyIdAsync(propertyId, "CV", cancellationToken);
                 var existingTransMastDict = existingTransMast.ToDictionary(t => (t.PropertyId, t.FinanceYearId, t.TaxId), t => t);
 
