@@ -112,7 +112,7 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
 
          // Calculate factors and retrieve entities
         // Nature (NTB) Factor
-        var ntbFactorKey = (propertyDetail.ConstructionTypeId, yearRange.Id);
+        var ntbFactorKey = (propertyDetail.ConstructionTypeId ?? 0, yearRange.Id);
         decimal ntbFactor = masterData.NatureFactors.GetValueOrDefault(ntbFactorKey) ?? 1;
         if (ntbFactor == 0) ntbFactor = 1; // Treat 0 as 1 to prevent zero calculations
         var ntbFactorEntity = masterData.NatureFactorEntities?.FirstOrDefault(x => x.ConstructionTypeId == propertyDetail.ConstructionTypeId && x.YearRangeCVId == yearRange.Id);
@@ -171,7 +171,7 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
         FloorFactorCVMasterEntity? floorFactorEntity = null;
         if (propertyDetail.FloorId != 0)
         {
-            if (masterData.FloorFactors.TryGetValue((propertyDetail.FloorId, yearRange.Id), out var floorFactorFromDict))
+            if (masterData.FloorFactors.TryGetValue((propertyDetail.FloorId ?? 0, yearRange.Id), out var floorFactorFromDict))
             {
                 floorFactorEntity = floorFactorFromDict;
                 floorFactor = hasLift ? floorFactorEntity?.FactorWithLift ?? 1

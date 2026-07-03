@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.RenterDetails;
 using NtisPlatform.Application.DTOs.RenterMast;
@@ -28,6 +29,7 @@ public class DataEntryServiceTests
     private readonly Mock<IRenterDetailService> _mockRenterDetailService;
     private readonly Mock<IRenterMastService> _mockRenterMastService;
     private readonly Mock<IRoomWiseSubmissionDetailsService> _mockRoomWiseService;
+    private readonly Mock<IRepository<PropertyEntity, int>> _mockPropertyRepository;
     private readonly DataEntryService _service;
     private readonly Mock<IQueryable<PropertyDetailsEntity>> _mockQueryable;
 
@@ -39,6 +41,7 @@ public class DataEntryServiceTests
         _mockRenterDetailService = new Mock<IRenterDetailService>();
         _mockRenterMastService = new Mock<IRenterMastService>();
         _mockRoomWiseService = new Mock<IRoomWiseSubmissionDetailsService>();
+        _mockPropertyRepository = new Mock<IRepository<PropertyEntity, int>>();
         _mockQueryable = new Mock<IQueryable<PropertyDetailsEntity>>();
 
         // Setup transaction methods to prevent null Task returns
@@ -49,13 +52,18 @@ public class DataEntryServiceTests
         _mockUnitOfWork.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        // Setup empty queryable for PropertyRepository to avoid test failures
+        var emptyProperty = new List<PropertyEntity>().BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(emptyProperty);
+
         _service = new DataEntryService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
             _mockRenterDetailService.Object,
             _mockRenterMastService.Object,
-            _mockRoomWiseService.Object
+            _mockRoomWiseService.Object,
+            _mockPropertyRepository.Object
         );
     }
 
@@ -552,6 +560,398 @@ public class DataEntryServiceTests
         _mockRoomWiseService.Verify(
             s => s.UpdateRangeAsync(It.IsAny<int>(), It.IsAny<IEnumerable<UpdateRoomWiseSubmissionDetailsDto>>(), It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    #endregion
+
+    #region UpdatePropertyAsync Tests
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithValidId_UpdatesOnlySpecifiedFields()
+    {
+        // Arrange
+        var propertyId = 1;
+        var existingProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = true,
+            MarkedForDeletion = false,
+            TaxZoneId = 1,
+            WardId = 2,
+            PropertyNo = "PROP-001",
+            OwnerName = "John Doe",
+            MobileNo = "1234567890",
+            TotalPlotArea = 100.0,
+            Length = 10.0,
+            Width = 10.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 150.0,
+            Length = 15.0,
+            Width = 10.0
+        };
+
+        var expectedDto = new PropertyDto
+        {
+            Id = propertyId,
+            TotalPlotArea = 150.0,
+            Length = 15.0,
+            Width = 10.0,
+            TaxZoneId = 1,
+            WardId = 2,
+            PropertyNo = "PROP-001",
+            OwnerName = "John Doe",
+            MobileNo = "1234567890"
+        };
+
+        var properties = new List<PropertyEntity> { existingProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Setup mapper to update the entity (simulating AutoMapper behavior)
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdatePropertyMastDto>(), It.IsAny<PropertyEntity>()))
+            .Callback<UpdatePropertyMastDto, PropertyEntity>((src, dest) =>
+            {
+                dest.TotalPlotArea = src.TotalPlotArea;
+                dest.Length = src.Length;
+                dest.Width = src.Width;
+            })
+            .Returns<UpdatePropertyMastDto, PropertyEntity>((src, dest) => dest);
+
+        _mockPropertyRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
+            .Returns(expectedDto);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(150.0, result.TotalPlotArea);
+        Assert.Equal(15.0, result.Length);
+        Assert.Equal(10.0, result.Width);
+
+        // Verify that other fields remain unchanged
+        Assert.Equal("PROP-001", result.PropertyNo);
+        Assert.Equal("John Doe", result.OwnerName);
+        Assert.Equal("1234567890", result.MobileNo);
+
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithInvalidId_ReturnsNull()
+    {
+        // Arrange
+        var propertyId = 999;
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 150.0,
+            Length = 15.0,
+            Width = 10.0
+        };
+
+        var emptyProperties = new List<PropertyEntity>();
+        var mockPropertyQueryable = emptyProperties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithInactiveProperty_ReturnsNull()
+    {
+        // Arrange
+        var propertyId = 1;
+        var inactiveProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = false,
+            MarkedForDeletion = false,
+            TotalPlotArea = 100.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 150.0
+        };
+
+        var properties = new List<PropertyEntity> { inactiveProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithMarkedForDeletionProperty_ReturnsNull()
+    {
+        // Arrange
+        var propertyId = 1;
+        var deletedProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = true,
+            MarkedForDeletion = true,
+            TotalPlotArea = 100.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 150.0
+        };
+
+        var properties = new List<PropertyEntity> { deletedProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.Null(result);
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithNullValuesInDto_UpdatesFieldsToNull()
+    {
+        // Arrange
+        var propertyId = 1;
+        var existingProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = true,
+            MarkedForDeletion = false,
+            TotalPlotArea = 100.0,
+            Length = 10.0,
+            Width = 10.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = null,
+            Length = null,
+            Width = null
+        };
+
+        var expectedDto = new PropertyDto
+        {
+            Id = propertyId,
+            TotalPlotArea = null,
+            Length = null,
+            Width = null
+        };
+
+        var properties = new List<PropertyEntity> { existingProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Setup mapper to update the entity with null values
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdatePropertyMastDto>(), It.IsAny<PropertyEntity>()))
+            .Callback<UpdatePropertyMastDto, PropertyEntity>((src, dest) =>
+            {
+                dest.TotalPlotArea = src.TotalPlotArea;
+                dest.Length = src.Length;
+                dest.Width = src.Width;
+            })
+            .Returns<UpdatePropertyMastDto, PropertyEntity>((src, dest) => dest);
+
+        _mockPropertyRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
+            .Returns(expectedDto);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result.TotalPlotArea);
+        Assert.Null(result.Length);
+        Assert.Null(result.Width);
+
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_WithPartialUpdate_UpdatesOnlyNonNullFields()
+    {
+        // Arrange
+        var propertyId = 1;
+        var existingProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = true,
+            MarkedForDeletion = false,
+            TotalPlotArea = 100.0,
+            Length = 10.0,
+            Width = 10.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 200.0,
+            Length = null,  // Not updating
+            Width = null    // Not updating
+        };
+
+        var expectedDto = new PropertyDto
+        {
+            Id = propertyId,
+            TotalPlotArea = 200.0,
+            Length = null,
+            Width = null
+        };
+
+        var properties = new List<PropertyEntity> { existingProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        // Setup mapper - simulating AutoMapper's behavior of mapping all fields including nulls
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdatePropertyMastDto>(), It.IsAny<PropertyEntity>()))
+            .Callback<UpdatePropertyMastDto, PropertyEntity>((src, dest) =>
+            {
+                dest.TotalPlotArea = src.TotalPlotArea;
+                dest.Length = src.Length;
+                dest.Width = src.Width;
+            })
+            .Returns<UpdatePropertyMastDto, PropertyEntity>((src, dest) => dest);
+
+        _mockPropertyRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
+            .Returns(expectedDto);
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(200.0, result.TotalPlotArea);
+
+        _mockPropertyRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyAsync_EnsuresOtherFieldsNotModified()
+    {
+        // Arrange
+        var propertyId = 1;
+        var existingProperty = new PropertyEntity
+        {
+            Id = propertyId,
+            IsActive = true,
+            MarkedForDeletion = false,
+            TaxZoneId = 5,
+            WardId = 10,
+            PropertyNo = "ORIGINAL-001",
+            OwnerName = "Original Owner",
+            OccupierName = "Original Occupier",
+            MobileNo = "9876543210",
+            EmailId = "original@test.com",
+            Address = "123 Original St",
+            TotalPlotArea = 100.0,
+            Length = 10.0,
+            Width = 10.0
+        };
+
+        var updateDto = new UpdatePropertyMastDto
+        {
+            TotalPlotArea = 250.0,
+            Length = 25.0,
+            Width = 10.0
+        };
+
+        var properties = new List<PropertyEntity> { existingProperty };
+        var mockPropertyQueryable = properties.BuildMock();
+        _mockPropertyRepository.Setup(r => r.GetQueryable()).Returns(mockPropertyQueryable);
+
+        PropertyEntity updatedEntity = null!;
+        _mockMapper.Setup(m => m.Map(It.IsAny<UpdatePropertyMastDto>(), It.IsAny<PropertyEntity>()))
+            .Callback<UpdatePropertyMastDto, PropertyEntity>((src, dest) =>
+            {
+                // Only update the three fields as per mapping profile
+                dest.TotalPlotArea = src.TotalPlotArea;
+                dest.Length = src.Length;
+                dest.Width = src.Width;
+                updatedEntity = dest;
+            })
+            .Returns<UpdatePropertyMastDto, PropertyEntity>((src, dest) => dest);
+
+        _mockPropertyRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertyEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        _mockMapper.Setup(m => m.Map<PropertyDto>(It.IsAny<PropertyEntity>()))
+            .Returns((PropertyEntity e) => new PropertyDto
+            {
+                Id = e.Id,
+                TaxZoneId = e.TaxZoneId,
+                WardId = e.WardId,
+                PropertyNo = e.PropertyNo,
+                OwnerName = e.OwnerName,
+                OccupierName = e.OccupierName,
+                MobileNo = e.MobileNo,
+                EmailId = e.EmailId,
+                Address = e.Address,
+                TotalPlotArea = e.TotalPlotArea,
+                Length = e.Length,
+                Width = e.Width
+            });
+
+        // Act
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, default);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(updatedEntity);
+
+        // Verify updated fields
+        Assert.Equal(250.0, updatedEntity.TotalPlotArea);
+        Assert.Equal(25.0, updatedEntity.Length);
+        Assert.Equal(10.0, updatedEntity.Width);
+
+        // Verify that other fields remain unchanged
+        Assert.Equal(5, updatedEntity.TaxZoneId);
+        Assert.Equal(10, updatedEntity.WardId);
+        Assert.Equal("ORIGINAL-001", updatedEntity.PropertyNo);
+        Assert.Equal("Original Owner", updatedEntity.OwnerName);
+        Assert.Equal("Original Occupier", updatedEntity.OccupierName);
+        Assert.Equal("9876543210", updatedEntity.MobileNo);
+        Assert.Equal("original@test.com", updatedEntity.EmailId);
+        Assert.Equal("123 Original St", updatedEntity.Address);
     }
 
     #endregion

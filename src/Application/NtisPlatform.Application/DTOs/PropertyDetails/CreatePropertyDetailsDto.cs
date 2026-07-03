@@ -55,7 +55,10 @@ namespace NtisPlatform.Application.DTOs.PropertyDetails
         public bool? IsRenter { get; set; }
 
         public bool? IsTaxable { get; set; }
-
+        public bool? IsOpenPlot { get; set; }
+        public double? Length { get; set; }
+        public double? Width { get; set; }
+ 
         // Navigation collections
         public List<CreateRenterDetailsDto>? RenterDetails { get; set; }
         public List<CreateRenterMastDto>? Renters { get; set; }

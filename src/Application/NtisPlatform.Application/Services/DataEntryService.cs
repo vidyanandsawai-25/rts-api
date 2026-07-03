@@ -1,12 +1,13 @@
 using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
+ 
 
 namespace NtisPlatform.Application.Services;
 
@@ -16,6 +17,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     private readonly IRenterDetailService _renterDetailService;
     private readonly IRenterMastService _renterMastService;
     private readonly IRoomWiseSubmissionDetailsService _roomWiseService;
+    private readonly IRepository<PropertyEntity, int> _propertyRepository;
 
     public DataEntryService(
         IRepository<PropertyDetailsEntity, int> repository,
@@ -23,12 +25,14 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         IMapper mapper,
         IRenterDetailService renterDetailService,
         IRenterMastService renterMastService,
-        IRoomWiseSubmissionDetailsService roomWiseService)
+        IRoomWiseSubmissionDetailsService roomWiseService,
+        IRepository<PropertyEntity, int> propertyRepository)
         : base(repository, unitOfWork, mapper)
     {
         _renterDetailService = renterDetailService;
         _renterMastService = renterMastService;
         _roomWiseService = roomWiseService;
+        _propertyRepository = propertyRepository;
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -55,7 +59,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
 
 
     public override async Task<PagedResult<PropertyDetailsDto>> GetAllAsync( PropertyDetailsQueryParameters queryParameters, CancellationToken cancellationToken = default)
-   {
+    {
         var query = QueryWithIncludes();
 
         if (queryParameters.PropertyId is > 0)
@@ -107,6 +111,11 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
          return entity is null ? null : _mapper.Map<PropertyDetailsDto>(entity);
     }
 
+    public async Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+        return entity is null ? null : _mapper.Map<PropertyDto>(entity);
+    }
     // ────────────────────────────────────────────────────────────────
     // CREATE
     // Parent is saved first to get the generated Id, then children
@@ -115,7 +124,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     // ────────────────────────────────────────────────────────────────
     public override async Task<PropertyDetailsDto> CreateAsync( CreatePropertyDetailsDto createDto, CancellationToken cancellationToken = default)
     {
-       
+
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -124,13 +133,12 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
             await _repository.AddAsync(entity, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);   // gets entity.Id
 
-            // 2. Create all child entities using the parent's Id
+ 
+            // 3. Create all child entities using the parent's Id
             await SaveNestedListsOnCreateAsync(entity.Id, createDto, cancellationToken);
-
-            // 3. Commit transaction (includes implicit SaveChangesAsync for children)
+            // 4. Commit transaction (includes implicit SaveChangesAsync for children)
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            // 4. Reload with includes so returned DTO has all descriptions populated
+            // 5. Reload with includes so returned DTO has all descriptions populated
             return await GetByIdAsync(entity.Id, cancellationToken) ?? _mapper.Map<PropertyDetailsDto>(entity);
         }
         catch
@@ -163,18 +171,15 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
             await _repository.UpdateAsync(entity, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);   // flush parent changes
 
-            // 2. Full-replace nested lists via child services
-            //    isUpdate: true tells the helper to delete existing rows first
-            await SaveNestedListsOnUpdateAsync(
-                id,
-                updateDto,
-                cancellationToken);
-
-            // 3. Commit transaction (includes SaveChangesAsync for all changes)
+            
+            // 3. Full-replace nested lists via child services
+            // isUpdate: true tells the helper to delete existing rows first
+            await SaveNestedListsOnUpdateAsync(id,updateDto,cancellationToken);
+            // 4. Commit transaction (includes SaveChangesAsync for all changes)
             await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            // 4. Reload with includes so returned DTO has all descriptions populated
+            // 5. Reload with includes so returned DTO has all descriptions populated
             return await GetByIdAsync(id, cancellationToken);
+
         }
         catch
         {
@@ -183,6 +188,16 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         }
     }
 
+    public async Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default)
+    {
+        var property = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+        if (property is null)
+            return null;
+        _mapper.Map(updateDto, property);
+        await _propertyRepository.UpdateAsync(property, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return _mapper.Map<PropertyDto>(property);
+    }
     // ────────────────────────────────────────────────────────────────
     // SOFT DELETE
     // Delegates to the repository's built-in IsActive flag logic.
@@ -251,5 +266,4 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         if (updateDto.RoomWiseSubmissionDetails is not null)
             await _roomWiseService.UpdateRangeAsync(propertyDetailsId, updateDto.RoomWiseSubmissionDetails, cancellationToken);
     }
-
 }

@@ -679,8 +679,8 @@ public class DataEntrySameAsService : IDataEntrySameAsService
 
     // ── Projection records (avoid materializing entities with NULL IsActive) ──
     private sealed record SourceDetail(
-        int Id, bool? IsTaxable, int FloorId, int? SubFloorId, string? ConstructionYear, string? AssessmentYear,
-        int ConstructionTypeId, int TypeOfUseId, int? SubTypeOfUseId, double? CarpetAreaSqMeter,
+        int Id, bool? IsTaxable, int? FloorId, int? SubFloorId, string? ConstructionYear, string? AssessmentYear,
+        int? ConstructionTypeId, int TypeOfUseId, int? SubTypeOfUseId, double? CarpetAreaSqMeter,
         double? CarpetAreaSqFeet, double? BuiltupAreaSqMeter, double? BuiltupAreaSqFeet, int? NoOfRooms, bool? IsRenter);
 
     private sealed record SourceSubmission(

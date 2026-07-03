@@ -1,4 +1,5 @@
 using AutoMapper;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Core.Entities;
@@ -22,6 +23,7 @@ public class DataEntryMappingProfileTests
             cfg.AddProfile<RenterDetailMappingProfile>();
             cfg.AddProfile<RenterMastMappingProfile>();
             cfg.AddProfile<RoomWiseSubmissionDetailsMappingProfile>();
+            cfg.CreateMap<PropertyEntity, PropertyDto>();
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         _mapper = _configuration.CreateMapper();

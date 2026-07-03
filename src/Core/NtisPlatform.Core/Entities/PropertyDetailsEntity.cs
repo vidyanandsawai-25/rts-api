@@ -11,13 +11,13 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
 {
     public int PropertyId { get; set; }
 
-    public int FloorId { get; set; }
+    public int? FloorId { get; set; }
 
     public int? SubFloorId { get; set; }
     public string? ConstructionYear { get; set; }
     public string? AssessmentYear { get; set; }
 
-    public int ConstructionTypeId { get; set; }
+    public int? ConstructionTypeId { get; set; }
 
     public int TypeOfUseId { get; set; }
 
@@ -36,7 +36,9 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     public int? SubTypeOfUseId { get; set; }
 
     public bool? IsTaxable { get; set; }
-
+    public bool? IsOpenPlot { get; set; }
+    public double? Length { get; set; }
+    public double? Width { get; set; }
     /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>
@@ -58,13 +60,13 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     [ForeignKey(nameof(PropertyId))]
     public virtual PropertyEntity? Property { get; set; }
 
-    [ForeignKey(nameof(FloorId))]             
+          
     public virtual FloorEntity? Floor { get; set; }
 
     [ForeignKey(nameof(SubFloorId))]         
     public virtual SubFloorEntity? SubFloor { get; set; }
 
-    [ForeignKey(nameof(ConstructionTypeId))]
+   
     public virtual ConstructionTypeEntity? ConstructionType { get; set; }
 
     [ForeignKey(nameof(TypeOfUseId))]
@@ -102,5 +104,7 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     /// Collection of Property Occupancy Details associated with this property detail
     /// </summary>
     public virtual ICollection<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = new List<PropertyOccupancyDetailsEntity>();
+
+
 
 }

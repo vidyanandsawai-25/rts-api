@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
 
@@ -28,6 +29,15 @@ public class DataEntryController : ControllerBase
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
 
+
+
+    [HttpGet("GetByPropertyId/{propertyId}")]
+    public async Task<IActionResult> GetByPropertyId(int propertyId, CancellationToken ct)
+    {
+        var result = await _service.GetByPropertyIdAsync(propertyId, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
+
     [HttpPost]
     public Task<IActionResult> Create( [FromBody] CreatePropertyDetailsDto createDto, CancellationToken ct)
     {
@@ -42,11 +52,16 @@ public class DataEntryController : ControllerBase
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertyDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
+ 
+    [HttpPut("UpdateProperty/{propertyId}")]
+    public async Task<IActionResult> UpdateProperty(int propertyId, [FromBody] UpdatePropertyMastDto updateDto, CancellationToken ct)
+    {
+        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, ct);
+        return result is null ? NotFound() : Ok(result);
+    }
 
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
-
-
-
+  
 }

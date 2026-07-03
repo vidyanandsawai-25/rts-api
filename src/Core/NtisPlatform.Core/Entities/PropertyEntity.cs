@@ -92,6 +92,10 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     // Society Information
     public int? SocietyDetailId { get; set; }
 
+    /// Plot area in square meters.
+    public double? TotalPlotArea { get; set; }
+    public double? Length { get; set; }
+    public double? Width { get; set; }
     /// <summary>
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
     /// </summary>

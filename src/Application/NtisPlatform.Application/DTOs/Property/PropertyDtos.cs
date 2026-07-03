@@ -55,7 +55,11 @@ public class PropertyDto : BaseDtos
     
     // Society Information
     public int? SocietyDetailId { get; set; }
-    
+
+    public double? TotalPlotArea { get; set; }
+    public double? Length { get; set; }
+    public double? Width { get; set; }
+
     // Status
     public bool MarkedForDeletion { get; set; }
 
@@ -535,6 +539,9 @@ public class UpdatePropertyDto : UpdateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Property_SocietyDetailId_Invalid")]
     public int? SocietyDetailId { get; set; }
 
+    public double? TotalPlotArea { get; set; }
+    public double? Length { get; set; }
+    public double? Width { get; set; }
     // Status
     public bool MarkedForDeletion { get; set; } = false;
 }

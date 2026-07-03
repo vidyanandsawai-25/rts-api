@@ -81,11 +81,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     {
                         PropertyDetailsId = detail.Id,
                         Taxable = detail.IsTaxable ?? true,
-                        Floor = floorMap.TryGetValue(detail.FloorId, out var floorName) ? floorName : string.Empty,
+                        Floor = floorMap.TryGetValue(detail.FloorId ?? 0, out var floorName) ? floorName : string.Empty,
                         SubFloor = detail.SubFloorId.HasValue && subFloorMap.TryGetValue(detail.SubFloorId.Value, out var subFloorName) ? subFloorName : string.Empty,
                         ConstructionYear = detail.ConstructionYear ?? string.Empty,
                         AssessmentYear = detail.AssessmentYear ?? string.Empty,
-                        ConstructionType = constructionTypeMap.TryGetValue(detail.ConstructionTypeId, out var conType) ? conType : string.Empty,
+                        ConstructionType = constructionTypeMap.TryGetValue(detail.ConstructionTypeId??0, out var conType) ? conType : string.Empty,
                         Use = typeOfUseMap.TryGetValue(detail.TypeOfUseId, out var useName) ? useName : string.Empty,
                         SubTypeOfUse = detail.SubTypeOfUseId.HasValue && subTypeOfUseMap.TryGetValue(detail.SubTypeOfUseId.Value, out var subUse)
                             ? subUse

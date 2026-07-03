@@ -93,7 +93,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             };
 
             var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, Type = "R", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId??0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
@@ -119,7 +119,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             };
 
             var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 1200m, IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 1200m, IsActive = true } };
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
@@ -146,7 +146,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             };
 
             var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 1200m, IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 1200m, IsActive = true } };
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
@@ -203,7 +203,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             };
 
             var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, Type = "N", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
@@ -238,7 +238,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             };
 
             var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, Type = "n", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId, ConstructionTypeId = detail.ConstructionTypeId, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, YearRangeRVId = 1, RateSquareMeter = 1000m, IsActive = true } };
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }

@@ -101,7 +101,9 @@ public class AutoMapperValidationTest
               "PinCode", "AlternateMobileNo", "OccupierMobileNo", "BuilderMobile",
               // Property entity fields not mapped from Create/Update DTOs
               "IsCombineProperty", "PropertyMastOldId", "PropertyAssessmentStatusId",
-              "MobileNoRemarkId", "OccupierMobileNoRemarkId",
+              "MobileNoRemarkId", "OccupierMobileNoRemarkId", "TotalPlotArea",
+              // Plot dimensions (mapped only in specific UpdatePropertyMastDto scenario)
+              "Length", "Width",
               // Owner/Occupier detail fields (present in entity but not in some DTOs)
               "OwnerTitle", "OwnerTitleEnglish", "OwnerNameEnglish", "OwnerName",
               "OccupierTitle", "OccupierName", "OccupierTitleEnglish", "OccupierNameEnglish",

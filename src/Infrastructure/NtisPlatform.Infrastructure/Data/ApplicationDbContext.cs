@@ -1604,18 +1604,20 @@ public class ApplicationDbContext : DbContext
 
             entity.HasOne(e => e.Floor)
                   .WithMany(p => p.PropertyDetails)
-                  .HasForeignKey(e => e.FloorId)
+                  //.HasForeignKey(e => e.FloorId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.SubFloor)
                   .WithMany(p => p.PropertyDetails)
-                  .HasForeignKey(e => e.SubFloorId)
+                  //.HasForeignKey(e => e.SubFloorId)
                   .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.ConstructionType)
                   .WithMany(p => p.PropertyDetails)
-                  .HasForeignKey(e => e.ConstructionTypeId)
+                  //.HasForeignKey(e => e.ConstructionTypeId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+
 
             entity.HasOne(e => e.TypeOfUse)
                   .WithMany(p => p.PropertyDetails)
@@ -1788,6 +1790,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyAssessmentStatusId);
             entity.Property(e => e.PropertyMastOldId);
             entity.Property(e => e.PropertyFloorId);
+ 
+            entity.Property(e => e.TotalPlotArea).HasColumnType("float");
+ 
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
