@@ -168,44 +168,32 @@ public class PropertySearchDtoTests
         var dto = new PropertySearchRequestDto();
 
         // Assert
-        Assert.Null(dto.RVorCV);
-        Assert.Null(dto.AmountFilterOperator);
+        Assert.Null(dto.ValuationMethod);
+        Assert.Null(dto.FilterType);
         Assert.Null(dto.AmountValue);
         Assert.Null(dto.AmountTo);
+        Assert.Null(dto.TopCount);
     }
 
     [Fact]
     public void PropertySearchRequestDto_ValuesAndDuesProperties_CanBeSet_AndRetrieved()
     {
-        // Arrange
-        var dto = new PropertySearchRequestDto();
-
-        // Act
-        dto.RVorCV = "CV";
-        dto.AmountFilterOperator = "Between";
-        dto.AmountValue = 30000m;
-        dto.AmountTo = 60000m;
+        // Arrange & Act
+        var dto = new PropertySearchRequestDto
+        {
+            ValuationMethod = "RV",
+            FilterType = "Between",
+            AmountValue = 30000m,
+            AmountTo = 60000m,
+            TopCount = 10
+        };
 
         // Assert
-        Assert.Equal("CV", dto.RVorCV);
-        Assert.Equal("Between", dto.AmountFilterOperator);
+        Assert.Equal("RV", dto.ValuationMethod);
+        Assert.Equal("Between", dto.FilterType);
         Assert.Equal(30000m, dto.AmountValue);
         Assert.Equal(60000m, dto.AmountTo);
-    }
-
-    [Fact]
-    public void PropertySearchRequestDto_AmountFilterOperator_CanStoreSwaggerNumericEnumValue()
-    {
-        // Arrange
-        var dto = new PropertySearchRequestDto();
-
-        // Act
-        dto.AmountFilterOperator = "0";
-        dto.AmountValue = 1224666m;
-
-        // Assert
-        Assert.Equal("0", dto.AmountFilterOperator);
-        Assert.Equal(1224666m, dto.AmountValue);
+        Assert.Equal(10, dto.TopCount);
     }
 
     #endregion

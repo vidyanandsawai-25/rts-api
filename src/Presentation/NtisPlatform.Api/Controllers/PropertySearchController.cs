@@ -172,16 +172,49 @@ public class PropertySearchController : ControllerBase
     }
 
     /// <summary>
-    /// Returns all units (children) of a given apartment or structure property.
-    /// If propertyId refers to an apartment (with empty PartitionNo), returns all structures.
-    /// If propertyId refers to a structure (with non-empty PartitionNo), returns all units of that structure.
+    /// Returns all units (children) of a given apartment or structure property with optional filtering.
+    /// If propertyId refers to an apartment (empty PartitionNo), returns all child properties with non-empty PartitionNo.
+    /// If propertyId refers to a structure (non-empty PartitionNo), returns all units with the same PartitionNo.
+    /// The response includes TotalCount of returned items and supports the same filters as the grid API.
     /// </summary>
     [HttpGet("apartmentunitlist")]
-    [ProducesResponseType(typeof(ApiResponse<List<PropertySearchResponseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<ApartmentUnitListResponseDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public async Task<ActionResult<ApiResponse<List<PropertySearchResponseDto>>>> GetApartmentUnitList(
+    public async Task<ActionResult<ApiResponse<ApartmentUnitListResponseDto>>> GetApartmentUnitList(
         [FromQuery(Name = "propertyId")] int propertyId,
+        // Dashboard and Process filters
+        [FromQuery] int? dashboardFilter = null,
+        [FromQuery] int? propertyProcessFilter = null,
+        // Quick Search filters
+        [FromQuery] int? propertyTypeId = null,
+        [FromQuery] int? typeOfUseId = null,
+        [FromQuery] int? zoneId = null,
+        [FromQuery] int? wardId = null,
+        [FromQuery] int? categoryId = null,
+        [FromQuery] string? propertyNoFrom = null,
+        [FromQuery] string? propertyNoTo = null,
+        [FromQuery] string? oldPropertyNo = null,
+        [FromQuery] string? upicId = null,
+        [FromQuery] string? csn = null,
+        [FromQuery] string? subZoneNo = null,
+        [FromQuery] string? plotNo = null,
+        [FromQuery] int? propertyAssessmentStatusId = null,
+        [FromQuery] int? workflowStageId = null,
+        [FromQuery] int? propertyDescriptionId = null,
+        // KYC Search filters
+        [FromQuery] string? mobileNo = null,
+        [FromQuery] string? ownerName = null,
+        [FromQuery] string? occupierName = null,
+        [FromQuery] string? flatOrShopName = null,
+        [FromQuery] string? societyName = null,
+        [FromQuery] string? address = null,
+        // Values & Dues filters
+        [FromQuery] string? valuationMethod = null,
+        [FromQuery] string? filterType = null,
+        [FromQuery] decimal? amountValue = null,
+        [FromQuery] decimal? amountTo = null,
+        [FromQuery] int? topCount = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -193,14 +226,47 @@ public class PropertySearchController : ControllerBase
                     Message = "Invalid propertyId. Must be a positive integer."
                 });
 
-            _logger.LogInformation("Fetching apartment unit list for property {PropertyId}", propertyId);
+            _logger.LogInformation("Fetching apartment unit list for property {PropertyId} with filters", propertyId);
 
-            var result = await _propertySearchService.GetApartmentUnitListAsync(propertyId, cancellationToken);
+            // Build search request with all filters
+            var searchRequest = new PropertySearchRequestDto
+            {
+                DashboardFilter = dashboardFilter.HasValue ? (NtisPlatform.Core.Enums.DashboardFilterType?)dashboardFilter.Value : null,
+                PropertyProcessFilter = propertyProcessFilter.HasValue ? (NtisPlatform.Core.Enums.PropertyProcessFilterType?)propertyProcessFilter.Value : null,
+                PropertyTypeId = propertyTypeId,
+                TypeOfUseId = typeOfUseId,
+                ZoneId = zoneId,
+                WardId = wardId,
+                CategoryId = categoryId,
+                PropertyNoFrom = propertyNoFrom,
+                PropertyNoTo = propertyNoTo,
+                OldPropertyNo = oldPropertyNo,
+                UPICId = upicId,
+                CSN = csn,
+                SubZoneNo = subZoneNo,
+                PlotNo = plotNo,
+                PropertyAssessmentStatusId = propertyAssessmentStatusId,
+                WorkflowStageId = workflowStageId,
+                PropertyDescriptionId = propertyDescriptionId,
+                MobileNo = mobileNo,
+                OwnerName = ownerName,
+                OccupierName = occupierName,
+                FlatOrShopName = flatOrShopName,
+                SocietyName = societyName,
+                Address = address,
+                ValuationMethod = valuationMethod,
+                FilterType = filterType,
+                AmountValue = amountValue,
+                AmountTo = amountTo,
+                TopCount = topCount
+            };
 
-            return Ok(new ApiResponse<List<PropertySearchResponseDto>>
+            var result = await _propertySearchService.GetApartmentUnitListAsync(propertyId, searchRequest, cancellationToken);
+
+            return Ok(new ApiResponse<ApartmentUnitListResponseDto>
             {
                 Success = true,
-                Message = "Apartment unit list retrieved successfully",
+                Message = $"Apartment unit list retrieved successfully ({result.ItemType}: {result.TotalCount})",
                 Items = result
             });
         }

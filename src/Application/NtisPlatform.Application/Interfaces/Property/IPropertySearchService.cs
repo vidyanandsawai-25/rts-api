@@ -6,13 +6,13 @@ using NtisPlatform.Core.Models;
 namespace NtisPlatform.Application.Interfaces.Property;
 
 /// <summary>
-/// Use-case boundary for the "Property Discovery and Dashboard Statistics" capability —
+/// Use-case boundary for the "Property Discovery and Dashboard Statistics" capability -
 /// two read-only operations that serve the search and monitoring needs of the
 /// property management system:
 /// <list type="bullet">
-///   <item><description><b>SearchPropertiesAsync</b> — a validated multi-criteria query
+///   <item><description><b>SearchPropertiesAsync</b> - a validated multi-criteria query
 ///   (Quick Search or KYC Search) that returns a paged result set.</description></item>
-///   <item><description><b>GetPropertyDashboardStatsAsync</b> — a count-summary query
+///   <item><description><b>GetPropertyDashboardStatsAsync</b> - a count-summary query
 ///   returning per-status aggregates for the dashboard.</description></item>
 /// </list>
 /// <para>
@@ -24,24 +24,22 @@ namespace NtisPlatform.Application.Interfaces.Property;
 public interface IPropertySearchService
 {
     /// <summary>
-    /// <b>Query</b> — Searches properties using Quick Search or KYC Search criteria with
-    /// server-side pagination. Both search modes are selected via <c>queryParameters.SearchType</c>.
+    /// Query - Searches properties using Quick Search or KYC Search criteria with
+    /// server-side pagination. Both search modes are selected via queryParameters.SearchType.
+    /// Supports Values and Dues filtering via ValuationMethod, FilterType, and amount parameters.
     /// </summary>
     /// <exception cref="NtisPlatform.Application.Exceptions.PropertyValidationException">
-    /// Thrown when amount-filter parameters (min/max tax amount) are invalid.
+    /// Thrown when ValuationMethod/FilterType/amount parameters are invalid or incomplete (e.g., FilterType='Between' without AmountTo).
     /// </exception>
     Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// <b>Query</b> — Returns per-status property counts for the dashboard overview panel.
+    /// Query - Returns per-status property counts for the dashboard overview panel.
     /// </summary>
     Task<PropertyDashboardStatsDto> GetPropertyDashboardStatsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the list of available scope categories and their input options.
-    /// </summary>
-    /// <param name="category">Optional scope category filter</param>
-    /// <b>Query</b> — Returns the 3 main dashboard cards with structure/unit/demand breakdown.
+    /// Query - Returns the 3 main dashboard cards with structure/unit/demand breakdown.
     /// Accepts optional filters: property type, type of use, zone, ward, category.
     /// </summary>
     Task<MainCardsResponseDto> GetMainCardsAsync(
@@ -49,7 +47,7 @@ public interface IPropertySearchService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// <b>Query</b> — Returns workflow stage cards with structure/unit counts per stage.
+    /// Query - Returns workflow stage cards with structure/unit counts per stage.
     /// Accepts the same optional filters as GetMainCardsAsync.
     /// </summary>
     Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
@@ -57,19 +55,24 @@ public interface IPropertySearchService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// <b>Query</b> — Returns scope category options for the property search scope selector.
-    /// When <paramref name="category"/> is provided, returns only that category's options;
+    /// Query - Returns scope category options for the property search scope selector.
+    /// When category parameter is provided, returns only that category's options;
     /// otherwise returns all categories.
     /// </summary>
+    /// <param name="category">Optional scope category filter</param>
+    /// <returns>List of scope category DTOs with options</returns>
     List<ScopeCategoryDto> GetScopeOptions(ScopeCategory? category);
 
     /// <summary>
-    /// <b>Query</b> — Returns all units (children) of a given apartment or structure property.
-    /// If propertyId refers to an apartment, returns all structures.
-    /// If propertyId refers to a structure, returns all units of that structure.
+    /// Query - Returns all units (children) of a given apartment or structure property with optional filtering.
+    /// If propertyId refers to an apartment (empty PartitionNo), returns all units (non-empty PartitionNo) and structures.
+    /// If propertyId refers to a structure (non-empty PartitionNo), returns all units with the same PartitionNo.
+    /// Response displays all results as Units with total count across all matching properties.
+    /// Supports the same filters as SearchPropertiesAsync (RV, CV, Total Tax, property type, zone, ward, etc.)
     /// </summary>
     /// <param name="propertyId">Parent property ID (apartment or structure)</param>
+    /// <param name="searchRequest">Optional filter request DTO with grid filters</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of child properties (structures or units)</returns>
-    Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(int propertyId, CancellationToken cancellationToken = default);
+    /// <returns>Apartment unit list with all properties displayed as units and total count</returns>
+    Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default);
 }

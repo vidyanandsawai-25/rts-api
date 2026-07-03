@@ -130,41 +130,42 @@ public class PropertySearchRequestDto
     /// </summary>
     public string? Address { get; set; }
 
-
     // Values & Dues Search Tab Parameters
 
     /// <summary>
-    /// Valuation type for filtering: RV, CV, or TaxTotal.
+    /// Valuation type for filtering: RV, CV, or Total Tax.
     /// Determines which value is used for amount filtering.
-    /// RV = Rateable Value, CV = Capital Value, TaxTotal = Total Tax Amount
+    /// <para>• <b>RV</b> - Filter by Rateable Value</para>
+    /// <para>• <b>CV</b> - Filter by Capital Value</para>
+    /// <para>• <b>Total Tax</b> - Filter by Total Tax Amount</para>
     /// </summary>
-    public string? ValuationTypeFilter { get; set; }
-
-    /// <summary>
-    /// Filter by RV or CV type. Allowed values: RV, CV.
-    /// </summary>
-    public string? RVorCV { get; set; }
+    public string? ValuationMethod { get; set; }
 
     /// <summary>
     /// Filter operator for amount filtering (RV, CV, or Total Tax).
-    /// Supported values: Equals, GreaterThan, LessThan, Between, Top.
+    /// <para><b>Valid values:</b></para>
+    /// <para>• <b>Exact Value</b> - Find properties with exact amount (requires AmountValue)</para>
+    /// <para>• <b>More Than</b> - Find properties with amount greater than (requires AmountValue)</para>
+    /// <para>• <b>Less Than</b> - Find properties with amount less than (requires AmountValue)</para>
+    /// <para>• <b>Between</b> - Find properties with amount between two values (requires AmountValue and AmountTo)</para>
+    /// <para>• <b>Top</b> - Get top N properties with highest values (requires TopCount)</para>
     /// </summary>
-    public string? AmountFilterOperator { get; set; }
+    public string? FilterType { get; set; }
 
     /// <summary>
-    /// Amount value used for Total Tax filtering.
+    /// Amount value used for filtering.
     /// For Between filter, this is the starting amount.
     /// </summary>
     public decimal? AmountValue { get; set; }
 
     /// <summary>
-    /// Ending amount used only when AmountFilterOperator is Between.
+    /// Ending amount used only when FilterType is Between.
     /// </summary>
     public decimal? AmountTo { get; set; }
 
     /// <summary>
-    /// Number of top properties to return when AmountFilterOperator is Top.
-    /// Returns properties with highest total tax values.
+    /// Number of top properties to return when FilterType is Top.
+    /// Returns properties with highest valuation values.
     /// </summary>
     public int? TopCount { get; set; }
 }
@@ -195,4 +196,30 @@ public class PropertySearchResponseDto
     public decimal? RV { get; set; }
     public decimal? CV { get; set; }
     public decimal? TotalTax { get; set; }
+    /// <summary>
+    /// For main apartment properties (empty PartitionNo), count of child units (flats) with non-empty PartitionNo.
+    /// Null for non-apartment categories or apartment units with PartitionNo.
+    /// </summary>
+    public int? ChildUnitCount { get; set; }
+}
+
+/// <summary>
+/// Response DTO for apartment unit list - all properties displayed as units
+/// </summary>
+public class ApartmentUnitListResponseDto
+{
+    /// <summary>
+    /// List of all properties (displayed as units)
+    /// </summary>
+    public List<PropertySearchResponseDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Total count of all units (all properties displayed)
+    /// </summary>
+    public int TotalCount { get; set; }
+
+    /// <summary>
+    /// Display label: always "Units" (all properties are units)
+    /// </summary>
+    public string ItemType => "Units";
 }

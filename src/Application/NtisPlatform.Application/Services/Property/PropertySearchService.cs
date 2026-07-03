@@ -28,50 +28,8 @@ public class PropertySearchService : IPropertySearchService
 
     public async Task<PagedResult<PropertySearchResponseDto>> SearchPropertiesAsync(PropertySearchQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
-        // Values & Dues validation
-        var op = queryParameters.AmountFilterOperator;
-        var from = queryParameters.AmountValue;
-        var to = queryParameters.AmountTo;
-        var topCount = queryParameters.TopCount;
-
-        // Validate AmountFilterOperator if provided
-        if (!string.IsNullOrWhiteSpace(op))
-        {
-            var opTrimmed = op.Trim();
-
-            // Check if operator is valid for tax filtering
-            if (!Enum.TryParse<FilterOperator>(opTrimmed, ignoreCase: true, out var parsedOp) ||
-                !Enum.IsDefined(typeof(FilterOperator), parsedOp) ||
-                (parsedOp != FilterOperator.Equals &&
-                 parsedOp != FilterOperator.GreaterThan &&
-                 parsedOp != FilterOperator.LessThan &&
-                 parsedOp != FilterOperator.Between &&
-                 parsedOp != FilterOperator.Top))
-            {
-                throw new PropertyValidationException($"Invalid AmountFilterOperator value: '{opTrimmed}'. Valid values are: Equals, GreaterThan, LessThan, Between, Top");
-            }
-
-            // Validate required fields based on operator
-            if (parsedOp == FilterOperator.Top)
-            {
-                if (!topCount.HasValue || topCount.Value <= 0)
-                    throw new PropertyValidationException("TopCount must be a positive number when AmountFilterOperator is Top.");
-            }
-            else
-            {
-                if (!from.HasValue)
-                    throw new PropertyValidationException($"AmountValue is required when AmountFilterOperator is '{opTrimmed}'.");
-
-                if (parsedOp == FilterOperator.Between)
-                {
-                    if (!to.HasValue)
-                        throw new PropertyValidationException("AmountTo is required when AmountFilterOperator is Between.");
-
-                    if (from.Value > to.Value)
-                        throw new PropertyValidationException("AmountValue cannot be greater than AmountTo.");
-                }
-            }
-        }
+        // Validate Values & Dues filters
+        ValidateValuesAndDuesFilters(queryParameters);
 
         // Map query parameters to repository request DTO
         var searchRequest = new PropertySearchRequestDto
@@ -99,9 +57,9 @@ public class PropertySearchService : IPropertySearchService
             FlatOrShopName = queryParameters.FlatOrShopName,
             SocietyName = queryParameters.SocietyName,
             Address = queryParameters.Address,
-            ValuationTypeFilter = queryParameters.ValuationTypeFilter,
-            RVorCV = queryParameters.RVorCV,
-            AmountFilterOperator = queryParameters.AmountFilterOperator,
+            // Values & Dues filters
+            ValuationMethod = queryParameters.ValuationMethod,
+            FilterType = queryParameters.FilterType,
             AmountValue = queryParameters.AmountValue,
             AmountTo = queryParameters.AmountTo,
             TopCount = queryParameters.TopCount
@@ -160,6 +118,87 @@ public class PropertySearchService : IPropertySearchService
         }).ToList();
     }
 
-    public Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(int propertyId, CancellationToken cancellationToken = default)
-        => _repository.GetApartmentUnitListAsync(propertyId, cancellationToken);
+    public async Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
+    {
+        if (searchRequest != null)
+        {
+            ValidateValuesAndDuesFilters(new PropertySearchQueryParameters
+            {
+                ValuationMethod = searchRequest.ValuationMethod,
+                FilterType = searchRequest.FilterType,
+                AmountValue = searchRequest.AmountValue,
+                AmountTo = searchRequest.AmountTo,
+                TopCount = searchRequest.TopCount
+            });
+        }
+
+        return await _repository.GetApartmentUnitListAsync(propertyId, searchRequest, cancellationToken);
+    }
+
+    /// <summary>
+    /// Validates Values & Dues filter parameters (ValuationMethod/FilterType/AmountValue/AmountTo/TopCount).
+    /// Throws PropertyValidationException if invalid combinations are detected.
+    /// </summary>
+    private void ValidateValuesAndDuesFilters(PropertySearchQueryParameters queryParameters)
+    {
+        var valuationMethod = queryParameters.ValuationMethod?.Trim();
+        var filterType = queryParameters.FilterType?.Trim();
+
+        // If ValuationMethod is provided without FilterType, that's invalid
+        if (!string.IsNullOrWhiteSpace(valuationMethod) && string.IsNullOrWhiteSpace(filterType))
+        {
+            throw new PropertyValidationException("FilterType is required when ValuationMethod is provided.");
+        }
+
+        // If FilterType is provided, validate it and its required parameters
+        if (!string.IsNullOrWhiteSpace(filterType))
+        {
+            if (string.IsNullOrWhiteSpace(valuationMethod))
+            {
+                throw new PropertyValidationException("ValuationMethod is required when FilterType is provided.");
+            }
+
+            // Validate ValuationMethod - only RV and CV are allowed from PolicyConfiguration
+            var validValuationMethods = new[] { "RV", "CV" };
+            if (!validValuationMethods.Any(v => v.Equals(valuationMethod, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new PropertyValidationException($"Invalid ValuationMethod: '{valuationMethod}'. Valid values from PolicyConfiguration are: RV, CV");
+            }
+
+            // Validate FilterType value
+            var validFilterTypes = new[] { "Exact Value", "More Than", "Less Than", "Between", "Top" };
+            if (!validFilterTypes.Any(f => f.Equals(filterType, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new PropertyValidationException($"Invalid FilterType: '{filterType}'. Valid values are: Exact Value, More Than, Less Than, Between, Top");
+            }
+
+            // Validate parameters based on FilterType
+            if (filterType.Equals("Top", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!queryParameters.TopCount.HasValue || queryParameters.TopCount.Value <= 0)
+                {
+                    throw new PropertyValidationException("TopCount must be a positive integer when FilterType is 'Top'.");
+                }
+            }
+            else
+            {
+                if (!queryParameters.AmountValue.HasValue)
+                {
+                    throw new PropertyValidationException($"AmountValue is required when FilterType is '{filterType}'.");
+                }
+
+                if (filterType.Equals("Between", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!queryParameters.AmountTo.HasValue)
+                    {
+                        throw new PropertyValidationException("AmountTo is required when FilterType is 'Between'.");
+                    }
+                    if (queryParameters.AmountValue.Value > queryParameters.AmountTo.Value)
+                    {
+                        throw new PropertyValidationException("AmountValue cannot be greater than AmountTo.");
+                    }
+                }
+            }
+        }
+    }
 }

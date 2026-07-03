@@ -40,12 +40,15 @@ public interface IPropertySearchRepository
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all units (children) of a given apartment or structure property.
-    /// If propertyId refers to an apartment, returns all structures.
-    /// If propertyId refers to a structure, returns all units of that structure.
+    /// Gets all units (children) of a given apartment or structure property with optional filtering.
+    /// If propertyId refers to an apartment (empty PartitionNo), returns all units (non-empty PartitionNo) and structures.
+    /// If propertyId refers to a structure (non-empty PartitionNo), returns all units with the same PartitionNo.
+    /// Response displays all results as "Units" with total count across all matching properties.
+    /// Supports the same filters as SearchPropertiesAsync (RV, CV, Total Tax, property type, zone, ward, etc.)
     /// </summary>
     /// <param name="propertyId">Parent property ID (apartment or structure)</param>
+    /// <param name="searchRequest">Optional filter request DTO with grid filters</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>List of child properties (structures or units)</returns>
-    Task<List<PropertySearchResponseDto>> GetApartmentUnitListAsync(int propertyId, CancellationToken cancellationToken = default);
+    /// <returns>Apartment unit list with all properties displayed as units and total count</returns>
+    Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default);
 }
