@@ -599,8 +599,9 @@ public class RateableValuePolicyCalculationTests
             policyOptions);
 
         // Assert
-        Assert.Equal(Convert.ToDecimal(expectedArea), result.TotalAreaSqMtr);
         Assert.NotNull(result);
+        Assert.True(result.TotalAreaSqMtr.HasValue);
+        Assert.Equal(expectedArea, result.TotalAreaSqMtr.Value, precision: 10);
         Assert.Equal(1, result.PropertyId);
     }
 
@@ -648,7 +649,7 @@ public class RateableValuePolicyCalculationTests
             new List<RenterMastEntity>(), policyOptions);
 
         // Assert: YearlyRent = 100 * 100 * 12 = 120000
-        Assert.Equal(120000m, result.YearlyRent);
+        Assert.Equal(120000d, result.YearlyRent);
     }
 
     [Fact]
@@ -695,7 +696,7 @@ public class RateableValuePolicyCalculationTests
             new List<RenterMastEntity>(), policyOptions);
 
         // Assert: YearlyRent = 100 * 1200 = 120000
-        Assert.Equal(120000m, result.YearlyRent);
+        Assert.Equal(120000d, result.YearlyRent);
     }
 
     [Fact]
@@ -735,8 +736,8 @@ public class RateableValuePolicyCalculationTests
 
         // Assert: Uses default policies - CarpetArea, SqMeter, Yearly
         // YearlyRent = 100 * 1200 = 120000 (yearly calculation)
-        Assert.Equal(120000m, result.YearlyRent);
-        Assert.Equal(100m, result.TotalAreaSqMtr);
+        Assert.Equal(120000d, result.YearlyRent);
+        Assert.Equal(100d, result.TotalAreaSqMtr);
     }
 
     [Fact]
@@ -775,7 +776,7 @@ public class RateableValuePolicyCalculationTests
             new List<RenterMastEntity>(), null!);
 
         // Assert: Uses default policies
-        Assert.Equal(120000m, result.YearlyRent);
+        Assert.Equal(120000d, result.YearlyRent);
     }
 
     [Fact]
@@ -805,7 +806,7 @@ public class RateableValuePolicyCalculationTests
         // Assert
         Assert.Equal("Not Taxable", result.AppliedOn);
         Assert.Equal(0m, result.RateableValue);
-        Assert.Equal(0m, result.YearlyRent);
+        Assert.Equal(0d, result.YearlyRent);
     }
 
     #endregion

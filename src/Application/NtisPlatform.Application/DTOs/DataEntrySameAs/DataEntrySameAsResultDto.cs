@@ -25,7 +25,7 @@ public class DataEntrySameAsResultDto
     /// <summary>Number of PropertyMast rows whose Type was updated (TYPEWISE only).</summary>
     public int TypeUpdatedProperties { get; set; }
 
-    /// <summary>Number of BuildingPlanType rows inserted (TYPEWISE only; unique on PropertyId+Type, insert-only).</summary>
+    /// <summary>Number of BuildingPlanType rows inserted (TYPEWISE only; unique on WardId+PropertyNo+Type, insert-only).</summary>
     public int BuildingPlanTypeInserted { get; set; }
 
     /// <summary>Non-fatal notes (e.g. dropped destination ids).</summary>

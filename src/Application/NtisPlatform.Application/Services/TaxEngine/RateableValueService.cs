@@ -416,7 +416,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                     decimal taxBase = isCalculatedOnRV
                         ? detailsOfType.Sum(d => baseResultsCache[d.Id].RateableValue ?? 0m)
-                        : detailsOfType.Sum(d => baseResultsCache[d.Id].AnnualRentalValue ?? 0m);
+                        : detailsOfType.Sum(d => (decimal)(baseResultsCache[d.Id].AnnualRentalValue ?? 0d));
 
                     _logger.LogInformation(
                         "[EducationEmploymentTax] PropertyType={PropertyType}, Policy={PolicyValue}, " +
@@ -607,8 +607,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 Maintenance = baseResult.Maintenance,
                 RateableValue = baseResult.RateableValue,
                 TotalAreaSqMtr = baseResult.TotalAreaSqMtr,
-                RAreaSqMtr = isR ? baseResult.TotalAreaSqMtr : 0m,
-                CAreaSqlMtr = isC ? baseResult.TotalAreaSqMtr : 0m,
+                RAreaSqMtr = isR ? baseResult.TotalAreaSqMtr : 0d,
+                CAreaSqlMtr = isC ? baseResult.TotalAreaSqMtr : 0d,
                 TaxId = taxMaster.Id,
                 TaxPercentage = percentage,
                 TaxAmount = amount,

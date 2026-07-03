@@ -70,16 +70,16 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.NotNull(result);
             Assert.Equal(1, result.PropertyId);
             Assert.Equal(100, result.PropertyDetailsId);
-            Assert.Equal(0m, result.MonthlyRate);
-            Assert.Equal(0m, result.YearlyRate);
-            Assert.Equal(0m, result.YearlyRent);
+            Assert.Equal(0d, result.MonthlyRate);
+            Assert.Equal(0d, result.YearlyRate);
+            Assert.Equal(0d, result.YearlyRent);
             Assert.Equal(0m, result.Depreciation);
             Assert.Equal(0m, result.DepreciationPer);
             Assert.Equal("Not Taxable", result.AppliedOn);
-            Assert.Equal(0m, result.AnnualRentalValue);
+            Assert.Equal(0d, result.AnnualRentalValue);
             Assert.Equal(0m, result.Maintenance);
             Assert.Equal(0m, result.RateableValue);
-            Assert.Equal(0m, result.RAreaSqMtr);
+            Assert.Equal(0d, result.RAreaSqMtr);
         }
 
         [Fact]
@@ -181,15 +181,15 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
                 new List<TypeOfUseEntity>(), new List<RateEntity>(),
                 new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>());
 
-            Assert.Equal(0m, result.MonthlyRate);
-            Assert.Equal(0m, result.YearlyRate);
-            Assert.Equal(0m, result.YearlyRent);
+            Assert.Equal(0d, result.MonthlyRate);
+            Assert.Equal(0d, result.YearlyRate);
+            Assert.Equal(0d, result.YearlyRent);
             Assert.Equal(0m, result.Depreciation);
             Assert.Equal(0m, result.DepreciationPer);
-            Assert.Equal(0m, result.AnnualRentalValue);
+            Assert.Equal(0d, result.AnnualRentalValue);
             Assert.Equal(0m, result.Maintenance);
             Assert.Equal(0m, result.RateableValue);
-            Assert.Equal(0m, result.RAreaSqMtr);
+            Assert.Equal(0d, result.RAreaSqMtr);
         }
 
         [Fact]
@@ -215,16 +215,16 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.NotNull(result);
             Assert.Equal(1, result.PropertyId);
             Assert.Equal(100, result.PropertyDetailsId);
-            Assert.Equal(0m, result.MonthlyRate);
-            Assert.Equal(0m, result.YearlyRate);
-            Assert.Equal(0m, result.YearlyRent);
+            Assert.Equal(0d, result.MonthlyRate);
+            Assert.Equal(0d, result.YearlyRate);
+            Assert.Equal(0d, result.YearlyRent);
             Assert.Equal(0m, result.Depreciation);
             Assert.Equal(0m, result.DepreciationPer);
             Assert.Equal("Type is N", result.AppliedOn);
-            Assert.Equal(0m, result.AnnualRentalValue);
+            Assert.Equal(0d, result.AnnualRentalValue);
             Assert.Equal(0m, result.Maintenance);
             Assert.Equal(0m, result.RateableValue);
-            Assert.Equal(0m, result.RAreaSqMtr);
+            Assert.Equal(0d, result.RAreaSqMtr);
         }
 
         [Fact]

@@ -8,22 +8,18 @@ namespace NtisPlatform.Core.Entities;
 /// </summary>
 public class BuildingPlanTypeEntity : BaseEntity, IHardDeletable
 {
-    public int PropertyId { get; set; }
+    public int WardId { get; set; }
+
+    public string PropertyNo { get; set; } = string.Empty;
 
     /// <summary>
     /// Building plan type value (varchar(5) in the database).
     /// </summary>
-    public string? Type { get; set; }
+    public string Type { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Optional reference to a CORE.Document. Nullable; left null when no document is associated.
-    /// </summary>
-    public Guid? DocumentGuid { get; set; }
+    public int? DocumentBindingId { get; set; }
 
     public bool MarkedForDeletion { get; set; } = false;
 
     public DateTime? MarkedForDeletionDate { get; set; }
-
-    // Navigation property to the owning property.
-    public virtual PropertyEntity? Property { get; set; }
 }

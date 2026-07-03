@@ -149,25 +149,25 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 PropertyId = detail.PropertyId,
                 PropertyDetailsId = detail.Id,
 
-                MonthlyRate = Math.Round(monthlyRate, 2),
-                YearlyRate = yearlyRate,
-                YearlyRent = yearlyRent,
+                MonthlyRate = (double)Math.Round(monthlyRate, 2),
+                YearlyRate = (double)yearlyRate,
+                YearlyRent = (double)yearlyRent,
 
                 Depreciation = depreciationAmount,
                 DepreciationPer = depreciationRate,
                 AppliedOn = appliedOn,
 
-                AnnualRentalValue = annualRentalValue,
+                AnnualRentalValue = (double)annualRentalValue,
                 Maintenance = maintenance,
                 RateableValue = rateableValue,
 
-                TotalAreaSqMtr = areaSqMtr,
+                TotalAreaSqMtr = (double)areaSqMtr,
 
                 RAreaSqMtr = string.Equals(typeOfUse.Type, "R", StringComparison.OrdinalIgnoreCase)
-                    ? areaSqMtr : 0m,
+                    ? (double)areaSqMtr : 0d,
 
                 CAreaSqlMtr = string.Equals(typeOfUse.Type, "C", StringComparison.OrdinalIgnoreCase)
-                    ? areaSqMtr : 0m
+                    ? (double)areaSqMtr : 0d
             };
         }
 
@@ -202,18 +202,18 @@ namespace NtisPlatform.Application.Services.TaxEngine
             {
                 PropertyId = detail.PropertyId,
                 PropertyDetailsId = detail.Id,
-                MonthlyRate = 0m,
-                YearlyRate = 0m,
-                YearlyRent = 0m,
+                MonthlyRate = 0d,
+                YearlyRate = 0d,
+                YearlyRent = 0d,
                 Depreciation = 0m,
                 DepreciationPer = 0m,
                 AppliedOn = appliedOn,
-                AnnualRentalValue = 0m,
+                AnnualRentalValue = 0d,
                 Maintenance = 0m,
                 RateableValue = 0m,
-                TotalAreaSqMtr = 0m,
-                RAreaSqMtr = 0m,
-                CAreaSqlMtr = 0m
+                TotalAreaSqMtr = 0d,
+                RAreaSqMtr = 0d,
+                CAreaSqlMtr = 0d
             };
         }
     }

@@ -300,6 +300,8 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IDataEntryService, DataEntryService>();
         services.AddScoped<IDataEntrySameAsService, DataEntrySameAsService>();
+        services.AddScoped<IPropertyReassessmentService, PropertyReassessmentService>();
+        services.AddScoped<IRetrospectiveTaxService, RetrospectiveTaxService>();
         services.AddScoped<IRenterDetailService, RenterDetailService>();
         services.AddScoped<IRenterMastService, RenterMastService>();
         services.AddScoped<IRoomWiseMinusService, RoomWiseMinusService>();

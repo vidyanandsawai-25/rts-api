@@ -12,4 +12,6 @@ public class DataEntrySameAsPropertyDto
     public string Type { get; set; } = string.Empty;
     public string? WingName { get; set; }
     public string? FlatOrShopNo { get; set; }
+    public double CarpetAreaSqMeter { get; set; }
+    public double CarpetAreaSqFeet { get; set; }
 }

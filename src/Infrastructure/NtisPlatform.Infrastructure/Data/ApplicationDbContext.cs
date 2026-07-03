@@ -280,19 +280,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("BuildingPlanType", "PTIS");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd(); // Identity column
-            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.PropertyNo).HasMaxLength(10);
             entity.Property(e => e.Type).HasMaxLength(5);
-            entity.HasIndex(e => e.PropertyId);
+            entity.Property(e => e.DocumentBindingId);
 
-            // The PTIS.BuildingPlanType table has a MarkedForDeletion column but no
-            // MarkedForDeletionDate column, so exclude the IHardDeletable date property from mapping.
+            // PTIS.BuildingPlanType has no MarkedForDeletionDate column.
             entity.Ignore(e => e.MarkedForDeletionDate);
-
-            entity.HasOne(e => e.Property)
-                .WithMany()
-                .HasForeignKey(e => e.PropertyId)
-                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<ConstructionTypeEntity>(entity =>
@@ -2454,15 +2449,15 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("PropertyTaxCalculationRVResults", "PTIS");
             entity.HasKey(e => e.Id);
 
-            // Previously double? (SQL float). Migrated to decimal(18,4) for financial precision.
-            // Migration: 20260609_RVResults_FloatToDecimal applies the matching ALTER COLUMN statements.
-            entity.Property(e => e.MonthlyRate).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.YearlyRate).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.YearlyRent).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.AnnualRentalValue).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.RAreaSqMtr).HasColumnType("decimal(18,4)");
-            entity.Property(e => e.CAreaSqlMtr).HasColumnType("decimal(18,4)");
+            // These columns are SQL `float` in the live PTIS.PropertyTaxCalculationRVResults table
+            // (confirmed against the table DDL) — mapped as CLR double, not decimal, to match.
+            entity.Property(e => e.MonthlyRate).HasColumnType("float");
+            entity.Property(e => e.YearlyRate).HasColumnType("float");
+            entity.Property(e => e.YearlyRent).HasColumnType("float");
+            entity.Property(e => e.AnnualRentalValue).HasColumnType("float");
+            entity.Property(e => e.TotalAreaSqMtr).HasColumnType("float");
+            entity.Property(e => e.RAreaSqMtr).HasColumnType("float");
+            entity.Property(e => e.CAreaSqlMtr).HasColumnType("float");
 
             entity.Property(e => e.Depreciation).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Maintenance).HasColumnType("decimal(18,2)");
@@ -3911,6 +3906,9 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("TaxPendingDetailsRetro", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.PendingYearId).IsRequired();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -3924,7 +3922,18 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.PendingYear)
+                .WithMany()
+                .HasForeignKey(e => e.PendingYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Tax)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(e => e.PropertyId);
+            entity.HasIndex(e => new { e.PropertyId, e.PendingYearId, e.TaxId });
         });
 
         // TaxPendingDetailsRV configuration

@@ -162,9 +162,10 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         // when omitted, return all matching properties.
         var hasPartition = !string.IsNullOrEmpty(partitionNo);
 
-        // Mirrors the source query: PropertyMast LEFT JOIN SocietyDetailsMast LEFT JOIN WingMaster.
+        // PropertyMast LEFT JOIN SocietyDetailsMast LEFT JOIN WingMaster LEFT JOIN PropertyDetails.
         // The `PartitionNo != WingNo` predicate compares against a possibly-NULL wing number; as in SQL,
         // a NULL comparison is "unknown" and excludes the row (so rows without a matching wing drop out).
+        // PropertyDetails is grouped so that CarpetArea columns are summed per property.
         var rows =
             from pm in _propertyRepository.GetQueryable()
             join sdm in _societyDetailsRepository.GetQueryable()
@@ -173,20 +174,35 @@ public class DataEntrySameAsService : IDataEntrySameAsService
             join wm in _wingRepository.GetQueryable()
                 on sdm.WingId equals (int?)wm.Id into wmGroup
             from wm in wmGroup.DefaultIfEmpty()
+            join pd in _propertyDetailsRepository.GetQueryable().Where(pd => pd.IsActive && !pd.MarkedForDeletion)
+                on pm.Id equals pd.PropertyId into pdGroup
+            from pd in pdGroup.DefaultIfEmpty()
             where pm.WardId == wardId
                   && pm.PropertyNo == propertyNo
                   && (!hasPartition || pm.PartitionNo == partitionNo)
                   && pm.PartitionNo != ""
                   && pm.PartitionNo != wm.WingNo
+            group new { pd.CarpetAreaSqMeter, pd.CarpetAreaSqFeet } by new
+            {
+                pm.Id,
+                pm.WardId,
+                pm.PropertyNo,
+                pm.PartitionNo,
+                pm.Type,
+                sdm.WingName,
+                pm.FlatOrShopNo
+            } into g
             select new DataEntrySameAsPropertyDto
             {
-                PropertyId = pm.Id,
-                WardId = pm.WardId,
-                PropertyNo = pm.PropertyNo,
-                PartitionNo = pm.PartitionNo,
-                Type = pm.Type ?? string.Empty,
-                WingName = sdm.WingName,
-                FlatOrShopNo = pm.FlatOrShopNo
+                PropertyId = g.Key.Id,
+                WardId = g.Key.WardId,
+                PropertyNo = g.Key.PropertyNo,
+                PartitionNo = g.Key.PartitionNo,
+                Type = g.Key.Type ?? string.Empty,
+                WingName = g.Key.WingName,
+                FlatOrShopNo = g.Key.FlatOrShopNo,
+                CarpetAreaSqMeter = g.Sum(x => x.CarpetAreaSqMeter ?? 0),
+                CarpetAreaSqFeet = g.Sum(x => x.CarpetAreaSqFeet ?? 0)
             };
 
         return await rows.ToListAsync(cancellationToken);
@@ -571,9 +587,9 @@ public class DataEntrySameAsService : IDataEntrySameAsService
     }
 
     /// <summary>
-    /// TYPEWISE only: upserts PTIS.BuildingPlanType for the building-level properties of the
-    /// source's Ward+PropertyNo — those whose PartitionNo is empty OR equals their wing number.
-    /// Matches by PropertyId: updates an existing (non-deleted) row's Type, else inserts a new row.
+    /// TYPEWISE only: upserts PTIS.BuildingPlanType for the building identified by WardId+PropertyNo —
+    /// inserts one row for (WardId, PropertyNo, Type) if it doesn't already exist (non-deleted).
+    /// Building-level guard: at least one candidate property must have PartitionNo empty or equal to a wing number.
     /// </summary>
     private async Task<int> UpsertBuildingPlanTypeAsync(
         int sourceWardId,
@@ -618,52 +634,47 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                         : string.Empty)
                       .ToList());
 
-        // Building-level gate: PartitionNo == "" OR any wing number == PartitionNo.
-        var qualifyingIds = candidates
-            .Where(c =>
-            {
-                var partition = c.PartitionNo ?? string.Empty;
-                if (partition.Length == 0)
-                    return true;
-                return wingsByProperty.TryGetValue(c.Id, out var wings)
-                       && wings.Any(w => string.Equals(w, partition, StringComparison.Ordinal));
-            })
-            .Select(c => c.Id)
-            .ToList();
+        // Building-level gate: at least one candidate has PartitionNo == "" OR matching wing number.
+        var hasQualifyingProperty = candidates.Any(c =>
+        {
+            var partition = c.PartitionNo ?? string.Empty;
+            if (partition.Length == 0)
+                return true;
+            return wingsByProperty.TryGetValue(c.Id, out var wings)
+                   && wings.Any(w => string.Equals(w, partition, StringComparison.Ordinal));
+        });
 
-        if (qualifyingIds.Count == 0)
+        if (!hasQualifyingProperty)
             return 0;
 
-        // (PropertyId, Type) is a unique pair — insert-only, never update.
-        // A property may have several rows with different Type values, e.g. (552371,3) and (552371,4).
-        var existingPairs = await _buildingPlanTypeRepository.GetQueryable()
-            .Where(b => qualifyingIds.Contains(b.PropertyId) && !b.MarkedForDeletion)
-            .Select(b => new { b.PropertyId, b.Type })
-            .ToListAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(sourcePropertyNo))
+            return 0;
 
-        var existingSet = new HashSet<(int PropertyId, string? Type)>(
-            existingPairs.Select(p => (p.PropertyId, p.Type)));
+        // (WardId, PropertyNo, Type) is the new unique key — insert at most one row.
+        var alreadyExists = await _buildingPlanTypeRepository.GetQueryable()
+            .AnyAsync(b => b.WardId == sourceWardId
+                        && b.PropertyNo == sourcePropertyNo
+                        && b.Type == typeToSetText
+                        && !b.MarkedForDeletion, cancellationToken);
 
-        // Insert one row per qualifying property whose (PropertyId, typeToSet) pair doesn't exist yet.
-        var inserts = qualifyingIds
-            .Where(propertyId => existingSet.Add((propertyId, typeToSetText)))
-            .Select(propertyId => new BuildingPlanTypeEntity
-            {
-                PropertyId = propertyId,
-                Type = typeToSetText,
-                DocumentGuid = null,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedBy = updatedBy,
-                CreatedDate = now
-            })
-            .ToList();
+        if (alreadyExists)
+            return 0;
 
-        if (inserts.Count > 0)
-            await _buildingPlanTypeRepository.AddRangeAsync(inserts, cancellationToken);
+        var insert = new BuildingPlanTypeEntity
+        {
+            WardId = sourceWardId,
+            PropertyNo = sourcePropertyNo,
+            Type = typeToSetText,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedBy = updatedBy,
+            CreatedDate = now
+        };
+
+        await _buildingPlanTypeRepository.AddAsync(insert, cancellationToken);
 
         // SaveChanges happens at the surrounding transaction commit.
-        return inserts.Count;
+        return 1;
     }
 
     // ── Projection records (avoid materializing entities with NULL IsActive) ──
