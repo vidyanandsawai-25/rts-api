@@ -10,9 +10,11 @@ public class TypeOfUseEntity : BaseEntity
      public int TypeOfUseGroupId { get; set; }
      public int TypeOfUseGroupCVId { get; set; }
 
-     public int? SearchSequence { get; set; }   
+     public int? SearchSequence { get; set; }
+     public int? TypeOfUseCategoryId { get; set; }
      public virtual TypeOfUseGroupEntity? TypeOfUseGroup { get; set; }
      public virtual TypeOfUseGroupCVEntity? TypeOfUseGroupCV { get; set; }
+     public virtual TypeOfUseCategoryEntity? TypeOfUseCategory { get; set; }
 
     public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
     public ICollection<UseFactorCVMasterEntity> UseFactorCVMaster { get; set; } = new List<UseFactorCVMasterEntity>();

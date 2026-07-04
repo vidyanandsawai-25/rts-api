@@ -15,5 +15,10 @@ public class SubTypeOfUseQueryParameters : BaseQueryParameters
     [Searchable]
     public string? Description { get; set; }
 
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public int? TypeOfUseCategoryId { get; set; }
+
 }
 

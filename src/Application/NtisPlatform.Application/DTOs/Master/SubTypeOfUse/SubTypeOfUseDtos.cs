@@ -7,8 +7,9 @@ public class SubTypeOfUseDto : BaseDtos
 {
     public int Id { get; set; }
     public string Description { get; set; } = string.Empty;
-    public int TypeOfUseId { get; set; } 
+    public int TypeOfUseId { get; set; }
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }
 
 public class CreateSubTypeOfUseDto : CreateBaseDtos
@@ -21,6 +22,7 @@ public class CreateSubTypeOfUseDto : CreateBaseDtos
     [Required(ErrorMessage = "SubTypeOfUse_TypeOfUseID_Required")]
     public int TypeOfUseId { get; set; }
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }
 
 public class UpdateSubTypeOfUseDto : UpdateBaseDtos
@@ -31,7 +33,8 @@ public class UpdateSubTypeOfUseDto : UpdateBaseDtos
 
 
     [Required(ErrorMessage = "SubTypeOfUse_TypeOfUseID_Required")]
-    public int TypeOfUseId { get; set; } 
+    public int TypeOfUseId { get; set; }
 
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }

@@ -83,6 +83,11 @@ public class ReferenceValidationService : IReferenceValidationService
              ("Rate Master", (ctx, id) => ctx.RateEntity.Where(d => d.TypeOfUseGroupId == id).Cast<object>()),
              ("Type Of Use Master", (ctx, id) => ctx.TypeOfUse.Where(d => d.TypeOfUseGroupId == id).Cast<object>())
          );
+        config.ForEntity<TypeOfUseCategoryEntity>()
+         .CheckReferences(
+             ("Type Of Use Master", (ctx, id) => ctx.TypeOfUse.Where(d => d.TypeOfUseCategoryId == id).Cast<object>()),
+             ("SubType Of Use Master", (ctx, id) => ctx.SubTypeOfUse.Where(d => d.TypeOfUseCategoryId == id).Cast<object>())
+         );
         config.ForEntity<TypeOfUseEntity>()
          .CheckReferences(
              ("Parking Type Master", (ctx, id) => ctx.ParkingTypeMaster.Where(d => d.TypeOfUseId == id).Cast<object>()),

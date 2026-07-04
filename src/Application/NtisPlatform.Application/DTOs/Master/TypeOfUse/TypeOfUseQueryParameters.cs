@@ -30,5 +30,10 @@ public class TypeOfUseQueryParameters : BaseQueryParameters
     [Sortable]
     [Searchable]
     public int? TypeOfUseGroupId { get; set; }
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public int? TypeOfUseCategoryId { get; set; }
 }
 

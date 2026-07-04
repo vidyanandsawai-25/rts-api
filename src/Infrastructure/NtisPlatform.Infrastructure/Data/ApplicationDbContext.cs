@@ -32,6 +32,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<RetentionYearWiseEntity> RetentionYearWiseEntities { get; set; } = null!;
     public DbSet<SubTypeOfUseEntity> SubTypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
+    public DbSet<TypeOfUseCategoryEntity> TypeOfUseCategory { get; set; } = null!;
     public DbSet<PolicyConfigurationEntity> PolicyConfiguration { get; set; } = null!;
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
@@ -582,6 +583,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Description);
             entity.Property(x => x.TypeOfUseId);
             entity.Property(x => x.SearchSequence);
+            entity.Property(x => x.TypeOfUseCategoryId);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.CreatedDate);
@@ -591,6 +593,11 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.TypeOfUse)
               .WithMany(c => c.SubTypeOfUse)
               .HasForeignKey(e => e.TypeOfUseId)
+              .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TypeOfUseCategory)
+              .WithMany(c => c.SubTypeOfUse)
+              .HasForeignKey(e => e.TypeOfUseCategoryId)
               .OnDelete(DeleteBehavior.Restrict);
 
             // Configure relationships
@@ -614,6 +621,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.TypeOfUseGroupId);
             entity.Property(x => x.TypeOfUseGroupCVId);
             entity.Property(x => x.SearchSequence);
+            entity.Property(x => x.TypeOfUseCategoryId);
             entity.Property(x => x.IsActive);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.UpdatedBy);
@@ -628,6 +636,11 @@ public class ApplicationDbContext : DbContext
            .WithMany(p => p.TypeOfUse)
            .HasForeignKey(e => e.TypeOfUseGroupCVId)
            .HasPrincipalKey(e => e.Id);
+
+            entity.HasOne(e => e.TypeOfUseCategory)
+           .WithMany(c => c.TypeOfUse)
+           .HasForeignKey(e => e.TypeOfUseCategoryId)
+           .OnDelete(DeleteBehavior.Restrict);
 
             // Configure relationships
             entity.HasMany(e => e.PropertyDetails)
@@ -664,6 +677,18 @@ public class ApplicationDbContext : DbContext
              .WithOne(r => r.TypeOfUse)
              .HasForeignKey(r => r.TypeOfUseId)
              .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<TypeOfUseCategoryEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseCategoryMaster", "PTIS");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.TypeOfUseCategoryCode);
+            entity.Property(x => x.TypeOfUseCategoryName);
+            entity.Property(x => x.IsActive);
+            entity.Property(x => x.CreatedBy);
+            entity.Property(x => x.CreatedDate);
+            entity.Property(x => x.UpdatedBy);
+            entity.Property(x => x.UpdatedDate);
         });
         modelBuilder.Entity<TypeOfUseGroupEntity>(entity =>
         {

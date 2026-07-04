@@ -5,12 +5,13 @@ namespace NtisPlatform.Application.DTOs;
 
 public class TypeOfUseDto : BaseDtos
 {
-    public int Id { get; set; } 
+    public int Id { get; set; }
     public string TypeOfUseCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
-    public int TypeOfUseGroupId { get; set; } 
+    public int TypeOfUseGroupId { get; set; }
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }
 
 public class CreateTypeOfUseDto : CreateBaseDtos
@@ -28,8 +29,9 @@ public class CreateTypeOfUseDto : CreateBaseDtos
     public string Type { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "TypeOfUse_GroupID_Required")]
-    public int TypeOfUseGroupId { get; set; } 
+    public int TypeOfUseGroupId { get; set; }
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }
 
 public class UpdateTypeOfUseDto : UpdateBaseDtos
@@ -47,6 +49,7 @@ public class UpdateTypeOfUseDto : UpdateBaseDtos
     public string Type { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "TypeOfUse_GroupID_Required")]
-    public int TypeOfUseGroupId { get; set; } 
+    public int TypeOfUseGroupId { get; set; }
     public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }

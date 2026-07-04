@@ -239,6 +239,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOfficeService, OfficeService>();
         services.AddScoped<ISubTypeOfUseService, SubTypeOfUseService>();
         services.AddScoped<ITypeOfUseService, TypeOfUseService>();
+        services.AddScoped<ITypeOfUseCategoryService, TypeOfUseCategoryService>();
         services.AddScoped<ITypeOfUseByPropertyTypeService, TypeOfUseByPropertyTypeService>();
         services.AddScoped<ITypeOfUseGroupService, TypeOfUseGroupService>();
         services.AddScoped<IDepreciationService, DepreciationService>();
