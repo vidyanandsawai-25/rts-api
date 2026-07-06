@@ -6,9 +6,12 @@ public class TypeOfUseByPropertyTypeResponseDto : List<TypeOfUseByPropertyTypeIt
 {
 }
 
-public class TypeOfUseByPropertyTypeItemDto
+public class TypeOfUseByPropertyTypeItemDto : BaseDtos
 {
-    public int Id { get; set; }
     public string TypeOfUseCode { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public int TypeOfUseGroupId { get; set; }
+    public int? SearchSequence { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
 }
