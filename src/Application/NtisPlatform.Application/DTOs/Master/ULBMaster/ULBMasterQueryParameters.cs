@@ -36,7 +36,7 @@ public class ULBMasterQueryParameters : BaseQueryParameters
     /// </summary>
     [Filterable]
     [Sortable]
-    public byte? UlbTypeId { get; set; }
+    public int? UlbTypeId { get; set; }
 
     /// <summary>
     /// Filter by active status

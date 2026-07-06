@@ -11,7 +11,7 @@ public class ULBMasterDto : BaseDtos
     public string UlbCode { get; set; } = string.Empty;
     public string UlbName { get; set; } = string.Empty;
     public string? UlbNameLocal { get; set; }
-    public byte UlbTypeId { get; set; }
+    public int UlbTypeId { get; set; }
     public string? UlbLogo { get; set; }
     public string? EmailId { get; set; }
     public string? MobileNo { get; set; }
@@ -55,7 +55,7 @@ public class CreateULBMasterDto : CreateBaseDtos
     public string? UlbNameLocal { get; set; }
 
     [Required(ErrorMessage = "UlbTypeId_Required")]
-    public byte UlbTypeId { get; set; }
+    public int UlbTypeId { get; set; }
 
     [StringLength(500, ErrorMessage = "UlbLogo_MaxLen_500")]
     public string? UlbLogo { get; set; }
@@ -148,7 +148,7 @@ public class UpdateULBMasterDto: UpdateBaseDtos
     public string? UlbNameLocal { get; set; }
 
     [Required(ErrorMessage = "UlbTypeId_Required")]
-    public byte UlbTypeId { get; set; }
+    public int UlbTypeId { get; set; }
 
     [StringLength(500, ErrorMessage = "UlbLogo_MaxLen_500")]
     public string? UlbLogo { get; set; }

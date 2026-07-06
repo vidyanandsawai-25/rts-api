@@ -26,7 +26,7 @@ public class ULBMasterEntity : BaseEntity
     /// <summary>
     /// Type of ULB (Municipality, Corporation, etc.)
     /// </summary>
-    public byte UlbTypeId { get; set; }
+    public int UlbTypeId { get; set; }
 
     /// <summary>
     /// ULB Logo path/URL
