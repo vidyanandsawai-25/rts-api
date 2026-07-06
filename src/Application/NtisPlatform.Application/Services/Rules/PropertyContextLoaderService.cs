@@ -260,7 +260,7 @@ namespace NtisPlatform.Application.Services.Rules
                     .Select(p => p.Id);
             }
 
-            var maxFloorSequence = await _propertyDetailsRepo.GetQueryable()
+            var maxFloorSequenceNullable = await _propertyDetailsRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(d => propertyIdsQuery.Contains(d.PropertyId)
                          && d.IsActive 
@@ -268,9 +268,10 @@ namespace NtisPlatform.Application.Services.Rules
                          && d.Floor != null 
                          && d.Floor.IsActive 
                          && d.Floor.SequenceNo >= FirstFloorSequenceThreshold)
-                .Select(d => d.Floor!.SequenceNo ?? 0)
-                .DefaultIfEmpty(0)
+                .Select(d => (int?)d.Floor!.SequenceNo)
                 .MaxAsync(cancellationToken);
+
+            var maxFloorSequence = maxFloorSequenceNullable ?? 0;
 
             // Pre-compute YearRangeRVId for each detail based on AssessmentYear
             var detailYearRangeRVIdMap = new Dictionary<int, int>();
