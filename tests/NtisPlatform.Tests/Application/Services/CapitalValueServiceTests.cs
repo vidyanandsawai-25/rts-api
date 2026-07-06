@@ -21,6 +21,9 @@ using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Tests.Helpers;
 using Xunit;
 
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+
 namespace NtisPlatform.Tests.Application.Services;
 
 public class CapitalValueServiceTests
@@ -420,7 +423,15 @@ public class CapitalValueServiceTests
 
         var masterData = new MasterDataContext
         {
-            TaxTotalHead = new TaxMasterEntity { Id = 999, TaxName = "TaxTotal" }
+            TaxTotalHead = new TaxMasterEntity { Id = 999, TaxName = "TaxTotal" },
+            YearRanges = new List<AssessmentYearRangeCVEntity>
+            {
+                new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2015, ToYear = 2025, IsActive = true }
+            },
+            RateMasters = new List<RateMasterForCVEntity>
+            {
+                new RateMasterForCVEntity { Id = 1, AssessmentYearRangeId = 1, TypeOfUseGroupCVId = 1, RateAmount = 10000 }
+            }
         };
         _masterDataProvider.Setup(x => x.LoadMasterDataAsync(1, "A1", It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(masterData);
@@ -554,7 +565,8 @@ public class CapitalValueServiceTests
             It.IsAny<bool>(),
             propertyId,
             It.IsAny<int>(),
-            It.IsAny<string>()), Times.Exactly(3));
+            It.IsAny<string>(),
+            It.IsAny<decimal?>()), Times.Exactly(3));
     }
 
     [Fact]
@@ -769,6 +781,7 @@ public class CapitalValueServiceTests
                 TypeOfUse = new TypeOfUseEntity
                 {
                     Id = 1,
+                    TypeOfUseGroupCVId = 1,
                     TypeOfUseGroupCV = new TypeOfUseGroupCVEntity
                     {
                         Id = 1,
@@ -782,14 +795,17 @@ public class CapitalValueServiceTests
         {
             RateMasters = new List<RateMasterForCVEntity>
             {
-                new RateMasterForCVEntity { Id = 1, RateAmount = 10000 }
+                new RateMasterForCVEntity { Id = 1, AssessmentYearRangeId = 1, TypeOfUseGroupCVId = 1, RateAmount = 10000 }
             },
             TaxTotalHead = new TaxMasterEntity { Id = 999, TaxName = "TaxTotal" },
             NatureFactors = new Dictionary<(int ConstructionTypeId, int YearRangeCVId), decimal?>(),
             UseFactors = new Dictionary<(int TypeOfUseId, int YearRangeCVId, int SubTypeOfUseId), decimal?>(),
             AgeFactors = new List<AgeFactorCVMasterEntity>(),
             FloorFactors = new Dictionary<(int FloorId, int YearRangeCVId), FloorFactorCVMasterEntity>(),
-            YearRanges = new List<AssessmentYearRangeCVEntity>(),
+            YearRanges = new List<AssessmentYearRangeCVEntity>
+            {
+                new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2015, ToYear = 2025, IsActive = true }
+            },
             TaxData = new List<TaxPercentageMasterCVEntity>
             {
                 new TaxPercentageMasterCVEntity { TaxId = 1, TaxPercentage = 15, IsActive = true },
@@ -887,7 +903,8 @@ public class CapitalValueServiceTests
             It.IsAny<bool>(),
             propertyId,
             It.IsAny<int>(),
-            It.IsAny<string>()))
+            It.IsAny<string>(),
+            It.IsAny<decimal?>()))
             .Returns(new CapitalValueCalculationResult
             {
                 Result = cvDto,
@@ -929,4 +946,224 @@ public class CapitalValueServiceTests
     }
 
     #endregion
+
+    #region Rule Engine Integration Tests
+
+    [Fact]
+    public async Task CreateAsync_WithRuleEngineServices_AppliesRulesAndSavesLogs()
+    {
+        // Arrange
+        int propertyId = 1;
+        int propertyDetailsId = 10;
+        int financeYearVal = 2026;
+
+        var mockLoader = new Mock<IPropertyContextLoaderService>();
+        var mockApplier = new Mock<IRuleApplierService>();
+
+        var property = new PropertyEntity { Id = propertyId, MoujaId = 5, CSN = "CSN123" };
+        var detail = new PropertyDetailsEntity 
+        { 
+            Id = propertyDetailsId, 
+            PropertyId = propertyId, 
+            AssessmentYear = "2026",
+            TypeOfUse = new TypeOfUseEntity
+            {
+                Id = 1,
+                TypeOfUseGroupCV = new TypeOfUseGroupCVEntity { TypeOfUseGroupCVCode = "R", IsFloorWiseRateApplicable = false }
+            }
+        };
+
+        var detailsList = new List<PropertyDetailsEntity> { detail };
+        var propertyContext = new PropertyCalculationContext
+        {
+            Property = property,
+            Details = detailsList
+        };
+
+        var financeYear = new YearMasterEntity { Id = 1, Year = financeYearVal };
+        var masterData = new MasterDataContext
+        {
+            YearRanges = new List<AssessmentYearRangeCVEntity> { new AssessmentYearRangeCVEntity { Id = 1, FromYear = 2025, ToYear = 2027 } },
+            RateMasters = new List<RateMasterForCVEntity> { new RateMasterForCVEntity { Id = 100, AssessmentYearRangeId = 1, TypeOfUseGroupCVId = 0, RateAmount = 500m } },
+            TaxTotalHead = new TaxMasterEntity { Id = 99 }
+        };
+
+        _propertyDataLoader.Setup(x => x.LoadPropertyAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(property);
+        _propertyDataLoader.Setup(x => x.LoadPropertyDetailsAsync(propertyId, propertyDetailsId, It.IsAny<CancellationToken>())).ReturnsAsync(detailsList);
+        _propertyDataLoader.Setup(x => x.LoadFinanceYearAsync(null, It.IsAny<CancellationToken>())).ReturnsAsync(financeYear);
+        _propertyDataLoader.Setup(x => x.LoadLiftFlagAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(5, "CSN123", It.IsAny<List<int>?>(), It.IsAny<CancellationToken>())).ReturnsAsync(masterData);
+
+        mockLoader.Setup(x => x.LoadPropertyContextAsync(propertyId, financeYearVal, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(propertyContext);
+
+        var appliedRulesList = new List<RuleApplicationTraceEntry>
+        {
+            new RuleApplicationTraceEntry { RuleCode = "R1", RuleName = "Test Rule", CumulativeValue = 450m }
+        };
+        mockApplier.Setup(x => x.ApplyRulesAsync(It.IsAny<RuleApplierContext>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RuleApplicationResult { FinalValue = 450m, AppliedRules = appliedRulesList });
+
+        var cvDto = new CapitalValueDto
+        {
+            PropertyId = propertyId,
+            PropertyDetailsId = propertyDetailsId,
+            CapitalValue = 90000m,
+            BaseValue = 45000,
+            Taxes = new List<TaxHeadDto> { new TaxHeadDto { TaxId = 1, Percentage = 10, Amount = 100 } }
+        };
+
+        _calculator.Setup(x => x.Calculate(
+            detail,
+            masterData,
+            false,
+            propertyId,
+            5,
+            "CSN123",
+            450m)) // verify ruleAdjustedRate = 450m is passed
+            .Returns(new CapitalValueCalculationResult
+            {
+                Result = cvDto,
+                YearRange = masterData.YearRanges[0],
+                RateMaster = masterData.RateMasters[0]
+            });
+
+        _cvResultsService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+        _cvResultsService.Setup(x => x.GetByPropertyDetailsIdAsync(propertyDetailsId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+
+        var customService = new CapitalValueService(
+            _cvResultsService.Object,
+            _policyTaxService.Object,
+            _transMastService.Object,
+            _propertyDataLoader.Object,
+            _masterDataProvider.Object,
+            _calculator.Object,
+            _persistenceService.Object,
+            _uow.Object,
+            _mapper,
+            _options.Object,
+            _logger.Object,
+            mockLoader.Object,
+            mockApplier.Object
+        );
+
+        // Act
+        var dto = new CreateCapitalValueDto { PropertyId = propertyId, PropertyDetailsId = propertyDetailsId };
+        var result = await customService.CreateAsync(dto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        mockLoader.Verify(x => x.LoadPropertyContextAsync(propertyId, financeYearVal, It.IsAny<CancellationToken>()), Times.Once);
+        mockApplier.Verify(x => x.ApplyRulesAsync(It.Is<RuleApplierContext>(c => c.InitialValue == 500m && c.Category == "CV"), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _persistenceService.Verify(x => x.SaveRuleApplicationLogAsync(
+            propertyId,
+            financeYearVal,
+            propertyDetailsId,
+            It.Is<List<RuleApplicationTraceEntry>>(list => 
+                list != null && 
+                list.Count == appliedRulesList.Count && 
+                list.Zip(appliedRulesList).All(pair => 
+                    pair.First.RuleCode == pair.Second.RuleCode && 
+                    pair.First.RuleName == pair.Second.RuleName && 
+                    pair.First.CumulativeValue == pair.Second.CumulativeValue)),
+            "CV",
+            It.IsAny<DateTime>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithInvalidAssessmentYear_ThrowsInvalidPropertyDataException()
+    {
+        // Arrange
+        int propertyId = 1;
+        int propertyDetailsId = 10;
+
+        var property = new PropertyEntity { Id = propertyId, MoujaId = 5, CSN = "CSN123" };
+        var detail = new PropertyDetailsEntity 
+        { 
+            Id = propertyDetailsId, 
+            PropertyId = propertyId, 
+            AssessmentYear = "INVALID", // Invalid
+            TypeOfUse = new TypeOfUseEntity
+            {
+                Id = 1,
+                TypeOfUseGroupCV = new TypeOfUseGroupCVEntity { TypeOfUseGroupCVCode = "R", IsFloorWiseRateApplicable = false }
+            }
+        };
+
+        var detailsList = new List<PropertyDetailsEntity> { detail };
+        var financeYear = new YearMasterEntity { Id = 1, Year = 2026 };
+        var masterData = new MasterDataContext
+        {
+            YearRanges = new List<AssessmentYearRangeCVEntity>(),
+            RateMasters = new List<RateMasterForCVEntity>(),
+            TaxTotalHead = new TaxMasterEntity { Id = 99 }
+        };
+
+        _propertyDataLoader.Setup(x => x.LoadPropertyAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(property);
+        _propertyDataLoader.Setup(x => x.LoadPropertyDetailsAsync(propertyId, propertyDetailsId, It.IsAny<CancellationToken>())).ReturnsAsync(detailsList);
+        _propertyDataLoader.Setup(x => x.LoadFinanceYearAsync(null, It.IsAny<CancellationToken>())).ReturnsAsync(financeYear);
+        _propertyDataLoader.Setup(x => x.LoadLiftFlagAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(5, "CSN123", It.IsAny<List<int>?>(), It.IsAny<CancellationToken>())).ReturnsAsync(masterData);
+        _cvResultsService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+        _cvResultsService.Setup(x => x.GetByPropertyDetailsIdAsync(propertyDetailsId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+
+        var service = GetService();
+
+        // Act & Assert
+        var dto = new CreateCapitalValueDto { PropertyId = propertyId, PropertyDetailsId = propertyDetailsId };
+        await Assert.ThrowsAsync<InvalidPropertyDataException>(() => service.CreateAsync(dto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithYearRangeNotFound_ThrowsYearRangeNotFoundException()
+    {
+        // Arrange
+        int propertyId = 1;
+        int propertyDetailsId = 10;
+
+        var property = new PropertyEntity { Id = propertyId, MoujaId = 5, CSN = "CSN123" };
+        var detail = new PropertyDetailsEntity 
+        { 
+            Id = propertyDetailsId, 
+            PropertyId = propertyId, 
+            AssessmentYear = "2026", // Valid year
+            TypeOfUse = new TypeOfUseEntity
+            {
+                Id = 1,
+                TypeOfUseGroupCV = new TypeOfUseGroupCVEntity { TypeOfUseGroupCVCode = "R", IsFloorWiseRateApplicable = false }
+            }
+        };
+
+        var detailsList = new List<PropertyDetailsEntity> { detail };
+        var financeYear = new YearMasterEntity { Id = 1, Year = 2026 };
+        var masterData = new MasterDataContext
+        {
+            // Empty YearRanges, so 2026 will not be found
+            YearRanges = new List<AssessmentYearRangeCVEntity>(),
+            RateMasters = new List<RateMasterForCVEntity>(),
+            TaxTotalHead = new TaxMasterEntity { Id = 99 }
+        };
+
+        _propertyDataLoader.Setup(x => x.LoadPropertyAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(property);
+        _propertyDataLoader.Setup(x => x.LoadPropertyDetailsAsync(propertyId, propertyDetailsId, It.IsAny<CancellationToken>())).ReturnsAsync(detailsList);
+        _propertyDataLoader.Setup(x => x.LoadFinanceYearAsync(null, It.IsAny<CancellationToken>())).ReturnsAsync(financeYear);
+        _propertyDataLoader.Setup(x => x.LoadLiftFlagAsync(propertyId, It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        _masterDataProvider.Setup(x => x.LoadMasterDataAsync(5, "CSN123", It.IsAny<List<int>?>(), It.IsAny<CancellationToken>())).ReturnsAsync(masterData);
+        _cvResultsService.Setup(x => x.GetByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+        _cvResultsService.Setup(x => x.GetByPropertyDetailsIdAsync(propertyDetailsId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PropertyTaxCalculationCVResultsDto>());
+
+        var service = GetService();
+
+        // Act & Assert
+        var dto = new CreateCapitalValueDto { PropertyId = propertyId, PropertyDetailsId = propertyDetailsId };
+        await Assert.ThrowsAsync<YearRangeNotFoundException>(() => service.CreateAsync(dto, CancellationToken.None));
+    }
+
+    #endregion
 }
+

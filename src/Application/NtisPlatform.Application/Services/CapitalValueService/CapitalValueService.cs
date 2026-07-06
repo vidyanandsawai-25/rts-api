@@ -14,6 +14,9 @@ using NtisPlatform.Application.Services.CapitalValue.Utils;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Application.Interfaces.Rules;
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+using static NtisPlatform.Core.Constants.CapitalValueConstants;
 
 namespace NtisPlatform.Application.Services.CapitalValue
 {
@@ -30,6 +33,8 @@ namespace NtisPlatform.Application.Services.CapitalValue
         private readonly IUnitOfWork _unitOfWork;
         private readonly IMapper _mapper;
         private readonly CapitalValueOptions _options;
+        private readonly IPropertyContextLoaderService? _propertyContextLoaderService;
+        private readonly IRuleApplierService? _ruleApplierService;
         private readonly ILogger<CapitalValueService> _logger;
 
 
@@ -45,7 +50,9 @@ namespace NtisPlatform.Application.Services.CapitalValue
 
             IMapper mapper,
             IOptions<CapitalValueOptions> options,
-            ILogger<CapitalValueService> logger)
+            ILogger<CapitalValueService> logger,
+            IPropertyContextLoaderService? propertyContextLoaderService = null,
+            IRuleApplierService? ruleApplierService = null)
         {
             _cvResultsService = cvResultsService;
             _policyTaxService = policyTaxService;
@@ -58,6 +65,8 @@ namespace NtisPlatform.Application.Services.CapitalValue
 
             _mapper = mapper;
             _options = options.Value;
+            _propertyContextLoaderService = propertyContextLoaderService;
+            _ruleApplierService = ruleApplierService;
             _logger = logger;
         }
 
@@ -190,6 +199,13 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 var hasLift = await _propertyDataLoader.LoadLiftFlagAsync(dto.PropertyId, cancellationToken);
                 var financeYear = await _propertyDataLoader.LoadFinanceYearAsync(dto.FinanceYear, cancellationToken);
 
+                // Load property rule engine context if loaders are available
+                PropertyCalculationContext? propertyContext = null;
+                if (_propertyContextLoaderService != null && _ruleApplierService != null)
+                {
+                    propertyContext = await _propertyContextLoaderService.LoadPropertyContextAsync(dto.PropertyId, financeYear.Year, cancellationToken);
+                }
+
                 // Step 2: Check for existing CV records to determine if we need to calculate or update, and to prepare for bulk insert (avoid duplicates)
                 var existingCVs = await _cvResultsService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
                 var existingCVKeys = existingCVs.Select(x => (x.PropertyDetailsId, x.TaxId)).ToHashSet();
@@ -231,10 +247,84 @@ namespace NtisPlatform.Application.Services.CapitalValue
                          // Use AutoMapper to create blank DTO - cleaner and more maintainable
                         var blankDto = CreateBlankCapitalValueDto(pd, dto.PropertyId, _mapper);
                         results.Add(blankDto);
+
+                        // Save empty rule logs to clear any existing logs for this detail row
+                        await _persistenceService.SaveRuleApplicationLogAsync(
+                            dto.PropertyId,
+                            financeYear.Year,
+                            pd.Id,
+                            new List<RuleApplicationTraceEntry>(),
+                            "CV",
+                            DateTime.Now,
+                            cancellationToken);
+
                         continue; // Skip calculation and database insertion for this item
                     }
 
-                     var calcResult = _calculator.Calculate(pd, masterData, hasLift, dto.PropertyId, property.MoujaId!.Value, property.CSN ?? string.Empty);
+                    decimal? ruleAdjustedRate = null;
+                    List<RuleApplicationTraceEntry> appliedRules = new();
+
+                    // Validate and parse assessment year to mirror calculator validation
+                    if (!int.TryParse(pd.AssessmentYear, out int assessmentYear) || assessmentYear <= 0)
+                    {
+                        throw new InvalidPropertyDataException("AssessmentYear", pd.AssessmentYear, pd.Id);
+                    }
+
+                    var yearRange = masterData.YearRanges.FirstOrDefault(x => assessmentYear >= x.FromYear && assessmentYear <= x.ToYear);
+                    if (yearRange == null)
+                    {
+                        throw new YearRangeNotFoundException(assessmentYear, pd.Id);
+                    }
+
+                    var typeOfUseGroupCVId = pd.TypeOfUse?.TypeOfUseGroupCVId;
+                    var typeOfUseGroup = pd.TypeOfUse?.TypeOfUseGroupCV;
+                    bool isFloorWiseRateApplicable = typeOfUseGroup?.IsFloorWiseRateApplicable ?? false;
+                    int? floorGroupId = isFloorWiseRateApplicable ? pd.Floor?.FloorGroupId : null;
+
+                    var rateMaster = masterData.RateMasters.FirstOrDefault(x =>
+                        x.AssessmentYearRangeId == yearRange.Id &&
+                        x.TypeOfUseGroupCVId == (typeOfUseGroupCVId ?? 0) &&
+                        (isFloorWiseRateApplicable ? x.FloorGroupId == floorGroupId : x.FloorGroupId == null));
+
+                    if (rateMaster != null && rateMaster.RateAmount.HasValue && propertyContext != null && _ruleApplierService != null)
+                    {
+                        _logger.LogDebug("[RuleEngine-CV] Executing CV rules for PropertyDetailsId={DetailId}: BaseRate={BaseRate}",
+                            pd.Id, rateMaster.RateAmount.Value);
+
+                        var clonedContext = propertyContext.CloneForDetail(pd, pd.TypeOfUse!);
+                        var applierContext = new RuleApplierContext
+                        {
+                            PropertyContext = clonedContext,
+                            InitialValue = rateMaster.RateAmount.Value,
+                            Category = "CV",
+                            ValueKey = "Rate"
+                        };
+
+                        var ruleResult = await _ruleApplierService.ApplyRulesAsync(applierContext, 3, cancellationToken);
+                        decimal finalRate = ruleResult.FinalValue;
+
+                        if (ruleResult.AppliedRules != null && ruleResult.AppliedRules.Any())
+                        {
+                            appliedRules = ruleResult.AppliedRules;
+                        }
+
+                        if (finalRate != rateMaster.RateAmount.Value)
+                        {
+                            ruleAdjustedRate = finalRate;
+                        }
+                    }
+
+                    var calcResult = _calculator.Calculate(pd, masterData, hasLift, dto.PropertyId, property.MoujaId!.Value, property.CSN ?? string.Empty, ruleAdjustedRate);
+
+                    // Save rule application trace logs
+                    await _persistenceService.SaveRuleApplicationLogAsync(
+                        dto.PropertyId,
+                        financeYear.Year,
+                        pd.Id,
+                        appliedRules,
+                        "CV",
+                        DateTime.Now,
+                        cancellationToken);
 
                     // Generate CV input hash for change detection
                     var cvInputHash = CVInputHashGenerator.GenerateHash( pd, hasLift, property.MoujaId ?? 0, property.CSN ?? string.Empty);
@@ -261,6 +351,9 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 {
                     await _persistenceService.PersistAggregatedDataAsync(dto.PropertyId,financeYear,aggregatedTaxes, existingPolicies,existingTransMast,dto.PolicyCode ?? _options.DefaultPolicyCode,dto.PolicyDate ?? DateTime.Now,dto.PolicyYear ?? financeYear.Year,dto.PolicyReason,dto.CreatedBy ?? 0,cancellationToken);
                 }
+
+                // Explicitly save rule logs and nested entities tracked in DB context
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                  return results;
             }

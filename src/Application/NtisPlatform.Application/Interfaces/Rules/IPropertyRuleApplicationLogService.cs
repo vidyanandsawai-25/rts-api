@@ -7,5 +7,7 @@ namespace NtisPlatform.Application.Interfaces.Rules
     {
         Task<PagedResult<PropertyRuleApplicationLogDto>> GetLogsAsync(PropertyRuleApplicationLogQueryParameters queryParameters, CancellationToken cancellationToken = default);
         Task<PropertyRuleApplicationLogDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
+        Task DeleteByPropertyDetailsIdAsync(int propertyDetailsId, CancellationToken cancellationToken = default);
+        Task DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
     }
 }

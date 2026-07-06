@@ -19,6 +19,7 @@ using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using System.Text;
 using DataValidationException = System.ComponentModel.DataAnnotations.ValidationException;
+using NtisPlatform.Application.Interfaces.Rules;
 
 
 namespace NtisPlatform.Application.Services;
@@ -40,6 +41,7 @@ public partial class PropertyService
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
+    private readonly IPropertyRuleApplicationLogService? _ruleLogService;
 
     public PropertyService(
         IRepository<PropertyEntity, int> repository,
@@ -53,7 +55,8 @@ public partial class PropertyService
         IRepository<SocietyDetailsEntity, int> societyRepository,
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
         IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository,
-        IRepository<PropertyAssessmentEntity, int> assessmentRepository)
+        IRepository<PropertyAssessmentEntity, int> assessmentRepository,
+        IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
         _propertyRepository = propertyRepository;
@@ -65,6 +68,7 @@ public partial class PropertyService
         _propertyDetailsRepository = propertyDetailsRepository;
         _roomWiseRepository = roomWiseRepository;
         _assessmentRepository = assessmentRepository;
+        _ruleLogService = ruleLogService;
     }
 
 
@@ -494,6 +498,12 @@ public partial class PropertyService
 
             // Mark all other related entities
             await MarkRelatedEntitiesForDeletionAsync(propertyId, cancellationToken);
+
+            // Soft-delete related rule application logs
+            if (_ruleLogService != null)
+            {
+                await _ruleLogService.DeleteByPropertyIdAsync(propertyId, cancellationToken);
+            }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

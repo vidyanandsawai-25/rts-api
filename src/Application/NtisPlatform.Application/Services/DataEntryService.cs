@@ -7,7 +7,7 @@ using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
- 
+using NtisPlatform.Application.Interfaces.Rules;
 
 namespace NtisPlatform.Application.Services;
 
@@ -18,6 +18,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     private readonly IRenterMastService _renterMastService;
     private readonly IRoomWiseSubmissionDetailsService _roomWiseService;
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
+    private readonly IPropertyRuleApplicationLogService? _ruleLogService;
 
     public DataEntryService(
         IRepository<PropertyDetailsEntity, int> repository,
@@ -26,13 +27,15 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         IRenterDetailService renterDetailService,
         IRenterMastService renterMastService,
         IRoomWiseSubmissionDetailsService roomWiseService,
-        IRepository<PropertyEntity, int> propertyRepository)
+        IRepository<PropertyEntity, int> propertyRepository,
+        IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
         _renterDetailService = renterDetailService;
         _renterMastService = renterMastService;
         _roomWiseService = roomWiseService;
         _propertyRepository = propertyRepository;
+        _ruleLogService = ruleLogService;
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -222,6 +225,12 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
             await _renterDetailService.DeleteByPropertyIdAsync(id, cancellationToken);
             await _renterMastService.DeleteByPropertyIdAsync(id, cancellationToken);
             await _roomWiseService.DeleteByPropertyIdAsync(id, cancellationToken);
+
+            // Soft-delete related rule application logs
+            if (_ruleLogService != null)
+            {
+                await _ruleLogService.DeleteByPropertyDetailsIdAsync(id, cancellationToken);
+            }
 
             // Commit transaction (includes SaveChangesAsync for all changes)
             await _unitOfWork.CommitTransactionAsync(cancellationToken);

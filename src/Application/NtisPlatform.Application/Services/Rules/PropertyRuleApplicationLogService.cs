@@ -129,5 +129,31 @@ namespace NtisPlatform.Application.Services.Rules
                 })
                 .FirstOrDefaultAsync(cancellationToken);
         }
+
+        public async Task DeleteByPropertyDetailsIdAsync(int propertyDetailsId, CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.Now;
+            await _repository.GetQueryable()
+                .Where(x => x.PropertyDetailsId == propertyDetailsId && x.IsActive && !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.IsActive,              false)
+                    .SetProperty(x => x.MarkedForDeletion,     true)
+                    .SetProperty(x => x.MarkedForDeletionDate, now)
+                    .SetProperty(x => x.UpdatedDate,           now),
+                    cancellationToken);
+        }
+
+        public async Task DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.Now;
+            await _repository.GetQueryable()
+                .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.IsActive,              false)
+                    .SetProperty(x => x.MarkedForDeletion,     true)
+                    .SetProperty(x => x.MarkedForDeletionDate, now)
+                    .SetProperty(x => x.UpdatedDate,           now),
+                    cancellationToken);
+        }
     }
 }

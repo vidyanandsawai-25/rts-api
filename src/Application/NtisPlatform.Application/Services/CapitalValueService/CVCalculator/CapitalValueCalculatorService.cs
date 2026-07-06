@@ -26,7 +26,14 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
     /// Calculates capital value and taxes for a single property detail.
     /// Returns the standard CapitalValueDto with additional context including factor entities for ID storage.
     /// </summary>
-    public CapitalValueCalculationResult Calculate(PropertyDetailsEntity propertyDetail,MasterDataContext masterData,bool hasLift,int propertyId,int moujaId,string csn)
+    public CapitalValueCalculationResult Calculate(
+        PropertyDetailsEntity propertyDetail,
+        MasterDataContext masterData,
+        bool hasLift,
+        int propertyId,
+        int moujaId,
+        string csn,
+        decimal? ruleAdjustedRate = null)
     {
 
 
@@ -205,7 +212,7 @@ public class CapitalValueCalculatorService : ICapitalValueCalculator
 
         // Calculate capital value
         decimal calculationArea = (decimal)selectedArea;
-        decimal rate = rateMaster.RateAmount.Value;
+        decimal rate = ruleAdjustedRate ?? rateMaster.RateAmount.Value;
         decimal baseValue = rate * calculationArea;
         decimal capitalValue = baseValue * ntbFactor * useFactor * ageFactor * floorFactor;
 

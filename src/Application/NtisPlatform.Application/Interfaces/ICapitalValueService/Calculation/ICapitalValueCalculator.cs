@@ -37,5 +37,6 @@ public interface ICapitalValueCalculator
         bool hasLift,
         int propertyId,
         int moujaId,
-        string csn);
+        string csn,
+        decimal? ruleAdjustedRate = null);
 }

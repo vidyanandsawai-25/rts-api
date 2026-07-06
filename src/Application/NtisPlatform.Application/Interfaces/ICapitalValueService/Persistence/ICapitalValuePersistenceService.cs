@@ -3,6 +3,8 @@ using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.CapitalValue;
 using NtisPlatform.Core.Entities.Master;
 
+using NtisPlatform.Application.DTOs.Rules.RuleExecution;
+
 namespace NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 
 /// <summary>
@@ -32,5 +34,17 @@ public interface ICapitalValuePersistenceService
         int policyYear,
         string? policyReason,
         int createdBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Persists CV rule execution trace logs.
+    /// </summary>
+    Task SaveRuleApplicationLogAsync(
+        int propertyId,
+        int financeYear,
+        int propertyDetailsId,
+        List<RuleApplicationTraceEntry> appliedRules,
+        string category,
+        DateTime appliedAt,
         CancellationToken cancellationToken = default);
 }
