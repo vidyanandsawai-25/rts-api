@@ -70,7 +70,9 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
                 PropertyDetailsId = x.Id,
                 x.PropertyId,
                 x.NoOfResidentialToilets,
-                x.NoOfCommercialToilets
+                x.NoOfCommercialToilets,
+                x.Latitude,
+                x.Longitude
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -136,6 +138,16 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             ).FirstOrDefaultAsync(cancellationToken);
         }
 
+        // Retrieve the earliest active construction year for the property
+        var constructionYear = await _context.PropertyDetails
+            .AsNoTracking()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion &&
+                        !string.IsNullOrEmpty(x.ConstructionYear) &&
+                        x.ConstructionYear.Length == 4)
+            .OrderBy(x => x.ConstructionYear)
+            .Select(x => x.ConstructionYear)
+            .FirstOrDefaultAsync(cancellationToken);
+
         // Build and return DTO
         return new PropertyBasicDetailsDto
         {
@@ -173,7 +185,10 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             PlotAreaMtrWidth = plot?.PlotAreaMtrWidth != null ? Math.Round(plot.PlotAreaMtrWidth.Value, 2) : null,
             WingId = society?.WingId,
             WingName = society?.WingName,
-            RateSectionDescription = rateSectionDescription
+            RateSectionDescription = rateSectionDescription,
+            Latitude = assessment?.Latitude,
+            Longitude = assessment?.Longitude,
+            ConstructionYear = constructionYear
         };
     }
 

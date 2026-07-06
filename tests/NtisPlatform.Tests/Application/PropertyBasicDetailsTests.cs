@@ -777,6 +777,52 @@ public class PropertyBasicDetailsTests
             Assert.Equal(549357, result.PropertyId);
             unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithCoordinates_InsertsAssessment()
+        {
+            var service = CreateService(out var repo, out var master, out var unitOfWork);
+
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, WardId = 79, TaxZoneId = 10, IsActive = true });
+            master.Setup(m => m.TaxZoneExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            master.Setup(m => m.WardExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            repo.Setup(r => r.GetFirstAssessmentIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+
+            var expected = new PropertyBasicDetailsDto { PropertyId = 549357, WardId = 79, TaxZoneId = 10 };
+            repo.Setup(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
+
+            var dto = new UpdatePropertyBasicDetailsDto { WardId = 79, TaxZoneId = 10, Latitude = "12.34", Longitude = "56.78" };
+            await service.UpdateBasicDetailsAsync(549357, dto);
+
+            repo.Verify(r => r.AddAssessmentAsync(It.Is<PropertyAssessmentEntity>(a => a.Latitude == "12.34" && a.Longitude == "56.78"), It.IsAny<CancellationToken>()), Times.Once);
+            unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateBasicDetailsAsync_WithCoordinates_UpdatesExistingAssessment()
+        {
+            var service = CreateService(out var repo, out var master, out var unitOfWork);
+
+            repo.Setup(r => r.GetActivePropertyAsync(549357, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new PropertyEntity { Id = 549357, WardId = 79, TaxZoneId = 10, IsActive = true });
+            master.Setup(m => m.TaxZoneExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            master.Setup(m => m.WardExistsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+            repo.Setup(r => r.GetFirstAssessmentIdAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(10);
+
+            var existingAssessment = new PropertyAssessmentEntity { Id = 10, PropertyId = 549357 };
+            repo.Setup(r => r.GetAssessmentByIdAsync(10, It.IsAny<CancellationToken>())).ReturnsAsync(existingAssessment);
+
+            var expected = new PropertyBasicDetailsDto { PropertyId = 549357, WardId = 79, TaxZoneId = 10 };
+            repo.Setup(r => r.GetBasicDetailsAsync(549357, It.IsAny<CancellationToken>())).ReturnsAsync(expected);
+
+            var dto = new UpdatePropertyBasicDetailsDto { WardId = 79, TaxZoneId = 10, Latitude = "12.34", Longitude = "56.78" };
+            await service.UpdateBasicDetailsAsync(549357, dto);
+
+            Assert.Equal("12.34", existingAssessment.Latitude);
+            Assert.Equal("56.78", existingAssessment.Longitude);
+            unitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        }
     }
 
     #endregion

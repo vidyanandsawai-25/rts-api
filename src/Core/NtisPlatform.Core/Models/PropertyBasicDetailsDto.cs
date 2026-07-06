@@ -55,4 +55,11 @@ public class PropertyBasicDetailsDto
 
     // From RateSectionMaster
     public string? RateSectionDescription { get; set; }
+
+    // From PropertyMastDetails (Assessment)
+    public string? Latitude { get; set; }
+    public string? Longitude { get; set; }
+
+    // Earliest active construction year among all property details/floors
+    public string? ConstructionYear { get; set; }
 }

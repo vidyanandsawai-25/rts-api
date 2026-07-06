@@ -159,6 +159,40 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
+    public async Task GetBasicDetailsAsync_WithMultipleConstructionYears_ReturnsEarliestValidYear()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity
+        {
+            Id = 549357,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var detail1 = new PropertyDetailsEntity { Id = 1, PropertyId = 549357, ConstructionYear = "2020", IsActive = true, MarkedForDeletion = false };
+        var detail2 = new PropertyDetailsEntity { Id = 2, PropertyId = 549357, ConstructionYear = "2015", IsActive = true, MarkedForDeletion = false };
+        var detail3 = new PropertyDetailsEntity { Id = 3, PropertyId = 549357, ConstructionYear = "2018", IsActive = true, MarkedForDeletion = false };
+        var detailInvalid = new PropertyDetailsEntity { Id = 4, PropertyId = 549357, ConstructionYear = "Invalid", IsActive = true, MarkedForDeletion = false };
+        var detailEmpty = new PropertyDetailsEntity { Id = 5, PropertyId = 549357, ConstructionYear = "", IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyMast.Add(property);
+        context.PropertyDetails.AddRange(detail1, detail2, detail3, detailInvalid, detailEmpty);
+        await context.SaveChangesAsync();
+
+        var service = CreateBasicDetailsService(context);
+        var result = await service.GetBasicDetailsAsync(549357);
+
+        Assert.NotNull(result);
+        Assert.Equal("2015", result.ConstructionYear);
+    }
+
+    [Fact]
     public async Task UpdateBasicDetailsAsync_WithWingNo_CreatesSocietyAndLinksWingNo()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

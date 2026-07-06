@@ -70,4 +70,10 @@ public class UpdatePropertyBasicDetailsDto
 
     [Range(1, int.MaxValue, ErrorMessage = "MoujaId must be greater than 0.")]
     public int? MoujaId { get; set; }
+
+    [StringLength(20, ErrorMessage = "Latitude cannot exceed 20 characters.")]
+    public string? Latitude { get; set; }
+
+    [StringLength(20, ErrorMessage = "Longitude cannot exceed 20 characters.")]
+    public string? Longitude { get; set; }
 }

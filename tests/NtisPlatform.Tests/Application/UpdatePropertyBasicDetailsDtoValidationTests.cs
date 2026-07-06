@@ -217,6 +217,36 @@ public class UpdatePropertyBasicDetailsDtoValidationTests
     }
 
     [Fact]
+    public void UpdatePropertyBasicDetailsDto_LatitudeTooLong_FailsValidation()
+    {
+        var dto = new UpdatePropertyBasicDetailsDto
+        {
+            WardId = 79,
+            TaxZoneId = 10,
+            Latitude = new string('L', 21) // Max 20
+        };
+
+        var results = Validate(dto);
+        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage!.Contains("Latitude cannot exceed 20 characters"));
+    }
+
+    [Fact]
+    public void UpdatePropertyBasicDetailsDto_LongitudeTooLong_FailsValidation()
+    {
+        var dto = new UpdatePropertyBasicDetailsDto
+        {
+            WardId = 79,
+            TaxZoneId = 10,
+            Longitude = new string('L', 21) // Max 20
+        };
+
+        var results = Validate(dto);
+        Assert.NotEmpty(results);
+        Assert.Contains(results, r => r.ErrorMessage!.Contains("Longitude cannot exceed 20 characters"));
+    }
+
+    [Fact]
     public void UpdatePropertyBasicDetailsDto_NoOfResidentialToiletsNegative_FailsValidation()
     {
         var dto = new UpdatePropertyBasicDetailsDto

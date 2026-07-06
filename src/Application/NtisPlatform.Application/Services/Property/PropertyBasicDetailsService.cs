@@ -139,7 +139,10 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
         CancellationToken cancellationToken)
     {
         var assessmentId = await _repository.GetFirstAssessmentIdAsync(propertyId, cancellationToken);
-        bool hasAssessmentData = dto.NoOfResidentialToilets.HasValue || dto.NoOfCommercialToilets.HasValue;
+        bool hasAssessmentData = dto.NoOfResidentialToilets.HasValue ||
+                                 dto.NoOfCommercialToilets.HasValue ||
+                                 !string.IsNullOrWhiteSpace(dto.Latitude) ||
+                                 !string.IsNullOrWhiteSpace(dto.Longitude);
 
         if (assessmentId > 0)
         {
@@ -148,6 +151,8 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
             {
                 assessment.NoOfResidentialToilets = dto.NoOfResidentialToilets;
                 assessment.NoOfCommercialToilets = dto.NoOfCommercialToilets;
+                assessment.Latitude = dto.Latitude;
+                assessment.Longitude = dto.Longitude;
                 assessment.UpdatedDate = now;
             }
         }
@@ -158,6 +163,8 @@ public class PropertyBasicDetailsService : IPropertyBasicDetailsService
                 PropertyId = propertyId,
                 NoOfResidentialToilets = dto.NoOfResidentialToilets,
                 NoOfCommercialToilets = dto.NoOfCommercialToilets,
+                Latitude = dto.Latitude,
+                Longitude = dto.Longitude,
                 IsActive = true,
                 MarkedForDeletion = false,
                 CreatedDate = now
