@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
+using NtisPlatform.Api.DTOs;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
@@ -355,6 +356,215 @@ public class DocumentControllerTests
 
         Assert.IsType<OkObjectResult>(result);
         docService.Verify(s => s.UpdateDocumentBindingReferenceAsync(5, 9, 42, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    #endregion
+
+    #region GetByBinding
+
+    [Fact]
+    public async Task GetByBinding_ReturnsBadRequest_WhenBindingIdInvalid()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetByBinding(0, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByBinding_ReturnsNotFound_WhenUnauthorized()
+    {
+        var controller = Create(out var docService, out var authService);
+        var bindingId = 5;
+        docService.Setup(s => s.GetDocumentByBindingAsync(bindingId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DocumentDto { DocumentGuid = Guid.NewGuid() });
+        authService.Setup(a => a.CanAccessDocumentBindingAsync(bindingId, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.GetByBinding(bindingId, CancellationToken.None);
+
+        // Returns NotFound (not Forbid) to avoid information disclosure
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByBinding_ReturnsNotFound_WhenDocumentNotFound()
+    {
+        var controller = Create(out var docService, out var authService);
+        authService.Setup(a => a.CanAccessDocumentBindingAsync(5, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        docService.Setup(s => s.GetDocumentByBindingAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DocumentDto?)null);
+
+        var result = await controller.GetByBinding(5, CancellationToken.None);
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByBinding_ReturnsOk_WhenAuthorized()
+    {
+        var controller = Create(out var docService, out var authService);
+        var bindingId = 5;
+        var dto = new DocumentDto { DocumentGuid = Guid.NewGuid() };
+        docService.Setup(s => s.GetDocumentByBindingAsync(bindingId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+        authService.Setup(a => a.CanAccessDocumentBindingAsync(bindingId, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.GetByBinding(bindingId, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    #endregion
+
+    #region GetByReference
+
+    [Fact]
+    public async Task GetByReference_ReturnsBadRequest_WhenDepartmentIdInvalid()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetByReference(0, 1, "PropertyPhotos", 1, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsBadRequest_WhenModuleIdInvalid()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetByReference(1, 0, "PropertyPhotos", 1, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsBadRequest_WhenReferenceTableNameEmpty()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetByReference(1, 1, "", 1, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsBadRequest_WhenReferenceTableIdInvalid()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetByReference(1, 1, "PropertyPhotos", 0, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsNotFound_WhenDocumentNotFound()
+    {
+        var controller = Create(out var docService, out _);
+        docService.Setup(s => s.GetDocumentByReferenceAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DocumentDto?)null);
+
+        var result = await controller.GetByReference(1, 1, "PropertyPhotos", 5, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsNotFound_WhenUnauthorized()
+    {
+        var controller = Create(out var docService, out var authService);
+        var docGuid = Guid.NewGuid();
+        var dto = new DocumentDto { DocumentGuid = docGuid };
+        docService.Setup(s => s.GetDocumentByReferenceAsync(
+            It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+        authService.Setup(a => a.CanAccessDocumentAsync(docGuid, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.GetByReference(1, 1, "PropertyPhotos", 5, CancellationToken.None);
+
+        // Returns NotFound (not Forbid) to avoid information disclosure
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetByReference_ReturnsOk_WhenAuthorized()
+    {
+        var controller = Create(out var docService, out var authService);
+        var docGuid = Guid.NewGuid();
+        var dto = new DocumentDto { DocumentGuid = docGuid };
+        docService.Setup(s => s.GetDocumentByReferenceAsync(1, 1, "PropertyPhotos", 5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+        authService.Setup(a => a.CanAccessDocumentAsync(docGuid, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await controller.GetByReference(1, 1, "PropertyPhotos", 5, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    #endregion
+
+    #region GetMetadata
+
+    [Fact]
+    public async Task GetMetadata_ReturnsBadRequest_WhenDocumentGuidEmpty()
+    {
+        var controller = Create(out _, out _);
+
+        var result = await controller.GetMetadata(Guid.Empty, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetMetadata_ReturnsNotFound_WhenUnauthorized()
+    {
+        var controller = Create(out _, out var authService);
+        var docGuid = Guid.NewGuid();
+        authService.Setup(a => a.CanAccessDocumentAsync(docGuid, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await controller.GetMetadata(docGuid, CancellationToken.None);
+
+        // Returns NotFound (not Forbid) to avoid information disclosure
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetMetadata_ReturnsNotFound_WhenMetadataNull()
+    {
+        var controller = Create(out var docService, out var authService);
+        var docGuid = Guid.NewGuid();
+        authService.Setup(a => a.CanAccessDocumentAsync(docGuid, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        docService.Setup(s => s.GetDocumentMetadataAsync(docGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DocumentMetadataDto?)null);
+
+        var result = await controller.GetMetadata(docGuid, CancellationToken.None);
+
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetMetadata_ReturnsOk_WhenAuthorizedAndMetadataExists()
+    {
+        var controller = Create(out var docService, out var authService);
+        var docGuid = Guid.NewGuid();
+        var metadata = new DocumentMetadataDto { DocumentGuid = docGuid, DocumentTitle = "Test" };
+        authService.Setup(a => a.CanAccessDocumentAsync(docGuid, 42, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        docService.Setup(s => s.GetDocumentMetadataAsync(docGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(metadata);
+
+        var result = await controller.GetMetadata(docGuid, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
     }
 
     #endregion

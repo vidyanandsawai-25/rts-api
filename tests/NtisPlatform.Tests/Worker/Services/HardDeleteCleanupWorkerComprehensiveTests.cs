@@ -87,7 +87,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
 
         // Act
         var executeTask = worker.StartAsync(cts.Token);
-        await Task.WhenAny(tcs.Task, Task.Delay(5000)); // Wait for callback or timeout
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
         cts.Cancel();
         await executeTask;
         await worker.StopAsync(CancellationToken.None);
@@ -115,7 +115,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
 
         // Act
         var executeTask = worker.StartAsync(cts.Token);
-        await Task.WhenAny(tcs.Task, Task.Delay(5000)); // Wait for callback or timeout
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
         cts.Cancel();
         await executeTask;
         await worker.StopAsync(CancellationToken.None);
@@ -147,7 +147,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
 
         // Act
         var executeTask = worker.StartAsync(cts.Token);
-        await Task.WhenAny(tcs.Task, Task.Delay(5000)); // Wait for callback or timeout
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
         cts.Cancel();
         await executeTask;
         await worker.StopAsync(CancellationToken.None);
@@ -344,7 +344,7 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Act
         var executeTask = worker.StartAsync(cts.Token);
 
-        await Task.WhenAny(tcs.Task, Task.Delay(5000));
+        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
 
         cts.Cancel();
         await executeTask;

@@ -80,4 +80,44 @@ public interface IDocumentService
         int? referenceTableId,
         Guid? referenceTableIdGuid,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets document binding by ID
+    /// </summary>
+    Task<DocumentBindingEntity?> GetDocumentBindingByIdAsync(
+        int documentBindingId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets document by DocumentBindingId (O(1) access via binding).
+    /// </summary>
+    Task<DocumentEntity?> GetDocumentByBindingIdAsync(
+        int documentBindingId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets documents by department, module, reference table, and reference ID.
+    /// Used for by-reference lookups.
+    /// </summary>
+    Task<List<DocumentEntity>> GetDocumentsByDepartmentModuleReferenceAsync(
+        int departmentId,
+        int moduleId,
+        string referenceTableName,
+        int? referenceTableId,
+        Guid? referenceTableIdGuid,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets soft-deleted documents marked for deletion before cutoff date.
+    /// Used by background cleanup service to find orphaned files to delete.
+    /// </summary>
+    Task<List<DocumentEntity>> GetSoftDeletedDocumentsAsync(
+        DateTime cutoffDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hard deletes a document record from the database.
+    /// The caller is responsible for deleting the underlying storage object before invoking this method.
+    /// </summary>
+    Task HardDeleteDocumentAsync(int documentId, CancellationToken cancellationToken = default);
 }

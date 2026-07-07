@@ -212,6 +212,15 @@ public class PropertyPhotoEntity : BaseEntity, IHardDeletable
     }
 
     /// <summary>
+    /// Restore this photo to latest status (undo superseding).
+    /// Called during compensation when a replacement operation fails.
+    /// </summary>
+    public void RestoreFromSuperseding()
+    {
+        IsLatest = true;
+    }
+
+    /// <summary>
     /// Mark photo for soft deletion. Frees the latest-per-type slot so a new photo
     /// can be uploaded for the same (PropertyId, PhotoTypeId).
     /// </summary>

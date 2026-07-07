@@ -26,6 +26,7 @@ using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Services.Property;
+using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Services.Master;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
@@ -45,6 +46,7 @@ using NtisPlatform.Infrastructure.Repositories;
 using NtisPlatform.Infrastructure.Repositories.Property;
 using NtisPlatform.Infrastructure.Repositories.Rules;
 using NtisPlatform.Infrastructure.Services;
+using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
 
@@ -92,6 +94,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILocalizationService, LocalizationService>();
         // Preload on startup
         services.AddHostedService<LocalizationWarmupHostedService>();
+
+        // Department ID cache - eliminates sync DB queries in DI setup
+        services.AddSingleton<IDepartmentIdCache, DepartmentIdCache>();
+        services.AddHostedService<DepartmentIdCacheInitializer>();
+
+        // Document orphan cleanup service (disabled by default until enabled/configured)
+        // services.AddHostedService<DocumentOrphanCleanupService>();
         // Replace RESX localizer with service-backed factory
         services.AddSingleton<IStringLocalizerFactory, DbServiceStringLocalizerFactory>();
         // Configure localization options from appsettings
@@ -157,6 +166,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
         services.AddScoped<IFileStorageService, FileStorageService>();
+        services.AddScoped<IModuleLookupService, ModuleLookupService>();
+
+        // Document Authorization Handlers (per-department entity-level authorization)
+        // Register handlers for document access based on parent entity (Property, WaterConnection, etc.)
+        services.AddScoped<IDocumentAuthorizationHandler>(sp =>
+        {
+            // PTIS department ID - resolved from startup cache (no sync DB queries)
+            var deptCache = sp.GetRequiredService<IDepartmentIdCache>();
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<NtisPlatform.Infrastructure.Services.Handlers.PtisDocumentAuthorizationHandler>>();
+
+            var ptisDepartmentId = deptCache.GetPtisdepartmentId();
+
+            return new NtisPlatform.Infrastructure.Services.Handlers.PtisDocumentAuthorizationHandler(
+                ptisDepartmentId,
+                logger);
+        });
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
         services.AddScoped<IPropertyPhotoService, PropertyPhotoService>();
         services.AddScoped<IDynamicEntityLoader, DynamicEntityLoader>();
@@ -183,9 +208,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
-        services.AddScoped<IPropertySocialDetailsDocumentService, PropertySocialDetailsDocumentService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
 
+        // Global Document Binding Handlers (OCP extension points).
+        // Each module registers its own handler — DocumentApplicationService dispatches to them
+        // by reference table name, with zero if/else branching on entity names.
+        // Pattern: For each new module, create a handler implementing IDocumentBindingHandler
+        // and register it here. DocumentApplicationService will auto-discover via DI.
+        services.AddScoped<IDocumentBindingHandler, PropertyPhotoDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, PropertyCertificateDocumentBindingHandler>();
+        // Future modules: Add handlers following this pattern:
+        // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
+        // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
 
         // TODO: Add other providers when implemented
         // services.AddScoped<IAuthenticationProvider, AzureAdAuthProvider>();

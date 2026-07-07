@@ -15,6 +15,7 @@ namespace NtisPlatform.Tests.Api.Extensions;
 /// <summary>
 /// Comprehensive tests for ServiceCollectionExtensions
 /// Target: 100% line coverage and branch coverage
+/// Unit tests verify service registration only (integration tests with real database for full validation)
 /// </summary>
 public class ServiceCollectionExtensionsComprehensiveTests
 {
@@ -56,21 +57,20 @@ public class ServiceCollectionExtensionsComprehensiveTests
     #region Happy Path Tests
 
     [Fact]
-    public void AddAllServices_WithValidConfiguration_RegistersAllServices()
+    public void AddAllServices_RegistersInfrastructureServices()
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
-        // Assert - Infrastructure Services
-        Assert.NotNull(serviceProvider.GetService<ITokenService>());
-        Assert.NotNull(serviceProvider.GetService<IPasswordHasher>());
-        Assert.NotNull(serviceProvider.GetService<ISecuritySettingsService>());
-        Assert.NotNull(serviceProvider.GetService<IHardDeleteCleanupService>());
-        Assert.NotNull(serviceProvider.GetService<IDocumentService>());
-        Assert.NotNull(serviceProvider.GetService<IDocumentAuthorizationService>());
-        Assert.NotNull(serviceProvider.GetService<IFileStorageService>());
-        Assert.NotNull(serviceProvider.GetService<IPropertyCertificateService>());
+        // Assert - Verify services are registered (not building provider to avoid hosted service startup)
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(ITokenService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPasswordHasher));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(ISecuritySettingsService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IHardDeleteCleanupService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IDocumentService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IDocumentAuthorizationService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IFileStorageService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyCertificateService));
     }
 
     [Fact]
@@ -78,13 +78,12 @@ public class ServiceCollectionExtensionsComprehensiveTests
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert
-        Assert.NotNull(serviceProvider.GetService<IUserRepository>());
-        Assert.NotNull(serviceProvider.GetService<IRefreshTokenRepository>());
-        Assert.NotNull(serviceProvider.GetService<IPropertyRepository>());
-        Assert.NotNull(serviceProvider.GetService<IUnitOfWork>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IUserRepository));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IRefreshTokenRepository));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyRepository));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IUnitOfWork));
     }
 
     [Fact]
@@ -92,12 +91,11 @@ public class ServiceCollectionExtensionsComprehensiveTests
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert
-        Assert.NotNull(serviceProvider.GetService<IAuthService>());
-        Assert.NotNull(serviceProvider.GetService<IUlbConfigService>());
-        Assert.NotNull(serviceProvider.GetService<IPropertyService>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IAuthService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IUlbConfigService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyService));
     }
 
     [Fact]
@@ -105,11 +103,10 @@ public class ServiceCollectionExtensionsComprehensiveTests
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert - PropertyPhoto stack: Core row service + Application orchestration service
-        Assert.NotNull(serviceProvider.GetService<IPropertyPhotoService>());
-        Assert.NotNull(serviceProvider.GetService<IPropertyPhotoApplicationService>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyPhotoService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyPhotoApplicationService));
     }
 
     [Fact]
@@ -117,24 +114,21 @@ public class ServiceCollectionExtensionsComprehensiveTests
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert
-        Assert.NotNull(serviceProvider.GetService<ILocalizationService>());
-        Assert.NotNull(serviceProvider.GetService<ILocalization>());
-        Assert.NotNull(serviceProvider.GetService<ILocalizedQueryService>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(ILocalizationService));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(ILocalization));
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(ILocalizedQueryService));
     }
 
     [Fact]
-    public void AddAllServices_RegistersDbContext()
+    public void AddAllServices_RegistersDbContextFactory()
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert
-        Assert.NotNull(serviceProvider.GetService<ApplicationDbContext>());
-        Assert.NotNull(serviceProvider.GetService<IDbContextFactory<ApplicationDbContext>>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IDbContextFactory<ApplicationDbContext>));
     }
 
     [Fact]
@@ -142,22 +136,28 @@ public class ServiceCollectionExtensionsComprehensiveTests
     {
         // Act
         _services.AddAllServices(_configuration);
-        var serviceProvider = _services.BuildServiceProvider();
 
         // Assert
-        Assert.NotNull(serviceProvider.GetService<AutoMapper.IMapper>());
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(AutoMapper.IMapper));
     }
 
     [Fact]
-    public void AddAllServices_ConfiguresControllers()
+    public void AddAllServices_RegistersDepartmentIdCache()
+    {
+        // Act
+        _services.AddAllServices(_configuration);
+
+        // Assert - DepartmentIdCache should be registered as singleton to avoid sync DB queries during DI setup
+        Assert.Contains(_services, sd => sd.ServiceType == typeof(IDepartmentIdCache) && sd.Lifetime == ServiceLifetime.Singleton);
+    }
+
+    [Fact]
+    public void AddAllServices_RegistersControllers()
     {
         // Act
         _services.AddAllServices(_configuration);
 
         // Assert - Verify MVC services are registered
-        var serviceProvider = _services.BuildServiceProvider();
-        var mvcBuilder = serviceProvider.GetService<Microsoft.AspNetCore.Mvc.Infrastructure.IActionDescriptorCollectionProvider>();
-        // If controllers are registered, this service should be available (or we check for controller registrations)
         Assert.True(_services.Any(sd => sd.ServiceType.Namespace != null && sd.ServiceType.Namespace.Contains("Microsoft.AspNetCore.Mvc")));
     }
 

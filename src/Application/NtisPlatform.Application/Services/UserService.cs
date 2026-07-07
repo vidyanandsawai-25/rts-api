@@ -21,6 +21,9 @@ public class UserService : BaseCommonCrudService<
         int>,
     IUserService
 {
+    // Configuration constants for email templates
+    private const string DefaultCompanyName = "NTIS Platform";
+
     private readonly ILogger<UserService> _logger;
     private readonly IRepository<UserDepartmentAllocationEntity, int> _departmentMapRepository;
     private readonly IRepository<UserModuleAllocationEntity, int> _moduleAccessRepository;
@@ -620,14 +623,14 @@ public class UserService : BaseCommonCrudService<
         // Get email settings (includes LoginUrl from config)
         var emailSettings = await _emailSettingsProvider.GetEmailSettingsAsync(cancellationToken);
 
-        // Prepare template placeholders
+        // Prepare template placeholders (CompanyName can be overridden in appsettings if needed)
         var placeholders = new Dictionary<string, string>
         {
             { "UserName", user.UserName },
             { "Email", user.Email ?? string.Empty },
             { "TemporaryPassword", temporaryPassword },
             { "LoginUrl", emailSettings.LoginUrl ?? "#" },
-            { "CompanyName", "NTIS Platform" } // TODO: Get from config
+            { "CompanyName", DefaultCompanyName }
         };
 
         // Load and process template
