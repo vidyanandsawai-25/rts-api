@@ -491,6 +491,17 @@ public static class ServiceCollectionExtensions
             configuration.GetSection(NtisPlatform.Application.Options.ReportingOptions.Section));
         // Data providers — one per report type; add new reports here
         services.AddScoped<IReportDataProvider, NoticeNewDataProvider>();
+        services.AddScoped<IReportDataProvider, NoDueCertificateDataProvider>();
+        services.AddScoped<IReportDataProvider, KarakarniDataProvider>();
+        services.AddScoped<IReportDataProvider, JaptiNoticeDataProvider>();
+        services.AddScoped<IReportDataProvider, WarrentNoticeDataProvider>();
+        services.AddScoped<IReportDataProvider, SpotSurveyFormDataProvider>();
+        services.AddScoped<IReportDataProvider, SpecialNoticeDataProvider>();
+        services.AddScoped<IReportDataProvider, RentedNoticeDataProvider>();
+        services.AddScoped<IReportDataProvider, TransferCertificateDataProvider>();
+        services.AddScoped<IReportDataProvider, Notice120DataProvider>();
+        services.AddScoped<IReportDataProvider, SocietyOutstandingReportDataProvider>();
+        services.AddScoped<IReportDataProvider, PrarupYadiDataProvider>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();
