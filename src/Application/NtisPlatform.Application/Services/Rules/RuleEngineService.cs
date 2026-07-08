@@ -345,7 +345,7 @@ namespace NtisPlatform.Application.Services.Rules
                 ChangeType = changeType,
                 ChangeReason = changeReason,
                 ChangedBy = changedBy,
-                ChangedDate = DateTime.UtcNow,
+                ChangedDate = DateTime.Now,
                 ChangeSummary = changeSummary
             };
 
@@ -386,11 +386,11 @@ namespace NtisPlatform.Application.Services.Rules
         /// </summary>
         private async Task<string> GenerateRuleCodeAsync(CancellationToken cancellationToken = default)
         {
-            var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
+            var datePrefix = DateTime.Now.ToString("yyyyMMdd");
             var baseCode = $"RULE-{datePrefix}";
 
             // Get the count of rules created today to generate a sequence number
-            var todayStart = DateTime.UtcNow.Date;
+            var todayStart = DateTime.Now.Date;
             var todayEnd = todayStart.AddDays(1);
 
             var todayCount = await _repository.GetQueryable()
@@ -407,7 +407,7 @@ namespace NtisPlatform.Application.Services.Rules
             if (exists)
             {
                 // Fallback: Add timestamp milliseconds for uniqueness
-                var timestamp = DateTime.UtcNow.ToString("HHmmssffff");
+                var timestamp = DateTime.Now.ToString("HHmmssffff");
                 ruleCode = $"{baseCode}-{timestamp}";
             }
 

@@ -317,7 +317,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             {
                 record.IsActive = false;
                 record.UpdatedBy = dto.UpdatedBy;
-                record.UpdatedDate = DateTime.UtcNow;
+                record.UpdatedDate = DateTime.Now;
                 await _repository.UpdateAsync(record, cancellationToken);
 
                 await DeactivateAllSocialDetailBindingsAsync(record.Id, dto.UpdatedBy, cancellationToken);

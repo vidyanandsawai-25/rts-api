@@ -163,7 +163,7 @@ public class FieldRegistryService : IFieldRegistryService
                 IsApprovalRequired = createDto.IsApprovalRequired,
                 IsActive = createDto.IsActive,
                 CreatedBy = createDto.CreatedBy,
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTime.Now
             };
 
             _context.BulkUpdateMasters.Add(masterEntity);
@@ -192,7 +192,7 @@ public class FieldRegistryService : IFieldRegistryService
                     BindApi = fieldConfig.BindApi,
                     IsActive = createDto.IsActive,
                     CreatedBy = createDto.CreatedBy,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 };
 
                 fieldConfigEntities.Add(fieldConfigEntity);
@@ -284,7 +284,7 @@ public class FieldRegistryService : IFieldRegistryService
         using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
         try
         {
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
 
             masterEntity.IsActive = isActive;
             masterEntity.UpdatedDate = now;

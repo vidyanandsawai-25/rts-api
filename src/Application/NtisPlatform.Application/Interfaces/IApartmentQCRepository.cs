@@ -120,7 +120,7 @@ public interface IApartmentQCRepository
     /// <summary>
     /// Applies the non-null fields from each <see cref="UpdateApartmentQCDetailsDto"/>
     /// onto the corresponding tracked <c>PropertyDetails</c> entity and stamps
-    /// <paramref name="updatedBy"/> / <c>DateTime.UtcNow</c>. Does NOT call SaveChanges.
+    /// <paramref name="updatedBy"/> / <c>DateTime.Now</c>. Does NOT call SaveChanges.
     /// </summary>
     void ApplyDetailPatches(
         Dictionary<int, PropertyDetailsEntity> detailsById,

@@ -286,7 +286,7 @@ public class DocumentService : IDocumentService
                 throw new InvalidOperationException(
                     $"Cannot update binding {documentBindingId} with int reference: binding is GUID-based.");
 
-            binding.UpdatedDate = DateTime.UtcNow;
+            binding.UpdatedDate = DateTime.Now;
         }
     }
 

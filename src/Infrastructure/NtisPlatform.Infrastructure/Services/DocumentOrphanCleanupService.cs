@@ -36,7 +36,7 @@ public class DocumentOrphanCleanupService : BackgroundService
             try
             {
                 // Calculate time until next daily execution (2 AM)
-                var now = DateTime.UtcNow;
+                var now = DateTime.Now;
                 var next2Am = now.Date.AddDays(1).Add(_dailyExecutionTime);
 
                 // If it's already past 2 AM today, next execution is tomorrow
@@ -81,15 +81,15 @@ public class DocumentOrphanCleanupService : BackgroundService
     {
         try
         {
-            _logger.LogInformation("Starting orphan cleanup task at {ExecutionTime}", DateTime.UtcNow);
+            _logger.LogInformation("Starting orphan cleanup task at {ExecutionTime}", DateTime.Now);
 
             using (var scope = _serviceProvider.CreateScope())
             {
                 var documentService = scope.ServiceProvider.GetRequiredService<IDocumentService>();
                 var fileStorageService = scope.ServiceProvider.GetRequiredService<IFileStorageService>();
 
-                // Find documents marked for deletion beyond grace period (UTC)
-                var cutoffDate = DateTime.UtcNow.Subtract(_gracePeriodDays);
+                // Find documents marked for deletion beyond grace period (local time)
+                var cutoffDate = DateTime.Now.Subtract(_gracePeriodDays);
                 _logger.LogInformation(
                     "Orphan cleanup: Looking for documents soft-deleted before {CutoffDate} (grace period: {GracePeriodDays} days)",
                     cutoffDate, _gracePeriodDays.Days);

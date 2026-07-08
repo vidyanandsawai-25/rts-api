@@ -32,7 +32,7 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
 
     public async Task<int> CleanupMarkedEntitiesAsync(int retentionDays = 0, CancellationToken cancellationToken = default)
     {
-        var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+        var cutoffDate = DateTime.Now.AddDays(-retentionDays);
         var totalDeleted = 0;
 
         _logger.LogInformation("Starting hard delete cleanup task. Retention days: {RetentionDays}, Cutoff date: {CutoffDate}",
@@ -102,7 +102,7 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
             if (entity is IHardDeletable hardDeletable)
             {
                 hardDeletable.MarkedForDeletion = true;
-                hardDeletable.MarkedForDeletionDate = DateTime.UtcNow;
+                hardDeletable.MarkedForDeletionDate = DateTime.Now;
                 _logger.LogInformation("Marked {EntityType} with ID {Id} for hard deletion", typeof(TEntity).Name, id);
             }
             else

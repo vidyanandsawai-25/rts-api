@@ -142,7 +142,7 @@ public class DocumentBindingEntity : BaseEntity, IHardDeletable
         if (MarkedForDeletion)
             return;
         MarkedForDeletion = true;
-        MarkedForDeletionDate = DateTime.UtcNow;
+        MarkedForDeletionDate = DateTime.Now;
         IsActive = false;
     }
 

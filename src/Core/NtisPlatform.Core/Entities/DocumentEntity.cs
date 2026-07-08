@@ -85,7 +85,7 @@ UploadStatusCode = "ACTIVE",
         if (deletedByUserId <= 0)
             throw new ArgumentException("Deleted by user ID must be greater than zero.", nameof(deletedByUserId));
         MarkedForDeletion = true;
-        MarkedForDeletionDate = DateTime.UtcNow;
+        MarkedForDeletionDate = DateTime.Now;
         IsActive = false;
     }
 
@@ -117,7 +117,7 @@ UploadStatusCode = "ACTIVE",
             throw new ArgumentException($"Invalid scan status '{scanStatus}'. Must be one of: {string.Join(", ", validStatuses)}", nameof(scanStatus));
 
         ScanStatusCode = normalizedStatus;
-        ScanCompletedDate = DateTime.UtcNow;
+        ScanCompletedDate = DateTime.Now;
         ScanDetails = scanDetails;
 
         if (normalizedStatus == "INFECTED" || normalizedStatus == "QUARANTINED")

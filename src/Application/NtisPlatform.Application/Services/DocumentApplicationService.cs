@@ -400,7 +400,7 @@ public class DocumentApplicationService : IDocumentApplicationService
 
         binding.MarkForDeletion();
         binding.UpdatedBy = updatedBy;
-        binding.UpdatedDate = DateTime.UtcNow;
+        binding.UpdatedDate = DateTime.Now;
 
         await _bindingRepository.UpdateAsync(binding, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

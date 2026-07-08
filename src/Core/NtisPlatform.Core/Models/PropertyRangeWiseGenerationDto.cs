@@ -265,7 +265,7 @@ namespace NtisPlatform.Core.Models
 
         [Range(1, int.MaxValue, ErrorMessage = "CreateNewProperty_CreatedBy_RangeMax")]
         public int? CreatedBy { get; set; }
-        public DateTime? CreatedDate { get; set; } = DateTime.UtcNow;
+        public DateTime? CreatedDate { get; set; } = DateTime.Now;
 
     }
 }
