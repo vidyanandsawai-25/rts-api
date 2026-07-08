@@ -792,7 +792,7 @@ public class ApartmentQCService : IApartmentQCService
     {
         ("R",       "Residential"),
         ("C",       "Commercial"),
-        ("Aminity", "Amenities"),
+        ("Amenity", "Amenities"),
     };
 
     private static byte[] BuildExcelBytes(
