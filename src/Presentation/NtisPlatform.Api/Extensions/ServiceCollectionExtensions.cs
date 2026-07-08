@@ -49,6 +49,7 @@ using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
+using NtisPlatform.Application.Services.ReportDataProviders;
 
 namespace NtisPlatform.Api.Extensions;
 
@@ -87,6 +88,36 @@ public static class ServiceCollectionExtensions
         services.AddScoped(sp =>
         {
             var factory = sp.GetRequiredService<IDbContextFactory<ApplicationDbContext>>();
+            return factory.CreateDbContext();
+        });
+
+        // Report queue DB (separate database; schema owned by the ntis DB project mapping only)
+        services.AddPooledDbContextFactory<ReportingDbContext>(options =>
+        {
+            var reportingConnection = configuration.GetConnectionString("ReportingConnection")
+                ?? throw new InvalidOperationException("ConnectionStrings:ReportingConnection is not configured.");
+            options.UseSqlServer(reportingConnection);
+        });
+        services.AddScoped(sp =>
+        {
+            var factory = sp.GetRequiredService<IDbContextFactory<ReportingDbContext>>();
+            return factory.CreateDbContext();
+        });
+
+        // Read-only report DATA context (replica / read-only login) for heavy provider reads.
+        // A generous CommandTimeout (default 300s) lets a large report's per-page query finish instead
+        // of dying at SQL Server's 30s default — the common cause of large reports failing.
+        var reportDataCommandTimeout = configuration.GetValue<int>("ReportData:CommandTimeoutSeconds", 300);
+        services.AddPooledDbContextFactory<ReportDataDbContext>(options =>
+        {
+            var readOnlyConnection = configuration.GetConnectionString("ReportDataReadOnlyConnection")
+                ?? configuration.GetConnectionString("DefaultConnection");
+            options.UseSqlServer(readOnlyConnection,
+                sql => sql.CommandTimeout(reportDataCommandTimeout));
+        });
+        services.AddScoped(sp =>
+        {
+            var factory = sp.GetRequiredService<IDbContextFactory<ReportDataDbContext>>();
             return factory.CreateDbContext();
         });
 
@@ -141,6 +172,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
         services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+        // Report catalogue (definitions + parameters) lives in the report database. Bind their
+        // IRepository<T,int> to ReportingDbContext these closed-generic registrations override the
+        // open-generic ApplicationDbContext binding above for these two entity types, so every
+        // consumer (CRUD services, cache warmup, ReportService, ReportWorkerService) reads from the
+        // report DB. The matching write-side IUnitOfWork is injected per CRUD service below.
+        services.AddScoped<IRepository<NtisPlatform.Core.Entities.Master.ReportDefinitionEntity, int>>(
+            sp => new ReportDbRepository<NtisPlatform.Core.Entities.Master.ReportDefinitionEntity, int>(
+                sp.GetRequiredService<ReportingDbContext>()));
+        services.AddScoped<IRepository<NtisPlatform.Core.Entities.Master.ReportParameterDefinitionEntity, int>>(
+            sp => new ReportDbRepository<NtisPlatform.Core.Entities.Master.ReportParameterDefinitionEntity, int>(
+                sp.GetRequiredService<ReportingDbContext>()));
+
+        // Reporting repositories/UoW bound to ReportingDbContext (report queue DB)
+        services.AddScoped(typeof(IReportingRepository<,>), typeof(ReportingRepository<,>));
+        services.AddScoped<IReportingUnitOfWork, ReportingUnitOfWork>();
+        // Read-only data repository bound to ReportDataDbContext (report data replica)
+        services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
@@ -414,6 +463,34 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
+
+        // Report Services
+        // Singleton cache + hosted warmup (same instance used for both DI injection and startup warmup)
+        services.AddSingleton<ReportDefinitionCacheService>();
+        services.AddSingleton<ReportDefinitionCacheWarmupService>();
+        services.AddHostedService(sp => sp.GetRequiredService<ReportDefinitionCacheWarmupService>());
+        // Report catalogue CRUD services write to the report database, so they receive a
+        // ReportingDbContext-backed IUnitOfWork (the same scoped context their repository resolves,
+        // so tracked changes are persisted). The repository comes from the closed-generic
+        // registrations above.
+        services.AddScoped<IReportDefinitionService>(sp => new ReportDefinitionService(
+            sp.GetRequiredService<IRepository<NtisPlatform.Core.Entities.Master.ReportDefinitionEntity, int>>(),
+            new ReportDbUnitOfWork(sp.GetRequiredService<ReportingDbContext>()),
+            sp.GetRequiredService<IMapper>()));
+        services.AddScoped<IReportParameterDefinitionService>(sp => new ReportParameterDefinitionService(
+            sp.GetRequiredService<IRepository<NtisPlatform.Core.Entities.Master.ReportParameterDefinitionEntity, int>>(),
+            new ReportDbUnitOfWork(sp.GetRequiredService<ReportingDbContext>()),
+            sp.GetRequiredService<IMapper>()));
+        services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IReportWorkerService, ReportWorkerService>();
+        // No job-enqueuer here: the platform only inserts Pending rows into dbo.ReportRequest. The
+        // ntis-report worker polls for them and enqueues/renders itself, so the two repos share only
+        // the database (no cross-repo Hangfire job-contract assembly).
+        // Async reporting options (token lifetimes, page sizes, lease, retries)
+        services.Configure<NtisPlatform.Application.Options.ReportingOptions>(
+            configuration.GetSection(NtisPlatform.Application.Options.ReportingOptions.Section));
+        // Data providers — one per report type; add new reports here
+        services.AddScoped<IReportDataProvider, NoticeNewDataProvider>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();
@@ -473,7 +550,18 @@ public static class ServiceCollectionExtensions
                       .AllowAnyHeader();
                 // Note: AllowCredentials removed - tokens are sent in Authorization header only
             });
+
+            // SignalR hub CORS: needs AllowCredentials for the HTTP negotiation handshake.
+            options.AddPolicy("HubCors", policy =>
+            {
+                policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            });
         });
+
+        services.AddSignalR();
 
         // JWT Authentication - Validate JWT Key
         var jwtKey = configuration.GetValue<string>("Jwt:Key");
@@ -538,8 +626,22 @@ public static class ServiceCollectionExtensions
                 ClockSkew = TimeSpan.Zero
             };
 
-            // Token must be provided in Authorization header only
-            // Cookie-based authentication removed - incomplete security model
+            // Allow SignalR WebSocket connections to pass the JWT via query string.
+            // WebSocket protocol doesn't support custom headers, so SignalR clients send
+            // the token as ?access_token=... on the /hubs/* path only.
+            options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+            {
+                OnMessageReceived = ctx =>
+                {
+                    var token = ctx.Request.Query["access_token"];
+                    if (!Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(token) &&
+                        ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    {
+                        ctx.Token = token;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
         });
 
         // Authorization with fallback policy - all endpoints require authentication by default
@@ -548,6 +650,20 @@ public static class ServiceCollectionExtensions
             options.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                 .RequireAuthenticatedUser()
                 .Build();
+
+            // Worker data/upload/notify endpoints: valid JWT + scope=report-worker.
+            options.AddPolicy("ReportWorker", policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim("scope", "report-worker");
+            });
+
+            // SignalR hub: valid JWT + scope=report-hub (hub tokens carry this claim).
+            options.AddPolicy("ReportHub", policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim("scope", "report-hub");
+            });
         });
 
         // Rate Limiting (ASP.NET Core 7+)
