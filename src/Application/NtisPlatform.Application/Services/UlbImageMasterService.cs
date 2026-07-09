@@ -66,23 +66,53 @@ public class UlbImageMasterService
         try
         {
             var entity = _mapper.Map<UlbImageMasterEntity>(createDto);
-            
+
             await _repository.AddAsync(entity, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             // Create binding if ImageId is provided
             if (createDto.ImageId.HasValue)
             {
-                if (!createDto.DepartmentId.HasValue || createDto.DepartmentId <= 0)
+                int departmentId;
+                if (createDto.DepartmentId.HasValue && createDto.DepartmentId.Value > 0)
                 {
-                    throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(createDto.DepartmentId), "Department selection is required when an image is selected.", NtisPlatform.Application.Enums.OperationType.Create);
+                    departmentId = createDto.DepartmentId.Value;
                 }
-                if (!createDto.ModuleId.HasValue || createDto.ModuleId <= 0)
+                else
                 {
-                    throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(createDto.ModuleId), "Module selection is required when an image is selected.", NtisPlatform.Application.Enums.OperationType.Create);
+                    // Fallback department resolution
+                    var depts = await _departmentRepository.GetAsync(d => d.IsActive, cancellationToken);
+                    var fallbackDept = depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "CORE", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "PTIS", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "PROPERTY", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault();
+
+                    if (fallbackDept == null)
+                    {
+                        throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(createDto.DepartmentId), "No active department found in the system to link the image.", NtisPlatform.Application.Enums.OperationType.Create);
+                    }
+                    departmentId = fallbackDept.Id;
                 }
-                var departmentId = createDto.DepartmentId.Value;
-                var moduleId = createDto.ModuleId.Value;
+
+                int moduleId;
+                if (createDto.ModuleId.HasValue && createDto.ModuleId.Value > 0)
+                {
+                    moduleId = createDto.ModuleId.Value;
+                }
+                else
+                {
+                    // Fallback module resolution under the resolved department
+                    var modules = await _moduleRepository.GetAsync(m => m.DepartmentId == departmentId && m.IsActive, cancellationToken);
+                    var fallbackModule = modules.FirstOrDefault(m => string.Equals(m.ModuleCode, "ULBIMAGE", StringComparison.OrdinalIgnoreCase))
+                        ?? modules.FirstOrDefault(m => string.Equals(m.ModuleCode, "PROPERTY", StringComparison.OrdinalIgnoreCase))
+                        ?? modules.FirstOrDefault();
+
+                    if (fallbackModule == null)
+                    {
+                        throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(createDto.ModuleId), $"No active module found under department ID {departmentId} to link the image.", NtisPlatform.Application.Enums.OperationType.Create);
+                    }
+                    moduleId = fallbackModule.Id;
+                }
 
                 await _documentService.CreateDocumentBindingAsync(
                     createDto.ImageId.Value,
@@ -149,16 +179,46 @@ public class UlbImageMasterService
             // Create new binding if ImageId changed and is provided
             if (updateDto.ImageId.HasValue && updateDto.ImageId != oldImageId)
             {
-                if (!updateDto.DepartmentId.HasValue || updateDto.DepartmentId <= 0)
+                int departmentId;
+                if (updateDto.DepartmentId.HasValue && updateDto.DepartmentId.Value > 0)
                 {
-                    throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(updateDto.DepartmentId), "Department selection is required when an image is selected.", NtisPlatform.Application.Enums.OperationType.Update);
+                    departmentId = updateDto.DepartmentId.Value;
                 }
-                if (!updateDto.ModuleId.HasValue || updateDto.ModuleId <= 0)
+                else
                 {
-                    throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(updateDto.ModuleId), "Module selection is required when an image is selected.", NtisPlatform.Application.Enums.OperationType.Update);
+                    // Fallback department resolution
+                    var depts = await _departmentRepository.GetAsync(d => d.IsActive, cancellationToken);
+                    var fallbackDept = depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "CORE", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "PTIS", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault(d => string.Equals(d.DepartmentCode, "PROPERTY", StringComparison.OrdinalIgnoreCase))
+                        ?? depts.FirstOrDefault();
+
+                    if (fallbackDept == null)
+                    {
+                        throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(updateDto.DepartmentId), "No active department found in the system to link the image.", NtisPlatform.Application.Enums.OperationType.Update);
+                    }
+                    departmentId = fallbackDept.Id;
                 }
-                var departmentId = updateDto.DepartmentId.Value;
-                var moduleId = updateDto.ModuleId.Value;
+
+                int moduleId;
+                if (updateDto.ModuleId.HasValue && updateDto.ModuleId.Value > 0)
+                {
+                    moduleId = updateDto.ModuleId.Value;
+                }
+                else
+                {
+                    // Fallback module resolution under the resolved department
+                    var modules = await _moduleRepository.GetAsync(m => m.DepartmentId == departmentId && m.IsActive, cancellationToken);
+                    var fallbackModule = modules.FirstOrDefault(m => string.Equals(m.ModuleCode, "ULBIMAGE", StringComparison.OrdinalIgnoreCase))
+                        ?? modules.FirstOrDefault(m => string.Equals(m.ModuleCode, "PROPERTY", StringComparison.OrdinalIgnoreCase))
+                        ?? modules.FirstOrDefault();
+
+                    if (fallbackModule == null)
+                    {
+                        throw new NtisPlatform.Application.Exceptions.ValidationException(nameof(updateDto.ModuleId), $"No active module found under department ID {departmentId} to link the image.", NtisPlatform.Application.Enums.OperationType.Update);
+                    }
+                    moduleId = fallbackModule.Id;
+                }
 
                 await UnmarkExistingPrimaryBindingsAsync(entity.Id, cancellationToken);
 

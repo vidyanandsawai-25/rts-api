@@ -17,4 +17,9 @@ public interface IDynamicBindingService
     /// Dynamically unlinks (sets to null) the <c>DocumentBindingId</c> property on a target business entity.
     /// </summary>
     Task UnlinkBindingFromEntityAsync(string tableName, int entityId, int bindingId, int updatedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks whether the target business entity table name is registered in the EF model and supports dynamic binding.
+    /// </summary>
+    bool CanLinkEntity(string tableName);
 }

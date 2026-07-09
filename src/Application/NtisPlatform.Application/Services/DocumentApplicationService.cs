@@ -25,15 +25,7 @@ namespace NtisPlatform.Application.Services;
 /// </summary>
 public class DocumentApplicationService : IDocumentApplicationService
 {
-    /// <summary>
-    /// Allow-list of reference tables permitted to use the reflection-based dynamic binding
-    /// fallback when no dedicated <see cref="IDocumentBindingHandler"/> is registered.
-    /// Derived from <see cref="DocumentReferenceTable"/> so new tables must be added there
-    /// explicitly rather than accepted implicitly at runtime.
-    /// </summary>
-    private static readonly HashSet<string> AllowedDynamicTables = new(
-        Enum.GetNames(typeof(DocumentReferenceTable)),
-        StringComparer.OrdinalIgnoreCase);
+
 
     private readonly IDocumentService _documentService;
     private readonly IFileStorageService _fileStorageService;
@@ -110,7 +102,7 @@ public class DocumentApplicationService : IDocumentApplicationService
             if (preUploadHandler != null)
             {
                 var referenceExists = await preUploadHandler.ReferenceExistsAsync(
-                    uploadDto.ReferenceTableId.Value, cancellationToken);
+                    uploadDto.ReferenceTableId.Value, uploadDto.ReferencePropertyName, cancellationToken);
 
                 if (!referenceExists)
                 {
@@ -271,8 +263,8 @@ public class DocumentApplicationService : IDocumentApplicationService
                                 }
                                 else
                                 {
-                                    // FALLBACK: Dynamic entity linking with strict allow-list checks
-                                    if (!AllowedDynamicTables.Contains(uploadDto.ReferenceTableName!))
+                                    // FALLBACK: Dynamic entity linking with metadata checks
+                                    if (!_dynamicBindingService.CanLinkEntity(uploadDto.ReferenceTableName!))
                                     {
                                         _logger.LogWarning("Unauthorized dynamic link attempt to table {TableName} by user {UserId}", uploadDto.ReferenceTableName, uploadedBy);
                                         throw new UnauthorizedAccessException($"Dynamic linking to table '{uploadDto.ReferenceTableName}' is not permitted.");
@@ -463,8 +455,8 @@ public class DocumentApplicationService : IDocumentApplicationService
                 }
                 else if (binding.ReferenceTableId.HasValue && binding.ReferenceTableId.Value > 0)
                 {
-                    // FALLBACK: Dynamic entity unlinking with strict allow-list checks
-                    if (!AllowedDynamicTables.Contains(binding.ReferenceTableName))
+                    // FALLBACK: Dynamic entity unlinking with metadata checks
+                    if (!_dynamicBindingService.CanLinkEntity(binding.ReferenceTableName))
                     {
                         _logger.LogWarning("Unauthorized dynamic unlink attempt from table {TableName} by user {UserId}", binding.ReferenceTableName, deletedBy);
                         throw new UnauthorizedAccessException($"Dynamic unlinking from table '{binding.ReferenceTableName}' is not permitted.");
@@ -524,8 +516,8 @@ public class DocumentApplicationService : IDocumentApplicationService
             }
             else
             {
-                // FALLBACK: Dynamic entity linking with strict allow-list checks
-                if (!AllowedDynamicTables.Contains(binding.ReferenceTableName))
+                // FALLBACK: Dynamic entity linking with metadata checks
+                if (!_dynamicBindingService.CanLinkEntity(binding.ReferenceTableName))
                 {
                     _logger.LogWarning("Unauthorized dynamic link attempt to table {TableName} on reference update by user {UserId}", binding.ReferenceTableName, updatedBy);
                     throw new UnauthorizedAccessException($"Dynamic linking to table '{binding.ReferenceTableName}' is not permitted.");

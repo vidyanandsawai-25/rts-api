@@ -97,7 +97,7 @@ public class DynamicBindingService : IDynamicBindingService
             {
                 updatedByProp.PropertyInfo.SetValue(entity, updatedBy);
             }
-            
+
             var updatedDateProp = entityType.GetProperties()
                 .FirstOrDefault(p => string.Equals(p.Name, "UpdatedDate", StringComparison.OrdinalIgnoreCase));
             if (updatedDateProp?.PropertyInfo != null && updatedDateProp.PropertyInfo.CanWrite)
@@ -140,7 +140,7 @@ public class DynamicBindingService : IDynamicBindingService
             if (currentVal != null && (int)Convert.ChangeType(currentVal, typeof(int)) == bindingId)
             {
                 clrProperty.SetValue(entity, null);
-                
+
                 // Dynamically clear DocumentGuid if it exists on the entity
                 var documentGuidProp = entityType.GetProperties()
                     .FirstOrDefault(p => string.Equals(p.Name, "DocumentGuid", StringComparison.OrdinalIgnoreCase));
@@ -148,14 +148,14 @@ public class DynamicBindingService : IDynamicBindingService
                 {
                     documentGuidProp.PropertyInfo.SetValue(entity, null);
                 }
-                
+
                 var updatedByProp = entityType.GetProperties()
                     .FirstOrDefault(p => string.Equals(p.Name, "UpdatedBy", StringComparison.OrdinalIgnoreCase));
                 if (updatedByProp?.PropertyInfo != null && updatedByProp.PropertyInfo.CanWrite)
                 {
                     updatedByProp.PropertyInfo.SetValue(entity, updatedBy);
                 }
-                
+
                 var updatedDateProp = entityType.GetProperties()
                     .FirstOrDefault(p => string.Equals(p.Name, "UpdatedDate", StringComparison.OrdinalIgnoreCase));
                 if (updatedDateProp?.PropertyInfo != null && updatedDateProp.PropertyInfo.CanWrite)
@@ -167,5 +167,24 @@ public class DynamicBindingService : IDynamicBindingService
                 _logger.LogInformation("DynamicBindingService: Successfully unlinked BindingId={BindingId} from {EntityName} with ID={EntityId} dynamically.", bindingId, entityType.Name, entityId);
             }
         }
+    }
+
+    /// <inheritdoc/>
+    public bool CanLinkEntity(string tableName)
+    {
+        if (string.IsNullOrWhiteSpace(tableName))
+            return false;
+
+        var entityType = _context.Model.GetEntityTypes()
+            .FirstOrDefault(t => string.Equals(t.GetTableName(), tableName, StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(t.ClrType.Name, tableName, StringComparison.OrdinalIgnoreCase));
+
+        if (entityType == null)
+            return false;
+
+        var bindingIdProperty = entityType.GetProperties()
+            .FirstOrDefault(p => string.Equals(p.Name, "DocumentBindingId", StringComparison.OrdinalIgnoreCase));
+
+        return bindingIdProperty != null;
     }
 }

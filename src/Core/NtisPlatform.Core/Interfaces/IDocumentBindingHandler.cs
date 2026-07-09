@@ -38,6 +38,15 @@ public interface IDocumentBindingHandler
     /// exists. <c>DocumentApplicationService</c> calls this BEFORE any file I/O or database
     /// transaction starts, so an invalid/stale reference fails fast with a clean 400 response
     /// instead of a mid-transaction rollback plus orphaned-file cleanup.
+    /// </summary>
+    Task<bool> ReferenceExistsAsync(int referenceTableId, string? referencePropertyName, CancellationToken cancellationToken)
+        => ReferenceExistsAsync(referenceTableId, cancellationToken);
+
+    /// <summary>
+    /// Checks whether the business row identified by <paramref name="referenceTableId"/> already
+    /// exists. <c>DocumentApplicationService</c> calls this BEFORE any file I/O or database
+    /// transaction starts, so an invalid/stale reference fails fast with a clean 400 response
+    /// instead of a mid-transaction rollback plus orphaned-file cleanup.
     /// <para>
     /// The business row must always be created by its owning application service (e.g.
     /// <c>PropertyPhotoApplicationService.UploadPhotoAsync</c>) BEFORE calling the global
