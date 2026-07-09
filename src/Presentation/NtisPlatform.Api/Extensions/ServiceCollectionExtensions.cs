@@ -234,6 +234,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCertificateService, PropertyCertificateService>();
         services.AddScoped<IPropertyPhotoService, PropertyPhotoService>();
         services.AddScoped<IDynamicEntityLoader, DynamicEntityLoader>();
+        services.AddScoped<IDynamicBindingService, DynamicBindingService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();

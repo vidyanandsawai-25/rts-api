@@ -34,6 +34,23 @@ public interface IDocumentBindingHandler
     bool Handles(string referenceTableName);
 
     /// <summary>
+    /// Checks whether the business row identified by <paramref name="referenceTableId"/> already
+    /// exists. <c>DocumentApplicationService</c> calls this BEFORE any file I/O or database
+    /// transaction starts, so an invalid/stale reference fails fast with a clean 400 response
+    /// instead of a mid-transaction rollback plus orphaned-file cleanup.
+    /// <para>
+    /// The business row must always be created by its owning application service (e.g.
+    /// <c>PropertyPhotoApplicationService.UploadPhotoAsync</c>) BEFORE calling the global
+    /// Document API — never by this handler. Handlers therefore only need to verify existence
+    /// here, not create anything.
+    /// </para>
+    /// The default implementation assumes the row exists (no-op check); override when the
+    /// handler's business row can be verified inexpensively.
+    /// </summary>
+    Task<bool> ReferenceExistsAsync(int referenceTableId, CancellationToken cancellationToken)
+        => Task.FromResult(true);
+
+    /// <summary>
     /// Called by <c>DocumentApplicationService</c> after the Document record and the
     /// <see cref="DocumentBindingEntity"/> have been persisted inside the active transaction.
     /// Use this to perform entity-specific post-processing (e.g. linking back the new

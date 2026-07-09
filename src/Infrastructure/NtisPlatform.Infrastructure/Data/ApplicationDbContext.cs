@@ -17,7 +17,7 @@ public class ApplicationDbContext : DbContext
 
     /// <summary>
     /// Protected ctor enabling derived contexts (e.g. <c>ReportDataDbContext</c>) to reuse this
-    /// exact entity model against a different connection — used for the read-only report data
+    /// exact entity model against a different connection ï¿½ used for the read-only report data
     /// replica. The derived context passes its own <c>DbContextOptions&lt;TDerived&gt;</c>.
     /// </summary>
     protected ApplicationDbContext(DbContextOptions options) : base(options)
@@ -191,6 +191,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -39,9 +39,29 @@ public sealed class PropertyCertificateDocumentBindingHandler : IDocumentBinding
         => string.Equals(referenceTableName, "PropertyCertificate", StringComparison.OrdinalIgnoreCase)
         || string.Equals(referenceTableName, "PropertyCertificates", StringComparison.OrdinalIgnoreCase);
 
+    /// <inheritdoc/>
+    public async Task<bool> ReferenceExistsAsync(int referenceTableId, CancellationToken cancellationToken)
+    {
+        var certificate = await _certificateService.GetByIdAsync(
+            referenceTableId,
+            PropertyCertificateIncludeOptions.None,
+            cancellationToken);
+
+        if (certificate == null)
+        {
+            _logger.LogWarning(
+                "PropertyCertificateDocumentBindingHandler.ReferenceExistsAsync: no PropertyCertificate found with ID={CertId}.",
+                referenceTableId);
+        }
+
+        return certificate != null;
+    }
+
     /// <summary>
     /// Links the newly created <c>DocumentBindingId</c> back to the <c>PropertyCertificate</c> row
-    /// identified by <paramref name="referenceTableId"/>.
+    /// identified by <paramref name="referenceTableId"/>. The row is guaranteed to exist at this
+    /// point because <see cref="ReferenceExistsAsync"/> is checked before the transaction/file
+    /// write even started.
     /// </summary>
     public async Task OnAfterUploadAsync(
         int documentId,
@@ -53,19 +73,6 @@ public sealed class PropertyCertificateDocumentBindingHandler : IDocumentBinding
         _logger.LogDebug(
             "PropertyCertificateDocumentBindingHandler.OnAfterUploadAsync: linking BindingId={BindingId} to CertificateId={CertId}",
             bindingId, referenceTableId);
-
-        // Validate the certificate exists before linking
-        var certificate = await _certificateService.GetByIdAsync(
-            referenceTableId,
-            PropertyCertificateIncludeOptions.None,
-            cancellationToken);
-
-        if (certificate == null)
-        {
-            throw new ArgumentException(
-                $"Property certificate with ID {referenceTableId} not found.",
-                nameof(referenceTableId));
-        }
 
         await _certificateService.UpdateDocumentBindingAsync(
             referenceTableId,

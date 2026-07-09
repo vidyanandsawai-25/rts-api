@@ -86,10 +86,17 @@ public class PropertyPhotoService : IPropertyPhotoService
         // Sync ReferenceTableId on DocumentBinding
         var binding = await _context.DocumentBindings
             .FirstOrDefaultAsync(db => db.Id == documentBindingId, cancellationToken);
-        if (binding != null && (binding.ReferenceTableId == null || binding.ReferenceTableId == 0))
+        if (binding != null)
         {
-            binding.ReferenceTableId = propertyPhotoId;
-            binding.ReferenceTableIdGuid = null;
+            if (binding.ReferenceTableId == null || binding.ReferenceTableId == 0)
+            {
+                binding.ReferenceTableId = propertyPhotoId;
+                binding.ReferenceTableIdGuid = null;
+            }
+            if (!string.IsNullOrWhiteSpace(binding.BindingPurpose))
+            {
+                entity.SetRemarks(binding.BindingPurpose);
+            }
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

@@ -25,6 +25,16 @@ namespace NtisPlatform.Application.Services;
 /// </summary>
 public class DocumentApplicationService : IDocumentApplicationService
 {
+    /// <summary>
+    /// Allow-list of reference tables permitted to use the reflection-based dynamic binding
+    /// fallback when no dedicated <see cref="IDocumentBindingHandler"/> is registered.
+    /// Derived from <see cref="DocumentReferenceTable"/> so new tables must be added there
+    /// explicitly rather than accepted implicitly at runtime.
+    /// </summary>
+    private static readonly HashSet<string> AllowedDynamicTables = new(
+        Enum.GetNames(typeof(DocumentReferenceTable)),
+        StringComparer.OrdinalIgnoreCase);
+
     private readonly IDocumentService _documentService;
     private readonly IFileStorageService _fileStorageService;
     private readonly IUnitOfWork _unitOfWork;
@@ -33,6 +43,7 @@ public class DocumentApplicationService : IDocumentApplicationService
     private readonly long _maxFileSizeBytes;
     private readonly IRepository<DocumentBindingEntity, int> _bindingRepository;
     private readonly IReadOnlyDictionary<string, IDocumentBindingHandler> _bindingHandlers;
+    private readonly IDynamicBindingService _dynamicBindingService;
 
     public DocumentApplicationService(
         IDocumentService documentService,
@@ -41,13 +52,15 @@ public class DocumentApplicationService : IDocumentApplicationService
         IOptions<FileStorageOptions> fileStorageOptions,
         ILogger<DocumentApplicationService> logger,
         IRepository<DocumentBindingEntity, int> bindingRepository,
-        IEnumerable<IDocumentBindingHandler> bindingHandlers)
+        IEnumerable<IDocumentBindingHandler> bindingHandlers,
+        IDynamicBindingService dynamicBindingService)
     {
         _documentService = documentService;
         _fileStorageService = fileStorageService;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _bindingRepository = bindingRepository;
+        _dynamicBindingService = dynamicBindingService;
 
         // Build a dispatch dictionary from all registered handlers.
         // Each handler declares which table name(s) it is responsible for via Handles().
@@ -83,8 +96,41 @@ public class DocumentApplicationService : IDocumentApplicationService
         Guard.AgainstNegativeOrZero(uploadedBy, nameof(uploadedBy));
 
         _logger.LogInformation(
-            "Starting document upload: {FileName}, Size: {FileSize} bytes, User: {UserId}",
+            "[Upload:Start] FileName={FileName}, Size={FileSize} bytes, User={UserId}",
             originalFileName, fileSizeBytes, uploadedBy);
+
+        // Fail-fast: if this upload targets an EXISTING business row via a registered handler,
+        // verify that row exists BEFORE any file I/O or DB transaction begins. This turns a
+        // caller mistake (wrong/stale ReferenceTableId, e.g. passing a PropertyId where a
+        // PropertyPhotoId is expected) into a clean 400 response instead of a mid-transaction
+        // rollback plus orphaned-file cleanup.
+        if (ShouldCreateBinding(uploadDto) && uploadDto.ReferenceTableId.HasValue && uploadDto.ReferenceTableId.Value > 0)
+        {
+            var preUploadHandler = FindHandler(uploadDto.ReferenceTableName!);
+            if (preUploadHandler != null)
+            {
+                var referenceExists = await preUploadHandler.ReferenceExistsAsync(
+                    uploadDto.ReferenceTableId.Value, cancellationToken);
+
+                if (!referenceExists)
+                {
+                    _logger.LogWarning(
+                        "[Upload:PreCheckFailed] No existing '{TableName}' row with ID {ReferenceTableId}. User={UserId}. " +
+                        "Aborting before any file write or DB transaction.",
+                        uploadDto.ReferenceTableName, uploadDto.ReferenceTableId, uploadedBy);
+
+                    throw new ArgumentException(
+                        $"No '{uploadDto.ReferenceTableName}' row exists with ID {uploadDto.ReferenceTableId.Value}. " +
+                        "Create the business row first via its own application service, then upload its document " +
+                        "with that row's ID as ReferenceTableId.",
+                        nameof(uploadDto.ReferenceTableId));
+                }
+
+                _logger.LogDebug(
+                    "[Upload:PreCheckPassed] {TableName}#{ReferenceTableId} exists.",
+                    uploadDto.ReferenceTableName, uploadDto.ReferenceTableId);
+            }
+        }
 
         var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
         var tempFilePath = Path.GetTempFileName();
@@ -149,7 +195,7 @@ public class DocumentApplicationService : IDocumentApplicationService
                             cancellationToken);
 
                         _logger.LogInformation(
-                            "Document created: DocumentId={DocumentId}, DocumentGuid={DocumentGuid}",
+                            "[Upload:DocumentInserted] DocumentId={DocumentId}, DocumentGuid={DocumentGuid}",
                             documentId, documentGuid);
 
                         // 2. Create DocumentBinding if sufficient context was provided.
@@ -171,7 +217,33 @@ public class DocumentApplicationService : IDocumentApplicationService
                                 uploadedBy,
                                 cancellationToken);
 
-                            _logger.LogInformation("DocumentBinding created: BindingId={BindingId}", bindingId);
+                            _logger.LogInformation(
+                                "[Upload:DocumentBindingInserted] BindingId={BindingId}, DocumentId={DocumentId}, ReferenceTable={TableName}, ReferenceTableId={ReferenceTableId}, ReferenceTableIdGuid={ReferenceTableIdGuid}",
+                                bindingId, documentId, uploadDto.ReferenceTableName, uploadDto.ReferenceTableId, uploadDto.ReferenceTableIdGuid);
+
+                            // AUTO-REPLACE: If this is a primary document, deactivate old primary bindings
+                            if (uploadDto.IsPrimaryDocument)
+                            {
+                                var existingBindings = await _bindingRepository.GetAsync(b =>
+                                    b.Id != bindingId!.Value && // Exclude the just-created binding
+                                    b.DepartmentId == uploadDto.DepartmentId!.Value &&
+                                    b.ModuleId == uploadDto.ModuleId!.Value &&
+                                    b.ReferenceTableName == uploadDto.ReferenceTableName &&
+                                    b.IsPrimaryDocument &&
+                                    b.IsActive &&
+                                    !b.MarkedForDeletion &&
+                                    ((uploadDto.ReferenceTableId.HasValue && b.ReferenceTableId == uploadDto.ReferenceTableId.Value) ||
+                                     (uploadDto.ReferenceTableIdGuid.HasValue && b.ReferenceTableIdGuid == uploadDto.ReferenceTableIdGuid.Value)),
+                                    cancellationToken);
+
+                                foreach (var oldBinding in existingBindings)
+                                {
+                                    oldBinding.MarkForDeletion();
+                                    oldBinding.UpdatedBy = uploadedBy;
+                                    oldBinding.UpdatedDate = DateTime.UtcNow;
+                                    await _bindingRepository.UpdateAsync(oldBinding, cancellationToken);
+                                }
+                            }
 
                             // 3. Delegate any entity-specific post-processing to the matching handler.
                             //    No if/else here — the handler registry is the extension point.
@@ -182,21 +254,54 @@ public class DocumentApplicationService : IDocumentApplicationService
                                 var handler = FindHandler(uploadDto.ReferenceTableName!);
                                 if (handler != null)
                                 {
+                                    _logger.LogDebug(
+                                        "[Upload:HandlerDispatch] Using handler '{HandlerTable}' for ReferenceTable={TableName}, BindingId={BindingId}, ReferenceTableId={ReferenceTableId}",
+                                        handler.ReferenceTableName, uploadDto.ReferenceTableName, bindingId, uploadDto.ReferenceTableId);
+
                                     await handler.OnAfterUploadAsync(
                                         documentId,
                                         bindingId.Value,
                                         uploadDto.ReferenceTableId.Value,
                                         uploadedBy,
                                         cancellationToken);
+
+                                    _logger.LogInformation(
+                                        "[Upload:BusinessRowLinked] Table={TableName}, ReferenceTableId={ReferenceTableId}, BindingId={BindingId}",
+                                        uploadDto.ReferenceTableName, uploadDto.ReferenceTableId, bindingId);
+                                }
+                                else
+                                {
+                                    // FALLBACK: Dynamic entity linking with strict allow-list checks
+                                    if (!AllowedDynamicTables.Contains(uploadDto.ReferenceTableName!))
+                                    {
+                                        _logger.LogWarning("Unauthorized dynamic link attempt to table {TableName} by user {UserId}", uploadDto.ReferenceTableName, uploadedBy);
+                                        throw new UnauthorizedAccessException($"Dynamic linking to table '{uploadDto.ReferenceTableName}' is not permitted.");
+                                    }
+
+                                    await _dynamicBindingService.LinkBindingToEntityAsync(
+                                        uploadDto.ReferenceTableName!,
+                                        uploadDto.ReferenceTableId.Value,
+                                        bindingId.Value,
+                                        uploadedBy,
+                                        cancellationToken);
                                 }
                             }
+                        }
+                        else
+                        {
+                            _logger.LogInformation(
+                                "[Upload:NoBindingCreated] Insufficient binding context — DepartmentId={DepartmentId}, ModuleId={ModuleId}, ReferenceTableName={ReferenceTableName}, ReferenceTableId={ReferenceTableId}, ReferenceTableIdGuid={ReferenceTableIdGuid}. DocumentId={DocumentId} was uploaded unbound.",
+                                uploadDto.DepartmentId, uploadDto.ModuleId, uploadDto.ReferenceTableName,
+                                uploadDto.ReferenceTableId, uploadDto.ReferenceTableIdGuid, documentId);
                         }
 
                         await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
-                        _logger.LogInformation("Document upload completed: {DocumentGuid}", documentGuid);
+                        _logger.LogInformation(
+                            "[Upload:Committed] DocumentGuid={DocumentGuid}, DocumentId={DocumentId}, DocumentBindingId={DocumentBindingId}",
+                            documentGuid, documentId, bindingId);
 
-                        return new DocumentUploadResponseDto
+                        var response = new DocumentUploadResponseDto
                         {
                             DocumentGuid = documentGuid,
                             DocumentId = documentId,
@@ -205,6 +310,12 @@ public class DocumentApplicationService : IDocumentApplicationService
                             FileSizeBytes = fileSizeBytes,
                             StoragePath = storagePath
                         };
+
+                        _logger.LogDebug(
+                            "[Upload:ResponseMapped] DocumentGuid={DocumentGuid}, DocumentId={DocumentId}, DocumentBindingId={DocumentBindingId}, FileName={FileName}, FileSizeBytes={FileSizeBytes}",
+                            response.DocumentGuid, response.DocumentId, response.DocumentBindingId, response.FileName, response.FileSizeBytes);
+
+                        return response;
                     }
                     catch
                     {
@@ -336,9 +447,6 @@ public class DocumentApplicationService : IDocumentApplicationService
         var document = await _documentService.GetDocumentByGuidAsync(documentGuid, cancellationToken);
         if (document != null)
         {
-            // Notify each matching handler so it can perform entity-specific cleanup
-            // (e.g. unlinking the binding from a PropertyCertificate or soft-deleting a PropertyPhoto).
-            // No if/else on entity names — handlers are the extension point.
             var activeBindings = await _bindingRepository.GetAsync(
                 b => b.DocumentId == document.Id && b.IsActive,
                 cancellationToken);
@@ -353,12 +461,31 @@ public class DocumentApplicationService : IDocumentApplicationService
                 {
                     await handler.OnBeforeDeleteAsync(binding, deletedBy, cancellationToken);
                 }
+                else if (binding.ReferenceTableId.HasValue && binding.ReferenceTableId.Value > 0)
+                {
+                    // FALLBACK: Dynamic entity unlinking with strict allow-list checks
+                    if (!AllowedDynamicTables.Contains(binding.ReferenceTableName))
+                    {
+                        _logger.LogWarning("Unauthorized dynamic unlink attempt from table {TableName} by user {UserId}", binding.ReferenceTableName, deletedBy);
+                        throw new UnauthorizedAccessException($"Dynamic unlinking from table '{binding.ReferenceTableName}' is not permitted.");
+                    }
+
+                    await _dynamicBindingService.UnlinkBindingFromEntityAsync(
+                        binding.ReferenceTableName,
+                        binding.ReferenceTableId.Value,
+                        binding.Id,
+                        deletedBy,
+                        cancellationToken);
+                }
+
+                // Soft delete the binding record
+                await _bindingRepository.DeleteAsync(binding, cancellationToken);
             }
         }
 
         var result = await _documentService.DeleteDocumentAsync(documentGuid, deletedBy, cancellationToken);
         if (result)
-            _logger.LogInformation("Document deleted: {DocumentGuid} by user {UserId}", documentGuid, deletedBy);
+            _logger.LogInformation("Document deleted (soft-delete): {DocumentGuid} by user {UserId}", documentGuid, deletedBy);
         else
             _logger.LogWarning("Delete failed — document not found: {DocumentGuid}", documentGuid);
 
@@ -380,6 +507,38 @@ public class DocumentApplicationService : IDocumentApplicationService
 
         await _documentService.UpdateDocumentBindingReferenceAsync(
             documentBindingId, referenceTableId, updatedBy, cancellationToken);
+
+        // Dynamic linking fallback / post-processing after GUID reference resolution
+        var binding = await _bindingRepository.GetByIdAsync(documentBindingId, cancellationToken);
+        if (binding != null && !string.IsNullOrWhiteSpace(binding.ReferenceTableName))
+        {
+            var handler = FindHandler(binding.ReferenceTableName);
+            if (handler != null)
+            {
+                await handler.OnAfterUploadAsync(
+                    binding.DocumentId,
+                    binding.Id,
+                    referenceTableId,
+                    updatedBy,
+                    cancellationToken);
+            }
+            else
+            {
+                // FALLBACK: Dynamic entity linking with strict allow-list checks
+                if (!AllowedDynamicTables.Contains(binding.ReferenceTableName))
+                {
+                    _logger.LogWarning("Unauthorized dynamic link attempt to table {TableName} on reference update by user {UserId}", binding.ReferenceTableName, updatedBy);
+                    throw new UnauthorizedAccessException($"Dynamic linking to table '{binding.ReferenceTableName}' is not permitted.");
+                }
+
+                await _dynamicBindingService.LinkBindingToEntityAsync(
+                    binding.ReferenceTableName,
+                    referenceTableId,
+                    binding.Id,
+                    updatedBy,
+                    cancellationToken);
+            }
+        }
     }
 
     /// <inheritdoc/>

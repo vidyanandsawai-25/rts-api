@@ -197,6 +197,18 @@ public class DocumentBindingEntity : BaseEntity, IHardDeletable
         ReferenceTableIdGuid = newReferenceTableIdGuid;
     }
 
+    public void ConvertGuidToIntReference(int newReferenceTableId)
+    {
+        if (newReferenceTableId <= 0)
+            throw new ArgumentException("Reference table ID must be greater than zero.", nameof(newReferenceTableId));
+        if (!ReferenceTableIdGuid.HasValue)
+            throw new InvalidOperationException("Cannot convert reference type: binding is not GUID-based.");
+
+        ReferenceTableIdGuid = null;
+        ReferenceTableId = newReferenceTableId;
+        IsReferenceValid = true;
+    }
+
     public bool IsActiveAndValid()
     {
         return IsActive && IsReferenceValid && !MarkedForDeletion;

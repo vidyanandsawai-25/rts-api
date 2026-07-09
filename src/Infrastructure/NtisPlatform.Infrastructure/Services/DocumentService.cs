@@ -283,10 +283,20 @@ public class DocumentService : IDocumentService
 
         if (binding != null)
         {
-                throw new InvalidOperationException(
-                    $"Cannot update binding {documentBindingId} with int reference: binding is GUID-based.");
+            if (binding.ReferenceTableIdGuid.HasValue)
+            {
+                binding.ConvertGuidToIntReference(referenceTableId);
+            }
+            else
+            {
+                binding.UpdateReferenceTableId(referenceTableId);
+            }
 
+            binding.UpdatedBy = updatedBy;
             binding.UpdatedDate = DateTime.Now;
+
+            await _bindingRepository.UpdateAsync(binding, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
 
