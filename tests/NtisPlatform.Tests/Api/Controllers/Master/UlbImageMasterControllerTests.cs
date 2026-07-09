@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -5,6 +6,8 @@ using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Entities;
+using System.Security.Claims;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
@@ -15,14 +18,33 @@ namespace NtisPlatform.Tests.Api.Controllers.Master;
 public class UlbImageMasterControllerTests
 {
     private readonly Mock<IUlbImageMasterService> _serviceMock;
+    private readonly Mock<IDocumentApplicationService> _documentServiceMock;
     private readonly Mock<ILogger<UlbImageMasterController>> _loggerMock;
+    private readonly Mock<IHardDeleteCleanupService> _cleanupServiceMock;
+    private readonly Mock<IReferenceValidationService> _referenceValidationServiceMock;
     private readonly UlbImageMasterController _controller;
 
     public UlbImageMasterControllerTests()
     {
         _serviceMock = new Mock<IUlbImageMasterService>();
+        _documentServiceMock = new Mock<IDocumentApplicationService>();
         _loggerMock = new Mock<ILogger<UlbImageMasterController>>();
-        _controller = new UlbImageMasterController(_serviceMock.Object, _loggerMock.Object);
+        _cleanupServiceMock = new Mock<IHardDeleteCleanupService>();
+        _referenceValidationServiceMock = new Mock<IReferenceValidationService>();
+
+        _controller = new UlbImageMasterController(
+            _serviceMock.Object,
+            _documentServiceMock.Object,
+            _loggerMock.Object,
+            _cleanupServiceMock.Object,
+            _referenceValidationServiceMock.Object);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, "42")
+        }, "TestAuth"));
+        _controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
     }
 
     #region GetAll Tests
@@ -444,6 +466,102 @@ public class UlbImageMasterControllerTests
         _serviceMock.Verify(s => s.CreateAsync(It.IsAny<CreateUlbImageMasterDto>(), It.IsAny<CancellationToken>()), Times.Once);
         _serviceMock.Verify(s => s.UpdateAsync(1, It.IsAny<UpdateUlbImageMasterDto>(), It.IsAny<CancellationToken>()), Times.Once);
         _serviceMock.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+
+    [Fact]
+    public async Task Purge_WithValidId_ReturnsOk()
+    {
+        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<UlbImageMasterEntity, int>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _controller.Purge(1, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Purge_WithInvalidId_ReturnsOk()
+    {
+        _cleanupServiceMock.Setup(s => s.ForceHardDeleteAsync<UlbImageMasterEntity, int>(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _controller.Purge(999, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    #region View
+
+    [Fact]
+    public async Task View_WhenFileExists_ReturnsFileResult()
+    {
+        // Arrange
+        var documentGuid = Guid.NewGuid();
+        var stream = new System.IO.MemoryStream(System.Text.Encoding.ASCII.GetBytes("fake-image-content"));
+        
+        _serviceMock.Setup(s => s.IsUlbImageDocumentAsync(documentGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _documentServiceMock
+            .Setup(s => s.ViewDocumentAsync(documentGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((stream, "logo.png", "image/png"));
+
+        // Act
+        var result = await _controller.View(documentGuid, CancellationToken.None);
+
+        // Assert
+        var fileResult = Assert.IsType<FileStreamResult>(result);
+        Assert.Equal("image/png", fileResult.ContentType);
+        Assert.True(fileResult.EnableRangeProcessing);
+    }
+
+    [Fact]
+    public async Task View_WhenFileDoesNotExist_ReturnsNotFound()
+    {
+        // Arrange
+        var documentGuid = Guid.NewGuid();
+        
+        _serviceMock.Setup(s => s.IsUlbImageDocumentAsync(documentGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _documentServiceMock
+            .Setup(s => s.ViewDocumentAsync(documentGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(((System.IO.Stream?)null, string.Empty, string.Empty));
+
+        // Act
+        var result = await _controller.View(documentGuid, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task View_WhenNotUlbImageDocument_ReturnsNotFound()
+    {
+        // Arrange
+        var documentGuid = Guid.NewGuid();
+        _serviceMock.Setup(s => s.IsUlbImageDocumentAsync(documentGuid, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.View(documentGuid, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    #endregion
+
+    private static IFormFile MakeFile(string fileName, string contentType, byte[] content)
+    {
+        var fileMock = new Mock<IFormFile>();
+        var ms = new MemoryStream(content);
+        fileMock.Setup(f => f.OpenReadStream()).Returns(ms);
+        fileMock.SetupGet(f => f.FileName).Returns(fileName);
+        fileMock.SetupGet(f => f.Length).Returns(content.Length);
+        fileMock.SetupGet(f => f.ContentType).Returns(contentType);
+        return fileMock.Object;
     }
 
     #endregion

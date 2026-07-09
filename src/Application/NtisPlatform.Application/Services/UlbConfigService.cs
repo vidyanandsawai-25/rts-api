@@ -13,10 +13,17 @@ namespace NtisPlatform.Application.Services;
 public class UlbConfigService : IUlbConfigService
 {
     private readonly IRepository<ULBMasterEntity> _ulbRepository;
+    private readonly IRepository<UlbImageMasterEntity> _ulbImageMasterRepository;
+    private readonly IRepository<DocumentEntity> _documentRepository;
 
-    public UlbConfigService(IRepository<ULBMasterEntity> ulbRepository)
+    public UlbConfigService(
+        IRepository<ULBMasterEntity> ulbRepository,
+        IRepository<UlbImageMasterEntity> ulbImageMasterRepository,
+        IRepository<DocumentEntity> documentRepository)
     {
         _ulbRepository = ulbRepository;
+        _ulbImageMasterRepository = ulbImageMasterRepository;
+        _documentRepository = documentRepository;
     }
 
     /// <summary>
@@ -37,6 +44,21 @@ public class UlbConfigService : IUlbConfigService
             return null;
         }
 
+        var backgroundImageGuid = await (
+            from img in _ulbImageMasterRepository.GetQueryable()
+            where img.ImageType == "Background" && img.IsActive
+            join doc in _documentRepository.GetQueryable() on img.ImageId equals doc.Id
+            where doc.IsActive && !doc.MarkedForDeletion
+            orderby img.Id descending
+            select doc.DocumentGuid
+        ).FirstOrDefaultAsync(cancellationToken);
+
+        string? ulbBackground = null;
+        if (backgroundImageGuid != Guid.Empty)
+        {
+            ulbBackground = $"/api/UlbImageMaster/{backgroundImageGuid}/view";
+        }
+
         return new UlbConfigDto
         {
             UlbId = ulb.Id,
@@ -49,7 +71,8 @@ public class UlbConfigService : IUlbConfigService
             WebsiteUrl = ulb.WebsiteUrl,
             UlbAddress = ulb.UlbAddress,
             State = ulb.State,
-            District = ulb.District
+            District = ulb.District,
+            UlbBackground = ulbBackground
         };
     }
 }
