@@ -126,10 +126,19 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
                 throw new InvalidOperationException($"Invalid or inactive photo type code/ID: '{docType}'");
             }
 
+            // Calculate next display order for this PropertyId and PhotoTypeId
+            var activePhotoDisplayOrders = await _context.PropertyPhotos
+                .Where(p => p.PropertyId == referenceTableId && p.PhotoTypeId == photoType.Id && p.IsActive && !p.MarkedForDeletion)
+                .Select(p => p.DisplayOrder)
+                .ToListAsync(cancellationToken);
+
+            var nextDisplayOrder = (activePhotoDisplayOrders.Any() ? activePhotoDisplayOrders.Max() ?? 0 : 0) + 1;
+
             var photo = PropertyPhotoEntity.CreateWithDocument(
                 propertyId: referenceTableId,
                 photoTypeId: photoType.Id,
                 documentBindingId: bindingId,
+                displayOrder: nextDisplayOrder,
                 remarks: binding.BindingPurpose);
 
             photo.CreatedBy = uploadedBy;

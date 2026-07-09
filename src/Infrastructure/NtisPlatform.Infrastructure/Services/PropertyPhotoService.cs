@@ -198,6 +198,7 @@ public class PropertyPhotoService : IPropertyPhotoService
         }
 
         entity.MarkForDeletion();
+        entity.UnlinkDocumentBinding();
         entity.UpdatedBy = deletedBy;
         entity.UpdatedDate = DateTime.Now;
 
