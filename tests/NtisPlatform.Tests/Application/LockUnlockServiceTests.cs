@@ -185,6 +185,49 @@ public class LockUnlockServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetPropertyLocksAsync_OrdersPropertyNoNaturally()
+    {
+        // Arrange
+        _context.WardMaster.Add(new WardEntity { Id = 2, WardNo = "W002", Description = "Ward 2", IsActive = true });
+        _context.PropertyMast.AddRange(
+            new PropertyEntity { Id = 10, PropertyNo = "A10", WardId = 2, IsActive = true },
+            new PropertyEntity { Id = 11, PropertyNo = "A2", WardId = 2, IsActive = true },
+            new PropertyEntity { Id = 12, PropertyNo = "A1", WardId = 2, IsActive = true },
+            new PropertyEntity { Id = 13, PropertyNo = "A3", WardId = 2, IsActive = true });
+        await _context.SaveChangesAsync();
+
+        var request = new FilterPropertyLocksRequestDto { WardId = 2, PageNumber = 1, PageSize = 10 };
+
+        // Act
+        var result = await _service.GetPropertyLocksAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(new[] { "A1", "A2", "A3", "A10" }, result.Items.Select(p => p.PropertyNo));
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksAsync_OrdersPartitionNoNaturallyWithinSamePropertyNo()
+    {
+        // Arrange - same PropertyNo, distinguished only by PartitionNo (matches real-world data)
+        _context.WardMaster.Add(new WardEntity { Id = 3, WardNo = "W003", Description = "Ward 3", IsActive = true });
+        _context.PropertyMast.AddRange(
+            new PropertyEntity { Id = 20, PropertyNo = "1", PartitionNo = "A11", WardId = 3, IsActive = true },
+            new PropertyEntity { Id = 21, PropertyNo = "1", PartitionNo = "A10", WardId = 3, IsActive = true },
+            new PropertyEntity { Id = 22, PropertyNo = "1", PartitionNo = "A2", WardId = 3, IsActive = true },
+            new PropertyEntity { Id = 23, PropertyNo = "1", PartitionNo = "A1", WardId = 3, IsActive = true },
+            new PropertyEntity { Id = 24, PropertyNo = "1", PartitionNo = "", WardId = 3, IsActive = true });
+        await _context.SaveChangesAsync();
+
+        var request = new FilterPropertyLocksRequestDto { WardId = 3, PageNumber = 1, PageSize = 10 };
+
+        // Act
+        var result = await _service.GetPropertyLocksAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(new[] { "", "A1", "A2", "A10", "A11" }, result.Items.Select(p => p.PartitionNo));
+    }
+
+    [Fact]
     public async Task GetPropertyLocksAsync_FiltersByFromPropertyNo()
     {
         // Arrange

@@ -153,9 +153,6 @@ namespace NtisPlatform.Application.Services.Rules
                         });
 
                         cumulativeValue = nextValue;
-
-                        if (rule.StopProcessing)
-                            break;
                     }
 
                     return new RuleApplicationResult

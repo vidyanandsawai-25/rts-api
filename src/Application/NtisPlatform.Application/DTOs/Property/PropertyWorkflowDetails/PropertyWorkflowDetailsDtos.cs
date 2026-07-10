@@ -9,6 +9,7 @@ public class PropertyWorkflowDetailsDto : BaseDtos
     public int? ModuleId { get; set; }
     public bool? CurrentStatus { get; set; }
     public int? CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
     public int? UpdatedBy { get; set; }
 }
 

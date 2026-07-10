@@ -8,7 +8,8 @@ public class PropertyWorkflowDetailsMappingProfile : Profile
 {
     public PropertyWorkflowDetailsMappingProfile()
     {
-        CreateMap<PropertyWorkflowDetailsEntity, PropertyWorkflowDetailsDto>();
+        CreateMap<PropertyWorkflowDetailsEntity, PropertyWorkflowDetailsDto>()
+            .ForMember(dest => dest.CreatedByName, opt => opt.Ignore());
 
         CreateMap<CreatePropertyWorkflowDetailsDto, PropertyWorkflowDetailsEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

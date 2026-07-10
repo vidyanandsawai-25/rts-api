@@ -83,6 +83,22 @@ public class PropertyPhotoService : IPropertyPhotoService
         entity.UpdatedBy = updatedBy;
         entity.UpdatedDate = DateTime.Now;
 
+        // Sync ReferenceTableId on DocumentBinding
+        var binding = await _context.DocumentBindings
+            .FirstOrDefaultAsync(db => db.Id == documentBindingId, cancellationToken);
+        if (binding != null)
+        {
+            if (binding.ReferenceTableId == null || binding.ReferenceTableId == 0)
+            {
+                binding.ReferenceTableId = propertyPhotoId;
+                binding.ReferenceTableIdGuid = null;
+            }
+            if (!string.IsNullOrWhiteSpace(binding.BindingPurpose))
+            {
+                entity.SetRemarks(binding.BindingPurpose);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
@@ -108,7 +124,13 @@ public class PropertyPhotoService : IPropertyPhotoService
             .Where(x => x.PropertyId == propertyId
                         && x.IsLatest
                         && x.IsActive
-                        && !x.MarkedForDeletion)
+                        && !x.MarkedForDeletion
+                        && (x.DocumentBinding == null
+                            || (x.DocumentBinding.IsActive
+                                && !x.DocumentBinding.MarkedForDeletion
+                                && x.DocumentBinding.Document != null
+                                && x.DocumentBinding.Document.IsActive
+                                && !x.DocumentBinding.Document.MarkedForDeletion)))
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.PhotoTypeId)
             .ToListAsync(cancellationToken);
@@ -141,6 +163,27 @@ public class PropertyPhotoService : IPropertyPhotoService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task RestoreFromSupersedingAsync(
+        int id,
+        int restoredBy,
+        CancellationToken cancellationToken = default)
+    {
+        var entity = await _context.PropertyPhotos
+            .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
+
+        if (entity == null)
+        {
+            throw new PropertyPhotoNotFoundException(id);
+        }
+
+        // Restore the photo to latest state (undo superseding)
+        entity.RestoreFromSuperseding();
+        entity.UpdatedBy = restoredBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task DeleteAsync(
         int id,
         int deletedBy,
@@ -155,6 +198,7 @@ public class PropertyPhotoService : IPropertyPhotoService
         }
 
         entity.MarkForDeletion();
+        entity.UnlinkDocumentBinding();
         entity.UpdatedBy = deletedBy;
         entity.UpdatedDate = DateTime.Now;
 

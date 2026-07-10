@@ -273,7 +273,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         IEnumerable<UpdateApartmentQCDetailsDto> dtos,
         int updatedBy)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         foreach (var dto in dtos)
         {
@@ -305,7 +305,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         if (property == null)
             return BasicDetailsPatchOutcome.PropertyNotFound;
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         // 1. PropertyMast
         if (dto.OwnerName != null)      property.OwnerName      = dto.OwnerName;

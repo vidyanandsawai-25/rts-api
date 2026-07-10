@@ -48,7 +48,7 @@ public class JwtTokenService : ITokenService
             issuer: jwtIssuer,
             audience: jwtAudience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            expires: DateTime.Now.AddMinutes(expiresInMinutes),
             signingCredentials: credentials
         );
 
@@ -62,6 +62,108 @@ public class JwtTokenService : ITokenService
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomBytes);
         return Convert.ToBase64String(randomBytes);
+    }
+
+    public string GenerateShortLivedToken(Guid reportRequestId, int userId, int expiresInMinutes)
+    {
+        var (key, issuer, audience) = GetKeyMaterial();
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim("scope", "report-slt"),
+            new Claim("reportRequestId", reportRequestId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        return BuildToken(key, issuer, audience, claims, expiresInMinutes);
+    }
+
+    public (Guid reportRequestId, int userId)? ValidateShortLivedToken(string token)
+    {
+        var jwtKey = _configuration["Jwt:Key"];
+        var jwtIssuer = _configuration["Jwt:Issuer"];
+        var jwtAudience = _configuration["Jwt:Audience"];
+        if (string.IsNullOrEmpty(jwtKey)) return null;
+
+        var handler = new JwtSecurityTokenHandler();
+        try
+        {
+            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                ValidateIssuer = true,
+                ValidIssuer = jwtIssuer,
+                ValidateAudience = true,
+                ValidAudience = jwtAudience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            }, out _);
+
+            var scope = principal.FindFirst("scope")?.Value;
+            if (scope != "report-slt") return null;
+
+            var rawId = principal.FindFirst("reportRequestId")?.Value;
+            if (!Guid.TryParse(rawId, out var reportRequestId)) return null;
+
+            var rawUserId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!int.TryParse(rawUserId, out var userId)) return null;
+
+            return (reportRequestId, userId);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public string GenerateReportWorkerToken(Guid reportRequestId, int subjectUserId, int expiresInMinutes)
+    {
+        var (key, issuer, audience) = GetKeyMaterial();
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, subjectUserId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, subjectUserId.ToString()),
+            new Claim("scope", "report-worker"),
+            new Claim("reportRequestId", reportRequestId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        return BuildToken(key, issuer, audience, claims, expiresInMinutes);
+    }
+
+    public string GenerateHubToken(int userId, int expiresInMinutes = 5)
+    {
+        var (key, issuer, audience) = GetKeyMaterial();
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim("scope", "report-hub"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+        return BuildToken(key, issuer, audience, claims, expiresInMinutes);
+    }
+
+    private (string key, string issuer, string audience) GetKeyMaterial()
+    {
+        var key = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is not configured");
+        var issuer = _configuration["Jwt:Issuer"] ?? string.Empty;
+        var audience = _configuration["Jwt:Audience"] ?? string.Empty;
+        return (key, issuer, audience);
+    }
+
+    private static string BuildToken(string key, string issuer, string audience,
+        IEnumerable<Claim> claims, int expiresInMinutes)
+    {
+        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key));
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(expiresInMinutes),
+            signingCredentials: credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     public JwtValidationResult ValidateToken(string token)

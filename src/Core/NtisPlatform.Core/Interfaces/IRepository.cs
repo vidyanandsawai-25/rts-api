@@ -21,6 +21,10 @@ public interface IRepository<T, TKey> where T : class
     /// when the entity has already been retrieved.
     /// </summary>
     Task DeleteAsync(T entity, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Performs a physical hard-delete of an entity, completely removing it from the database.
+    /// </summary>
+    Task HardDeleteAsync(T entity, CancellationToken cancellationToken = default);
     Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default);
 
     IQueryable<T> GetQueryable();

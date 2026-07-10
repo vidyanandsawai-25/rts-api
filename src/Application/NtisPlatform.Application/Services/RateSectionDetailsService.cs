@@ -51,11 +51,13 @@ public class RateSectionDetailsService : BaseCommonCrudService<RateSectionDetail
         return new PagedResult<RateSectionDetailsDto>(items, totalCount, queryParameters.PageNumber, queryParameters.PageSize);
     }
 
-    public override async Task<RateSectionDetailsDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public override async Task<RateSectionDetailsDto?> GetByIdAsync(
+     int id,
+     CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetQueryable()
             .Include(x => x.Ward)
-            .FirstOrDefaultAsync(cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
         return entity == null ? null : _mapper.Map<RateSectionDetailsDto>(entity);
     }

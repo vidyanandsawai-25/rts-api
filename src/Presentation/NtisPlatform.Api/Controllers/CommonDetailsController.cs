@@ -137,7 +137,7 @@ public class CommonDetailsController : ControllerBase
         try
         {
             var bytes = await _service.ExportPropertiesToExcelAsync(request, ct);
-            var fileName = $"{request.UpdateCode}_{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx";
+            var fileName = $"{request.UpdateCode}_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
             return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
         catch (ArgumentException ex)

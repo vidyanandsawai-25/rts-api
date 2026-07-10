@@ -1,7 +1,9 @@
 using AutoMapper;
 using Moq;
 using MockQueryable.Moq;
+using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -18,8 +20,7 @@ public class PropertySocialDetailsServiceTests
 {
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _mockRepository;
     private readonly Mock<IPropertySocialDetailsRepository> _mockSocialDetailsRepository;
-    private readonly Mock<IRepository<DocumentBindingEntity, int>> _mockDocumentBindingRepository;
-    private readonly Mock<IRepository<DocumentEntity, int>> _mockDocumentRepository;
+    private readonly Mock<IDocumentApplicationService> _mockDocumentApplicationService;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertySocialDetailsService _service;
@@ -28,8 +29,7 @@ public class PropertySocialDetailsServiceTests
     {
         _mockRepository = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _mockSocialDetailsRepository = new Mock<IPropertySocialDetailsRepository>();
-        _mockDocumentBindingRepository = new Mock<IRepository<DocumentBindingEntity, int>>();
-        _mockDocumentRepository = new Mock<IRepository<DocumentEntity, int>>();
+        _mockDocumentApplicationService = new Mock<IDocumentApplicationService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -37,23 +37,21 @@ public class PropertySocialDetailsServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        // Set up empty queryables to prevent NullReferenceException during DTO enrichment
-        var emptyBindings = new List<DocumentBindingEntity>().BuildMockDbSet().Object;
-        _mockDocumentBindingRepository.Setup(r => r.GetQueryable()).Returns(emptyBindings);
+        // Set up empty document binding list so EnrichDtosAsync does not fail
+        _mockDocumentApplicationService
+            .Setup(d => d.GetDocumentsByReferenceTableAsync(
+                It.IsAny<string>(),
+                It.IsAny<IReadOnlyList<int>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<DocumentBindingInfoDto>());
 
-        var emptyDocs = new List<DocumentEntity>().BuildMockDbSet().Object;
-        _mockDocumentRepository.Setup(r => r.GetQueryable()).Returns(emptyDocs);
-
-        // Also mock GetQueryable for SocialAttribute repository (social attributes loaded via _socialDetailsRepository)
-        var emptyAttributes = new List<SocialAttributeEntity>().BuildMockDbSet().Object;
         _mockSocialDetailsRepository.Setup(r => r.GetActiveSocialAttributesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<SocialAttributeEntity>());
 
         _service = new PropertySocialDetailsService(
             _mockRepository.Object,
             _mockSocialDetailsRepository.Object,
-            _mockDocumentBindingRepository.Object,
-            _mockDocumentRepository.Object,
+            _mockDocumentApplicationService.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object
         );

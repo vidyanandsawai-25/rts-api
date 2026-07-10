@@ -15,24 +15,26 @@ namespace NtisPlatform.Application.Services;
 /// Application service for the Property "Social Info" tab. Owns the hierarchy/upsert business flow;
 /// all social-attribute and social-detail queries are delegated to <see cref="IPropertySocialDetailsRepository"/>
 /// so this service contains no EF Core query expressions. Generic CRUD is provided by the base service.
+///
+/// <para>
+/// Document operations are routed exclusively through <see cref="IDocumentApplicationService"/>
+/// — this service never accesses document or binding repositories directly.
+/// </para>
 /// </summary>
 public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocialDetailsEntity, PropertySocialDetailsDto, CreatePropertySocialDetailsDto, UpdatePropertySocialDetailsDto, PropertySocialDetailsQueryParameters, int>, IPropertySocialDetailsService
 {
     private readonly IPropertySocialDetailsRepository _socialDetailsRepository;
-    private readonly IRepository<DocumentBindingEntity, int> _documentBindingRepository;
-    private readonly IRepository<DocumentEntity, int> _documentRepository;
+    private readonly IDocumentApplicationService _documentApplicationService;
 
     public PropertySocialDetailsService(
         IRepository<PropertySocialDetailsEntity, int> repository,
         IPropertySocialDetailsRepository socialDetailsRepository,
-        IRepository<DocumentBindingEntity, int> documentBindingRepository,
-        IRepository<DocumentEntity, int> documentRepository,
+        IDocumentApplicationService documentApplicationService,
         IUnitOfWork unitOfWork,
         IMapper mapper) : base(repository, unitOfWork, mapper)
     {
         _socialDetailsRepository = socialDetailsRepository;
-        _documentBindingRepository = documentBindingRepository;
-        _documentRepository = documentRepository;
+        _documentApplicationService = documentApplicationService;
     }
 
     private sealed class PropertySocialDetailBindingInfo
@@ -55,10 +57,10 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
         var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
         var allowedIds = allowedSocialAttributes.Select(x => x.Id).ToHashSet();
-        
+
         var filteredItems = result.Items.Where(x => allowedIds.Contains(x.SocialAttributeId)).ToList();
         await EnrichDtosAsync(filteredItems, cancellationToken);
-        
+
         return new PagedResult<PropertySocialDetailsDto>(filteredItems, filteredItems.Count, result.PageNumber, result.PageSize);
     }
 
@@ -70,12 +72,12 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             var allSocialAttributes = await _socialDetailsRepository.GetActiveSocialAttributesAsync(cancellationToken);
             var allowedSocialAttributes = FilterOutDiscountApplicableAttributes(allSocialAttributes);
             var allowedIds = allowedSocialAttributes.Select(x => x.Id).ToHashSet();
-            
+
             if (!allowedIds.Contains(result.SocialAttributeId))
             {
                 return null;
             }
-            
+
             await EnrichDtosAsync(new List<PropertySocialDetailsDto> { result }, cancellationToken);
         }
         return result;
@@ -100,6 +102,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
     /// Populates the DTO members the AutoMapper profile cannot derive from the entity alone:
     /// requirement flags from the parent <see cref="SocialAttributeEntity"/>, and the document/photo
     /// GUIDs + binding ids from the polymorphic DocumentBinding→Document association.
+    /// Binding data is fetched via <see cref="IDocumentApplicationService"/> — no direct repo access.
     /// </summary>
     private async Task EnrichDtosAsync(List<PropertySocialDetailsDto> dtos, CancellationToken cancellationToken)
     {
@@ -113,22 +116,20 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             .Where(sa => attributeIds.Contains(sa.Id))
             .ToDictionary(sa => sa.Id, sa => (sa.IsPhotoRequired, sa.IsDocumentRequired));
 
-        // 2. Polymorphic document/photo bindings for these detail rows.
-        var bindings = await (
-            from db in _documentBindingRepository.GetQueryable()
-            where db.ReferenceTableName == "PropertySocialDetails"
-               && db.ReferenceTableId.HasValue
-               && psdIds.Contains(db.ReferenceTableId.Value)
-               && db.IsActive
-               && !db.MarkedForDeletion
-            join doc in _documentRepository.GetQueryable() on db.DocumentId equals doc.Id
-            select new PropertySocialDetailBindingInfo
-            {
-                PropertySocialDetailId = db.ReferenceTableId.Value,
-                BindingId = db.Id,
-                DocumentGuid = doc.DocumentGuid,
-                BindingPurpose = db.BindingPurpose
-            }).ToListAsync(cancellationToken);
+        // 2. Fetch all active document bindings for these detail rows via the global document service.
+        var bindingInfos = await _documentApplicationService.GetDocumentsByReferenceTableAsync(
+            "PropertySocialDetails",
+            psdIds,
+            cancellationToken);
+
+        // Project to internal binding summary (BindingPurpose is the key discriminator)
+        var bindings = bindingInfos.Select(b => new PropertySocialDetailBindingInfo
+        {
+            PropertySocialDetailId = b.ReferenceTableId,
+            BindingId = b.BindingId,
+            DocumentGuid = b.DocumentGuid,
+            BindingPurpose = b.BindingPurpose
+        }).ToList();
 
         // 3. Project enrichment onto each DTO.
         foreach (var dto in dtos)
@@ -169,23 +170,21 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         // Step 2.5: Load polymorphic bindings (including photos and fallback documents) for existing details
         var detailIds = existingDetails.Select(x => x.Id).ToList();
         var bindings = new List<PropertySocialDetailBindingInfo>();
+
         if (detailIds.Any())
         {
-            bindings = await (
-                from db in _documentBindingRepository.GetQueryable()
-                where db.ReferenceTableName == "PropertySocialDetails"
-                   && db.ReferenceTableId.HasValue
-                   && detailIds.Contains(db.ReferenceTableId.Value)
-                   && db.IsActive
-                   && !db.MarkedForDeletion
-                join doc in _documentRepository.GetQueryable() on db.DocumentId equals doc.Id
-                select new PropertySocialDetailBindingInfo
-                {
-                    PropertySocialDetailId = db.ReferenceTableId.Value,
-                    BindingId = db.Id,
-                    DocumentGuid = doc.DocumentGuid,
-                    BindingPurpose = db.BindingPurpose
-                }).ToListAsync(cancellationToken);
+            var bindingInfos = await _documentApplicationService.GetDocumentsByReferenceTableAsync(
+                "PropertySocialDetails",
+                detailIds,
+                cancellationToken);
+
+            bindings = bindingInfos.Select(b => new PropertySocialDetailBindingInfo
+            {
+                PropertySocialDetailId = b.ReferenceTableId,
+                BindingId = b.BindingId,
+                DocumentGuid = b.DocumentGuid,
+                BindingPurpose = b.BindingPurpose
+            }).ToList();
         }
 
         // Step 3: Build parent-child hierarchy
@@ -320,8 +319,12 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                 record.UpdatedBy = dto.UpdatedBy;
                 record.UpdatedDate = DateTime.Now;
                 await _repository.UpdateAsync(record, cancellationToken);
+
+                await DeactivateAllSocialDetailBindingsAsync(record.Id, dto.UpdatedBy, cancellationToken);
             }
         }
+
+        var newBindingsToUpdate = new List<(int BindingId, PropertySocialDetailsEntity Record)>();
 
         // Step 2: Process social attributes to add or update
         if (dto.SocialAttributes != null && dto.SocialAttributes.Any())
@@ -334,6 +337,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                     var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.Id.Value);
                     if (existingRecord != null)
                     {
+                        await DeactivateOldDocumentBindingAsync(existingRecord.Id, item.DocumentBindingId, dto.UpdatedBy, cancellationToken);
+
                         // SocialAttributeId is part of the natural key (PropertyId + SocialAttributeId); do not change it during updates.
                         existingRecord.BitValue = item.BitValue;
                         existingRecord.IntValue = item.IntValue;
@@ -342,10 +347,15 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingRecord.DateValue = item.DateValue;
                         existingRecord.DocumentBindingId = item.DocumentBindingId;
                         existingRecord.Remark = item.Remark;
-                        existingRecord.IsActive = item.IsActive;
+                        existingRecord.IsActive = true;
                         existingRecord.UpdatedBy = dto.UpdatedBy;
                         existingRecord.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingRecord, cancellationToken);
+
+                        if (item.DocumentBindingId.HasValue && item.DocumentBindingId.Value > 0)
+                        {
+                            newBindingsToUpdate.Add((item.DocumentBindingId.Value, existingRecord));
+                        }
                     }
                 }
                 else
@@ -353,9 +363,11 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                     // If client omitted Id, upsert by natural key (PropertyId + SocialAttributeId)
                     var existingByAttribute = existingRecords
                         .FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId);
- 
+
                     if (existingByAttribute != null)
                     {
+                        await DeactivateOldDocumentBindingAsync(existingByAttribute.Id, item.DocumentBindingId, dto.UpdatedBy, cancellationToken);
+
                         existingByAttribute.BitValue = item.BitValue;
                         existingByAttribute.IntValue = item.IntValue;
                         existingByAttribute.DecimalValue = item.DecimalValue;
@@ -363,9 +375,15 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingByAttribute.DateValue = item.DateValue;
                         existingByAttribute.DocumentBindingId = item.DocumentBindingId;
                         existingByAttribute.Remark = item.Remark;
-                        existingByAttribute.IsActive = item.IsActive;
+                        existingByAttribute.IsActive = true;
                         existingByAttribute.UpdatedBy = dto.UpdatedBy;
+                        existingByAttribute.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingByAttribute, cancellationToken);
+
+                        if (item.DocumentBindingId.HasValue && item.DocumentBindingId.Value > 0)
+                        {
+                            newBindingsToUpdate.Add((item.DocumentBindingId.Value, existingByAttribute));
+                        }
                     }
                     else
                     {
@@ -382,9 +400,14 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                             DocumentBindingId = item.DocumentBindingId,
                             Remark = item.Remark,
                             CreatedBy = dto.UpdatedBy,
-                            IsActive = item.IsActive
+                            IsActive = true
                         };
                         await _repository.AddAsync(newRecord, cancellationToken);
+
+                        if (item.DocumentBindingId.HasValue && item.DocumentBindingId.Value > 0)
+                        {
+                            newBindingsToUpdate.Add((item.DocumentBindingId.Value, newRecord));
+                        }
                     }
                 }
             }
@@ -392,12 +415,71 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // Update ReferenceTableId for new document bindings so the binding points to the
+        // correct entity row (its ID is only known after SaveChanges).
+        foreach (var tuple in newBindingsToUpdate)
+        {
+            await _documentApplicationService.UpdateDocumentBindingReferenceAsync(
+                tuple.BindingId,
+                tuple.Record.Id,
+                dto.UpdatedBy,
+                cancellationToken);
+        }
+
+        if (newBindingsToUpdate.Any())
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+
         // Step 3: Return updated list
         var updatedRecords = await _socialDetailsRepository.GetActiveSocialDetailsWithAttributeByPropertyAsync(dto.PropertyId, cancellationToken);
 
         var dtos = _mapper.Map<List<PropertySocialDetailsDto>>(updatedRecords);
         await EnrichDtosAsync(dtos, cancellationToken);
         return dtos;
+    }
+
+    /// <summary>
+    /// Deactivates all document bindings for a given social detail row via the global document service.
+    /// </summary>
+    private async Task DeactivateAllSocialDetailBindingsAsync(int propertySocialDetailId, int updatedBy, CancellationToken cancellationToken)
+    {
+        // Use GetDocumentsByReferenceTableAsync to find all active bindings for this detail row
+        var activeBindingInfos = await _documentApplicationService.GetDocumentsByReferenceTableAsync(
+            "PropertySocialDetails",
+            new[] { propertySocialDetailId },
+            cancellationToken);
+
+        foreach (var bindingInfo in activeBindingInfos)
+        {
+            await _documentApplicationService.DeactivateDocumentBindingAsync(
+                bindingInfo.BindingId,
+                updatedBy,
+                cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Deactivates old document bindings for a social detail row, preserving the new binding if provided.
+    /// Routes through the global document service — no direct repository access.
+    /// </summary>
+    private async Task DeactivateOldDocumentBindingAsync(int propertySocialDetailId, int? newDocumentBindingId, int updatedBy, CancellationToken cancellationToken)
+    {
+        var activeBindingInfos = await _documentApplicationService.GetDocumentsByReferenceTableAsync(
+            "PropertySocialDetails",
+            new[] { propertySocialDetailId },
+            cancellationToken);
+
+        foreach (var bindingInfo in activeBindingInfos)
+        {
+            if (newDocumentBindingId == null || bindingInfo.BindingId != newDocumentBindingId.Value)
+            {
+                await _documentApplicationService.DeactivateDocumentBindingAsync(
+                    bindingInfo.BindingId,
+                    updatedBy,
+                    cancellationToken);
+            }
+        }
     }
 
     private List<SocialAttributeEntity> FilterOutDiscountApplicableAttributes(List<SocialAttributeEntity> allAttributes)

@@ -63,14 +63,30 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        // ── 1. Normalize & validate filter type ──────────────────────────────
-        var filterType = (request.FilterType ?? string.Empty).Trim().ToUpperInvariant();
-        if (filterType != FilterParking && filterType != FilterTypewise && filterType != FilterPropertywise)
+        // ── 1. Normalize & validate filter type(s) ───────────────────────────
+        // FilterType accepts one mode or a comma-separated list (e.g. "PARKING,PROPERTYWISE");
+        // each listed mode is applied within the single transaction below.
+        var filterTypes = (request.FilterType ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(f => f.ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        if (filterTypes.Count == 0)
         {
             throw new ArgumentException(
-                $"FilterType must be one of {FilterParking}, {FilterTypewise} or {FilterPropertywise}.");
+                $"FilterType must be one of {FilterParking}, {FilterTypewise} or {FilterPropertywise} (comma-separated list allowed).");
         }
-        var isParking = filterType == FilterParking;
+
+        var invalid = filterTypes
+            .Where(f => f != FilterParking && f != FilterTypewise && f != FilterPropertywise)
+            .ToList();
+        if (invalid.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Invalid FilterType value(s): {string.Join(", ", invalid)}. " +
+                $"Allowed values are {FilterParking}, {FilterTypewise} and {FilterPropertywise}.");
+        }
 
         // ── 2. Validate source ───────────────────────────────────────────────
         var source = await _propertyRepository.GetQueryable()
@@ -107,35 +123,44 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         if (destinationIds.Count == 0)
             throw new ArgumentException("No valid destination properties supplied.");
 
-        // ── 4..9. Transactional work — the three filter modes act independently ──
+        // ── 4..9. Transactional work — each requested filter mode acts independently ──
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            if (filterType == FilterTypewise)
-            {
-                // TYPEWISE: only propagate PropertyMast.Type — no soft-delete, no copy.
-                result.TypeUpdatedProperties = await StampTypeAsync(
-                    source.Id, source.WardId, source.PropertyNo, source.PartitionNo, source.Type,
-                    destinationIds, request.Type, updatedBy, cancellationToken);
-
-                // Also upsert BuildingPlanType for the building-level properties (PartitionNo = WingNo OR '').
-                var srcTypeValue = int.TryParse(source.Type, out var parsedSrcType) ? parsedSrcType : 0;
-                var typeToSet = request.Type is >= 1 and <= 99 ? request.Type : srcTypeValue;
-                result.BuildingPlanTypeInserted = await UpsertBuildingPlanTypeAsync(
-                    source.WardId, source.PropertyNo, typeToSet, updatedBy, cancellationToken);
-            }
-            else
-            {
-                // PARKING / PROPERTYWISE: replace the destination's matching data-entry, then copy.
-                // Parking TypeOfUse set (replaces the SP's TypeOfUseCategory join) — only needed here.
-                var parkingTypeIds = await _parkingTypeRepository.GetQueryable()
+            // Parking TypeOfUse set (replaces the SP's TypeOfUseCategory join) — only fetched
+            // once, and only when a copy mode (PARKING / PROPERTYWISE) is requested.
+            var needsCopy = filterTypes.Contains(FilterParking) || filterTypes.Contains(FilterPropertywise);
+            var parkingTypeIds = needsCopy
+                ? await _parkingTypeRepository.GetQueryable()
                     .Select(p => p.TypeOfUseId)
                     .Distinct()
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync(cancellationToken)
+                : [];
 
-                await SoftDeleteDestinationDataEntryAsync(destinationIds, parkingTypeIds, isParking, updatedBy, cancellationToken);
+            foreach (var filterType in filterTypes)
+            {
+                if (filterType == FilterTypewise)
+                {
+                    // TYPEWISE: only propagate PropertyMast.Type — no soft-delete, no copy.
+                    result.TypeUpdatedProperties += await StampTypeAsync(
+                        source.Id, source.WardId, source.PropertyNo, source.PartitionNo, source.Type,
+                        destinationIds, request.Type, updatedBy, cancellationToken);
 
-                await CopyDataEntryAsync(request.SourcePropertyId, destinationIds, parkingTypeIds, isParking, updatedBy, result, cancellationToken);
+                    // Also upsert BuildingPlanType for the building-level properties (PartitionNo = WingNo OR '').
+                    var srcTypeValue = int.TryParse(source.Type, out var parsedSrcType) ? parsedSrcType : 0;
+                    var typeToSet = request.Type is >= 1 and <= 99 ? request.Type : srcTypeValue;
+                    result.BuildingPlanTypeInserted += await UpsertBuildingPlanTypeAsync(
+                        source.WardId, source.PropertyNo, typeToSet, updatedBy, cancellationToken);
+                }
+                else
+                {
+                    // PARKING / PROPERTYWISE: replace the destination's matching data-entry, then copy.
+                    var isParking = filterType == FilterParking;
+
+                    await SoftDeleteDestinationDataEntryAsync(destinationIds, parkingTypeIds, isParking, updatedBy, cancellationToken);
+
+                    await CopyDataEntryAsync(request.SourcePropertyId, destinationIds, parkingTypeIds, isParking, updatedBy, result, cancellationToken);
+                }
             }
 
             result.ProcessedDestinations = destinationIds.Count;
@@ -388,7 +413,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         for (var i = 0; i < detailKeys.Count; i++)
             detailMap[detailKeys[i]] = newDetails[i].Id;
 
-        result.PropertyDetailsCopied = newDetails.Count;
+        result.PropertyDetailsCopied += newDetails.Count;
 
         // ── Level 2: RoomWiseSubmissionDetails ──
         var newSubmissions = new List<RoomWiseSubmissionDetailsEntity>();
@@ -441,7 +466,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         for (var i = 0; i < submissionKeys.Count; i++)
             submissionMap[submissionKeys[i]] = newSubmissions[i].Id;
 
-        result.RoomSubmissionsCopied = newSubmissions.Count;
+        result.RoomSubmissionsCopied += newSubmissions.Count;
 
         // ── Level 3: RoomWiseMinusData ──
         if (sourceMinus.Count == 0)
@@ -480,7 +505,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         {
             await _roomWiseMinusDataRepository.AddRangeAsync(newMinus, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            result.RoomMinusCopied = newMinus.Count;
+            result.RoomMinusCopied += newMinus.Count;
         }
     }
 

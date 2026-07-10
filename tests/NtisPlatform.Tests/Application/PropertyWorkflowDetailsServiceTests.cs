@@ -3,6 +3,7 @@ using Moq;
 using NtisPlatform.Application.DTOs.Property.PropertyWorkflowDetails;
 using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
 
@@ -18,6 +19,7 @@ public class PropertyWorkflowDetailsServiceTests
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<IConfigurationProvider> _configurationProviderMock;
     private readonly Mock<IPropertyWorkflowDetailsRepository> _workflowDetailsRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly PropertyWorkflowDetailsService _service;
 
     public PropertyWorkflowDetailsServiceTests()
@@ -27,6 +29,7 @@ public class PropertyWorkflowDetailsServiceTests
         _mapperMock = new Mock<IMapper>();
         _configurationProviderMock = new Mock<IConfigurationProvider>();
         _workflowDetailsRepositoryMock = new Mock<IPropertyWorkflowDetailsRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
 
         _mapperMock.Setup(m => m.ConfigurationProvider).Returns(_configurationProviderMock.Object);
 
@@ -34,7 +37,8 @@ public class PropertyWorkflowDetailsServiceTests
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
             _mapperMock.Object,
-            _workflowDetailsRepositoryMock.Object
+            _workflowDetailsRepositoryMock.Object,
+            _userRepositoryMock.Object
         );
     }
 
@@ -657,6 +661,311 @@ public class PropertyWorkflowDetailsServiceTests
         // Assert
         Assert.Single(result);
         Assert.Equal(10, result[0].PropertyId);
+    }
+
+    #endregion
+
+    #region ResolveCreatedByName Tests
+
+    // ── Branch 1: CreatedBy is null → CreatedByName stays null ──────────────
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WhenCreatedByIsNull_CreatedByNameRemainsNull()
+    {
+        // Arrange
+        var entities = new List<PropertyWorkflowDetailsEntity>
+        {
+            new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = null }
+        };
+        var dtos = new List<PropertyWorkflowDetailsDto>
+        {
+            new PropertyWorkflowDetailsDto { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = null }
+        };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetByPropertyIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities);
+        _mapperMock
+            .Setup(x => x.Map<List<PropertyWorkflowDetailsDto>>(entities))
+            .Returns(dtos);
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(10);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Null(result[0].CreatedByName);
+        // User lookup must NOT be called when CreatedBy is null
+        _userRepositoryMock.Verify(
+            x => x.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // ── Branch 2: CreatedBy set but user not found → CreatedByName stays null ─
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WhenUserNotFound_CreatedByNameRemainsNull()
+    {
+        // Arrange
+        var entities = new List<PropertyWorkflowDetailsEntity>
+        {
+            new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 99 }
+        };
+        var dtos = new List<PropertyWorkflowDetailsDto>
+        {
+            new PropertyWorkflowDetailsDto { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 99 }
+        };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetByPropertyIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities);
+        _mapperMock
+            .Setup(x => x.Map<List<PropertyWorkflowDetailsDto>>(entities))
+            .Returns(dtos);
+        _userRepositoryMock
+            .Setup(x => x.GetByIdAsync(99, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity?)null);
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(10);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Null(result[0].CreatedByName);
+        _userRepositoryMock.Verify(
+            x => x.GetByIdAsync(99, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    // ── Branch 3: User found with all three name parts ───────────────────────
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WhenUserHasFullName_SetsCreatedByNameCorrectly()
+    {
+        // Arrange
+        var user = new UserEntity { Id = 1, UserName = "jdoe", FirstName = "John", MiddleName = "Paul", LastName = "Doe" };
+
+        var entities = new List<PropertyWorkflowDetailsEntity>
+        {
+            new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 1 }
+        };
+        var dtos = new List<PropertyWorkflowDetailsDto>
+        {
+            new PropertyWorkflowDetailsDto { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 1 }
+        };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetByPropertyIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities);
+        _mapperMock
+            .Setup(x => x.Map<List<PropertyWorkflowDetailsDto>>(entities))
+            .Returns(dtos);
+        _userRepositoryMock
+            .Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(10);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal("John Paul Doe", result[0].CreatedByName);
+    }
+
+    // ── Branch 4: User found but only some name parts filled ─────────────────
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_WhenUserHasPartialName_SkipsNullParts()
+    {
+        // Arrange — MiddleName is null
+        var user = new UserEntity { Id = 2, UserName = "asmith", FirstName = "Alice", MiddleName = null, LastName = "Smith" };
+
+        var entities = new List<PropertyWorkflowDetailsEntity>
+        {
+            new PropertyWorkflowDetailsEntity { Id = 2, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 2 }
+        };
+        var dtos = new List<PropertyWorkflowDetailsDto>
+        {
+            new PropertyWorkflowDetailsDto { Id = 2, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 2 }
+        };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetByPropertyIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities);
+        _mapperMock
+            .Setup(x => x.Map<List<PropertyWorkflowDetailsDto>>(entities))
+            .Returns(dtos);
+        _userRepositoryMock
+            .Setup(x => x.GetByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(10);
+
+        // Assert — no double-space because null middle name is skipped
+        Assert.Equal("Alice Smith", result[0].CreatedByName);
+    }
+
+    // ── Branch 5: Multiple DTOs — each gets its own user lookup ──────────────
+
+    [Fact]
+    public async Task GetByPropertyIdAsync_MultipleItems_ResolvesEachCreatedByName()
+    {
+        // Arrange
+        var user1 = new UserEntity { Id = 1, UserName = "u1", FirstName = "John",  MiddleName = null, LastName = "Doe" };
+        var user2 = new UserEntity { Id = 2, UserName = "u2", FirstName = "Alice", MiddleName = "B",   LastName = "Smith" };
+
+        var entities = new List<PropertyWorkflowDetailsEntity>
+        {
+            new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 1 },
+            new PropertyWorkflowDetailsEntity { Id = 2, PropertyId = 10, WorkflowStageId = 2, CreatedBy = 2 }
+        };
+        var dtos = new List<PropertyWorkflowDetailsDto>
+        {
+            new PropertyWorkflowDetailsDto { Id = 1, PropertyId = 10, WorkflowStageId = 1, CreatedBy = 1 },
+            new PropertyWorkflowDetailsDto { Id = 2, PropertyId = 10, WorkflowStageId = 2, CreatedBy = 2 }
+        };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetByPropertyIdAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entities);
+        _mapperMock
+            .Setup(x => x.Map<List<PropertyWorkflowDetailsDto>>(entities))
+            .Returns(dtos);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(user1);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync(user2);
+
+        // Act
+        var result = await _service.GetByPropertyIdAsync(10);
+
+        // Assert
+        Assert.Equal("John Doe",       result[0].CreatedByName);
+        Assert.Equal("Alice B Smith",  result[1].CreatedByName);
+    }
+
+    // ── GetCurrentByPropertyNoAsync ──────────────────────────────────────────
+
+    [Fact]
+    public async Task GetCurrentByPropertyNoAsync_WhenEntityNull_ReturnsNull()
+    {
+        // Arrange
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetCurrentByPropertyNoAsync("999", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PropertyWorkflowDetailsEntity?)null);
+
+        // Act
+        var result = await _service.GetCurrentByPropertyNoAsync("999");
+
+        // Assert
+        Assert.Null(result);
+        _userRepositoryMock.Verify(
+            x => x.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task GetCurrentByPropertyNoAsync_WithValidUser_SetsCreatedByName()
+    {
+        // Arrange
+        var entity = new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CurrentStatus = true, CreatedBy = 1 };
+        var dto    = new PropertyWorkflowDetailsDto    { Id = 1, PropertyId = 10, WorkflowStageId = 1, CurrentStatus = true, CreatedBy = 1 };
+        var user   = new UserEntity { Id = 1, UserName = "admin", FirstName = "ADMIN", MiddleName = "ADMIN", LastName = "ADMIN" };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetCurrentByPropertyNoAsync("10", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+        _mapperMock
+            .Setup(x => x.Map<PropertyWorkflowDetailsDto>(entity))
+            .Returns(dto);
+        _userRepositoryMock
+            .Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _service.GetCurrentByPropertyNoAsync("10");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("ADMIN ADMIN ADMIN", result!.CreatedByName);
+    }
+
+    [Fact]
+    public async Task GetCurrentByPropertyNoAsync_WhenCreatedByNull_CreatedByNameRemainsNull()
+    {
+        // Arrange
+        var entity = new PropertyWorkflowDetailsEntity { Id = 1, PropertyId = 10, WorkflowStageId = 1, CurrentStatus = true, CreatedBy = null };
+        var dto    = new PropertyWorkflowDetailsDto    { Id = 1, PropertyId = 10, WorkflowStageId = 1, CurrentStatus = true, CreatedBy = null };
+
+        _workflowDetailsRepositoryMock
+            .Setup(x => x.GetCurrentByPropertyNoAsync("10", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(entity);
+        _mapperMock
+            .Setup(x => x.Map<PropertyWorkflowDetailsDto>(entity))
+            .Returns(dto);
+
+        // Act
+        var result = await _service.GetCurrentByPropertyNoAsync("10");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Null(result!.CreatedByName);
+        _userRepositoryMock.Verify(
+            x => x.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    // ── CreateAsync with name resolution ────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_WithValidUser_SetsCreatedByName()
+    {
+        // Arrange
+        var createDto = new CreatePropertyWorkflowDetailsDto { PropertyId = 10, WorkflowStageId = 2, CreatedBy = 1 };
+        var entity    = new PropertyWorkflowDetailsEntity   { PropertyId = 10, WorkflowStageId = 2, CreatedBy = 1 };
+        var returnDto = new PropertyWorkflowDetailsDto      { Id = 1, PropertyId = 10, WorkflowStageId = 2, CurrentStatus = true, CreatedBy = 1 };
+        var user      = new UserEntity { Id = 1, UserName = "jdoe", FirstName = "John", MiddleName = null, LastName = "Doe" };
+
+        _mapperMock.Setup(x => x.Map<PropertyWorkflowDetailsEntity>(createDto)).Returns(entity);
+        _unitOfWorkMock.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _workflowDetailsRepositoryMock.Setup(x => x.ResetCurrentStatusAsync(10, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _repositoryMock.Setup(x => x.AddAsync(entity, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _unitOfWorkMock.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mapperMock.Setup(x => x.Map<PropertyWorkflowDetailsDto>(entity)).Returns(returnDto);
+        _userRepositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        // Act
+        var result = await _service.CreateAsync(createDto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("John Doe", result.CreatedByName);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenCreatedByNullOnDto_CreatedByNameRemainsNull()
+    {
+        // Arrange
+        var createDto = new CreatePropertyWorkflowDetailsDto { PropertyId = 10, WorkflowStageId = 2, CreatedBy = null };
+        var entity    = new PropertyWorkflowDetailsEntity   { PropertyId = 10, WorkflowStageId = 2, CreatedBy = null };
+        var returnDto = new PropertyWorkflowDetailsDto      { Id = 1, PropertyId = 10, WorkflowStageId = 2, CurrentStatus = true, CreatedBy = null };
+
+        _mapperMock.Setup(x => x.Map<PropertyWorkflowDetailsEntity>(createDto)).Returns(entity);
+        _unitOfWorkMock.Setup(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _workflowDetailsRepositoryMock.Setup(x => x.ResetCurrentStatusAsync(10, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _repositoryMock.Setup(x => x.AddAsync(entity, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _unitOfWorkMock.Setup(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _mapperMock.Setup(x => x.Map<PropertyWorkflowDetailsDto>(entity)).Returns(returnDto);
+
+        // Act
+        var result = await _service.CreateAsync(createDto);
+
+        // Assert
+        Assert.Null(result.CreatedByName);
+        _userRepositoryMock.Verify(
+            x => x.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     #endregion

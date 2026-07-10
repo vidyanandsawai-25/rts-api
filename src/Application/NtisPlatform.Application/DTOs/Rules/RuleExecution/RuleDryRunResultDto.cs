@@ -26,7 +26,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>Number of sub-rules whose condition matched (IsSuccess = true).</summary>
         public int MatchedCount { get; set; }
 
-        /// <summary>Whether execution was halted early by a StopProcessing flag.</summary>
+        /// <summary>Whether global execution was halted early by a database entity-level StopProcessing flag.</summary>
         public bool StoppedEarly { get; set; }
 
         /// <summary>

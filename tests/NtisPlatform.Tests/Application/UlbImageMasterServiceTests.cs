@@ -5,6 +5,11 @@ using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -17,6 +22,11 @@ public class UlbImageMasterServiceTests
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
     private readonly Mock<IMapper> _mapperMock;
     private readonly Mock<IConfigurationProvider> _configurationProviderMock;
+    private readonly Mock<IDocumentService> _documentServiceMock;
+    private readonly Mock<IRepository<DepartmentMasterEntity, int>> _departmentRepositoryMock;
+    private readonly Mock<IRepository<ModuleMasterEntity, int>> _moduleRepositoryMock;
+    private readonly Mock<IRepository<DocumentEntity, int>> _documentRepositoryMock;
+    private readonly Mock<IRepository<DocumentBindingEntity, int>> _documentBindingRepositoryMock;
     private readonly UlbImageMasterService _service;
 
     public UlbImageMasterServiceTests()
@@ -25,13 +35,55 @@ public class UlbImageMasterServiceTests
         _unitOfWorkMock = new Mock<IUnitOfWork>();
         _mapperMock = new Mock<IMapper>();
         _configurationProviderMock = new Mock<IConfigurationProvider>();
+        _documentServiceMock = new Mock<IDocumentService>();
+        _departmentRepositoryMock = new Mock<IRepository<DepartmentMasterEntity, int>>();
+        _moduleRepositoryMock = new Mock<IRepository<ModuleMasterEntity, int>>();
+        _documentRepositoryMock = new Mock<IRepository<DocumentEntity, int>>();
+        _documentBindingRepositoryMock = new Mock<IRepository<DocumentBindingEntity, int>>();
 
         _mapperMock.Setup(m => m.ConfigurationProvider).Returns(_configurationProviderMock.Object);
+
+        _unitOfWorkMock.Setup(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _unitOfWorkMock.Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _unitOfWorkMock.Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+
+
+        _documentBindingRepositoryMock.Setup(r => r.GetAsync(
+            It.IsAny<Expression<Func<DocumentBindingEntity, bool>>>(),
+            It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<DocumentBindingEntity>());
+
+        // Setup default department lookup
+        var departments = new List<DepartmentMasterEntity>
+        {
+            new DepartmentMasterEntity { Id = 1, DepartmentCode = "CORE", IsActive = true }
+        };
+        _departmentRepositoryMock.Setup(r => r.GetAsync(It.IsAny<Expression<Func<DepartmentMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(departments);
+
+        // Setup default module lookup
+        var modules = new List<ModuleMasterEntity>
+        {
+            new ModuleMasterEntity { Id = 1, DepartmentId = 1, ModuleCode = "ULBIMAGE", IsActive = true }
+        };
+        _moduleRepositoryMock.Setup(r => r.GetAsync(It.IsAny<Expression<Func<ModuleMasterEntity, bool>>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(modules);
+
+        // Setup default document lookup
+        var document = DocumentEntity.Create(1, "test.png", "test.png", ".png", "image/png", 1024, "path");
+        _documentServiceMock.Setup(s => s.GetDocumentByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(document);
 
         _service = new UlbImageMasterService(
             _repositoryMock.Object,
             _unitOfWorkMock.Object,
-            _mapperMock.Object
+            _mapperMock.Object,
+            _documentServiceMock.Object,
+            _departmentRepositoryMock.Object,
+            _moduleRepositoryMock.Object,
+            _documentRepositoryMock.Object,
+            _documentBindingRepositoryMock.Object
         );
     }
 
@@ -70,6 +122,8 @@ public class UlbImageMasterServiceTests
         Assert.Equal("Logo", result.ImageType);
         Assert.Equal(10, result.ImageId);
         Assert.True(result.IsActive);
+        Assert.NotNull(result.DocumentGuid);
+        Assert.NotEqual(Guid.Empty, result.DocumentGuid);
         _repositoryMock.Verify(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -132,7 +186,9 @@ public class UlbImageMasterServiceTests
         {
             ImageType = "Logo",
             ImageId = 10,
-            CreatedBy = 1
+            CreatedBy = 1,
+            DepartmentId = 1,
+            ModuleId = 1
         };
         var entity = new UlbImageMasterEntity
         {
@@ -163,6 +219,8 @@ public class UlbImageMasterServiceTests
         Assert.Equal("Logo", result.ImageType);
         Assert.Equal(10, result.ImageId);
         Assert.True(result.IsActive);
+        Assert.NotNull(result.DocumentGuid);
+        Assert.NotEqual(Guid.Empty, result.DocumentGuid);
         _repositoryMock.Verify(x => x.AddAsync(It.IsAny<UlbImageMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -253,7 +311,9 @@ public class UlbImageMasterServiceTests
         {
             ImageType = "Banner",
             ImageId = 20,
-            UpdatedBy = 2
+            UpdatedBy = 2,
+            DepartmentId = 1,
+            ModuleId = 1
         };
         var existingEntity = new UlbImageMasterEntity
         {
@@ -429,7 +489,7 @@ public class UlbImageMasterServiceTests
     public async Task CompleteWorkflow_CreateUpdateDelete_AllSuccessful()
     {
         // Arrange - Create
-        var createDto = new CreateUlbImageMasterDto { ImageType = "Logo", ImageId = 1, CreatedBy = 1 };
+        var createDto = new CreateUlbImageMasterDto { ImageType = "Logo", ImageId = 1, CreatedBy = 1, DepartmentId = 1, ModuleId = 1 };
         var entity = new UlbImageMasterEntity { Id = 1, ImageType = "Logo", ImageId = 1, IsActive = true };
         var createdDto = new UlbImageMasterDto { Id = 1, ImageType = "Logo", ImageId = 1, IsActive = true };
 
@@ -442,7 +502,7 @@ public class UlbImageMasterServiceTests
         Assert.NotNull(created);
 
         // Arrange - Update
-        var updateDto = new UpdateUlbImageMasterDto { ImageType = "Banner", ImageId = 2, UpdatedBy = 2 };
+        var updateDto = new UpdateUlbImageMasterDto { ImageType = "Banner", ImageId = 2, UpdatedBy = 2, DepartmentId = 1, ModuleId = 1 };
         var updatedDto = new UlbImageMasterDto { Id = 1, ImageType = "Banner", ImageId = 2, IsActive = true };
 
         _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
@@ -487,6 +547,104 @@ public class UlbImageMasterServiceTests
         Assert.NotNull(result);
         Assert.Equal(createdDto.ImageType, result.ImageType);
     }
+
+    [Fact]
+    public async Task CreateAsync_WithImageId_CreatesDocumentBinding()
+    {
+        // Arrange
+        var createDto = new CreateUlbImageMasterDto { ImageType = "Logo", ImageId = 10, CreatedBy = 1, DepartmentId = 1, ModuleId = 1 };
+        var entity = new UlbImageMasterEntity { Id = 1, ImageType = "Logo", ImageId = 10, IsActive = true };
+        var returnDto = new UlbImageMasterDto { Id = 1, ImageType = "Logo", ImageId = 10, IsActive = true };
+
+        _mapperMock.Setup(x => x.Map<UlbImageMasterEntity>(createDto)).Returns(entity);
+        _repositoryMock.Setup(x => x.AddAsync(entity, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mapperMock.Setup(x => x.Map<UlbImageMasterDto>(entity)).Returns(returnDto);
+
+        // Act
+        var result = await _service.CreateAsync(createDto);
+
+        // Assert
+        Assert.NotNull(result);
+        _documentServiceMock.Verify(x => x.CreateDocumentBindingAsync(
+            10,
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            "UlbImageMaster",
+            entity.Id,
+            null,
+            "Id",
+            It.IsAny<string>(),
+            true,
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithNonExistentImageId_ThrowsValidationException()
+    {
+        // Arrange
+        var createDto = new CreateUlbImageMasterDto { ImageType = "Logo", ImageId = 999, CreatedBy = 1, DepartmentId = 1, ModuleId = 1 };
+        _documentServiceMock.Setup(s => s.GetDocumentByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DocumentEntity?)null);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.CreateAsync(createDto));
+        _unitOfWorkMock.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WithImageIdAndNullCreatedBy_ThrowsValidationException()
+    {
+        // Arrange
+        var createDto = new CreateUlbImageMasterDto { ImageType = "Logo", ImageId = 10, CreatedBy = null, DepartmentId = 1, ModuleId = 1 };
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(() => _service.CreateAsync(createDto));
+        _unitOfWorkMock.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithNewImageId_CreatesDocumentBinding()
+    {
+        // Arrange
+        var updateDto = new UpdateUlbImageMasterDto { ImageType = "Banner", ImageId = 20, UpdatedBy = 2, DepartmentId = 1, ModuleId = 1 };
+        var existingEntity = new UlbImageMasterEntity { Id = 1, ImageType = "Logo", ImageId = 10, IsActive = true };
+        var returnDto = new UlbImageMasterDto { Id = 1, ImageType = "Banner", ImageId = 20, IsActive = true };
+
+        _repositoryMock.Setup(x => x.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mapperMock.Setup(x => x.Map(updateDto, existingEntity)).Returns(existingEntity);
+        _repositoryMock.Setup(x => x.UpdateAsync(existingEntity, It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        _unitOfWorkMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mapperMock.Setup(x => x.Map<UlbImageMasterDto>(existingEntity)).Returns(returnDto);
+
+        // Act
+        var result = await _service.UpdateAsync(1, updateDto);
+
+        // Assert
+        Assert.NotNull(result);
+        _documentServiceMock.Verify(x => x.CreateDocumentBindingAsync(
+            20,
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            "UlbImageMaster",
+            1,
+            null,
+            "Id",
+            It.IsAny<string>(),
+            true,
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _unitOfWorkMock.Verify(x => x.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
 
     #endregion
 }

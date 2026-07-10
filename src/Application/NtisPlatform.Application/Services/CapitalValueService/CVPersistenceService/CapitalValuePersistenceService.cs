@@ -86,7 +86,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                         PolicyRVorCVvalue = totalCV,
                          TaxAmount = totalTax,
                         UpdatedBy = createdBy,
-                        UpdatedDate = DateTime.UtcNow
+                        UpdatedDate = DateTime.Now
 
                     }
                 ));
@@ -105,7 +105,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     TaxAmount = totalTax,
                      CreatedBy = createdBy,
                     IsActive=true,
-                    CreatedDate=DateTime.UtcNow
+                    CreatedDate=DateTime.Now
                 });
             }
 
@@ -122,7 +122,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                         TaxAmount = totalTax,
                         IsActive = true,
                         UpdatedBy = createdBy,                        
-                        UpdatedDate = DateTime.UtcNow
+                        UpdatedDate = DateTime.Now
 
                     }
                 ));
@@ -139,7 +139,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     TaxAmount = totalTax,
                     CreatedBy = createdBy,
                     IsActive = true,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.Now
                 });
             }
         }

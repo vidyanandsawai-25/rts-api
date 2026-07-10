@@ -390,6 +390,135 @@ public class RuleExecutionServiceTests
         Assert.Equal(3, result.Count);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_SubRuleStopProcessing_OnlyStopsCurrentRuleset()
+    {
+        // Arrange
+        // rule1 has a combined ruleset: first sub-rule has stopProcessing: true, second should be skipped
+        var multiConditions = @"[
+            {
+                ""id"": ""RULE-1-SUB1"",
+                ""description"": ""rule1 sub1"",
+                ""stopProcessing"": true,
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [ { ""fieldId"": ""Rate"", ""operator"": ""GREATER_THAN"", ""value"": ""500"" } ]
+                },
+                ""effect"": { ""effectType"": ""Decrease %"", ""value"": 10 }
+            },
+            {
+                ""id"": ""RULE-1-SUB2"",
+                ""description"": ""rule1 sub2"",
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [ { ""fieldId"": ""Rate"", ""operator"": ""GREATER_THAN"", ""value"": ""500"" } ]
+                },
+                ""effect"": { ""effectType"": ""Decrease %"", ""value"": 5 }
+            }
+        ]";
+
+        var rule1Json = RuleJsonBuilder.Build("Rule 1 Combined", "RULE-1", true, "ARV", multiConditions, null, "Rule 1 description");
+
+        var rule1 = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "RULE-1",
+            RuleName = "Rule 1 Combined",
+            RuleCategory = "ARV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = rule1Json,
+            ConditionsJson = multiConditions,
+            StopProcessing = false // Entity-level StopProcessing is FALSE
+        };
+
+        // rule2 is a separate workflow (ruleset) with priority 20 that should execute because rule1 did not stop globals
+        var rule2 = CreateRuleWithEffect("RULE-2", "ARV", 20, "input.Rate > 0", "Decrease %", 15);
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { rule1, rule2 });
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000m }
+            }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - We expect exactly 2 matching results:
+        // 1. RULE-1-SUB1 from the first ruleset (RULE-1-SUB2 is skipped inside RULE-1 due to stopProcessing).
+        // 2. RULE-2 from the second ruleset (because the sub-rule stopProcessing in RULE-1 did NOT halt rule2).
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, r => r.RuleCode == "RULE-1-SUB1");
+        Assert.DoesNotContain(result, r => r.RuleCode == "RULE-1-SUB2");
+        Assert.Contains(result, r => r.RuleCode == "RULE-2");
+        
+        // Assert individual StopProcessing flags
+        Assert.True(result.First(r => r.RuleCode == "RULE-1-SUB1").StopProcessing);
+        Assert.False(result.First(r => r.RuleCode == "RULE-2").StopProcessing);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_StopsGlobally_WhenBothEntityStopAndSubRuleStopAreTrue()
+    {
+        // Arrange
+        // rule1 has priority 10, stopProcessing: true in sub-rule AND StopProcessing: true on DB entity level
+        var multiConditions = @"[
+            {
+                ""id"": ""RULE-1-SUB1"",
+                ""description"": ""rule1 sub1"",
+                ""stopProcessing"": true,
+                ""conditions"": {
+                    ""logicalOperator"": ""AND"",
+                    ""conditions"": [ { ""fieldId"": ""Rate"", ""operator"": ""GREATER_THAN"", ""value"": ""500"" } ]
+                },
+                ""effect"": { ""effectType"": ""Decrease %"", ""value"": 10 }
+            }
+        ]";
+
+        var rule1Json = RuleJsonBuilder.Build("Rule 1 Combined", "RULE-1", true, "ARV", multiConditions, null, "Rule 1 description");
+
+        var rule1 = new RuleEngineEntity
+        {
+            Id = 1,
+            RuleCode = "RULE-1",
+            RuleName = "Rule 1 Combined",
+            RuleCategory = "ARV",
+            Priority = 10,
+            IsEnabled = true,
+            IsActive = true,
+            RuleJson = rule1Json,
+            ConditionsJson = multiConditions,
+            StopProcessing = true // Entity-level StopProcessing is TRUE (global stop)
+        };
+
+        // rule2 is a separate workflow with priority 20 that should NOT execute because rule1 stops execution globally
+        var rule2 = CreateRuleWithEffect("RULE-2", "ARV", 20, "input.Rate > 0", "Decrease %", 15);
+
+        var mockQueryable = MockQueryableExtensions.BuildMock(new List<RuleEngineEntity> { rule1, rule2 });
+        _mockRuleRepository.Setup(r => r.GetQueryable()).Returns(mockQueryable);
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "ARV",
+            Input = new Dictionary<string, object> { { "Rate", 1000m } }
+        };
+
+        // Act
+        var result = await _service.ExecuteAsync(input);
+
+        // Assert - Only RULE-1-SUB1 should execute and stop the engine globally
+        Assert.Single(result);
+        Assert.Equal("RULE-1-SUB1", result[0].RuleCode);
+        Assert.True(result[0].StopProcessing);
+    }
+
     #endregion
 
 
@@ -1527,10 +1656,10 @@ public class RuleExecutionServiceTests
         // Act
         var result = await _service.DryRunAsync(input);
 
-        // Assert — stopped after first workflow, second workflow not evaluated
-        Assert.True(result.StoppedEarly);
-        Assert.Single(result.Workflows); // only the first workflow was processed
-        Assert.Equal(1, result.MatchedCount);
+        // Assert — remaining sub-rules in the first ruleset are skipped due to stopProcessing, but the second workflow is still evaluated
+        Assert.False(result.StoppedEarly);
+        Assert.Equal(2, result.Workflows.Count);
+        Assert.Equal(2, result.MatchedCount);
     }
 
     [Fact]

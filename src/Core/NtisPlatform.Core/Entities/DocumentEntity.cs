@@ -1,63 +1,13 @@
 using NtisPlatform.Core.Interfaces;
-using NtisPlatform.Core.Constants;
 
 namespace NtisPlatform.Core.Entities;
 
 /// <summary>
-/// Central repository for all uploaded documents (CORE.Document)
-/// Used across all modules for document storage
-/// Rich domain model with business logic and invariant enforcement
+/// Central repository for all uploaded documents (CORE.Document).
+/// Implements IHardDeletable to support background cleanup service for orphaned files.
 /// </summary>
 public class DocumentEntity : BaseEntity, IHardDeletable
 {
-    // Private backing fields for encapsulation
-    private string _fileName = string.Empty;
-    private string _originalFileName = string.Empty;
-    private string _fileExtension = string.Empty;
-    private string _mimeType = string.Empty;
-    private string _storagePath = string.Empty;
-    private int _downloadCount = 0;
-
-    /// <summary>
-    /// Protected constructor for EF Core
-    /// </summary>
-    protected DocumentEntity() { }
-
-    /// <summary>
-    /// Internal constructor for testing purposes only - provides full control over entity state
-    /// </summary>
-    internal DocumentEntity(
-        Guid documentGuid,
-        int uploadedByUserId,
-        string fileName,
-        string originalFileName,
-        string fileExtension,
-        string mimeType,
-        long fileSizeBytes,
-        string storagePath,
-        string? storageProvider = null,
-        string? documentType = null,
-        string? uploadStatusCode = null,
-        int downloadCount = 0)
-    {
-        DocumentGuid = documentGuid;
-        UploadedByUserId = uploadedByUserId;
-        _fileName = fileName;
-        _originalFileName = originalFileName;
-        _fileExtension = fileExtension.ToLowerInvariant();
-        _mimeType = mimeType;
-        FileSizeBytes = fileSizeBytes;
-        _storagePath = storagePath;
-        StorageProvider = storageProvider ?? "FOLDER";
-        UploadStatusCode = uploadStatusCode ?? DocumentUploadStatus.Active.ToStatusString();
-        _downloadCount = downloadCount;
-        DocumentType = documentType;
-    }
-
-    /// <summary>
-    /// Factory method to create a new document with required validations.
-    /// Generates DocumentGuid using application-side logic for consistency across all environments.
-    /// </summary>
     public static DocumentEntity Create(
         int uploadedByUserId,
         string fileName,
@@ -68,555 +18,124 @@ public class DocumentEntity : BaseEntity, IHardDeletable
         string storagePath,
         string? documentType = null)
     {
-        if (uploadedByUserId <= 0)
-            throw new ArgumentException("Uploaded by user ID must be greater than zero.", nameof(uploadedByUserId));
-
-        if (string.IsNullOrWhiteSpace(fileName))
-            throw new ArgumentException("File name cannot be empty.", nameof(fileName));
-
-        if (string.IsNullOrWhiteSpace(originalFileName))
-            throw new ArgumentException("Original file name cannot be empty.", nameof(originalFileName));
-
-        if (string.IsNullOrWhiteSpace(fileExtension))
-            throw new ArgumentException("File extension cannot be empty.", nameof(fileExtension));
-
-        if (string.IsNullOrWhiteSpace(mimeType))
-            throw new ArgumentException("MIME type cannot be empty.", nameof(mimeType));
-
-        if (fileSizeBytes <= 0)
-            throw new ArgumentException("File size must be greater than zero.", nameof(fileSizeBytes));
-
-        if (string.IsNullOrWhiteSpace(storagePath))
-            throw new ArgumentException("Storage path cannot be empty.", nameof(storagePath));
-
-        var document = new DocumentEntity
+        return new DocumentEntity
         {
             DocumentGuid = Guid.NewGuid(),
             UploadedByUserId = uploadedByUserId,
-            _fileName = fileName,
-            _originalFileName = originalFileName,
-            _fileExtension = fileExtension.ToLowerInvariant(),
-            _mimeType = mimeType,
+            FileName = fileName,
+            OriginalFileName = originalFileName,
+            FileExtension = fileExtension.ToLowerInvariant(),
+            MimeType = mimeType,
             FileSizeBytes = fileSizeBytes,
-            _storagePath = storagePath,
+            StoragePath = storagePath,
             StorageProvider = "FOLDER",
-            UploadStatusCode = DocumentUploadStatus.Active.ToStatusString(),
+UploadStatusCode = "ACTIVE",
+            DocumentType = documentType,
             Version = 1,
             IsLatestVersion = true,
-            IsPublic = false,
-            InheritPermissions = true,
-            IsEncrypted = false,
-            _downloadCount = 0,
-            IsActive = true,
-            _markedForDeletion = false
+            IsActive = true
         };
-
-        if (!string.IsNullOrWhiteSpace(documentType))
-        {
-            document.SetDocumentType(documentType);
-        }
-
-        return document;
     }
 
-    /// <summary>
-    /// Unique identifier for API transactions.
-    /// Generated by application in Create factory method for consistency and testability.
-    /// </summary>
-    public Guid DocumentGuid { get; private set; }
-
-    /// <summary>
-    /// FK to CORE.DepartmentMaster(Id). Identifies which department this document belongs to.
-    /// Required for correct filtering when combined with DepartmentEntityId.
-    /// Example: 3 (DepartmentMaster.Id for 'PTIS')
-    /// </summary>
-    public int? DepartmentId { get; private set; }
-
-    /// <summary>
-    /// Department-specific primary business id this document logically belongs to.
-    /// The value's meaning depends on the owning department (identified by DepartmentId):
-    ///   When DepartmentId=PTIS  -> PropertyId
-    ///   When DepartmentId=WTIS  -> ConsumerId
-    ///   When DepartmentId=ASSET -> AssetId  (and so on)
-    /// Nullable for cases where no department-level entity applies yet.
-    /// MUST be filtered together with DepartmentId to prevent ID collision across departments.
-    /// Example: DepartmentId=3, DepartmentEntityId=1001  (PTIS PropertyId)
-    /// </summary>
-    public int? DepartmentEntityId { get; private set; }
-
-    // Ownership
-    /// <summary>
-    /// User who uploaded the document (surveyor/data entry operator)
-    /// </summary>
-    public int UploadedByUserId { get; private set; }
-
-    // File Information - Encapsulated with validation
-    /// <summary>
-    /// Unique file name generated by the system for storage.
-    /// Typically includes GUID to ensure uniqueness and prevent conflicts.
-    /// </summary>
-    public string FileName
-    {
-        get => _fileName;
-        private set => _fileName = value ?? throw new ArgumentNullException(nameof(FileName));
-    }
-
-    /// <summary>
-    /// Original file name as uploaded by the user.
-    /// Preserves the user's intended file name for display and download purposes.
-    /// </summary>
-    public string OriginalFileName
-    {
-        get => _originalFileName;
-        private set => _originalFileName = value ?? throw new ArgumentNullException(nameof(OriginalFileName));
-    }
-
-    /// <summary>
-    /// File extension in lowercase (e.g., ".pdf", ".jpg", ".docx").
-    /// Used for file type validation and icon display.
-    /// </summary>
-    public string FileExtension
-    {
-        get => _fileExtension;
-        private set => _fileExtension = value?.ToLowerInvariant() ?? throw new ArgumentNullException(nameof(FileExtension));
-    }
-
-    /// <summary>
-    /// MIME type of the document (e.g., "application/pdf", "image/jpeg").
-    /// Used for proper content-type headers when serving files.
-    /// </summary>
-    public string MimeType
-    {
-        get => _mimeType;
-        private set => _mimeType = value ?? throw new ArgumentNullException(nameof(MimeType));
-    }
-
-    /// <summary>
-    /// Size of the file in bytes.
-    /// Used for storage management, quota enforcement, and display to users.
-    /// </summary>
-    public long FileSizeBytes { get; private set; }
-
-    // Storage Provider Details
-    /// <summary>
-    /// Storage provider: 'FOLDER' for now (AZURE, S3 for future)
-    /// </summary>
-    public string StorageProvider { get; private set; } = "FOLDER";
-
-    /// <summary>
-    /// Relative path to the file
-    /// </summary>
-    public string StoragePath
-    {
-        get => _storagePath;
-        private set => _storagePath = value ?? throw new ArgumentNullException(nameof(StoragePath));
-    }
-
-    /// <summary>
-    /// Thumbnail path (same as StoragePath for now, no thumbnail logic yet)
-    /// </summary>
-    public string? ThumbnailPath { get; private set; }
-
-    // Security & Processing
-    /// <summary>
-    /// SHA-256 checksum hash of the file for integrity verification.
-    /// 64-character lowercase hexadecimal string.
-    /// Used to detect file corruption and ensure data integrity.
-    /// </summary>
-    public string? ChecksumSha256 { get; private set; }
-
-    /// <summary>
-    /// Virus scan status: NULL for now (PENDING, CLEAN, INFECTED, ERROR for future)
-    /// </summary>
-    public string? ScanStatusCode { get; private set; }
-
-    /// <summary>
-    /// Timestamp when the virus scan was completed.
-    /// NULL if scan has not been performed or is pending.
-    /// </summary>
-    public DateTime? ScanCompletedDate { get; private set; }
-
-    /// <summary>
-    /// JSON with scan results (future use)
-    /// </summary>
-    public string? ScanDetails { get; private set; }
-
-    /// <summary>
-    /// Upload status code indicating the current state of the upload.
-    /// Values: ACTIVE, PENDING, FAILED
-    /// Default is ACTIVE.
-    /// </summary>
-    public string UploadStatusCode { get; private set; } = DocumentUploadStatus.Active.ToStatusString();
-
-    // Document Classification
-    /// <summary>
-    /// User-friendly title for the document.
-    /// Optional, maximum 500 characters.
-    /// Used for display in lists and search results.
-    /// </summary>
-    public string? DocumentTitle { get; private set; }
-
-    /// <summary>
-    /// Detailed description of the document content.
-    /// Optional, maximum 2000 characters.
-    /// Used for search and to provide context to users.
-    /// </summary>
-    public string? Description { get; private set; }
-
-    /// <summary>
-    /// Document type: Certificate, Invoice, Contract, Report (constants, not enum)
-    /// </summary>
-    public string? DocumentType { get; private set; }
-
-    /// <summary>
-    /// Document category for classification and filtering.
-    /// Optional, used to organize documents into logical groups.
-    /// </summary>
-    public string? DocumentCategory { get; private set; }
-
-    /// <summary>
-    /// JSON array of tags (future use)
-    /// </summary>
-    public string? Tags { get; private set; }
-
-    /// <summary>
-    /// Language code of the document content (e.g., "en", "hi", "mr").
-    /// Optional, used for localization and search filtering.
-    /// </summary>
-    public string? Language { get; private set; }
-
-    // Versioning (future use)
-    /// <summary>
-    /// Version number of the document, starting from 1.
-    /// Incremented when a new version is created.
-    /// </summary>
-    public int Version { get; private set; } = 1;
-
-    /// <summary>
-    /// ID of the parent document if this is a versioned document.
-    /// NULL for original documents, set for document revisions.
-    /// </summary>
-    public int? ParentDocumentId { get; private set; }
-
-    /// <summary>
-    /// Indicates if this is the latest version of the document.
-    /// Only one version of a document should have this set to true.
-    /// </summary>
-    public bool IsLatestVersion { get; private set; } = true;
-
-    // Access Control (future use)
-    /// <summary>
-    /// Indicates if the document is publicly accessible without authentication.
-    /// Default is false - documents are private by default.
-    /// </summary>
-    public bool IsPublic { get; private set; } = false;
-
-    /// <summary>
-    /// Indicates if the document should inherit permissions from its parent entity.
-    /// Default is true - inherits permissions from the binding entity (e.g., Property, Certificate).
-    /// </summary>
-    public bool InheritPermissions { get; private set; } = true;
-
-    /// <summary>
-    /// Confidentiality classification level (e.g., "PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED").
-    /// Optional, used for access control and compliance.
-    /// </summary>
-    public string? ConfidentialityLevel { get; private set; }
-
-    // Document Content (future use)
-    /// <summary>
-    /// Number of pages in the document (for PDFs and similar formats).
-    /// Optional, extracted during document processing.
-    /// </summary>
-    public int? PageCount { get; private set; }
-
-    /// <summary>
-    /// Extracted text content from the document for full-text search.
-    /// Optional, populated by OCR or text extraction services.
-    /// </summary>
-    public string? SearchableText { get; private set; }
-
-    /// <summary>
-    /// Status of text extraction: NULL, "PENDING", "COMPLETED", "FAILED".
-    /// Optional, tracks the progress of text extraction for search indexing.
-    /// </summary>
-    public string? ExtractionStatus { get; private set; }
-
-    // Encryption (future use)
-    /// <summary>
-    /// ID of the encryption key used to encrypt the document.
-    /// NULL if document is not encrypted.
-    /// References key management system for decryption.
-    /// </summary>
-    public string? EncryptionKeyId { get; private set; }
-
-    /// <summary>
-    /// Indicates if the document is stored in encrypted form.
-    /// Default is false - encryption is opt-in.
-    /// </summary>
-    public bool IsEncrypted { get; private set; } = false;
-
-    // Usage Analytics
-    /// <summary>
-    /// Number of times the document has been downloaded.
-    /// Incremented each time RecordDownload is called.
-    /// Used for usage tracking and reporting.
-    /// </summary>
-    public int DownloadCount
-    {
-        get => _downloadCount;
-        private set => _downloadCount = value >= 0 ? value : throw new ArgumentException("Download count cannot be negative.");
-    }
-
-    // Status Flags
-    /// <summary>
-    /// Identifier of the source system that created the document.
-    /// Optional, used for data migration and integration scenarios.
-    /// Examples: "LEGACY_SYSTEM", "MOBILE_APP", "EXTERNAL_API"
-    /// </summary>
-    public string? SourceSystem { get; private set; }
-
-    // IHardDeletable (soft delete) - Explicit interface implementation
-    private bool _markedForDeletion = false;
-    private DateTime? _markedForDeletionDate;
-
-    /// <summary>
-    /// Indicates if the document is marked for deletion (soft delete).
-    /// True if document is flagged for deletion but not yet physically removed.
-    /// </summary>
-    public bool MarkedForDeletion => _markedForDeletion;
-
-    /// <summary>
-    /// Timestamp when the document was marked for deletion.
-    /// NULL if document is not marked for deletion.
-    /// Used for delayed deletion and recovery window.
-    /// </summary>
-    public DateTime? MarkedForDeletionDate => _markedForDeletionDate;
-
-    // Explicit interface implementation for setters
-    bool IHardDeletable.MarkedForDeletion
-    {
-        get => _markedForDeletion;
-        set => _markedForDeletion = value;
-    }
-
-    DateTime? IHardDeletable.MarkedForDeletionDate
-    {
-        get => _markedForDeletionDate;
-        set => _markedForDeletionDate = value;
-    }
-
-    /// <summary>
-    /// Concurrency token for optimistic concurrency control.
-    /// Automatically updated by EF Core on each save.
-    /// Prevents lost updates in concurrent scenarios.
-    /// </summary>
+    public Guid DocumentGuid { get; set; }
+    public int? DepartmentId { get; set; }
+    public int? DepartmentEntityId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string OriginalFileName { get; set; } = string.Empty;
+    public string FileExtension { get; set; } = string.Empty;
+    public string MimeType { get; set; } = string.Empty;
+    public long FileSizeBytes { get; set; }
+    public string StorageProvider { get; set; } = "FOLDER";
+    public string StoragePath { get; set; } = string.Empty;
+    public string? ThumbnailPath { get; set; }
+    public string? ChecksumSha256 { get; set; }
+    public string? ScanStatusCode { get; set; }
+    public DateTime? ScanCompletedDate { get; set; }
+    public string? ScanDetails { get; set; }
+    public string UploadStatusCode { get; set; } = "ACTIVE";
+    public string? DocumentTitle { get; set; } = null;
+    public string? Description { get; set; }
+    public string? DocumentType { get; set; }
+    public string? DocumentCategory { get; set; }
+    public string? Tags { get; set; }
+    public string? Language { get; set; }
+    public int Version { get; set; } = 1;
+    public int? ParentDocumentId { get; set; }
+    public bool IsLatestVersion { get; set; } = true;
+    public bool IsPublic { get; set; } = false;
+    public bool InheritPermissions { get; set; } = true;
+    public string? ConfidentialityLevel { get; set; }
+    public int? PageCount { get; set; }
+    public string? SearchableText { get; set; }
+    public string? ExtractionStatus { get; set; }
+    public string? EncryptionKeyId { get; set; }
+    public bool IsEncrypted { get; set; } = false;
+    public int DownloadCount { get; set; } = 0;
+    public string? SourceSystem { get; set; }
+    public int UploadedByUserId { get; set; }
+    public bool MarkedForDeletion { get; set; } = false;
+    public DateTime? MarkedForDeletionDate { get; set; }
     public byte[]? RowVersion { get; set; }
 
-    // Navigation Properties
-    /// <summary>
-    /// Navigation property to the parent document (for versioned documents).
-    /// NULL for original documents.
-    /// </summary>
-    public DocumentEntity? ParentDocument { get; private set; }
+    public DocumentEntity? ParentDocument { get; set; }
+    public ICollection<DocumentBindingEntity> DocumentBindings { get; set; } = new List<DocumentBindingEntity>();
 
-    /// <summary>
-    /// Collection of document bindings that link this document to business entities.
-    /// A document can be bound to multiple entities (e.g., Property, Certificate, Invoice).
-    /// </summary>
-    public ICollection<DocumentBindingEntity> DocumentBindings { get; private set; } = new List<DocumentBindingEntity>();
-
-    // ========== Domain Methods ==========
-
-    /// <summary>
-    /// Increment download count
-    /// </summary>
-    public void RecordDownload(int userId)
-    {
-        if (userId <= 0)
-            throw new ArgumentException("User ID must be greater than zero.", nameof(userId));
-
-        if (_markedForDeletion)
-            throw new InvalidOperationException("Cannot download a document marked for deletion.");
-
-        DownloadCount++;
-    }
-
-    /// <summary>
-    /// Mark document for soft deletion
-    /// </summary>
     public void MarkForDeletion(int deletedByUserId)
     {
         if (deletedByUserId <= 0)
             throw new ArgumentException("Deleted by user ID must be greater than zero.", nameof(deletedByUserId));
-
-        if (MarkedForDeletion)
-            throw new InvalidOperationException("Document is already marked for deletion.");
-
-        _markedForDeletion = true;
-        _markedForDeletionDate = DateTime.Now;
+        MarkedForDeletion = true;
+        MarkedForDeletionDate = DateTime.Now;
         IsActive = false;
     }
 
-    /// <summary>
-    /// Restore document from soft deletion
-    /// </summary>
+    public void RecordDownload(int userId)
+    {
+        if (userId <= 0)
+            throw new ArgumentException("User ID must be greater than zero.", nameof(userId));
+        DownloadCount++;
+    }
+
     public void RestoreFromDeletion()
     {
-        if (!_markedForDeletion)
-            throw new InvalidOperationException("Document is not marked for deletion.");
-
-        _markedForDeletion = false;
-        _markedForDeletionDate = null;
+        MarkedForDeletion = false;
+        MarkedForDeletionDate = null;
         IsActive = true;
     }
 
-    /// <summary>
-    /// Update scan status with validation
-    /// </summary>
     public void UpdateScanStatus(string scanStatus, string? scanDetails = null)
     {
-        var validStatuses = new[] {
-            DocumentScanStatus.Pending.ToStatusString(),
-            DocumentScanStatus.Clean.ToStatusString(),
-            DocumentScanStatus.Infected.ToStatusString(),
-            DocumentScanStatus.Error.ToStatusString()
-        };
+        if (string.IsNullOrWhiteSpace(scanStatus))
+            throw new ArgumentException("Scan status cannot be empty.", nameof(scanStatus));
 
-        if (!validStatuses.Contains(scanStatus))
-            throw new ArgumentException($"Invalid scan status. Must be one of: {string.Join(", ", validStatuses)}", nameof(scanStatus));
+        // Normalize to uppercase for consistency
+        var normalizedStatus = scanStatus.Trim().ToUpperInvariant();
 
-        ScanStatusCode = scanStatus;
+        // Validate against known scan statuses
+        var validStatuses = new[] { "PENDING", "SCANNING", "CLEAN", "INFECTED", "QUARANTINED", "UNKNOWN", "ERROR" };
+        if (!validStatuses.Contains(normalizedStatus))
+            throw new ArgumentException($"Invalid scan status '{scanStatus}'. Must be one of: {string.Join(", ", validStatuses)}", nameof(scanStatus));
+
+        ScanStatusCode = normalizedStatus;
         ScanCompletedDate = DateTime.Now;
         ScanDetails = scanDetails;
 
-        // If infected, mark as inactive for safety
-        if (scanStatus == DocumentScanStatus.Infected.ToStatusString())
-        {
+        if (normalizedStatus == "INFECTED" || normalizedStatus == "QUARANTINED")
             IsActive = false;
-        }
     }
 
-    /// <summary>
-    /// Set document type with validation
-    /// </summary>
-    public void SetDocumentType(string documentType)
-    {
-        if (string.IsNullOrWhiteSpace(documentType))
-            throw new ArgumentException("Document type cannot be empty.", nameof(documentType));
-
-        DocumentType = documentType;
-    }
-
-    /// <summary>
-    /// Update document metadata
-    /// </summary>
-    public void UpdateMetadata(string? title, string? description, string? category = null)
-    {
-        var trimmedTitle = string.IsNullOrWhiteSpace(title) ? null : title.Trim();
-        var trimmedDescription = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
-        var trimmedCategory = string.IsNullOrWhiteSpace(category) ? null : category.Trim();
-
-        if (trimmedTitle != null && trimmedTitle.Length > 500)
-            throw new ArgumentException("Document title cannot exceed 500 characters.", nameof(title));
-
-        if (trimmedDescription != null && trimmedDescription.Length > 2000)
-            throw new ArgumentException("Description cannot exceed 2000 characters.", nameof(description));
-
-        DocumentTitle = trimmedTitle;
-        Description = trimmedDescription;
-        DocumentCategory = trimmedCategory;
-    }
-
-
-
-    /// <summary>
-    /// Set checksum for integrity verification
-    /// </summary>
     public void SetChecksum(string checksumSha256)
     {
-        if (string.IsNullOrWhiteSpace(checksumSha256))
-            throw new ArgumentException("Checksum cannot be empty.", nameof(checksumSha256));
-
-        if (checksumSha256.Length != 64)
+        if (string.IsNullOrWhiteSpace(checksumSha256) || checksumSha256.Length != 64)
             throw new ArgumentException("SHA256 checksum must be 64 characters.", nameof(checksumSha256));
-
         ChecksumSha256 = checksumSha256.ToLowerInvariant();
     }
 
-    /// <summary>
-    /// Set department and department entity ID for quick filtering
-    /// </summary>
     public void SetDepartmentEntity(int? departmentId, int? departmentEntityId)
     {
-        // Business rule: DepartmentEntityId requires DepartmentId to be set
         if (departmentEntityId.HasValue && !departmentId.HasValue)
             throw new ArgumentException("DepartmentEntityId requires DepartmentId to be set.", nameof(departmentId));
-
-        if (departmentId.HasValue && departmentId.Value <= 0)
-            throw new ArgumentException("DepartmentId must be greater than zero.", nameof(departmentId));
-
-        if (departmentEntityId.HasValue && departmentEntityId.Value <= 0)
-            throw new ArgumentException("DepartmentEntityId must be greater than zero.", nameof(departmentEntityId));
-
         DepartmentId = departmentId;
         DepartmentEntityId = departmentEntityId;
-    }
-
-
-
-
-
-    /// <summary>
-    /// Mark document as a new version of another document
-    /// </summary>
-    public void SetAsNewVersionOf(int parentDocumentId, int versionNumber)
-    {
-        if (parentDocumentId <= 0)
-            throw new ArgumentException("Parent document ID must be greater than zero.", nameof(parentDocumentId));
-
-        if (versionNumber <= 0)
-            throw new ArgumentException("Version number must be greater than zero.", nameof(versionNumber));
-
-        ParentDocumentId = parentDocumentId;
-        Version = versionNumber;
-        IsLatestVersion = true;
-    }
-
-
-
-    /// <summary>
-    /// Set confidentiality level
-    /// </summary>
-    public void SetConfidentialityLevel(string level)
-    {
-        var validLevels = new[] { "PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED", "SECRET" };
-
-        if (string.IsNullOrWhiteSpace(level))
-        {
-            ConfidentialityLevel = null;
-            IsPublic = false;
-            return;
-        }
-
-        var normalizedLevel = level.Trim().ToUpperInvariant();
-
-        if (!validLevels.Contains(normalizedLevel))
-            throw new ArgumentException($"Invalid confidentiality level. Must be one of: {string.Join(", ", validLevels)}", nameof(level));
-
-        ConfidentialityLevel = normalizedLevel;
-        IsPublic = normalizedLevel == "PUBLIC";
-    }
-
-    /// <summary>
-    /// Validate document integrity
-    /// </summary>
-    public bool ValidateIntegrity()
-    {
-        if (_markedForDeletion) return false;
-        if (ScanStatusCode == DocumentScanStatus.Infected.ToStatusString()) return false;
-        if (!IsActive) return false;
-
-        return true;
     }
 }
