@@ -380,6 +380,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
+
+        //RTS SERVICES DepenedencyInjection
+        services.AddScoped<IRTSDepartmentService, RTSDepartmentService>();  //rts service di
+        services.AddScoped<IRTSCitizenLoginService, RTSCitizenLoginService>();
+        services.AddScoped<IRTSFieldDefinitionService, RTSFieldDefinitionService>();
+        services.AddScoped<IRTSApplicationService, RTSApplicationService>();
+        services.AddScoped<IRTSServiceService, RTSServiceService>();
+        services.AddScoped<IRTSCitizenSessionService, RTSCitizenSessionService>();
+
+
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

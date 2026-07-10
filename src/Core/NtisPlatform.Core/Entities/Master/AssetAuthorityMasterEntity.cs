@@ -1,4 +1,3 @@
-using System;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities.Master;

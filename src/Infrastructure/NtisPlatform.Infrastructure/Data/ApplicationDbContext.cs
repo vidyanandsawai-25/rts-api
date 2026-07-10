@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Entities.PropertyTax;
 using NtisPlatform.Core.Entities.Rules;
 
 namespace NtisPlatform.Infrastructure.Data;
@@ -182,6 +183,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
+    public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
+
+
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -5133,6 +5138,291 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
+
+        //------------------RTS Api work started------------
+
+        modelBuilder.Entity<RTSDepartmentEntity>(entity =>
+        {
+            entity.ToTable("DepartmentMaster", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.DepartmentName)
+                  .IsRequired()
+                  .HasMaxLength(80);
+            entity.HasIndex(e => e.DepartmentName)
+                  .IsUnique()
+                  .HasDatabaseName("UQ_RTSDepartments_DepartmentName");
+            entity.Property(e => e.DeptIcon);
+            entity.Property(e => e.IsActive)
+                  .HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate)
+                  .HasDefaultValueSql("GETDATE()");
+        });
+
+        modelBuilder.Entity<RTSPropertyMastEntity>(entity =>
+        {
+            entity.ToTable("PropertyMast", "dbo");
+            entity.HasKey(e => e.OwnerID);
+
+            entity.Property(e => e.OwnerID)
+                  .HasColumnName("OwnerID");
+
+            entity.Ignore(e => e.Id);
+            entity.Ignore(e => e.IsActive);
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedDate);
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.UpdatedBy); entity.Property(e => e.MobileNo).HasMaxLength(20);
+            entity.Property(e => e.UnicdeAddress).HasMaxLength(100);
+            entity.Property(e => e.NewZoneNo).HasMaxLength(20);
+            entity.Property(e => e.NewWardNo).HasMaxLength(20);
+            entity.Property(e => e.NewPropertyNo).HasMaxLength(50);
+            entity.Property(e => e.NewPartitionNo).HasMaxLength(20);
+            entity.Property(e => e.OldPropertyNo).HasMaxLength(50);
+            entity.Property(e => e.OwnerFirstName).HasMaxLength(200);
+            entity.Property(e => e.MarathiSocietyName).HasMaxLength(300);
+            entity.Property(e => e.MarathiOwnerPatta).HasMaxLength(500);
+            entity.Property(e => e.MarathiOwnerDukanFlatNo).HasMaxLength(200);
+        });
+
+        modelBuilder.Entity<RTSFieldDefinitionEntity>(entity =>
+        {
+            entity.ToTable("FieldDefinition", "RTS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DepartmentId).IsRequired();
+            entity.Property(e => e.ServiceId).IsRequired();
+            entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.FieldGroup).HasMaxLength(100);
+            entity.Property(e => e.OptionsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ValidationRules).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.MinValue).HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.MaxValue).HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.MaxLength);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne<RTSDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RTSServiceEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.DepartmentId, e.ServiceId, e.FieldCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_FieldDef_CategoryTypeField");
+        });
+
+
+        modelBuilder.Entity<RTSFieldValueEntity>(entity =>
+        {
+            entity.ToTable("FieldValue", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApplicationId)
+                .IsRequired();
+            entity.Property(e => e.FieldDefinitionId)
+                .IsRequired();
+            entity.Property(e => e.FieldName)
+                .IsRequired()
+                .HasMaxLength(100);
+            entity.Property(e => e.TextValue)
+                .HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NumberValue)
+                .HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.DateValue)
+                .HasColumnType("datetime");
+            entity.Property(e => e.BooleanValue);
+            entity.Property(e => e.DocumentGuid);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate)
+                .HasColumnType("datetime");
+            entity.HasIndex(e => new { e.ApplicationId, e.FieldDefinitionId })
+                .IsUnique()
+                .HasDatabaseName("UQ_RTSFieldValue_Application_Field");
+
+            entity.HasOne(e => e.Application)
+                .WithMany(a => a.FieldValueData)
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_FieldValue_ApplicationDetails");
+
+            entity.HasOne<RTSFieldDefinitionEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.FieldDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+        });
+
+       
+        modelBuilder.Entity<RTSApplicationDetailsEntity>(entity =>
+        {
+            entity.ToTable("ApplicationDetails", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ApplicationNo)
+                .HasMaxLength(50)
+                .HasComputedColumnSql("('RTS' + RIGHT('00000000' + CONVERT(varchar(8), [Id]), 8))", stored: true);
+
+            entity.Property(e => e.DepartmentId)
+                .IsRequired();
+            entity.Property(e => e.ServiceId)
+                .IsRequired();
+            entity.Property(e => e.SessionId)
+                    .HasMaxLength(200)
+                    .IsRequired(false);
+            entity.Property(e => e.ApplicationStatus)
+                .HasMaxLength(50)
+                .IsRequired(false);
+            entity.Property(e => e.Remark)
+                .HasMaxLength(500);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate)
+                .HasColumnType("datetime");
+
+            entity.HasOne<RTSDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RTSServiceEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RTSCitizenSessionEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.SessionId)
+                .HasPrincipalKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ApplicationDetails_CitizenSession");
+
+        });
+
+
+        modelBuilder.Entity<RTSServiceEntity>(entity =>
+        {
+            entity.ToTable("Services", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.DepartmentId)
+                .IsRequired();
+            entity.Property(e => e.ServiceName)
+                .IsRequired()
+                .HasMaxLength(300);
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+            entity.Property(e => e.ServiceUrl)
+                .HasMaxLength(500);
+            entity.Property(e => e.ServiceIcon)
+                .HasMaxLength(100);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+
+            entity.HasOne<RTSDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+        });
+
+        modelBuilder.Entity<RTSCitizenSessionEntity>(entity =>
+        {
+            entity.ToTable("CitizenSession", "RTS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.SessionId)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.HasIndex(e => e.SessionId)
+                .IsUnique();
+
+            entity.Property(e => e.CitizenName)
+                .HasMaxLength(200);
+
+            entity.Property(e => e.MobileNo)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.UPIC)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.PropertyNo)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.LoginTime)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.LastActivityTime)
+                .HasColumnType("datetime");
+
+            entity.Property(e => e.LogoutTime)
+                .HasColumnType("datetime");
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+        });
+
 
     }
 }
