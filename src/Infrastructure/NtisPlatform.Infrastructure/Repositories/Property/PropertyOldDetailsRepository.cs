@@ -168,7 +168,8 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
                                 Category = pc != null ? pc.PropertyCategoryName : null,
                                 UPICId = p.UPICId,
                                 OwnerName = p.OwnerName ?? p.OwnerNameEnglish,
-                                Address = p.Address ?? p.AddressEnglish
+                                Address = p.Address ?? p.AddressEnglish,
+                                IsCombined = _context.CombinePropertyHistory.Any(c => c.SourcePropertyId == p.Id && c.IsActive)
                             })
                            .FirstOrDefaultAsync(cancellationToken);
 

@@ -511,6 +511,127 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_WhenPropertyIsCombined_ReturnsIsCombinedTrue()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 200,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "200",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+
+        var combinedProperty = new PropertyEntity
+        {
+            Id = 201,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "201",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(combinedProperty);
+
+        var combineHistory = new CombinePropertyHistoryEntity
+        {
+            Id = 1001,
+            SourcePropertyId = 200,
+            CombinedPropertyId = 201,
+            CombineReason = "Merged properties",
+            IsActive = true,
+            CreatedDate = DateTime.Now
+        };
+        _context.CombinePropertyHistory.Add(combineHistory);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(200, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(result.IsCombined);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_WhenPropertyIsNotCombined_ReturnsIsCombinedFalse()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 300,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "300",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(300, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(result.IsCombined);
+    }
+
+    [Fact]
+    public async Task GetTabHeaderInfoAsync_WhenPropertyHasInactiveCombineHistory_ReturnsIsCombinedFalse()
+    {
+        // Arrange
+        var property = new PropertyEntity
+        {
+            Id = 400,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "400",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(property);
+
+        var combinedProperty = new PropertyEntity
+        {
+            Id = 401,
+            TaxZoneId = 1,
+            WardId = 1,
+            PropertyNo = "401",
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.PropertyMast.Add(combinedProperty);
+
+        var combineHistory = new CombinePropertyHistoryEntity
+        {
+            Id = 1002,
+            SourcePropertyId = 400,
+            CombinedPropertyId = 401,
+            CombineReason = "Merged properties",
+            IsActive = false,
+            CreatedDate = DateTime.Now
+        };
+        _context.CombinePropertyHistory.Add(combineHistory);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _oldDetailsService.GetTabHeaderInfoAsync(400, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(result.IsCombined);
+    }
+
     #endregion
 
     #region UpdateOldDetailsAsync Tests
