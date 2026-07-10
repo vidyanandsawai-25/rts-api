@@ -483,6 +483,48 @@ namespace NtisPlatform.Tests.Application.Services
         }
 
         #endregion
+
+        #region GetApartmentUnitListAsync Tests
+
+        [Fact]
+        public async Task GetApartmentUnitListAsync_CallsRepositoryWithParameters()
+        {
+            // Arrange
+            var propertyId = 123;
+            var searchRequest = new PropertySearchRequestDto { UPICId = "NK07" };
+            var expectedResponse = new ApartmentUnitListResponseDto();
+
+            _mockSearchRepository
+                .Setup(x => x.GetApartmentUnitListAsync(propertyId, searchRequest, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expectedResponse);
+
+            // Act
+            var result = await _service.GetApartmentUnitListAsync(propertyId, searchRequest, CancellationToken.None);
+
+            // Assert
+            Assert.Same(expectedResponse, result);
+            _mockSearchRepository.Verify(x => x.GetApartmentUnitListAsync(propertyId, searchRequest, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetApartmentUnitListAsync_WithInvalidValuationFilters_ThrowsValidationException()
+        {
+            // Arrange
+            var propertyId = 123;
+            var searchRequest = new PropertySearchRequestDto
+            {
+                ValuationMethod = "RV",
+                FilterType = "Between",
+                AmountValue = 500,
+                AmountTo = 100 // AmountValue > AmountTo -> invalid!
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<PropertyValidationException>(() =>
+                _service.GetApartmentUnitListAsync(propertyId, searchRequest, CancellationToken.None));
+        }
+
+        #endregion
     }
 }
 
