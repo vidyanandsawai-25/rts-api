@@ -1,4 +1,5 @@
 using NtisPlatform.Api.Extensions;
+using NtisPlatform.Api.Hubs;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 
@@ -23,6 +24,7 @@ builder.Services.AddControllers().AddDataAnnotationsLocalization();
 
 // Localization from Database + Cache 
 builder.Services.AddMemoryCache();
+
 
 var app = builder.Build();
 
@@ -51,10 +53,14 @@ if (rateLimitingEnabled)
     app.UseRateLimiter();
 }
 
+
 // Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// SignalR hub — uses HubCors policy (AllowCredentials for negotiation handshake).
+app.MapHub<ReportStatusHub>("/hubs/reports").RequireCors("HubCors");
 
 app.Run();

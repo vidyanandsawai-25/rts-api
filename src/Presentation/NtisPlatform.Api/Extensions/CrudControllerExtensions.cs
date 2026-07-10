@@ -244,7 +244,7 @@ public static class CrudControllerExtensions
             userId,
             typeof(TEntity).Name,
             id,
-            DateTime.UtcNow);
+            DateTime.Now);
 
         try
         {
@@ -262,7 +262,7 @@ public static class CrudControllerExtensions
                     userId,
                     typeof(TEntity).Name,
                     id,
-                    DateTime.UtcNow);
+                    DateTime.Now);
 
                 return controller.Ok(new ApiResponse<object>
                 {
@@ -714,7 +714,7 @@ public static class CrudControllerExtensions
             userId,
             typeof(TEntity).Name,
             ids.Length,
-            DateTime.UtcNow);
+            DateTime.Now);
 
         var failedEntities = new List<string>();
         var deletableIds = new List<TKey>();

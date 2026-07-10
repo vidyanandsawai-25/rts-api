@@ -33,6 +33,13 @@ public class PropertySocialDetailsRepository : IPropertySocialDetailsRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<PropertySocialDetailsEntity>> GetSocialDetailsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<PropertySocialDetailsEntity>()
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsWithAttributeByPropertyAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<PropertySocialDetailsEntity>()

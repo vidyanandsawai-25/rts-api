@@ -24,6 +24,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<PropertyDetailsOldEntity, int> _propertyDetailsOldRepository;
+    private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
     private readonly IRepository<PropertyPhotoEntity, int> _propertyPhotoRepository;
     private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
     private readonly IRepository<DocumentEntity, int> _documentRepository;
@@ -42,6 +43,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         IRepository<PropertyEntity, int> propertyRepository,
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
         IRepository<PropertyDetailsOldEntity, int> propertyDetailsOldRepository,
+        IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
         IRepository<PropertyPhotoEntity, int> propertyPhotoRepository,
         IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
         IRepository<DocumentEntity, int> documentRepository,
@@ -59,6 +61,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         _propertyRepository = propertyRepository;
         _propertyDetailsRepository = propertyDetailsRepository;
         _propertyDetailsOldRepository = propertyDetailsOldRepository;
+        _propertyMastOldRepository = propertyMastOldRepository;
         _propertyPhotoRepository = propertyPhotoRepository;
         _propertyPhotoTypeRepository = propertyPhotoTypeRepository;
         _documentRepository = documentRepository;
@@ -122,6 +125,8 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         result.OldFloorDetails = propertyOldId.HasValue
             ? await GetOldFloorDetailsAsync(propertyOldId.Value, cancellationToken)
             : [];
+
+        ApplyFloorChangeStatus(result.NewFloorDetails, result.OldFloorDetails);
 
         // ── STEP 4: tax-head summary (old vs new) ─────────────────────────────
         result.TaxSummary = await GetTaxSummaryAsync(propertyId, propertyOldId, cancellationToken);
@@ -271,6 +276,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
                 rv.RateableValue,
                 rv.AnnualRentalValue,
                 rv.Depreciation,
+                rv.Maintenance,
                 rv.MonthlyRate,
                 rv.YearlyRate,
                 rv.YearlyRent
@@ -312,6 +318,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
                 dto.RateableValue = rv.RateableValue;
                 dto.AnnualRentalValue = rv.AnnualRentalValue;
                 dto.Depreciation = rv.Depreciation;
+                dto.Maintenance = rv.Maintenance;
                 dto.MonthlyRate = rv.MonthlyRate;
                 dto.YearlyRate = rv.YearlyRate;
                 dto.YearlyRent = rv.YearlyRent;
@@ -321,9 +328,19 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         }).ToList();
     }
 
-    /// <summary>STEP 3 (old) — PropertyDetailsOld + master codes (renter/RV fields not applicable).</summary>
+    /// <summary>
+    /// STEP 3 (old) — PropertyDetailsOld + master codes, with RateableValue/AnnualRentalValue sourced
+    /// from PropertyMastOld (OldRV/OldALV); Depreciation/Maintenance/MonthlyRate/YearlyRate/YearlyRent
+    /// aren't tracked for old records and stay 0. Every row shares the same PropertyMastOldId (the
+    /// method's input), so PropertyMastOld is looked up once rather than joined per row.
+    /// </summary>
     private async Task<List<ReassessmentFloorDto>> GetOldFloorDetailsAsync(int propertyOldId, CancellationToken cancellationToken)
     {
+        var oldMast = await _propertyMastOldRepository.GetQueryable()
+            .Where(pm => pm.Id == propertyOldId)
+            .Select(pm => new { pm.OldRV, pm.OldALV })
+            .FirstOrDefaultAsync(cancellationToken);
+
         return await (
             from pd in _propertyDetailsOldRepository.GetQueryable()
             where pd.PropertyMastOldId == propertyOldId && pd.IsActive
@@ -344,9 +361,37 @@ public class PropertyReassessmentService : IPropertyReassessmentService
                 CarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
                 CarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
                 BuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
-                BuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet
+                BuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+                RateableValue = (decimal?)(oldMast != null ? oldMast.OldRV : null),
+                AnnualRentalValue = oldMast != null ? oldMast.OldALV : null,
+                Depreciation = 0m,
+                Maintenance = 0m,
+                MonthlyRate = 0d,
+                YearlyRate = 0d,
+                YearlyRent = 0d
             })
             .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Marks each floor row Unchanged/Added/Removed by comparing FloorCode+ConstructionCode+Description
+    /// (type-of-use) between the two lists. Rows sharing a key on both sides are Unchanged even if other
+    /// fields (areas, rates, etc.) differ. When several rows share the same key on one side, matching is by
+    /// key existence, not 1:1 pairing — all of them get the same status.
+    /// </summary>
+    private static void ApplyFloorChangeStatus(List<ReassessmentFloorDto> newRows, List<ReassessmentFloorDto> oldRows)
+    {
+        static string Key(ReassessmentFloorDto d) =>
+            $"{d.FloorCode ?? string.Empty}|{d.ConstructionCode ?? string.Empty}|{d.Description ?? string.Empty}";
+
+        var newKeys = newRows.Select(Key).ToHashSet();
+        var oldKeys = oldRows.Select(Key).ToHashSet();
+
+        foreach (var row in newRows)
+            row.ChangeStatus = oldKeys.Contains(Key(row)) ? "Unchanged" : "Added";
+
+        foreach (var row in oldRows)
+            row.ChangeStatus = newKeys.Contains(Key(row)) ? "Unchanged" : "Removed";
     }
 
     /// <summary>

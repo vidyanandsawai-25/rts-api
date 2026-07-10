@@ -10,6 +10,9 @@ public class ReassessmentFloorDto
     /// <summary>"NEW" (New Survey) or "OLD" (Municipal Corp. Registration).</summary>
     public string Type { get; set; } = string.Empty;
 
+    /// <summary>"Unchanged" (same floor in both), "Added" (new survey only), or "Removed" (old registration only).</summary>
+    public string ChangeStatus { get; set; } = string.Empty;
+
     // ── Common columns (both new and old) ──────────────────────────────────
     public string? FloorCode { get; set; }
     public string? ConstructionCode { get; set; }
@@ -37,6 +40,7 @@ public class ReassessmentFloorDto
     public decimal? RateableValue { get; set; }
     public double? AnnualRentalValue { get; set; }
     public decimal? Depreciation { get; set; }
+    public decimal? Maintenance { get; set; }
     public double? MonthlyRate { get; set; }
     public double? YearlyRate { get; set; }
     public double? YearlyRent { get; set; }

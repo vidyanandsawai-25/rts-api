@@ -17,4 +17,5 @@ public class PropertyTabHeaderInfoDto
     public string? OwnerName { get; set; }
     public string? Address { get; set; }
     public string? TypeOfUse { get; set; }
+    public bool IsCombined { get; set; }
 }

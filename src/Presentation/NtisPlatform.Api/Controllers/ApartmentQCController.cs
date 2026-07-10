@@ -85,7 +85,7 @@ public class ApartmentQCController : ControllerBase
         }
 
         var bytes    = await _service.ExportToExcelAsync(query, resultType, ct);
-        var fileName = $"ApartmentQC_{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx";
+        var fileName = $"ApartmentQC_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 

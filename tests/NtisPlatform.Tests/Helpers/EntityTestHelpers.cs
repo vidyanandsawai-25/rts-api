@@ -26,23 +26,22 @@ public static class EntityTestHelpers
         string? uploadStatusCode = null,
         int downloadCount = 0)
     {
-        var entity = new DocumentEntity(
-            documentGuid: documentGuid ?? Guid.NewGuid(),
-            uploadedByUserId: uploadedByUserId,
-            fileName: fileName,
-            originalFileName: originalFileName,
-            fileExtension: fileExtension,
-            mimeType: mimeType,
-            fileSizeBytes: fileSizeBytes,
-            storagePath: storagePath,
-            storageProvider: storageProvider,
-            documentType: documentType,
-            uploadStatusCode: uploadStatusCode,
-            downloadCount: downloadCount);
-
-        // Use reflection to set Id for testing purposes
-        var idProperty = typeof(DocumentEntity).GetProperty("Id");
-        idProperty?.SetValue(entity, id);
+        var entity = new DocumentEntity
+        {
+            Id = id,
+            DocumentGuid = documentGuid ?? Guid.NewGuid(),
+            UploadedByUserId = uploadedByUserId,
+            FileName = fileName,
+            OriginalFileName = originalFileName,
+            FileExtension = fileExtension,
+            MimeType = mimeType,
+            FileSizeBytes = fileSizeBytes,
+            StoragePath = storagePath,
+            StorageProvider = storageProvider ?? "FOLDER",
+            DocumentType = documentType,
+            UploadStatusCode = uploadStatusCode ?? "ACTIVE",
+            DownloadCount = downloadCount
+        };
 
         return entity;
     }
@@ -61,16 +60,20 @@ public static class EntityTestHelpers
         string? bindingPurpose = null,
         bool isPrimaryDocument = false)
     {
-        return new DocumentBindingEntity(
-            documentId: documentId,
-            departmentId: departmentId,
-            moduleId: moduleId,
-            referenceTableName: referenceTableName,
-            referencePropertyName: referencePropertyName,
-            referenceTableId: referenceTableId,
-            referenceTableIdGuid: referenceTableIdGuid,
-            bindingPurpose: bindingPurpose,
-            isPrimaryDocument: isPrimaryDocument);
+        return new DocumentBindingEntity
+        {
+            DocumentId = documentId,
+            DepartmentId = departmentId,
+            ModuleId = moduleId,
+            ReferenceTableName = referenceTableName,
+            ReferencePropertyName = referencePropertyName,
+            ReferenceTableId = referenceTableId,
+            ReferenceTableIdGuid = referenceTableIdGuid,
+            BindingPurpose = bindingPurpose,
+            IsPrimaryDocument = isPrimaryDocument,
+            IsReferenceValid = true,
+            IsActive = true
+        };
     }
 
     /// <summary>

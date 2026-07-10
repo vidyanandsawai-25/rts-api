@@ -519,5 +519,90 @@ namespace NtisPlatform.Tests.Application
                     }
                 }.BuildMockDbSet().Object);
         }
+
+        [Fact]
+        public async Task LoadPropertyContextAsync_MultiplePropertiesSameBuilding_CalculatesMaxFloorAcrossAllProperties()
+        {
+            // Arrange
+            const int targetPropertyId = 1;
+            const int otherPropertyId = 2;
+            const string propertyNo = "APT100";
+
+            // Setup properties sharing WardId and PropertyNo
+            _propertyRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyEntity>
+                {
+                    new()
+                    {
+                        Id = targetPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        TaxZoneId = 1,
+                        WardId = 1,
+                        PropertyNo = propertyNo
+                    },
+                    new()
+                    {
+                        Id = otherPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        TaxZoneId = 1,
+                        WardId = 1,
+                        PropertyNo = propertyNo
+                    }
+                }.BuildMockDbSet().Object);
+
+            var floor5 = new FloorEntity { FloorCode = "5", SequenceNo = 5 }; // Should be ignored as < 12
+            var floor12 = new FloorEntity { FloorCode = "12", SequenceNo = 12 };
+            var floor13 = new FloorEntity { FloorCode = "13", SequenceNo = 13 };
+
+            _propertyDetailsRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyDetailsEntity>
+                {
+                    new()
+                    {
+                        Id = 101,
+                        PropertyId = targetPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        ConstructionYear = "2015",
+                        FloorId = 1,
+                        Floor = floor5
+                    },
+                    new()
+                    {
+                        Id = 102,
+                        PropertyId = targetPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        ConstructionYear = "2015",
+                        FloorId = 2,
+                        Floor = floor12
+                    },
+                    new()
+                    {
+                        Id = 103,
+                        PropertyId = otherPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        ConstructionYear = "2015",
+                        FloorId = 3,
+                        Floor = floor13
+                    }
+                }.BuildMockDbSet().Object);
+
+            _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
+                .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
+
+            var sut = CreateService();
+
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(targetPropertyId, 2026);
+
+            // Assert
+            Assert.NotNull(ctx);
+            // Should be 13 (floor13), since floor12 is smaller and floor5 is ignored (SequenceNo < 12)
+            Assert.Equal(13, ctx.Parameters.BuildingMaxFloorSequence);
+        }
     }
 }

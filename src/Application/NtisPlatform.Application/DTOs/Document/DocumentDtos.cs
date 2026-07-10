@@ -76,7 +76,7 @@ public class DocumentDto
 {
     public int Id { get; set; }
     public Guid DocumentGuid { get; set; }
-    public int UploadedBy { get; set; }
+    public int? UploadedByUserId { get; set; }
     public string? FileName { get; set; }
     public string? OriginalFileName { get; set; }
     public string? FileExtension { get; set; }
@@ -85,9 +85,41 @@ public class DocumentDto
     public string? StorageProvider { get; set; }
     public string? StoragePath { get; set; }
     public string? DocumentType { get; set; }
+    public string? DocumentCategory { get; set; }
+    public string? Description { get; set; }
     public string? UploadStatusCode { get; set; }
+    public string? ScanStatusCode { get; set; }
     public int DownloadCount { get; set; }
     public DateTime? CreatedDate { get; set; }
     public bool IsActive { get; set; }
 }
 
+
+/// <summary>
+/// Lightweight projection of a DocumentBinding + its associated Document,
+/// returned by <see cref="IDocumentApplicationService.GetDocumentsByReferenceTableAsync"/>.
+/// Replaces direct repository queries in services that need to enrich DTOs with binding data.
+/// </summary>
+public class DocumentBindingInfoDto
+{
+    /// <summary>The integer reference table ID on the binding (e.g. PropertySocialDetailId).</summary>
+    public int ReferenceTableId { get; init; }
+
+    /// <summary>The DocumentBinding PK.</summary>
+    public int BindingId { get; init; }
+
+    /// <summary>The GUID of the associated Document.</summary>
+    public Guid DocumentGuid { get; init; }
+
+    /// <summary>
+    /// The binding purpose (e.g. "Photo", "MainDocument", null for generic bindings).
+    /// Used to distinguish photo bindings from document bindings for the same reference row.
+    /// </summary>
+    public string? BindingPurpose { get; init; }
+
+    /// <summary>The original file name of the associated Document.</summary>
+    public string? OriginalFileName { get; init; }
+
+    /// <summary>The MIME type of the associated Document.</summary>
+    public string? MimeType { get; init; }
+}

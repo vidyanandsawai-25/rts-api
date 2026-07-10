@@ -63,7 +63,7 @@ public class PropertyDiscountService : IPropertyDiscountService
                 if (item.PropertySocialDetailId.HasValue && item.PropertySocialDetailId.Value > 0)
                 {
                     // Update an explicitly identified record.
-                    var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.PropertySocialDetailId.Value && x.IsActive);
+                    var existingRecord = existingRecords.FirstOrDefault(x => x.Id == item.PropertySocialDetailId.Value);
                     if (existingRecord == null)
                     {
                         throw new PropertyValidationException(
@@ -81,7 +81,7 @@ public class PropertyDiscountService : IPropertyDiscountService
                 else
                 {
                     // Upsert by SocialAttributeId.
-                    var existingByAttribute = existingRecords.FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId && x.IsActive);
+                    var existingByAttribute = existingRecords.FirstOrDefault(x => x.SocialAttributeId == item.SocialAttributeId);
                     if (existingByAttribute != null)
                     {
                         ApplyValues(existingByAttribute, item, dto.UpdatedBy, now);
@@ -133,5 +133,6 @@ public class PropertyDiscountService : IPropertyDiscountService
         record.Remark = item.Remark;
         record.UpdatedBy = updatedBy;
         record.UpdatedDate = now;
+        record.IsActive = true;
     }
 }

@@ -110,6 +110,12 @@ public class Repository<T, TKey> : IRepository<T, TKey> where T : class
         }
     }
 
+public virtual Task HardDeleteAsync(T entity, CancellationToken cancellationToken = default)
+{
+    _dbSet.Remove(entity);
+    return Task.CompletedTask;
+}
+
     public virtual async Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken = default)
     {
         var entity = await GetByIdAsync(id, cancellationToken);

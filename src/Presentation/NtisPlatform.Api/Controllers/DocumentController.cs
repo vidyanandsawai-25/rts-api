@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Net.Http.Headers;
 using NtisPlatform.Api.Constants;
+using NtisPlatform.Api.DTOs;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
@@ -270,6 +271,160 @@ public class DocumentController : ControllerBase
 
         await _documentService.UpdateDocumentBindingReferenceAsync(documentBindingId, referenceTableId, userId, cancellationToken);
         return Ok(new ApiResponse<object> { Success = true, Message = "Binding updated" });
+    }
+
+    /// <summary>
+    /// Get document by DocumentBindingId (O(1) access via binding).
+    /// Returns document metadata for the document bound to this binding.
+    /// </summary>
+    [HttpGet("by-binding/{bindingId}")]
+    public async Task<IActionResult> GetByBinding(int bindingId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (bindingId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid binding ID" });
+
+            var userId = GetUserId();
+
+            var canAccess = await _authorizationService.CanAccessDocumentBindingAsync(bindingId, userId, cancellationToken);
+            if (!canAccess)
+            {
+                _logger.LogWarning(
+                    "User {UserId} attempted unauthorized access to document binding {BindingId}",
+                    userId,
+                    bindingId);
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document binding not found" });
+            }
+
+            var result = await _documentService.GetDocumentByBindingAsync(bindingId, cancellationToken);
+            if (result == null)
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document binding not found" });
+
+            return Ok(new ApiResponse<DocumentDto> { Success = true, Items = result });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access to document binding {BindingId}. CorrelationId: {CorrelationId}", bindingId, correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error getting document by binding. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred", CorrelationId = correlationId });
+        }
+    }
+
+    /// <summary>
+    /// Get document by reference (department, module, reference table, reference ID).
+    /// Resolves document via DocumentBinding lookup.
+    /// </summary>
+    [HttpGet("by-reference")]
+    [ProducesResponseType(typeof(ApiResponse<DocumentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetByReference(
+        [FromQuery] int departmentId,
+        [FromQuery] int moduleId,
+        [FromQuery] string referenceTableName,
+        [FromQuery] int referenceTableId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (departmentId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid department ID" });
+
+            if (moduleId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid module ID" });
+
+            if (string.IsNullOrWhiteSpace(referenceTableName))
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Reference table name is required" });
+
+            if (referenceTableId <= 0)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid reference table ID" });
+
+            var userId = GetUserId();
+            var result = await _documentService.GetDocumentByReferenceAsync(
+                departmentId, moduleId, referenceTableName, referenceTableId, cancellationToken);
+
+            if (result == null)
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document not found for the given reference" });
+
+            var canAccess = await _authorizationService.CanAccessDocumentAsync(result.DocumentGuid, userId, cancellationToken);
+            if (!canAccess)
+            {
+                _logger.LogWarning("User {UserId} attempted unauthorized access to document {DocumentGuid} via by-reference lookup", userId, result.DocumentGuid);
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document not found for the given reference" });
+            }
+
+            return Ok(new ApiResponse<DocumentDto> { Success = true, Items = result });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning(ex, "Unauthorized access to document by reference");
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Valid user identification is required." });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error getting document by reference. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred", CorrelationId = correlationId });
+        }
+    }
+
+    /// <summary>
+    /// Get document metadata only (no file stream).
+    /// Safe for bulk metadata calls and listing operations.
+    /// </summary>
+    [HttpGet("{documentGuid}/metadata")]
+    public async Task<IActionResult> GetMetadata(Guid documentGuid, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (documentGuid == Guid.Empty)
+                return BadRequest(new ApiResponse<object> { Success = false, Message = "Invalid document GUID" });
+
+            var userId = GetUserId();
+            var canAccess = await _authorizationService.CanAccessDocumentAsync(documentGuid, userId, cancellationToken);
+
+            if (!canAccess)
+            {
+                _logger.LogWarning("User {UserId} attempted unauthorized metadata access to document {DocumentGuid}", userId, documentGuid);
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document not found" });
+            }
+
+            var result = await _documentService.GetDocumentMetadataAsync(documentGuid, cancellationToken);
+            if (result == null)
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Document not found" });
+
+            return Ok(new ApiResponse<DocumentMetadataDto> { Success = true, Items = result });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized metadata access to document {DocumentGuid}. CorrelationId: {CorrelationId}", documentGuid, correlationId);
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Valid user identification is required.",
+                CorrelationId = correlationId
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error getting document metadata. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object> { Success = false, Message = "An error occurred", CorrelationId = correlationId });
+        }
     }
 
     private int GetUserId()

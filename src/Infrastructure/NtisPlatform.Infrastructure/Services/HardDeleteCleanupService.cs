@@ -89,15 +89,67 @@ public class HardDeleteCleanupService : IHardDeleteCleanupService
     public async Task MarkForHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
-        // TODO: Implement mark for hard delete logic
-        await Task.CompletedTask;
+        try
+        {
+            var entity = await _context.Set<TEntity>().FindAsync(new object?[] { id }, cancellationToken: cancellationToken);
+            if (entity == null)
+            {
+                _logger.LogWarning("Entity of type {EntityType} with ID {Id} not found for marking", typeof(TEntity).Name, id);
+                return;
+            }
+
+            // Mark entity for hard deletion if it implements IHardDeletable
+            if (entity is IHardDeletable hardDeletable)
+            {
+                hardDeletable.MarkedForDeletion = true;
+                hardDeletable.MarkedForDeletionDate = DateTime.Now;
+                _logger.LogInformation("Marked {EntityType} with ID {Id} for hard deletion", typeof(TEntity).Name, id);
+            }
+            else
+            {
+                _logger.LogWarning("Entity of type {EntityType} does not implement IHardDeletable interface", typeof(TEntity).Name);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error marking {EntityType} with ID {Id} for hard deletion", typeof(TEntity).Name, id);
+            throw;
+        }
     }
 
     public async Task UnmarkForHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)
         where TEntity : class
     {
-        // TODO: Implement unmark for hard delete logic
-        await Task.CompletedTask;
+        try
+        {
+            var entity = await _context.Set<TEntity>().FindAsync(new object?[] { id }, cancellationToken: cancellationToken);
+            if (entity == null)
+            {
+                _logger.LogWarning("Entity of type {EntityType} with ID {Id} not found for unmarking", typeof(TEntity).Name, id);
+                return;
+            }
+
+            // Unmark entity from hard deletion if it implements IHardDeletable
+            if (entity is IHardDeletable hardDeletable)
+            {
+                hardDeletable.MarkedForDeletion = false;
+                hardDeletable.MarkedForDeletionDate = null;
+                _logger.LogInformation("Unmarked {EntityType} with ID {Id} from hard deletion", typeof(TEntity).Name, id);
+            }
+            else
+            {
+                _logger.LogWarning("Entity of type {EntityType} does not implement IHardDeletable interface", typeof(TEntity).Name);
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error unmarking {EntityType} with ID {Id} from hard deletion", typeof(TEntity).Name, id);
+            throw;
+        }
     }
 
     public async Task<bool> ForceHardDeleteAsync<TEntity, TKey>(TKey id, CancellationToken cancellationToken = default)

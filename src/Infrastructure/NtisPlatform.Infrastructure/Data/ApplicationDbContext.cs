@@ -15,6 +15,15 @@ public class ApplicationDbContext : DbContext
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
     {
     }
+
+    /// <summary>
+    /// Protected ctor enabling derived contexts (e.g. <c>ReportDataDbContext</c>) to reuse this
+    /// exact entity model against a different connection � used for the read-only report data
+    /// replica. The derived context passes its own <c>DbContextOptions&lt;TDerived&gt;</c>.
+    /// </summary>
+    protected ApplicationDbContext(DbContextOptions options) : base(options)
+    {
+    }
     public DbSet<ConstructionTypeEntity> ConstructionTypeEntity { get; set; } = null!;
     public DbSet<FloorEntity> FloorEntity { get; set; } = null!;
     public DbSet<SubFloorEntity> SubFloorEntity { get; set; } = null!;
