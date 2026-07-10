@@ -286,11 +286,27 @@ public class PropertySearchRepository : IPropertySearchRepository
             }
         }
 
-        // Exclude apartment units from grid results: show only structures/main properties
-        query = query.Where(x => x.Category == null ||
-                                x.Category.PropertyCategoryName != ApartmentCategoryName ||
-                                (x.Category.PropertyCategoryName == ApartmentCategoryName &&
-                                 (string.IsNullOrEmpty(x.Property.PartitionNo))));
+        // Exclude apartment units from grid results: show only structures/main properties,
+        // UNLESS the user is explicitly searching by specific text search criteria (UPICId, Address, Owner, etc.)
+        bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.Address) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OwnerName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OccupierName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.FlatOrShopName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SocietyName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo);
+
+        if (!isSpecificSearch)
+        {
+            query = query.Where(x => x.Category == null ||
+                                    x.Category.PropertyCategoryName != ApartmentCategoryName ||
+                                    (x.Category.PropertyCategoryName == ApartmentCategoryName &&
+                                     (string.IsNullOrEmpty(x.Property.PartitionNo))));
+        }
 
         var isTopNFilter = !string.IsNullOrWhiteSpace(searchRequest.FilterType)
             && searchRequest.FilterType.Trim().Equals("Top", StringComparison.OrdinalIgnoreCase)
@@ -593,16 +609,54 @@ public class PropertySearchRepository : IPropertySearchRepository
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default)
     {
-        var parentProperty = await _context.PropertyMast
-            .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        PropertyEntity? parentProperty = null;
+
+        if (propertyId > 0)
+        {
+            parentProperty = await _context.PropertyMast
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+        }
+        else if (searchRequest != null)
+        {
+            if (!string.IsNullOrWhiteSpace(searchRequest.UPICId))
+            {
+                parentProperty = await _context.PropertyMast
+                    .AsNoTracking()
+.FirstOrDefaultAsync(p => p.UPICId != null && p.UPICId == searchRequest.UPICId!.Trim() && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+            }
+            else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom))
+            {
+                parentProperty = await _context.PropertyMast
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.PropertyNo == searchRequest.PropertyNoFrom && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+            }
+            else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
+            {
+                parentProperty = await _context.PropertyMast
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.PropertyNo == searchRequest.PropertyNoTo && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+            }
+            else if (!string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo))
+            {
+                var oldProp = await _context.PropertyMastOld
+                    .AsNoTracking()
+.FirstOrDefaultAsync(o => o.OldPropertyNo != null && o.OldPropertyNo == searchRequest.OldPropertyNo!.Trim() && o.IsActive && !o.MarkedForDeletion, cancellationToken);
+                if (oldProp != null)
+                {
+                    parentProperty = await _context.PropertyMast
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(p => p.PropertyMastOldId == oldProp.Id && p.IsActive && !p.MarkedForDeletion, cancellationToken);
+                }
+            }
+        }
 
         if (parentProperty == null)
             return new ApartmentUnitListResponseDto { Items = new List<PropertySearchResponseDto>(), TotalCount = 0 };
 
         var childrenQuery = _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo == parentProperty.PropertyNo && p.Id != propertyId);
+            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo == parentProperty.PropertyNo && p.Id != parentProperty.Id);
 
         if (string.IsNullOrEmpty(parentProperty.PartitionNo))
         {
