@@ -48,6 +48,8 @@ public class PropertyBasicDetailsDto
     public double? PlotAreaFtWidth { get; set; }
     public double? PlotAreaMtrLength { get; set; }
     public double? PlotAreaMtrWidth { get; set; }
+    public double? PlotAreaSqFeet { get; set; }
+    public double? PlotAreaSqMeter { get; set; }
     
     // From SocietyDetailsMast
     public int? WingId { get; set; }

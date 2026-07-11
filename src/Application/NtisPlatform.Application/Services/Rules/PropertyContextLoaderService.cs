@@ -260,14 +260,16 @@ namespace NtisPlatform.Application.Services.Rules
                     .Select(p => p.Id);
             }
 
+            var propertyIds = await propertyIdsQuery.ToListAsync(cancellationToken);
+
             var maxFloorSequenceNullable = await _propertyDetailsRepo.GetQueryable()
                 .AsNoTracking()
-                .Where(d => propertyIdsQuery.Contains(d.PropertyId)
-                         && d.IsActive 
-                         && !d.MarkedForDeletion
-                         && d.Floor != null 
-                         && d.Floor.IsActive 
-                         && d.Floor.SequenceNo >= FirstFloorSequenceThreshold)
+                .Where(d => propertyIds.Contains(d.PropertyId)
+                          && d.IsActive 
+                          && !d.MarkedForDeletion
+                          && d.Floor != null 
+                          && d.Floor.IsActive 
+                          && d.Floor.SequenceNo >= FirstFloorSequenceThreshold)
                 .Select(d => (int?)d.Floor!.SequenceNo)
                 .MaxAsync(cancellationToken);
 

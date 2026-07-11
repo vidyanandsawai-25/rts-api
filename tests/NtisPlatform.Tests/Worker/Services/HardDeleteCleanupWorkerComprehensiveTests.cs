@@ -76,26 +76,32 @@ public class HardDeleteCleanupWorkerComprehensiveTests
         // Arrange
         SetupConfiguration("24", "30", "true");
 
-        var tcs = new TaskCompletionSource<bool>();
+        var executedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
         _cleanupServiceMock
             .Setup(x => x.CleanupMarkedEntitiesAsync(30, It.IsAny<CancellationToken>()))
             .ReturnsAsync(10)
-            .Callback(() => tcs.TrySetResult(true));
+            .Callback(() => executedTcs.TrySetResult());
 
         var worker = CreateWorker();
-        var cts = new CancellationTokenSource();
+
+        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         // Act
-        var executeTask = worker.StartAsync(cts.Token);
-        await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5)); // Fail fast if callback never happens
-        cts.Cancel();
-        await executeTask;
-        await worker.StopAsync(CancellationToken.None);
+        await worker.StartAsync(timeoutCts.Token);
 
-        // Assert
+        // Assert (deterministic wait for actual execution)
+        var completed = await Task.WhenAny(
+            executedTcs.Task,
+            Task.Delay(TimeSpan.FromSeconds(10), timeoutCts.Token));
+
+        Assert.Same(executedTcs.Task, completed);
+
         _cleanupServiceMock.Verify(
             x => x.CleanupMarkedEntitiesAsync(30, It.IsAny<CancellationToken>()),
             Times.AtLeastOnce);
+
+        await worker.StopAsync(CancellationToken.None);
     }
 
     [Fact]

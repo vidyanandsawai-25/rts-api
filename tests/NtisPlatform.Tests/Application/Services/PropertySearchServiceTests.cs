@@ -446,15 +446,15 @@ namespace NtisPlatform.Tests.Application.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(4, result.Count);
+            Assert.Equal(5, result.Count);
 
             // Verify mapping accuracy
-            var allProps = result.Find(c => c.Id == (int)ScopeCategory.AllProperties);
+            var allProps = result.Find(c => c.Id == (int)ScopeCategory.ZoneNode);
             Assert.NotNull(allProps);
-            Assert.Equal("AllProperties", allProps.Name);
-            Assert.Equal("All Properties", allProps.DisplayName);
-            Assert.Equal("Entire corporation", allProps.Description);
-            Assert.Empty(allProps.Options);
+            Assert.Equal("ZoneNode", allProps.Name);
+            Assert.Equal("Zone / Node", allProps.DisplayName);
+            Assert.Equal("Zone-wise selection", allProps.Description);
+            Assert.Equal(new List<string> { "Zone", "Property Type", "Assessment Status" }, allProps.Options);
 
             var buildingWise = result.Find(c => c.Id == (int)ScopeCategory.BuildingWise);
             Assert.NotNull(buildingWise);

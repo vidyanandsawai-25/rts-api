@@ -144,6 +144,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateMasterEntity> BulkUpdateMasters { get; set; } = null!;
     public DbSet<BulkUpdateFieldConfigEntity> BulkUpdateFieldConfigs { get; set; } = null!;
     public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
+    public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
+    public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
     //Asset Start
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
     public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
@@ -2738,6 +2740,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)").HasDefaultValue(string.Empty);
+            entity.Property(e => e.IsProtected).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -3665,6 +3669,94 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
+        });
+
+        modelBuilder.Entity<PropertyTaxJobEntity>(entity =>
+        {
+            entity.ToTable("PropertyTaxJob", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UpdatedDate).IsConcurrencyToken();
+
+            entity.Property(e => e.JobCode).IsRequired().HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.Operation).IsRequired().HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.FinanceYearId).IsRequired().HasColumnName("FinanceYearId");
+            entity.Property(e => e.ScopeType).IsRequired().HasMaxLength(20).IsUnicode(false);
+            entity.Property(e => e.ScopeParamsJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.ScopeDescription).HasMaxLength(500);
+
+            entity.Property(e => e.StartedByUserId).IsRequired();
+            entity.Property(e => e.StartedByUserName).HasMaxLength(200);
+            entity.Property(e => e.UserRole).HasMaxLength(100);
+
+            entity.Property(e => e.StartTime).HasColumnType("datetime").IsRequired();
+            entity.Property(e => e.CompleteTime).HasColumnType("datetime");
+            entity.Property(e => e.DurationMs);
+
+            entity.Property(e => e.RecordsSelected).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.RecordsProcessed).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.SuccessCount).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.SkippedCount).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.FailedCount).IsRequired().HasDefaultValue(0);
+
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20).IsUnicode(false);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.JobCode).HasDatabaseName("UX_PropertyTaxJob_JobCode_Active").HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
+            entity.HasIndex(e => new { e.FinanceYearId, e.Operation }).HasDatabaseName("IX_PropertyTaxJob_FinanceYearId_Operation");
+            entity.HasIndex(e => e.Status).HasDatabaseName("IX_PropertyTaxJob_Status");
+
+            entity.HasOne(e => e.FinanceYear)
+                .WithMany()
+                .HasForeignKey(e => e.FinanceYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PropertyTaxJobDetailEntity>(entity =>
+        {
+            entity.ToTable("PropertyTaxJobDetail", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.JobId).IsRequired();
+            entity.Property(e => e.PropertyId).IsRequired();
+
+            entity.Property(e => e.PropertyNo).HasMaxLength(10);
+            entity.Property(e => e.TaxHead).HasMaxLength(200);
+            entity.Property(e => e.Amount).HasColumnType("money");
+
+            entity.Property(e => e.ExecutionStartTime).HasColumnType("datetime");
+            entity.Property(e => e.ExecutionEndTime).HasColumnType("datetime");
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20).IsUnicode(false);
+            entity.Property(e => e.SkipReason).HasMaxLength(30).IsUnicode(false);
+            entity.Property(e => e.Message).HasMaxLength(2000);
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne<PropertyTaxJobEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.JobId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PropertyEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.JobId).HasDatabaseName("IX_PropertyTaxJobDetail_JobId");
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyTaxJobDetail_PropertyId");
+            entity.HasIndex(e => new { e.JobId, e.Status }).HasDatabaseName("IX_PropertyTaxJobDetail_JobId_Status");
         });
 
         modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
