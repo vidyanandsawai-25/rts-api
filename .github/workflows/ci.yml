@@ -85,4 +85,3 @@ jobs:
 
       - name: Write to Job Summary
         run: Get-Content code-coverage-results.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
-
