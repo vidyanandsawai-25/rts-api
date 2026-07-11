@@ -2734,6 +2734,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)").HasDefaultValue(string.Empty);
+            entity.Property(e => e.IsProtected).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
