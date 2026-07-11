@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities.Master;
 
@@ -9,6 +9,7 @@ public class RTSFieldDefinitionEntity: BaseEntity, IHardDeletable
     public string FieldCode { get; set; } = string.Empty;
     public string FieldName { get; set; } = string.Empty;
     public string FieldLabel { get; set; } = string.Empty;
+    public string? FieldLabelLocal { get; set; }
     public string FieldType { get; set; } = string.Empty;
     public string? FieldGroup { get; set; }
     public string? OptionsJson { get; set; }

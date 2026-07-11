@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
@@ -8,6 +8,7 @@ public class RTSApplicationDetailsEntity:BaseEntity, IHardDeletable
     public int DepartmentId { get; set; }
     public int ServiceId { get; set; }
     public string? SessionId { get; set; }
+    public int? OwnerId { get; set; }
     public string ApplicationStatus { get; set; } = string.Empty;
     public string? Remark { get; set; }
     public bool MarkedForDeletion { get; set; }

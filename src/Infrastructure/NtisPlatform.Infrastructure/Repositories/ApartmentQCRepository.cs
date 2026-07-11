@@ -107,7 +107,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     .Where(p => p.Wing != null)
                     .Select(p => p.Wing!)
                     .Distinct()
-                    .OrderBy(x => x)
+                    .OrderByNatural(x => x)
                     .ToListAsync(cancellationToken)
             },
             ApartmentQCFilterColumn.ApartmentType => new ApartmentQCFilterOptionsDto
@@ -116,7 +116,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     .Where(p => p.ApartmentType != null)
                     .Select(p => p.ApartmentType!)
                     .Distinct()
-                    .OrderBy(x => x)
+                    .OrderByNatural(x => x)
                     .ToListAsync(cancellationToken)
             },
             ApartmentQCFilterColumn.FlatOrShopNo => new ApartmentQCFilterOptionsDto
@@ -125,7 +125,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     .Where(p => p.FlatOrShopNo != null)
                     .Select(p => p.FlatOrShopNo!)
                     .Distinct()
-                    .OrderBy(x => x)
+                    .OrderByNatural(x => x)
                     .ToListAsync(cancellationToken)
             },
             ApartmentQCFilterColumn.PropertyType => new ApartmentQCFilterOptionsDto
@@ -134,7 +134,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                     .Where(p => p.PropertyType != null)
                     .Select(p => p.PropertyType!.Value)
                     .Distinct()
-                    .OrderBy(x => x)
+                    .OrderByNatural(x => Convert.ToString(x))
                     .ToListAsync(cancellationToken)
             },
             // null = no column specified — return all four in one round-trip.

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.RTSFieldValue;
 
@@ -7,6 +7,7 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         public int DepartmentId { get; set; }
         public int ServiceId { get; set; }
         public string? SessionId { get; set; }
+        public int? OwnerId { get; set; }
         public string ApplicationNo { get; set; } = string.Empty;
         public string? ApplicationStatus { get; set; }
         public List<RTSFieldValueDto>? FieldValues { get; set; }
@@ -23,6 +24,8 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
 
         [Required(ErrorMessage = "RTSApplicationDetails_SessionId_Required")]
         public string? SessionId { get; set; }
+
+        public int? OwnerId { get; set; }
 
         [Required(ErrorMessage = "RTSApplication_ApplicationStatus_Required")]
         public string? ApplicationStatus { get; set; }

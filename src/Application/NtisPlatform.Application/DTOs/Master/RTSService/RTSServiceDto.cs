@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
 
@@ -7,6 +7,7 @@ public class RTSServiceDto : BaseDtos
     public int DepartmentId { get; set; }
     public int? RTSServiceId { get; set; }
     public string ServiceName { get; set; } = string.Empty;
+    public string? ServiceNameLocal { get; set; }
     public string? Description { get; set; }
     public string? ServiceUrl { get; set; }
     public string? ServiceIcon { get; set; }
@@ -24,6 +25,9 @@ public class CreateRTSServiceDto : CreateBaseDtos
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(100, ErrorMessage = "Service_ServiceName_MaxLengthExceeded_300")]
     public string ServiceName { get; set; } = string.Empty;
+
+    [StringLength(300, ErrorMessage = "Service_ServiceNameLocal_MaxLengthExceeded_300")]
+    public string? ServiceNameLocal { get; set; }
 
     [StringLength(100, ErrorMessage = "Service_Description_MaxLengthExceeded_500")]
     public string? Description { get; set; }
@@ -47,6 +51,9 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     [Required(ErrorMessage = "Service_ServiceName_Required")]
     [StringLength(300, ErrorMessage = "Service_ServiceName_MaxLengthExceeded_300")]
     public string ServiceName { get; set; } = string.Empty;
+
+    [StringLength(300, ErrorMessage = "Service_ServiceNameLocal_MaxLengthExceeded_300")]
+    public string? ServiceNameLocal { get; set; }
 
     [StringLength(100, ErrorMessage = "Service_Description_MaxLengthExceeded_500")]
     public string? Description { get; set; }

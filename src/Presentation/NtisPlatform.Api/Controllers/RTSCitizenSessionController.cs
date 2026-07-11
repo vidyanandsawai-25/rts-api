@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.RTSCitizenSession;
 using NtisPlatform.Application.Interfaces;
 
 namespace NtisPlatform.Api.Controllers;
 
+[AllowAnonymous]
 [Route("api/[controller]")]
 [ApiController]
 public class RTSCitizenSessionController : ControllerBase
@@ -39,4 +41,24 @@ public class RTSCitizenSessionController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [AllowAnonymous]
+    [HttpGet("validate/{sessionId}")]
+    public async Task<IActionResult> ValidateSession(string sessionId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.ValidateAndUpdateSessionAsync(sessionId, ct);
+            if (!result.Success)
+            {
+                return Unauthorized(result);
+            }
+            return Ok(result);
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "Error validating session {SessionId}", sessionId);
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
 }

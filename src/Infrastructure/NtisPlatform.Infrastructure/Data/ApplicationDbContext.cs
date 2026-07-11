@@ -5252,6 +5252,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentName)
                   .IsRequired()
                   .HasMaxLength(80);
+            entity.Property(e => e.DepartmentNameLocal)
+                  .HasMaxLength(200);
             entity.HasIndex(e => e.DepartmentName)
                   .IsUnique()
                   .HasDatabaseName("UQ_RTSDepartments_DepartmentName");
@@ -5299,6 +5301,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(50);
             entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.FieldLabelLocal).HasMaxLength(200);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.FieldGroup).HasMaxLength(100);
             entity.Property(e => e.OptionsJson).HasColumnType("nvarchar(max)");
@@ -5456,6 +5459,8 @@ public class ApplicationDbContext : DbContext
                 .IsRequired();
             entity.Property(e => e.ServiceName)
                 .IsRequired()
+                .HasMaxLength(300);
+            entity.Property(e => e.ServiceNameLocal)
                 .HasMaxLength(300);
             entity.Property(e => e.Description)
                 .HasMaxLength(500);

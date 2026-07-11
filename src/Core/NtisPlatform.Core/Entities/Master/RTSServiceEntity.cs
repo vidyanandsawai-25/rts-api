@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Core.Entities.Master;
+namespace NtisPlatform.Core.Entities.Master;
 
 public class RTSServiceEntity:BaseEntity
 {
@@ -7,6 +7,8 @@ public class RTSServiceEntity:BaseEntity
     public int? RTSServiceId { get; set; }
 
     public string ServiceName { get; set; } = string.Empty;
+
+    public string? ServiceNameLocal { get; set; }
 
     public string? Description { get; set; }
 

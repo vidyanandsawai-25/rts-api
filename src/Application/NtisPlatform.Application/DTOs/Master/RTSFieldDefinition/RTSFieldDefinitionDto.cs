@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master.RTSFieldDefinition;
 
@@ -9,6 +9,7 @@ namespace NtisPlatform.Application.DTOs.Master.RTSFieldDefinition;
     public string FieldCode { get; set; } = string.Empty;
     public string FieldName { get; set; } = string.Empty;
     public string FieldLabel { get; set; } = string.Empty;
+    public string? FieldLabelLocal { get; set; }
     public string FieldType { get; set; } = string.Empty;
     public string? FieldGroup { get; set; }
     public bool IsRequired { get; set; }
@@ -45,6 +46,9 @@ public class CreateRTSFieldDefinitionDto : CreateBaseDtos
     [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabel_MaxLengthExceeded_200")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldLabel_Invalid")]
     public string FieldLabel { get; set; } = string.Empty;
+
+    [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabelLocal_MaxLengthExceeded_200")]
+    public string? FieldLabelLocal { get; set; }
 
     [Required(ErrorMessage = "RTSFieldDefinition_FieldType_Required")]
     [StringLength(50, ErrorMessage = "RTSFieldDefinition_FieldType_MaxLengthExceeded_50")]
@@ -101,6 +105,9 @@ public class UpdateRTSFieldDefinitionDto : UpdateBaseDtos
     [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabel_MaxLengthExceeded_200")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldLabel_Invalid")]
     public string FieldLabel { get; set; } = string.Empty;
+
+    [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabelLocal_MaxLengthExceeded_200")]
+    public string? FieldLabelLocal { get; set; }
 
     [Required(ErrorMessage = "RTSFieldDefinition_FieldType_Required")]
     [StringLength(50, ErrorMessage = "RTSFieldDefinition_FieldType_MaxLengthExceeded_50")]

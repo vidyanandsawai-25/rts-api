@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Application.Interfaces;
 
 namespace NtisPlatform.Api.Controllers;
 
+    [AllowAnonymous]
     [Route("api/[controller]")]
     [ApiController]
     public class RTSApplicationController : ControllerBase
