@@ -79,7 +79,7 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
         // Step 3: Sum PropertyDetails (includes both sqm and sqft) — read-only aggregation.
         var detailsSum = await _context.PropertyDetails
             .AsNoTracking()
-.Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.IsOpenPlot != true)
             .GroupBy(x => x.PropertyId)
             .Select(g => new
             {
@@ -90,10 +90,22 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             })
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Step 3b: Retrieve open plot details for PlotAreaSqFeet and PlotAreaSqMeter from PropertyDetails where IsOpenPlot == true.
+        var openPlotDetails = await _context.PropertyDetails
+            .AsNoTracking()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.IsOpenPlot == true)
+            .OrderBy(x => x.Id)
+            .Select(x => new
+            {
+                x.BuiltupAreaSqFeet,
+                x.BuiltupAreaSqMeter
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         // Step 4: Get first PlotDetails — project only the area columns needed for the DTO.
         var plot = await _context.PlotDetails
             .AsNoTracking()
-.Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.Id)
             .Select(x => new
             {
@@ -183,6 +195,8 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             PlotAreaFtWidth = plot?.PlotAreaFtWidth != null ? Math.Round(plot.PlotAreaFtWidth.Value, 2) : null,
             PlotAreaMtrLength = plot?.PlotAreaMtrLength != null ? Math.Round(plot.PlotAreaMtrLength.Value, 2) : null,
             PlotAreaMtrWidth = plot?.PlotAreaMtrWidth != null ? Math.Round(plot.PlotAreaMtrWidth.Value, 2) : null,
+            PlotAreaSqFeet = openPlotDetails?.BuiltupAreaSqFeet != null ? Math.Round(openPlotDetails.BuiltupAreaSqFeet.Value, 2) : null,
+            PlotAreaSqMeter = openPlotDetails?.BuiltupAreaSqMeter != null ? Math.Round(openPlotDetails.BuiltupAreaSqMeter.Value, 2) : null,
             WingId = society?.WingId,
             WingName = society?.WingName,
             RateSectionDescription = rateSectionDescription,

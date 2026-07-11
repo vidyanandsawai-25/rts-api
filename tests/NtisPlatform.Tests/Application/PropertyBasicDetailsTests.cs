@@ -275,6 +275,96 @@ public class PropertyBasicDetailsTests
         }
 
         [Fact]
+        public async Task GetBasicDetailsAsync_WithMixedOpenPlotAndBuildingDetails_ReturnsFilteredSumsAndPlotAreaSqFeetAndMeter()
+        {
+            var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+                .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+                .Options;
+
+            using var context = new ApplicationDbContext(options);
+            
+            // Add test data
+            var ward = new WardEntity { Id = 79, WardNo = "W79", ZoneId = 5, IsActive = true };
+            var taxZone = new TaxZoneEntity { Id = 10, TaxZoneNo = "TZ10", Remark = "Tax Zone 10", IsActive = true };
+            
+            var property = new PropertyEntity
+            {
+                Id = 549357,
+                WardId = 79,
+                TaxZoneId = 10,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            // Row 1: IsOpenPlot = true (Plot record)
+            var plotDetail = new PropertyDetailsEntity
+            {
+                Id = 1,
+                PropertyId = 549357,
+                IsOpenPlot = true,
+                CarpetAreaSqFeet = 10764,
+                CarpetAreaSqMeter = 1000,
+                BuiltupAreaSqFeet = 10764,
+                BuiltupAreaSqMeter = 1000,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            // Row 2: IsOpenPlot = false (Building record)
+            var buildingDetail1 = new PropertyDetailsEntity
+            {
+                Id = 2,
+                PropertyId = 549357,
+                IsOpenPlot = false,
+                CarpetAreaSqFeet = 4434.77,
+                CarpetAreaSqMeter = 412,
+                BuiltupAreaSqFeet = 4434.77,
+                BuiltupAreaSqMeter = 412,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            // Row 3: IsOpenPlot = null (defaults/rest of records - should be treated as non-open plot)
+            var buildingDetail2 = new PropertyDetailsEntity
+            {
+                Id = 3,
+                PropertyId = 549357,
+                IsOpenPlot = null,
+                CarpetAreaSqFeet = 1076.4,
+                CarpetAreaSqMeter = 100,
+                BuiltupAreaSqFeet = 1076.4,
+                BuiltupAreaSqMeter = 100,
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            context.WardMaster.Add(ward);
+            context.TaxZoneMaster.Add(taxZone);
+            context.PropertyMast.Add(property);
+            context.PropertyDetails.AddRange(plotDetail, buildingDetail1, buildingDetail2);
+            await context.SaveChangesAsync();
+
+            var service = CreateBasicDetailsService(context);
+            var result = await service.GetBasicDetailsAsync(549357);
+
+            Assert.NotNull(result);
+            // Sums should only include buildingDetail1 and buildingDetail2 (IsOpenPlot != true)
+            // Total Carpet Area: 412 + 100 = 512
+            // Total Builtup Area: 412 + 100 = 512
+            // Total Carpet SqFeet: 4434.77 + 1076.4 = 5511.17
+            // Total Builtup SqFeet: 4434.77 + 1076.4 = 5511.17
+            Assert.Equal(512.0, result.TotalCarpetAreaSqMeter);
+            Assert.Equal(512.0, result.TotalBuiltupAreaSqMeter);
+            Assert.Equal(5511.17, result.TotalCarpetAreaSqFeet);
+            Assert.Equal(5511.17, result.TotalBuiltupAreaSqFeet);
+
+            // Plot Area fields should be populated from the IsOpenPlot = true row
+            Assert.Equal(10764.0, result.PlotAreaSqFeet);
+            Assert.Equal(1000.0, result.PlotAreaSqMeter);
+        }
+
+        [Fact]
         public async Task UpdateBasicDetailsAsync_PropertyNotFound_ReturnsNull()
         {
             var options = new DbContextOptionsBuilder<ApplicationDbContext>()
