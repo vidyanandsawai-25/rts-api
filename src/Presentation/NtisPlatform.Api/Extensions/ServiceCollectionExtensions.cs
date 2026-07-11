@@ -503,6 +503,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, Notice120DataProvider>();
         services.AddScoped<IReportDataProvider, SocietyOutstandingReportDataProvider>();
         services.AddScoped<IReportDataProvider, PrarupYadiDataProvider>();
+        services.AddScoped<IReportDataProvider, BlankHearingFormatDataProvider>();
+        services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
+        services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();
