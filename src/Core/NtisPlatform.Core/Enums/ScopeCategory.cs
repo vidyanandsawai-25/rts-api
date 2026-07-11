@@ -8,8 +8,8 @@ namespace NtisPlatform.Core.Enums;
 /// </summary>
 public enum ScopeCategory
 {
-    [Description("All Properties")]
-    AllProperties = 1,
+    [Description("Zone / Node")]
+    ZoneNode = 1,
 
     [Description("Ward / Sector")]
     WardSector = 2,
@@ -17,8 +17,11 @@ public enum ScopeCategory
     [Description("Building Wise")]
     BuildingWise = 3,
 
+    [Description("Property Wise")]
+    PropertyWise = 4,
+
     [Description("Property Range")]
-    PropertyRange = 4
+    PropertyRange = 5
 }
 
 /// <summary>
@@ -30,9 +33,10 @@ public static class ScopeCategoryExtensions
     {
         return category switch
         {
-            ScopeCategory.AllProperties => "All Properties",
+            ScopeCategory.ZoneNode => "Zone / Node",
             ScopeCategory.WardSector => "Ward / Sector",
             ScopeCategory.BuildingWise => "Building Wise",
+            ScopeCategory.PropertyWise => "Property Wise",
             ScopeCategory.PropertyRange => "Property Range",
             _ => category.ToString()
         };
@@ -42,9 +46,10 @@ public static class ScopeCategoryExtensions
     {
         return category switch
         {
-            ScopeCategory.AllProperties => "Entire corporation",
+            ScopeCategory.ZoneNode => "Zone-wise selection",
             ScopeCategory.WardSector => "Multi ward selection",
             ScopeCategory.BuildingWise => "Building level",
+            ScopeCategory.PropertyWise => "Property level",
             ScopeCategory.PropertyRange => "From-to property range",
             _ => string.Empty
         };
@@ -54,11 +59,24 @@ public static class ScopeCategoryExtensions
     {
         return category switch
         {
-            ScopeCategory.AllProperties => new List<string>(),
-            ScopeCategory.WardSector => new List<string> { "Zone", "Ward", "Property Type" },
+            ScopeCategory.ZoneNode => new List<string> { "Zone", "Property Type", "Assessment Status" },
+            ScopeCategory.WardSector => new List<string> { "Zone", "Ward", "Property Type", "Assessment Status" },
             ScopeCategory.BuildingWise => new List<string> { "Zone", "Ward", "Property No" },
+            ScopeCategory.PropertyWise => new List<string> { "UPIC Id", "Mobile No" },
             ScopeCategory.PropertyRange => new List<string> { "Ward", "From Property", "To Property" },
             _ => new List<string>()
+        };
+    }
+    public static string GetScopeType(this ScopeCategory category)
+    {
+        return category switch
+        {
+            ScopeCategory.ZoneNode => "zone",
+            ScopeCategory.WardSector => "ward",
+            ScopeCategory.BuildingWise => "building",
+            ScopeCategory.PropertyWise => "property",
+            ScopeCategory.PropertyRange => "range",
+            _ => category.ToString()
         };
     }
 }

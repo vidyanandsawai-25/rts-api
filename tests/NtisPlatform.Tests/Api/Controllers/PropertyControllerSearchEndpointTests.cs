@@ -589,10 +589,11 @@ public class PropertyControllerSearchEndpointTests
         // Arrange
         var mockCategories = new List<ScopeCategoryDto>
         {
-            new ScopeCategoryDto { Id = 1, Name = "AllProperties", DisplayName = "All Properties", Description = "Entire corporation", Options = new List<string>() },
-            new ScopeCategoryDto { Id = 2, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type" } },
+            new ScopeCategoryDto { Id = 1, Name = "ZoneNode", DisplayName = "Zone / Node", Description = "Zone-wise selection", Options = new List<string> { "Zone", "Property Type", "Assessment Status" } },
+            new ScopeCategoryDto { Id = 2, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type", "Assessment Status" } },
             new ScopeCategoryDto { Id = 3, Name = "BuildingWise", DisplayName = "Building Wise", Description = "Building level", Options = new List<string> { "Zone", "Ward", "Property No" } },
-            new ScopeCategoryDto { Id = 4, Name = "PropertyRange", DisplayName = "Property Range", Description = "From-to property range", Options = new List<string> { "Ward", "From Property", "To Property" } }
+            new ScopeCategoryDto { Id = 4, Name = "PropertyWise", DisplayName = "Property Wise", Description = "Property level", Options = new List<string> { "UPIC Id", "Mobile No" } },
+            new ScopeCategoryDto { Id = 5, Name = "PropertyRange", DisplayName = "Property Range", Description = "From-to property range", Options = new List<string> { "Ward", "From Property", "To Property" } }
         };
         _mockSearchService.Setup(s => s.GetScopeOptions(null)).Returns(mockCategories);
 
@@ -605,15 +606,15 @@ public class PropertyControllerSearchEndpointTests
         Assert.True(response.Success);
         Assert.Equal("All scope category options retrieved successfully", response.Message);
         Assert.NotNull(response.Items);
-        Assert.Equal(4, response.Items.Count);
+        Assert.Equal(5, response.Items.Count);
 
         // Verify some specific items to ensure proper mapping
-        var allProps = response.Items.Find(c => c.Id == (int)ScopeCategory.AllProperties);
+        var allProps = response.Items.Find(c => c.Id == (int)ScopeCategory.ZoneNode);
         Assert.NotNull(allProps);
-        Assert.Equal("AllProperties", allProps.Name);
-        Assert.Equal("All Properties", allProps.DisplayName);
-        Assert.Equal("Entire corporation", allProps.Description);
-        Assert.Empty(allProps.Options);
+        Assert.Equal("ZoneNode", allProps.Name);
+        Assert.Equal("Zone / Node", allProps.DisplayName);
+        Assert.Equal("Zone-wise selection", allProps.Description);
+        Assert.Contains("Zone", allProps.Options);
 
     }
 
@@ -623,7 +624,7 @@ public class PropertyControllerSearchEndpointTests
         // Arrange
         var mockCategories = new List<ScopeCategoryDto>
         {
-            new ScopeCategoryDto { Id = 2, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type" } }
+            new ScopeCategoryDto { Id = 2, Name = "WardSector", DisplayName = "Ward / Sector", Description = "Multi ward selection", Options = new List<string> { "Zone", "Ward", "Property Type", "Assessment Status" } }
         };
         _mockSearchService.Setup(s => s.GetScopeOptions(ScopeCategory.WardSector)).Returns(mockCategories);
 
@@ -638,12 +639,13 @@ public class PropertyControllerSearchEndpointTests
         Assert.NotNull(response.Items);
         Assert.Single(response.Items);
 
+        // Verify mapping accuracy
         var wardSector = response.Items[0];
         Assert.Equal((int)ScopeCategory.WardSector, wardSector.Id);
         Assert.Equal("WardSector", wardSector.Name);
         Assert.Equal("Ward / Sector", wardSector.DisplayName);
         Assert.Equal("Multi ward selection", wardSector.Description);
-        Assert.Equal(new List<string> { "Zone", "Ward", "Property Type" }, wardSector.Options);
+        Assert.Equal(new List<string> { "Zone", "Ward", "Property Type", "Assessment Status" }, wardSector.Options);
     }
 
     #endregion

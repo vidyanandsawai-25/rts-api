@@ -32,6 +32,7 @@ using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.FieldConfiguration;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Application.Services.PropertyTaxOperations;
 using NtisPlatform.Application.Services.CapitalValue;
 using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
 using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
@@ -294,6 +295,7 @@ public static class ServiceCollectionExtensions
         services.Configure<CapitalValueOptions>(configuration.GetSection(CapitalValueOptions.SectionName));
         services.AddScoped<IDualMethodService, DualMethodService>();
         services.AddScoped<IRateableValueService, NtisPlatform.Application.Services.TaxEngine.RateableValueService>();
+        services.AddScoped<IPropertyTaxOperationsService, PropertyTaxOperationsService>();
         services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.ITaxMasterDataService,
                        NtisPlatform.Application.Services.TaxEngine.TaxMasterDataService>();
 
