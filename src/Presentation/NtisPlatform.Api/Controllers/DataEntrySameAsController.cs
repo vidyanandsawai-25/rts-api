@@ -77,7 +77,7 @@ public class DataEntrySameAsController : ControllerBase
             return Ok(new ApiResponse<DataEntrySameAsResultDto>
             {
                 Success = true,
-                Message = $"Data entry copied to {result.ProcessedDestinations} destination(s).",
+                Message = BuildResultMessage(result),
                 Items = result,
                 Errors = result.Warnings.Count > 0 ? result.Warnings : null
             });
@@ -105,6 +105,25 @@ public class DataEntrySameAsController : ControllerBase
                 CorrelationId = correlationId
             });
         }
+    }
+
+    // Summarizes only the work that actually happened, so a TYPEWISE self-type-change (which processes
+    // zero destinations) reports the type update instead of a misleading "copied to 0 destination(s)".
+    private static string BuildResultMessage(DataEntrySameAsResultDto result)
+    {
+        var parts = new List<string>();
+        if (result.ProcessedDestinations > 0)
+            parts.Add($"data entry copied to {result.ProcessedDestinations} destination(s)");
+        if (result.TypeUpdatedProperties > 0)
+            parts.Add($"{result.TypeUpdatedProperties} property type(s) updated");
+        if (result.BuildingPlanTypeInserted > 0)
+            parts.Add($"{result.BuildingPlanTypeInserted} building plan type(s) added");
+
+        if (parts.Count == 0)
+            return "No changes were made.";
+
+        var message = string.Join("; ", parts);
+        return char.ToUpperInvariant(message[0]) + message[1..] + ".";
     }
 
     private int GetUserId()

@@ -241,4 +241,38 @@ public class DataEntrySameAsServiceTests
         await Assert.ThrowsAsync<ArgumentException>(
             () => service.ExecuteAsync(request, UpdatedBy));
     }
+
+    // ── TYPEWISE self-type-change: source listed as its own destination ───────
+    //
+    // NOTE: the *successful* self-change path stamps the source Type via ExecuteUpdateAsync, which
+    // MockQueryable cannot execute (see the class header). Only the validation/rejection branches —
+    // which throw before the transaction — are unit-testable here; the DB write is verified manually.
+
+    [Fact]
+    public async Task ExecuteAsync_TypewiseSelfChange_WithoutType_Throws()
+    {
+        var service = CreateService();
+        // Source is its own (and only) destination, but no new Type (1-99) supplied.
+        var request = Request("TYPEWISE", type: 0);
+        request.DestinationPropertyIds = new List<int> { SourcePropertyId };
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => service.ExecuteAsync(request, UpdatedBy));
+
+        Assert.Contains("Type between 1 and 99", ex.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SelfReferenceCombinedWithTypewise_StillRejected()
+    {
+        var service = CreateService();
+        // TYPEWISE is not the sole filter, so the self-change relaxation does not apply.
+        var request = Request("TYPEWISE,PARKING", type: 5);
+        request.DestinationPropertyIds = new List<int> { SourcePropertyId };
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => service.ExecuteAsync(request, UpdatedBy));
+
+        Assert.Contains("No valid destination properties supplied", ex.Message);
+    }
 }

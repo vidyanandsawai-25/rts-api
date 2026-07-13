@@ -47,6 +47,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             _service = new RateService(
                 _mockRepository.Object,
@@ -57,7 +59,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
         }
 
         [Fact]
@@ -127,6 +131,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             var service = new RateService(
                 _mockRepository.Object,
@@ -137,7 +143,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
 
             var qp = new RateQueryParameters
             {
@@ -690,6 +698,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
             mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
@@ -707,7 +717,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
 
             var qp = new RateQueryParameters
             {
@@ -762,6 +774,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
             mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
@@ -779,7 +793,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
 
             var qp = new RateQueryParameters
             {
@@ -846,6 +862,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
             mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
@@ -863,7 +881,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
 
             var qp = new RateQueryParameters
             {
@@ -934,6 +954,8 @@ namespace NtisPlatform.Tests.Application
             var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
             var mockAssessmentYearRangeRepository = new Mock<IRepository<AssessmentYearRangeEntity>>();
             var mockRateSectionRepository = new Mock<IRepository<RateSectionEntity>>();
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
 
             mockTaxZoneRepository.Setup(r => r.GetQueryable()).Returns(taxZoneQuery);
             mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floorQuery);
@@ -951,7 +973,9 @@ namespace NtisPlatform.Tests.Application
                 mockConstructionTypeRepository.Object,
                 mockTypeOfUseGroupRepository.Object,
                 mockAssessmentYearRangeRepository.Object,
-                mockRateSectionRepository.Object);
+                mockRateSectionRepository.Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
 
             var qp = new RateQueryParameters
             {
