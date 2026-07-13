@@ -54,7 +54,7 @@ public class CreateRateDto: CreateBaseDtos
     // No StringLength/Range in entity for this (keeping as-is)
     public int TypeOfUseGroupId { get; set; }
 
-    [Range(1, 9999, ErrorMessage = "Rate_YearRangeRVId_1_9999")]
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_YearRangeRVId_Required")]
     public int? YearRangeRVId { get; set; }
 
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
@@ -63,6 +63,35 @@ public class CreateRateDto: CreateBaseDtos
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
     public decimal? RateSquareFeet { get; set; }
     public int RateSectionId { get; set; } 
+
+    [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
+    public string? RateRemark { get; set; } = string.Empty;
+}
+
+public class CreateOpenPlotRateDto: CreateBaseDtos
+{
+
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
+    public int TaxZoneId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
+    public int FloorId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_TypeOfUseGroupId_Required")]
+    public int TypeOfUseGroupId { get; set; }
+
+
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_YearRangeRVId_Required")]
+    public int? YearRangeRVId { get; set; }
+
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
+    public decimal? RateSquareMeter { get; set; }
+
+    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
+    public decimal? RateSquareFeet { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_RateSectionId_Required")]
+    public int RateSectionId { get; set; }
 
     [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
     public string? RateRemark { get; set; } = string.Empty;
@@ -83,7 +112,7 @@ public class UpdateRateDto: UpdateBaseDtos
 
     public int? TypeOfUseGroupID { get; set; }
 
-    [Range(1, 9999, ErrorMessage = "Rate_YearRangeRVId_1_9999")]
+    [Range(1, int.MaxValue, ErrorMessage = "Rate_YearRangeRVId_Required")]
     public int? YearRangeRVId { get; set; }
 
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
@@ -95,4 +124,17 @@ public class UpdateRateDto: UpdateBaseDtos
 
     [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
     public string? RateRemark { get; set; } = string.Empty;
+}
+
+public class TypeOfUseDetailsDto
+{
+    public int Id { get; set; }
+    public string? Description { get; set; }
+    public string? TypeOfUseCode { get; set; }
+    public int TypeOfUseGroupId { get; set; }
+    public int? TypeOfUseCategoryId { get; set; }
+    public string? TypeOfUseCategoryName { get; set; }
+    public string? TypeOfUseCategoryCode { get; set; }
+    public string? TypeOfUseGroupCode { get; set; }
+    public string? GroupName { get; set; }
 }

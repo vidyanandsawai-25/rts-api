@@ -112,7 +112,19 @@ public class DataEntrySameAsService : IDataEntrySameAsService
 
         var destinationIds = requested.Where(existingIds.Contains).ToList();
 
-        var droppedCount = (request.DestinationPropertyIds?.Count ?? 0) - destinationIds.Count;
+        // TYPEWISE can act on the source alone: "make this property SAME AS itself with a new Type"
+        // changes only the main property's own Type. Allowed only when TYPEWISE is the sole filter
+        // and the caller explicitly listed the source among the destinations.
+        var isTypewiseSelfChange =
+            filterTypes.Count == 1
+            && filterTypes[0] == FilterTypewise
+            && (request.DestinationPropertyIds?.Contains(request.SourcePropertyId) ?? false);
+
+        // Don't count the source itself as a "dropped" destination for a deliberate self-type-change.
+        var droppedCount = (request.DestinationPropertyIds?.Count ?? 0)
+            - destinationIds.Count
+            - (isTypewiseSelfChange ? 1 : 0);
+
         if (droppedCount > 0)
         {
             result.SkippedDestinations = droppedCount;
@@ -121,7 +133,14 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         }
 
         if (destinationIds.Count == 0)
-            throw new ArgumentException("No valid destination properties supplied.");
+        {
+            if (!isTypewiseSelfChange)
+                throw new ArgumentException("No valid destination properties supplied.");
+
+            if (request.Type is not (>= 1 and <= 99))
+                throw new ArgumentException(
+                    "A new Type between 1 and 99 is required to change the property's own type.");
+        }
 
         // ── 4..9. Transactional work — each requested filter mode acts independently ──
         await _unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -533,10 +552,11 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         var typeToSetText = typeToSet.ToString();
 
         // Source stamp: only when a manual Type (1-99) is supplied; applied directly, always overwrites.
+        var sourceUpdated = 0;
         if (requestedType is >= 1 and <= 99)
         {
             var requestedTypeText = requestedType.ToString();
-            await _propertyRepository.GetQueryable()
+            sourceUpdated = await _propertyRepository.GetQueryable()
                 .Where(p => p.Id == sourcePropertyId)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(p => p.Type, requestedTypeText)
@@ -557,7 +577,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
             .ToListAsync(cancellationToken);
 
         if (candidates.Count == 0)
-            return 0;
+            return sourceUpdated;
 
         var candidateIds = candidates.Select(c => c.Id).ToList();
 
@@ -598,7 +618,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
             .ToList();
 
         if (qualifyingIds.Count == 0)
-            return 0;
+            return sourceUpdated;
 
         await _propertyRepository.GetQueryable()
             .Where(p => qualifyingIds.Contains(p.Id))
@@ -608,7 +628,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                 .SetProperty(p => p.UpdatedDate, now),
                 cancellationToken);
 
-        return qualifyingIds.Count;
+        return sourceUpdated + qualifyingIds.Count;
     }
 
     /// <summary>
@@ -659,7 +679,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                         : string.Empty)
                       .ToList());
 
-        // Building-level gate: at least one candidate has PartitionNo == "" OR matching wing number.
+        // Building-level guard: at least one candidate has PartitionNo == "" OR matching wing number.
         var hasQualifyingProperty = candidates.Any(c =>
         {
             var partition = c.PartitionNo ?? string.Empty;

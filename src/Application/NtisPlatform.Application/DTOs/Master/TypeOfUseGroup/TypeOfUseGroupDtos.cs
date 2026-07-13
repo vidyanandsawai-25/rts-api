@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
@@ -11,6 +11,7 @@ namespace NtisPlatform.Application.DTOs
         public string TypeOfUseGroupCode { get; set; } = "";
         public string GroupName { get; set; } = "";
         public string? GroupIcon { get; set; }
+        public bool IsOpenPlot { get; set; }
     }
 
     public class CreateTypeOfUseGroupDto : CreateBaseDtos
@@ -25,6 +26,7 @@ namespace NtisPlatform.Application.DTOs
 
         [StringLength(20, ErrorMessage = "GroupIcon_MaxLen_20")]
         public string? GroupIcon { get; set; }
+        public bool IsOpenPlot { get; set; }
 
     }
 
@@ -41,5 +43,6 @@ namespace NtisPlatform.Application.DTOs
 
         [StringLength(20, ErrorMessage = "GroupIcon_MaxLen_20")]
         public string? GroupIcon { get; set; }
+        public bool IsOpenPlot { get; set; }
     }
 }

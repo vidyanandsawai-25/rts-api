@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
@@ -12,7 +12,7 @@ namespace NtisPlatform.Api.Controllers.Master;
 [ApiController]
 [Route("api/[controller]")]
 
-public class RateController : ControllerBase
+public partial class RateController : ControllerBase
 {
     private readonly IRateService _service;
     private readonly IHardDeleteCleanupService _cleanupService;
@@ -63,6 +63,8 @@ public class RateController : ControllerBase
     [HttpGet("{id}")]
     public Task<IActionResult> GetById(int id, CancellationToken ct)
         => this.ExecuteGetById(_service, id, _logger, ct);
+
+
 
     // Create operations
     [HttpPost]

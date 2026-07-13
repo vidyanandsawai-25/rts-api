@@ -29,6 +29,11 @@ public class DataEntrySameAsRequestDto
     /// PARKING (parking TypeOfUse rows only), TYPEWISE (Type stamp only) or PROPERTYWISE (non-parking rows only).
     /// Accepts a single value or a comma-separated list (e.g. "PARKING,PROPERTYWISE"); each listed mode
     /// is applied within the same transaction.
+    ///
+    /// TYPEWISE self-type-change: to change only the main property's own Type, use TYPEWISE as the sole
+    /// filter and list the source property as its own destination (SourcePropertyId also in
+    /// DestinationPropertyIds). In that case a <see cref="Type"/> of 1-99 is required.
+    /// PARKING / PROPERTYWISE always reject a source-as-destination (self-reference).
     /// </summary>
     [Required]
     public string FilterType { get; set; } = string.Empty;
@@ -36,6 +41,7 @@ public class DataEntrySameAsRequestDto
     /// <summary>
     /// TYPEWISE only. 1-99 = manual Type stamped on source and qualifying destinations;
     /// 0 (default) = copy the source's own Type to the destinations.
+    /// Required (1-99) for a TYPEWISE self-type-change (source listed as its own destination).
     /// </summary>
     public int Type { get; set; } = 0;
 }
