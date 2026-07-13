@@ -10,6 +10,7 @@ public class TypeOfUseGroupEntity : BaseEntity
     public string TypeOfUseGroupCode { get; set; } = "";
     public string GroupName { get; set; } = "";
     public string? GroupIcon { get; set; }
+    public bool IsOpenPlot { get; set; }
   
     public ICollection<RateEntity> Rates { get; set; } = new List<RateEntity>();
     public ICollection<TypeOfUseEntity> TypeOfUse { get; set; } = new List<TypeOfUseEntity>();

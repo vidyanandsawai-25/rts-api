@@ -713,6 +713,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.TypeOfUseGroupCode);
             entity.Property(x => x.GroupName);
             entity.Property(x => x.GroupIcon);
+            entity.Property(x => x.IsOpenPlot);
             entity.Property(x => x.CreatedBy);
             entity.Property(x => x.CreatedDate);
             entity.Property(x => x.UpdatedBy);

@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using System;
 using System.Collections.Generic;
@@ -17,5 +17,9 @@ namespace NtisPlatform.Application.DTOs
         [Sortable]
         [Searchable]
         public string? GroupName { get; set; }
+
+        [Filterable]
+        [Sortable]
+        public bool? IsOpenPlot { get; set; }
     }
 }
