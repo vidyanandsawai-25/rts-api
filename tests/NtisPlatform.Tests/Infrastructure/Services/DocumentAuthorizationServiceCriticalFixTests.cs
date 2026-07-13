@@ -1,5 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moq;
+using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
@@ -29,7 +32,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         const int userId = 100;
         const int uploaderId = 200; // Different from userId
@@ -80,7 +84,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         const int userId = 100;
 
@@ -124,7 +129,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         // Act
         var canAccess = await service.CanAccessDocumentBindingAsync(
@@ -141,7 +147,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         const int userId = 100;
 
@@ -187,7 +194,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         const int userId = 100;
         var documentGuid = Guid.NewGuid();
@@ -213,7 +221,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         var documentGuid = Guid.NewGuid();
 
@@ -242,7 +251,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         const int userId = 100;
         var documentGuid = Guid.NewGuid();
@@ -268,7 +278,8 @@ public class DocumentAuthorizationServiceCriticalFixTests
     {
         // Arrange
         await using var context = CreateInMemoryContext();
-        var service = new DocumentAuthorizationService(context);
+        var loggerMock = new Mock<ILogger<DocumentAuthorizationService>>();
+        var service = new DocumentAuthorizationService(context, Enumerable.Empty<IDocumentAuthorizationHandler>(), loggerMock.Object);
 
         var documentGuid = Guid.NewGuid();
 

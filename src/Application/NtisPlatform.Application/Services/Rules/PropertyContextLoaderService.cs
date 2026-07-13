@@ -39,6 +39,13 @@ namespace NtisPlatform.Application.Services.Rules
     /// </summary>
     public class PropertyContextLoaderService : IPropertyContextLoaderService
     {
+        /// <summary>
+        /// Sequence number threshold representing the First Floor.
+        /// Floors with SequenceNo >= 12 correspond to upper-structure floors (First Floor and above),
+        /// while sequence numbers below 12 represent Ground Floor, Basements, etc.
+        /// </summary>
+        private const int FirstFloorSequenceThreshold = 12;
+
         private readonly IRepository<PropertyEntity, int> _propertyRepo;
         private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepo;
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
@@ -233,12 +240,40 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Phase 6: Assemble and return the context ───────────────────────────
 
-            // Calculate building's max floor sequence number
-            var maxFloorSequence = details
-                .Where(d => d.Floor != null)
-                .Select(d => d.Floor!.SequenceNo ?? 0)
-                .DefaultIfEmpty(0)
-                .Max();
+            // Calculate building's max floor sequence number across all related properties in the same building (single optimized query)
+            IQueryable<int> propertyIdsQuery;
+            if (!string.IsNullOrWhiteSpace(property.PropertyNo))
+            {
+                propertyIdsQuery = _propertyRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.WardId == property.WardId 
+                             && p.PropertyNo == property.PropertyNo 
+                             && p.IsActive 
+                             && !p.MarkedForDeletion)
+                    .Select(p => p.Id);
+            }
+            else
+            {
+                propertyIdsQuery = _propertyRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.Id == propertyId)
+                    .Select(p => p.Id);
+            }
+
+            var propertyIds = await propertyIdsQuery.ToListAsync(cancellationToken);
+
+            var maxFloorSequenceNullable = await _propertyDetailsRepo.GetQueryable()
+                .AsNoTracking()
+                .Where(d => propertyIds.Contains(d.PropertyId)
+                          && d.IsActive 
+                          && !d.MarkedForDeletion
+                          && d.Floor != null 
+                          && d.Floor.IsActive 
+                          && d.Floor.SequenceNo >= FirstFloorSequenceThreshold)
+                .Select(d => (int?)d.Floor!.SequenceNo)
+                .MaxAsync(cancellationToken);
+
+            var maxFloorSequence = maxFloorSequenceNullable ?? 0;
 
             // Pre-compute YearRangeRVId for each detail based on AssessmentYear
             var detailYearRangeRVIdMap = new Dictionary<int, int>();

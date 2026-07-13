@@ -112,6 +112,7 @@ public class PropertySearchService : IPropertySearchService
         {
             Id = (int)c,
             Name = c.ToString(),
+            ScopeType = c.GetScopeType(),
             DisplayName = c.GetDisplayName(),
             Description = c.GetDescription(),
             Options = c.GetOptions()

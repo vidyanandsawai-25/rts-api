@@ -15,6 +15,9 @@ public interface IPropertySocialDetailsRepository
     /// <summary>Returns the property's active social-detail rows as tracked entities (for hierarchy values and upsert).</summary>
     Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default);
 
+    /// <summary>Returns the property's social-detail rows regardless of active state (for true upsert detection).</summary>
+    Task<List<PropertySocialDetailsEntity>> GetSocialDetailsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default);
+
     /// <summary>Returns the property's active social-detail rows with their SocialAttribute loaded (for the upsert response projection).</summary>
     Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsWithAttributeByPropertyAsync(int propertyId, CancellationToken cancellationToken = default);
 }

@@ -17,4 +17,5 @@ public class UlbConfigDto
     public string? UlbAddress { get; set; }
     public string? State { get; set; }
     public string? District { get; set; }
+    public string? UlbBackground { get; set; }
 }

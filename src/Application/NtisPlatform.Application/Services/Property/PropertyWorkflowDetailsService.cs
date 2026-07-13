@@ -11,15 +11,18 @@ public class PropertyWorkflowDetailsService
       IPropertyWorkflowDetailsService
 {
     private readonly IPropertyWorkflowDetailsRepository _workflowDetailsRepository;
+    private readonly IUserRepository _userRepository;
 
     public PropertyWorkflowDetailsService(
         IRepository<PropertyWorkflowDetailsEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        IPropertyWorkflowDetailsRepository workflowDetailsRepository)
+        IPropertyWorkflowDetailsRepository workflowDetailsRepository,
+        IUserRepository userRepository)
         : base(repository, unitOfWork, mapper)
     {
         _workflowDetailsRepository = workflowDetailsRepository;
+        _userRepository = userRepository;
     }
 
     /// <summary>
@@ -46,18 +49,44 @@ public class PropertyWorkflowDetailsService
             throw;
         }
 
-        return _mapper.Map<PropertyWorkflowDetailsDto>(entity);
+        var dto = _mapper.Map<PropertyWorkflowDetailsDto>(entity);
+        await ResolveCreatedByNameAsync(dto, cancellationToken);
+        return dto;
     }
 
     public async Task<List<PropertyWorkflowDetailsDto>> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         var entities = await _workflowDetailsRepository.GetByPropertyIdAsync(propertyId, cancellationToken);
-        return _mapper.Map<List<PropertyWorkflowDetailsDto>>(entities);
+        var dtos = _mapper.Map<List<PropertyWorkflowDetailsDto>>(entities);
+        foreach (var dto in dtos)
+            await ResolveCreatedByNameAsync(dto, cancellationToken);
+        return dtos;
     }
 
     public async Task<PropertyWorkflowDetailsDto?> GetCurrentByPropertyNoAsync(string propertyid, CancellationToken cancellationToken = default)
     {
         var entity = await _workflowDetailsRepository.GetCurrentByPropertyNoAsync(propertyid, cancellationToken);
-        return entity is null ? null : _mapper.Map<PropertyWorkflowDetailsDto>(entity);
+        if (entity is null) return null;
+
+        var dto = _mapper.Map<PropertyWorkflowDetailsDto>(entity);
+        await ResolveCreatedByNameAsync(dto, cancellationToken);
+        return dto;
+    }
+
+    /// <summary>
+    /// Looks up the user by <see cref="PropertyWorkflowDetailsDto.CreatedBy"/> ID
+    /// and sets <see cref="PropertyWorkflowDetailsDto.CreatedByName"/> to
+    /// "FirstName MiddleName LastName" (null parts are skipped).
+    /// </summary>
+    private async Task ResolveCreatedByNameAsync(PropertyWorkflowDetailsDto dto, CancellationToken cancellationToken)
+    {
+        if (dto.CreatedBy is null) return;
+
+        var user = await _userRepository.GetByIdAsync(dto.CreatedBy.Value, cancellationToken);
+        if (user is null) return;
+
+        dto.CreatedByName = string.Join(" ",
+            new[] { user.FirstName, user.MiddleName, user.LastName }
+            .Where(n => !string.IsNullOrWhiteSpace(n)));
     }
 }

@@ -22,4 +22,16 @@ public class PropertyCertificateTypeMasterEntity : BaseEntity
     /// Example: 10, 20, 30, etc.
     /// </summary>
     public int DisplayOrder { get; set; }
+
+    /// <summary>
+    /// Short code identifying the certificate type. Example: 'BP', 'CC', 'OC'.
+    /// </summary>
+    [Column(TypeName = "nvarchar(50)")]
+    public string CertificateTypeCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When true, this certificate type is a protected/system-defined type
+    /// that cannot be removed or reassigned through standard maintenance.
+    /// </summary>
+    public bool IsProtected { get; set; }
 }

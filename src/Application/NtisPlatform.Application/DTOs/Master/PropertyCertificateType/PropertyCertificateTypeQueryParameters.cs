@@ -6,6 +6,10 @@ namespace NtisPlatform.Application.DTOs.Master.PropertyCertificateType;
 
 public class PropertyCertificateTypeQueryParameters : BaseQueryParameters
 {
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? Id { get; set; }
+
     [Filterable(FilterOperator.Contains)]
     [Sortable]
     [Searchable]
@@ -15,6 +19,18 @@ public class PropertyCertificateTypeQueryParameters : BaseQueryParameters
     [Searchable]
     [Sortable]
     public string? CertificateTypeCode { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public int? DisplayOrder { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? IsProtected { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
+    public bool? IsActive { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]

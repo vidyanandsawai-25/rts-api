@@ -39,7 +39,6 @@ public static class PropertyControllerTestHelper
         oldDetailsService ??= new Mock<IPropertyOldDetailsService>();
         searchService ??= new Mock<IPropertySearchService>();
         workflowDetailsService ??= new Mock<IPropertyWorkflowDetailsService>();
-        var mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
         // Create a simple in-memory configuration with default file validation settings
@@ -59,7 +58,6 @@ public static class PropertyControllerTestHelper
             oldDetailsService.Object,
             searchService.Object,
             logger.Object,
-            mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
             fileValidationHelper,
             workflowDetailsService.Object);
@@ -73,7 +71,6 @@ public static class PropertyControllerTestHelper
         PropertyController Controller,
         Mock<IPropertyService> PropertyService,
         Mock<ILogger<PropertyController>> Logger,
-        Mock<IPropertySocialDetailsDocumentService> SocialDetailsDocumentService,
         Mock<IWebHostEnvironment> Environment,
         FileValidationHelper FileValidationHelper
     ) CreateControllerWithMocks()
@@ -86,7 +83,6 @@ public static class PropertyControllerTestHelper
         var mockOldDetailsService = new Mock<IPropertyOldDetailsService>();
         var mockSearchService = new Mock<IPropertySearchService>();
         var mockLogger = new Mock<ILogger<PropertyController>>();
-        var mockSocialDetailsDocumentService = new Mock<IPropertySocialDetailsDocumentService>();
         var mockEnvironment = new Mock<IWebHostEnvironment>();
 
         // Create a simple in-memory configuration with default file validation settings
@@ -108,7 +104,6 @@ public static class PropertyControllerTestHelper
             mockOldDetailsService.Object,
             mockSearchService.Object,
             mockLogger.Object,
-            mockSocialDetailsDocumentService.Object,
             mockEnvironment.Object,
             fileValidationHelper,
             mockWorkflowDetailsService.Object);
@@ -117,7 +112,6 @@ public static class PropertyControllerTestHelper
             controller,
             mockPropertyService,
             mockLogger,
-            mockSocialDetailsDocumentService,
             mockEnvironment,
             fileValidationHelper
         );

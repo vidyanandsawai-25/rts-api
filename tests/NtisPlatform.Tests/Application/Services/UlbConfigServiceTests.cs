@@ -35,8 +35,12 @@ public class UlbConfigServiceTests
 
         var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
         mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
 
-        var service = new UlbConfigService(mockRepo.Object);
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
         var result = await service.GetUlbConfigAsync();
 
         Assert.Null(result);
@@ -70,8 +74,12 @@ public class UlbConfigServiceTests
 
         var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
         mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
 
-        var service = new UlbConfigService(mockRepo.Object);
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
         var result = await service.GetUlbConfigAsync();
 
         Assert.NotNull(result);
@@ -117,8 +125,12 @@ public class UlbConfigServiceTests
 
         var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
         mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
 
-        var service = new UlbConfigService(mockRepo.Object);
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
         var result = await service.GetUlbConfigAsync();
 
         Assert.NotNull(result);
@@ -146,8 +158,12 @@ public class UlbConfigServiceTests
 
         var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
         mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
 
-        var service = new UlbConfigService(mockRepo.Object);
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
         var cts = new CancellationTokenSource();
 
         var result = await service.GetUlbConfigAsync(cts.Token);
@@ -166,10 +182,72 @@ public class UlbConfigServiceTests
 
         var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
         mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
 
-        var service = new UlbConfigService(mockRepo.Object);
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
         var result = await service.GetUlbConfigAsync();
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetUlbConfigAsync_ActiveUlbAndBackgroundExists_ReturnsDtoWithBackground()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        // Add active ULB
+        context.ULBMasters.Add(new ULBMasterEntity
+        {
+            Id = 1,
+            UlbCode = "ULB001",
+            UlbName = "Test ULB",
+            IsActive = true
+        });
+
+        // Add active background document
+        var doc = DocumentEntity.Create(
+            uploadedByUserId: 1,
+            fileName: "bg.jpg",
+            originalFileName: "bg.jpg",
+            fileExtension: ".jpg",
+            mimeType: "image/jpeg",
+            fileSizeBytes: 1000,
+            storagePath: "uploads/bg.jpg",
+            documentType: "Background"
+        );
+        context.Documents.Add(doc);
+        await context.SaveChangesAsync();
+
+        // Add UlbImageMaster pointing to that Document
+        context.UlbImageMasters.Add(new UlbImageMasterEntity
+        {
+            Id = 1,
+            ImageType = "Background",
+            ImageId = doc.Id,
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
+
+        var mockRepo = new Mock<IRepository<ULBMasterEntity>>();
+        mockRepo.Setup(r => r.GetQueryable()).Returns(context.ULBMasters.AsQueryable());
+
+        var mockImageRepo = new Mock<IRepository<UlbImageMasterEntity>>();
+        mockImageRepo.Setup(r => r.GetQueryable()).Returns(context.UlbImageMasters.AsQueryable());
+
+        var mockDocRepo = new Mock<IRepository<DocumentEntity>>();
+        mockDocRepo.Setup(r => r.GetQueryable()).Returns(context.Documents.AsQueryable());
+
+        var service = new UlbConfigService(mockRepo.Object, mockImageRepo.Object, mockDocRepo.Object);
+        var result = await service.GetUlbConfigAsync();
+
+        Assert.NotNull(result);
+        Assert.Equal($"/api/UlbImageMaster/{doc.DocumentGuid}/view", result.UlbBackground);
     }
 }

@@ -147,12 +147,11 @@ namespace NtisPlatform.Application.Services.Rules
                             continue;
 
                         var ruleStop = ruleStopProcessingMap.TryGetValue(ruleResult.Rule.RuleName, out var shouldStopProcessing) && shouldStopProcessing;
-                        var shouldStop = stopOnMatch || ruleStop;
 
                         // Apply entity-level metadata to all results from this match
                         foreach (var result in resultList)
                         {
-                            result.StopProcessing = shouldStop;
+                            result.StopProcessing = stopOnMatch || ruleStop;
                             result.RuleScopeId = entity.RuleScopeId;
                             result.RuleScopeName = entity.RuleScope != null ? entity.RuleScope.RuleScope : null;
                             results.Add(result);
@@ -160,13 +159,22 @@ namespace NtisPlatform.Application.Services.Rules
 
                         appliedRuleIds.Add(ruleId);
 
-                        if (shouldStop)
+                        if (stopOnMatch)
                         {
                             _logger.LogInformation(
-                                "Rule '{RuleCode}' (Id={RuleId}) triggered stop processing. " +
-                                "Halting execution for Category={Category}. {MatchCount} rule(s) matched.",
-                                workflow.WorkflowName, ruleId, input.Category, results.Count);
+                                "Entity '{RuleCode}' (Id={RuleId}) triggered global stop processing. " +
+                                "Halting execution for Category={Category}.",
+                                workflow.WorkflowName, ruleId, input.Category);
                             return results;
+                        }
+
+                        if (ruleStop)
+                        {
+                            _logger.LogInformation(
+                                "Sub-rule '{RuleName}' triggered stop processing for workflow '{WorkflowName}'. " +
+                                "Breaking from current ruleset. Next ruleset will continue.",
+                                ruleResult.Rule.RuleName, workflow.WorkflowName);
+                            break;
                         }
                     }
                 }
@@ -270,10 +278,8 @@ namespace NtisPlatform.Application.Services.Rules
                 dryRunResult.TotalSubRulesEvaluated += workflowResult.SubRules.Count;
                 dryRunResult.MatchedCount += workflowResult.SubRules.Count(r => r.IsMatch && !r.WasSkipped);
 
-                // Check if any matched sub-rule triggered stop processing
-                var stopTriggered = workflowResult.SubRules
-                    .Where(r => r.IsMatch && !r.WasSkipped)
-                    .Any(r => r.StopProcessing || workflowResult.EntityStopOnMatch);
+                // Check if the entity-level stop was triggered by any matching rule in this entity
+                var stopTriggered = workflowResult.EntityStopOnMatch && workflowResult.SubRules.Any(r => r.IsMatch && !r.WasSkipped);
 
                 if (stopTriggered)
                 {
@@ -360,6 +366,7 @@ namespace NtisPlatform.Application.Services.Rules
 
                 // Build sub-rule trace entries for all evaluated rules
                 var evaluatedTrace = new Dictionary<string, RuleDryRunSubRuleResult>();
+                var hasStopped = false;
 
                 foreach (var ruleResult in orderedResults)
                 {
@@ -371,17 +378,25 @@ namespace NtisPlatform.Application.Services.Rules
                         RuleCode = ruleResult.Rule.RuleName,
                         RuleName = ruleResult.Rule.ErrorMessage ?? ruleResult.Rule.RuleName,
                         Expression = ruleResult.Rule.Expression,
-                        IsMatch = ruleResult.IsSuccess,
+                        IsMatch = !hasStopped && ruleResult.IsSuccess,
                         StopProcessing = ruleStopMap.TryGetValue(ruleResult.Rule.RuleName, out var sp) && sp,
-                        MatchStatus = ruleResult.IsSuccess
-                            ? "Matched"
-                            : (!string.IsNullOrWhiteSpace(ruleResult.ExceptionMessage)
-                                ? $"Not matched: {ruleResult.ExceptionMessage}"
-                                : "Not matched: condition evaluated to false")
+                        MatchStatus = hasStopped
+                            ? "Skipped due to stop processing in prior rule"
+                            : (ruleResult.IsSuccess
+                                ? "Matched"
+                                : (!string.IsNullOrWhiteSpace(ruleResult.ExceptionMessage)
+                                    ? $"Not matched: {ruleResult.ExceptionMessage}"
+                                    : "Not matched: condition evaluated to false"))
                     };
 
+                    if (hasStopped)
+                    {
+                        subTrace.WasSkipped = true;
+                        subTrace.SkipReason = "stopProcessing triggered by previous rule in this ruleset";
+                    }
+
                     // If matched, extract effect details and compute the actual rate
-                    if (ruleResult.IsSuccess &&
+                    if (!hasStopped && ruleResult.IsSuccess &&
                         ruleEffectsMap.TryGetValue(ruleResult.Rule.RuleName, out var effectJson))
                     {
                         subTrace.Effects = ExtractDryRunEffects(effectJson, ruleResult.Rule.RuleName);
@@ -403,6 +418,11 @@ namespace NtisPlatform.Application.Services.Rules
                             for (int effectIdx = 0; effectIdx < subTrace.Effects.Count && effectIdx < computedResults.Count; effectIdx++)
                                 subTrace.Effects[effectIdx].ComputedValue = computedResults[effectIdx].ComputedRate;
                         }
+                    }
+
+                    if (!hasStopped && ruleResult.IsSuccess && subTrace.StopProcessing)
+                    {
+                        hasStopped = true;
                     }
 
                     evaluatedTrace[ruleResult.Rule.RuleName] = subTrace;

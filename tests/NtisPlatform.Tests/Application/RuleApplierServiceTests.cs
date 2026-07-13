@@ -193,7 +193,7 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task ApplyRulesAsync_StopProcessingFlag_HaltsChainAfterCurrentRule()
+        public async Task ApplyRulesAsync_StopProcessingFlag_DoesNotHaltApplicatorChain()
         {
             // Arrange
             var context = CreateTestContext(
@@ -201,21 +201,23 @@ namespace NtisPlatform.Tests.Application
                 new TypeOfUseEntity { TypeOfUseGroupId = 2 },
                 new PropertyEntity { Id = 1 });
 
-            // Rule chain: 1000 → -10% → 900 → Override(500) STOP → IncreasePercent skipped
+            // Rule chain: 1000 → -10% → 900 → Override(500) with StopProcessing = true → IncreasePercent (500 + 20% = 600)
+            // StopProcessing at the sub-rule level only breaks execution within its ruleset, 
+            // but the applicator applies all returned results across rulesets.
             _ruleExecutionServiceMock
                 .Setup(x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new List<RuleExecutionResultDto>
                 {
                     new() { RuleCode = "RULE-1", EffectType = "DecreasePercent", EffectValue = 10m },
                     new() { RuleCode = "RULE-2", EffectType = "Override",        EffectValue = 500m, StopProcessing = true },
-                    new() { RuleCode = "RULE-3", EffectType = "IncreasePercent", EffectValue = 20m } // must be skipped
+                    new() { RuleCode = "RULE-3", EffectType = "IncreasePercent", EffectValue = 20m }
                 });
 
             // Act
             var result = await _service.ApplyRulesAsync(context);
 
-            // Assert
-            Assert.Equal(500m, result.FinalValue);
+            // Assert - The applicator should process RULE-3 because sub-rule StopProcessing does not halt the overall applicator chain
+            Assert.Equal(600m, result.FinalValue);
         }
 
         [Fact]

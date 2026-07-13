@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.LockUnlock;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Application.Utilities;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Infrastructure.Data;
 
@@ -82,20 +83,36 @@ public class LockUnlockService : ILockUnlockService
         var pageSize = request.PageSize == -1 ? totalCount : request.PageSize;
         var skip = request.PageSize == -1 ? 0 : (request.PageNumber - 1) * request.PageSize;
 
-        var pagedProperties = await query
-            .OrderBy(pm => pm.PropertyNo)
+        // Natural ordering ("A2" before "A10") can't be translated to SQL, which sorts strings
+        // lexicographically ("A10" < "A2"). Only the columns needed to determine sort/paging are
+        // pulled for the full matching set; full row data is fetched only for the page returned.
+        var sortKeys = await query
+            .Select(pm => new { pm.Id, pm.PropertyNo, pm.PartitionNo })
+            .ToListAsync(ct);
+
+        var pagedIds = sortKeys
+            .OrderBy(p => p.PropertyNo ?? string.Empty, NaturalStringComparer.Instance)
+            .ThenBy(p => p.PartitionNo ?? string.Empty, NaturalStringComparer.Instance)
             .Skip(skip)
             .Take(pageSize == 0 ? 1 : pageSize)
-            .Join(_context.WardMaster, pm => pm.WardId, w => w.Id,
-                (pm, w) => new
-                {
-                    pm.Id,
-                    pm.WardId,
-                    WardNo = w.WardNo,
-                    pm.PropertyNo,
-                    pm.PartitionNo,
-                })
-            .ToListAsync(ct);
+            .Select(p => p.Id)
+            .ToList();
+
+        // WardNo is constant for every row here since the query is already scoped to one WardId.
+        var wardNo = await _context.WardMaster
+            .Where(w => w.Id == request.WardId)
+            .Select(w => w.WardNo)
+            .FirstOrDefaultAsync(ct);
+
+        var propertiesById = await _context.PropertyMast
+            .Where(pm => pagedIds.Contains(pm.Id))
+            .Select(pm => new { pm.Id, pm.WardId, pm.PropertyNo, pm.PartitionNo })
+            .ToDictionaryAsync(pm => pm.Id, ct);
+
+        var pagedProperties = pagedIds
+            .Select(id => propertiesById[id])
+            .Select(pm => new { pm.Id, pm.WardId, WardNo = wardNo, pm.PropertyNo, pm.PartitionNo })
+            .ToList();
 
         var propertyIds = pagedProperties.Select(p => p.Id).ToList();
 

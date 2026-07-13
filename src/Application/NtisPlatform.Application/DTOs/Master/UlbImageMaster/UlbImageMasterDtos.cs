@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace NtisPlatform.Application.DTOs;
 
@@ -8,6 +9,7 @@ public class UlbImageMasterDto : BaseDtos
     public int? ImageId { get; set; }
     public int? CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
+    public Guid? DocumentGuid { get; set; }
 }
 
 public class CreateUlbImageMasterDto : CreateBaseDtos
@@ -24,6 +26,9 @@ public class CreateUlbImageMasterDto : CreateBaseDtos
 
     [Range(1, int.MaxValue, ErrorMessage = "UlbImageMaster_ImageId_Invalid")]
     public int? ImageId { get; set; }
+
+    public int? DepartmentId { get; set; }
+    public int? ModuleId { get; set; }
 }
 
 public class UpdateUlbImageMasterDto : UpdateBaseDtos
@@ -40,4 +45,8 @@ public class UpdateUlbImageMasterDto : UpdateBaseDtos
 
     [Range(1, int.MaxValue, ErrorMessage = "UlbImageMaster_ImageId_Invalid")]
     public int? ImageId { get; set; }
+
+    public int? DepartmentId { get; set; }
+    public int? ModuleId { get; set; }
 }
+

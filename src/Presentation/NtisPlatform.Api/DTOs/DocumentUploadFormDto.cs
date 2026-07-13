@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace NtisPlatform.Application.DTOs.Document;
+namespace NtisPlatform.Api.DTOs;
 
 /// <summary>
-/// Form DTO for document upload
+/// Form DTO for document upload (multipart/form-data binding).
+/// Lives in the Presentation layer because it carries the web-framework
+/// type <see cref="IFormFile"/>; the controller maps it to the
+/// framework-agnostic DocumentUploadDto before invoking the application service.
 /// </summary>
 public class DocumentUploadFormDto
 {

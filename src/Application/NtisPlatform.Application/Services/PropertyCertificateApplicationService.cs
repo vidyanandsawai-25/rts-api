@@ -1,8 +1,6 @@
-using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using NtisPlatform.Application.Common;
-using NtisPlatform.Application.Options;
+using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
@@ -15,44 +13,31 @@ namespace NtisPlatform.Application.Services;
 
 /// <summary>
 /// Application service for PropertyCertificate operations.
-/// SEPARATE from Document service.
+/// Delegates all file handling to DocumentApplicationService.
 /// </summary>
 public class PropertyCertificateApplicationService : IPropertyCertificateApplicationService
 {
     private readonly IPropertyCertificateService _propertyCertificateService;
-    private readonly IDocumentService _documentService;
-    private readonly IFileStorageService _fileStorageService;
+    private readonly IDocumentApplicationService _documentApplicationService;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IRepository<DepartmentMasterEntity, int> _departmentRepository;
-    private readonly IRepository<ModuleMasterEntity, int> _moduleRepository;
+    private readonly IModuleLookupService _moduleLookupService;
     private readonly IRepository<PropertyCertificateTypeMasterEntity, int> _certificateTypeRepository;
     private readonly ILogger<PropertyCertificateApplicationService> _logger;
-    private readonly int _bufferSizeBytes;
-    private readonly long _maxFileSizeBytes;
 
     public PropertyCertificateApplicationService(
         IPropertyCertificateService propertyCertificateService,
-        IDocumentService documentService,
-        IFileStorageService fileStorageService,
+        IDocumentApplicationService documentApplicationService,
         IUnitOfWork unitOfWork,
-        IRepository<DepartmentMasterEntity, int> departmentRepository,
-        IRepository<ModuleMasterEntity, int> moduleRepository,
+        IModuleLookupService moduleLookupService,
         IRepository<PropertyCertificateTypeMasterEntity, int> certificateTypeRepository,
-        IOptions<FileStorageOptions> fileStorageOptions,
         ILogger<PropertyCertificateApplicationService> logger)
     {
         _propertyCertificateService = propertyCertificateService;
-        _documentService = documentService;
-        _fileStorageService = fileStorageService;
+        _documentApplicationService = documentApplicationService;
         _unitOfWork = unitOfWork;
-        _departmentRepository = departmentRepository;
-        _moduleRepository = moduleRepository;
+        _moduleLookupService = moduleLookupService;
         _certificateTypeRepository = certificateTypeRepository;
         _logger = logger;
-
-        var fileStorage = fileStorageOptions.Value;
-        _bufferSizeBytes = fileStorage.BufferSizeBytes;
-        _maxFileSizeBytes = fileStorage.MaxFileSizeBytes;
     }
 
     public async Task<PropertyCertificateUploadResponseDto> UploadWithDocumentAsync(
@@ -73,7 +58,6 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         Guard.AgainstExceedingLength(originalFileName, 255, nameof(originalFileName));
         Guard.AgainstNullOrWhiteSpace(mimeType, nameof(mimeType));
         Guard.AgainstNegativeOrZero(fileSizeBytes, nameof(fileSizeBytes));
-        Guard.AgainstOutOfRange(fileSizeBytes, 1, _maxFileSizeBytes, nameof(fileSizeBytes));
         Guard.AgainstNegativeOrZero(propertyId, nameof(propertyId));
         Guard.AgainstNegativeOrZero(certificateTypeId, nameof(certificateTypeId));
         Guard.AgainstNegativeOrZero(uploadedBy, nameof(uploadedBy));
@@ -92,214 +76,85 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         _logger.LogInformation("Starting PropertyCertificate upload: {FileName}, PropertyId: {PropertyId}, CertificateTypeId: {CertificateTypeId}, User: {UserId}",
             originalFileName, propertyId, certificateTypeId, uploadedBy);
 
-        var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
-        var tempFilePath = Path.GetTempFileName();
-        string? storagePath = null;
+        // 1. Create PropertyCertificate first (without DocumentBinding)
+        var propertyCertificateId = await _propertyCertificateService.CreateAsync(
+            propertyId,
+            certificateTypeId,
+            certificateNo,
+            issueDate,
+            uploadedBy,
+            cancellationToken);
+        _logger.LogInformation("PropertyCertificate created: Id={PropertyCertificateId}",
+            propertyCertificateId);
 
         try
         {
-            // 1. Buffer the upload once while computing the checksum in the same pass
-            // Note: SHA256 hashing is CPU-bound and performed synchronously per buffer,
-            // but we optimize by doing async I/O and hashing in parallel during the read/write cycle
-            await using var tempFileStream = new FileStream(
-                tempFilePath,
-                FileMode.Create,
-                FileAccess.ReadWrite,
-                FileShare.None,
-                _bufferSizeBytes,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            // 2. Get DepartmentId and ModuleId from database
+            var (departmentId, moduleId) = await GetDepartmentAndModuleIdsAsync(cancellationToken);
 
-            using var sha256 = SHA256.Create();
-            var buffer = new byte[_bufferSizeBytes];
-            int bytesRead;
-
-            while ((bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            // 3. Delegate file handling to DocumentApplicationService
+            var uploadDto = new DocumentUploadDto
             {
-                // Write to temp file asynchronously
-                await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                DepartmentId = departmentId,
+                ModuleId = moduleId,
+                ReferenceTableName = "PropertyCertificates",
+                ReferenceTableId = propertyCertificateId,
+                ReferencePropertyName = "Id",
+                BindingPurpose = DocumentBindingPurpose.MainDocument.ToPurposeString(),
+                IsPrimaryDocument = true,
+                AuthDepartmentId = departmentId,
+                AuthReferenceId = propertyId,
+                DocumentType = DocumentType.Certificate.ToTypeString()
+            };
 
-                // Hash computation: While TransformBlock is synchronous, it's a fast in-memory operation
-                // that doesn't block I/O. For very large files, consider using Task.Run for true parallelism,
-                // but the overhead typically outweighs benefits for typical buffer sizes (80KB)
-                sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
+            var docResponse = await _documentApplicationService.UploadDocumentAsync(
+                fileStream,
+                originalFileName,
+                mimeType,
+                fileSizeBytes,
+                uploadDto,
+                uploadedBy,
+                cancellationToken);
+
+            // 4. Update PropertyCertificate with DocumentBinding ID
+            if (docResponse.DocumentBindingId.HasValue)
+            {
+                await _propertyCertificateService.UpdateDocumentBindingAsync(
+                    propertyCertificateId,
+                    docResponse.DocumentBindingId.Value,
+                    uploadedBy,
+                    cancellationToken);
             }
 
-            sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-            var checksumSha256 = Convert.ToHexString(sha256.Hash!).ToLowerInvariant();
-            _logger.LogDebug("Computed SHA-256 checksum: {Checksum} for PropertyCertificate file: {FileName}",
-                checksumSha256, originalFileName);
+            _logger.LogInformation("PropertyCertificate upload completed successfully: PropertyCertificateId={PropertyCertificateId}, DocumentGuid={DocumentGuid}",
+                propertyCertificateId, docResponse.DocumentGuid);
 
-            // 2. Save the buffered file to storage
-            tempFileStream.Position = 0;
-            storagePath = await _fileStorageService.SaveFileAsync(tempFileStream, originalFileName, cancellationToken);
-            _logger.LogInformation("PropertyCertificate file saved to storage: {StoragePath}", storagePath);
-
-            try
+            return new PropertyCertificateUploadResponseDto
             {
-                // Begin transaction for multi-step database operations
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
-                try
-                {
-                    // 3. Create CORE.Document
-                    var (documentId, documentGuid) = await _documentService.CreateDocumentAsync(
-                        uploadedBy,
-                        null,
-                        Path.GetFileName(storagePath),
-                        originalFileName,
-                        fileExtension,
-                        mimeType,
-                        fileSizeBytes,
-                        storagePath,
-                        null,
-                        checksumSha256,
-                        DocumentType.Certificate.ToTypeString(),
-                        cancellationToken);
-
-                    // 4. Create PTIS.PropertyCertificates first (without DocumentBinding)
-                    var propertyCertificateId = await _propertyCertificateService.CreateAsync(
-                        propertyId,
-                        certificateTypeId,
-                        certificateNo,
-                        issueDate,
-                        uploadedBy,
-                        cancellationToken);
-                    _logger.LogInformation("PropertyCertificate created: Id={PropertyCertificateId}",
-                        propertyCertificateId);
-
-                    // 5. Get DepartmentId and ModuleId from database
-                    // For PTIS department and PropertyCertificate module
-                    // These will be determined from the actual database data
-                    var (departmentId, moduleId) = await GetDepartmentAndModuleIdsAsync(cancellationToken);
-
-                    // 6. Create CORE.DocumentBinding with actual PropertyCertificate ID
-                    var documentBindingId = await _documentService.CreateDocumentBindingAsync(
-                        documentId,
-                        departmentId,  // DepartmentId from database
-                        moduleId,  // ModuleId from database
-                        "PropertyCertificates",  // Use plural table name to match [PTIS].[PropertyCertificates]
-                        propertyCertificateId,  // Actual PropertyCertificate ID
-                        null,  // ReferenceTableIdGuid
-                        "Id",  // ReferencePropertyName
-                        DocumentBindingPurpose.MainDocument.ToPurposeString(),
-                        true,  // IsPrimaryDocument
-                        departmentId,  // AuthDepartmentId
-                        uploadedBy,  // AuthReferenceId = userId (for proper authorization)
-                        uploadedBy,
-                        cancellationToken);
-
-                    // 7. Update PropertyCertificate with DocumentBinding ID
-                    await _propertyCertificateService.UpdateDocumentBindingAsync(
-                        propertyCertificateId,
-                        documentBindingId,
-                        uploadedBy,
-                        cancellationToken);
-
-                    // Commit transaction - all database operations succeeded
-                    await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-                    _logger.LogInformation("PropertyCertificate upload completed successfully: PropertyCertificateId={PropertyCertificateId}, DocumentGuid={DocumentGuid}",
-                        propertyCertificateId, documentGuid);
-
-                    return new PropertyCertificateUploadResponseDto
-                    {
-                        PropertyCertificateId = propertyCertificateId,
-                        DocumentGuid = documentGuid,
-                        DocumentId = documentId,
-                        DocumentBindingId = documentBindingId,
-                        PropertyId = propertyId,
-                        CertificateTypeId = certificateTypeId,
-                        CertificateNo = certificateNo,
-                        IssueDate = issueDate,
-                        FileName = originalFileName,
-                        FileSizeBytes = fileSizeBytes,
-                        StoragePath = storagePath
-                    };
-                }
-                catch
-                {
-                    // Rollback transaction on any database error
-                    await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    throw;
-                }
-            }
-            catch
-            {
-                // If any database operation fails after the file was saved to storage,
-                // attempt to delete the orphaned file to prevent storage accumulation.
-                // NOTE: If this cleanup fails, orphaned files may exist temporarily in storage
-                // and should be cleaned up manually or via a periodic maintenance task.
-                if (storagePath != null)
-                {
-                    try
-                    {
-                        await _fileStorageService.DeleteFileAsync(storagePath, cancellationToken);
-                        _logger.LogWarning("Deleted orphaned file during PropertyCertificate upload rollback: {StoragePath}", storagePath);
-                    }
-                    catch (Exception cleanupException)
-                    {
-                        _logger.LogWarning(cleanupException,
-                            "Failed to delete orphaned property certificate file: {StoragePath}. File may remain orphaned and require manual cleanup.", 
-                            storagePath);
-                    }
-                }
-                throw;
-            }
+                PropertyCertificateId = propertyCertificateId,
+                DocumentGuid = docResponse.DocumentGuid,
+                DocumentId = docResponse.DocumentId,
+                DocumentBindingId = docResponse.DocumentBindingId ?? 0,
+                PropertyId = propertyId,
+                CertificateTypeId = certificateTypeId,
+                CertificateNo = certificateNo,
+                IssueDate = issueDate,
+                FileName = originalFileName,
+                FileSizeBytes = fileSizeBytes,
+                StoragePath = docResponse.StoragePath ?? string.Empty
+            };
         }
-        finally
+        catch
         {
-            // Clean up temporary file with proper error handling
-            if (File.Exists(tempFilePath))
-            {
-                try
-                {
-                    File.Delete(tempFilePath);
-                    _logger.LogDebug("Deleted temporary file: {TempFilePath}", tempFilePath);
-                }
-                catch (Exception ex)
-                {
-                    // Log but don't throw - temp file cleanup failure shouldn't fail the upload
-                    _logger.LogWarning(ex, "Failed to delete temporary file: {TempFilePath}. File may need manual cleanup.", tempFilePath);
-                }
-            }
+            _logger.LogError("PropertyCertificate upload failed for Id={PropertyCertificateId}. Document service will handle cleanup.",
+                propertyCertificateId);
+            throw;
         }
     }
 
 
 
-    /// <summary>
-    /// Safely extracts the DocumentGuid from a DocumentBinding if the document is valid and active.
-    /// Returns null if the document is inactive, marked for deletion, or if any part of the chain is null.
-    /// </summary>
-    private static Guid? GetSafeDocumentGuid(DocumentBindingEntity? documentBinding)
-    {
-        if (documentBinding?.Document == null)
-            return null;
-
-        var document = documentBinding.Document;
-
-        if (!document.IsActive || document.MarkedForDeletion)
-            return null;
-
-        return document.DocumentGuid;
-    }
-
-    /// <summary>
-    /// Safely extracts the FileName from a DocumentBinding if the document is valid and active.
-    /// Returns null if the document is inactive, marked for deletion, or if any part of the chain is null.
-    /// </summary>
-    private static string? GetSafeFileName(DocumentBindingEntity? documentBinding)
-    {
-        if (documentBinding?.Document == null)
-            return null;
-
-        var document = documentBinding.Document;
-
-        if (!document.IsActive || document.MarkedForDeletion)
-            return null;
-
-        return document.OriginalFileName;
-    }
+    // ── Private helpers ─────────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Gets the DepartmentId and ModuleId from the database dynamically.
@@ -309,115 +164,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
     private async Task<(int DepartmentId, int ModuleId)> GetDepartmentAndModuleIdsAsync(
         CancellationToken cancellationToken = default)
     {
-        // Step 1: Find department that owns PropertyCertificate functionality
-        // PropertyCertificate is linked to Property, which is in PTIS schema
-        // Use exact match first for deterministic selection, then fallback to substring matching
-        var allDepartments = await _departmentRepository.GetAsync(
-            d => d.IsActive,
-            cancellationToken);
-
-        // Try exact matches first (deterministic), ordered by ID for consistency
-        var exactMatches = allDepartments
-            .Where(d => !string.IsNullOrEmpty(d.DepartmentCode))
-            .Where(d => 
-                d.DepartmentCode!.Equals("PTIS", StringComparison.OrdinalIgnoreCase) ||
-                d.DepartmentCode!.Equals("PROPERTY", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(d => d.Id)
-            .ToList();
-
-        DepartmentMasterEntity? department = null;
-
-        if (exactMatches.Count == 1)
-        {
-            department = exactMatches[0];
-        }
-        else if (exactMatches.Count > 1)
-        {
-            // Multiple exact matches - ambiguous configuration
-            var matchedCodes = string.Join(", ", exactMatches.Select(d => $"{d.DepartmentCode} (ID: {d.Id})"));
-            throw new InvalidOperationException(
-                $"Multiple departments match PTIS/PROPERTY criteria: {matchedCodes}. " +
-                "Please ensure only one department with exact code 'PTIS' or 'PROPERTY' exists in DepartmentMaster table.");
-        }
-        else
-        {
-            // No exact match, try substring match
-            var substringMatches = allDepartments
-                .Where(d => !string.IsNullOrEmpty(d.DepartmentCode))
-                .Where(d =>
-                    d.DepartmentCode!.Contains("PTIS", StringComparison.OrdinalIgnoreCase) ||
-                    d.DepartmentCode!.Contains("PROPERTY", StringComparison.OrdinalIgnoreCase))
-                .OrderBy(d => d.Id)
-                .ToList();
-
-            if (substringMatches.Count == 1)
-            {
-                department = substringMatches[0];
-            }
-            else if (substringMatches.Count > 1)
-            {
-                // Multiple substring matches - ambiguous configuration
-                var matchedCodes = string.Join(", ", substringMatches.Select(d => $"{d.DepartmentCode} (ID: {d.Id})"));
-                throw new InvalidOperationException(
-                    $"Multiple departments contain PTIS/PROPERTY in their code: {matchedCodes}. " +
-                    "Please ensure only one department matches this criteria or add an exact 'PTIS' or 'PROPERTY' code.");
-            }
-        }
-
-        if (department == null)
-        {
-            // No department found, throw descriptive error
-            var availableDepts = string.Join(", ", allDepartments.Select(d => d.DepartmentCode ?? "NULL"));
-            throw new InvalidOperationException(
-                $"No department found for PropertyCertificate. Available departments: {availableDepts}. " +
-                "Please ensure a department with exact code 'PTIS' or 'PROPERTY' exists in DepartmentMaster table.");
-        }
-
-        // Step 2: Find PropertyCertificate module under this department
-        // Use exact match first, then substring match, always ordered by ID for deterministic selection
-        var modules = await _moduleRepository.GetAsync(
-            m => m.DepartmentId == department.Id && m.IsActive,
-            cancellationToken);
-
-        // Try exact matches first (deterministic)
-        var module = modules
-            .Where(m => m.ModuleCode != null)
-            .OrderBy(m => m.Id)
-            .FirstOrDefault(m =>
-                m.ModuleCode!.Equals("PROPERTY", StringComparison.OrdinalIgnoreCase) ||
-                m.ModuleCode!.Equals("PROPERTYCERTIFICATE", StringComparison.OrdinalIgnoreCase) ||
-                m.ModuleCode!.Equals("CERTIFICATE", StringComparison.OrdinalIgnoreCase));
-
-        // Fallback to substring match if no exact match (still ordered by ID)
-        if (module == null)
-        {
-            module = modules
-                .Where(m => m.ModuleCode != null)
-                .OrderBy(m => m.Id)
-                .FirstOrDefault(m =>
-                    m.ModuleCode!.Contains("PROPERTY", StringComparison.OrdinalIgnoreCase) ||
-                    m.ModuleCode!.Contains("CERTIFICATE", StringComparison.OrdinalIgnoreCase));
-        }
-
-        // Fail fast if no match found with descriptive error
-        if (module == null)
-        {
-            var availableModules = string.Join(", ", modules.Select(m => $"{m.ModuleCode ?? "NULL"} (ID: {m.Id})"));
-            throw new InvalidOperationException(
-                $"No module with code PROPERTY/PROPERTYCERTIFICATE/CERTIFICATE found for department '{department.DepartmentCode}' (ID: {department.Id}). Available modules: {availableModules}.");
-        }
-
-        if (module == null)
-        {
-            throw new InvalidOperationException(
-                $"No active module found for department '{department.DepartmentCode}' (ID: {department.Id}). " +
-                "Please ensure ModuleMaster table has at least one active module for this department.");
-        }
-
-        _logger.LogDebug("Resolved PropertyCertificate context: Department={DeptCode} (ID={DeptId}), Module={ModCode} (ID={ModId})",
-            department.DepartmentCode, department.Id, module.ModuleCode, module.Id);
-
-        return (department.Id, module.Id);
+        // Delegate to IModuleLookupService for table-driven module/department resolution
+        return await _moduleLookupService.GetDepartmentAndModuleAsync("PTIS", "PROPERTY", cancellationToken);
     }
 
     public async Task<List<PropertyCertificateWithStatusDto>> GetCertificateTypesWithStatusAsync(
@@ -457,8 +205,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 IsActive = hasCertificate && certificate != null && certificate.IsActive,
                 CertificateNo = hasCertificate && certificate != null ? certificate.CertificateNo : null,
                 IssueDate = hasCertificate && certificate != null ? certificate.IssueDate : null,
-                DocumentGuid = hasCertificate && certificate != null ? GetSafeDocumentGuid(certificate.DocumentBinding) : null,
-                FileName = hasCertificate && certificate != null ? GetSafeFileName(certificate.DocumentBinding) : null
+                DocumentGuid = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeDocumentGuid(certificate.DocumentBinding) : null,
+                FileName = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeFileName(certificate.DocumentBinding) : null
             };
         }).ToList();
 
@@ -496,152 +244,76 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
             throw new InvalidOperationException($"PropertyCertificate with ID {propertyCertificateId} not found.");
         }
 
-        var fileExtension = Path.GetExtension(originalFileName).ToLowerInvariant();
-        var tempFilePath = Path.GetTempFileName();
-        string? storagePath = null;
-        string? oldStoragePath = certificate.DocumentBinding?.Document?.StoragePath;
+        var oldDocumentGuid = certificate.DocumentBinding?.Document?.DocumentGuid;
 
         try
         {
-            // Buffer and hash the new file
-            await using var tempFileStream = new FileStream(
-                tempFilePath,
-                FileMode.Create,
-                FileAccess.ReadWrite,
-                FileShare.None,
-                _bufferSizeBytes,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            // 1. Get DepartmentId and ModuleId from database
+            var (departmentId, moduleId) = await GetDepartmentAndModuleIdsAsync(cancellationToken);
 
-            using var sha256 = SHA256.Create();
-            var buffer = new byte[_bufferSizeBytes];
-            int bytesRead;
-
-            while ((bytesRead = await fileStream.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
+            // 2. Upload new file via DocumentApplicationService
+            var uploadDto = new DocumentUploadDto
             {
-                await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                sha256.TransformBlock(buffer, 0, bytesRead, null, 0);
-            }
+                DepartmentId = departmentId,
+                ModuleId = moduleId,
+                ReferenceTableName = "PropertyCertificates",
+                ReferenceTableId = propertyCertificateId,
+                ReferencePropertyName = "Id",
+                BindingPurpose = DocumentBindingPurpose.MainDocument.ToPurposeString(),
+                IsPrimaryDocument = true,
+                AuthDepartmentId = departmentId,
+                AuthReferenceId = certificate.PropertyId,
+                DocumentType = DocumentType.Certificate.ToTypeString()
+            };
 
-            sha256.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
-            var checksumSha256 = Convert.ToHexString(sha256.Hash!).ToLowerInvariant();
+            var docResponse = await _documentApplicationService.UploadDocumentAsync(
+                fileStream,
+                originalFileName,
+                mimeType,
+                fileSizeBytes,
+                uploadDto,
+                uploadedBy,
+                cancellationToken);
 
-            // Save new file to storage
-            tempFileStream.Position = 0;
-            storagePath = await _fileStorageService.SaveFileAsync(tempFileStream, originalFileName, cancellationToken);
-
-            try
+            // 3. Update certificate with new binding
+            if (docResponse.DocumentBindingId.HasValue)
             {
-                await _unitOfWork.BeginTransactionAsync(cancellationToken);
-
-                // Create new document
-                var (documentId, documentGuid) = await _documentService.CreateDocumentAsync(
-                    uploadedBy,
-                    null,
-                    Path.GetFileName(storagePath),
-                    originalFileName,
-                    fileExtension,
-                    mimeType,
-                    fileSizeBytes,
-                    storagePath,
-                    null,
-                    checksumSha256,
-                    DocumentType.Certificate.ToTypeString(),
-                    cancellationToken);
-
-                var (departmentId, moduleId) = await GetDepartmentAndModuleIdsAsync(cancellationToken);
-
-                // Create new document binding
-                var documentBindingId = await _documentService.CreateDocumentBindingAsync(
-                    documentId,
-                    departmentId,
-                    moduleId,
-                    "PropertyCertificates",  // Use plural table name to match [PTIS].[PropertyCertificates]
-                    propertyCertificateId,
-                    null,
-                    "Id",
-                    DocumentBindingPurpose.MainDocument.ToPurposeString(),
-                    true,
-                    departmentId,
-                    uploadedBy,  // AuthReferenceId = userId (for proper authorization)
-                    uploadedBy,
-                    cancellationToken);
-
-                // Update certificate with new binding
                 await _propertyCertificateService.UpdateDocumentBindingAsync(
                     propertyCertificateId,
-                    documentBindingId,
+                    docResponse.DocumentBindingId.Value,
                     uploadedBy,
                     cancellationToken);
-
-                // Soft-delete the old document so it can no longer be accessed after replacement.
-                var oldDocumentGuid = certificate.DocumentBinding?.Document?.DocumentGuid;
-                if (oldDocumentGuid.HasValue)
-                {
-                    await _documentService.DeleteDocumentAsync(oldDocumentGuid.Value, uploadedBy, cancellationToken);
-                }
-
-                await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-                // Delete old file from storage
-                if (!string.IsNullOrEmpty(oldStoragePath))
-                {
-                    try
-                    {
-                        await _fileStorageService.DeleteFileAsync(oldStoragePath, cancellationToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to delete old file: {Path}", oldStoragePath);
-                    }
-                }
-
-                return new PropertyCertificateUploadResponseDto
-                {
-                    PropertyCertificateId = propertyCertificateId,
-                    DocumentGuid = documentGuid,
-                    DocumentId = documentId,
-                    DocumentBindingId = documentBindingId,
-                    PropertyId = certificate.PropertyId,
-                    CertificateTypeId = certificate.CertificateTypeId,
-                    CertificateNo = certificate.CertificateNo,
-                    IssueDate = certificate.IssueDate,
-                    FileName = originalFileName,
-                    FileSizeBytes = fileSizeBytes,
-                    StoragePath = storagePath
-                };
             }
-            catch
+
+            // 4. Soft-delete the old document (DocumentApplicationService handles file cleanup via DeleteDocumentAsync)
+            if (oldDocumentGuid.HasValue)
             {
-                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
-
-                // Delete new file if transaction failed
-                if (!string.IsNullOrEmpty(storagePath))
-                {
-                    try
-                    {
-                        await _fileStorageService.DeleteFileAsync(storagePath, cancellationToken);
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        _logger.LogWarning(cleanupEx, "Failed to delete new file after rollback: {Path}", storagePath);
-                    }
-                }
-                throw;
+                await _documentApplicationService.DeleteDocumentAsync(oldDocumentGuid.Value, uploadedBy, cancellationToken);
             }
+
+            _logger.LogInformation("PropertyCertificate document replaced: PropertyCertificateId={PropertyCertificateId}, OldDocumentGuid={OldDocumentGuid}, NewDocumentGuid={NewDocumentGuid}",
+                propertyCertificateId, oldDocumentGuid, docResponse.DocumentGuid);
+
+            return new PropertyCertificateUploadResponseDto
+            {
+                PropertyCertificateId = propertyCertificateId,
+                DocumentGuid = docResponse.DocumentGuid,
+                DocumentId = docResponse.DocumentId,
+                DocumentBindingId = docResponse.DocumentBindingId ?? 0,
+                PropertyId = certificate.PropertyId,
+                CertificateTypeId = certificate.CertificateTypeId,
+                CertificateNo = certificate.CertificateNo,
+                IssueDate = certificate.IssueDate,
+                FileName = originalFileName,
+                FileSizeBytes = fileSizeBytes,
+                StoragePath = docResponse.StoragePath ?? string.Empty
+            };
         }
-        finally
+        catch
         {
-            if (File.Exists(tempFilePath))
-            {
-                try
-                {
-                    File.Delete(tempFilePath);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete temp file: {Path}", tempFilePath);
-                }
-            }
+            _logger.LogError("PropertyCertificate document replacement failed for Id={PropertyCertificateId}. Document service will handle cleanup.",
+                propertyCertificateId);
+            throw;
         }
     }
 
@@ -808,9 +480,7 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
         }
 
         var documentGuid = certificate.DocumentBinding.Document?.DocumentGuid;
-        var storagePath = certificate.DocumentBinding.Document?.StoragePath;
 
-        await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
             // 1. Unlink the document binding from the certificate
@@ -819,30 +489,19 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 deletedBy,
                 cancellationToken);
 
-            // 2. Soft-delete the document in CORE.Document
+            // 2. Soft-delete the document and physical file via DocumentApplicationService
             if (documentGuid.HasValue)
             {
-                await _documentService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
+                await _documentApplicationService.DeleteDocumentAsync(documentGuid.Value, deletedBy, cancellationToken);
             }
 
-            await _unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            // 3. Delete physical file from storage
-            if (!string.IsNullOrEmpty(storagePath))
-            {
-                try
-                {
-                    await _fileStorageService.DeleteFileAsync(storagePath, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to delete storage file {Path} for PropertyCertificate {Id}", storagePath, propertyCertificateId);
-                }
-            }
+            _logger.LogInformation("PropertyCertificate document deleted: PropertyCertificateId={PropertyCertificateId}, DocumentGuid={DocumentGuid}",
+                propertyCertificateId, documentGuid);
         }
         catch
         {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError("PropertyCertificate document deletion failed for Id={PropertyCertificateId}",
+                propertyCertificateId);
             throw;
         }
     }

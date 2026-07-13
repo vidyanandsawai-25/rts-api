@@ -26,7 +26,9 @@ public class DataEntrySameAsRequestDto
 
     /// <summary>
     /// Filter mode driving which PropertyDetails rows are acted on:
-    /// PARKING (parking TypeOfUse rows only), TYPEWISE or PROPERTYWISE (non-parking rows only).
+    /// PARKING (parking TypeOfUse rows only), TYPEWISE (Type stamp only) or PROPERTYWISE (non-parking rows only).
+    /// Accepts a single value or a comma-separated list (e.g. "PARKING,PROPERTYWISE"); each listed mode
+    /// is applied within the same transaction.
     /// </summary>
     [Required]
     public string FilterType { get; set; } = string.Empty;

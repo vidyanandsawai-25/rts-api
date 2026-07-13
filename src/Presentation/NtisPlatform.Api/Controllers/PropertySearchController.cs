@@ -219,14 +219,20 @@ public class PropertySearchController : ControllerBase
     {
         try
         {
-            if (propertyId <= 0)
+if (propertyId < 0 || (propertyId == 0 &&
+    string.IsNullOrWhiteSpace(upicId) &&
+    string.IsNullOrWhiteSpace(propertyNoFrom) &&
+    string.IsNullOrWhiteSpace(propertyNoTo) &&
+    string.IsNullOrWhiteSpace(oldPropertyNo)))
+            {
                 return BadRequest(new ApiResponse<object>
                 {
                     Success = false,
-                    Message = "Invalid propertyId. Must be a positive integer."
+                    Message = "Invalid propertyId. Must be a positive integer, or one of UPICId, PropertyNo, or OldPropertyNo must be provided."
                 });
+            }
 
-            _logger.LogInformation("Fetching apartment unit list for property {PropertyId} with filters", propertyId);
+            _logger.LogInformation("Fetching apartment unit list for property {PropertyId} (or resolved from filters) with filters", propertyId);
 
             // Build search request with all filters
             var searchRequest = new PropertySearchRequestDto

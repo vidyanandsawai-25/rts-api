@@ -276,15 +276,105 @@ public class DocumentService : IDocumentService
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
+        if (referenceTableId <= 0)
+            throw new ArgumentException("Reference table ID must be greater than zero.", nameof(referenceTableId));
+
         var binding = await _bindingRepository.GetByIdAsync(documentBindingId, cancellationToken);
 
         if (binding != null)
         {
-            binding.UpdateReferenceTableId(referenceTableId);
+            if (binding.ReferenceTableIdGuid.HasValue)
+            {
+                binding.ConvertGuidToIntReference(referenceTableId);
+            }
+            else
+            {
+                binding.UpdateReferenceTableId(referenceTableId);
+            }
+
             binding.UpdatedBy = updatedBy;
             binding.UpdatedDate = DateTime.Now;
 
+            await _bindingRepository.UpdateAsync(binding, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task<DocumentBindingEntity?> GetDocumentBindingByIdAsync(
+        int documentBindingId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _bindingRepository.GetByIdAsync(documentBindingId, cancellationToken);
+    }
+
+    public async Task<DocumentEntity?> GetDocumentByBindingIdAsync(
+        int documentBindingId,
+        CancellationToken cancellationToken = default)
+    {
+        var binding = await _bindingRepository.GetByIdAsync(documentBindingId, cancellationToken);
+        if (binding == null)
+            return null;
+
+        return await _documentRepository.GetByIdAsync(binding.DocumentId, cancellationToken);
+    }
+
+    public async Task<List<DocumentEntity>> GetDocumentsByDepartmentModuleReferenceAsync(
+        int departmentId,
+        int moduleId,
+        string referenceTableName,
+        int? referenceTableId,
+        Guid? referenceTableIdGuid,
+        CancellationToken cancellationToken = default)
+    {
+        var bindings = await _bindingRepository.GetAsync(
+            b => b.DepartmentId == departmentId &&
+                 b.ModuleId == moduleId &&
+                 b.ReferenceTableName == referenceTableName &&
+                 ((referenceTableId.HasValue && b.ReferenceTableId == referenceTableId && !b.ReferenceTableIdGuid.HasValue) ||
+                  (referenceTableIdGuid.HasValue && b.ReferenceTableIdGuid == referenceTableIdGuid && !b.ReferenceTableId.HasValue)) &&
+                 b.IsActive &&
+                 !b.MarkedForDeletion,
+            cancellationToken);
+
+        if (!bindings.Any())
+            return new List<DocumentEntity>();
+
+        var orderedBindings = bindings
+            .OrderByDescending(b => b.IsPrimaryDocument)
+            .ThenByDescending(b => b.CreatedDate)
+            .ToList();
+
+        var documentIds = orderedBindings.Select(b => b.DocumentId).Distinct().ToList();
+        var documents = await _documentRepository.GetAsync(
+            d => documentIds.Contains(d.Id) && d.IsActive && !d.MarkedForDeletion,
+            cancellationToken);
+
+        var documentsById = documents.ToDictionary(d => d.Id);
+        return documentIds.Where(id => documentsById.ContainsKey(id)).Select(id => documentsById[id]).ToList();
+    }
+
+    public async Task<List<DocumentEntity>> GetSoftDeletedDocumentsAsync(
+        DateTime cutoffDate,
+        CancellationToken cancellationToken = default)
+    {
+        var docs = await _documentRepository.GetAsync(
+            d => d.MarkedForDeletion &&
+                 d.MarkedForDeletionDate != null &&
+                 d.MarkedForDeletionDate < cutoffDate,
+            cancellationToken);
+        return docs.ToList();
+    }
+
+    public async Task HardDeleteDocumentAsync(
+        int documentId,
+        CancellationToken cancellationToken = default)
+    {
+        var document = await _documentRepository.GetByIdAsync(documentId, cancellationToken);
+        if (document == null)
+            return;
+
+        // Hard delete the document record
+        await _documentRepository.DeleteAsync(document, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

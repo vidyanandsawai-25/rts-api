@@ -5,5 +5,4 @@ namespace NtisPlatform.Application.Interfaces;
 
 public interface IPropertyCertificateTypeService : ICommonCrudService<PropertyCertificateTypeMasterEntity, PropertyCertificateTypeDto, CreatePropertyCertificateTypeDto, UpdatePropertyCertificateTypeDto, PropertyCertificateTypeQueryParameters, int>
 {
-
 }

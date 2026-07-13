@@ -446,15 +446,15 @@ namespace NtisPlatform.Tests.Application.Services
 
             // Assert
             Assert.NotNull(result);
-            Assert.Equal(4, result.Count);
+            Assert.Equal(5, result.Count);
 
             // Verify mapping accuracy
-            var allProps = result.Find(c => c.Id == (int)ScopeCategory.AllProperties);
+            var allProps = result.Find(c => c.Id == (int)ScopeCategory.ZoneNode);
             Assert.NotNull(allProps);
-            Assert.Equal("AllProperties", allProps.Name);
-            Assert.Equal("All Properties", allProps.DisplayName);
-            Assert.Equal("Entire corporation", allProps.Description);
-            Assert.Empty(allProps.Options);
+            Assert.Equal("ZoneNode", allProps.Name);
+            Assert.Equal("Zone / Node", allProps.DisplayName);
+            Assert.Equal("Zone-wise selection", allProps.Description);
+            Assert.Equal(new List<string> { "Zone", "Property Type", "Assessment Status" }, allProps.Options);
 
             var buildingWise = result.Find(c => c.Id == (int)ScopeCategory.BuildingWise);
             Assert.NotNull(buildingWise);
@@ -480,6 +480,48 @@ namespace NtisPlatform.Tests.Application.Services
             Assert.Equal("Property Range", propertyRange.DisplayName);
             Assert.Equal("From-to property range", propertyRange.Description);
             Assert.Equal(new List<string> { "Ward", "From Property", "To Property" }, propertyRange.Options);
+        }
+
+        #endregion
+
+        #region GetApartmentUnitListAsync Tests
+
+        [Fact]
+        public async Task GetApartmentUnitListAsync_CallsRepositoryWithParameters()
+        {
+            // Arrange
+            var propertyId = 123;
+            var searchRequest = new PropertySearchRequestDto { UPICId = "NK07" };
+            var expectedResponse = new ApartmentUnitListResponseDto();
+
+            _mockSearchRepository
+                .Setup(x => x.GetApartmentUnitListAsync(propertyId, searchRequest, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(expectedResponse);
+
+            // Act
+            var result = await _service.GetApartmentUnitListAsync(propertyId, searchRequest, CancellationToken.None);
+
+            // Assert
+            Assert.Same(expectedResponse, result);
+            _mockSearchRepository.Verify(x => x.GetApartmentUnitListAsync(propertyId, searchRequest, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetApartmentUnitListAsync_WithInvalidValuationFilters_ThrowsValidationException()
+        {
+            // Arrange
+            var propertyId = 123;
+            var searchRequest = new PropertySearchRequestDto
+            {
+                ValuationMethod = "RV",
+                FilterType = "Between",
+                AmountValue = 500,
+                AmountTo = 100 // AmountValue > AmountTo -> invalid!
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<PropertyValidationException>(() =>
+                _service.GetApartmentUnitListAsync(propertyId, searchRequest, CancellationToken.None));
         }
 
         #endregion

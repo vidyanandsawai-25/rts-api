@@ -56,6 +56,15 @@ public interface IPropertyPhotoService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Restores a superseded photo back to latest state (IsLatest = 1). Used for compensation
+    /// if a replacement operation fails after superseding.
+    /// </summary>
+    Task RestoreFromSupersedingAsync(
+        int id,
+        int restoredBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Soft deletes a property photo (two-phase delete via MarkedForDeletion).
     /// </summary>
     Task DeleteAsync(

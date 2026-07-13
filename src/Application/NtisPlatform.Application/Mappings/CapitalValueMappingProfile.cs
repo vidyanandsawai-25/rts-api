@@ -92,7 +92,7 @@ public class CapitalValueMappingProfile : Profile
             .ForMember(dest => dest.TaxAmount, opt => opt.Ignore())
             .ForMember(dest => dest.CVInputHash, opt => opt.Ignore()) // Set separately during CV calculation
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(_ => false))
-            .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.UtcNow))
+            .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(_ => DateTime.Now))
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
