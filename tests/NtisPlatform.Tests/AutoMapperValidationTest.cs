@@ -144,7 +144,8 @@ public class AutoMapperValidationTest
                 // Computed/derived rate fields (populated from navigation properties after mapping)
                 "RateAmount",
                 // Local record types used in data layer projections (not entity mappings)
-                "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount"
+                "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
+                "Remark", "Application", "LoginTime", "LastActivityTime", "LogoutTime"
              };
 
             // Check if all unmapped properties are in the expected list

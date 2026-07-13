@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -14,7 +14,7 @@ public class RTSCitizenSessionQueryParameters:BaseQueryParameters
     public string? MobileNo { get; set; }
     [Filterable(FilterOperator.Equals)]
     [Sortable]
-    public string? UPIC { get; set; }
+    public string? Upic { get; set; }
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     public string? PropertyNo { get; set; }

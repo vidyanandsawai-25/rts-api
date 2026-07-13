@@ -5251,13 +5251,16 @@ public class ApplicationDbContext : DbContext
 
             entity.Property(e => e.DepartmentName)
                   .IsRequired()
-                  .HasMaxLength(80);
+                  .HasMaxLength(100);
             entity.Property(e => e.DepartmentNameLocal)
                   .HasMaxLength(200);
             entity.HasIndex(e => e.DepartmentName)
                   .IsUnique()
-                  .HasDatabaseName("UQ_RTSDepartments_DepartmentName");
-            entity.Property(e => e.DeptIcon);
+                  .HasDatabaseName("UQ_DepartmentMaster_DepartmentName");
+            entity.Property(e => e.DepartmentIcon)
+                  .HasMaxLength(200);
+            entity.Property(e => e.DisplayOrder)
+                  .HasDefaultValue(0);
             entity.Property(e => e.IsActive)
                   .HasDefaultValue(true);
             entity.Property(e => e.CreatedDate)
@@ -5299,7 +5302,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentId).IsRequired();
             entity.Property(e => e.ServiceId).IsRequired();
             entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            // FieldName removed — FieldCode is the unique identifier; FieldName was always identical.
             entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
             entity.Property(e => e.FieldLabelLocal).HasMaxLength(200);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
@@ -5332,7 +5335,7 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => new { e.DepartmentId, e.ServiceId, e.FieldCode })
                 .IsUnique()
-                .HasDatabaseName("UQ_FieldDef_CategoryTypeField");
+                .HasDatabaseName("UQ_FieldDefinition_Department_Service_FieldCode");
         });
 
 
@@ -5348,9 +5351,7 @@ public class ApplicationDbContext : DbContext
                 .IsRequired();
             entity.Property(e => e.FieldDefinitionId)
                 .IsRequired();
-            entity.Property(e => e.FieldName)
-                .IsRequired()
-                .HasMaxLength(100);
+            // FieldName removed — redundant, available via JOIN to FieldDefinition using FieldDefinitionId.
             entity.Property(e => e.TextValue)
                 .HasColumnType("nvarchar(max)");
             entity.Property(e => e.NumberValue)
@@ -5377,7 +5378,7 @@ public class ApplicationDbContext : DbContext
                 .HasColumnType("datetime");
             entity.HasIndex(e => new { e.ApplicationId, e.FieldDefinitionId })
                 .IsUnique()
-                .HasDatabaseName("UQ_RTSFieldValue_Application_Field");
+                .HasDatabaseName("UQ_FieldValue_Application_FieldDefinition");
 
             entity.HasOne(e => e.Application)
                 .WithMany(a => a.FieldValueData)
@@ -5411,7 +5412,8 @@ public class ApplicationDbContext : DbContext
                     .IsRequired(false);
             entity.Property(e => e.ApplicationStatus)
                 .HasMaxLength(50)
-                .IsRequired(false);
+                .IsRequired()
+                .HasDefaultValue("Submitted");
             entity.Property(e => e.Remark)
                 .HasMaxLength(500);
             entity.Property(e => e.IsActive)
@@ -5450,16 +5452,17 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<RTSServiceEntity>(entity =>
         {
-            entity.ToTable("Services", "RTS");
+            entity.ToTable("ServiceMaster", "RTS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id)
                 .ValueGeneratedOnAdd();
 
             entity.Property(e => e.DepartmentId)
                 .IsRequired();
+            entity.Property(e => e.GovtServiceCode);
             entity.Property(e => e.ServiceName)
                 .IsRequired()
-                .HasMaxLength(300);
+                .HasMaxLength(200);
             entity.Property(e => e.ServiceNameLocal)
                 .HasMaxLength(300);
             entity.Property(e => e.Description)
@@ -5468,6 +5471,8 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(500);
             entity.Property(e => e.ServiceIcon)
                 .HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder)
+                .HasDefaultValue(0);
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -5500,7 +5505,8 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(200);
 
             entity.HasIndex(e => e.SessionId)
-                .IsUnique();
+                .IsUnique()
+                .HasDatabaseName("UQ_CitizenSession_SessionId");
 
             entity.Property(e => e.CitizenName)
                 .HasMaxLength(200);
@@ -5508,7 +5514,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MobileNo)
                 .HasMaxLength(20);
 
-            entity.Property(e => e.UPIC)
+            entity.Property(e => e.Upic)
                 .HasMaxLength(50);
 
             entity.Property(e => e.PropertyNo)
@@ -5527,6 +5533,13 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);
+
+            // Audit columns not applicable for session tracking.
+            // LoginTime = creation time; LastActivityTime = last update.
+            entity.Ignore(e => e.CreatedBy);
+            entity.Ignore(e => e.CreatedDate);
+            entity.Ignore(e => e.UpdatedBy);
+            entity.Ignore(e => e.UpdatedDate);
         });
 
 

@@ -65,4 +65,24 @@ public class RTSCitizenSessionService:BaseCommonCrudService<RTSCitizenSessionEnt
             Session = _mapper.Map<RTSCitizenSessionDto>(session)
         };
     }
+
+    public async Task<bool> LogoutSessionAsync(string sessionId, CancellationToken ct)
+    {
+        var sessions = await _repository.GetAsync(s => s.SessionId == sessionId, ct);
+        var session = sessions.FirstOrDefault();
+
+        if (session == null || !session.IsActive)
+        {
+            return false;
+        }
+
+        session.IsActive = false;
+        session.LogoutTime = DateTime.UtcNow;
+        session.LastActivityTime = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(session, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return true;
+    }
 }
+

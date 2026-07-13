@@ -6,4 +6,6 @@ namespace NtisPlatform.Application.Interfaces;
 public interface IRTSCitizenSessionService:ICommonCrudService<RTSCitizenSessionEntity, RTSCitizenSessionDto, CreateRTSCitizenSessionDto, UpdateRTSCitizenSessionDto, RTSCitizenSessionQueryParameters, int>
 {
     Task<RTSCitizenSessionValidationResultDto> ValidateAndUpdateSessionAsync(string sessionId, CancellationToken ct);
+    Task<bool> LogoutSessionAsync(string sessionId, CancellationToken ct);
 }
+

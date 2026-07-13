@@ -38,21 +38,4 @@ namespace NtisPlatform.Api.Controllers.Master;
         [HttpGet("{id}")]
         public Task<IActionResult> GetById(int id, CancellationToken ct)
             => this.ExecuteGetById(_service, id, _logger, ct);
-
-        [HttpPost]
-        public Task<IActionResult> Create([FromBody] CreateRTSFieldDefinitionDto dto, CancellationToken ct)
-            => this.ExecuteCreate(_service, dto, _logger, ct);
-
-        [HttpPut("{id}")]
-        public Task<IActionResult> Update(int id, [FromBody] UpdateRTSFieldDefinitionDto dto, CancellationToken ct)
-            => this.ExecuteUpdate(_service, id, dto, _logger, ct);
-
-        [HttpDelete("{id}")]
-        public Task<IActionResult> Delete(int id, CancellationToken ct)
-            => this.ExecuteDelete(_service, id, _logger, ct);
-
-        [Authorize]
-        [HttpDelete("{id}/purge")]
-        public Task<IActionResult> Purge(int id, CancellationToken ct)
-            => this.ExecuteForceDelete<RTSFieldDefinitionEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
     }

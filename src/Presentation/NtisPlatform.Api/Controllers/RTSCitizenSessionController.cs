@@ -22,25 +22,9 @@ public class RTSCitizenSessionController : ControllerBase
         _logger = logger;
     }
 
-    [HttpGet]
-    public Task<IActionResult> GetAll([FromQuery] RTSCitizenSessionQueryParameters queryParameters, CancellationToken ct)
-        => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
-
-    [HttpGet("{id}")]
-    public Task<IActionResult> GetById(int id, CancellationToken ct)
-        => this.ExecuteGetById(_service, id, _logger, ct);
-
     [HttpPost]
     public Task<IActionResult> Create([FromBody] CreateRTSCitizenSessionDto dto, CancellationToken ct)
         => this.ExecuteCreate(_service, dto, _logger, ct);
-
-    [HttpPut("{id}")]
-    public Task<IActionResult> Update(int id, [FromBody] UpdateRTSCitizenSessionDto dto, CancellationToken ct)
-        => this.ExecuteUpdate(_service, id, dto, _logger, ct);
-
-    [HttpDelete("{id}")]
-    public Task<IActionResult> Delete(int id, CancellationToken ct)
-        => this.ExecuteDelete(_service, id, _logger, ct);
 
     [AllowAnonymous]
     [HttpGet("validate/{sessionId}")]
@@ -61,4 +45,25 @@ public class RTSCitizenSessionController : ControllerBase
             return StatusCode(500, new { message = "Internal server error" });
         }
     }
+
+    [AllowAnonymous]
+    [HttpPost("logout/{sessionId}")]
+    public async Task<IActionResult> LogoutSession(string sessionId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.LogoutSessionAsync(sessionId, ct);
+            if (!result)
+            {
+                return NotFound(new { message = "Session not found or already inactive" });
+            }
+            return Ok(new { success = true, message = "Logged out successfully" });
+        }
+        catch (System.Exception ex)
+        {
+            _logger.LogError(ex, "Error logging out session {SessionId}", sessionId);
+            return StatusCode(500, new { message = "Internal server error" });
+        }
+    }
 }
+

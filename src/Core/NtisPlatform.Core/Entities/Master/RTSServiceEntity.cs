@@ -1,10 +1,13 @@
 namespace NtisPlatform.Core.Entities.Master;
 
-public class RTSServiceEntity:BaseEntity
+public class RTSServiceEntity : BaseEntity
 {
     public int DepartmentId { get; set; }
 
-    public int? RTSServiceId { get; set; }
+    /// <summary>
+    /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate).
+    /// </summary>
+    public int? GovtServiceCode { get; set; }
 
     public string ServiceName { get; set; } = string.Empty;
 
@@ -16,4 +19,5 @@ public class RTSServiceEntity:BaseEntity
 
     public string? ServiceIcon { get; set; }
 
+    public int DisplayOrder { get; set; }
 }

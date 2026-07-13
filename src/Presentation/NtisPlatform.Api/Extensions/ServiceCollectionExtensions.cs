@@ -470,7 +470,6 @@ public static class ServiceCollectionExtensions
 
         //RTS SERVICES DepenedencyInjection
         services.AddScoped<IRTSDepartmentService, RTSDepartmentService>();  //rts service di
-        services.AddScoped<IRTSCitizenLoginService, RTSCitizenLoginService>();
         services.AddScoped<IRTSFieldDefinitionService, RTSFieldDefinitionService>();
         services.AddScoped<IRTSApplicationService, RTSApplicationService>();
         services.AddScoped<IRTSServiceService, RTSServiceService>();
