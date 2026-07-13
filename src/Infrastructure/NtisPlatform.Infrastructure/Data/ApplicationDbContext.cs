@@ -193,6 +193,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
+    public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -5235,6 +5236,76 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
+        });
+
+        // SocietyWingDetails configuration
+        modelBuilder.Entity<SocietyWingDetailsEntity>(entity =>
+        {
+            entity.ToTable("SocietyWingDetails", "GSMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.WingId).IsRequired(false);
+            entity.Property(e => e.PropertyId).IsRequired(false);
+            entity.Property(e => e.SocietyDetailId).IsRequired(false);
+
+            entity.Property(e => e.FromFloor)
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.ToFloor)
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.OldWingName)
+                .IsRequired(false);
+
+            entity.Property(e => e.NewWingName)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
+            entity.Property(e => e.NoOfFlat).IsRequired(false);
+            entity.Property(e => e.NoOfShop).IsRequired(false);
+            entity.Property(e => e.NoOfRowHouse).IsRequired(false);
+            entity.Property(e => e.WingPhoto).IsRequired(false);
+            entity.Property(e => e.BoardPhoto).IsRequired(false);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime")
+                .IsRequired(false);
+
+            // FK → WingMaster
+            entity.HasOne(e => e.WingMaster)
+                .WithMany()
+                .HasForeignKey(e => e.WingId)
+                .HasConstraintName("FK_SocietyWingDetails_WingMaster")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK → SocietyDetailsMast
+            entity.HasOne(e => e.SocietyDetailsMast)
+                .WithMany()
+                .HasForeignKey(e => e.SocietyDetailId)
+                .HasConstraintName("FK_SocietyWingDetails_SocietyDetailsMast")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.PropertyId)
+                .HasDatabaseName("IX_SocietyWingDetails_PropertyId");
+
+            entity.HasIndex(e => e.WingId)
+                .HasDatabaseName("IX_SocietyWingDetails_WingId");
+
+            entity.HasIndex(e => e.SocietyDetailId)
+                .HasDatabaseName("IX_SocietyWingDetails_SocietyDetailId");
+
+            entity.HasIndex(e => e.IsActive)
+                .HasDatabaseName("IX_SocietyWingDetails_IsActive");
         });
 
     }
