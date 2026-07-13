@@ -39,7 +39,7 @@ public class RTSCitizenSessionService:BaseCommonCrudService<RTSCitizenSessionEnt
         }
 
         var lastActivity = session.LastActivityTime ?? session.LoginTime;
-        if (DateTime.UtcNow.Subtract(lastActivity).TotalMinutes > 30)
+        if (DateTime.Now.Subtract(lastActivity).TotalMinutes > 30)
         {
             session.IsActive = false;
             session.LogoutTime = lastActivity;
@@ -54,14 +54,14 @@ public class RTSCitizenSessionService:BaseCommonCrudService<RTSCitizenSessionEnt
             };
         }
 
-        session.LastActivityTime = DateTime.UtcNow;
+        session.LastActivityTime = DateTime.Now;
         await _repository.UpdateAsync(session, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
         return new RTSCitizenSessionValidationResultDto
         {
             Success = true,
-            Message = "SessionActive",
+            Message = "SessionValid",
             Session = _mapper.Map<RTSCitizenSessionDto>(session)
         };
     }
@@ -77,12 +77,11 @@ public class RTSCitizenSessionService:BaseCommonCrudService<RTSCitizenSessionEnt
         }
 
         session.IsActive = false;
-        session.LogoutTime = DateTime.UtcNow;
-        session.LastActivityTime = DateTime.UtcNow;
+        session.LogoutTime = DateTime.Now;
+        session.LastActivityTime = DateTime.Now;
 
         await _repository.UpdateAsync(session, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         return true;
     }
 }
-

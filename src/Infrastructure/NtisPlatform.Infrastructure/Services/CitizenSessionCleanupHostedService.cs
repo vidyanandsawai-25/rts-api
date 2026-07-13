@@ -41,7 +41,7 @@ public class CitizenSessionCleanupHostedService : BackgroundService
                     var repository = scope.ServiceProvider.GetRequiredService<IRepository<RTSCitizenSessionEntity, int>>();
                     var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                    var threshold = DateTime.UtcNow.AddMinutes(-30);
+                    var threshold = DateTime.Now.AddMinutes(-30);
 
                     // Query active sessions using LINQ
                     var activeSessions = await repository.GetAsync(

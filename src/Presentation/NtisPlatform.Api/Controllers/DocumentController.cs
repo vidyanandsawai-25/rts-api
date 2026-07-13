@@ -48,6 +48,7 @@ public class DocumentController : ControllerBase
     /// Rate limited to prevent abuse - configured in appsettings.json under RateLimiting:FileUpload (default: 10 uploads per 5 minutes)
     /// </summary>
     [HttpPost("upload")]
+    [AllowAnonymous]
     [Consumes("multipart/form-data")]
     [EnableRateLimiting("fileupload")]
     [ProducesResponseType(typeof(ApiResponse<DocumentUploadResponseDto>), StatusCodes.Status200OK)]
@@ -88,7 +89,7 @@ public class DocumentController : ControllerBase
                 formDto.File.ContentType,
                 formDto.File.Length,
                 uploadDto,
-                GetUserId(),
+                GetUserId(allowAnonymous: true),
                 cancellationToken);
 
             return Ok(new ApiResponse<DocumentUploadResponseDto>
@@ -427,11 +428,15 @@ public class DocumentController : ControllerBase
         }
     }
 
-    private int GetUserId()
+    private int GetUserId(bool allowAnonymous = false)
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(claim) || !int.TryParse(claim, out var id) || id <= 0)
         {
+            if (allowAnonymous)
+            {
+                return 0; // Return 0 (Citizen) for anonymous uploads
+            }
             throw new UnauthorizedAccessException("Valid user identification is required.");
         }
         return id;

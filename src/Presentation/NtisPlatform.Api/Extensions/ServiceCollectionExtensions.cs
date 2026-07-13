@@ -413,6 +413,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
+        services.AddScoped<ISocietyWingDetailsService, SocietyWingDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
         services.AddScoped<IPropertyMapMasterService, PropertyMapMasterService>();

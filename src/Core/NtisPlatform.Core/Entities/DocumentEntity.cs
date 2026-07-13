@@ -82,8 +82,8 @@ UploadStatusCode = "ACTIVE",
 
     public void MarkForDeletion(int deletedByUserId)
     {
-        if (deletedByUserId <= 0)
-            throw new ArgumentException("Deleted by user ID must be greater than zero.", nameof(deletedByUserId));
+        if (deletedByUserId < 0)
+            throw new ArgumentException("Deleted by user ID must be non-negative.", nameof(deletedByUserId));
         MarkedForDeletion = true;
         MarkedForDeletionDate = DateTime.Now;
         IsActive = false;
@@ -91,8 +91,8 @@ UploadStatusCode = "ACTIVE",
 
     public void RecordDownload(int userId)
     {
-        if (userId <= 0)
-            throw new ArgumentException("User ID must be greater than zero.", nameof(userId));
+        if (userId < 0)
+            throw new ArgumentException("User ID must be non-negative.", nameof(userId));
         DownloadCount++;
     }
 

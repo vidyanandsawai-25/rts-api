@@ -85,7 +85,7 @@ public class DocumentApplicationService : IDocumentApplicationService
         Guard.AgainstNegativeOrZero(fileSizeBytes, nameof(fileSizeBytes));
         Guard.AgainstOutOfRange(fileSizeBytes, 1, _maxFileSizeBytes, nameof(fileSizeBytes));
         Guard.AgainstNull(uploadDto, nameof(uploadDto));
-        Guard.AgainstNegativeOrZero(uploadedBy, nameof(uploadedBy));
+        Guard.AgainstNegative(uploadedBy, nameof(uploadedBy));
 
         _logger.LogInformation(
             "[Upload:Start] FileName={FileName}, Size={FileSize} bytes, User={UserId}",
@@ -377,7 +377,7 @@ public class DocumentApplicationService : IDocumentApplicationService
         CancellationToken cancellationToken = default)
     {
         Guard.AgainstEmptyGuid(documentGuid, nameof(documentGuid));
-        Guard.AgainstNegativeOrZero(userId, nameof(userId));
+        Guard.AgainstNegative(userId, nameof(userId));
 
         var document = await _documentService.GetDocumentByGuidAsync(documentGuid, cancellationToken);
         if (document == null)
@@ -434,7 +434,7 @@ public class DocumentApplicationService : IDocumentApplicationService
         CancellationToken cancellationToken = default)
     {
         Guard.AgainstEmptyGuid(documentGuid, nameof(documentGuid));
-        Guard.AgainstNegativeOrZero(deletedBy, nameof(deletedBy));
+        Guard.AgainstNegative(deletedBy, nameof(deletedBy));
 
         var document = await _documentService.GetDocumentByGuidAsync(documentGuid, cancellationToken);
         if (document != null)
@@ -495,7 +495,7 @@ public class DocumentApplicationService : IDocumentApplicationService
     {
         Guard.AgainstNegativeOrZero(documentBindingId, nameof(documentBindingId));
         Guard.AgainstNegativeOrZero(referenceTableId, nameof(referenceTableId));
-        Guard.AgainstNegativeOrZero(updatedBy, nameof(updatedBy));
+        Guard.AgainstNegative(updatedBy, nameof(updatedBy));
 
         await _documentService.UpdateDocumentBindingReferenceAsync(
             documentBindingId, referenceTableId, updatedBy, cancellationToken);
@@ -540,7 +540,7 @@ public class DocumentApplicationService : IDocumentApplicationService
         CancellationToken cancellationToken = default)
     {
         Guard.AgainstNegativeOrZero(documentBindingId, nameof(documentBindingId));
-        Guard.AgainstNegativeOrZero(updatedBy, nameof(updatedBy));
+        Guard.AgainstNegative(updatedBy, nameof(updatedBy));
 
         var binding = await _bindingRepository.GetByIdAsync(documentBindingId, cancellationToken);
         if (binding == null)
