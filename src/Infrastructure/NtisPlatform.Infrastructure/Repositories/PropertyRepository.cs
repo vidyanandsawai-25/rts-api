@@ -70,9 +70,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
-                                && tm.IsActive
-                                && (!excludeEducationEmploymentTax ||
-                                    (tc.CategoryCode != "EDU" && tc.CategoryCode != "EMP"))
+                                && tm.IsActive                              
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
                                  td.PolicyCode,
@@ -87,9 +85,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
-                                && tm.IsActive
-                                && (!excludeEducationEmploymentTax ||
-                                    (tc.CategoryCode != "EDU" && tc.CategoryCode != "EMP"))
+                                && tm.IsActive                                
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
                                  td.PolicyCode,
