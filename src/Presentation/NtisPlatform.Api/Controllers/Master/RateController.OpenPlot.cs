@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Models;
 
@@ -9,16 +10,25 @@ namespace NtisPlatform.Api.Controllers.Master;
 public partial class RateController
 {
     [HttpGet("typeofuse")]
-    public async Task<IActionResult> GetTypeOfUseDetails(CancellationToken ct)
+    public async Task<IActionResult> GetTypeOfUseDetails([FromQuery] TypeOfUseQueryParameters queryParameters, CancellationToken ct)
     {
         try
         {
-            var result = await _service.GetTypeOfUseDetailsAsync(ct);
+            var result = await _service.GetTypeOfUseDetailsAsync(queryParameters, ct);
             return Ok(result);
         }
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (FilterValidationException ex)
+        {
+            _logger.LogWarning(ex, "Filter validation failed: {Message}", ex.Message);
+            return BadRequest(new
+            {
+                message = ex.Message,
+                errors = ex.Errors
+            });
         }
         catch (Exception ex)
         {
