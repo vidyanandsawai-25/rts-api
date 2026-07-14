@@ -29,14 +29,14 @@ public class CreateDepreciationDto : CreateBaseDtos
     public decimal Rate { get; set; }
 
     [Required(ErrorMessage = "Depreciation_YearRangeRVId_Required")]
-    [Range(1, 9999, ErrorMessage = "Depreciation_YearRangeRVId_Range_1_9999")]
+    [Range(1, int.MaxValue, ErrorMessage = "Depreciation_YearRangeRVId_Range_1_IntMax")]
     public int YearRangeRVId { get; set; }
 
 }
 public class UpdateDepreciationDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "Depreciation_ID_Required")]
-    [Range(1, int.MaxValue, ErrorMessage = "ID_Min_1")]
+    [Range(1, int.MaxValue, ErrorMessage = "Depreciation_ID_Range_1_IntMax")]
     public int Id { get; set; }
 
     [Required(ErrorMessage = "Depreciation_ConstructionId_Required")]
@@ -55,6 +55,6 @@ public class UpdateDepreciationDto : UpdateBaseDtos
     public decimal Rate { get; set; }
 
     [Required(ErrorMessage = "Depreciation_YearRangeRVId_Required")]
-    [Range(1, 9999, ErrorMessage = "YearRangeRVId_Range_1_9999")]
+    [Range(1, int.MaxValue, ErrorMessage = "Depreciation_YearRangeRVId_Range_1_IntMax")]
     public int YearRangeRVId { get; set; }
 }
