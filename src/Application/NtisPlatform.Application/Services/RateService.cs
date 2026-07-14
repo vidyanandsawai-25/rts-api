@@ -2,11 +2,13 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Extensions;
+using NtisPlatform.Application.Utilities;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -111,7 +113,7 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
         return new PagedResult<DetailedRateDto>(items, totalCount, pageNumber, pageSize);
     }
 
-    public async Task<IEnumerable<TypeOfUseDetailsDto>> GetTypeOfUseDetailsAsync(CancellationToken cancellationToken = default)
+    public async Task<PagedResult<TypeOfUseDetailsDto>> GetTypeOfUseDetailsAsync(TypeOfUseQueryParameters queryParameters, CancellationToken cancellationToken = default)
     {
         var query = from tou in _typeOfUseRepository.GetQueryable()
                     join touc in _typeOfUseCategoryRepository.GetQueryable() on tou.TypeOfUseCategoryId equals touc.Id into toucJoined
@@ -134,7 +136,61 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
                         GroupName = toug != null ? toug.GroupName : null
                     };
 
-        return await query.ToListAsync(cancellationToken);
+        // Handle SearchTerm if provided
+        if (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm))
+        {
+            var searchTerm = queryParameters.SearchTerm.Trim().ToLower();
+            query = query.Where(x => (x.TypeOfUseCode != null && x.TypeOfUseCode.ToLower().Contains(searchTerm)) ||
+                                     (x.Description != null && x.Description.ToLower().Contains(searchTerm)) ||
+                                     (x.GroupName != null && x.GroupName.ToLower().Contains(searchTerm)));
+        }
+
+        // Apply Sorting (default to Id or SortBy)
+        if (!string.IsNullOrWhiteSpace(queryParameters.SortBy))
+        {
+            var allowedSortFields = new[] { "Id", "TypeOfUseCode", "Description", "GroupName" };
+            if (!allowedSortFields.Contains(queryParameters.SortBy, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new FilterValidationException("SortBy", $"Field '{queryParameters.SortBy}' is not sortable. Allowed fields: {string.Join(", ", allowedSortFields)}");
+            }
+
+            var isDesc = string.Equals(queryParameters.SortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+
+            if (string.Equals(queryParameters.SortBy, "TypeOfUseCode", StringComparison.OrdinalIgnoreCase))
+            {
+                query = isDesc ? query.OrderByDescending(x => x.TypeOfUseCode) : query.OrderBy(x => x.TypeOfUseCode);
+            }
+            else if (string.Equals(queryParameters.SortBy, "Description", StringComparison.OrdinalIgnoreCase))
+            {
+                query = isDesc ? query.OrderByDescending(x => x.Description) : query.OrderBy(x => x.Description);
+            }
+            else if (string.Equals(queryParameters.SortBy, "GroupName", StringComparison.OrdinalIgnoreCase))
+            {
+                query = isDesc ? query.OrderByDescending(x => x.GroupName) : query.OrderBy(x => x.GroupName);
+            }
+            else
+            {
+                query = isDesc ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id);
+            }
+        }
+        else
+        {
+            query = query.OrderBy(x => x.Id);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagination = PaginationHelper.Calculate(
+            queryParameters.PageNumber,
+            queryParameters.PageSize,
+            totalCount);
+
+        var items = await query
+            .Skip(pagination.skip)
+            .Take(pagination.take)
+            .ToListAsync(cancellationToken);
+
+        return new PagedResult<TypeOfUseDetailsDto>(items, totalCount, pagination.pageNumber, pagination.pageSize);
     }
 
     public async Task<RateDto> CreateOpenPlotAsync(CreateOpenPlotRateDto createDto, CancellationToken cancellationToken = default)

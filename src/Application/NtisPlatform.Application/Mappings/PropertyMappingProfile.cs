@@ -133,5 +133,45 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.Ward, opt => opt.Ignore())
             .ForMember(dest => dest.Mouja, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyAssessmentStatus, opt => opt.Ignore());
+
+        // UpdateAllPropertyDetailsDto to Entities
+        CreateMap<UpdateAllPropertyDetailsDto, PropertyEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UPICId, opt => opt.Ignore())
+            .ForMember(dest => dest.SocietyDetailId, opt => opt.Ignore());
+
+        CreateMap<UpdateAllPropertyDetailsDto, SocietyDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore());
+
+        CreateMap<UpdateAllPropertyDetailsDto, PropertyAssessmentEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore());
+
+        CreateMap<UpdateAllPropertyDetailsDto, PropertyDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore());
+
+        CreateMap<UpdateAllPropertyDetailsDto, RoomWiseSubmissionDetailsEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyId, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyDetailsId, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.OuterYesNo, opt => opt.Ignore())
+            .ForMember(dest => dest.MinusYesNo, opt => opt.Ignore());
     }
 }

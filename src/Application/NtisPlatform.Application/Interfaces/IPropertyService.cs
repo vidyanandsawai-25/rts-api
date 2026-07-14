@@ -47,4 +47,11 @@ public interface IPropertyService
     // (IPropertySearchService) per the per-feature Clean Architecture split.
 
     Task<BulkResult<CreateBulkPropertyResponseDto>?> BulkCreateAsync(CreateBulkPropertyDto[] items, CancellationToken ct);
+
+    /// <summary>
+    /// Updates all property details (PropertyMast, SocietyDetailsMast, PropertyMastDetails,
+    /// PropertyDetails, RoomWiseSubmissionDetails) within a single transaction.
+    /// Business logic lives in Application layer per CLAUDE.md guidelines.
+    /// </summary>
+    Task<UpdateAllPropertyDetailsResponseDto> UpdatePropertyAsync(int propertyId, UpdateAllPropertyDetailsDto dto, CancellationToken ct);
 }

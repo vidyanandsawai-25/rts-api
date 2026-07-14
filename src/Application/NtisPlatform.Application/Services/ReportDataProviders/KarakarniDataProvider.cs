@@ -11,11 +11,12 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
     /// Karakarni report data provider.
     ///
     /// Produces four logical sections per certificate call:
-    ///   "main"           — one row: property master + ward + society + type-of-use fields.
+    ///   "main"           — one row per property: property master + ward + society + type-of-use fields.
     ///   "propertyDetails"— one row per floor/sub-floor entry in PTIS.PropertyDetails.
     ///   "taxDetails"     — one row per tax line in PTIS.TransMast (pivoted with TaxName).
     ///   "floorDetails"   — one row per floor with FloorMaster + ConstructionTypeMaster + TypeOfUseMaster.
     ///
+    /// Parameters: propertyId (int or comma-separated list), userId (int)
     /// Section discovery is static (no query runs during authenticate).
     /// </summary>
     public class KarakarniDataProvider : IPagedReportDataProvider
@@ -103,29 +104,38 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             Dictionary<string, string> parameters, string section, int skip, int take, CancellationToken ct)
         {
             // --- Parse parameters ---
+            // propertyId accepts a single value OR comma-separated list: "101,202,303"
             parameters.TryGetValue("propertyId", out var propertyIdStr);
             parameters.TryGetValue("userId",     out var userIdStr);
-            int.TryParse(propertyIdStr, out var propertyId);
-            int.TryParse(userIdStr,     out var userId);
+
+            // Split on commas, parse each token, deduplicate, drop invalid entries.
+            var propertyIds = (propertyIdStr ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
+            int.TryParse(userIdStr, out var userId);
 
             List<object> rows;
 
             switch (section)
             {
                 case PropertyDetailsSection:
-                    rows = await BuildPropertyDetailsRowsAsync(propertyId, ct);
+                    rows = await BuildPropertyDetailsRowsAsync(propertyIds, ct);
                     break;
 
                 case TaxDetailsSection:
-                    rows = await BuildTaxDetailsRowsAsync(propertyId, ct);
+                    rows = await BuildTaxDetailsRowsAsync(propertyIds, ct);
                     break;
 
                 case FloorDetailsSection:
-                    rows = await BuildFloorDetailsRowsAsync(propertyId, ct);
+                    rows = await BuildFloorDetailsRowsAsync(propertyIds, ct);
                     break;
 
                 default: // MainSection
-                    rows = await BuildMainRowAsync(propertyId, userId, ct);
+                    rows = await BuildMainRowsAsync(propertyIds, userId, ct);
                     break;
             }
 
@@ -140,6 +150,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
         // ─────────────────────────────────────────────────────────────────────────
         // Section 1 — Main: property master + ward + society + type-of-use + ULB
+        // One row per property.
         // Equivalent SQL:
         //   SELECT PM.*, WM.WardNo, SD.WingId/WingName/SocietyName/SocietyAddress,
         //          TUM.Description, TUM.TypeOfUseCode,
@@ -151,13 +162,17 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         //   LEFT JOIN PTIS.TypeOfUseMaster TUM    ON PM.PropertyTypeId = TUM.Id
         //   CROSS JOIN CORE.UlbMaster ULB (first row)
         //   + TransMast JOIN TaxMaster (pivoted in memory)
-        //   WHERE PM.Id = @propertyId
+        //   WHERE PM.Id IN @propertyIds
         // ─────────────────────────────────────────────────────────────────────────
-        private async Task<List<object>> BuildMainRowAsync(int propertyId, int userId, CancellationToken ct)
+        private async Task<List<object>> BuildMainRowsAsync(List<int> propertyIds, int userId, CancellationToken ct)
         {
-            // 1a. Property + Ward (LEFT JOIN)
-            var property = await (
-                from pm in _propertyRepository.GetQueryable().Where(p => p.Id == propertyId)
+            if (propertyIds == null || propertyIds.Count == 0)
+                return new List<object>();
+
+            // 1a. All properties + Ward (LEFT JOIN) in one batch
+            var properties = await (
+                from pm in _propertyRepository.GetQueryable()
+                                               .Where(p => propertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
                 join wm in _wardRepository.GetQueryable() on pm.WardId equals wm.Id into wmj
                 from wm in wmj.DefaultIfEmpty()
                 select new
@@ -180,34 +195,49 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     pm.PropertyTypeId,
                     WardNo = wm != null ? wm.WardNo : null,
                 }
-            ).FirstOrDefaultAsync(ct);
+            ).ToListAsync(ct);
 
-            if (property == null)
+            if (!properties.Any())
                 return new List<object>();
 
-            // 1b. Society details (LEFT JOIN on PropertyId)
-            var society = await _societyRepository.GetQueryable()
-                .Where(sd => sd.PropertyId == propertyId)
+            // 1b. Society details (batch load for all property IDs)
+            var societyMap = await _societyRepository.GetQueryable()
+                .Where(sd => sd.PropertyId.HasValue && propertyIds.Contains(sd.PropertyId.Value))
                 .Select(sd => new
                 {
+                    PropertyId = sd.PropertyId!.Value,
                     sd.WingId,
                     sd.WingName,
                     sd.SocietyName,
                     sd.SocietyAddress,
                 })
-                .FirstOrDefaultAsync(ct);
+                .ToDictionaryAsync(sd => sd.PropertyId, ct);
 
-            // 1c. Type-of-use (LEFT JOIN on PM.PropertyTypeId = TUM.Id)
-            var typeOfUse = property.PropertyTypeId.HasValue
-                ? await _typeOfUseRepository.GetQueryable()
-                    .Where(t => t.Id == property.PropertyTypeId.Value)
+            // 1c. Type-of-use (batch load for unique PropertyTypeIds)
+            var uniqueTypeOfUseIds = properties
+                .Where(p => p.PropertyTypeId.HasValue)
+                .Select(p => p.PropertyTypeId!.Value)
+                .Distinct()
+                .ToList();
+
+            Dictionary<int, dynamic> typeOfUseMap;
+            if (uniqueTypeOfUseIds.Any())
+            {
+                var typeOfUseData = await _typeOfUseRepository.GetQueryable()
+                    .Where(t => uniqueTypeOfUseIds.Contains(t.Id))
                     .Select(t => new
                     {
+                        t.Id,
                         t.Description,
                         t.TypeOfUseCode,
                     })
-                    .FirstOrDefaultAsync(ct)
-                : null;
+                    .ToListAsync(ct);
+                typeOfUseMap = typeOfUseData.ToDictionary(t => t.Id, t => (dynamic)t);
+            }
+            else
+            {
+                typeOfUseMap = new Dictionary<int, dynamic>();
+            }
 
             // 1d. ULB Master — SELECT from [CORE].[UlbMaster] (first/only row)
             var ulb = await _ulbMasterRepository.GetQueryable()
@@ -244,17 +274,18 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // 1f. TransMast pivot — fetch all tax lines for this property, then
+            // 1f. TransMast pivot — fetch all tax lines for all properties, then group by PropertyId
             //     write dynamic columns: Transmast_{TaxName} / RVorCV_{TaxName} / RVorCVValue_{TaxName}
-            //     SQL: SELECT TAM.TaxCode, TAM.TaxName, TM.RVorCV, TM.RVorCVValue, TM.TaxAmount
+            //     SQL: SELECT TM.PropertyId, TAM.TaxCode, TAM.TaxName, TM.RVorCV, TM.RVorCVValue, TM.TaxAmount
             //          FROM PTIS.TransMast TM JOIN PTIS.TaxMaster TAM ON TM.TaxId = TAM.Id
-            //          WHERE TM.PropertyId = @propertyId ORDER BY TAM.DisplayOrder
-            var taxRows = await (
-                from tm  in _transmastRepository.GetQueryable().Where(t => t.PropertyId == propertyId)
+            //          WHERE TM.PropertyId IN @propertyIds ORDER BY TAM.DisplayOrder
+            var taxRowsAll = await (
+                from tm  in _transmastRepository.GetQueryable().Where(t => propertyIds.Contains(t.PropertyId))
                 join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
                 orderby tam.DisplayOrder
                 select new
                 {
+                    tm.PropertyId,
                     tam.TaxCode,
                     tam.TaxName,
                     tm.RVorCV,
@@ -263,7 +294,30 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 }
             ).ToListAsync(ct);
 
-            var row = new Dictionary<string, object?>
+            var taxRowsByProperty = taxRowsAll.GroupBy(t => t.PropertyId)
+                                              .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Build one row per property
+            var allRows = new List<object>();
+
+            foreach (var property in properties)
+            {
+                var society = societyMap.ContainsKey(property.Id) ? societyMap[property.Id] : null;
+                var typeOfUse = property.PropertyTypeId.HasValue && typeOfUseMap.ContainsKey(property.PropertyTypeId.Value)
+                    ? typeOfUseMap[property.PropertyTypeId.Value]
+                    : null;
+
+                List<dynamic> taxRows;
+                if (taxRowsByProperty.ContainsKey(property.Id))
+                {
+                    taxRows = taxRowsByProperty[property.Id].Cast<dynamic>().ToList();
+                }
+                else
+                {
+                    taxRows = new List<dynamic>();
+                }
+
+                var row = new Dictionary<string, object?>
             {
                 ["propertyId"]           = property.Id,
                 ["propertyNo"]           = property.PropertyNo,
@@ -313,23 +367,26 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 ["ulbPinCode"]           = ulb?.PinCode,
             };
 
-            // Pivot TransMast rows into dynamic columns on the same main row.
-            // Column naming: Transmast_{SafeName} / RVorCV_{SafeName} / RVorCVValue_{SafeName}
-            // Uses TaxCode (spaces → '_') as the safe key; falls back to TaxName.
-            // Example: "Big Building" → Transmast_Big_Building, RVorCV_Big_Building, RVorCVValue_Big_Building
-            foreach (var tax in taxRows)
-            {
-                var safeCode = (tax.TaxCode?.Trim().Length > 0
-                                    ? tax.TaxCode
-                                    : tax.TaxName ?? "UNKNOWN")
-                               .Replace(' ', '_');
+                // Pivot TransMast rows into dynamic columns on the same main row.
+                // Column naming: Transmast_{SafeName} / RVorCV_{SafeName} / RVorCVValue_{SafeName}
+                // Uses TaxCode (spaces → '_') as the safe key; falls back to TaxName.
+                // Example: "Big Building" → Transmast_Big_Building, RVorCV_Big_Building, RVorCVValue_Big_Building
+                foreach (var tax in taxRows)
+                {
+                    var safeCode = (tax.TaxCode?.Trim().Length > 0
+                                        ? tax.TaxCode
+                                        : tax.TaxName ?? "UNKNOWN")
+                                   .Replace(' ', '_');
 
-                row[$"Transmast_{safeCode}"]   = tax.TaxAmount;
-                row[$"RVorCV_{safeCode}"]      = tax.RVorCV;
-                row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+                    row[$"Transmast_{safeCode}"]   = tax.TaxAmount;
+                    row[$"RVorCV_{safeCode}"]      = tax.RVorCV;
+                    row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+                }
+
+                allRows.Add(row);
             }
 
-            return new List<object> { row };
+            return allRows;
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -340,12 +397,15 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         //          PD.CarpetAreaSqFeet, PD.CarpetAreaSqMeter,
         //          PD.BuiltupAreaSqFeet, PD.BuiltupAreaSqMeter, PD.NoOfRooms
         //   FROM PTIS.PropertyDetails PD
-        //   WHERE PD.PropertyId = @propertyId
+        //   WHERE PD.PropertyId IN @propertyIds
         // ─────────────────────────────────────────────────────────────────────────
-        private async Task<List<object>> BuildPropertyDetailsRowsAsync(int propertyId, CancellationToken ct)
+        private async Task<List<object>> BuildPropertyDetailsRowsAsync(List<int> propertyIds, CancellationToken ct)
         {
+            if (propertyIds == null || propertyIds.Count == 0)
+                return new List<object>();
+
             var details = await _propertyDetailsRepository.GetQueryable()
-                .Where(pd => pd.PropertyId == propertyId)
+                .Where(pd => propertyIds.Contains(pd.PropertyId))
                 .Select(pd => new
                 {
                     pd.PropertyId,
@@ -377,14 +437,18 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         }
 
       
-        private async Task<List<object>> BuildTaxDetailsRowsAsync(int propertyId, CancellationToken ct)
+        private async Task<List<object>> BuildTaxDetailsRowsAsync(List<int> propertyIds, CancellationToken ct)
         {
+            if (propertyIds == null || propertyIds.Count == 0)
+                return new List<object>();
+
             var taxRows = await (
-                from tm  in _transmastRepository.GetQueryable().Where(t => t.PropertyId == propertyId)
+                from tm  in _transmastRepository.GetQueryable().Where(t => propertyIds.Contains(t.PropertyId))
                 join tam in _taxMastRepository.GetQueryable() on tm.TaxId equals tam.Id
                 orderby tam.DisplayOrder
                 select new
                 {
+                    tm.PropertyId,
                     tam.TaxCode,
                     tam.TaxName,
                     tam.DisplayOrder,
@@ -397,23 +461,35 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             if (!taxRows.Any())
                 return new List<object>();
 
-            // Pivot all tax lines into a single row with dynamic column names.
-            // Uses TaxCode (spaces → '_') as the safe key; falls back to TaxName if TaxCode is blank.
-            // Mirrors the NoticeNewDataProvider pivot pattern exactly.
-            var row = new Dictionary<string, object?>();
-            foreach (var tax in taxRows)
-            {
-                var safeCode = (tax.TaxCode?.Trim().Length > 0
-                                    ? tax.TaxCode
-                                    : tax.TaxName ?? "UNKNOWN")
-                               .Replace(' ', '_');
+            // Group by PropertyId and pivot each property's tax lines into a separate row
+            var result = new List<object>();
+            var taxRowsByProperty = taxRows.GroupBy(t => t.PropertyId);
 
-                row[$"Transmast_{safeCode}"]   = tax.TaxAmount;
-                row[$"RVorCV_{safeCode}"]      = tax.RVorCV;
-                row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+            foreach (var propertyTaxGroup in taxRowsByProperty)
+            {
+                // Pivot all tax lines into a single row with dynamic column names.
+                // Uses TaxCode (spaces → '_') as the safe key; falls back to TaxName if TaxCode is blank.
+                var row = new Dictionary<string, object?>
+                {
+                    ["propertyId"] = propertyTaxGroup.Key
+                };
+
+                foreach (var tax in propertyTaxGroup)
+                {
+                    var safeCode = (tax.TaxCode?.Trim().Length > 0
+                                        ? tax.TaxCode
+                                        : tax.TaxName ?? "UNKNOWN")
+                                   .Replace(' ', '_');
+
+                    row[$"Transmast_{safeCode}"]   = tax.TaxAmount;
+                    row[$"RVorCV_{safeCode}"]      = tax.RVorCV;
+                    row[$"RVorCVValue_{safeCode}"] = tax.RVorCVValue;
+                }
+
+                result.Add(row);
             }
 
-            return new List<object> { row };
+            return result;
         }
 
         // ─────────────────────────────────────────────────────────────────────────
@@ -421,7 +497,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         // FloorMaster, ConstructionTypeMaster and TypeOfUseMaster.
         //
         // Equivalent SQL:
-        //   SELECT FM.Description, PD.ConstructionYear,
+        //   SELECT PD.PropertyId, FM.Description, PD.ConstructionYear,
         //          CTM.ConstructionCode, CTM.Description,
         //          TUM.TypeOfUseCode, TUM.Description, TUM.Type,
         //          PD.CarpetAreaSqMeter, PD.CarpetAreaSqFeet,
@@ -430,14 +506,17 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         //   LEFT JOIN PTIS.FloorMaster FM             ON PD.FloorId           = FM.Id
         //   LEFT JOIN PTIS.ConstructionTypeMaster CTM ON PD.ConstructionTypeId = CTM.Id
         //   LEFT JOIN PTIS.TypeOfUseMaster TUM        ON PD.TypeOfUseId        = TUM.Id
-        //   WHERE PD.PropertyId = @propertyId
+        //   WHERE PD.PropertyId IN @propertyIds
         // ─────────────────────────────────────────────────────────────────────────
 
-        private async Task<List<object>> BuildFloorDetailsRowsAsync(int propertyId, CancellationToken ct)
+        private async Task<List<object>> BuildFloorDetailsRowsAsync(List<int> propertyIds, CancellationToken ct)
         {
+            if (propertyIds == null || propertyIds.Count == 0)
+                return new List<object>();
+
             var rows = await (
                 from pd  in _propertyDetailsRepository.GetQueryable()
-                                                      .Where(p => p.PropertyId == propertyId)
+                                                      .Where(p => propertyIds.Contains(p.PropertyId))
                 join fm  in _floorRepository.GetQueryable()
                          on pd.FloorId equals fm.Id into fmj
                 from fm  in fmj.DefaultIfEmpty()
@@ -449,6 +528,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 from tum in tumj.DefaultIfEmpty()
                 select new
                 {
+                    pd.PropertyId,
                     FloorDescription        = fm  != null ? fm.Description  : null,
                     pd.ConstructionYear,
                     ConstructionCode        = ctm != null ? ctm.ConstructionCode : null,
@@ -466,6 +546,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
             return rows.Select(r => (object)new Dictionary<string, object?>
             {
+                ["propertyId"]              = r.PropertyId,
                 ["floorDescription"]        = r.FloorDescription,
                 ["constructionYear"]         = r.ConstructionYear,
                 ["constructionCode"]         = r.ConstructionCode,

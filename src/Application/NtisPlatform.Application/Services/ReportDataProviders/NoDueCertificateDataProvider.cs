@@ -9,6 +9,9 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 {
     /// <summary>
     /// NoDueCertificate report data provider.
+    /// 
+    /// Produces one row per property.
+    /// Parameters: propertyId (int or comma-separated list), userId (int)
     /// </summary>
     public class NoDueCertificateDataProvider : IPagedReportDataProvider
     {
@@ -70,10 +73,18 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
         {
             // --- Parse parameters ---
+            // propertyId accepts a single value OR comma-separated list: "101,202,303"
             parameters.TryGetValue("propertyId", out var propertyIdStr);
             parameters.TryGetValue("userId", out var userIdStr);
 
-            int.TryParse(propertyIdStr, out var propertyId);
+            // Split on commas, parse each token, deduplicate, drop invalid entries.
+            var propertyIds = (propertyIdStr ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => int.TryParse(s, out var id) ? id : 0)
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+
             int.TryParse(userIdStr, out var userId);
 
             // --- 1. Active year: select Year, YearCode from [CORE].[YearMaster] where IsActive = 1 ---
@@ -87,9 +98,9 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // --- 2. Property: select * from PTIS.PropertyMast where Id = @propertyId ---
-            var property = await _propertyRepository.GetQueryable()
-                .Where(p => p.Id == propertyId)
+            // --- 2. All properties in one batch IN query ---
+            var properties = await _propertyRepository.GetQueryable()
+                .Where(p => propertyIds.Contains(p.Id) && p.IsActive && !p.MarkedForDeletion)
                 .Select(p => new
                 {
                     p.Id,
@@ -104,18 +115,25 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     p.OccupierName,
                     p.OccupierTitleEnglish,
                     p.OccupierNameEnglish,
-                   
-                })
-                .FirstOrDefaultAsync(ct);
 
-            // --- 3. Ward: JOIN PTIS.WardMaster ON WardId = Id to get WardNo ---
-            string? wardNo = null;
-            if (property?.WardId is int wid and > 0)
+                })
+                .ToListAsync(ct);
+
+            // --- 3. Unique ward IDs — resolve WardNo one-by-one (avoids nullable-int JOIN crash) ---
+            var uniqueWardIds = properties
+                .Select(p => p.WardId)
+                .Where(wid => wid > 0)
+                .Distinct()
+                .ToList();
+
+            var wardMap = new Dictionary<int, string?>();
+            foreach (var wid in uniqueWardIds)
             {
-                wardNo = await _wardRepository.GetQueryable()
+                var wardNo = await _wardRepository.GetQueryable()
                     .Where(w => w.Id == wid)
                     .Select(w => w.WardNo)
                     .FirstOrDefaultAsync(ct);
+                wardMap[wid] = wardNo;
             }
 
             // --- 4. User: select UserName, FirstName, MiddleName, LastName from [CORE].[UserMaster] where ID = @userId ---
@@ -134,7 +152,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // --- 4. ULB: select UlbCode, UlbName, ... from [CORE].[UlbMaster] ---
+            // --- 5. ULB: select UlbCode, UlbName, ... from [CORE].[UlbMaster] ---
             var ulb = await _ulbMasterRepository.GetQueryable()
                 .Select(u => new
                 {
@@ -153,29 +171,37 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 })
                 .FirstOrDefaultAsync(ct);
 
-            // --- Build output rows ---
-            // NoDueCertificate produces a single logical row (one certificate per call).
-            var allRows = new List<Dictionary<string, object?>>
+            // --- Build output rows: one row per property ---
+            var allRows = new List<Dictionary<string, object?>>();
+
+            foreach (var property in properties)
             {
-                new Dictionary<string, object?>
+                // Resolve ward number from the ward map
+                string? wardNo = null;
+                if (property.WardId > 0 && wardMap.ContainsKey(property.WardId))
+                {
+                    wardNo = wardMap[property.WardId];
+                }
+
+                allRows.Add(new Dictionary<string, object?>
                 {
                     // Active year fields
                     ["activeYearId"]              = activeYear?.Id,
                     ["year"]                      = activeYear?.Year,
                     ["yearCode"]                  = activeYear?.YearCode,
-                    ["propertyId"]                = property?.Id,
-                    ["wardId"]                    = property?.WardId,
+                    ["propertyId"]                = property.Id,
+                    ["wardId"]                    = property.WardId,
                     ["wardNo"]                    = wardNo,           // from PTIS.WardMaster
-                    ["propertyNo"]                = property?.PropertyNo,
-                    ["partitionNo"]               = property?.PartitionNo,
-                    ["ownerTitle"]                = property?.OwnerTitle,
-                    ["ownerName"]                 = property?.OwnerName,
-                    ["ownerTitleEnglish"]         = property?.OwnerTitleEnglish,
-                    ["ownerNameEnglish"]          = property?.OwnerNameEnglish,
-                    ["occupierTitle"]             = property?.OccupierTitle,
-                    ["occupierName"]              = property?.OccupierName,
-                    ["occupierTitleEnglish"]      = property?.OccupierTitleEnglish,
-                    ["occupierNameEnglish"]       = property?.OccupierNameEnglish,
+                    ["propertyNo"]                = property.PropertyNo,
+                    ["partitionNo"]               = property.PartitionNo,
+                    ["ownerTitle"]                = property.OwnerTitle,
+                    ["ownerName"]                 = property.OwnerName,
+                    ["ownerTitleEnglish"]         = property.OwnerTitleEnglish,
+                    ["ownerNameEnglish"]          = property.OwnerNameEnglish,
+                    ["occupierTitle"]             = property.OccupierTitle,
+                    ["occupierName"]              = property.OccupierName,
+                    ["occupierTitleEnglish"]      = property.OccupierTitleEnglish,
+                    ["occupierNameEnglish"]       = property.OccupierNameEnglish,
                     ["userId"]                    = user?.Id,
                     ["userName"]                  = user?.UserName,
                     ["firstName"]                 = user?.FirstName,
@@ -197,8 +223,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     ["ulbState"]                  = ulb?.State,
                     ["ulbDistrict"]               = ulb?.District,
                     ["ulbPinCode"]                = ulb?.PinCode,
-                }
-            };
+                });
+            }
 
             // Apply skip/take so the paged overload works correctly.
             var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;

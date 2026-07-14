@@ -43,6 +43,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TypeOfUseEntity> TypeOfUse { get; set; } = null!;
     public DbSet<TypeOfUseCategoryEntity> TypeOfUseCategory { get; set; } = null!;
     public DbSet<PolicyConfigurationEntity> PolicyConfiguration { get; set; } = null!;
+    public DbSet<TaxCalculationGuidelineEntity> TaxCalculationGuidelines { get; set; } = null!;
     public DbSet<AssessmentYearRangeCVEntity> AssessmentYearRangeCVEntities { get; set; } = null!;
     public DbSet<TypeOfUseGroupEntity> TypeOfUseGroup { get; set; } = null!;
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
@@ -193,6 +194,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
+    public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -966,6 +968,66 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.EffectiveFrom);
             entity.Property(e => e.EffectiveTo);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<TaxCalculationGuidelineEntity>(entity =>
+        {
+            entity.ToTable("TaxCalculationGuideline", "PTIS");
+            entity.HasKey(e => e.Id).HasName("PK_TaxCalculationGuideline");
+
+            entity.Property(e => e.GuidelineCode).IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)");
+            entity.Property(e => e.GuidelineName).IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)");
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.EnableCertificateBasedTax).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.ApplyOnlyProtectedCertificateTypes).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.FinancialYearStartMonth).IsRequired().HasDefaultValue((byte)4);
+            entity.Property(e => e.FinancialYearStartDay).IsRequired().HasDefaultValue((byte)1);
+
+            entity.Property(e => e.DatePriority1).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.DatePriority2).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.DatePriority3).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.DatePriority4).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+
+            entity.Property(e => e.EnableCCToOCSplit).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IgnoreCCToOCIfWithinValue).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IgnoreCCToOCIfWithinType).IsRequired().HasMaxLength(10).IsUnicode(false).HasColumnType("varchar(10)").HasDefaultValue("MONTHS");
+            entity.Property(e => e.CCPeriodMultiplier).IsRequired().HasColumnType("decimal(18,4)").HasDefaultValue(1.0000m);
+            entity.Property(e => e.OCPeriodMultiplier).IsRequired().HasColumnType("decimal(18,4)").HasDefaultValue(1.0000m);
+
+            entity.Property(e => e.ElectricBillDateRule).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.ElectricBillAddMonths).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ElectricBillMultiplier).IsRequired().HasColumnType("decimal(18,4)").HasDefaultValue(1.0000m);
+
+            entity.Property(e => e.NoDateRule).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.LookbackYears).IsRequired().HasDefaultValue(5);
+            entity.Property(e => e.DefaultRetrospectiveMultiplier).IsRequired().HasColumnType("decimal(18,4)").HasDefaultValue(1.0000m);
+
+            entity.Property(e => e.FloorCertificatePriority).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.EnableCurrentYearProration).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.ProrationMethod).IsRequired().HasMaxLength(20).IsUnicode(false).HasColumnType("varchar(20)");
+            entity.Property(e => e.TaxPersistenceMode).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+
+            entity.Property(e => e.PolicyReferenceNo).HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.PolicyReferenceDate).HasColumnType("datetime");
+            entity.Property(e => e.PolicyApprovedBy).HasMaxLength(150).HasColumnType("nvarchar(150)");
+            entity.Property(e => e.Remark).HasMaxLength(500).HasColumnType("nvarchar(500)");
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_FinancialYearStartMonth", "[FinancialYearStartMonth] >= 1 AND [FinancialYearStartMonth] <= 12");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_FinancialYearStartDay", "[FinancialYearStartDay] >= 1 AND [FinancialYearStartDay] <= 31");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_DatePriority", "([DatePriority1] IN ('RETROSPECTIVE','ELECTRIC_BILL','CC','OC')) AND ([DatePriority2] IN ('RETROSPECTIVE','ELECTRIC_BILL','CC','OC')) AND ([DatePriority3] IN ('RETROSPECTIVE','ELECTRIC_BILL','CC','OC')) AND ([DatePriority4] IN ('RETROSPECTIVE','ELECTRIC_BILL','CC','OC'))");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_ElectricBillDateRule", "[ElectricBillDateRule] IN ('NO_TAX','ADD_MONTHS','FROM_FY_START','EXACT_DATE')");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_IgnoreCCToOCIfWithinType", "[IgnoreCCToOCIfWithinType] IN ('YEARS','MONTHS','DAYS')");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_NoDateRule", "[NoDateRule] IN ('ASSESSMENT_YEAR','CONSTRUCTION_YEAR','NO_TAX','DEFAULT_RETROSPECTIVE')");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_FloorCertificatePriority", "[FloorCertificatePriority] IN ('PROPERTY_OVERRIDES_FLOOR','FLOOR_OVERRIDES_PROPERTY')");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_ProrationMethod", "[ProrationMethod] IN ('FULL_YEAR','MONTHLY','DAILY')");
+            entity.HasCheckConstraint("CK_TaxCalculationGuideline_TaxPersistenceMode", "[TaxPersistenceMode] IN ('FLOOR_LEDGER','PROPERTY_AGGREGATED')");
         });
 
         modelBuilder.Entity<RoleWiseScreenAccessMasterEntity>(entity =>
@@ -5235,6 +5297,76 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
+        });
+
+        // SocietyWingDetails configuration
+        modelBuilder.Entity<SocietyWingDetailsEntity>(entity =>
+        {
+            entity.ToTable("SocietyWingDetails", "GSMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.WingId).IsRequired(false);
+            entity.Property(e => e.PropertyId).IsRequired(false);
+            entity.Property(e => e.SocietyDetailId).IsRequired(false);
+
+            entity.Property(e => e.FromFloor)
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.ToFloor)
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.OldWingName)
+                .IsRequired(false);
+
+            entity.Property(e => e.NewWingName)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
+            entity.Property(e => e.NoOfFlat).IsRequired(false);
+            entity.Property(e => e.NoOfShop).IsRequired(false);
+            entity.Property(e => e.NoOfRowHouse).IsRequired(false);
+            entity.Property(e => e.WingPhoto).IsRequired(false);
+            entity.Property(e => e.BoardPhoto).IsRequired(false);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime")
+                .IsRequired(false);
+
+            // FK → WingMaster
+            entity.HasOne(e => e.WingMaster)
+                .WithMany()
+                .HasForeignKey(e => e.WingId)
+                .HasConstraintName("FK_SocietyWingDetails_WingMaster")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK → SocietyDetailsMast
+            entity.HasOne(e => e.SocietyDetailsMast)
+                .WithMany()
+                .HasForeignKey(e => e.SocietyDetailId)
+                .HasConstraintName("FK_SocietyWingDetails_SocietyDetailsMast")
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.PropertyId)
+                .HasDatabaseName("IX_SocietyWingDetails_PropertyId");
+
+            entity.HasIndex(e => e.WingId)
+                .HasDatabaseName("IX_SocietyWingDetails_WingId");
+
+            entity.HasIndex(e => e.SocietyDetailId)
+                .HasDatabaseName("IX_SocietyWingDetails_SocietyDetailId");
+
+            entity.HasIndex(e => e.IsActive)
+                .HasDatabaseName("IX_SocietyWingDetails_IsActive");
         });
 
     }

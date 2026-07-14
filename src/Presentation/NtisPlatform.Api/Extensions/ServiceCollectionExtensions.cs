@@ -412,6 +412,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IGenderMasterService, GenderMasterService>();
         services.AddScoped<ISocietyDetailsService, SocietyDetailsService>();
+        services.AddScoped<ISocietyWingDetailsService, SocietyWingDetailsService>();
         services.AddScoped<ICommonRemarkTypeMasterService, CommonRemarkTypeMasterService>();
         services.AddScoped<ICommonRemarkDetailsService, CommonRemarkDetailsService>();
         services.AddScoped<IPropertyMapMasterService, PropertyMapMasterService>();
@@ -425,6 +426,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IPropertyAssessmentStatusService, PropertyAssessmentStatusService>();
+        services.AddScoped<ITaxCalculationGuidelineService, TaxCalculationGuidelineService>();
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
         services.AddScoped<IAssetTypeService, AssetTypeService>();
