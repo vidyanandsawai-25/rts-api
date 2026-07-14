@@ -51,4 +51,15 @@ public class RenterMastEntity : BaseEntity, IHardDeletable
     /// </summary>
     [ForeignKey(nameof(PropertyDetailsId))]
     public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
+
+    /// <summary>
+    /// Foreign key referencing the document binding
+    /// </summary>
+    public int? DocumentBindingId { get; set; }
+
+    /// <summary>
+    /// Navigation property to DocumentBinding
+    /// </summary>
+    [ForeignKey(nameof(DocumentBindingId))]
+    public virtual DocumentBindingEntity? DocumentBinding { get; set; }
 }
