@@ -55,6 +55,8 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
             .Include(x => x.SubTypeOfUse)
             .Include(x => x.RenterDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
             .Include(x => x.Renters.Where(r => r.IsActive && !r.MarkedForDeletion))
+                .ThenInclude(r => r.DocumentBinding)
+                    .ThenInclude(b => b!.Document)
              .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
                 .ThenInclude(r => r.PropertyRoomMinus!.Where(rm => rm.IsActive && !rm.MarkedForDeletion))
             .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))

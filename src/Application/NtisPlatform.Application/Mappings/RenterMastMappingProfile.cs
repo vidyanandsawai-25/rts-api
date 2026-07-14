@@ -11,7 +11,11 @@ public class RenterMastMappingProfile : Profile
         // ── Entity → Read DTO ────────────────────────────────────────
         // EF maps RenterId column → Id via HasColumnName in DbContext
         // AutoMapper maps Id property → Id property — no ForMember needed
-        CreateMap<RenterMastEntity, RenterMastDto>();
+        CreateMap<RenterMastEntity, RenterMastDto>()
+            .ForMember(dest => dest.DocumentGuid, opt => opt.MapFrom(src => 
+                src.DocumentBinding != null && src.DocumentBinding.Document != null 
+                    ? src.DocumentBinding.Document.DocumentGuid 
+                    : (Guid?)null));
 
         // ── Create DTO → Entity ──────────────────────────────────────
         CreateMap<CreateRenterMastDto, RenterMastEntity>()
@@ -21,7 +25,8 @@ public class RenterMastMappingProfile : Profile
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore()); // navigation property
+            .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore()) // navigation property
+            .ForMember(dest => dest.DocumentBinding, opt => opt.Ignore()); // navigation property
 
 
         // ── Update DTO → Entity ──────────────────────────────────────
@@ -33,7 +38,8 @@ public class RenterMastMappingProfile : Profile
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyDetailsId, opt => opt.Ignore()) // not included in UpdateDto
-            .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore()); // navigation property
+            .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore()) // navigation property
+            .ForMember(dest => dest.DocumentBinding, opt => opt.Ignore()); // navigation property
 
         // ── Entity → Update DTO ──────────────────────────────────────
         CreateMap<RenterMastEntity, UpdateRenterMastDto>();

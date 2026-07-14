@@ -268,6 +268,7 @@ public static class ServiceCollectionExtensions
         // and register it here. DocumentApplicationService will auto-discover via DI.
         services.AddScoped<IDocumentBindingHandler, PropertyPhotoDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, PropertyCertificateDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, RenterMastDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();

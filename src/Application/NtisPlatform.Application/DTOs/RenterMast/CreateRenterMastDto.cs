@@ -37,5 +37,7 @@ namespace NtisPlatform.Application.DTOs.RenterMast
         public DateTime? AgreementFromDate { get; set; }
 
         public DateTime? AgreementToDate { get; set; }
+
+        public int? DocumentBindingId { get; set; }
     }
 }
