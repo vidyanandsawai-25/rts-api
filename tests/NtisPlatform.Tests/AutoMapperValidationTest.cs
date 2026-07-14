@@ -75,7 +75,7 @@ public class AutoMapperValidationTest
               "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
               "FlagMaster", "PropertyTaxCalculationCVResults", "PropertyTaxCalculationRVResults", "PlotDetails", "PropertyDetails",
               "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
-              "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", // Navigation properties
+              "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", "DocumentBinding", "DocumentBindingId", // Navigation properties
               "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
               "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties
               "Office", "Role", "Screen", "RoleWiseScreenAccess", // User/Role related navigation

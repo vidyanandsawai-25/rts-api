@@ -3328,7 +3328,14 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_RenterMast_PropertyDetails");
 
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("FK_RenterMast_DocumentBinding");
+
             entity.HasIndex(e => e.PropertyDetailsId);
+            entity.HasIndex(e => e.DocumentBindingId);
             entity.HasIndex(e => e.IsActive);
         });
 
