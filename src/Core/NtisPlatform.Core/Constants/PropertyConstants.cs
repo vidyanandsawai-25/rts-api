@@ -13,6 +13,22 @@ public static class PropertyConstants
         "Multi Commercial Apartment"
     };
 
+    public static class Categories
+    {
+        public const string Apartment = "Apartment";
+    }
+
+    public static class ErrorMessages
+    {
+        public const string NotFound = "Property not found";
+        public const string UpdateFailed = "Failed to update property details";
+    }
+
+    public static class SuccessMessages
+    {
+        public const string PropertyUpdated = "Property details updated successfully";
+    }
+
     /// <summary>
     /// Expression to filter out blank/empty partitions and single-letter partitions.
     /// Only keeps partitions containing at least one digit (e.g. C1, C2, A1, B2, 1, 2, 3...)
