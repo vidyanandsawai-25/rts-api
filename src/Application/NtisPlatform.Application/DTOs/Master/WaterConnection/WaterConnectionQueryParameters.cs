@@ -31,6 +31,11 @@ public class WaterConnectionTypeQueryParameters : BaseQueryParameters
     [Searchable]
     [Sortable]
     public string? ConnectionTypeName { get; set; }
+
+    [Filterable]
+    [Searchable]
+    [Sortable]
+    public string? ConnectionTypeCode { get; set; }
 }
 
 public class WaterConnectionSizeQueryParameters : BaseQueryParameters
