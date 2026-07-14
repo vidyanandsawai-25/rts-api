@@ -194,13 +194,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
-<<<<<<< HEAD
     public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
-
-
-=======
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
->>>>>>> upstream/main
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -5245,7 +5240,7 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
 
-<<<<<<< HEAD
+
         //------------------RTS Api work started------------
 
         modelBuilder.Entity<RTSDepartmentEntity>(entity =>
@@ -5549,7 +5544,7 @@ public class ApplicationDbContext : DbContext
         });
 
 
-=======
+
         // SocietyWingDetails configuration
         modelBuilder.Entity<SocietyWingDetailsEntity>(entity =>
         {
@@ -5620,6 +5615,6 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_SocietyWingDetails_IsActive");
         });
 
->>>>>>> upstream/main
+
     }
 }
