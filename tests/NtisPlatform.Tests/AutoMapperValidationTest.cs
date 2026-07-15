@@ -145,9 +145,7 @@ public class AutoMapperValidationTest
                 "RateAmount",
                 // Local record types used in data layer projections (not entity mappings)
                 "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
-<<<<<<< HEAD
-                "Remark", "Application", "LoginTime", "LastActivityTime", "LogoutTime"
-=======
+                "Remark", "Application", "LoginTime", "LastActivityTime", "LogoutTime",
                 // SocietyDetailsEntity fields unmapped from SocietyWingDetails cross-mapping
                 "SocietyName", "SocietyAddress", "SecretaryName", "ManagerName",
                 "LandOwnerName", "BuilderName",
@@ -157,7 +155,6 @@ public class AutoMapperValidationTest
                 "SecretaryMobileNo", "SecretaryMobileNoRemarkId",
                 "BuilderMobileNo", "BuilderMobileNoRemarkId",
                 "SocietyEmailId", "SecretaryEmailId", "ManagerEmailId"
->>>>>>> upstream/main
              };
 
             // Check if all unmapped properties are in the expected list

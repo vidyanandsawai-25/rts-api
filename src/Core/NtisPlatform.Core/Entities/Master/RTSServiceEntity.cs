@@ -20,4 +20,7 @@ public class RTSServiceEntity : BaseEntity
     public string? ServiceIcon { get; set; }
 
     public int DisplayOrder { get; set; }
+    public string? Sla { get; set; }
+    public decimal? Fees { get; set; }
+    public bool FeesRequired { get; set; }
 }

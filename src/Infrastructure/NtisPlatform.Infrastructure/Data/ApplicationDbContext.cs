@@ -5542,6 +5542,13 @@ public class ApplicationDbContext : DbContext
                 .HasMaxLength(100);
             entity.Property(e => e.DisplayOrder)
                 .HasDefaultValue(0);
+            entity.Property(e => e.Sla)
+                .HasMaxLength(50);
+            entity.Property(e => e.Fees)
+                .HasPrecision(18, 2);
+            entity.Property(e => e.FeesRequired)
+                .IsRequired()
+                .HasDefaultValue(false);
             entity.Property(e => e.IsActive)
                 .IsRequired()
                 .HasDefaultValue(true);

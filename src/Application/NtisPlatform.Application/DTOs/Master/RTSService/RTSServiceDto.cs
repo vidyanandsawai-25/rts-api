@@ -17,6 +17,9 @@ public class RTSServiceDto : BaseDtos
     public string? ServiceUrl { get; set; }
     public string? ServiceIcon { get; set; }
     public int DisplayOrder { get; set; }
+    public string? Sla { get; set; }
+    public decimal? Fees { get; set; }
+    public bool FeesRequired { get; set; }
 }
 
 public class CreateRTSServiceDto : CreateBaseDtos
@@ -29,7 +32,7 @@ public class CreateRTSServiceDto : CreateBaseDtos
     public int? GovtServiceCode { get; set; }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
-    [StringLength(200, ErrorMessage = "Service_ServiceName_MaxLengthExceeded_200")]
+    [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]
     public string ServiceName { get; set; } = string.Empty;
 
     [StringLength(300, ErrorMessage = "Service_ServiceNameLocal_MaxLengthExceeded_300")]
@@ -45,6 +48,9 @@ public class CreateRTSServiceDto : CreateBaseDtos
     public string? ServiceIcon { get; set; }
 
     public int DisplayOrder { get; set; }
+    public string? Sla { get; set; }
+    public decimal? Fees { get; set; }
+    public bool FeesRequired { get; set; }
 }
 
 public class UpdateRTSServiceDto : UpdateBaseDtos
@@ -57,7 +63,7 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     public int? GovtServiceCode { get; set; }
 
     [Required(ErrorMessage = "Service_ServiceName_Required")]
-    [StringLength(200, ErrorMessage = "Service_ServiceName_MaxLengthExceeded_200")]
+    [StringLength(200, ErrorMessage = "Service_ServiceName_Required")]
     public string ServiceName { get; set; } = string.Empty;
 
     [StringLength(300, ErrorMessage = "Service_ServiceNameLocal_MaxLengthExceeded_300")]
@@ -73,4 +79,7 @@ public class UpdateRTSServiceDto : UpdateBaseDtos
     public string? ServiceIcon { get; set; }
 
     public int DisplayOrder { get; set; }
+    public string? Sla { get; set; }
+    public decimal? Fees { get; set; }
+    public bool FeesRequired { get; set; }
 }
