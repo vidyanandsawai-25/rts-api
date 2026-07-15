@@ -76,7 +76,11 @@ public class PropertyServiceUpdateAllPropertyDetailsTests
             _mockSocietyRepo.Object,
             _mockPropertyDetailsRepo.Object,
             _mockRoomWiseRepo.Object,
-            _mockAssessmentRepo.Object);
+            _mockAssessmentRepo.Object,
+            new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object,
+            new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
+            new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
+            new Mock<IRepository<UserEntity, int>>().Object);
     }
 
     private void SetupBasicMocks(PropertyEntity property, UpdateAllPropertyDetailsDto dto)

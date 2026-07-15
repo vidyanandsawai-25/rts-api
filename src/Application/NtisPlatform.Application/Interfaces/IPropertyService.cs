@@ -54,4 +54,6 @@ public interface IPropertyService
     /// Business logic lives in Application layer per CLAUDE.md guidelines.
     /// </summary>
     Task<UpdateAllPropertyDetailsResponseDto> UpdatePropertyAsync(int propertyId, UpdateAllPropertyDetailsDto dto, CancellationToken ct);
+
+    Task<PropertySplitResultDto> SplitProperty(PropertySplitCreateDto dto, CancellationToken cancellationToken = default);
 }

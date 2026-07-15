@@ -33,33 +33,33 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
         public string ProviderCode => "SocietyOutstandingReportDataProvider";
 
-        private readonly IReportDataRepository<PropertyEntity>           _propertyRepository;
-        private readonly IReportDataRepository<WardEntity>               _wardRepository;
-        private readonly IReportDataRepository<SocietyDetailsEntity>     _societyRepository;
-        private readonly IReportDataRepository<PropertyMastOldEntity>    _propertyMastOldRepository;
-        private readonly IReportDataRepository<TransMastEntity>          _transmastRepository;
-        private readonly IReportDataRepository<TaxPendingDetailsEntity>  _taxPendingRepository;
-        private readonly IReportDataRepository<ULBMasterEntity>          _ulbMasterRepository;
-        private readonly IReportDataRepository<UserEntity>               _userRepository;
+        private readonly IReportDataRepository<PropertyEntity> _propertyRepository;
+        private readonly IReportDataRepository<WardEntity> _wardRepository;
+        private readonly IReportDataRepository<SocietyDetailsEntity> _societyRepository;
+        private readonly IReportDataRepository<PropertyMastOldEntity> _propertyMastOldRepository;
+        private readonly IReportDataRepository<TransMastEntity> _transmastRepository;
+        private readonly IReportDataRepository<TaxPendingDetailsEntity> _taxPendingRepository;
+        private readonly IReportDataRepository<ULBMasterEntity> _ulbMasterRepository;
+        private readonly IReportDataRepository<UserEntity> _userRepository;
 
         public SocietyOutstandingReportDataProvider(
-            IReportDataRepository<PropertyEntity>           propertyRepository,
-            IReportDataRepository<WardEntity>               wardRepository,
-            IReportDataRepository<SocietyDetailsEntity>     societyRepository,
-            IReportDataRepository<PropertyMastOldEntity>    propertyMastOldRepository,
-            IReportDataRepository<TransMastEntity>          transmastRepository,
-            IReportDataRepository<TaxPendingDetailsEntity>  taxPendingRepository,
-            IReportDataRepository<ULBMasterEntity>          ulbMasterRepository,
-            IReportDataRepository<UserEntity>               userRepository)
+            IReportDataRepository<PropertyEntity> propertyRepository,
+            IReportDataRepository<WardEntity> wardRepository,
+            IReportDataRepository<SocietyDetailsEntity> societyRepository,
+            IReportDataRepository<PropertyMastOldEntity> propertyMastOldRepository,
+            IReportDataRepository<TransMastEntity> transmastRepository,
+            IReportDataRepository<TaxPendingDetailsEntity> taxPendingRepository,
+            IReportDataRepository<ULBMasterEntity> ulbMasterRepository,
+            IReportDataRepository<UserEntity> userRepository)
         {
-            _propertyRepository        = propertyRepository;
-            _wardRepository            = wardRepository;
-            _societyRepository         = societyRepository;
+            _propertyRepository = propertyRepository;
+            _wardRepository = wardRepository;
+            _societyRepository = societyRepository;
             _propertyMastOldRepository = propertyMastOldRepository;
-            _transmastRepository       = transmastRepository;
-            _taxPendingRepository      = taxPendingRepository;
-            _ulbMasterRepository       = ulbMasterRepository;
-            _userRepository            = userRepository;
+            _transmastRepository = transmastRepository;
+            _taxPendingRepository = taxPendingRepository;
+            _ulbMasterRepository = ulbMasterRepository;
+            _userRepository = userRepository;
         }
 
         // Static — never runs a query (avoids any heavy query executing on the authenticate request).
@@ -78,18 +78,18 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         public async Task<ReportDataPage> GetDataPageAsync(
             Dictionary<string, string> parameters, string section, int page, int pageSize, CancellationToken ct = default)
         {
-            if (page     < 1)  page     = 1;
+            if (page < 1) page = 1;
             if (pageSize <= 0) pageSize = 100;
 
             var (rows, hasMore) = await BuildPageAsync(parameters, (page - 1) * pageSize, pageSize, ct);
             return new ReportDataPage
             {
-                Section    = MainSection,
-                Page       = page,
-                PageSize   = pageSize,
+                Section = MainSection,
+                Page = page,
+                PageSize = pageSize,
                 TotalCount = -1,
-                HasMore    = hasMore,
-                Rows       = rows,
+                HasMore = hasMore,
+                Rows = rows,
             };
         }
 
@@ -97,21 +97,37 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             Dictionary<string, string> parameters, int skip, int take, CancellationToken ct)
         {
             // --- Parse parameters ---
-            parameters.TryGetValue("wardId",         out var wardIdStr);
+            parameters.TryGetValue("wardId", out var wardIdStr);
             parameters.TryGetValue("fromPropertyNo", out var fromPropertyNo);
-            parameters.TryGetValue("toPropertyNo",   out var toPropertyNo);
-            parameters.TryGetValue("userId",         out var userIdStr);
-            parameters.TryGetValue("partitionNo",    out var partitionNo); // optional
+            parameters.TryGetValue("toPropertyNo", out var toPropertyNo);
+            parameters.TryGetValue("userId", out var userIdStr);
+            parameters.TryGetValue("partitionNo", out var partitionNo); // optional
+            parameters.TryGetValue("propertyId", out var propertyIdStr); // optional
 
-            int.TryParse(wardIdStr,  out var wardId);
-            int.TryParse(userIdStr,  out var userId);
+            int.TryParse(wardIdStr, out var wardId);
+            int.TryParse(userIdStr, out var userId);
 
-            var rows = await BuildRowsAsync(wardId, fromPropertyNo, toPropertyNo, partitionNo, userId, ct);
+            // Parse comma-separated property IDs
+            List<int>? filterPropertyIds = null;
+            if (!string.IsNullOrEmpty(propertyIdStr))
+            {
+                filterPropertyIds = propertyIdStr
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(id => int.TryParse(id.Trim(), out var parsed) ? parsed : (int?)null)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .ToList();
+
+                if (filterPropertyIds.Count == 0)
+                    filterPropertyIds = null;
+            }
+
+            var rows = await BuildRowsAsync(wardId, fromPropertyNo, toPropertyNo, filterPropertyIds, partitionNo, userId, ct);
 
             // Apply skip/take.
             var takePlusOne = take == int.MaxValue ? int.MaxValue : take + 1;
-            var paged       = rows.Skip(skip).Take(takePlusOne).ToList();
-            var hasMore     = take != int.MaxValue && paged.Count > take;
+            var paged = rows.Skip(skip).Take(takePlusOne).ToList();
+            var hasMore = take != int.MaxValue && paged.Count > take;
             if (hasMore) paged = paged.Take(take).ToList();
 
             return (paged, hasMore);
@@ -130,15 +146,15 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
         //   ORDER BY PropertyNo, PartitionNo
         // ─────────────────────────────────────────────────────────────────────────
         private async Task<List<object>> BuildRowsAsync(
-            int wardId, string? fromPropertyNo, string? toPropertyNo,
+            int wardId, string? fromPropertyNo, string? toPropertyNo, List<int>? filterPropertyIds,
             string? partitionNo, int userId, CancellationToken ct)
         {
             // ── 1. Fetch matching properties ──────────────────────────────────────
             var propertyQuery = _propertyRepository.GetQueryable()
-                .Where(p => p.IsActive && !p.MarkedForDeletion
-                          && p.WardId == wardId
+                .Where(p => p.WardId == wardId
                          && (fromPropertyNo == null || string.Compare(p.PropertyNo, fromPropertyNo) >= 0)
-                         && (toPropertyNo   == null || string.Compare(p.PropertyNo, toPropertyNo)   <= 0));
+                         && (toPropertyNo == null || string.Compare(p.PropertyNo, toPropertyNo) <= 0)
+                         && (filterPropertyIds == null || filterPropertyIds.Contains(p.Id)));
 
             // PartitionNo filter is optional
             if (!string.IsNullOrWhiteSpace(partitionNo))
@@ -269,8 +285,9 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
             // 3d. TaxPendingDetails — SUM(PendingAmount) per PropertyId (IsActive = true)
             //     SQL: SELECT PropertyId, SUM(PendingAmount) FROM PTIS.TaxPendingDetails
             //          WHERE PropertyId IN (@ids) AND IsActive = 1 GROUP BY PropertyId
+
             var pendingTaxSums = await _taxPendingRepository.GetQueryable()
-                 .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive && !tp.MarkedForDeletion)
+                .Where(tp => propertyIds.Contains(tp.PropertyId) && tp.IsActive)
                 .GroupBy(tp => tp.PropertyId)
                 .Select(g => new { PropertyId = g.Key, Total = g.Sum(tp => tp.PendingAmount) })
                 .ToListAsync(ct);
@@ -289,54 +306,54 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                 var row = new Dictionary<string, object?>
                 {
                     // Property fields
-                    ["propertyId"]           = property.Id,
-                    ["propertyNo"]           = property.PropertyNo,
-                    ["wardId"]               = property.WardId,
-                    ["wardNo"]               = wardNo,
-                    ["partitionNo"]          = property.PartitionNo,
-                    ["upicId"]               = property.UPICId,
-                    ["subZoneNo"]            = property.SubZoneNo,
-                    ["mobileNo"]             = property.MobileNo,
-                    ["ownerTitle"]           = property.OwnerTitle,
-                    ["occupierTitle"]        = property.OccupierTitle,
-                    ["ownerName"]            = property.OwnerName,
-                    ["occupierName"]         = property.OccupierName,
-                    ["address"]              = property.Address,
-                    ["flatOrShopNo"]         = property.FlatOrShopNo,
-                    ["flatOrShopName"]       = property.FlatOrShopName,
-                    // Society details
-                    ["wingName"]             = society?.WingName,
-                    ["societyName"]          = society?.SocietyName,
-                    ["societyAddress"]       = society?.SocietyAddress,
+                    ["propertyId"] = property.Id,
+                    ["propertyNo"] = property.PropertyNo,
+                    ["wardId"] = property.WardId,
+                    ["wardNo"] = wardNo,
+                    ["partitionNo"] = property.PartitionNo,
+                    ["upicId"] = property.UPICId,
+                    ["subZoneNo"] = property.SubZoneNo,
+                    ["mobileNo"] = property.MobileNo,
+                    ["ownerTitle"] = property.OwnerTitle,
+                    ["occupierTitle"] = property.OccupierTitle,
+                    ["ownerName"] = property.OwnerName,
+                    ["occupierName"] = property.OccupierName,
+                    ["address"] = property.Address,
+                    ["flatOrShopNo"] = property.FlatOrShopNo,
+                    ["flatOrShopName"] = property.FlatOrShopName,
+                    // Society details 
+                    ["wingName"] = society?.WingName,
+                    ["societyName"] = society?.SocietyName,
+                    ["societyAddress"] = society?.SocietyAddress,
                     // Old property data (PTIS.PropertyMastOld)
-                    ["oldWardNo"]            = propertyOld?.OldWardNo,
-                    ["oldPropertyNo"]        = propertyOld?.OldPropertyNo,
-                    ["oldPartitionNo"]       = propertyOld?.OldPartitionNo,
+                    ["oldWardNo"] = propertyOld?.OldWardNo,
+                    ["oldPropertyNo"] = propertyOld?.OldPropertyNo,
+                    ["oldPartitionNo"] = propertyOld?.OldPartitionNo,
                     // Aggregated tax amounts
                     ["totalCurrentTaxAmount"] = totalCurrentTax,
                     ["totalPendingTaxAmount"] = totalPendingTax,
                     // User Master fields (CORE.UserMaster)
-                    ["userId"]               = user?.Id,
-                    ["userName"]             = user?.UserName,
-                    ["firstName"]            = user?.FirstName,
-                    ["middleName"]           = user?.MiddleName,
-                    ["lastName"]             = user?.LastName,
-                    ["userCode"]             = user?.UserCode,
-                    ["userEmail"]            = user?.Email,
-                    ["userMobileNo"]         = user?.MobileNo,
+                    ["userId"] = user?.Id,
+                    ["userName"] = user?.UserName,
+                    ["firstName"] = user?.FirstName,
+                    ["middleName"] = user?.MiddleName,
+                    ["lastName"] = user?.LastName,
+                    ["userCode"] = user?.UserCode,
+                    ["userEmail"] = user?.Email,
+                    ["userMobileNo"] = user?.MobileNo,
                     // ULB Master fields (CORE.UlbMaster)
-                    ["ulbCode"]              = ulb?.UlbCode,
-                    ["ulbName"]              = ulb?.UlbName,
-                    ["ulbNameLocal"]         = ulb?.UlbNameLocal,
-                    ["ulbLogo"]              = ulb?.UlbLogo,
-                    ["ulbEmailId"]           = ulb?.EmailId,
-                    ["ulbMobileNo"]          = ulb?.MobileNo,
+                    ["ulbCode"] = ulb?.UlbCode,
+                    ["ulbName"] = ulb?.UlbName,
+                    ["ulbNameLocal"] = ulb?.UlbNameLocal,
+                    ["ulbLogo"] = ulb?.UlbLogo,
+                    ["ulbEmailId"] = ulb?.EmailId,
+                    ["ulbMobileNo"] = ulb?.MobileNo,
                     ["ulbAlternateMobileNo"] = ulb?.AlternateMobileNo,
-                    ["ulbWebsiteUrl"]        = ulb?.WebsiteUrl,
-                    ["ulbAddress"]           = ulb?.UlbAddress,
-                    ["ulbState"]             = ulb?.State,
-                    ["ulbDistrict"]          = ulb?.District,
-                    ["ulbPinCode"]           = ulb?.PinCode,
+                    ["ulbWebsiteUrl"] = ulb?.WebsiteUrl,
+                    ["ulbAddress"] = ulb?.UlbAddress,
+                    ["ulbState"] = ulb?.State,
+                    ["ulbDistrict"] = ulb?.District,
+                    ["ulbPinCode"] = ulb?.PinCode,
                 };
 
                 rows.Add(row);

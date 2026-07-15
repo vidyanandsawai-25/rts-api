@@ -11,15 +11,16 @@ using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
 using System.Text;
 using DataValidationException = System.ComponentModel.DataAnnotations.ValidationException;
-using NtisPlatform.Application.Interfaces.Rules;
 
 
 namespace NtisPlatform.Application.Services;
@@ -41,6 +42,10 @@ public partial class PropertyService
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<RoomWiseSubmissionDetailsEntity, int> _roomWiseRepository;
     private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
+    private readonly IRepository<GlobalSurveyWardAllocationEntity, int> _wardAllocationRepository;
+    private readonly IRepository<UserEntity, int> _userRepository;
+    private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
+    private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
 
     public PropertyService(
@@ -56,6 +61,10 @@ public partial class PropertyService
         IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
         IRepository<RoomWiseSubmissionDetailsEntity, int> roomWiseRepository,
         IRepository<PropertyAssessmentEntity, int> assessmentRepository,
+        IRepository<GlobalSurveyWardAllocationEntity, int> wardAllocationRepository,
+        IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
+        IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
+        IRepository<UserEntity, int> userRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
@@ -69,6 +78,10 @@ public partial class PropertyService
         _roomWiseRepository = roomWiseRepository;
         _assessmentRepository = assessmentRepository;
         _ruleLogService = ruleLogService;
+        _wardAllocationRepository = wardAllocationRepository;
+        _userRepository = userRepository;
+        _propertyMapMasterRepository = propertyMapMasterRepository;
+        _propertyMapDetailRepository = propertyMapDetailRepository;
     }
 
 
