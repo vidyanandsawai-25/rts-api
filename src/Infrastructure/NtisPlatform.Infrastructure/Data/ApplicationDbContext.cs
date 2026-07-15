@@ -1608,6 +1608,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyDescription).IsUnique().HasDatabaseName("UQ_PropertyTypeMaster_PropertyDescription");
+
+            // Configure relationships
+            entity.HasMany(e => e.PropertyMast)
+                .WithOne(r => r.PropertyTypeMaster)
+                .HasForeignKey(r => r.PropertyTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertyDescriptionAndTypeOfUseValidation)
+                .WithOne(n => n.PropertyTypeMaster)
+                .HasForeignKey(n => n.PropertyTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         });
 
         // PropertyPhotoType configuration
