@@ -1,7 +1,6 @@
 using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
-using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 
@@ -10,16 +9,16 @@ public class SubFloorQueryParameters : BaseQueryParameters
     [Filterable]
     [Searchable]
     [Sortable]
-    public string? SubFloorId { get; set; }
+    public string? SubFloorCode { get; set; }
 
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
-    public string? SubFloorDescription { get; set; }
+    public string? Description { get; set; }
 
-    [Filterable(FilterOperator.Contains)]
-    [Searchable]
-    public string? SubFloorDescriptionEnglish { get; set; }
+    [Filterable]
+    [Sortable]
+    public decimal? SubFloorPercentage { get; set; }
 
     [Filterable]
     [Sortable]

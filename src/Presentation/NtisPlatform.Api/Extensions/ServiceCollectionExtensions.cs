@@ -185,6 +185,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRepository<NtisPlatform.Core.Entities.Master.ReportParameterDefinitionEntity, int>>(
             sp => new ReportDbRepository<NtisPlatform.Core.Entities.Master.ReportParameterDefinitionEntity, int>(
                 sp.GetRequiredService<ReportingDbContext>()));
+        // Read-only from this app's perspective — modules are managed by the report-admin tool.
+        services.AddScoped<IRepository<NtisPlatform.Core.Entities.Master.ReportModuleEntity, int>>(
+            sp => new ReportDbRepository<NtisPlatform.Core.Entities.Master.ReportModuleEntity, int>(
+                sp.GetRequiredService<ReportingDbContext>()));
 
         // Reporting repositories/UoW bound to ReportingDbContext (report queue DB)
         services.AddScoped(typeof(IReportingRepository<,>), typeof(ReportingRepository<,>));
@@ -489,6 +493,13 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<IMapper>()));
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IReportWorkerService, ReportWorkerService>();
+        // Read-only lookup for report module name/logo (GetAll/GetById only — modules are
+        // managed exclusively through the report-admin tool). Same ReportingDbContext-backed
+        // IUnitOfWork wiring as ReportDefinitionService/ReportParameterDefinitionService above.
+        services.AddScoped<IReportModuleService>(sp => new ReportModuleService(
+            sp.GetRequiredService<IRepository<NtisPlatform.Core.Entities.Master.ReportModuleEntity, int>>(),
+            new ReportDbUnitOfWork(sp.GetRequiredService<ReportingDbContext>()),
+            sp.GetRequiredService<IMapper>()));
         // No job-enqueuer here: the platform only inserts Pending rows into dbo.ReportRequest. The
         // ntis-report worker polls for them and enqueues/renders itself, so the two repos share only
         // the database (no cross-repo Hangfire job-contract assembly).

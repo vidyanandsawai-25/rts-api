@@ -70,7 +70,11 @@ public class PropertyServiceTests
             _mockSocietyRepository.Object,
             _mockPropertyDetailsRepository.Object,
             _mockRoomWiseRepository.Object,
-            _mockAssessmentRepository.Object);
+            _mockAssessmentRepository.Object,
+            new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object,
+            new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
+            new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
+            new Mock<IRepository<UserEntity, int>>().Object);
     }
 
     // Basic Details was split into the per-tab PropertyBasicDetailsService (data access in

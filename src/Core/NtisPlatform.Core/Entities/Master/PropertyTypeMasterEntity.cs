@@ -19,4 +19,7 @@ public class PropertyTypeMasterEntity : BaseEntity
     public int? PropertyTypeCategoryId { get; set; }
 
     public string? PartType { get; set; } = string.Empty;
+
+    public ICollection<PropertyEntity> PropertyMast { get; set; } = new List<PropertyEntity>();
+    public ICollection<PropertyDescriptionAndTypeOfUseValidationEntity> PropertyDescriptionAndTypeOfUseValidation { get; set; } = new List<PropertyDescriptionAndTypeOfUseValidationEntity>();
 }
