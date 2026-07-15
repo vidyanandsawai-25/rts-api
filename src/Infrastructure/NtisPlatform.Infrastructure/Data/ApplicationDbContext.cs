@@ -197,6 +197,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
+    public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
+    public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -1610,6 +1612,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.HasIndex(e => e.PropertyDescription).IsUnique().HasDatabaseName("UQ_PropertyTypeMaster_PropertyDescription");
+
+            // Configure relationships
+            entity.HasMany(e => e.PropertyMast)
+                .WithOne(r => r.PropertyTypeMaster)
+                .HasForeignKey(r => r.PropertyTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PropertyDescriptionAndTypeOfUseValidation)
+                .WithOne(n => n.PropertyTypeMaster)
+                .HasForeignKey(n => n.PropertyTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
         });
 
         // PropertyPhotoType configuration
@@ -5690,6 +5704,91 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_SocietyWingDetails_IsActive");
         });
 
+<<<<<<< HEAD
+=======
+        // GlobalSurveyWardAllocation Entity
+        modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity => 
+        {
+            entity.ToTable("WardAllocation", "GSMS");
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(x => x.UserId).IsRequired();
+            entity.Property(x => x.DepartmentId).IsRequired();
+            entity.Property(x => x.ModuleId).IsRequired();
+            entity.Property(x => x.ZoneId).IsRequired();
+            entity.Property(x => x.WardId).IsRequired();
+
+            entity.Property(x => x.IsActive)
+                .IsRequired();
+
+            entity.Property(x => x.CreatedDate)
+                .IsRequired();
+
+            entity.HasIndex(x => new { x.UserId, x.DepartmentId, x.ModuleId, x.ZoneId, x.WardId })
+                .IsUnique()
+                .HasDatabaseName("UQ_WardAllocation_User_Department_Module_Zone_Ward");
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .HasPrincipalKey(x => x.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Department)
+                .WithMany()
+                .HasForeignKey(x => x.DepartmentId)
+                .HasPrincipalKey(x => x.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Module)
+                .WithMany()
+                .HasForeignKey(x => x.ModuleId)
+                .HasPrincipalKey(x => x.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Zone)
+                .WithMany()
+                .HasForeignKey(x => x.ZoneId)
+                .HasPrincipalKey(x => x.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Ward)
+                .WithMany()
+                .HasForeignKey(x => x.WardId)
+                .HasPrincipalKey(x => x.Id)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // PropertyMapDetail configuration
+        modelBuilder.Entity<PropertyMapDetailEntity>(entity =>
+        {
+            entity.ToTable("PropertyMapDetail", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd().UseIdentityColumn(1, 1);
+            entity.Property(e => e.PropertyMapId).IsRequired();
+            entity.Property(e => e.PropertySide).IsRequired().HasMaxLength(10).IsUnicode(false).HasConversion<string>();
+            entity.Property(e => e.PropertyNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxSharePercent).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.AreaSharePercent).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.Status).IsRequired().HasMaxLength(20).IsUnicode(false).HasDefaultValue("ACTIVE");
+            entity.Property(e => e.IsCurrent).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.ChangeReason).HasMaxLength(300);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(12,8)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(12,8)");
+            entity.Property(e => e.Location).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+
+            // Unique Constraint
+            entity.HasIndex(e => new { e.PropertyMapId, e.PropertySide, e.PropertyIdNew, e.PropertyIdOld, e.Status })
+                .IsUnique()
+                .HasDatabaseName("UQ_PropertyMapDetail_PropertyMapId_PropertySide_PropertyId_Status");
+        });
+>>>>>>> main
 
     }
 }

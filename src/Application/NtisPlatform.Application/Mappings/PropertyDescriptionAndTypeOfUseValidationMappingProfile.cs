@@ -16,7 +16,8 @@ public class PropertyDescriptionAndTypeOfUseValidationMappingProfile : Profile
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy))
-            .ForMember(dest => dest.TypeOfUse, opt => opt.Ignore());
+            .ForMember(dest => dest.TypeOfUse, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTypeMaster, opt => opt.Ignore());
 
         CreateMap<UpdatePropertyDescriptionAndTypeOfUseValidationDto, PropertyDescriptionAndTypeOfUseValidationEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
@@ -24,6 +25,7 @@ public class PropertyDescriptionAndTypeOfUseValidationMappingProfile : Profile
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy))
-            .ForMember(dest => dest.TypeOfUse, opt => opt.Ignore());
+            .ForMember(dest => dest.TypeOfUse, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTypeMaster, opt => opt.Ignore());
     }
 }

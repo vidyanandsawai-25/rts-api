@@ -173,5 +173,52 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.OuterYesNo, opt => opt.Ignore())
             .ForMember(dest => dest.MinusYesNo, opt => opt.Ignore());
+
+        // Self-mapping for cloning PropertyEntity during split operations.
+        // Ignores Id (so EF auto-generates it) and all navigation properties
+        // (so EF doesn't cascade-insert related child entities).
+        CreateMap<PropertyEntity, PropertyEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            // Master data navigation references
+            .ForMember(dest => dest.TaxZone, opt => opt.Ignore())
+            .ForMember(dest => dest.Ward, opt => opt.Ignore())
+            .ForMember(dest => dest.Mouja, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyAssessmentStatus, opt => opt.Ignore())
+            // Child entity navigation collections
+            .ForMember(dest => dest.FlagMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.PlotDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.TransMastCV, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyDetailsOld, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyMastOld, opt => opt.Ignore())
+            .ForMember(dest => dest.SocietyDetailsMast, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyMastDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PolicyTaxDetailsCV, opt => opt.Ignore())
+            .ForMember(dest => dest.PolicyTaxDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.ApplyTaxesMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyAssessmentDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyCertificates, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
+            .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyImagesMast, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertySocialDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetails, opt => opt.Ignore())
+            .ForMember(dest => dest.WaterConnectionMaster, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetailsArchive, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetailsCV, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetailsLookup, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetailsRetro, opt => opt.Ignore())
+            .ForMember(dest => dest.TaxPendingDetailsRV, opt => opt.Ignore())
+            .ForMember(dest => dest.TransMast, opt => opt.Ignore())
+            .ForMember(dest => dest.TransMastArchive, opt => opt.Ignore())
+            .ForMember(dest => dest.TransMastLookup, opt => opt.Ignore())
+            .ForMember(dest => dest.TransMastRV, opt => opt.Ignore())
+            .ForMember(dest => dest.WorkflowHistory, opt => opt.Ignore());
     }
 }

@@ -11,7 +11,7 @@ public class ReportDefinitionDto : BaseDtos
 {
     public string ReportCode { get; set; } = string.Empty;
     public string ReportName { get; set; } = string.Empty;
-    public string Category { get; set; } = string.Empty;
+    public int? ModuleId { get; set; }
     public string Description { get; set; } = string.Empty;
     public string TemplateFile { get; set; } = string.Empty;
     public string DataProviderCode { get; set; } = string.Empty;
@@ -30,8 +30,7 @@ public class CreateReportDefinitionDto : CreateBaseDtos
     [StringLength(200, ErrorMessage = "Report_ReportName_MaxLen_200")]
     public string ReportName { get; set; } = string.Empty;
 
-    [StringLength(100, ErrorMessage = "Report_Category_MaxLen_100")]
-    public string Category { get; set; } = string.Empty;
+    public int? ModuleId { get; set; }
 
     [StringLength(500, ErrorMessage = "Report_Description_MaxLen_500")]
     public string Description { get; set; } = string.Empty;
@@ -59,8 +58,7 @@ public class UpdateReportDefinitionDto : UpdateBaseDtos
     [StringLength(200, ErrorMessage = "Report_ReportName_MaxLen_200")]
     public string ReportName { get; set; } = string.Empty;
 
-    [StringLength(100, ErrorMessage = "Report_Category_MaxLen_100")]
-    public string Category { get; set; } = string.Empty;
+    public int? ModuleId { get; set; }
 
     [StringLength(500, ErrorMessage = "Report_Description_MaxLen_500")]
     public string Description { get; set; } = string.Empty;
@@ -91,9 +89,8 @@ public class ReportDefinitionQueryParameters : BaseQueryParameters
     public string? ReportName { get; set; }
 
     [Filterable]
-    [Searchable]
     [Sortable]
-    public string? Category { get; set; }
+    public int? ModuleId { get; set; }
 
     [Filterable]
     [Sortable]
@@ -214,4 +211,57 @@ public class ReportParameterDefinitionQueryParameters : BaseQueryParameters
 
     [Filterable]
     public bool? IsActive { get; set; }
+}
+
+// ─── Report Module DTOs (dbo.Module — display name + logo, managed by the report-admin tool) ──
+// dbo.Module has no IsActive/CreatedBy/UpdatedBy columns (see ReportModuleEntity), so — unlike
+// most master DTOs in this file — these deliberately do NOT inherit BaseDtos/CreateBaseDtos/
+// UpdateBaseDtos. Create/Update exist only to satisfy ICommonCrudService's generic parameters;
+// ReportModulesController exposes just GetAll/GetById (modules are managed by the report-admin tool).
+
+/// <summary>A report module: display name plus its logo, base64-encoded for direct embedding in JSON.</summary>
+public class ReportModuleDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? LogoContentType { get; set; }
+    public string? LogoBase64 { get; set; }
+}
+
+public class CreateReportModuleDto
+{
+    [Required(ErrorMessage = "Module_Name_Required")]
+    [StringLength(200, ErrorMessage = "Module_Name_MaxLen_200")]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(200, ErrorMessage = "Module_LogoFileName_MaxLen_200")]
+    public string? LogoFileName { get; set; }
+
+    [StringLength(100, ErrorMessage = "Module_LogoContentType_MaxLen_100")]
+    public string? LogoContentType { get; set; }
+
+    public byte[]? LogoContent { get; set; }
+}
+
+public class UpdateReportModuleDto
+{
+    [Required(ErrorMessage = "Module_Name_Required")]
+    [StringLength(200, ErrorMessage = "Module_Name_MaxLen_200")]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(200, ErrorMessage = "Module_LogoFileName_MaxLen_200")]
+    public string? LogoFileName { get; set; }
+
+    [StringLength(100, ErrorMessage = "Module_LogoContentType_MaxLen_100")]
+    public string? LogoContentType { get; set; }
+
+    public byte[]? LogoContent { get; set; }
+}
+
+public class ReportModuleQueryParameters : BaseQueryParameters
+{
+    [Filterable]
+    [Searchable]
+    [Sortable]
+    public string? Name { get; set; }
 }

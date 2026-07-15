@@ -125,6 +125,8 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public virtual MoujaEntity? Mouja { get; set; }
     public virtual PropertyAssessmentStatusEntity? PropertyAssessmentStatus { get; set; }
 
+    public virtual PropertyTypeMasterEntity? PropertyTypeMaster { get; set; }
+
     // ===== Child Entity Navigation Properties =====
     // 
     // ARCHITECTURE NOTE: Navigation properties serve THREE purposes:

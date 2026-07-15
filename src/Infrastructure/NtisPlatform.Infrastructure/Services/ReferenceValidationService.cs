@@ -165,6 +165,12 @@ public class ReferenceValidationService : IReferenceValidationService
             ("Asset Organization Master", (ctx, id) => ctx.AssetOrganizationMasters.Where(o => o.AuthorityId == id).Cast<object>())
         );
 
+        // PropertyTypeMaster - referenced by PropertyMast and PropertyDescriptionAndTypeOfUseValidation
+        config.ForEntity<PropertyTypeMasterEntity>()
+            .CheckReferences(
+                ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.PropertyTypeId == id).Cast<object>()),
+                ("Property Description and Type of Use Validation", (ctx, id) => ctx.PropertyDescriptionAndTypeOfUseValidations.Where(v => v.PropertyTypeId == id).Cast<object>())
+            );
         _referenceConfig = config.Build();
     }
 

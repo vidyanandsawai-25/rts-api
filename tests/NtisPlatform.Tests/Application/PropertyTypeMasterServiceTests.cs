@@ -2,6 +2,7 @@ using AutoMapper;
 using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.PropertyTypeMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -11,6 +12,7 @@ namespace NtisPlatform.Tests.Application;
 public class PropertyTypeMasterServiceTests
 {
     private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _mockRepository;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly PropertyTypeMasterService _service;
@@ -18,6 +20,7 @@ public class PropertyTypeMasterServiceTests
     public PropertyTypeMasterServiceTests()
     {
         _mockRepository = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -33,7 +36,7 @@ public class PropertyTypeMasterServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new PropertyTypeMasterService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new PropertyTypeMasterService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
     }
 
     [Fact]
@@ -116,7 +119,8 @@ public class PropertyTypeMasterServiceTests
         var service = new PropertyTypeMasterService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var qp = new PropertyTypeMasterQueryParameters
         {

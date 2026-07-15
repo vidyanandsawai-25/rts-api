@@ -142,24 +142,22 @@ public class CommonDetailsService : ICommonDetailsService
         var query = _propertyRepo.GetQueryable()
             .Where(pm => pm.WardId == request.WardId);
 
+        // PropertyNo - exact match (optional)
         if (!string.IsNullOrWhiteSpace(request.PropertyNo))
         {
             var propertyNo = request.PropertyNo.Trim();
             query = query.Where(pm => pm.PropertyNo == propertyNo);
         }
-        else
+
+        // FromPropertyNo and ToPropertyNo - range filtering (both required together)
+        if (!string.IsNullOrWhiteSpace(request.FromPropertyNo) && !string.IsNullOrWhiteSpace(request.ToPropertyNo))
         {
-            if (!string.IsNullOrWhiteSpace(request.FromPropertyNo))
-            {
-                var fromPropertyNo = request.FromPropertyNo.Trim();
-                query = query.Where(pm => string.Compare(pm.PropertyNo, fromPropertyNo) >= 0);
-            }
-            if (!string.IsNullOrWhiteSpace(request.ToPropertyNo))
-            {
-                var toPropertyNo = request.ToPropertyNo.Trim();
-                query = query.Where(pm => string.Compare(pm.PropertyNo, toPropertyNo) <= 0);
-            }
+            var fromPropertyNo = request.FromPropertyNo.Trim();
+            var toPropertyNo = request.ToPropertyNo.Trim();
+            query = query.Where(pm => string.Compare(pm.PropertyNo, fromPropertyNo) >= 0
+                                   && string.Compare(pm.PropertyNo, toPropertyNo) <= 0);
         }
+
         if (!string.IsNullOrWhiteSpace(request.Wing))
             query = query.Where(pm => _societyRepo.GetQueryable()
                 .Any(sdm => sdm.PropertyId == pm.Id && sdm.WingName == request.Wing));

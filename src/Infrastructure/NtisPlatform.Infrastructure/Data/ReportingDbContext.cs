@@ -27,6 +27,7 @@ public class ReportingDbContext : DbContext
     // (catalogue + queue) lives in one database.
     public DbSet<ReportDefinitionEntity> ReportDefinitions { get; set; } = null!;
     public DbSet<ReportParameterDefinitionEntity> ReportParameterDefinitions { get; set; } = null!;
+    public DbSet<ReportModuleEntity> ReportModules { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -93,7 +94,7 @@ public class ReportingDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.ReportCode).IsRequired().HasMaxLength(100);
             entity.Property(e => e.ReportName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Category).HasMaxLength(100);
+            entity.Property(e => e.ModuleId);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.TemplateFile).IsRequired().HasMaxLength(200);
             entity.Property(e => e.DataProviderCode).IsRequired().HasMaxLength(100);
@@ -104,7 +105,7 @@ public class ReportingDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
             entity.HasIndex(e => e.ReportCode).IsUnique().HasDatabaseName("UQ_ReportDefinitions_ReportCode");
-            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.ModuleId).HasDatabaseName("IX_ReportDefinitions_ModuleId");
             entity.HasIndex(e => e.IsActive);
             entity.HasIndex(e => e.SortOrder);
         });
@@ -133,6 +134,22 @@ public class ReportingDbContext : DbContext
                   .HasDatabaseName("IX_ReportParameterDefinitions_ReportId");
             entity.HasIndex(e => new { e.ReportDefinitionId, e.IsActive, e.SortOrder })
                   .HasDatabaseName("IX_ReportParameterDefinitions_ReportId_Active_Sort");
+        });
+
+        // Report module catalogue (display name + optional logo), owned/edited by the report-admin
+        // tool. Mirrors dbo.Module in db/NtisReportDb.sql; keep both in sync.
+        modelBuilder.Entity<ReportModuleEntity>(entity =>
+        {
+            entity.ToTable("Module");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.LogoFileName).HasMaxLength(200);
+            entity.Property(e => e.LogoContentType).HasMaxLength(100);
+            entity.Property(e => e.LogoContent);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime2");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime2");
+            entity.HasIndex(e => e.Name).IsUnique().HasDatabaseName("UQ_Module_Name");
         });
     }
 }
