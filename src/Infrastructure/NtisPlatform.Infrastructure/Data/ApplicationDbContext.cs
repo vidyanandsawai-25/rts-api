@@ -5704,8 +5704,6 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_SocietyWingDetails_IsActive");
         });
 
-<<<<<<< HEAD
-=======
         // GlobalSurveyWardAllocation Entity
         modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity => 
         {
@@ -5788,7 +5786,6 @@ public class ApplicationDbContext : DbContext
                 .IsUnique()
                 .HasDatabaseName("UQ_PropertyMapDetail_PropertyMapId_PropertySide_PropertyId_Status");
         });
->>>>>>> main
 
     }
 }
