@@ -20,7 +20,11 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.TypeOfUseDescription,
                 opt => opt.MapFrom(src => src.TypeOfUse != null ? src.TypeOfUse.Description : null))
             .ForMember(dest => dest.SubTypeOfUseDescription,
-                opt => opt.MapFrom(src => src.SubTypeOfUse != null ? src.SubTypeOfUse.Description : null));
+                opt => opt.MapFrom(src => src.SubTypeOfUse != null ? src.SubTypeOfUse.Description : null))
+            .ForMember(dest => dest.Length, opt => opt.Ignore())
+            .ForMember(dest => dest.Width, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyCertificates, opt => opt.Ignore())
+            .ForMember(dest => dest.Property, opt => opt.Ignore());
 
         // ── Create DTO → Entity ──────────────────────────────────────
         // Description fields (FloorDescription etc.) only exist on the DTO

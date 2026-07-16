@@ -37,8 +37,6 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
 
     public bool? IsTaxable { get; set; }
     public bool? IsOpenPlot { get; set; }
-    public double? Length { get; set; }
-    public double? Width { get; set; }
     /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>
