@@ -206,7 +206,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 CertificateNo = hasCertificate && certificate != null ? certificate.CertificateNo : null,
                 IssueDate = hasCertificate && certificate != null ? certificate.IssueDate : null,
                 DocumentGuid = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeDocumentGuid(certificate.DocumentBinding) : null,
-                FileName = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeFileName(certificate.DocumentBinding) : null
+                FileName = hasCertificate && certificate != null ? NtisPlatform.Application.Common.DocumentBindingHelper.GetSafeFileName(certificate.DocumentBinding) : null,
+                PropertyDetailsId = hasCertificate && certificate != null ? certificate.PropertyDetailsId : null
             };
         }).ToList();
 
@@ -306,7 +307,8 @@ public class PropertyCertificateApplicationService : IPropertyCertificateApplica
                 IssueDate = certificate.IssueDate,
                 FileName = originalFileName,
                 FileSizeBytes = fileSizeBytes,
-                StoragePath = docResponse.StoragePath ?? string.Empty
+                StoragePath = docResponse.StoragePath ?? string.Empty,
+                PropertyDetailsId = certificate.PropertyDetailsId
             };
         }
         catch

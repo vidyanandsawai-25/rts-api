@@ -1904,9 +1904,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyAssessmentStatusId);
             entity.Property(e => e.PropertyMastOldId);
             entity.Property(e => e.PropertyFloorId);
- 
-            entity.Property(e => e.TotalPlotArea).HasColumnType("float");
- 
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -3170,6 +3167,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CertificateNo).HasMaxLength(100).HasColumnType("nvarchar(100)");
             entity.Property(e => e.IssueDate).HasColumnName("CertificateIssueDate").HasColumnType("date");
             entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.PropertyDetailsId);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");

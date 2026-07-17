@@ -275,4 +275,44 @@ public class DataEntrySameAsServiceTests
 
         Assert.Contains("No valid destination properties supplied", ex.Message);
     }
+
+    // ── GetSiblingPropertiesAsync: unmatched-wing rows must not duplicate ──────
+
+    [Fact]
+    public async Task GetSiblingPropertiesAsync_DropsUnmatchedWingRows_ReturnsNoDuplicate()
+    {
+        // A property with two society rows: one whose WingId matches a WingMaster (WingNo differs from
+        // the partition, so it is kept) and one whose WingId matches nothing (unmatched left join → null
+        // wing number). Raw SQL drops the unmatched row (`PartitionNo != NULL` is UNKNOWN); the service
+        // must do the same instead of emitting a duplicate. (Pre-fix, `pm.PartitionNo != wm.WingNo`
+        // relied on EF's C# null-semantics and kept the unmatched row.)
+        const int propertyId = 579097;
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = propertyId, WardId = 18, PropertyNo = "1", PartitionNo = "A", Type = "4" }
+        };
+        var society = new List<SocietyDetailsEntity>
+        {
+            new() { PropertyId = propertyId, WingId = 5, WingName = "GG" },    // matches WingMaster 5
+            new() { PropertyId = propertyId, WingId = 999, WingName = null }   // no matching WingMaster
+        };
+        var wings = new List<WingEntity> { new() { Id = 5, WingNo = "B" } };   // WingNo "B" != partition "A"
+        var details = new List<PropertyDetailsEntity>
+        {
+            new() { Id = 1, PropertyId = propertyId, IsActive = true, MarkedForDeletion = false,
+                    CarpetAreaSqMeter = 38.72, CarpetAreaSqFeet = 416.78 }
+        };
+
+        var service = CreateService(properties: properties, propertyDetails: details);
+        _societyRepo.Setup(r => r.GetQueryable()).Returns(society.BuildMock());
+        _wingRepo.Setup(r => r.GetQueryable()).Returns(wings.BuildMock());
+
+        var result = await service.GetSiblingPropertiesAsync(
+            new DataEntrySameAsQueryParameters { WardId = 18, PropertyNo = "1", PartitionNo = "A" });
+
+        var row = Assert.Single(result);
+        Assert.Equal(propertyId, row.PropertyId);
+        Assert.Equal("GG", row.WingName);
+        Assert.Equal(38.72, row.CarpetAreaSqMeter);
+    }
 }
