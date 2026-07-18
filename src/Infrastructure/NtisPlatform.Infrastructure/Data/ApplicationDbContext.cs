@@ -4226,8 +4226,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.Id).ValueGeneratedOnAdd();
 
 
+            entity.Property(x => x.CategoryCode).IsRequired().HasMaxLength(100);
             entity.Property(x => x.CategoryName).IsRequired().HasMaxLength(200);
-            entity.Property(x => x.CategoryCode).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
 
             entity.Property(x => x.IsActive).IsRequired().HasDefaultValue(true);
@@ -4238,11 +4238,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(x => x.MarkedForDeletionDate).HasColumnType("datetime");
 
-            // Unique constraints
-            entity.HasIndex(e => e.CategoryName).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryName");
-            entity.HasIndex(e => e.CategoryCode).IsUnique().HasFilter("[CategoryCode] IS NOT NULL").HasDatabaseName("UQ_AssetCategoryMaster_CategoryCode");
-        });
+            entity.Property(x => x.IsMovable).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.HasFloorDetails).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.HasInventory).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.IsInventoryMandatory).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.HasLegalCompliance).IsRequired().HasDefaultValue(false);
+            entity.Property(x => x.ValuationType).IsRequired().HasMaxLength(20).HasDefaultValue("GENERIC");
 
+            entity.HasIndex(e => e.CategoryName).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryName");
+            entity.HasIndex(e => e.CategoryCode).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryCode");
+        });
         modelBuilder.Entity<AssetTypeEntity>(entity =>
         {
             entity.ToTable("AssetTypeMaster", "AMS");
@@ -4273,7 +4278,7 @@ public class ApplicationDbContext : DbContext
             // Configure foreign key relationship to AssetCategoryEntity
             entity.HasOne<AssetCategoryEntity>()
                 .WithMany()
-                .HasForeignKey(x => x.CategoryId)
+                .HasForeignKey(x => x.AssetCategoryId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_AssetTypeMaster_AssetCategoryMaster");
         });
@@ -5073,13 +5078,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
             entity.Property(e => e.FieldGroup).HasMaxLength(100);
-            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
-            entity.Property(e => e.ValidationRules).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.DefaultValue).HasMaxLength(500);
-            entity.Property(e => e.MinValue).HasColumnType("decimal(18, 4)");
-            entity.Property(e => e.MaxValue).HasColumnType("decimal(18, 4)");
-            entity.Property(e => e.MaxLength);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");

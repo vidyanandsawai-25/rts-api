@@ -20,6 +20,10 @@ public class OwningDepartmentQueryParameters : BaseQueryParameters
     public bool? IsActive { get; set; }
 
     [Filterable]
+    [Sortable]
+    public bool? MarkedForDeletion { get; set; }
+
+    [Filterable]
     [Searchable]
     [Sortable]
     public string? Description { get; set; }

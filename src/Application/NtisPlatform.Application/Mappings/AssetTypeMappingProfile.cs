@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master;
 using NtisPlatform.Core.Entities.Master;
 
@@ -8,10 +8,12 @@ public class AssetTypeMappingProfile : Profile
 {
     public AssetTypeMappingProfile()
     {
-        CreateMap<AssetTypeEntity, AssetTypeDto>();
+        CreateMap<AssetTypeEntity, AssetTypeDto>()
+            .ForMember(dest => dest.AssetCategoryId, opt => opt.MapFrom(src => src.AssetCategoryId));
 
         CreateMap<CreateAssetTypeDto, AssetTypeEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.AssetCategoryId, opt => opt.MapFrom(src => src.AssetCategoryId))
             .ForMember(dest => dest.LastSequence, opt => opt.Ignore())
             .ForMember(dest => dest.RowVersion, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
@@ -24,7 +26,7 @@ public class AssetTypeMappingProfile : Profile
 
         CreateMap<UpdateAssetTypeDto, AssetTypeEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.CategoryId, opt => opt.MapFrom(src => src.CategoryId))
+            .ForMember(dest => dest.AssetCategoryId, opt => opt.MapFrom(src => src.AssetCategoryId))
             .ForMember(dest => dest.LastSequence, opt => opt.Ignore())
             .ForMember(dest => dest.RowVersion, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
