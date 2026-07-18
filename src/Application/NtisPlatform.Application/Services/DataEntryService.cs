@@ -66,8 +66,8 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
              .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
                 .ThenInclude(r => r.PropertyRoomMinus!.Where(rm => rm.IsActive && !rm.MarkedForDeletion))
             .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
-                .ThenInclude(r => r.RoomTypeMaster)
-            .AsNoTracking();
+                .ThenInclude(r => r.RoomTypeMaster);
+             
     }
 
 
