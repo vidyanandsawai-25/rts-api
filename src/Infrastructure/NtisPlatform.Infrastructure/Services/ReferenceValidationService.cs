@@ -171,6 +171,14 @@ public class ReferenceValidationService : IReferenceValidationService
                 ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.PropertyTypeId == id).Cast<object>()),
                 ("Property Description and Type of Use Validation", (ctx, id) => ctx.PropertyDescriptionAndTypeOfUseValidations.Where(v => v.PropertyTypeId == id).Cast<object>())
             );
+
+        // MoujaMaster - referenced by CSNDetails, SubZoneDetailsForCV and PropertyMast
+        config.ForEntity<MoujaEntity>()
+            .CheckReferences(
+                ("CSN Details", (ctx, id) => ctx.CSNDetails.Where(p => p.MoujaId == id).Cast<object>()),
+                ("Sub Zone Details", (ctx, id) => ctx.SubZoneDetailsForCV.Where(v => v.MoujaId == id).Cast<object>()),
+                ("Property Master", (ctx, id) => ctx.PropertyMast.Where(v => v.MoujaId == id).Cast<object>())   
+            );
         _referenceConfig = config.Build();
     }
 

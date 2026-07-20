@@ -3,7 +3,9 @@ using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -999,6 +1001,167 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal(string.Empty, item.TypeOfUseGroup);
             Assert.Equal(string.Empty, item.YearRangeRV);
             Assert.Equal(string.Empty, item.RateSection);
+        }
+
+        [Fact]
+        public async Task GetOpenPlotTypeOfUseDetailsAsync_ReturnsFilteredOpenPlotTypes()
+        {
+            // Arrange
+            var typeOfUses = new List<TypeOfUseEntity>
+            {
+                new() { Id = 1, TypeOfUseCode = "OP", Description = "Open Plot", TypeOfUseGroupId = 10, IsActive = true },
+                new() { Id = 2, TypeOfUseCode = "RES", Description = "Residential", TypeOfUseGroupId = 20, IsActive = true }
+            };
+
+            var typeOfUseCategories = new List<TypeOfUseCategoryEntity>
+            {
+                new() { Id = 100, TypeOfUseCategoryCode = TypeOfUseConstants.Op, TypeOfUseCategoryName = "Open Plot Category", IsActive = true }
+            };
+
+            var typeOfUseGroups = new List<TypeOfUseGroupEntity>
+            {
+                new() { Id = 10, TypeOfUseGroupCode = "G1", GroupName = "Group 1", IsOpenPlot = true, IsActive = true },
+                new() { Id = 20, TypeOfUseGroupCode = "G2", GroupName = "Group 2", IsOpenPlot = false, IsActive = true }
+            };
+
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+
+            mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typeOfUses.BuildMock());
+            mockTypeOfUseCategoryRepository.Setup(r => r.GetQueryable()).Returns(typeOfUseCategories.BuildMock());
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(typeOfUseGroups.BuildMock());
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                new Mock<IRepository<TaxZoneEntity>>().Object,
+                new Mock<IRepository<FloorEntity>>().Object,
+                new Mock<IRepository<ConstructionTypeEntity>>().Object,
+                mockTypeOfUseGroupRepository.Object,
+                new Mock<IRepository<AssessmentYearRangeEntity>>().Object,
+                new Mock<IRepository<RateSectionEntity>>().Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
+
+            var queryParams = new TypeOfUseQueryParameters { PageNumber = 1, PageSize = 10 };
+
+            // Act
+            var result = await service.GetOpenPlotTypeOfUseDetailsAsync(queryParams, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Single(result.Items);
+            Assert.Equal("OP", result.Items.First().TypeOfUseCode);
+        }
+
+        [Fact]
+        public async Task GetOpenPlotTypeOfUseDetailsAsync_InvalidSortBy_ThrowsFilterValidationException()
+        {
+            // Arrange
+            var typeOfUses = new List<TypeOfUseEntity>();
+            var typeOfUseCategories = new List<TypeOfUseCategoryEntity>();
+            var typeOfUseGroups = new List<TypeOfUseGroupEntity>();
+
+            var mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity>>();
+            var mockTypeOfUseCategoryRepository = new Mock<IRepository<TypeOfUseCategoryEntity>>();
+            var mockTypeOfUseGroupRepository = new Mock<IRepository<TypeOfUseGroupEntity>>();
+
+            mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typeOfUses.BuildMock());
+            mockTypeOfUseCategoryRepository.Setup(r => r.GetQueryable()).Returns(typeOfUseCategories.BuildMock());
+            mockTypeOfUseGroupRepository.Setup(r => r.GetQueryable()).Returns(typeOfUseGroups.BuildMock());
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                new Mock<IRepository<TaxZoneEntity>>().Object,
+                new Mock<IRepository<FloorEntity>>().Object,
+                new Mock<IRepository<ConstructionTypeEntity>>().Object,
+                mockTypeOfUseGroupRepository.Object,
+                new Mock<IRepository<AssessmentYearRangeEntity>>().Object,
+                new Mock<IRepository<RateSectionEntity>>().Object,
+                mockTypeOfUseRepository.Object,
+                mockTypeOfUseCategoryRepository.Object);
+
+            var queryParams = new TypeOfUseQueryParameters
+            {
+                PageNumber = 1,
+                PageSize = 10,
+                SortBy = "InvalidSortColumn"
+            };
+
+            // Act & Assert
+            await Assert.ThrowsAsync<FilterValidationException>(() =>
+                service.GetOpenPlotTypeOfUseDetailsAsync(queryParams, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task CreateAsync_FloorIdZero_ResolvesGroundFloorId()
+        {
+            // Arrange
+            var createDto = new CreateRateDto { TaxZoneId = 1, FloorId = 0, ConstructionTypeId = 1 };
+            var floors = new List<FloorEntity>
+            {
+                new() { Id = 10, FloorCode = "G", IsActive = true }
+            };
+
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floors.BuildMock());
+
+            _mockMapper.Setup(m => m.Map<RateEntity>(It.IsAny<CreateRateDto>()))
+                .Returns((CreateRateDto dto) => new RateEntity { Id = 1, FloorId = dto.FloorId });
+            _mockMapper.Setup(m => m.Map<RateDto>(It.IsAny<RateEntity>()))
+                .Returns((RateEntity e) => new RateDto { Id = e.Id, FloorId = e.FloorId });
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                new Mock<IRepository<TaxZoneEntity>>().Object,
+                mockFloorRepository.Object,
+                new Mock<IRepository<ConstructionTypeEntity>>().Object,
+                new Mock<IRepository<TypeOfUseGroupEntity>>().Object,
+                new Mock<IRepository<AssessmentYearRangeEntity>>().Object,
+                new Mock<IRepository<RateSectionEntity>>().Object,
+                new Mock<IRepository<TypeOfUseEntity>>().Object,
+                new Mock<IRepository<TypeOfUseCategoryEntity>>().Object);
+
+            // Act
+            var result = await service.CreateAsync(createDto, CancellationToken.None);
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(10, createDto.FloorId);
+        }
+
+        [Fact]
+        public async Task CreateAsync_FloorIdZero_NoGroundFloor_ThrowsValidationException()
+        {
+            // Arrange
+            var createDto = new CreateRateDto { TaxZoneId = 1, FloorId = 0, ConstructionTypeId = 1 };
+            var floors = new List<FloorEntity>(); // Empty, no Ground Floor G
+
+            var mockFloorRepository = new Mock<IRepository<FloorEntity>>();
+            mockFloorRepository.Setup(r => r.GetQueryable()).Returns(floors.BuildMock());
+
+            var service = new RateService(
+                _mockRepository.Object,
+                _mockUnitOfWork.Object,
+                _mockMapper.Object,
+                new Mock<IRepository<TaxZoneEntity>>().Object,
+                mockFloorRepository.Object,
+                new Mock<IRepository<ConstructionTypeEntity>>().Object,
+                new Mock<IRepository<TypeOfUseGroupEntity>>().Object,
+                new Mock<IRepository<AssessmentYearRangeEntity>>().Object,
+                new Mock<IRepository<RateSectionEntity>>().Object,
+                new Mock<IRepository<TypeOfUseEntity>>().Object,
+                new Mock<IRepository<TypeOfUseCategoryEntity>>().Object);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<ValidationException>(() =>
+                service.CreateAsync(createDto, CancellationToken.None));
         }
 
         #endregion

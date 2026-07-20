@@ -887,6 +887,17 @@ public class ApplicationDbContext : DbContext
                 .WithOne(r => r.Mouja)
                 .HasForeignKey(r => r.MoujaId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.CSNDetails)
+               .WithOne(r => r.Mouja)
+               .HasForeignKey(r => r.MoujaId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.SubZoneDetails)
+                .WithOne(n => n.Mouja)
+                .HasForeignKey(n => n.MoujaId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(e => e.MoujaNo).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaNo");
             entity.HasIndex(e => e.MoujaName).IsUnique().HasDatabaseName("UQ_MoujaMaster_MoujaName");
         });
@@ -900,13 +911,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.SubZoneName).IsRequired().HasMaxLength(1000);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("getdate()");
-
-            // Foreign key relationship
-            entity.HasOne(e => e.Mouja)
-                .WithMany()
-                .HasForeignKey(e => e.MoujaId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("FK_SubZoneDetailsForCV_MoujaMaster");
 
             // Unique constraint on MoujaId + SubZoneNo
             entity.HasIndex(e => new { e.MoujaId, e.SubZoneNo })

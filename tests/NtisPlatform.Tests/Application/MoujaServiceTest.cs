@@ -1,7 +1,8 @@
 using AutoMapper;
-using Moq;
 using MockQueryable;
+using Moq;
 using NtisPlatform.Application.DTOs;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -12,12 +13,14 @@ namespace NtisPlatform.Tests.Application
     {
         private readonly Mock<IRepository<MoujaEntity, int>> _mockRepository;
         private readonly Mock<IUnitOfWork> _mockUnitOfWork;
+        private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
         private readonly Mock<IMapper> _mockMapper;
         private readonly MoujaService _service;
 
         public MoujaServiceTest()
         {
             _mockRepository = new Mock<IRepository<MoujaEntity, int>>();
+            _mockReferenceValidator = new Mock<IReferenceValidationService>();
             _mockUnitOfWork = new Mock<IUnitOfWork>();
             _mockMapper = new Mock<IMapper>();
 
@@ -33,7 +36,7 @@ namespace NtisPlatform.Tests.Application
                 .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
 
-            _service = new MoujaService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+            _service = new MoujaService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
         }
 
         [Fact]
@@ -97,7 +100,7 @@ namespace NtisPlatform.Tests.Application
             mapperConfig.AssertConfigurationIsValid();
             IMapper mapper = mapperConfig.CreateMapper();
 
-            var service = new MoujaService(_mockRepository.Object, _mockUnitOfWork.Object, mapper);
+            var service = new MoujaService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
             var qp = new MoujaQueryParameters
             {
