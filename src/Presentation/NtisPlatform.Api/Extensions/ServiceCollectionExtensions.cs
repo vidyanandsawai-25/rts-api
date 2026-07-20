@@ -431,7 +431,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IPropertyAssessmentStatusService, PropertyAssessmentStatusService>();
-        services.AddScoped<ITaxCalculationGuidelineService, TaxCalculationGuidelineService>();
+        services.AddScoped<ICertificateTaxGuidelineService, CertificateTaxGuidelineService>();
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
         services.AddScoped<IAssetTypeService, AssetTypeService>();
