@@ -175,19 +175,61 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) && !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
         {
-            query = query.Where(x => x.Property.PropertyNo != null &&
-                                     string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoFrom) >= 0 &&
-                                     string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoTo) <= 0);
+            var fromStr = searchRequest.PropertyNoFrom.Trim();
+            var toStr = searchRequest.PropertyNoTo.Trim();
+            bool fromIsNum = long.TryParse(fromStr, out _);
+            bool toIsNum = long.TryParse(toStr, out _);
+
+            if (fromIsNum && toIsNum)
+            {
+                int fromLen = fromStr.Length;
+                int toLen = toStr.Length;
+
+                if (fromLen == toLen)
+                {
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                                             x.Property.PropertyNo.Length == fromLen &&
+                                             string.Compare(x.Property.PropertyNo, fromStr) >= 0 &&
+                                             string.Compare(x.Property.PropertyNo, toStr) <= 0);
+                }
+                else
+                {
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                                             x.Property.PropertyNo.Length >= fromLen &&
+                                             x.Property.PropertyNo.Length <= toLen &&
+                                             (x.Property.PropertyNo.Length > fromLen || string.Compare(x.Property.PropertyNo, fromStr) >= 0) &&
+                                             (x.Property.PropertyNo.Length < toLen || string.Compare(x.Property.PropertyNo, toStr) <= 0));
+                }
+            }
+            else
+            {
+                query = query.Where(x => x.Property.PropertyNo != null &&
+                                         string.Compare(x.Property.PropertyNo, fromStr) >= 0 &&
+                                         string.Compare(x.Property.PropertyNo, toStr) <= 0);
+            }
         }
         else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom))
         {
-            query = query.Where(x => x.Property.PropertyNo != null &&
-                                     string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoFrom) >= 0);
+            var propNoFrom = searchRequest.PropertyNoFrom.Trim();
+            query = query.Where(x => x.Property.PropertyNo != null && x.Property.PropertyNo == propNoFrom);
         }
         else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
         {
-            query = query.Where(x => x.Property.PropertyNo != null &&
-                                     string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoTo) <= 0);
+            var toStr = searchRequest.PropertyNoTo.Trim();
+            bool toIsNum = long.TryParse(toStr, out _);
+
+            if (toIsNum)
+            {
+                int toLen = toStr.Length;
+                query = query.Where(x => x.Property.PropertyNo != null &&
+                                         (x.Property.PropertyNo.Length < toLen ||
+                                          (x.Property.PropertyNo.Length == toLen && string.Compare(x.Property.PropertyNo, toStr) <= 0)));
+            }
+            else
+            {
+                query = query.Where(x => x.Property.PropertyNo != null &&
+                                         string.Compare(x.Property.PropertyNo, toStr) <= 0);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo))
@@ -298,7 +340,9 @@ public class PropertySearchRepository : IPropertySearchRepository
                                 !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo);
+                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo);
 
         if (!isSpecificSearch)
         {
@@ -730,16 +774,64 @@ public class PropertySearchRepository : IPropertySearchRepository
                 query = query.Where(x => x.Property.CategoryId == searchRequest.CategoryId);
             }
 
-            // Property No From filter
-            if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom))
+            // Property No range filter
+            if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) && !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
             {
-                query = query.Where(x => string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoFrom) >= 0);
-            }
+                var fromStr = searchRequest.PropertyNoFrom.Trim();
+                var toStr = searchRequest.PropertyNoTo.Trim();
+                bool fromIsNum = long.TryParse(fromStr, out _);
+                bool toIsNum = long.TryParse(toStr, out _);
 
-            // Property No To filter
-            if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
+                if (fromIsNum && toIsNum)
+                {
+                    int fromLen = fromStr.Length;
+                    int toLen = toStr.Length;
+
+                    if (fromLen == toLen)
+                    {
+                        query = query.Where(x => x.Property.PropertyNo != null &&
+                                                 x.Property.PropertyNo.Length == fromLen &&
+                                                 string.Compare(x.Property.PropertyNo, fromStr) >= 0 &&
+                                                 string.Compare(x.Property.PropertyNo, toStr) <= 0);
+                    }
+                    else
+                    {
+                        query = query.Where(x => x.Property.PropertyNo != null &&
+                                                 x.Property.PropertyNo.Length >= fromLen &&
+                                                 x.Property.PropertyNo.Length <= toLen &&
+                                                 (x.Property.PropertyNo.Length > fromLen || string.Compare(x.Property.PropertyNo, fromStr) >= 0) &&
+                                                 (x.Property.PropertyNo.Length < toLen || string.Compare(x.Property.PropertyNo, toStr) <= 0));
+                    }
+                }
+                else
+                {
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                                             string.Compare(x.Property.PropertyNo, fromStr) >= 0 &&
+                                             string.Compare(x.Property.PropertyNo, toStr) <= 0);
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom))
             {
-                query = query.Where(x => string.Compare(x.Property.PropertyNo, searchRequest.PropertyNoTo) <= 0);
+                var propNoFrom = searchRequest.PropertyNoFrom.Trim();
+                query = query.Where(x => x.Property.PropertyNo != null && x.Property.PropertyNo == propNoFrom);
+            }
+            else if (!string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo))
+            {
+                var toStr = searchRequest.PropertyNoTo.Trim();
+                bool toIsNum = long.TryParse(toStr, out _);
+
+                if (toIsNum)
+                {
+                    int toLen = toStr.Length;
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                                             (x.Property.PropertyNo.Length < toLen ||
+                                              (x.Property.PropertyNo.Length == toLen && string.Compare(x.Property.PropertyNo, toStr) <= 0)));
+                }
+                else
+                {
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                                             string.Compare(x.Property.PropertyNo, toStr) <= 0);
+                }
             }
 
             // Old Property No filter
