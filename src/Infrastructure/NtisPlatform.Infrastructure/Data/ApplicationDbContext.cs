@@ -200,6 +200,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
 
+    public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
+    public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -5532,6 +5535,45 @@ public class ApplicationDbContext : DbContext
 
         });
 
+        modelBuilder.Entity<ApprovalFlowMasterEntity>(entity =>
+        {
+            entity.ToTable("ApprovalFlowMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ApprovalFlowName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.UpdatedBy);
+
+            entity.HasOne<RTSServiceEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ApprovalFlowStageMasterEntity>(entity =>
+        {
+            entity.ToTable("ApprovalFlowStageMaster", "RTS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.StageName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.StageOrder).IsRequired();
+            entity.Property(e => e.EmployeeTypeId).IsRequired();
+            entity.Property(e => e.SLADays).IsRequired();
+            entity.Property(e => e.CanVerifyDocument).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CanApprove).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CanReject).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CanReturn).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CanPay).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsFinalStage).IsRequired().HasDefaultValue(false);
+
+            entity.HasOne<ApprovalFlowMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ApprovalFlowId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<RTSServiceEntity>(entity =>
         {
