@@ -140,6 +140,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                         Society = sd
                     };
 
+        // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo
+        query = query.Where(x =>
+            (x.Ward != null || x.Zone != null) &&
+            (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
+        );
+
         if (searchRequest.DashboardFilter == DashboardFilterType.GeoSequencing)
             query = query.Where(x => !string.IsNullOrEmpty(x.Property.PropertyNo));
 
@@ -504,18 +510,27 @@ public class PropertySearchRepository : IPropertySearchRepository
         var apartmentMainProperties = propertyResults
             .Where(x => x.Category?.PropertyCategoryName == ApartmentCategoryName &&
                        string.IsNullOrEmpty(x.Property.PartitionNo))
-            .Select(x => new { x.Property.PropertyNo, x.Property.Id })
+            .Select(x => new { x.Property.PropertyNo, x.Property.WardId })
             .Distinct()
             .ToList();
 
-        var unitCountsQuery = await _context.PropertyMast
+        var mainPropNos = apartmentMainProperties.Select(a => a.PropertyNo).Distinct().ToList();
+        var mainWardIds = apartmentMainProperties.Select(a => a.WardId).Distinct().ToList();
+
+        var unitCountsList = await _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.IsActive && !p.MarkedForDeletion &&
-                       apartmentMainProperties.Select(a => a.PropertyNo).Contains(p.PropertyNo) &&
+                       mainPropNos.Contains(p.PropertyNo) &&
+                       mainWardIds.Contains(p.WardId) &&
                        !string.IsNullOrEmpty(p.PartitionNo))
-            .GroupBy(p => p.PropertyNo)
-            .Select(g => new { PropertyNo = g.Key, UnitCount = g.Count() })
-            .ToDictionaryAsync(x => x.PropertyNo, x => x.UnitCount, cancellationToken);
+            .GroupBy(p => new { p.PropertyNo, p.WardId })
+            .Select(g => new { g.Key.PropertyNo, g.Key.WardId, UnitCount = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var unitCountsDictionary = unitCountsList.ToDictionary(
+            x => $"{x.PropertyNo}_{x.WardId}",
+            x => x.UnitCount
+        );
 
         var result = propertyResults.Select(pr =>
         {
@@ -533,10 +548,17 @@ public class PropertySearchRepository : IPropertySearchRepository
 
             // Add child unit count for apartment main properties
             if (pr.Category?.PropertyCategoryName == ApartmentCategoryName &&
-                string.IsNullOrEmpty(pr.Property.PartitionNo) &&
-                unitCountsQuery.TryGetValue(pr.Property.PropertyNo, out var unitCount))
+                string.IsNullOrEmpty(pr.Property.PartitionNo))
             {
-                childUnitCount = unitCount;
+                var key = $"{pr.Property.PropertyNo}_{pr.Property.WardId}";
+                if (unitCountsDictionary.TryGetValue(key, out var unitCount))
+                {
+                    childUnitCount = unitCount;
+                }
+                else
+                {
+                    childUnitCount = 0;
+                }
             }
 
             return new PropertySearchResponseDto
@@ -700,7 +722,7 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         var childrenQuery = _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo == parentProperty.PropertyNo && p.Id != parentProperty.Id);
+            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo == parentProperty.PropertyNo && p.WardId == parentProperty.WardId && p.Id != parentProperty.Id);
 
         if (string.IsNullOrEmpty(parentProperty.PartitionNo))
         {
@@ -750,10 +772,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 query = query.Where(x => x.Property.PropertyTypeId == searchRequest.PropertyTypeId);
             }
 
-            // Type of Use filter (filters by PropertyDescription, same as PropertyTypeId)
+            // Type of Use filter
             if (searchRequest.TypeOfUseId.HasValue)
             {
-                query = query.Where(x => x.PropertyType != null && x.PropertyType.Id == searchRequest.TypeOfUseId);
+                var propertyIdsWithTypeOfUse = _context.PropertyDetails
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.TypeOfUseId == searchRequest.TypeOfUseId.Value)
+                    .Select(pd => pd.PropertyId)
+                    .Distinct();
+
+                query = query.Where(x => propertyIdsWithTypeOfUse.Contains(x.Property.Id));
             }
 
             // Zone filter
@@ -942,17 +969,17 @@ public class PropertySearchRepository : IPropertySearchRepository
             .Select(g => new
             {
                 PropertyId = g.Key,
-                RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
+                RateableValue = g.OrderByDescending(x => x.Id).Select(x => (decimal?)x.CalculationValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
-        var cvValues = await _context.TransMastCV
-            .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
+        var cvValues = await _context.TransMast
+            .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion && t.CalculationType == "CV")
             .GroupBy(t => t.PropertyId)
             .Select(g => new
             {
                 PropertyId = g.Key,
-                CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CapitalValue).FirstOrDefault()
+                CapitalValue = g.OrderByDescending(x => x.Id).Select(x => (decimal?)x.CalculationValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 

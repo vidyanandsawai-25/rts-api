@@ -30,6 +30,20 @@ public class TransMastEntity : BaseEntity, IHardDeletable
 
     public decimal CalculationValue { get; set; }
 
+    [NotMapped]
+    public string RVorCV
+    {
+        get => CalculationType;
+        set => CalculationType = value;
+    }
+
+    [NotMapped]
+    public decimal RVorCVValue
+    {
+        get => CalculationValue;
+        set => CalculationValue = value;
+    }
+
     /// <summary>
     /// Foreign key to TaxMaster (type of tax)
     /// </summary>
