@@ -374,6 +374,8 @@ public static class ServiceCollectionExtensions
         // Localization (DB-backed)
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
+        services.AddScoped<IApprovalFlowMasterService, ApprovalFlowMasterService>();
+        services.AddScoped<IApprovalFlowStageMasterService, ApprovalFlowStageMasterService>();
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
