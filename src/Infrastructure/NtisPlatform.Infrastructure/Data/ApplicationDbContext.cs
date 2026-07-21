@@ -89,11 +89,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyWorkflowStageMasterEntity> PropertyWorkflowStageMaster { get; set; } = null!;
     public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
     public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
-    public DbSet<TransMastRVEntity> TransMastRV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = null!;
-    public DbSet<PropertyTaxCalculationRVResultsEntity> PropertyTaxCalculationRVResults { get; set; } = null!;
+    public DbSet<RVCalculationResultsEntity> RVCalculationResults { get; set; } = null!;
+    public DbSet<RVCalculationTaxDetailsEntity> RVCalculationTaxDetails { get; set; } = null!;
     public DbSet<NatureFactorCVMasterEntity> NatureFactorCVMasters { get; set; } = null!;
     public DbSet<AgeFactorCVMasterEntity> AgeFactorCVMasters { get; set; } = null!;
     public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
@@ -1377,7 +1377,8 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.RVorCVValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
+            entity.Property(e => e.CalculationValue).HasColumnType("decimal(18,2)");
             entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
@@ -1393,6 +1394,16 @@ public class ApplicationDbContext : DbContext
                     .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasIndex(e => e.PropertyId);
+
+            // Unique constraint on PropertyId, FinanceYearId, TaxId AND CalculationType for active, non-deleted rows only.
+            // CalculationType must be part of the key: this table holds both CV rows (CapitalValuePersistenceService)
+            // and RV rows (RVPersistenceService) for the same PropertyId/FinanceYearId/TaxId, so a key without
+            // CalculationType would make the two collide. Matches the pre-merge UQ_TransMastRV_Property_Year_Tax
+            // filtered index.
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId, e.CalculationType })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
+                .HasDatabaseName("UQ_TransMast_Property_Year_Tax_Calc");
 
         });
 
@@ -1894,7 +1905,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(d => d.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasMany(e => e.PropertyTaxCalculationRVResults)
+            entity.HasMany(e => e.RVCalculationResults)
                 .WithOne(d => d.PropertyMast)
                 .HasForeignKey(d => d.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -2525,13 +2536,13 @@ public class ApplicationDbContext : DbContext
         });
 
 
-        modelBuilder.Entity<PropertyTaxCalculationRVResultsEntity>(entity =>
+        modelBuilder.Entity<RVCalculationResultsEntity>(entity =>
         {
-            entity.ToTable("PropertyTaxCalculationRVResults", "PTIS");
+            entity.ToTable("RVCalculationResults", "PTIS");
             entity.HasKey(e => e.Id);
 
-            // These columns are SQL `float` in the live PTIS.PropertyTaxCalculationRVResults table
-            // (confirmed against the table DDL) — mapped as CLR double, not decimal, to match.
+            // These columns are SQL `float` in the live PTIS.RVCalculationResults table
+            // (confirmed against the table DDL) - mapped as CLR double, not decimal, to match.
             entity.Property(e => e.MonthlyRate).HasColumnType("float");
             entity.Property(e => e.YearlyRate).HasColumnType("float");
             entity.Property(e => e.YearlyRent).HasColumnType("float");
@@ -2543,29 +2554,45 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Depreciation).HasColumnType("decimal(18,2)");
             entity.Property(e => e.Maintenance).HasColumnType("decimal(18,2)");
             entity.Property(e => e.RateableValue).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
             entity.Property(e => e.REducationTax).HasColumnType("decimal(18,2)");
             entity.Property(e => e.CEducationTax).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.REducationTaxPercentage).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.CEducationTaxPercentage).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.REmploymentTax).HasColumnType("decimal(18,2)");
             entity.Property(e => e.CEmploymentTax).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.REmploymentTaxPercentage).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.CEmploymentTaxPercentage).HasColumnType("decimal(18,2)");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
 
             entity.HasOne(e => e.PropertyMast)
-                .WithMany(p => p.PropertyTaxCalculationRVResults)
+                .WithMany(p => p.RVCalculationResults)
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.PropertyDetails)
-                .WithMany(p => p.PropertyTaxCalculationRVResults)
+                .WithMany(p => p.RVCalculationResults)
                 .HasForeignKey(e => e.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // RVCalculationTaxDetails configuration
+        modelBuilder.Entity<RVCalculationTaxDetailsEntity>(entity =>
+        {
+            entity.ToTable("RVCalculationTaxDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.RVCalculationResults)
+                .WithMany(p => p.TaxDetails)
+                .HasForeignKey(e => e.RVCalculationResultsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxMaster)
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -2962,34 +2989,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastOld_TaxId");
         });
 
-        modelBuilder.Entity<TransMastRVEntity>(entity =>
-        {
-            entity.ToTable("TransMastRV", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.RateableValue).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
-
-            entity.HasOne(r => r.PropertyMast)
-              .WithMany(p => p.TransMastRV)
-             .HasForeignKey(r => r.PropertyId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-            // Unique constraint on PropertyId, FinanceYearId, TaxId for active, non-deleted rows only
-            // This allows multiple historical records with the same natural key as long as only one is active
-            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId })
-                .IsUnique()
-                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
-                .HasDatabaseName("UQ_TransMastRV_Property_Year_Tax");
-
-            // Performance indexes
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_TransMastRV_PropertyId");
-            entity.HasIndex(e => e.FinanceYearId).HasDatabaseName("IX_TransMastRV_FinanceYearId");
-            entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_TransMastRV_TaxId");
-        });
 
         // Document configuration
         modelBuilder.Entity<DocumentEntity>(entity =>

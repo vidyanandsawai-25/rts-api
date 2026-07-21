@@ -12,7 +12,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
     {
         // Convenience wrapper matching the old static signature (no selectedArea / policyOptions).
         // Computes selectedArea from policyOptions so call sites stay concise.
-        private static PropertyTaxCalculationRVResultsEntity Calculate(
+        private static RVCalculationResultsEntity Calculate(
             PropertyDetailsEntity detail,
             int financeYear,
             int taxZoneId,

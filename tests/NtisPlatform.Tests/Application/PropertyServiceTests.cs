@@ -990,7 +990,7 @@ public class PropertyServiceTests
             .ReturnsAsync(new List<PropertyDetailsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetRvResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyTaxCalculationRVResultsEntity>());
+            .ReturnsAsync(new List<RVCalculationResultsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetSection129ResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PropertyTaxCalculationSection129ResultsEntity>());

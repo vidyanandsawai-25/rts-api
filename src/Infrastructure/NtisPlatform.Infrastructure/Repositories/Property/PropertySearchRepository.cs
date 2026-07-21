@@ -305,7 +305,7 @@ public class PropertySearchRepository : IPropertySearchRepository
             {
                 var amount = searchRequest.AmountValue.Value;
 
-                // Handle RV or CV filtering (from TransMast with RVorCV field)
+                // Handle RV or CV filtering (from TransMast with CalculationType field)
                 if (valuationMethod == "RV" || valuationMethod == "CV")
                 {
                     var rvOrCv = valuationMethod;
@@ -313,9 +313,9 @@ public class PropertySearchRepository : IPropertySearchRepository
                     // Get matching property IDs from TransMast
                     var matchingPropertyIds = _context.TransMast
                         .AsNoTracking()
-                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.RVorCV == rvOrCv)
+                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv)
                         .GroupBy(t => t.PropertyId)
-                        .Select(g => new { PropertyId = g.Key, Value = g.Max(x => x.RVorCVValue) })
+                        .Select(g => new { PropertyId = g.Key, Value = g.Max(x => x.CalculationValue) })
                         .Where(x =>
                             (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value >= amount * 0.99m && x.Value <= amount * 1.01m) ||
                             (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
@@ -373,12 +373,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.RVorCV == "RV")
+                    && t.CalculationType == "RV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    RateableValue = g.Max(x => x.RVorCVValue)
+                    RateableValue = g.Max(x => x.CalculationValue)
                 })
                 .ToListAsync(cancellationToken);
 
@@ -389,12 +389,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.RVorCV == "CV")
+                    && t.CalculationType == "CV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    CapitalValue = g.Max(x => x.RVorCVValue)
+                    CapitalValue = g.Max(x => x.CalculationValue)
                 })
                 .ToListAsync(cancellationToken);
 
@@ -448,35 +448,35 @@ public class PropertySearchRepository : IPropertySearchRepository
         // Load valuation values if not already loaded for Top N filter
         if (!isTopNFilter)
         {
-            // RV (Rateable Value) from TransMast where RVorCV = 'RV'
+            // RV (Rateable Value) from TransMast where CalculationType = 'RV'
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.RVorCV == "RV")
+                    && t.CalculationType == "RV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    RateableValue = g.Max(x => x.RVorCVValue)
+                    RateableValue = g.Max(x => x.CalculationValue)
                 })
                 .ToListAsync(cancellationToken);
 
-            // CV (Capital Value) from TransMast where RVorCV = 'CV'
+            // CV (Capital Value) from TransMast where CalculationType = 'CV'
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.RVorCV == "CV")
+                    && t.CalculationType == "CV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    CapitalValue = g.Max(x => x.RVorCVValue)
+                    CapitalValue = g.Max(x => x.CalculationValue)
                 })
                 .ToListAsync(cancellationToken);
 
@@ -936,13 +936,13 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         var propertyIds = propertyResults.Select(x => x.Property.Id).ToList();
 
-        var rvValues = await _context.TransMastRV
-            .Where(t => propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion)
+        var rvValues = await _context.TransMast
+            .Where(t => propertyIds.Contains(t.PropertyId) && t.CalculationType == "RV" && t.IsActive && !t.MarkedForDeletion)
             .GroupBy(t => t.PropertyId)
             .Select(g => new
             {
                 PropertyId = g.Key,
-                RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.RateableValue).FirstOrDefault()
+                RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 

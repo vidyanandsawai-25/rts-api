@@ -4,6 +4,12 @@ using System;
 
 namespace NtisPlatform.Application.Services.TaxEngine
 {
+    public sealed class TaxCalculationResult
+    {
+        public RVCalculationResultsEntity ResultsRow { get; set; } = null!;
+        public RVCalculationTaxDetailsEntity TaxDetail { get; set; } = null!;
+    }
+
     /// <summary>
     /// Static helper for applying tax calculations to rateable value base results
     /// </summary>
@@ -15,9 +21,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
         /// <param name="baseResult">The base calculation containing rateable value</param>
         /// <param name="tax">The tax master entity to apply</param>
         /// <param name="taxPercentage">The tax percentage configuration for this property type</param>
-        /// <returns>A new result entity with tax calculations applied</returns>
-        public static PropertyTaxCalculationRVResultsEntity ApplyTax(
-            PropertyTaxCalculationRVResultsEntity baseResult,
+        /// <returns>A result containing both the results row and tax detail entity</returns>
+        public static TaxCalculationResult ApplyTax(
+            RVCalculationResultsEntity baseResult,
             TaxMasterEntity tax,
             TaxPercentageMasterRVEntity? taxPercentage)
         {
@@ -28,7 +34,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             var percentage = taxPercentage != null ? Convert.ToDecimal(taxPercentage.TaxPercentage) : 0m;
             var amount = Math.Round(rv * percentage / 100m, 0, MidpointRounding.AwayFromZero);
 
-            return new PropertyTaxCalculationRVResultsEntity
+            var resultsRow = new RVCalculationResultsEntity
             {
                 PropertyId = baseResult.PropertyId,
                 PropertyDetailsId = baseResult.PropertyDetailsId,
@@ -43,10 +49,20 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 RateableValue = baseResult.RateableValue,
                 TotalAreaSqMtr = baseResult.TotalAreaSqMtr,
                 RAreaSqMtr = baseResult.RAreaSqMtr,
-                CAreaSqlMtr = baseResult.CAreaSqlMtr,
+                CAreaSqlMtr = baseResult.CAreaSqlMtr
+            };
+
+            var taxDetail = new RVCalculationTaxDetailsEntity
+            {
                 TaxId = tax.Id,
                 TaxPercentage = percentage,
                 TaxAmount = amount
+            };
+
+            return new TaxCalculationResult
+            {
+                ResultsRow = resultsRow,
+                TaxDetail = taxDetail
             };
         }
     }

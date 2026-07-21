@@ -31,13 +31,14 @@ public class RateableValueServiceTests
 {
     private readonly Mock<IRepository<PropertyEntity, int>> _propertyRepo;
     private readonly Mock<IRepository<PropertyDetailsEntity, int>> _propertyDetailsRepo;
-    private readonly Mock<IRepository<PropertyTaxCalculationRVResultsEntity, int>> _taxResultsRepo;
+    private readonly Mock<IRepository<RVCalculationResultsEntity, int>> _taxResultsRepo;
+    private readonly Mock<IRepository<RVCalculationTaxDetailsEntity, int>> _taxDetailsRepo;
     private readonly Mock<IRepository<PolicyTaxDetailsEntity, int>> _policyTaxRepo;
     private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
     private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
-    private readonly Mock<IRepository<TransMastRVEntity, int>> _transmastRVRepo;
+    private readonly Mock<IRepository<TransMastEntity, int>> _transmastRVRepo;
     private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo;
     private readonly Mock<IRepository<PropertyRuleApplicationLogEntity, int>> _ruleLogRepo;
     private readonly Mock<ITaxMasterDataService> _masterDataService;
@@ -51,13 +52,14 @@ public class RateableValueServiceTests
     {
         _propertyRepo = new Mock<IRepository<PropertyEntity, int>>();
         _propertyDetailsRepo = new Mock<IRepository<PropertyDetailsEntity, int>>();
-        _taxResultsRepo = new Mock<IRepository<PropertyTaxCalculationRVResultsEntity, int>>();
+        _taxResultsRepo = new Mock<IRepository<RVCalculationResultsEntity, int>>();
+        _taxDetailsRepo = new Mock<IRepository<RVCalculationTaxDetailsEntity, int>>();
         _policyTaxRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
         _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
         _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
         _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
-        _transmastRVRepo = new Mock<IRepository<TransMastRVEntity, int>>();
+        _transmastRVRepo = new Mock<IRepository<TransMastEntity, int>>();
         _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
         _ruleLogRepo = new Mock<IRepository<PropertyRuleApplicationLogEntity, int>>();
         _unitOfWork = new Mock<IUnitOfWork>();
@@ -89,7 +91,7 @@ public class RateableValueServiceTests
 
         // Setup transmastRV repository to return empty queryable
         _transmastRVRepo.Setup(r => r.GetQueryable())
-            .Returns(new List<TransMastRVEntity>().BuildMockDbSet().Object);
+            .Returns(new List<TransMastEntity>().BuildMockDbSet().Object);
 
         // Setup property social details repository to return empty queryable
         _propertySocialDetailsRepo.Setup(r => r.GetQueryable())
@@ -102,11 +104,15 @@ public class RateableValueServiceTests
         // Setup property assessment repository to return empty queryable
         _propertyAssessmentRepo.Setup(r => r.GetQueryable())
             .Returns(new List<PropertyAssessmentEntity>().BuildMockDbSet().Object);
+
+        // Setup tax details repository to return empty queryable
+        _taxDetailsRepo.Setup(r => r.GetQueryable())
+            .Returns(new List<RVCalculationTaxDetailsEntity>().BuildMockDbSet().Object);
     }
 
     private RateableValueService CreateService(IRuleApplierService ruleApplier = null, IPropertyContextLoaderService contextLoader = null)
     {
-        // RateableValueCalculatorService is a pure calculation engine with no I/O — use the real impl.
+        // RateableValueCalculatorService is a pure calculation engine with no I/O - use the real impl.
         var calculatorService = new RateableValueCalculatorService(
             NullLogger<RateableValueCalculatorService>.Instance);
 
@@ -114,6 +120,7 @@ public class RateableValueServiceTests
         // assertions on _policyTaxRepo.AddRangeAsync and _taxResultsRepo.AddRangeAsync still work.
         var persistenceService = new RVPersistenceService(
             _taxResultsRepo.Object,
+            _taxDetailsRepo.Object,
             _policyTaxRepo.Object,
             _transmastRVRepo.Object,
             _ruleLogRepo.Object,
@@ -1170,7 +1177,7 @@ public class RateableValueServiceTests
             new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
 
         _taxResultsRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyTaxCalculationRVResultsEntity>().BuildMockDbSet().Object);
+            new List<RVCalculationResultsEntity>().BuildMockDbSet().Object);
 
         _policyTaxRepo.Setup(r => r.GetQueryable()).Returns(
             new List<PolicyTaxDetailsEntity>().BuildMockDbSet().Object);

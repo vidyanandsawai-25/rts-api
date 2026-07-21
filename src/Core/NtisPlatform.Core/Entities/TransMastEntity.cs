@@ -22,13 +22,13 @@ public class TransMastEntity : BaseEntity, IHardDeletable
     /// Indicates whether this is Rateable Value (RV) or Capital Value (CV)
     /// </summary>
 
-    public string RVorCV { get; set; } = string.Empty;
+    public string CalculationType { get; set; } = string.Empty;
 
     /// <summary>
     /// The calculated RV or CV value for this property
     /// </summary>
 
-    public decimal RVorCVValue { get; set; }
+    public decimal CalculationValue { get; set; }
 
     /// <summary>
     /// Foreign key to TaxMaster (type of tax)

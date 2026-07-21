@@ -66,7 +66,7 @@ public class PropertyApartmentTaxDto
     public decimal NewTaxTotalCV { get; set; }
     public decimal NewTaxTotalRV { get; set; }
 
-    // PropertyTaxCalculationRVResults — populated when ResultType is Rateable or Dual
+    // RVCalculationResults — populated when ResultType is Rateable or Dual
     public decimal? YearlyRent { get; set; }
     public decimal? MonthlyRate { get; set; }
     public decimal? YearlyRate { get; set; }

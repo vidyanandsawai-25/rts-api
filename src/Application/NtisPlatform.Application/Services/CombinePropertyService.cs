@@ -16,7 +16,7 @@ namespace NtisPlatform.Application.Services;
 public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, CombinePropertyDto, CreateCombinePropertyDto, UpdateCombinePropertyDto, CombinePropertyQueryParameters, int>, ICombinePropertyService
 {
     private readonly IRepository<WardEntity, int> _wardRepository;
-    private readonly IRepository<TransMastRVEntity> _transMastRepository;
+    private readonly IRepository<TransMastEntity> _transMastRepository;
     private readonly IRepository<TaxPendingDetailsEntity> _taxPendingRepository;
     private readonly IRepository<CombinePropertyHistoryEntity> _combineHistoryRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
@@ -31,7 +31,7 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     public CombinePropertyService(
          IRepository<PropertyEntity, int> repository,
         IRepository<WardEntity, int> wardRepository,
-         IRepository<TransMastRVEntity> transMastRepository,
+         IRepository<TransMastEntity> transMastRepository,
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<CombinePropertyHistoryEntity> combineHistoryRepository,
          IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
