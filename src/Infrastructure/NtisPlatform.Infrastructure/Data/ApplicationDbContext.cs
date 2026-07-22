@@ -199,6 +199,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
+    public DbSet<GSTMasterEntity> GSTMaster { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -5518,5 +5519,26 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_PropertyMapDetail_PropertyMapId_PropertySide_PropertyId_Status");
         });
 
+        // GSTMaster configuration
+        modelBuilder.Entity<GSTMasterEntity>(entity =>
+        {
+            entity.ToTable("GSTMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(5,2)").IsRequired();
+            entity.Property(e => e.EffectiveFromDate).HasColumnType("date").IsRequired();
+            entity.Property(e => e.EffectiveToDate).HasColumnType("date").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.TaxCode).IsUnique();
+        });
     }
 }
