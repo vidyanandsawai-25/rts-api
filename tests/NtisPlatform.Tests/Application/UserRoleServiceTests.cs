@@ -2,6 +2,7 @@ using AutoMapper;
 using Moq;
 using MockQueryable;
 using NtisPlatform.Application.DTOs.Master.UserRoleMaster;
+using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Interfaces;
 using Xunit;
@@ -53,7 +54,8 @@ public class UserRoleServiceTests
             Id = 1,
             UserRoleName = "Administrator",
             IsActive = true,
-           
+            DepartmentId = 1,
+            Department = new DepartmentMasterEntity { Id = 1, DepartmentName = "IT" }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
@@ -64,7 +66,9 @@ public class UserRoleServiceTests
             {
                 Id = 1,
                 UserRoleName = "Administrator",
-                IsActive = true
+                IsActive = true,
+                DepartmentId = 1,
+                DepartmentName = "IT"
             });
 
         // Act
@@ -128,20 +132,24 @@ public class UserRoleServiceTests
                 Id = 1, 
                 UserRoleName = "Admin", 
                 IsActive = true, 
+                DepartmentId = 1,
+                Department = new DepartmentMasterEntity { Id = 1, DepartmentName = "IT" }
             },
             new() 
             { 
                 Id = 2, 
                 UserRoleName = "User", 
                 IsActive = true, 
-               
+                DepartmentId = 1,
+                Department = new DepartmentMasterEntity { Id = 1, DepartmentName = "IT" }
             },
             new() 
             { 
                 Id = 3, 
                 UserRoleName = "Manager", 
                 IsActive = false, 
-               
+                DepartmentId = 1,
+                Department = new DepartmentMasterEntity { Id = 1, DepartmentName = "IT" }
             }
         };
 
@@ -150,7 +158,8 @@ public class UserRoleServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>();
+            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>()
+               .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.DepartmentName : string.Empty));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
@@ -187,9 +196,9 @@ public class UserRoleServiceTests
         // Arrange
         var entities = new List<UserRoleMasterEntity>
         {
-            new() { Id = 1, UserRoleName = "Admin", IsActive = true },
-            new() { Id = 2, UserRoleName = "User", IsActive = true },
-            new() { Id = 3, UserRoleName = "Manager", IsActive = false }
+            new() { Id = 1, UserRoleName = "Admin", IsActive = true, DepartmentId = 1 },
+            new() { Id = 2, UserRoleName = "User", IsActive = true, DepartmentId = 1 },
+            new() { Id = 3, UserRoleName = "Manager", IsActive = false, DepartmentId = 1 }
         };
 
         var mockQuery = entities.BuildMock();
@@ -197,7 +206,8 @@ public class UserRoleServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>();
+            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>()
+               .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.DepartmentName : string.Empty));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
@@ -225,9 +235,9 @@ public class UserRoleServiceTests
         // Arrange
         var entities = new List<UserRoleMasterEntity>
         {
-            new() { Id = 1, UserRoleName = "Admin", IsActive = true },
-            new() { Id = 2, UserRoleName = "User", IsActive = true },
-            new() { Id = 3, UserRoleName = "Administrator", IsActive = true }
+            new() { Id = 1, UserRoleName = "Admin", IsActive = true, DepartmentId = 1 },
+            new() { Id = 2, UserRoleName = "User", IsActive = true, DepartmentId = 1 },
+            new() { Id = 3, UserRoleName = "Administrator", IsActive = true, DepartmentId = 1 }
         };
 
         var mockQuery = entities.BuildMock();
@@ -235,7 +245,8 @@ public class UserRoleServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>();
+            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>()
+               .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.DepartmentName : string.Empty));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
@@ -268,7 +279,8 @@ public class UserRoleServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>();
+            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>()
+               .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.DepartmentName : string.Empty));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
@@ -298,7 +310,8 @@ public class UserRoleServiceTests
             {
                 Id = i,
                 UserRoleName = $"Role{i}",
-                IsActive = true
+                IsActive = true,
+                DepartmentId = 1
             })
             .ToList();
 
@@ -307,7 +320,8 @@ public class UserRoleServiceTests
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>();
+            cfg.CreateMap<UserRoleMasterEntity, UserRoleMasterDto>()
+               .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.DepartmentName : string.Empty));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         IMapper mapper = mapperConfig.CreateMapper();
@@ -340,7 +354,8 @@ public class UserRoleServiceTests
         var createDto = new CreateUserRoleMasterDto
         {
             UserRoleName = "New Role",
-            IsActive = true
+            IsActive = true,
+            DepartmentId = 1
         };
 
         _mockMapper
@@ -348,7 +363,8 @@ public class UserRoleServiceTests
             .Returns((CreateUserRoleMasterDto dto) => new UserRoleMasterEntity
             {
                 UserRoleName = dto.UserRoleName,
-                IsActive = dto.IsActive
+                IsActive = dto.IsActive,
+                DepartmentId = dto.DepartmentId
             });
 
         _mockRepository
@@ -365,7 +381,9 @@ public class UserRoleServiceTests
             {
                 Id = e.Id,
                 UserRoleName = e.UserRoleName,
-                IsActive = e.IsActive
+                IsActive = e.IsActive,
+                DepartmentId = e.DepartmentId,
+                DepartmentName = "IT"
             });
 
         // Act
@@ -390,7 +408,8 @@ public class UserRoleServiceTests
         var createDto = new CreateUserRoleMasterDto
         {
             UserRoleName = "Inactive Role",
-            IsActive = false
+            IsActive = false,
+            DepartmentId = 1
         };
 
         _mockMapper
@@ -399,7 +418,8 @@ public class UserRoleServiceTests
             {
                 Id = 0,
                 UserRoleName = "Inactive Role",
-                IsActive = false
+                IsActive = false,
+                DepartmentId = 1
             });
 
         _mockRepository
@@ -416,7 +436,9 @@ public class UserRoleServiceTests
             {
                 Id = 2,
                 UserRoleName = "Inactive Role",
-                IsActive = false
+                IsActive = false,
+                DepartmentId = 1,
+                DepartmentName = "IT"
             });
 
         // Act
@@ -435,12 +457,13 @@ public class UserRoleServiceTests
         var createDto = new CreateUserRoleMasterDto
         {
             UserRoleName = "Admin",
-            IsActive = true
+            IsActive = true,
+            DepartmentId = 1
         };
 
         _mockMapper
             .Setup(m => m.Map<UserRoleMasterEntity>(It.IsAny<CreateUserRoleMasterDto>()))
-            .Returns(new UserRoleMasterEntity { UserRoleName = "Admin" });
+            .Returns(new UserRoleMasterEntity { UserRoleName = "Admin", DepartmentId = 1 });
 
         _mockRepository
             .Setup(r => r.AddAsync(It.IsAny<UserRoleMasterEntity>(), It.IsAny<CancellationToken>()))
@@ -464,14 +487,16 @@ public class UserRoleServiceTests
         var updateDto = new UpdateUserRoleMasterDto
         {
             UserRoleName = "Updated Role Name",
-            IsActive = true
+            IsActive = true,
+            DepartmentId = 1
         };
 
         var existingEntity = new UserRoleMasterEntity
         {
             Id = 1,
             UserRoleName = "Old Role Name",
-            IsActive = true
+            IsActive = true,
+            DepartmentId = 1
         };
 
         _mockRepository
@@ -488,6 +513,7 @@ public class UserRoleServiceTests
             {
                 dest.UserRoleName = src.UserRoleName;
                 dest.IsActive = src.IsActive;
+                dest.DepartmentId = src.DepartmentId;
             });
 
         _mockMapper
@@ -496,7 +522,9 @@ public class UserRoleServiceTests
             {
                 Id = e.Id,
                 UserRoleName = e.UserRoleName,
-                IsActive = e.IsActive
+                IsActive = e.IsActive,
+                DepartmentId = e.DepartmentId,
+                DepartmentName = "IT"
             });
 
         // Act
@@ -519,14 +547,16 @@ public class UserRoleServiceTests
         var updateDto = new UpdateUserRoleMasterDto
         {
             UserRoleName = "Test Role",
-            IsActive = false
+            IsActive = false,
+            DepartmentId = 1
         };
 
         var existingEntity = new UserRoleMasterEntity
         {
             Id = 1,
             UserRoleName = "Test Role",
-            IsActive = true
+            IsActive = true,
+            DepartmentId = 1
         };
 
         _mockRepository
@@ -542,6 +572,7 @@ public class UserRoleServiceTests
             .Callback((UpdateUserRoleMasterDto src, UserRoleMasterEntity dest) =>
             {
                 dest.IsActive = src.IsActive;
+                dest.DepartmentId = src.DepartmentId;
             });
 
         _mockMapper
@@ -550,7 +581,9 @@ public class UserRoleServiceTests
             {
                 Id = 1,
                 UserRoleName = "Test Role",
-                IsActive = false
+                IsActive = false,
+                DepartmentId = 1,
+                DepartmentName = "IT"
             });
 
         // Act

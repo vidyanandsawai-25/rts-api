@@ -866,13 +866,19 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("UserRoleMaster", "Core");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.UserRoleName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DepartmentId).IsRequired();
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.HasIndex(e => e.UserRoleName).IsUnique();
+            entity.HasIndex(e => new { e.UserRoleName, e.DepartmentId }).IsUnique();
             entity.HasIndex(e => e.IsActive);
+
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -1132,6 +1138,7 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
+            entity.Property(e => e.DepartmentId).HasColumnName("DepartmentId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
 
             // Required unique properties
@@ -1145,6 +1152,10 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Department)
+                .WithMany()
+                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Module)
                 .WithMany()

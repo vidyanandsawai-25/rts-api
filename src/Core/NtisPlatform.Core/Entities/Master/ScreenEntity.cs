@@ -1,8 +1,9 @@
-﻿namespace NtisPlatform.Core.Entities.Master;
+namespace NtisPlatform.Core.Entities.Master;
 
 public class ScreenEntity : BaseEntity
 {
     public string ScreenName { get; set; } = string.Empty;
+    public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }
     public string ScreenCode { get; set; } = string.Empty;
     public string? ScreenNameLocal { get; set; }
