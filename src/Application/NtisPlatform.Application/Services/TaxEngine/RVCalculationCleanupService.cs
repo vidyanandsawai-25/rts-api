@@ -11,16 +11,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
 {
     public class RVCalculationCleanupService : IRVCalculationCleanupService
     {
-        private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _taxResultsRepo;
+        private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
         private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
-        private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
+        private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
         private readonly ILogger<RVCalculationCleanupService> _logger;
         private readonly TimeProvider _timeProvider;
 
         public RVCalculationCleanupService(
-            IRepository<PropertyTaxCalculationRVResultsEntity, int> taxResultsRepo,
+            IRepository<RVCalculationResultsEntity, int> taxResultsRepo,
             IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
-            IRepository<TransMastRVEntity, int> transmastRVRepo,
+            IRepository<TransMastEntity, int> transmastRVRepo,
             ILogger<RVCalculationCleanupService> logger,
             TimeProvider timeProvider)
         {
@@ -65,6 +65,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 transmastCount = await _transmastRVRepo.GetQueryable()
                     .Where(x => x.PropertyId == propertyId &&
                                 x.FinanceYearId == yearMasterId.Value &&
+                                x.CalculationType == "RV" &&
                                 x.IsActive &&
                                 !x.MarkedForDeletion)
                     .ExecuteUpdateAsync(s => s

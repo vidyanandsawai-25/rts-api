@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
 {
     public interface IRateableValueCalculatorService
     {
-        PropertyTaxCalculationRVResultsEntity CalculateBaseValues(
+        RVCalculationResultsEntity CalculateBaseValues(
             PropertyDetailsEntity detail,
             int financeYear,
             int taxZoneId,

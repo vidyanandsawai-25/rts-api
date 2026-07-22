@@ -207,8 +207,12 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         var hasPartition = !string.IsNullOrEmpty(partitionNo);
 
         // PropertyMast LEFT JOIN SocietyDetailsMast LEFT JOIN WingMaster LEFT JOIN PropertyDetails.
-        // The `PartitionNo != WingNo` predicate compares against a possibly-NULL wing number; as in SQL,
-        // a NULL comparison is "unknown" and excludes the row (so rows without a matching wing drop out).
+        // The `PartitionNo != WingNo` predicate must drop rows whose wing did not match. In raw SQL
+        // `PartitionNo != NULL` is "unknown" and excludes the row, but EF Core rewrites `!=` with C#
+        // null-semantics ("A" != null == true), which would WRONGLY keep unmatched-wing rows and produce
+        // a duplicate per society row. The explicit `wm != null` guard drops those rows (WingNo is
+        // non-nullable, so an unmatched left join is the only source of a null wing number), restoring
+        // the SQL behaviour and keeping the expression null-safe when run in-memory.
         // PropertyDetails is grouped so that CarpetArea columns are summed per property.
         var rows =
             from pm in _propertyRepository.GetQueryable()
@@ -225,6 +229,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                   && pm.PropertyNo == propertyNo
                   && (!hasPartition || pm.PartitionNo == partitionNo)
                   && pm.PartitionNo != ""
+                  && wm != null
                   && pm.PartitionNo != wm.WingNo
             group new { pd.CarpetAreaSqMeter, pd.CarpetAreaSqFeet } by new
             {

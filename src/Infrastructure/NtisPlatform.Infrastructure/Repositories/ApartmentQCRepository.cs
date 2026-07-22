@@ -710,7 +710,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRow(
                 g.Key,
-                g.Max(x => (decimal?)x.RVorCVValue),
+                g.Max(x => (decimal?)x.CalculationValue),
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
@@ -724,13 +724,13 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
-        var transMastRVList = await _context.TransMastRV
+        var transMastRVList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "RV" && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRVRow(
                 g.Key,
-                g.Max(x => (decimal?)x.RateableValue),
+                g.Max(x => (decimal?)x.CalculationValue),
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
@@ -758,7 +758,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
         Dictionary<int, ApartmentQCRvCalcData> rvCalc;
         if (includeRvCalc && propertyDetailIds.Count > 0)
         {
-            var rvCalcList = await _context.PropertyTaxCalculationRVResults
+            var rvCalcList = await _context.RVCalculationResults
                 .AsNoTracking()
                 .Where(x => propertyDetailIds.Contains(x.PropertyDetailsId) && x.IsActive && !x.MarkedForDeletion)
                 .GroupBy(x => x.PropertyDetailsId)

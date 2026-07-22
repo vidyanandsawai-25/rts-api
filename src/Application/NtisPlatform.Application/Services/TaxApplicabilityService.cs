@@ -90,7 +90,7 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
             .GetQueryable()
             .Where(tm => tm.PropertyId == request.PropertyId 
                       && tm.FinanceYearId == request.FinancialYearId
-                      && tm.RVorCV == request.RvOrCv.Trim().ToUpperInvariant()
+                      && tm.CalculationType == request.RvOrCv.Trim().ToUpperInvariant()
                       && tm.IsActive 
                       && !tm.MarkedForDeletion)
             .OrderBy(tm => tm.TaxId)

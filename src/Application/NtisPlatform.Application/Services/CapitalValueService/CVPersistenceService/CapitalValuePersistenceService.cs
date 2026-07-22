@@ -117,8 +117,8 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     existingTrans.Id,
                     new UpdateTransMastDto
                     {
-                        RVorCV = "CV",
-                        RVorCVValue = totalCV,
+                        CalculationType = "CV",
+                        CalculationValue = totalCV,
                         TaxAmount = totalTax,
                         IsActive = true,
                         UpdatedBy = createdBy,                        
@@ -133,8 +133,8 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                 {
                     PropertyId = propertyId,
                     FinanceYearId = financeYear.Id,
-                    RVorCV = "CV",
-                    RVorCVValue = totalCV,
+                    CalculationType = "CV",
+                    CalculationValue = totalCV,
                     TaxId = taxId,
                     TaxAmount = totalTax,
                     CreatedBy = createdBy,

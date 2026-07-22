@@ -1,10 +1,10 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master;
 
 public class AssetTypeDto : BaseDtos
 {
-    public int CategoryId { get; set; }
+    public int AssetCategoryId { get; set; }
     public string TypeCode { get; set; } = string.Empty;
     public string TypeName { get; set; } = string.Empty;
     public string? TypeNameLocal { get; set; }
@@ -12,6 +12,10 @@ public class AssetTypeDto : BaseDtos
     public string? Icon { get; set; }
     public string CodeFormat { get; set; } = string.Empty;
     public int LastSequence { get; set; }
+    public bool IsSubUnit { get; set; }
+    public bool AllowUnitRegistration { get; set; }
+    public bool AllowRoomRegistration { get; set; }
+    public string? AssetWardNo { get; set; }
     public int? CreatedBy { get; set; }
     public int? UpdatedBy { get; set; }
 }
@@ -19,7 +23,7 @@ public class AssetTypeDto : BaseDtos
 public class CreateAssetTypeDto : CreateBaseDtos
 {
     [Required(ErrorMessage = "AssetType_CategoryId_Required")]
-    public int? CategoryId { get; set; }
+    public int? AssetCategoryId { get; set; }
 
     [Required(ErrorMessage = "AssetType_TypeCode_Required")]
     [StringLength(50, ErrorMessage = "AssetType_TypeCode_MaxLengthExceeded_50")]
@@ -47,12 +51,19 @@ public class CreateAssetTypeDto : CreateBaseDtos
     [StringLength(100, ErrorMessage = "AssetType_CodeFormat_MaxLengthExceeded_100")]
     [RegularExpression(@"^[\p{L}\p{N} &\-\/\{\}\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetType_CodeFormat_Invalid")]
     public string? CodeFormat { get; set; }
+
+    public bool IsSubUnit { get; set; }
+    public bool AllowUnitRegistration { get; set; }
+    public bool AllowRoomRegistration { get; set; }
+
+    [StringLength(50, ErrorMessage = "AssetType_AssetWardNo_MaxLengthExceeded_50")]
+    public string? AssetWardNo { get; set; }
 }
 
 public class UpdateAssetTypeDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "AssetType_CategoryId_Required")]
-    public int? CategoryId { get; set; }
+    public int? AssetCategoryId { get; set; }
 
     [Required(ErrorMessage = "AssetType_TypeCode_Required")]
     [StringLength(50, ErrorMessage = "AssetType_TypeCode_MaxLengthExceeded_50")]
@@ -80,4 +91,11 @@ public class UpdateAssetTypeDto : UpdateBaseDtos
     [StringLength(100, ErrorMessage = "AssetType_CodeFormat_MaxLengthExceeded_100")]
     [RegularExpression(@"^[\p{L}\p{N} &\-\/\{\}\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetType_CodeFormat_Invalid")]
     public string? CodeFormat { get; set; }
+
+    public bool IsSubUnit { get; set; }
+    public bool AllowUnitRegistration { get; set; }
+    public bool AllowRoomRegistration { get; set; }
+
+    [StringLength(50, ErrorMessage = "AssetType_AssetWardNo_MaxLengthExceeded_50")]
+    public string? AssetWardNo { get; set; }
 }

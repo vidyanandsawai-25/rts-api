@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers.Master;
-using NtisPlatform.Application.DTOs.Master.TaxCalculationGuideline;
+using NtisPlatform.Application.DTOs.Master.CertificateTaxGuideline;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
@@ -10,19 +10,19 @@ using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers.Master;
 
-public class TaxCalculationGuidelineControllerTests
+public class CertificateTaxGuidelineControllerTests
 {
-    private static TaxCalculationGuidelineController Create(
-        out Mock<ITaxCalculationGuidelineService> service,
+    private static CertificateTaxGuidelineController Create(
+        out Mock<ICertificateTaxGuidelineService> service,
         out Mock<IHardDeleteCleanupService> cleanup,
         out Mock<IReferenceValidationService> referenceValidation)
     {
-        service = new Mock<ITaxCalculationGuidelineService>();
+        service = new Mock<ICertificateTaxGuidelineService>();
         cleanup = new Mock<IHardDeleteCleanupService>();
         referenceValidation = new Mock<IReferenceValidationService>();
-        var logger = new Mock<ILogger<TaxCalculationGuidelineController>>();
+        var logger = new Mock<ILogger<CertificateTaxGuidelineController>>();
 
-        return new TaxCalculationGuidelineController(
+        return new CertificateTaxGuidelineController(
             service.Object,
             cleanup.Object,
             referenceValidation.Object,
@@ -34,7 +34,7 @@ public class TaxCalculationGuidelineControllerTests
     {
         var controller = Create(out var service, out _, out _);
         service.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TaxCalculationGuidelineDto { Id = 1, GuidelineCode = "G1", GuidelineName = "Guideline" });
+            .ReturnsAsync(new CertificateTaxGuidelineDto { Id = 1, GuidelineCode = "G1", GuidelineName = "Guideline" });
 
         var result = await controller.GetById(1, CancellationToken.None);
 
@@ -45,29 +45,21 @@ public class TaxCalculationGuidelineControllerTests
     public async Task Create_WithValidPayload_ReturnsOkResponse()
     {
         var controller = Create(out var service, out _, out _);
-        var createDto = new CreateTaxCalculationGuidelineDto
+        var createDto = new CreateCertificateTaxGuidelineDto
         {
             GuidelineCode = "G1",
             GuidelineName = "Guideline",
-            DatePriority1 = "RETROSPECTIVE",
-            DatePriority2 = "ELECTRIC_BILL",
-            DatePriority3 = "CC",
-            DatePriority4 = "OC",
-            IgnoreCCToOCIfWithinType = "MONTHS",
-            ElectricBillDateRule = "NO_TAX",
-            NoDateRule = "DEFAULT_RETROSPECTIVE",
-            FloorCertificatePriority = "PROPERTY_OVERRIDES_FLOOR",
-            ProrationMethod = "FULL_YEAR",
-            TaxPersistenceMode = "PROPERTY_AGGREGATED"
+            DataType = "VARCHAR",
+            GuidelineValue = "Some Value"
         };
 
         service.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new TaxCalculationGuidelineDto { Id = 1, GuidelineCode = "G1", GuidelineName = "Guideline" });
+            .ReturnsAsync(new CertificateTaxGuidelineDto { Id = 1, GuidelineCode = "G1", GuidelineName = "Guideline" });
 
         var result = await controller.Create(createDto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<TaxCalculationGuidelineDto>>(ok.Value);
+        var response = Assert.IsType<ApiResponse<CertificateTaxGuidelineDto>>(ok.Value);
         Assert.True(response.Success);
         Assert.Equal(1, response.Items!.Id);
     }
@@ -76,29 +68,21 @@ public class TaxCalculationGuidelineControllerTests
     public async Task Update_WhenRecordMissing_ReturnsOkWithFailureResponse()
     {
         var controller = Create(out var service, out _, out _);
-        var updateDto = new UpdateTaxCalculationGuidelineDto
+        var updateDto = new UpdateCertificateTaxGuidelineDto
         {
             GuidelineCode = "G1",
             GuidelineName = "Guideline",
-            DatePriority1 = "RETROSPECTIVE",
-            DatePriority2 = "ELECTRIC_BILL",
-            DatePriority3 = "CC",
-            DatePriority4 = "OC",
-            IgnoreCCToOCIfWithinType = "MONTHS",
-            ElectricBillDateRule = "NO_TAX",
-            NoDateRule = "DEFAULT_RETROSPECTIVE",
-            FloorCertificatePriority = "PROPERTY_OVERRIDES_FLOOR",
-            ProrationMethod = "FULL_YEAR",
-            TaxPersistenceMode = "PROPERTY_AGGREGATED"
+            DataType = "VARCHAR",
+            GuidelineValue = "Some Value"
         };
 
         service.Setup(s => s.UpdateAsync(99, updateDto, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((TaxCalculationGuidelineDto?)null);
+            .ReturnsAsync((CertificateTaxGuidelineDto?)null);
 
         var result = await controller.Update(99, updateDto, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<TaxCalculationGuidelineDto>>(ok.Value);
+        var response = Assert.IsType<ApiResponse<CertificateTaxGuidelineDto>>(ok.Value);
         Assert.False(response.Success);
     }
 
@@ -107,7 +91,6 @@ public class TaxCalculationGuidelineControllerTests
     {
         var controller = Create(out var service, out _, out _);
         service.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-
         var result = await controller.Delete(1, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);

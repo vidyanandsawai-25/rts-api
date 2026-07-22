@@ -64,7 +64,7 @@ public class PropertyServiceDeletionTests
             .ReturnsAsync(new List<PropertyDetailsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetRvResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyTaxCalculationRVResultsEntity>());
+            .ReturnsAsync(new List<RVCalculationResultsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetSection129ResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PropertyTaxCalculationSection129ResultsEntity>());
@@ -178,7 +178,7 @@ public class PropertyServiceDeletionTests
         {
             new() { Id = 1, PropertyId = propertyId, FloorId = 1, ConstructionTypeId = 1, TypeOfUseId = 1, IsActive = true }
         };
-        var rvResults = new List<PropertyTaxCalculationRVResultsEntity>
+        var rvResults = new List<RVCalculationResultsEntity>
         {
             new() { Id = 1, PropertyDetailsId = 1, IsActive = true, MarkedForDeletion = false },
             new() { Id = 2, PropertyDetailsId = 1, IsActive = true, MarkedForDeletion = false }

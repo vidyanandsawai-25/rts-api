@@ -9,7 +9,7 @@ public enum ApartmentQCResultType
     /// <summary>Return both RV and CV calculation fields.</summary>
     Dual = 0,
 
-    /// <summary>Return only RateableValue calculation fields (PropertyTaxCalculationRVResults).</summary>
+    /// <summary>Return only RateableValue calculation fields (RVCalculationResults).</summary>
     Rateable = 1,
 
     /// <summary>Return only CapitalValue calculation fields (PropertyTaxCalculationCVResults).</summary>

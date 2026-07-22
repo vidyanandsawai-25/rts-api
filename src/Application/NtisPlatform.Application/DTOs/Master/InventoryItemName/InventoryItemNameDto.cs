@@ -18,12 +18,15 @@ public class CreateInventoryItemNameDto : CreateBaseDtos
 
     [Required(ErrorMessage = "InventoryItemName_SubTypeCode_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeCode_MaxLen_50")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_SubTypeCode_Invalid")]
     public string SubTypeCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "InventoryItemName_SubTypeName_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeName_MaxLen_50")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_SubTypeName_Invalid")]
     public string SubTypeName { get; set; } = string.Empty;
     [StringLength(500, ErrorMessage = "InventoryItemName_Description_MaxLen_500")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_Description_Invalid")]
     public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }
@@ -36,12 +39,15 @@ public class UpdateInventoryItemNameDto : UpdateBaseDtos
 
     [Required(ErrorMessage = "InventoryItemName_SubTypeCode_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeCode_MaxLen_50")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_SubTypeCode_Invalid")]
     public string SubTypeCode { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "InventoryItemName_SubTypeName_Required")]
     [StringLength(50, ErrorMessage = "InventoryItemName_SubTypeName_MaxLen_50")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_SubTypeName_Invalid")]
     public string SubTypeName { get; set; } = string.Empty;
     [StringLength(500, ErrorMessage = "InventoryItemName_Description_MaxLen_500")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemName_Description_Invalid")]
     public string? Description { get; set; }
     public int? DisplayOrder { get; set; }
 }

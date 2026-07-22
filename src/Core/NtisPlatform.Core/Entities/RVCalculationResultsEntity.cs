@@ -8,14 +8,14 @@ using System.Text;
 
 namespace NtisPlatform.Core.Entities
 {
-    public class PropertyTaxCalculationRVResultsEntity : BaseEntity, IHardDeletable
+    public class RVCalculationResultsEntity : BaseEntity, IHardDeletable
     {
         public virtual PropertyDetailsEntity? PropertyDetails { get; set; }
         public virtual PropertyEntity? PropertyMast { get; set; }
         public int PropertyId { get; set; }
         public int PropertyDetailsId { get; set; }
 
-        // These columns are SQL `float` in PTIS.PropertyTaxCalculationRVResults (confirmed against the
+        // These columns are SQL `float` in PTIS.RVCalculationResults (confirmed against the
         // live table DDL) — must stay CLR double, not decimal, or EF's decimal reader throws InvalidCastException.
         public double? MonthlyRate { get; set; }
         public double? YearlyRate { get; set; }
@@ -28,21 +28,12 @@ namespace NtisPlatform.Core.Entities
         public decimal? Maintenance { get; set; }
         public decimal? RateableValue { get; set; }
 
-        public int TaxId { get; set; }
-        [ForeignKey(nameof(TaxId))]
-        public virtual TaxMasterEntity? TaxMaster { get; set; }
-        public decimal? TaxPercentage { get; set; }
-        public decimal? TaxAmount { get; set; }
+        public virtual ICollection<RVCalculationTaxDetailsEntity> TaxDetails { get; set; } = new List<RVCalculationTaxDetailsEntity>();
 
         public decimal? REducationTax { get; set; }
         public decimal? CEducationTax { get; set; }
-        public decimal? REducationTaxPercentage { get; set; }
-        public decimal? CEducationTaxPercentage { get; set; }
 
-        public decimal? REmploymentTax { get; set; }
         public decimal? CEmploymentTax { get; set; }
-        public decimal? REmploymentTaxPercentage { get; set; }
-        public decimal? CEmploymentTaxPercentage { get; set; }
 
         public double? TotalAreaSqMtr { get; set; }
         public double? RAreaSqMtr { get; set; }

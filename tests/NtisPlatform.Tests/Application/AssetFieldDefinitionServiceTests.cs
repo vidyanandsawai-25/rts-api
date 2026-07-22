@@ -66,11 +66,6 @@ public class AssetFieldDefinitionServiceTests
             FieldGroup = "Group1",
             IsRequired = true,
             DisplayOrder = 1,
-            ValidationRules = "Rules",
-            DefaultValue = "Default",
-            MinValue = 0m,
-            MaxValue = 100m,
-            MaxLength = 50,
             IsActive = isActive,
             CreatedBy = 1,
             CreatedDate = DateTime.UtcNow,
@@ -95,11 +90,6 @@ public class AssetFieldDefinitionServiceTests
             FieldGroup = "E",
             IsRequired = true,
             DisplayOrder = 1,
-            ValidationRules = "F",
-            DefaultValue = "G",
-            MinValue = 1.1m,
-            MaxValue = 9.9m,
-            MaxLength = 10,
             IsActive = true,
             MarkedForDeletion = true,
             MarkedForDeletionDate = DateTime.UtcNow
@@ -114,11 +104,6 @@ public class AssetFieldDefinitionServiceTests
         Assert.Equal("E", entity.FieldGroup);
         Assert.True(entity.IsRequired);
         Assert.Equal(1, entity.DisplayOrder);
-        Assert.Equal("F", entity.ValidationRules);
-        Assert.Equal("G", entity.DefaultValue);
-        Assert.Equal(1.1m, entity.MinValue);
-        Assert.Equal(9.9m, entity.MaxValue);
-        Assert.Equal(10, entity.MaxLength);
         Assert.True(entity.IsActive);
         Assert.True(entity.MarkedForDeletion);
         Assert.NotNull(entity.MarkedForDeletionDate);
@@ -136,11 +121,6 @@ public class AssetFieldDefinitionServiceTests
             FieldGroup = "E",
             IsRequired = true,
             DisplayOrder = 1,
-            ValidationRules = "F",
-            DefaultValue = "G",
-            MinValue = 1.1m,
-            MaxValue = 9.9m,
-            MaxLength = 10,
             IsActive = true
         };
         Assert.Equal(1, dto.Id);
@@ -153,11 +133,6 @@ public class AssetFieldDefinitionServiceTests
         Assert.Equal("E", dto.FieldGroup);
         Assert.True(dto.IsRequired);
         Assert.Equal(1, dto.DisplayOrder);
-        Assert.Equal("F", dto.ValidationRules);
-        Assert.Equal("G", dto.DefaultValue);
-        Assert.Equal(1.1m, dto.MinValue);
-        Assert.Equal(9.9m, dto.MaxValue);
-        Assert.Equal(10, dto.MaxLength);
         Assert.True(dto.IsActive);
 
         var createDto = new CreateAssetFieldDefinitionDto
@@ -171,11 +146,6 @@ public class AssetFieldDefinitionServiceTests
             FieldGroup = "E",
             IsRequired = true,
             DisplayOrder = 1,
-            ValidationRules = "F",
-            DefaultValue = "G",
-            MinValue = 1.1m,
-            MaxValue = 9.9m,
-            MaxLength = 10,
             CreatedBy = 2
         };
         Assert.Equal(2, createDto.AssetCategoryId);
@@ -187,11 +157,6 @@ public class AssetFieldDefinitionServiceTests
         Assert.Equal("E", createDto.FieldGroup);
         Assert.True(createDto.IsRequired);
         Assert.Equal(1, createDto.DisplayOrder);
-        Assert.Equal("F", createDto.ValidationRules);
-        Assert.Equal("G", createDto.DefaultValue);
-        Assert.Equal(1.1m, createDto.MinValue);
-        Assert.Equal(9.9m, createDto.MaxValue);
-        Assert.Equal(10, createDto.MaxLength);
         Assert.Equal(2, createDto.CreatedBy);
 
         var updateDto = new UpdateAssetFieldDefinitionDto
@@ -205,11 +170,6 @@ public class AssetFieldDefinitionServiceTests
             FieldGroup = "E",
             IsRequired = true,
             DisplayOrder = 1,
-            ValidationRules = "F",
-            DefaultValue = "G",
-            MinValue = 1.1m,
-            MaxValue = 9.9m,
-            MaxLength = 10,
             UpdatedBy = 3,
             IsActive = false
         };
@@ -222,11 +182,6 @@ public class AssetFieldDefinitionServiceTests
         Assert.Equal("E", updateDto.FieldGroup);
         Assert.True(updateDto.IsRequired);
         Assert.Equal(1, updateDto.DisplayOrder);
-        Assert.Equal("F", updateDto.ValidationRules);
-        Assert.Equal("G", updateDto.DefaultValue);
-        Assert.Equal(1.1m, updateDto.MinValue);
-        Assert.Equal(9.9m, updateDto.MaxValue);
-        Assert.Equal(10, updateDto.MaxLength);
         Assert.Equal(3, updateDto.UpdatedBy);
         Assert.False(updateDto.IsActive);
 

@@ -1,4 +1,4 @@
-using AutoMapper;
+    using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
@@ -18,6 +18,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     private readonly IRenterMastService _renterMastService;
     private readonly IRoomWiseSubmissionDetailsService _roomWiseService;
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
+    private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepository;
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
 
     public DataEntryService(
@@ -28,6 +29,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         IRenterMastService renterMastService,
         IRoomWiseSubmissionDetailsService roomWiseService,
         IRepository<PropertyEntity, int> propertyRepository,
+        IRepository<PropertyCertificateEntity, int> propertyCertificateRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
@@ -35,6 +37,7 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         _renterMastService = renterMastService;
         _roomWiseService = roomWiseService;
         _propertyRepository = propertyRepository;
+        _propertyCertificateRepository = propertyCertificateRepository;
         _ruleLogService = ruleLogService;
     }
 
@@ -46,7 +49,10 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     // they should be filtered at the database level via global query filters if needed.
     // ────────────────────────────────────────────────────────────────
     private IQueryable<PropertyDetailsEntity> QueryWithIncludes()
-        => _repository.GetQueryable()
+    {
+        var certificateTypeCodes = new[] { "CC", "OC", "EleBillDt" };
+
+        return _repository.GetQueryable()
             .Where(x => x.IsActive && !x.MarkedForDeletion)                    // global soft-delete filter
             .Include(x => x.Floor)
             .Include(x => x.SubFloor)
@@ -61,6 +67,8 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
                 .ThenInclude(r => r.PropertyRoomMinus!.Where(rm => rm.IsActive && !rm.MarkedForDeletion))
             .Include(x => x.RoomWiseSubmissionDetails.Where(r => r.IsActive && !r.MarkedForDeletion))
                 .ThenInclude(r => r.RoomTypeMaster);
+             
+    }
 
 
     public override async Task<PagedResult<PropertyDetailsDto>> GetAllAsync( PropertyDetailsQueryParameters queryParameters, CancellationToken cancellationToken = default)
@@ -100,6 +108,9 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
 
         var items = _mapper.Map<List<PropertyDetailsDto>>(entities);
 
+        // Load property certificates for the returned items
+        await LoadPropertyCertificatesAsync(items, cancellationToken);
+
         return new PagedResult<PropertyDetailsDto>(
             items,
             totalCount,
@@ -113,14 +124,21 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     {
         var entity = await QueryWithIncludes()
             .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-         return entity is null ? null : _mapper.Map<PropertyDetailsDto>(entity);
+        if (entity is null) return null;
+
+        var dto = _mapper.Map<PropertyDetailsDto>(entity);
+
+        // Load property certificates for this item
+        await LoadPropertyCertificatesAsync(new List<PropertyDetailsDto> { dto }, cancellationToken);
+
+        return dto;
     }
 
-    public async Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
-    {
-        var entity = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
-        return entity is null ? null : _mapper.Map<PropertyDto>(entity);
-    }
+    //public async Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    //{
+    //    var entity = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+    //    return entity is null ? null : _mapper.Map<PropertyDto>(entity);
+    //}
     // ────────────────────────────────────────────────────────────────
     // CREATE
     // Parent is saved first to get the generated Id, then children
@@ -193,16 +211,16 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         }
     }
 
-    public async Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default)
-    {
-        var property = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.MarkedForDeletion, cancellationToken);
-        if (property is null)
-            return null;
-        _mapper.Map(updateDto, property);
-        await _propertyRepository.UpdateAsync(property, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return _mapper.Map<PropertyDto>(property);
-    }
+    //public async Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default)
+    //{
+    //    var property = await _propertyRepository.GetQueryable().FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+    //    if (property is null)
+    //        return null;
+    //    _mapper.Map(updateDto, property);
+    //    await _propertyRepository.UpdateAsync(property, cancellationToken);
+    //    await _unitOfWork.SaveChangesAsync(cancellationToken);
+    //    return _mapper.Map<PropertyDto>(property);
+    //}
     // ────────────────────────────────────────────────────────────────
     // SOFT DELETE
     // Delegates to the repository's built-in IsActive flag logic.
@@ -243,6 +261,48 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
         {
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // PRIVATE HELPER — Load property certificates
+    // Loads certificates matching the specified certificate type codes
+    // and populates the PropertyCertificates collection in the DTOs
+    // ────────────────────────────────────────────────────────────────
+    private async Task LoadPropertyCertificatesAsync(List<PropertyDetailsDto> propertyDetailsDtos, CancellationToken cancellationToken)
+    {
+        if (!propertyDetailsDtos.Any() || propertyDetailsDtos.All(p => p.PropertyId is null or <= 0))
+            return;
+
+        var certificateTypeCodes = new[] { "CC", "OC", "EleBillDt" };
+        var propertyIds = propertyDetailsDtos
+            .Where(p => p.PropertyId.HasValue && p.PropertyId > 0)
+            .Select(p => p.PropertyId.Value)
+            .Distinct()
+            .ToList();
+
+        // Query: Join PropertyCertificates with PropertyCertificateTypeMaster
+        // Filter by certificate type codes and where PropertyDetailsId is not null/empty
+        var certificates = await _propertyCertificateRepository.GetQueryable()
+            .Where(pc => propertyIds.Contains(pc.PropertyId) && pc.IsActive && !pc.MarkedForDeletion)
+            .Where(pc => pc.PropertyDetailsId != null)
+            .Include(pc => pc.CertificateType)
+            .Where(pc => pc.CertificateType != null && certificateTypeCodes.Contains(pc.CertificateType.CertificateTypeCode))
+            .ToListAsync(cancellationToken);
+
+        // Map certificates to DTOs
+        var certificateDtos = _mapper.Map<List<NtisPlatform.Application.DTOs.PropertyCertificate.PropertyCertificateDto>>(certificates)
+            ?? new List<NtisPlatform.Application.DTOs.PropertyCertificate.PropertyCertificateDto>();
+
+        // Assign certificates to the corresponding property details
+        foreach (var dto in propertyDetailsDtos)
+        {
+            if (dto.PropertyId.HasValue && dto.PropertyId > 0)
+            {
+                dto.PropertyCertificates = certificateDtos
+                    .Where(c => c.PropertyId == dto.PropertyId.Value && c.PropertyDetailsId == dto.Id)
+                    .ToList();
+            }
         }
     }
 

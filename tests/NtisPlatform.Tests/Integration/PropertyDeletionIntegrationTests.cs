@@ -59,7 +59,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
 
         // Verify all entities were created
         var initialPropertyDetailsCount = await _context!.PropertyDetails.CountAsync(pd => pd.PropertyId == propertyId);
-        var initialRvResultsCount = await _context.PropertyTaxCalculationRVResults.CountAsync(r => r.PropertyId == propertyId);
+        var initialRvResultsCount = await _context.RVCalculationResults.CountAsync(r => r.PropertyId == propertyId);
         var initialSection129Count = await _context.PropertyTaxCalculationSection129Results.CountAsync(r => r.PropertyId == propertyId);
         var initialRoomWiseCount = await _context.RoomWiseSubmissionDetails.CountAsync(r => r.PropertyId == propertyId);
         var initialRelatedCount = await _context.ApplyTaxesMaster.CountAsync(a => a.PropertyId == propertyId);
@@ -82,7 +82,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
             Assert.False(pd.IsActive);
         });
 
-        var rvResults = await _context.PropertyTaxCalculationRVResults.Where(r => r.PropertyId == propertyId).ToListAsync();
+        var rvResults = await _context.RVCalculationResults.Where(r => r.PropertyId == propertyId).ToListAsync();
         Assert.All(rvResults, rv =>
         {
             Assert.True(rv.MarkedForDeletion);
@@ -249,7 +249,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         await ExecuteCascadeDeletion(propertyId);
 
         // Assert: Check for orphaned records (entities with FK to deleted property but not marked for deletion)
-        var orphanedRvResults = await _context.PropertyTaxCalculationRVResults
+        var orphanedRvResults = await _context.RVCalculationResults
             .Where(r => r.PropertyId == propertyId && !r.MarkedForDeletion)
             .ToListAsync();
         Assert.Empty(orphanedRvResults);
@@ -489,7 +489,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
             _context.PropertyDetails.Add(propertyDetail);
 
             // Add 2 RV results per property detail
-            _context.PropertyTaxCalculationRVResults.Add(new PropertyTaxCalculationRVResultsEntity
+            _context.RVCalculationResults.Add(new RVCalculationResultsEntity
             {
                 Id = i * 2 - 1,
                 PropertyId = propertyId,
@@ -497,7 +497,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
                 IsActive = true,
                 MarkedForDeletion = false
             });
-            _context.PropertyTaxCalculationRVResults.Add(new PropertyTaxCalculationRVResultsEntity
+            _context.RVCalculationResults.Add(new RVCalculationResultsEntity
             {
                 Id = i * 2,
                 PropertyId = propertyId,
@@ -533,7 +533,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         var markedPropertyDetails = await _context.PropertyDetails.CountAsync(pd => pd.PropertyId == propertyId && pd.MarkedForDeletion);
         Assert.Equal(100, markedPropertyDetails);
 
-        var markedRvResults = await _context.PropertyTaxCalculationRVResults.CountAsync(r => r.PropertyId == propertyId && r.MarkedForDeletion);
+        var markedRvResults = await _context.RVCalculationResults.CountAsync(r => r.PropertyId == propertyId && r.MarkedForDeletion);
         Assert.Equal(200, markedRvResults);
 
         var markedOccupancy = await _context.PropertyOccupancyDetails.CountAsync(o => o.MarkedForDeletion);
@@ -571,7 +571,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         // Add RV Results
         foreach (var pd in propertyDetails)
         {
-            _context.PropertyTaxCalculationRVResults.Add(new PropertyTaxCalculationRVResultsEntity
+            _context.RVCalculationResults.Add(new RVCalculationResultsEntity
             {
                 Id = pd.Id,
                 PropertyId = propertyId,

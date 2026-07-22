@@ -10,6 +10,7 @@ public interface IRateService : ICommonCrudService<RateEntity, RateDto, CreateRa
 {
     Task<PagedResult<DetailedRateDto>> GetDetailedAllAsync(RateQueryParameters queryParameters, CancellationToken cancellationToken = default);
     Task<PagedResult<TypeOfUseDetailsDto>> GetTypeOfUseDetailsAsync(TypeOfUseQueryParameters queryParameters, CancellationToken cancellationToken = default);
+    Task<PagedResult<TypeOfUseDetailsDto>> GetOpenPlotTypeOfUseDetailsAsync(TypeOfUseQueryParameters queryParameters, CancellationToken cancellationToken = default);
     Task<RateDto> CreateOpenPlotAsync(CreateOpenPlotRateDto createDto, CancellationToken cancellationToken = default);
     Task<BulkResult<RateDto>> BulkCreateOpenPlotAsync(CreateOpenPlotRateDto[] items, CancellationToken cancellationToken = default);
 }

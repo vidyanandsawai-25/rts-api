@@ -28,7 +28,7 @@ public class RateableValuePolicyCalculationTests
 
     // Convenience wrapper that mirrors the old static signature used in tests.
     // Computes selectedArea from policyOptions so test call sites stay concise.
-    private static PropertyTaxCalculationRVResultsEntity Calculate(
+    private static RVCalculationResultsEntity Calculate(
         PropertyDetailsEntity detail,
         int financeYear,
         int taxZoneId,

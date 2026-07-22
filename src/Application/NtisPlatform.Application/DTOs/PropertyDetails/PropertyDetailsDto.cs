@@ -1,4 +1,5 @@
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.PropertyCertificate;
 using NtisPlatform.Application.DTOs.RenterDetails;
 using NtisPlatform.Application.DTOs.RenterMast;
 using NtisPlatform.Application.DTOs.RoomWiseSubmissionDetails;
@@ -33,9 +34,10 @@ namespace NtisPlatform.Application.DTOs.PropertyDetails
         public List<RenterDetailDto>? RenterDetails { get; set; }
         public List<RenterMastDto>? Renters { get; set; }
         public List<RoomWiseSubmissionDetailsDto>? RoomWiseSubmissionDetails { get; set; }
+        public List<PropertyCertificateDto>? PropertyCertificates { get; set; }
         public PropertyDto? Property { get; set; }
 
 
     }
-      
+
 }

@@ -37,8 +37,6 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
 
     public bool? IsTaxable { get; set; }
     public bool? IsOpenPlot { get; set; }
-    public double? Length { get; set; }
-    public double? Width { get; set; }
     /// <summary>
     /// Indicates whether the entity is marked for deletion
     /// </summary>
@@ -83,7 +81,7 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     /// <summary>
     /// Collection of property tax calculation RV results associated with this property detail
     /// </summary>
-    public virtual ICollection<PropertyTaxCalculationRVResultsEntity> PropertyTaxCalculationRVResults { get; set; } = new List<PropertyTaxCalculationRVResultsEntity>();
+    public virtual ICollection<RVCalculationResultsEntity> RVCalculationResults { get; set; } = new List<RVCalculationResultsEntity>();
 
     /// <summary>
     /// Collection of property tax calculation Section 129 results associated with this property detail

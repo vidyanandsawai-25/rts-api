@@ -2,9 +2,9 @@ using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
-namespace NtisPlatform.Application.DTOs.Master.TaxCalculationGuideline;
+namespace NtisPlatform.Application.DTOs.Master.CertificateTaxGuideline;
 
-public class TaxCalculationGuidelineQueryParameters : BaseQueryParameters
+public class CertificateTaxGuidelineQueryParameters : BaseQueryParameters
 {
     [Filterable(FilterOperator.Equals)]
     [Sortable]
@@ -24,16 +24,8 @@ public class TaxCalculationGuidelineQueryParameters : BaseQueryParameters
     [Sortable]
     public string? GuidelineName { get; set; }
 
-    [Filterable(FilterOperator.Equals)]
-    [Sortable]
-    public bool? EnableCertificateBasedTax { get; set; }
-
-    [Filterable(FilterOperator.Equals)]
-    [Sortable]
-    public bool? EnableCurrentYearProration { get; set; }
-
     [Filterable(FilterOperator.Contains)]
     [Searchable]
     [Sortable]
-    public string? TaxPersistenceMode { get; set; }
+    public string? GuidelineGroup { get; set; }
 }

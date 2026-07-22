@@ -92,10 +92,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     // Society Information
     public int? SocietyDetailId { get; set; }
 
-    /// Plot area in square meters.
-    public double? TotalPlotArea { get; set; }
-    public double? Length { get; set; }
-    public double? Width { get; set; }
     /// <summary>
     /// Foreign Key to PropertyAssessmentStatusMaster.Id
     /// </summary>
@@ -152,7 +148,7 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     // Core Property Data
     public ICollection<FlagMasterEntity> FlagMaster { get; set; } = new List<FlagMasterEntity>();
     public ICollection<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = new List<PropertyTaxCalculationCVResultsEntity>();
-    public ICollection<PropertyTaxCalculationRVResultsEntity> PropertyTaxCalculationRVResults { get; set; } = new List<PropertyTaxCalculationRVResultsEntity>();
+    public ICollection<RVCalculationResultsEntity> RVCalculationResults { get; set; } = new List<RVCalculationResultsEntity>();
     public ICollection<PlotDetailsEntity> PlotDetails { get; set; } = new List<PlotDetailsEntity>();
     public ICollection<TransMastCVEntity> TransMastCV { get; set; } = new List<TransMastCVEntity>();
     public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
@@ -192,7 +188,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public virtual ICollection<TransMastEntity> TransMast { get; set; } = new List<TransMastEntity>();
     public virtual ICollection<TransMastArchiveEntity> TransMastArchive { get; set; } = new List<TransMastArchiveEntity>();
     public virtual ICollection<TransMastLookupEntity> TransMastLookup { get; set; } = new List<TransMastLookupEntity>();
-    public virtual ICollection<TransMastRVEntity> TransMastRV { get; set; } = new List<TransMastRVEntity>();
 
     public virtual ICollection<PropertyWorkflowDetailsEntity> WorkflowHistory { get; set; } = new List<PropertyWorkflowDetailsEntity>();
 

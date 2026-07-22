@@ -568,5 +568,18 @@ public class InventoryItemCategoryServiceTests
         Assert.True(result is OkObjectResult || result is NotFoundResult);
     }
 
+    [Fact]
+    public void InventoryItemCategoryEntity_Properties_Coverage()
+    {
+        var date = DateTime.Now;
+        var entity = new InventoryItemCategoryEntity
+        {
+            MarkedForDeletion = true,
+            MarkedForDeletionDate = date
+        };
+        Assert.True(entity.MarkedForDeletion);
+        Assert.Equal(date, entity.MarkedForDeletionDate);
+    }
+
     #endregion
 }

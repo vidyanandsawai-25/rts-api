@@ -113,20 +113,20 @@ public class ReferenceValidationService : IReferenceValidationService
 
         config.ForEntity<AssetCategoryEntity>()
         .CheckReferences(
-            ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.CategoryId == id).Cast<object>()),
-            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetCategoryId == id).Cast<object>()),
-            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetCategoryId == id).Cast<object>())
+            ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.AssetCategoryId == id && !a.MarkedForDeletion).Cast<object>()),
+            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetCategoryId == id && !d.MarkedForDeletion).Cast<object>()),
+            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetCategoryId == id && !f.MarkedForDeletion).Cast<object>())
         );
         // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
         config.ForEntity<InventoryItemCategoryEntity>()
          .CheckReferences(
-            ("Inventory Item Name Master", (ctx, id) => ctx.InventoryItemName.Where(i => i.InventoryItemCategoryId == id && i.IsActive).Cast<object>()),
+            ("Inventory Item Name Master", (ctx, id) => ctx.InventoryItemName.Where(i => i.InventoryItemCategoryId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>()),
             ("Inventory Item Condition Master", (ctx, id) => ctx.InventoryItemCondition.Where(i => i.InventoryItemCategoryId == id && i.IsActive).Cast<object>())
          );
         // Inventory Item Name - referenced by InventoryItemModel
         config.ForEntity<InventoryItemNameEntity>()
           .CheckReferences(
-              ("Inventory Item Model Master", (ctx, id) => ctx.InventoryItemModelMaster.Where(i => i.InventoryItemNameId == id && i.IsActive).Cast<object>())
+              ("Inventory Item Model Master", (ctx, id) => ctx.InventoryItemModelMaster.Where(i => i.InventoryItemNameId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>())
           );
 
         config.ForEntity<ScreenEntity>()
@@ -156,8 +156,8 @@ public class ReferenceValidationService : IReferenceValidationService
 			
         config.ForEntity<AssetTypeEntity>()
         .CheckReferences(
-            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetTypeId == id).Cast<object>()),
-            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetTypeId == id).Cast<object>())
+            ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetTypeId == id && !d.MarkedForDeletion).Cast<object>()),
+            ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetTypeId == id && !f.MarkedForDeletion).Cast<object>())
         );
 
         config.ForEntity<AssetAuthorityMasterEntity>()
@@ -170,6 +170,14 @@ public class ReferenceValidationService : IReferenceValidationService
             .CheckReferences(
                 ("Property Master", (ctx, id) => ctx.PropertyMast.Where(p => p.PropertyTypeId == id).Cast<object>()),
                 ("Property Description and Type of Use Validation", (ctx, id) => ctx.PropertyDescriptionAndTypeOfUseValidations.Where(v => v.PropertyTypeId == id).Cast<object>())
+            );
+
+        // MoujaMaster - referenced by CSNDetails, SubZoneDetailsForCV and PropertyMast
+        config.ForEntity<MoujaEntity>()
+            .CheckReferences(
+                ("CSN Details", (ctx, id) => ctx.CSNDetails.Where(p => p.MoujaId == id).Cast<object>()),
+                ("Sub Zone Details", (ctx, id) => ctx.SubZoneDetailsForCV.Where(v => v.MoujaId == id).Cast<object>()),
+                ("Property Master", (ctx, id) => ctx.PropertyMast.Where(v => v.MoujaId == id).Cast<object>())   
             );
         _referenceConfig = config.Build();
     }
