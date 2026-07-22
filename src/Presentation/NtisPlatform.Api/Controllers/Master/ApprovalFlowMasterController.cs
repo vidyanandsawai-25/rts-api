@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.ApprovalFlowMaster;
@@ -52,6 +53,7 @@ public class ApprovalFlowMasterController : ControllerBase
     /// <summary>
     /// Get configured workflow stages by RTS Service ID
     /// </summary>
+    [AllowAnonymous]
     [HttpGet("stages/{serviceId}")]
     public async Task<IActionResult> GetStagesByServiceId(int serviceId, CancellationToken ct)
     {

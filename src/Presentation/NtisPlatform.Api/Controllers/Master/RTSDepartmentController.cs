@@ -18,9 +18,12 @@ public class RTSDepartmentController : ControllerBase
         _service = service;
         _logger = logger;
     }
-
+    /// <summary>
+    /// Get all ApprovalFlow Masters with filtering, sorting, and pagination
+    /// </summary>
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] RTSDepartmentQueryParameters queryParameters, CancellationToken ct)
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
 }
+    
