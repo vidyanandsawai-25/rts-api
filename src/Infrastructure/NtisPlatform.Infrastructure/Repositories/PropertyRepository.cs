@@ -176,10 +176,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (propertyIds == null || !propertyIds.Any())
             return null;
 
-        var taxData = await (from tmrv in _context.TransMastRV
+        var taxData = await (from tmrv in _context.TransMast
                              join tm in _context.TaxMaster on tmrv.TaxId equals tm.Id
                              join ym in _context.YearMaster on tmrv.FinanceYearId equals ym.Id
                              where propertyIds.Contains(tmrv.PropertyId)
+                                && tmrv.CalculationType == "RV"
                                 && tmrv.IsActive && !tmrv.MarkedForDeletion
                                 && tm.IsActive
                                 && ym.IsActive
@@ -634,9 +635,9 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     /// USED FOR DELETION: PropertyId alone is sufficient because it's the primary FK relationship.
     /// All RV results for a property MUST have PropertyId, so this query guarantees complete coverage.
     /// </summary>
-    public async Task<List<PropertyTaxCalculationRVResultsEntity>> GetRvResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    public async Task<List<RVCalculationResultsEntity>> GetRvResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        return await _context.PropertyTaxCalculationRVResults
+        return await _context.RVCalculationResults
             .Where(x => x.PropertyId == propertyId)
             .ToListAsync(cancellationToken);
     }
@@ -818,9 +819,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         var transMastLookup = await _context.TransMastLookup.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
         relatedEntities.AddRange(transMastLookup);
-
-        var transMastRV = await _context.TransMastRV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(transMastRV);
 
         var transMastCV = await _context.TransMastCV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
         relatedEntities.AddRange(transMastCV);

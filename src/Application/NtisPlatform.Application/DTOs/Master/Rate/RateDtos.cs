@@ -45,7 +45,7 @@ public class CreateRateDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int TaxZoneId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
+    [Range(0, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
     public int FloorId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_ConstructionTypeId_Required")]
@@ -75,7 +75,7 @@ public class CreateOpenPlotRateDto : CreateBaseDtos
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int TaxZoneId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
+    [Range(0, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
     public int FloorId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TypeOfUseGroupId_Required")]

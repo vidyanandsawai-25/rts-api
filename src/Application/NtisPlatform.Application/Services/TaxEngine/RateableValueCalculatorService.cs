@@ -17,7 +17,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _logger = logger;
         }
 
-        public PropertyTaxCalculationRVResultsEntity CalculateBaseValues(
+        public RVCalculationResultsEntity CalculateBaseValues(
             PropertyDetailsEntity detail,
             int financeYear,
             int taxZoneId,
@@ -144,7 +144,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 ? selectedArea * 0.092903m
                 : selectedArea;
 
-            return new PropertyTaxCalculationRVResultsEntity
+            return new RVCalculationResultsEntity
             {
                 PropertyId = detail.PropertyId,
                 PropertyDetailsId = detail.Id,
@@ -196,9 +196,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
             return depreciation?.Rate ?? 0m;
         }
 
-        private static PropertyTaxCalculationRVResultsEntity CreateZeroResult(PropertyDetailsEntity detail, string appliedOn)
+        private static RVCalculationResultsEntity CreateZeroResult(PropertyDetailsEntity detail, string appliedOn)
         {
-            return new PropertyTaxCalculationRVResultsEntity
+            return new RVCalculationResultsEntity
             {
                 PropertyId = detail.PropertyId,
                 PropertyDetailsId = detail.Id,

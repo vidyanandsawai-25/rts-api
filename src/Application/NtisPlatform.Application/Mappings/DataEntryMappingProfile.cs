@@ -48,7 +48,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 
@@ -71,7 +71,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 

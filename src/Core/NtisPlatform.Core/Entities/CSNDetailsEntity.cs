@@ -10,5 +10,7 @@ namespace NtisPlatform.Core.Entities
         [Required]
         [StringLength(200)]
         public string CSN { get; set; } = string.Empty;
+
+        public MoujaEntity? Mouja { get; set; }
     }
 }

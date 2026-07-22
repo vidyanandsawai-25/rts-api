@@ -36,7 +36,7 @@ public class ReassessmentFloorDto
     public double? FinalYearlyRent { get; set; }
     public string? FinancialYear { get; set; }
 
-    // ── New-survey only (RV calculation, from PTIS.PropertyTaxCalculationRVResults) ──
+    // ── New-survey only (RV calculation, from PTIS.RVCalculationResults) ──
     public decimal? RateableValue { get; set; }
     public double? AnnualRentalValue { get; set; }
     public decimal? Depreciation { get; set; }

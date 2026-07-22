@@ -14,12 +14,6 @@ public class AssetFieldDefinitionEntity : BaseEntity, IHardDeletable
     public string? FieldGroup { get; set; }
     public bool IsRequired { get; set; }
     public int DisplayOrder { get; set; }
-    public string? ValidationRules { get; set; }
-    public string? DefaultValue { get; set; }
-    public decimal? MinValue { get; set; }
-    public decimal? MaxValue { get; set; }
-    public int? MaxLength { get; set; }
-
     // IHardDeletable members
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }

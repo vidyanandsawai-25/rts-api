@@ -1,5 +1,6 @@
 using AutoMapper;
 using MockQueryable;
+using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.Master;
 using NtisPlatform.Application.Exceptions;
@@ -165,8 +166,8 @@ public class AssetCategoryServiceTests
             CreateEntity(2, "Vehicle", "VEH", "Vehicle assets")
         };
 
-        var mockQuery = entities.BuildMock();
-        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        var mockQuery = entities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -210,8 +211,8 @@ public class AssetCategoryServiceTests
             CreateEntity(3, "Equipment", "EQP", isActive: true)
         };
 
-        var mockQuery = entities.BuildMock();
-        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        var mockQuery = entities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -252,8 +253,8 @@ public class AssetCategoryServiceTests
             CreateEntity(3, "Equipment", "EQP")
         };
 
-        var mockQuery = entities.BuildMock();
-        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        var mockQuery = entities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
@@ -304,6 +305,11 @@ public class AssetCategoryServiceTests
             categoryName: "Furniture",
             categoryCode: "FUR",
             description: "Furniture assets");
+
+        // Ensure validation queries (AnyAsync) use async-capable IQueryable provider
+        var existingEntities = new List<AssetCategoryEntity>();
+        var mockQuery = existingEntities.BuildMockDbSet();
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
 
         _mockMapper
             .Setup(m => m.Map<AssetCategoryEntity>(It.IsAny<CreateAssetCategoryDto>()))

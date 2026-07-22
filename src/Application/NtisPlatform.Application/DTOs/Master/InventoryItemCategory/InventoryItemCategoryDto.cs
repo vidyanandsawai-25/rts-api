@@ -12,15 +12,18 @@ public class InventoryItemCategoryDto : BaseDtos
 public class CreateInventoryItemCategoryDto : CreateBaseDtos
 {
     [StringLength(100, ErrorMessage = "InventoryItemCategory_TypeCode_MaxLen_100")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_TypeCode_Invalid")]
     public string? TypeCode { get; set; }
 
     [Required(ErrorMessage = "InventoryItemCategory_TypeName_Required")]
     [StringLength(100, ErrorMessage = "InventoryItemCategory_TypeName_MaxLen_100")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_TypeName_Invalid")]
     public string TypeName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "InventoryItemCategory_DisplayOrder_Required")]
     public int? DisplayOrder { get; set; }
     [StringLength(500, ErrorMessage = "InventoryItemCategory_Description_MaxLen_500")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_Description_Invalid")]
     public string? Description { get; set; }
 
     [Range(0, 1, ErrorMessage = "InventoryItemCategory_DepreciationRate_Range")]
@@ -29,15 +32,18 @@ public class CreateInventoryItemCategoryDto : CreateBaseDtos
 public class UpdateInventoryItemCategoryDto : UpdateBaseDtos
 {
     [StringLength(100, ErrorMessage = "InventoryItemCategory_TypeCode_MaxLen_100")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_TypeCode_Invalid")]
     public string? TypeCode { get; set; }
 
     [Required(ErrorMessage = "InventoryItemCategory_TypeName_Required")]
     [StringLength(100, ErrorMessage = "InventoryItemCategory_TypeName_MaxLen_100")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_TypeName_Invalid")]
     public string TypeName { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "InventoryItemCategory_DisplayOrder_Required")]
     public int? DisplayOrder { get; set; }
     [StringLength(500, ErrorMessage = "InventoryItemCategory_Description_MaxLen_500")]
+    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "InventoryItemCategory_Description_Invalid")]
     public string? Description { get; set; }
 
     [Range(0, 1, ErrorMessage = "InventoryItemCategory_DepreciationRate_Range")]

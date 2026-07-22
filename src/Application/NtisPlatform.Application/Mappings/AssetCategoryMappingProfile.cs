@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master;
 using NtisPlatform.Core.Entities.Master;
 

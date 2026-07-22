@@ -1,3 +1,4 @@
+using NtisPlatform.Application.Interfaces;
 using AutoMapper;
 using Moq;
 using MockQueryable.Moq;
@@ -19,6 +20,7 @@ public class InventoryItemModelServiceTests
     private readonly Mock<IRepository<InventoryItemModelEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly IMapper _mapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly InventoryItemModelService _service;
     private readonly Mock<ILogger<InventoryItemModelController>> _mockLogger;
     private readonly InventoryItemModelController _controller;
@@ -26,13 +28,19 @@ public class InventoryItemModelServiceTests
     {
         _mockRepository = new Mock<IRepository<InventoryItemModelEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
         var config = new MapperConfiguration(cfg =>
         {
             cfg.AddProfile<InventoryItemModelMappingProfile>();
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
         _mapper = config.CreateMapper();
         _mockUnitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _service = new InventoryItemModelService(_mockRepository.Object, _mockUnitOfWork.Object, _mapper);
+
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<InventoryItemModelEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        _service = new InventoryItemModelService(_mockRepository.Object, _mockUnitOfWork.Object, _mapper, _mockReferenceValidator.Object);
 
         _mockLogger = new Mock<ILogger<InventoryItemModelController>>();
         _controller = new InventoryItemModelController(_mockLogger.Object, _service);
@@ -430,6 +438,19 @@ public class InventoryItemModelServiceTests
         var result = await ctrl.GetAll(qp, CancellationToken.None);
         var okResult = Assert.IsType<OkObjectResult>(result);
         Assert.NotNull(okResult.Value);
+    }
+
+    [Fact]
+    public void InventoryItemModelEntity_Properties_Coverage()
+    {
+        var date = DateTime.Now;
+        var entity = new InventoryItemModelEntity
+        {
+            MarkedForDeletion = true,
+            MarkedForDeletionDate = date
+        };
+        Assert.True(entity.MarkedForDeletion);
+        Assert.Equal(date, entity.MarkedForDeletionDate);
     }
 
     #endregion

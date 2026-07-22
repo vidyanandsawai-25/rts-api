@@ -24,4 +24,8 @@ public class AssetAuthorityMasterQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     public bool? IsActive { get; set; }
+
+    [Filterable]
+    [Sortable]
+    public bool? MarkedForDeletion { get; set; }
 }

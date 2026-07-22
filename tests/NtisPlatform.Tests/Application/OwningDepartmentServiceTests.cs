@@ -1,3 +1,4 @@
+using NtisPlatform.Application.Interfaces;
 using AutoMapper;
 using Moq;
 using MockQueryable;
@@ -5,6 +6,11 @@ using NtisPlatform.Application.DTOs.Master;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Api.Controllers.Master;
+using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Models;
 
 
 namespace NtisPlatform.Tests.Application;
@@ -18,6 +24,7 @@ public class OwningDepartmentServiceTests
     private readonly Mock<IRepository<OwningDepartmentEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly OwningDepartmentService _service;
 
     public OwningDepartmentServiceTests()
@@ -25,6 +32,7 @@ public class OwningDepartmentServiceTests
         _mockRepository = new Mock<IRepository<OwningDepartmentEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -38,7 +46,11 @@ public class OwningDepartmentServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<OwningDepartmentEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        _service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
     }
 
     #region Constructor Tests
@@ -47,7 +59,7 @@ public class OwningDepartmentServiceTests
     public void Constructor_WithValidParameters_CreatesInstance()
     {
         // Arrange & Act
-        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -208,10 +220,7 @@ public class OwningDepartmentServiceTests
         // Skip validation to allow unmapped destination members (like Id)
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new OwningDepartmentService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            mapper);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
         var queryParams = new OwningDepartmentQueryParameters
         {
@@ -250,10 +259,7 @@ public class OwningDepartmentServiceTests
 
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new OwningDepartmentService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            mapper);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
         var queryParams = new OwningDepartmentQueryParameters
         {
@@ -297,10 +303,7 @@ public class OwningDepartmentServiceTests
 
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new OwningDepartmentService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            mapper);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
         var queryParams = new OwningDepartmentQueryParameters
         {
@@ -340,10 +343,7 @@ public class OwningDepartmentServiceTests
 
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new OwningDepartmentService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            mapper);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
         var queryParams = new OwningDepartmentQueryParameters
         {
@@ -377,10 +377,7 @@ public class OwningDepartmentServiceTests
 
         IMapper mapper = mapperConfig.CreateMapper();
 
-        var service = new OwningDepartmentService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            mapper);
+        var service = new OwningDepartmentService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, _mockReferenceValidator.Object);
 
         var queryParams = new OwningDepartmentQueryParameters
         {
@@ -1384,6 +1381,76 @@ public class OwningDepartmentServiceTests
     }
 
     #endregion
+}
+
+public class OwningDepartmentControllerTests
+{
+    private static OwningDepartmentController Create(
+        out Mock<IOwningDepartmentService> service,
+        out Mock<IHardDeleteCleanupService> cleanupService,
+        out Mock<IReferenceValidationService> referenceValidationService)
+    {
+        service = new Mock<IOwningDepartmentService>();
+        cleanupService = new Mock<IHardDeleteCleanupService>();
+        referenceValidationService = new Mock<IReferenceValidationService>();
+        var logger = new Mock<ILogger<OwningDepartmentController>>();
+        return new OwningDepartmentController(service.Object, cleanupService.Object, referenceValidationService.Object, logger.Object);
+    }
+
+    [Fact]
+    public async Task GetAll_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var query = new OwningDepartmentQueryParameters();
+        service.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<OwningDepartmentDto>(new List<OwningDepartmentDto>(), 0, 1, 10));
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetById_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        service.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OwningDepartmentDto { Id = 1 });
+
+        var result = await controller.GetById(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var dto = new CreateOwningDepartmentDto { OwningDepartmentName = "IT" };
+        service.Setup(s => s.CreateAsync(dto, It.IsAny<CancellationToken>())).ReturnsAsync(new OwningDepartmentDto { Id = 1 });
+
+        var result = await controller.Create(dto, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var dto = new UpdateOwningDepartmentDto { OwningDepartmentName = "Updated IT" };
+        service.Setup(s => s.UpdateAsync(1, dto, It.IsAny<CancellationToken>())).ReturnsAsync(new OwningDepartmentDto { Id = 1 });
+
+        var result = await controller.Update(1, dto, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        service.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
 }
 
 

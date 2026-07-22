@@ -319,8 +319,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     tm.PropertyId,
                     tam.TaxCode,
                     tam.TaxName,
-                    tm.RVorCV,
-                    tm.RVorCVValue,
+                    RVorCV = tm.CalculationType,
+                    RVorCVValue = tm.CalculationValue,
                     tm.TaxAmount,
                 }
             ).ToListAsync(ct);
@@ -544,8 +544,8 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
                     tam.TaxCode,
                     tam.TaxName,
                     tam.DisplayOrder,
-                    tm.RVorCV,
-                    tm.RVorCVValue,
+                    RVorCV = tm.CalculationType,
+                    RVorCVValue = tm.CalculationValue,
                     tm.TaxAmount,
                 }
             ).ToListAsync(ct);

@@ -81,7 +81,7 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     /// <summary>
     /// Collection of property tax calculation RV results associated with this property detail
     /// </summary>
-    public virtual ICollection<PropertyTaxCalculationRVResultsEntity> PropertyTaxCalculationRVResults { get; set; } = new List<PropertyTaxCalculationRVResultsEntity>();
+    public virtual ICollection<RVCalculationResultsEntity> RVCalculationResults { get; set; } = new List<RVCalculationResultsEntity>();
 
     /// <summary>
     /// Collection of property tax calculation Section 129 results associated with this property detail

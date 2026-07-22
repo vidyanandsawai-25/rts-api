@@ -33,7 +33,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
     private readonly IRepository<ConstructionTypeEntity, int> _constructionTypeRepository;
     private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
     private readonly IRepository<RenterMastEntity, int> _renterRepository;
-    private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _rvResultsRepository;
+    private readonly IRepository<RVCalculationResultsEntity, int> _rvResultsRepository;
     private readonly IRepository<TransMastEntity, int> _transMastRepository;
     private readonly IRepository<TransMastOldEntity, int> _transMastOldRepository;
     private readonly IRepository<TaxMasterEntity, int> _taxMasterRepository;
@@ -52,7 +52,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         IRepository<ConstructionTypeEntity, int> constructionTypeRepository,
         IRepository<TypeOfUseEntity, int> typeOfUseRepository,
         IRepository<RenterMastEntity, int> renterRepository,
-        IRepository<PropertyTaxCalculationRVResultsEntity, int> rvResultsRepository,
+        IRepository<RVCalculationResultsEntity, int> rvResultsRepository,
         IRepository<TransMastEntity, int> transMastRepository,
         IRepository<TransMastOldEntity, int> transMastOldRepository,
         IRepository<TaxMasterEntity, int> taxMasterRepository,

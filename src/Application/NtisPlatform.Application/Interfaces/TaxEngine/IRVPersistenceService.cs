@@ -8,7 +8,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine;
 
 /// <summary>
 /// Handles the persistence phase of an RV calculation: replacing old result rows,
-/// building PolicyTaxDetails records, and writing TransMastRV entries.
+/// building PolicyTaxDetails records, and writing TransMast (CalculationType = "RV") entries.
 /// Extracted from <c>RateableValueService</c> to satisfy the Single Responsibility Principle.
 /// Callers are responsible for managing the surrounding transaction.
 /// </summary>
@@ -21,10 +21,11 @@ public interface IRVPersistenceService
     /// </summary>
     Task ReplaceExistingResultsAsync(
         int propertyId,
-        List<PropertyTaxCalculationRVResultsEntity> newRows);
+        List<RVCalculationResultsEntity> newResultsRows,
+        List<RVCalculationTaxDetailsEntity> newTaxDetailRows);
 
     /// <summary>
-    /// Soft-deletes stale PolicyTaxDetails and TransMastRV rows for the property/year,
+    /// Soft-deletes stale PolicyTaxDetails and TransMast (CalculationType = "RV") rows for the property/year,
     /// then inserts fresh aggregated policy and transaction records.
     /// Does NOT call SaveChanges — the caller commits the transaction.
     /// </summary>
@@ -33,7 +34,8 @@ public interface IRVPersistenceService
         int propertyId,
         int financeYear,
         int yearMasterId,
-        List<PropertyTaxCalculationRVResultsEntity> detailRows,
+        List<RVCalculationResultsEntity> resultsRows,
+        List<RVCalculationTaxDetailsEntity> taxDetailRows,
         decimal totalRv,
         int? educationTaxId,
         int? employmentTaxId);

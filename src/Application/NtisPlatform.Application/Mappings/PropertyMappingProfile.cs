@@ -128,7 +128,7 @@ public class PropertyMappingProfile : Profile
             // Child entity navigation collections
             .ForMember(dest => dest.FlagMaster, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PlotDetails, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastCV, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore())
@@ -155,7 +155,6 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.TransMast, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastArchive, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastLookup, opt => opt.Ignore())
-            .ForMember(dest => dest.TransMastRV, opt => opt.Ignore())
             .ForMember(dest => dest.WorkflowHistory, opt => opt.Ignore());
     }
 }
