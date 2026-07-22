@@ -46,6 +46,21 @@ public static class PropertyConstants
             x.PartitionNo.Contains("8") ||
             x.PartitionNo.Contains("9")
         );
+
+    public static class SearchByCategory
+    {
+        public static class ErrorMessages
+        {
+            public const string InvalidSearchCategory = "Invalid SearchCategory. Valid values are 1=ZoneWise, 2=WardWise, 3=BuildingWise, 4=FromToProperty.";
+            public const string ZoneIdRequired = "ZoneId is required for Zone Wise search.";
+            public const string WardIdRequired = "WardId is required for this search category.";
+            public const string PropertyNoRequired = "PropertyNo is required for Building Wise search.";
+            public const string PropertyFromRequired = "PropertyFrom is required for Property Range search.";
+            public const string InvalidPropertyFromFormat = "PropertyFrom must start with a numeric property number (e.g. '1' or '1-A9').";
+            public const string InvalidPropertyToFormat = "PropertyTo must start with a numeric property number (e.g. '1-S2').";
+            public const string InvalidPropertyAssessmentStatusIdFormat = "PropertyAssessmentStatusId must be a comma-separated list of integers (e.g. '1,2').";
+        }
+    }
 }
 public static class PartTypeConstants
 {

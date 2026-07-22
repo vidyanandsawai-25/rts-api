@@ -61,6 +61,37 @@ public class DataEntrySameAsController : ControllerBase
         }
     }
 
+    // GET api/DataEntrySameAs/units
+    [HttpGet("units")]
+    [ProducesResponseType(typeof(ApiResponse<List<DataEntrySameAsUnitDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUnits([FromQuery] DataEntrySameAsUnitsQueryParameters query, CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        try
+        {
+            var result = await _service.GetPropertyUnitsAsync(query, ct);
+            return Ok(new ApiResponse<List<DataEntrySameAsUnitDto>>
+            {
+                Success = true,
+                Message = $"{result.Count} property(ies) found.",
+                Items = result
+            });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error fetching property units. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = _environment.IsDevelopment() ? $"An error occurred: {ex.Message}" : "An error occurred",
+                CorrelationId = correlationId
+            });
+        }
+    }
+
     // POST api/DataEntrySameAs
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<DataEntrySameAsResultDto>), StatusCodes.Status200OK)]

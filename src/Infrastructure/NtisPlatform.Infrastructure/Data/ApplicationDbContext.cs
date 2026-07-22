@@ -118,6 +118,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BlockMasterEntity> BlockMasters { get; set; } = null!;
     public DbSet<PropertyCertificateEntity> PropertyCertificates { get; set; } = null!;
     public DbSet<PropertyPhotoEntity> PropertyPhotos { get; set; } = null!;
+    public DbSet<PropertyPhotoOldEntity> PropertyPhotosOld { get; set; } = null!;
     public DbSet<DocumentEntity> Documents { get; set; } = null!;
     public DbSet<DocumentBindingEntity> DocumentBindings { get; set; } = null!;
     public DbSet<TaxPercentageMasterRVEntity> TaxPercentageMasterRVs { get; set; } = null!;
@@ -184,6 +185,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxPendingDetailsRetroEntity> TaxPendingDetailsRetro { get; set; } = null!;
     public DbSet<TaxPendingDetailsRVEntity> TaxPendingDetailsRV { get; set; } = null!;
     public DbSet<TaxPendingDetailsEntity> TaxPendingDetails { get; set; } = null!;
+    public DbSet<TaxPendingDetailsOldEntity> TaxPendingDetailsOld { get; set; } = null!;
     public DbSet<TransMastEntity> TransMast { get; set; } = null!;
     public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
@@ -2267,6 +2269,77 @@ public class ApplicationDbContext : DbContext
             entity.HasOne<PropertyMastOldEntity>()
                 .WithMany()
                 .HasForeignKey(e => e.PropertyMastOldId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PropertyPhotoOldEntity>(entity =>
+        {
+            entity.ToTable("PropertyPhotoOld", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyMastOldId).IsRequired();
+            entity.Property(e => e.PhotoTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.Remarks).HasMaxLength(500);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.PropertyMastOldId);
+
+            entity.HasOne<PropertyMastOldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PropertyMastOldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PropertyPhotoTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PhotoTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<DocumentBindingEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TaxPendingDetailsOldEntity>(entity =>
+        {
+            entity.ToTable("TaxPendingDetailsOld", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PropertyMastOldId).IsRequired();
+            entity.Property(e => e.PendingYearId).IsRequired();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.PendingFixed).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => new { e.PropertyMastOldId, e.PendingYearId, e.TaxId });
+
+            entity.HasOne<PropertyMastOldEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PropertyMastOldId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<YearMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.PendingYearId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<TaxMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.TaxId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

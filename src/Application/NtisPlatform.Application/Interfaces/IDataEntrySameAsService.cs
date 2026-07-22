@@ -28,4 +28,14 @@ public interface IDataEntrySameAsService
     Task<List<DataEntrySameAsPropertyDto>> GetSiblingPropertiesAsync(
         DataEntrySameAsQueryParameters query,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lists the assessable property units under a building (same Ward + PropertyNo, optionally one
+    /// partition), joining ward/zone/type/category master data and summing carpet areas per property.
+    /// Always excludes amenity part-types, building/wing-level rows, and inactive/deleted properties;
+    /// the query parameters may further filter/search on PartType, PropertyCategoryName and Type.
+    /// </summary>
+    Task<List<DataEntrySameAsUnitDto>> GetPropertyUnitsAsync(
+        DataEntrySameAsUnitsQueryParameters query,
+        CancellationToken cancellationToken = default);
 }

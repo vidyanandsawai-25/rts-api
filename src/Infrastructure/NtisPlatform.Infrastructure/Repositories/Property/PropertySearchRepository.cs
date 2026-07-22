@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Models;
@@ -1055,6 +1057,411 @@ public class PropertySearchRepository : IPropertySearchRepository
         {
             Items = items,
             TotalCount = items.Count  // All properties displayed as units
+        };
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Public: search by category (Zone/Ward/Building/Property-range scoped search)
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Row shape shared by <see cref="SearchByCategoryAsync"/> and <see cref="GetPropertyIdsByCategoryAsync"/> -
+    /// a named type (rather than an anonymous type) so the filtered query built by
+    /// <see cref="BuildCategoryFilteredQueryAsync"/> can be returned across method boundaries.
+    /// </summary>
+    private sealed class CategoryJoinRow
+    {
+        public PropertyEntity Property { get; init; } = null!;
+        public WardEntity? Ward { get; init; }
+        public ZoneEntity? Zone { get; init; }
+        public PropertyTypeMasterEntity? PropertyType { get; init; }
+        public PropertyCategoryEntity? Category { get; init; }
+    }
+
+    /// <summary>
+    /// Builds the joined, category-scoped, filtered (but unsorted/unpaged) query shared by
+    /// <see cref="SearchByCategoryAsync"/> (full response DTO, sorted, paged) and
+    /// <see cref="GetPropertyIdsByCategoryAsync"/> (bare PropertyIds, for bulk actions) - so the
+    /// SearchCategory switch and the PartType/PropertyCategoryName/PropertyAssessmentStatusId/
+    /// IsWing/SearchTerm filters are defined exactly once.
+    /// </summary>
+    private async Task<(IQueryable<CategoryJoinRow> Query, HashSet<string> WingNumbers)> BuildCategoryFilteredQueryAsync(
+        PropertySearchByCategoryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var query = from p in _context.PropertyMast.AsNoTracking()
+                    where p.IsActive && !p.MarkedForDeletion
+
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
+                    from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join z in _context.ZoneMaster.AsNoTracking() on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
+                    from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
+                    from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
+                    from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+                    select new CategoryJoinRow
+                    {
+                        Property = p,
+                        Ward = w,
+                        Zone = z,
+                        PropertyType = pt,
+                        Category = pc
+                    };
+
+        // Category-specific scoping is applied server-side. FromToProperty's exact alpha/numeric
+        // partition-boundary comparison can't be translated to SQL (see the private helpers below)
+        // and is applied in-memory - but the PropertyNo bound itself CAN be pushed to SQL first
+        // (via the same length-then-string trick used for the natural sort below), so only the
+        // properties actually within [FromPropertyNo, ToPropertyNo] are ever materialized, instead
+        // of the whole ward. This coarse bound is inclusive/a superset of the true match set (it
+        // doesn't yet account for the partition tie-break at the boundary PropertyNo), which the
+        // in-memory filter below narrows down to the exact result.
+        switch (request.SearchCategory)
+        {
+            case PropertySearchCategory.ZoneWise:
+                query = query.Where(x => x.Zone != null && x.Zone.Id == request.ZoneId);
+                break;
+
+            case PropertySearchCategory.WardWise:
+                query = query.Where(x => x.Property.WardId == request.WardId);
+                break;
+
+            case PropertySearchCategory.BuildingWise:
+                query = query.Where(x => x.Property.WardId == request.WardId && x.Property.PropertyNo == request.PropertyNo);
+                if (!string.IsNullOrWhiteSpace(request.PartitionNo))
+                    query = query.Where(x => x.Property.PartitionNo == request.PartitionNo);
+                break;
+
+            case PropertySearchCategory.FromToProperty:
+                query = query.Where(x => x.Property.WardId == request.WardId);
+
+                var (coarseFromPropertyNo, _) = ParsePropertyToken(request.PropertyFrom);
+                if (coarseFromPropertyNo.HasValue)
+                {
+                    var fromPropertyNoStr = coarseFromPropertyNo.Value.ToString();
+                    query = query.Where(x => x.Property.PropertyNo != null &&
+                        (x.Property.PropertyNo.Length > fromPropertyNoStr.Length ||
+                         (x.Property.PropertyNo.Length == fromPropertyNoStr.Length && string.Compare(x.Property.PropertyNo, fromPropertyNoStr) >= 0)));
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.PropertyTo))
+                {
+                    var (coarseToPropertyNo, _) = ParsePropertyToken(request.PropertyTo);
+                    if (coarseToPropertyNo.HasValue)
+                    {
+                        var toPropertyNoStr = coarseToPropertyNo.Value.ToString();
+                        query = query.Where(x => x.Property.PropertyNo != null &&
+                            (x.Property.PropertyNo.Length < toPropertyNoStr.Length ||
+                             (x.Property.PropertyNo.Length == toPropertyNoStr.Length && string.Compare(x.Property.PropertyNo, toPropertyNoStr) <= 0)));
+                    }
+                }
+                break;
+        }
+
+        // IsWing mirrors the source SQL's unfiltered EXISTS(SELECT 1 FROM PTIS.WingMaster ...) -
+        // no IsActive filter is applied here to stay faithful to that behavior. Loaded upfront so
+        // it can back both the IsWing filter below and the IsWing response column.
+        var wingNumbers = new HashSet<string>(await _context.WingEntity.Select(w => w.WingNo).ToListAsync(cancellationToken));
+
+        // Additional optional filters, independent of SearchCategory. Each accepts a
+        // comma-separated list of values (parsed via FilterExpressionBuilder.Csv) and matches
+        // any of them (SQL IN).
+        var partTypes = FilterExpressionBuilder.Csv(request.PartType);
+        if (partTypes.Count > 0)
+            query = query.Where(x => x.PropertyType != null && x.PropertyType.PartType != null && partTypes.Contains(x.PropertyType.PartType));
+
+        var categoryNames = FilterExpressionBuilder.Csv(request.PropertyCategoryName);
+        if (categoryNames.Count > 0)
+            query = query.Where(x => x.Category != null && x.Category.PropertyCategoryName != null && categoryNames.Contains(x.Category.PropertyCategoryName));
+
+        var statusIds = FilterExpressionBuilder.Csv(request.PropertyAssessmentStatusId)
+            .Select(s => int.TryParse(s, out var id) ? (int?)id : null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+        if (statusIds.Count > 0)
+            query = query.Where(x => x.Property.PropertyAssessmentStatusId.HasValue && statusIds.Contains(x.Property.PropertyAssessmentStatusId.Value));
+
+        if (request.IsWing.HasValue)
+        {
+            query = request.IsWing.Value
+                ? query.Where(x => x.Property.PartitionNo != null && wingNumbers.Contains(x.Property.PartitionNo))
+                : query.Where(x => x.Property.PartitionNo == null || !wingNumbers.Contains(x.Property.PartitionNo));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var searchTerm = request.SearchTerm.Trim();
+            query = query.Where(x =>
+                (x.Ward != null && x.Ward.WardNo != null && x.Ward.WardNo.Contains(searchTerm)) ||
+                (x.Property.PropertyNo != null && x.Property.PropertyNo.Contains(searchTerm)) ||
+                (x.Property.PartitionNo != null && x.Property.PartitionNo.Contains(searchTerm)));
+        }
+
+        return (query, wingNumbers);
+    }
+
+    public async Task<(int TotalCount, List<PropertySearchByCategoryResponseDto> Items)> SearchByCategoryAsync(
+        PropertySearchByCategoryRequestDto request,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        var (query, wingNumbers) = await BuildCategoryFilteredQueryAsync(request, cancellationToken);
+
+        var isUnpaged = pageSize == -1;
+
+        if (request.SearchCategory == PropertySearchCategory.FromToProperty)
+        {
+            // Ward-bounded candidate set only (never a whole zone/table) - filtered, sorted and
+            // paged in memory because the partition-range comparison isn't SQL-translatable.
+            var rows = await query.ToListAsync(cancellationToken);
+
+            var (fromPropertyNo, fromPartition, toPropertyNo, toPartition, hasPropertyTo) =
+                ParseFromToPropertyBounds(request.PropertyFrom, request.PropertyTo);
+
+            rows = rows.Where(x =>
+            {
+                if (!int.TryParse(x.Property.PropertyNo, out var propertyNoInt))
+                    return false;
+
+                var (alpha, numeric) = SplitPartition(x.Property.PartitionNo);
+
+                var lowerBoundMet = propertyNoInt > fromPropertyNo ||
+                    (propertyNoInt == fromPropertyNo && MeetsLowerPartitionBound(alpha, numeric, fromPartition));
+
+                var upperBoundMet = !hasPropertyTo ||
+                    propertyNoInt < toPropertyNo ||
+                    (propertyNoInt == toPropertyNo && MeetsUpperPartitionBound(alpha, numeric, toPartition));
+
+                return lowerBoundMet && upperBoundMet;
+            }).ToList();
+
+            var mapped = rows
+                .Select(x => MapToResponseDto(x.Property, x.Ward, x.Zone, x.PropertyType, x.Category, wingNumbers))
+                .ToList();
+
+            var ordered = mapped
+                .OrderBy(x => TryParseInt(x.PropertyNo))
+                .ThenBy(x => x.PropertyNo, StringComparer.Ordinal)
+                .ThenBy(x => string.IsNullOrEmpty(x.PartitionNo) ? 0 : 1)
+                .ThenBy(x => SplitPartition(x.PartitionNo).AlphaPart, StringComparer.Ordinal)
+                .ThenBy(x => SplitPartition(x.PartitionNo).NumericPart)
+                .ToList();
+
+            var totalCount = ordered.Count;
+            var skip = isUnpaged ? 0 : (pageNumber - 1) * pageSize;
+            var items = isUnpaged ? ordered : ordered.Skip(skip).Take(pageSize).ToList();
+
+            return (totalCount, items);
+        }
+        else
+        {
+            // ZoneWise/WardWise/BuildingWise scopes can span many properties (a zone can hold
+            // thousands), so sorting and paging happen in SQL Server via OrderByNatural/ThenByNatural
+            // (PATINDEX-backed, see AlphanumericSortExtensions) - only the requested page is ever
+            // materialized, instead of loading and sorting the entire matching set in memory.
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            var orderedQuery = query
+                .OrderBy(x => x.Property.PropertyNo == null ? 0 : x.Property.PropertyNo.Length)
+                .ThenBy(x => x.Property.PropertyNo)
+                .ThenBy(x => string.IsNullOrEmpty(x.Property.PartitionNo) ? 0 : 1)
+                .ThenByNatural(x => x.Property.PartitionNo);
+
+            var pageQuery = isUnpaged ? orderedQuery : orderedQuery.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+
+            var pageRows = await pageQuery.ToListAsync(cancellationToken);
+
+            var items = pageRows
+                .Select(x => MapToResponseDto(x.Property, x.Ward, x.Zone, x.PropertyType, x.Category, wingNumbers))
+                .ToList();
+
+            return (totalCount, items);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the bare PropertyIds matching a SearchCategory scope - for bulk actions (e.g.
+    /// bulk lock/unlock) that need "every property matching this scope" without the response-DTO
+    /// mapping, wing lookup, or natural-sort ordering that <see cref="SearchByCategoryAsync"/> pays
+    /// for on every row. Reuses the exact same category-switch and optional filters via
+    /// <see cref="BuildCategoryFilteredQueryAsync"/>, so results are always consistent between the
+    /// two methods.
+    /// </summary>
+    public async Task<List<int>> GetPropertyIdsByCategoryAsync(
+        PropertySearchByCategoryRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var (query, _) = await BuildCategoryFilteredQueryAsync(request, cancellationToken);
+
+        if (request.SearchCategory == PropertySearchCategory.FromToProperty)
+        {
+            // Ward-and-PropertyNo-bounded candidate set only (see BuildCategoryFilteredQueryAsync) -
+            // the exact partition-boundary comparison still isn't SQL-translatable, so it's applied
+            // in-memory here, same as SearchByCategoryAsync.
+            var rows = await query
+                .Select(x => new { x.Property.Id, x.Property.PropertyNo, x.Property.PartitionNo })
+                .ToListAsync(cancellationToken);
+
+            var (fromPropertyNo, fromPartition, toPropertyNo, toPartition, hasPropertyTo) =
+                ParseFromToPropertyBounds(request.PropertyFrom, request.PropertyTo);
+
+            return rows.Where(x =>
+            {
+                if (!int.TryParse(x.PropertyNo, out var propertyNoInt))
+                    return false;
+
+                var (alpha, numeric) = SplitPartition(x.PartitionNo);
+
+                var lowerBoundMet = propertyNoInt > fromPropertyNo ||
+                    (propertyNoInt == fromPropertyNo && MeetsLowerPartitionBound(alpha, numeric, fromPartition));
+
+                var upperBoundMet = !hasPropertyTo ||
+                    propertyNoInt < toPropertyNo ||
+                    (propertyNoInt == toPropertyNo && MeetsUpperPartitionBound(alpha, numeric, toPartition));
+
+                return lowerBoundMet && upperBoundMet;
+            }).Select(x => x.Id).ToList();
+        }
+
+        return await query.Select(x => x.Property.Id).ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Splits a "PropertyNo[-PartitionNo]" token (e.g. "1-A9") on the first '-', mirroring the
+    /// source SQL's <c>CHARINDEX('-', @token+'-')</c> trick.
+    /// </summary>
+    private static (int? PropertyNo, string? Partition) ParsePropertyToken(string? token)
+    {
+        if (string.IsNullOrEmpty(token))
+            return (null, null);
+
+        var dashIndex = token.IndexOf('-');
+        string propertyPart;
+        string? partitionPart;
+
+        if (dashIndex < 0)
+        {
+            propertyPart = token;
+            partitionPart = null;
+        }
+        else
+        {
+            propertyPart = token.Substring(0, dashIndex);
+            partitionPart = dashIndex + 1 < token.Length ? token.Substring(dashIndex + 1) : null;
+        }
+
+        var propertyNo = int.TryParse(propertyPart, out var parsed) ? (int?)parsed : null;
+        return (propertyNo, partitionPart);
+    }
+
+    /// <summary>
+    /// Parses the FromToProperty range bounds and coerces them to non-null ints before any
+    /// caller compares them against a row's PropertyNo - PropertyFrom/PropertyTo are validated
+    /// upstream (<see cref="Application.Services.Property.PropertySearchService"/>) to always
+    /// resolve to a numeric PropertyNo, but comparing a bare int against an int? lifts to a
+    /// nullable comparison that silently evaluates to false instead of surfacing a bug, so that
+    /// invariant is enforced here instead of relied upon implicitly. ToPropertyNo defaults to 0
+    /// when PropertyTo is absent; callers must guard its use with HasPropertyTo.
+    /// </summary>
+    private static (int FromPropertyNo, string? FromPartition, int ToPropertyNo, string? ToPartition, bool HasPropertyTo)
+        ParseFromToPropertyBounds(string? propertyFrom, string? propertyTo)
+    {
+        var (fromPropertyNo, fromPartition) = ParsePropertyToken(propertyFrom);
+        var (toPropertyNo, toPartition) = ParsePropertyToken(propertyTo);
+        var hasPropertyTo = !string.IsNullOrWhiteSpace(propertyTo);
+
+        if (fromPropertyNo is null)
+            throw new InvalidOperationException($"PropertyFrom '{propertyFrom}' must resolve to a numeric property number.");
+        if (hasPropertyTo && toPropertyNo is null)
+            throw new InvalidOperationException($"PropertyTo '{propertyTo}' must resolve to a numeric property number.");
+
+        return (fromPropertyNo.Value, fromPartition, toPropertyNo ?? 0, toPartition, hasPropertyTo);
+    }
+
+    /// <summary>
+    /// Splits a PartitionNo into its leading alpha prefix and trailing numeric suffix
+    /// (e.g. "A9" -> ("A", 9)), mirroring the source SQL's
+    /// <c>PATINDEX('%[0-9]%', PartitionNo+'0')</c> first-digit-index trick.
+    /// </summary>
+    private static (string AlphaPart, int NumericPart) SplitPartition(string? partitionNo)
+    {
+        var value = partitionNo ?? string.Empty;
+        var digitIndex = -1;
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            if (char.IsDigit(value[i]))
+            {
+                digitIndex = i;
+                break;
+            }
+        }
+
+        if (digitIndex < 0)
+            return (value, 0);
+
+        var alpha = value.Substring(0, digitIndex);
+        var numeric = int.TryParse(value.Substring(digitIndex), out var n) ? n : 0;
+        return (alpha, numeric);
+    }
+
+    /// <summary>
+    /// Row's (alpha, numeric) partition is at or above the From boundary: alpha prefix sorts
+    /// after the From partition's alpha prefix, or matches it with an equal-or-higher numeric part.
+    /// </summary>
+    private static bool MeetsLowerPartitionBound(string alpha, int numeric, string? fromPartition)
+    {
+        var (fromAlpha, fromNumeric) = SplitPartition(fromPartition);
+        var alphaCompare = string.CompareOrdinal(alpha, fromAlpha);
+        return alphaCompare > 0 || (alphaCompare == 0 && numeric >= fromNumeric);
+    }
+
+    /// <summary>
+    /// Row's (alpha, numeric) partition is at or below the To boundary - the mirror of
+    /// <see cref="MeetsLowerPartitionBound"/>.
+    /// </summary>
+    private static bool MeetsUpperPartitionBound(string alpha, int numeric, string? toPartition)
+    {
+        var (toAlpha, toNumeric) = SplitPartition(toPartition);
+        var alphaCompare = string.CompareOrdinal(alpha, toAlpha);
+        return alphaCompare < 0 || (alphaCompare == 0 && numeric <= toNumeric);
+    }
+
+    private static int? TryParseInt(string? value) => int.TryParse(value, out var n) ? n : null;
+
+    private static PropertySearchByCategoryResponseDto MapToResponseDto(
+        PropertyEntity property,
+        WardEntity? ward,
+        ZoneEntity? zone,
+        PropertyTypeMasterEntity? propertyType,
+        PropertyCategoryEntity? category,
+        HashSet<string> wingNumbers)
+    {
+        return new PropertySearchByCategoryResponseDto
+        {
+            PropertyId = property.Id,
+            TaxZoneId = property.TaxZoneId,
+            ZoneId = zone?.Id,
+            ZoneNo = zone?.ZoneNo,
+            WardId = property.WardId,
+            WardNo = ward?.WardNo,
+            PropertyNo = property.PropertyNo,
+            PartitionNo = property.PartitionNo ?? string.Empty,
+            MobileNo = property.MobileNo,
+            UPICId = property.UPICId,
+            PropertyTypeId = property.PropertyTypeId,
+            PartType = propertyType?.PartType,
+            CategoryId = property.CategoryId,
+            PropertyCategoryName = category?.PropertyCategoryName,
+            IsWing = !string.IsNullOrEmpty(property.PartitionNo) && wingNumbers.Contains(property.PartitionNo),
+            PropertyAssessmentStatusId = property.PropertyAssessmentStatusId ?? 0
         };
     }
 

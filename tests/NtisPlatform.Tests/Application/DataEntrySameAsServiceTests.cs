@@ -35,6 +35,10 @@ public class DataEntrySameAsServiceTests
     private readonly Mock<IRepository<SocietyDetailsEntity, int>> _societyRepo = new();
     private readonly Mock<IRepository<WingEntity, int>> _wingRepo = new();
     private readonly Mock<IRepository<BuildingPlanTypeEntity, int>> _buildingPlanTypeRepo = new();
+    private readonly Mock<IRepository<WardEntity, int>> _wardRepo = new();
+    private readonly Mock<IRepository<ZoneEntity, int>> _zoneRepo = new();
+    private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _propertyTypeRepo = new();
+    private readonly Mock<IRepository<PropertyCategoryEntity, int>> _propertyCategoryRepo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
     private readonly Mock<ILogger<DataEntrySameAsService>> _logger = new();
 
@@ -59,6 +63,10 @@ public class DataEntrySameAsServiceTests
         _societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
         _wingRepo.Setup(r => r.GetQueryable()).Returns(new List<WingEntity>().BuildMock());
         _buildingPlanTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<BuildingPlanTypeEntity>().BuildMock());
+        _wardRepo.Setup(r => r.GetQueryable()).Returns(new List<WardEntity>().BuildMock());
+        _zoneRepo.Setup(r => r.GetQueryable()).Returns(new List<ZoneEntity>().BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _propertyCategoryRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyCategoryEntity>().BuildMock());
 
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -78,6 +86,10 @@ public class DataEntrySameAsServiceTests
             _societyRepo.Object,
             _wingRepo.Object,
             _buildingPlanTypeRepo.Object,
+            _wardRepo.Object,
+            _zoneRepo.Object,
+            _propertyTypeRepo.Object,
+            _propertyCategoryRepo.Object,
             _unitOfWork.Object,
             _logger.Object);
     }
