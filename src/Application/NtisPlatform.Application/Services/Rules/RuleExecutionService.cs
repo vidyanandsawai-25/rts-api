@@ -822,17 +822,24 @@ namespace NtisPlatform.Application.Services.Rules
                 if (context.TryGetValue("effects", out var effectsArrayEl) &&
                     effectsArrayEl.ValueKind == JsonValueKind.Array)
                 {
-                    decimal? runningRate = null;
+                    var paramRunningRates = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
                     foreach (var effectItem in effectsArrayEl.EnumerateArray())
                     {
                         var itemContext = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(effectItem.GetRawText())
                                          ?? new Dictionary<string, JsonElement>();
 
-                        var dto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, itemContext, inputValues, runningRate);
+                        var rawParamCode = ReadStringFromContext(itemContext, "ParameterCode");
+                        var paramKey = rawParamCode.Replace("input.", "").Trim();
+                        if (string.IsNullOrWhiteSpace(paramKey))
+                            paramKey = "Rate";
+
+                        decimal? runningOverride = paramRunningRates.TryGetValue(paramKey, out var prevRate) ? prevRate : null;
+
+                        var dto = await ApplySingleEffectAsync(ruleName, ruleErrorMessage, itemContext, inputValues, runningOverride);
                         if (dto != null)
                         {
                             results.Add(dto);
-                            runningRate = dto.ComputedRate;
+                            paramRunningRates[paramKey] = dto.ComputedRate;
                         }
                     }
                     return results;
@@ -883,6 +890,10 @@ namespace NtisPlatform.Application.Services.Rules
                         rateLookupApplicator.SetInputDictionary(inputValues);
                     }
                     computedRate = await applicator.Apply(baseRate, effectValue);
+                    if (applicator.ReferenceRate.HasValue)
+                    {
+                        baseRate = applicator.ReferenceRate.Value;
+                    }
                 }
                 else
                 {
@@ -921,17 +932,28 @@ namespace NtisPlatform.Application.Services.Rules
             string parameterCode,
             Dictionary<string, object> inputValues)
         {
-            // Try the explicit ParameterCode first (e.g. "input.Rate" → key "Rate")
-            var rateKey = parameterCode.Replace("input.", "").Trim();
-            if (!string.IsNullOrEmpty(rateKey) && inputValues.TryGetValue(rateKey, out var rateObj))
-                return Convert.ToDecimal(UnwrapJsonValue(rateObj));
+            if (inputValues == null || !inputValues.Any())
+                return 0m;
 
-            // Fall back to well-known rate field names
-            foreach (var fallbackKey in new[] { "Rate", "RatePerSqMt", "BaseRate" })
+            var rateKey = parameterCode.Replace("input.", "").Trim();
+            if (!string.IsNullOrEmpty(rateKey))
             {
-                if (inputValues.TryGetValue(fallbackKey, out var fallbackValue))
-                    return Convert.ToDecimal(UnwrapJsonValue(fallbackValue));
+                // Exact key lookup
+                if (inputValues.TryGetValue(rateKey, out var rateObj))
+                    return Convert.ToDecimal(UnwrapJsonValue(rateObj));
+
+                // Dynamic case-insensitive key lookup across all input keys
+                var matchedKvp = inputValues.FirstOrDefault(kvp => 
+                    string.Equals(kvp.Key.Trim(), rateKey, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(matchedKvp.Key))
+                    return Convert.ToDecimal(UnwrapJsonValue(matchedKvp.Value));
             }
+
+            // Dynamic Fallback: Find first numeric parameter entry in inputValues
+            var numericKvp = inputValues.FirstOrDefault(kvp => 
+                !string.IsNullOrWhiteSpace(kvp.Key) && kvp.Value != null && decimal.TryParse(UnwrapJsonValue(kvp.Value)?.ToString(), out _));
+            if (!string.IsNullOrEmpty(numericKvp.Key))
+                return Convert.ToDecimal(UnwrapJsonValue(numericKvp.Value));
 
             _logger.LogWarning(
                 "Could not resolve base rate for rule '{RuleName}'. " +

@@ -8,5 +8,7 @@ namespace NtisPlatform.Application.Services.Rules.Effects
 
         /// <summary>Result = 0 (fully exempt, regardless of baseRate or effectValue).</summary>
         public Task<decimal> Apply(decimal baseRate, decimal effectValue) => Task.FromResult(0m);
+
+        public decimal GetApplyRate(decimal effectValue) => 0m;
     }
 }

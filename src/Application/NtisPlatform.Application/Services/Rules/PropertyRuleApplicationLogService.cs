@@ -84,7 +84,15 @@ namespace NtisPlatform.Application.Services.Rules
                     CreatedBy = log.CreatedBy,
                     UpdatedBy = log.UpdatedBy,
                     RuleScopeId = log.RuleScopeId,
-                    RuleScopeName = log.RuleScopeName
+                    RuleScopeName = log.RuleScopeName,
+                    FloorId = log.PropertyDetails != null ? log.PropertyDetails.FloorId : null,
+                    FloorName = log.PropertyDetails != null && log.PropertyDetails.Floor != null
+                        ? log.PropertyDetails.Floor.Description
+                        : null,
+                    TypeOfUseId = log.PropertyDetails != null ? (int?)log.PropertyDetails.TypeOfUseId : null,
+                    TypeOfUseName = log.PropertyDetails != null && log.PropertyDetails.TypeOfUse != null
+                        ? log.PropertyDetails.TypeOfUse.Description
+                        : null
                 })
                 .ToListAsync(cancellationToken);
 
@@ -125,7 +133,15 @@ namespace NtisPlatform.Application.Services.Rules
                     CreatedBy = log.CreatedBy,
                     UpdatedBy = log.UpdatedBy,
                     RuleScopeId = log.RuleScopeId,
-                    RuleScopeName = log.RuleScopeName
+                    RuleScopeName = log.RuleScopeName,
+                    FloorId = log.PropertyDetails != null ? log.PropertyDetails.FloorId : null,
+                    FloorName = log.PropertyDetails != null && log.PropertyDetails.Floor != null
+                        ? log.PropertyDetails.Floor.Description
+                        : null,
+                    TypeOfUseId = log.PropertyDetails != null ? (int?)log.PropertyDetails.TypeOfUseId : null,
+                    TypeOfUseName = log.PropertyDetails != null && log.PropertyDetails.TypeOfUse != null
+                        ? log.PropertyDetails.TypeOfUse.Description
+                        : null
                 })
                 .FirstOrDefaultAsync(cancellationToken);
         }

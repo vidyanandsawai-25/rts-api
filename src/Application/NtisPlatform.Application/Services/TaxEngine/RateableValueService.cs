@@ -198,33 +198,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 foreach (var detail in details)
                 {
                     decimal? ruleAdjustedRate = null;
+                    decimal? ruleAdjustedRent = null;
+                    var detailAppliedRules = new List<RuleApplicationTraceEntry>();
+
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
 
-                    // Resolve detail's year range ID from its AssessmentYear
-                    // Logic:
-                    // 1. Get AssessmentYear from detail
-                    // 2. Find AssessmentYearRangeEntity where FromYear ≤ AssessmentYear ≤ ToYear
-                    // 3. Get the Id from that entity
                     var detailYearRangeRVId = propertyContext.DetailYearRangeRVIdMap.TryGetValue(
                         detail.Id,
                         out var yearRangeId)
                         ? yearRangeId
                         : propertyContext.Parameters.YearRangeRVId;
-
-                    if (detailYearRangeRVId == 0)
-                    {
-                        _logger.LogWarning(
-                            "[Resolution] DetailId={DetailId}, AssessmentYear={AssessmentYear}, " +
-                            "Status=NOT_FOUND_IN_YEAR_RANGE_ENTITY, TaxAction=APPLY_ZERO_TAX",
-                            detail.Id, detail.AssessmentYear);
-                    }
-                    else
-                    {
-                        _logger.LogInformation(
-                            "[Resolution] DetailId={DetailId}, AssessmentYear={AssessmentYear}, " +
-                            "ResolvedYearRangeRVId={ResolvedYearRangeId}",
-                            detail.Id, detail.AssessmentYear, detailYearRangeRVId);
-                    }
 
                     if (detailTypeOfUse != null)
                     {
@@ -235,18 +218,16 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             x.YearRangeRVId == detailYearRangeRVId &&
                             x.IsActive);
 
-          
-
                         decimal masterRatePerUnit = RateableValueCalculator.GetRatePerUnit(masterRate, policyOptions);
 
-                        if (masterRatePerUnit > 0)
+                        if (masterRate != null && masterRatePerUnit >= 0)
                         {
                             _logger.LogDebug(
                                 "[RuleEngine-RV] Executing RV rules for PropertyDetailsId={DetailId}: MasterRate={MasterRate} ({Unit}) " +
                                 "YearRangeRVId={YearRangeId}",
                                 detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm", detailYearRangeRVId);
 
-                            // Now clone for rule engine execution
+                            // Execute Rate parameter rules
                             var clonedContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                             var applierContext = new RuleApplierContext
                             {
@@ -257,16 +238,14 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             };
 
                             var ruleResult = await _ruleApplierService.ApplyRulesAsync(applierContext);
-                            decimal finalRate = ruleResult.FinalValue;
-
                             if (ruleResult.AppliedRules != null && ruleResult.AppliedRules.Any())
                             {
-                                ruleTracesCache[detail.Id] = ruleResult.AppliedRules;
+                                detailAppliedRules.AddRange(ruleResult.AppliedRules);
                             }
 
-                            if (finalRate != masterRatePerUnit)
+                            if (ruleResult.FinalValue != masterRatePerUnit)
                             {
-                                ruleAdjustedRate = finalRate;
+                                ruleAdjustedRate = ruleResult.FinalValue;
                             }
                         }
                         else
@@ -276,13 +255,54 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 "masterRate is null or zero. Using base rate.",
                                 detail.Id);
                         }
+
+                        // Execute Rent parameter rules if property floor is rented
+                        if (detail.IsRenter == true && renters != null)
+                        {
+                            var renterRow = renters
+                                .Where(r => r.PropertyDetailsId == detail.Id && r.IsActive && !r.MarkedForDeletion)
+                                .OrderByDescending(r => r.CreatedDate)
+                                .FirstOrDefault();
+
+                            if (renterRow != null)
+                            {
+                                double yearlyRentValue = renterRow.FinalYearlyRent > 0
+                                    ? renterRow.FinalYearlyRent.Value
+                                    : ((renterRow.RentMonthly ?? 0d) * 12d);
+
+                                if (yearlyRentValue > 0)
+                                {
+                                    var clonedRentContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
+                                    var rentApplierContext = new RuleApplierContext
+                                    {
+                                        PropertyContext = clonedRentContext,
+                                        InitialValue = (decimal)yearlyRentValue,
+                                        Category = "RV",
+                                        ValueKey = "Rent"
+                                    };
+
+                                    var rentRuleResult = await _ruleApplierService.ApplyRulesAsync(rentApplierContext);
+                                    if (rentRuleResult.AppliedRules != null && rentRuleResult.AppliedRules.Any())
+                                    {
+                                        detailAppliedRules.AddRange(rentRuleResult.AppliedRules);
+                                    }
+
+                                    ruleAdjustedRent = rentRuleResult.FinalValue;
+                                }
+                            }
+                        }
+
+                        if (detailAppliedRules.Any())
+                        {
+                            ruleTracesCache[detail.Id] = detailAppliedRules;
+                        }
                     }
 
                     var selectedArea = selectedAreas.TryGetValue(detail.Id, out var area) ? area : 0m;
                     baseResultsCache[detail.Id] = _rateableValueCalculatorService.CalculateBaseValues(
                         detail, financeYear, property.TaxZoneId, property.WardId,
-                        typeOfUses, rates, depreciations, yearRanges, renters,
-                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId);
+                        typeOfUses, rates, depreciations, yearRanges, renters ?? new List<RenterMastEntity>(),
+                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId, ruleAdjustedRent);
                 }
 
                 _logger.LogInformation(
@@ -592,7 +612,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     var response = RateableValueResponseMapper.Map(
                         propertyId, financeYear, details, newResultsRows, newTaxDetailRows, savedPolicyRecords,
                         floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
-                        renters, occupancies, taxMasterCache);
+                        renters ?? new List<RenterMastEntity>(), occupancies, taxMasterCache);
 
                     LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
                         { { "PropertyId", propertyId.ToString() } });
