@@ -262,7 +262,7 @@ public class PropertySearchService : IPropertySearchService
     }
 
     /// <summary>
-    /// Validates Values & Dues filter parameters (ValuationMethod/FilterType/AmountValue/AmountTo/TopCount).
+    /// Validates Values and Dues filter parameters (ValuationMethod/FilterType/AmountValue/AmountTo/TopCount).
     /// Throws PropertyValidationException if invalid combinations are detected.
     /// </summary>
     private void ValidateValuesAndDuesFilters(PropertySearchQueryParameters queryParameters)
@@ -326,5 +326,37 @@ public class PropertySearchService : IPropertySearchService
                 }
             }
         }
+    }
+
+    public async Task<PagedResult<PropertySearchResponseDto>> UnifiedSearchPropertiesAsync(
+        string query,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return new PagedResult<PropertySearchResponseDto>
+            {
+                Items = new List<PropertySearchResponseDto>(),
+                TotalCount = 0,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            };
+        }
+
+        var (totalCount, items) = await _repository.UnifiedSearchPropertiesAsync(
+            query.Trim(),
+            pageNumber,
+            pageSize,
+            cancellationToken);
+
+        return new PagedResult<PropertySearchResponseDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = pageNumber,
+            PageSize = pageSize
+        };
     }
 }

@@ -287,6 +287,57 @@ if (propertyId < 0 || (propertyId == 0 &&
         }
     }
 
+    /// <summary>
+    /// Returns paginated unified search results matching natural patterns (Mobile, UPIC, Property No)
+    /// or multi-word keyword search.
+    /// </summary>
+    [HttpGet("unified")]
+    [ProducesResponseType(typeof(ApiResponse<PropertySearchGridResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<ApiResponse<PropertySearchGridResponseDto>>> GetUnifiedSearch(
+        [FromQuery] string query,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize is < 1 and not -1) pageSize = 10;
+
+            _logger.LogInformation("Unified search: Query={Query}, Page={Page}, Size={Size}", query, pageNumber, pageSize);
+
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return Ok(new ApiResponse<PropertySearchGridResponseDto>
+                {
+                    Success = true,
+                    Message = "Empty query provided",
+                    Items = new PropertySearchGridResponseDto { Results = new PagedResult<PropertySearchResponseDto> { Items = new List<PropertySearchResponseDto>(), TotalCount = 0, PageNumber = pageNumber, PageSize = pageSize } }
+                });
+            }
+
+            var result = await _propertySearchService.UnifiedSearchPropertiesAsync(query, pageNumber, pageSize, cancellationToken);
+
+            return Ok(new ApiResponse<PropertySearchGridResponseDto>
+            {
+                Success = true,
+                Message = "Unified search results retrieved successfully",
+                Items = new PropertySearchGridResponseDto { Results = result }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error executing unified search for query {Query}", query);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while executing unified search"
+            });
+        }
+    }
+
     private static PropertySearchRequestDto? BuildFilter(
         int? propertyAssessmentStatusId,
         int? workflowStageId,

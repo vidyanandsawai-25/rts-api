@@ -77,6 +77,11 @@ public interface IPropertySearchService
     Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Performs an independent unified search using pattern-matching heuristics and multi-term keyword matching.
+    /// </summary>
+    Task<PagedResult<PropertySearchResponseDto>> UnifiedSearchPropertiesAsync(string query, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Query - Searches properties scoped by SearchCategory (Zone-wise, Ward-wise, Building-wise,
     /// or a From/To property-number range within a ward), with server-side pagination.
     /// </summary>
