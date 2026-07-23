@@ -200,6 +200,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
     public DbSet<GSTMasterEntity> GSTMaster { get; set; } = null!;
+    public DbSet<PenaltyRuleMasterEntity> PenaltyRuleMaster { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -5539,6 +5540,35 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
 
             entity.HasIndex(e => e.TaxCode).IsUnique();
+        });
+
+        // PenaltyRuleMaster configuration
+        modelBuilder.Entity<PenaltyRuleMasterEntity>(entity =>
+        {
+            entity.ToTable("PenaltyRuleMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PenaltyCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GracePeriodDays).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PenaltyCode).IsUnique().HasDatabaseName("UQ_PenaltyRuleMaster_PenaltyCode");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_CalculationType", "([CalculationType]='Percentage' OR [CalculationType]='FlatAmount' OR [CalculationType]='PerDay')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_PenaltyValue", "([PenaltyValue]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_GracePeriodDays", "([GracePeriodDays]>=(0))"));
         });
     }
 }
