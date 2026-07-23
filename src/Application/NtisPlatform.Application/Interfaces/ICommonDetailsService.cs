@@ -9,6 +9,7 @@ public interface ICommonDetailsService
     Task<List<BulkUpdateFieldConfigDto>> GetFormFieldsAsync(string updateCode, CancellationToken ct);
     Task<List<PreviewGridColumnDto>> GetGridColumnsAsync(string updateCode, CancellationToken ct);
     Task<PagedResult<PropertyPreviewDto>> FilterPropertiesAsync(FilterPropertiesRequestDto request, CancellationToken ct);
+    Task<PagedResult<PropertyPreviewDto>> FilterPropertiesByCategoryAsync(FilterPropertiesByCategoryRequestDto request, CancellationToken ct);
     Task<BulkUpdateResultDto> BulkUpdateAsync(BulkUpdateRequestDto request, int updatedBy, string? ipAddress, CancellationToken ct);
     Task<byte[]> ExportPropertiesToExcelAsync(FilterPropertiesRequestDto request, CancellationToken ct);
     Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(

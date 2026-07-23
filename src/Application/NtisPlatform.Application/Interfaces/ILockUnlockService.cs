@@ -6,7 +6,8 @@ namespace NtisPlatform.Application.Interfaces;
 
 public interface ILockUnlockService
 {
-    Task<List<LockableScreenDto>> GetLockableScreensAsync(CancellationToken ct);
+    Task<List<LockableScreenDto>> GetLockableScreensAsync(
+        string? search = null, int? id = null, int? moduleId = null, CancellationToken ct = default);
 
     Task<PagedResult<PropertyLockRowDto>> GetPropertyLocksAsync(
         FilterPropertyLocksRequestDto request, CancellationToken ct);

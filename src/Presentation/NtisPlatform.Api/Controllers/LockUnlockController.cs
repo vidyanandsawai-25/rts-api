@@ -34,11 +34,11 @@ public class LockUnlockController : ControllerBase
     // GET api/LockUnlock/screens
     [HttpGet("screens")]
     [ProducesResponseType(typeof(ApiResponse<List<LockableScreenDto>>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetScreens(CancellationToken ct)
+    public async Task<IActionResult> GetScreens([FromQuery] GetLockableScreensQueryParameters request, CancellationToken ct)
     {
         try
         {
-            var result = await _service.GetLockableScreensAsync(ct);
+            var result = await _service.GetLockableScreensAsync(request.Search, request.Id, request.ModuleId, ct);
             return Ok(new ApiResponse<List<LockableScreenDto>>
             {
                 Success = true,

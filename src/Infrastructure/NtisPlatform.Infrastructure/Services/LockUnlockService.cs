@@ -34,20 +34,50 @@ public class LockUnlockService : ILockUnlockService
         _propertySearchService = propertySearchService;
     }
 
-    public async Task<List<LockableScreenDto>> GetLockableScreensAsync(CancellationToken ct)
+    public async Task<List<LockableScreenDto>> GetLockableScreensAsync(
+        string? search = null, int? id = null, int? moduleId = null, CancellationToken ct = default)
     {
-        return await _context.ScreenMaster
+        var query = _context.ScreenMaster
             .AsNoTracking()
             .Where(s => s.IsActive == true && s.IsPropertyLockable == true)
-            .OrderBy(s => s.DisplayOrder ?? int.MaxValue)
-            .ThenBy(s => s.ScreenName)
-            .Select(s => new LockableScreenDto
+            .GroupJoin(_context.ModuleMasters, s => s.ModuleId, m => m.Id,
+                (s, modules) => new { Screen = s, Modules = modules })
+            .SelectMany(x => x.Modules.DefaultIfEmpty(), (x, m) => new { Screen = x.Screen, Module = m });
+
+        if (id.HasValue)
+        {
+            query = query.Where(x => x.Screen.Id == id.Value);
+        }
+
+        if (moduleId.HasValue)
+        {
+            query = query.Where(x => x.Module != null && x.Module.Id == moduleId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchTerm = search.Trim().ToLower();
+            query = query.Where(x =>
+                (x.Screen.ScreenName != null && x.Screen.ScreenName.ToLower().Contains(searchTerm)) ||
+                (x.Screen.ScreenNameLocal != null && x.Screen.ScreenNameLocal.ToLower().Contains(searchTerm)) ||
+                (x.Module != null && x.Module.ModuleName != null && x.Module.ModuleName.ToLower().Contains(searchTerm)) ||
+                (x.Module != null && x.Module.ModuleNameLocal != null && x.Module.ModuleNameLocal.ToLower().Contains(searchTerm)));
+        }
+
+        return await query
+            .OrderBy(x => x.Screen.DisplayOrder ?? int.MaxValue)
+            .ThenBy(x => x.Screen.ScreenName)
+            .Select(x => new LockableScreenDto
             {
-                Id = s.Id,
-                ScreenCode = s.ScreenCode ?? string.Empty,
-                ScreenName = s.ScreenName ?? string.Empty,
-                ScreenNameLocal = s.ScreenNameLocal,
-                DisplayOrder = s.DisplayOrder,
+                Id = x.Screen.Id,
+                ScreenCode = x.Screen.ScreenCode ?? string.Empty,
+                ScreenName = x.Screen.ScreenName ?? string.Empty,
+                ScreenNameLocal = x.Screen.ScreenNameLocal,
+                DisplayOrder = x.Screen.DisplayOrder,
+                ModuleId = x.Module != null ? x.Module.Id : null,
+                ModuleCode = x.Module != null ? x.Module.ModuleCode : null,
+                ModuleName = x.Module != null ? x.Module.ModuleName : null,
+                ModuleNameLocal = x.Module != null ? x.Module.ModuleNameLocal : null,
             })
             .ToListAsync(ct);
     }
