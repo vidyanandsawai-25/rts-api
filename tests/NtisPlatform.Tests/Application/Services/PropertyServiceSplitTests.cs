@@ -37,8 +37,12 @@ public class PropertyServiceSplitTests
     private readonly Mock<IRepository<PropertyMapDetailEntity, int>> _mockPropertyMapDetailRepository;
     private readonly Mock<IRepository<UserEntity, int>> _mockUserRepository;
     private readonly Mock<IPropertyRuleApplicationLogService> _mockRuleLogService;
-
+    private readonly Mock<IRepository<PropertyMastOldEntity, int>>
+    _mockPropertyOldRepository;
+    private readonly Mock<IRepository<PropertyTypeMasterEntity, int>>
+        _mockPropertyTypeRepository;
     private readonly PropertyService _service;
+
 
     public PropertyServiceSplitTests()
     {
@@ -60,28 +64,34 @@ public class PropertyServiceSplitTests
         _mockPropertyMapDetailRepository = new Mock<IRepository<PropertyMapDetailEntity, int>>();
         _mockUserRepository = new Mock<IRepository<UserEntity, int>>();
         _mockRuleLogService = new Mock<IPropertyRuleApplicationLogService>();
+        _mockPropertyOldRepository =
+         new Mock<IRepository<PropertyMastOldEntity, int>>();
 
+        _mockPropertyTypeRepository =
+            new Mock<IRepository<PropertyTypeMasterEntity, int>>();
         _mockFeatureFlags.Setup(f => f.Value).Returns(new FeatureFlagsOptions());
 
         _service = new PropertyService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            _mockMapper.Object,
-            _mockPropertyRepository.Object,
-            _mockLogger.Object,
-            _mockFeatureFlags.Object,
-            _mockWardRepository.Object,
-            _mockCategoryRepository.Object,
-            _mockSocietyRepository.Object,
-            _mockPropertyDetailsRepository.Object,
-            _mockRoomWiseRepository.Object,
-            _mockAssessmentRepository.Object,
-            _mockWardAllocationRepository.Object,
-            _mockPropertyMapMasterRepository.Object,
-            _mockPropertyMapDetailRepository.Object,
-            _mockUserRepository.Object,
-            _mockRuleLogService.Object
-        );
+    _mockRepository.Object,
+    _mockUnitOfWork.Object,
+    _mockMapper.Object,
+    _mockPropertyRepository.Object,
+    _mockLogger.Object,
+    _mockFeatureFlags.Object,
+    _mockWardRepository.Object,
+    _mockCategoryRepository.Object,
+    _mockSocietyRepository.Object,
+    _mockPropertyDetailsRepository.Object,
+    _mockRoomWiseRepository.Object,
+    _mockAssessmentRepository.Object,
+    _mockWardAllocationRepository.Object,
+    _mockPropertyMapMasterRepository.Object,
+    _mockPropertyMapDetailRepository.Object,
+    _mockUserRepository.Object,
+    _mockPropertyOldRepository.Object,
+    _mockPropertyTypeRepository.Object,
+    _mockRuleLogService.Object
+);
     }
 
     private void SetupValidUserAndWard(int userId, int wardId)

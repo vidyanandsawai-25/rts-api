@@ -5,7 +5,7 @@ using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
-
+using NtisPlatform.Application.DTOs.PropertySurveySearch;
 namespace NtisPlatform.Application.Interfaces;
 
 public interface IPropertyService
@@ -55,5 +55,11 @@ public interface IPropertyService
     /// </summary>
     Task<UpdateAllPropertyDetailsResponseDto> UpdatePropertyAsync(int propertyId, UpdateAllPropertyDetailsDto dto, CancellationToken ct);
 
+
     Task<PropertySplitResultDto> SplitProperty(PropertySplitCreateDto dto, CancellationToken cancellationToken = default);
+
+    Task<ApiResponse<PropertySurveySearchPaginatedResponseDto>>
+    SearchSurveyPropertiesAsync(
+        PropertySurveySearchQueryParameters request,
+        CancellationToken cancellationToken = default);
 }

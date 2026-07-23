@@ -199,6 +199,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<ITypeOfUseByPropertyTypeRepository, TypeOfUseByPropertyTypeRepository>();
+       
+
         // Per-tab Clean Architecture split (Basic Details): shared master checks + feature repository
         services.AddScoped<IMasterRepository, MasterRepository>();
         services.AddScoped<IPropertyBasicDetailsRepository, PropertyBasicDetailsRepository>();

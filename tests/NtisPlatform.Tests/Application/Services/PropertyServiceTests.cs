@@ -1,4 +1,4 @@
-using NtisPlatform.Application.DTOs.Property;
+﻿using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
@@ -74,7 +74,7 @@ public class PropertyServiceTests
             new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object,
             new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
             new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
-            new Mock<IRepository<UserEntity, int>>().Object);
+            new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
     // Basic Details was split into the per-tab PropertyBasicDetailsService (data access in
@@ -1072,4 +1072,5 @@ public class PropertyServiceTests
 
     #endregion
 }
+
 
