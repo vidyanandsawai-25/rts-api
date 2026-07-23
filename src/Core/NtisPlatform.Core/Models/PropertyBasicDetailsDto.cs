@@ -64,4 +64,10 @@ public class PropertyBasicDetailsDto
 
     // Earliest active construction year among all property details/floors
     public string? ConstructionYear { get; set; }
+
+    // From PropertyDetailsOld (Summed from mapped old properties)
+    public double? OldCarpetAreaSqFeet { get; set; }
+    public double? OldCarpetAreaSqMeter { get; set; }
+    public double? OldBuiltupAreaSqFeet { get; set; }
+    public double? OldBuiltupAreaSqMeter { get; set; }
 }
