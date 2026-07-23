@@ -88,7 +88,7 @@ public class AutoMapperValidationTest
               "ConstructionCode", "ConstructionDescription", "FromYear", "ToYear",
               "FloorCode", "FloorDescription",
               "ZoneCode", "ZoneName", "WardCode", "WardName",
-              "TypeCode", "TypeName", "CategoryCode", "CategoryName",
+              "TypeCode", "TypeName", "CategoryCode", "CategoryName", "PolicyCode",
               "SubZoneNo", "SubZoneName", "TypeOfUseGroupName", "FloorGroupName",
               "OpenPlotRate", "ResidentialRate", "OfficeRate", "ShopRate", "IndustrialRate",
               "SDRR", "SearchKey", "Type", // Computed/search fields

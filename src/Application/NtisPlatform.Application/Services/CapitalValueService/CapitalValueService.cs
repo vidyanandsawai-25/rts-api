@@ -207,18 +207,12 @@ namespace NtisPlatform.Application.Services.CapitalValue
                 }
 
                 // Step 2: Check for existing CV records to determine if we need to calculate or update, and to prepare for bulk insert (avoid duplicates)
-                var existingCVs = await _cvResultsService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
+                var existingCVs = await _cvResultsService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken) ?? new List<PropertyTaxCalculationCVResultsDto>();
                 var existingCVKeys = existingCVs.Select(x => (x.PropertyDetailsId, x.TaxId)).ToHashSet();
-                Dictionary<int, PolicyTaxDetailsCVDto> existingPolicies = new();
-                Dictionary<(int PropertyId, int FinanceYearId, int TaxId), TransMastDto> existingTransMast = new();
-
-                if (dto.PropertyDetailsId == 0)
-                {
-                    var policies = await _policyTaxService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken);
-                    existingPolicies = policies.GroupBy(p => p.TaxId).ToDictionary(g => g.Key, g => g.First());
-                    var transMasts = await _transMastService.GetByPropertyIdAsync(dto.PropertyId, "CV", cancellationToken);
-                    existingTransMast = transMasts.GroupBy(t => (t.PropertyId, t.FinanceYearId, t.TaxId)).ToDictionary(g => g.Key, g => g.First());
-                }
+                var policies = await _policyTaxService.GetByPropertyIdAsync(dto.PropertyId, cancellationToken) ?? new List<PolicyTaxDetailsCVDto>();
+                var existingPolicies = policies.GroupBy(p => p.TaxId).ToDictionary(g => g.Key, g => g.First());
+                var transMasts = await _transMastService.GetByPropertyIdAsync(dto.PropertyId, "CV", cancellationToken) ?? new List<TransMastDto>();
+                var existingTransMast = transMasts.GroupBy(t => (t.PropertyId, t.FinanceYearId, t.TaxId)).ToDictionary(g => g.Key, g => g.First());
 
                 // Step 3: Calculate CV for each PropertyDetails Logic Start
                 var results = new List<CapitalValueDto>();
@@ -345,11 +339,19 @@ namespace NtisPlatform.Application.Services.CapitalValue
                     _logger.LogInformation("No CV results to persist for PropertyId: {PropertyId} - all PropertyDetails had TypeOfUseGroupCVCode = 'N'",  dto.PropertyId);
                 }
 
-                // Step 5: Insert Data Into Policy and TransMast tables for aggregated reporting at property level, only if this is a full property calculation (PropertyDetailsId = 0)
-                // Skip if no aggregated taxes (happens when all PropertyDetails had TypeOfUseGroupCVCode = "N")
-                if (dto.PropertyDetailsId == 0 && aggregatedTaxes.Any())
+                // Step 5: Upsert aggregated property-level CV tax data.
+                // For full-property runs we can use in-memory aggregation from this request.
+                // For detail-level runs, recompute from all active CV rows to keep property totals accurate.
+                if (dto.PropertyDetailsId == 0)
                 {
-                    await _persistenceService.PersistAggregatedDataAsync(dto.PropertyId,financeYear,aggregatedTaxes, existingPolicies,existingTransMast,dto.PolicyCode ?? _options.DefaultPolicyCode,dto.PolicyDate ?? DateTime.Now,dto.PolicyYear ?? financeYear.Year,dto.PolicyReason,dto.CreatedBy ?? 0,cancellationToken);
+                    if (aggregatedTaxes.Any())
+                    {
+                        await _persistenceService.PersistAggregatedDataAsync(dto.PropertyId,financeYear,aggregatedTaxes, existingPolicies,existingTransMast,dto.PolicyCode ?? _options.DefaultPolicyCode,dto.PolicyDate ?? DateTime.Now,dto.PolicyYear ?? financeYear.Year,dto.PolicyReason,dto.CreatedBy ?? 0,cancellationToken);
+                    }
+                }
+                else
+                {
+                    await RecalculateAggregatedTotalsAsync(dto.PropertyId, cancellationToken);
                 }
 
                 // Explicitly save rule logs and nested entities tracked in DB context

@@ -55,10 +55,11 @@ namespace NtisPlatform.Application.Services
                     && x.IsActive
                     && !x.MarkedForDeletion
                     && x.TaxId != 0
-                    && x.PolicyCode == "NETTAX"
+                    && (x.PolicyCodeMaster == null || x.PolicyCodeMaster.PolicyCode == "NETTAX")
                     && x.TaxMaster != null
                     && x.TaxMaster.IsActive)
                 .Include(x => x.TaxMaster)
+                .Include(x => x.PolicyCodeMaster)
                 .AsNoTracking();
         }
 
@@ -73,10 +74,11 @@ namespace NtisPlatform.Application.Services
                     && x.IsActive
                     && !x.MarkedForDeletion
                     && x.TaxId != 0
-                    && x.PolicyCode == "NETTAX"
+                    && (x.PolicyCodeMaster == null || x.PolicyCodeMaster.PolicyCode == "NETTAX")
                     && x.TaxMaster != null
                     && x.TaxMaster.IsActive)
                 .Include(x => x.TaxMaster)
+                .Include(x => x.PolicyCodeMaster)
                 .AsNoTracking();
         }
 

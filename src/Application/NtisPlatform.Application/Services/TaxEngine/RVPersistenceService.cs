@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.TaxEngine;
@@ -14,9 +15,12 @@ namespace NtisPlatform.Application.Services.TaxEngine;
 /// </summary>
 public sealed class RVPersistenceService : IRVPersistenceService
 {
+    private const string NetTaxPolicyCode = "NETTAX";
+
     private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
     private readonly IRepository<RVCalculationTaxDetailsEntity, int> _taxDetailsRepo;
     private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
+    private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
     private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
     private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
     private readonly IUnitOfWork _unitOfWork;
@@ -27,6 +31,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         IRepository<RVCalculationResultsEntity, int> taxResultsRepo,
         IRepository<RVCalculationTaxDetailsEntity, int> taxDetailsRepo,
         IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
+        IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
         IRepository<TransMastEntity, int> transmastRVRepo,
         IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
         IUnitOfWork unitOfWork,
@@ -36,6 +41,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _taxResultsRepo = taxResultsRepo;
         _taxDetailsRepo = taxDetailsRepo;
         _policyTaxRepo = policyTaxRepo;
+        _policyCodeMasterRepo = policyCodeMasterRepo;
         _transmastRVRepo = transmastRVRepo;
         _ruleLogRepo = ruleLogRepo;
         _unitOfWork = unitOfWork;
@@ -141,12 +147,26 @@ public sealed class RVPersistenceService : IRVPersistenceService
             propertyId, financeYear);
 
         var now = _timeProvider.GetLocalNow().DateTime;
+        var netTaxPolicyCodeId = await _policyCodeMasterRepo.GetQueryable()
+            .Where(x => x.IsActive && x.PolicyCode == NetTaxPolicyCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync();
+
+        if (netTaxPolicyCodeId <= 0)
+            throw new InvalidOperationException($"Active policy code '{NetTaxPolicyCode}' not found in PolicyCodeMaster.");
+
+        // Tracked by the same DbContext as _policyTaxRepo (both are Scoped, same request) - assigning
+        // this as the PolicyCodeMaster navigation below lets callers (e.g. RateableValueResponseMapper)
+        // read the policy code text off the newly-created rows without a DB round trip, and without
+        // EF mistaking it for a new row to insert (it's already tracked as Unchanged).
+        var policyCodeMaster = await _policyCodeMasterRepo.GetByIdAsync(netTaxPolicyCodeId);
 
         // Deactivate stale PolicyTaxDetails rows — bulk SQL UPDATE
         int oldPolicyCount = await _policyTaxRepo.GetQueryable()
             .Where(x => x.PropertyId == propertyId &&
-                        x.PolicyYear == financeYear &&
-                        x.PolicyCode == "NETTAX" &&
+                        x.CreatedDate.HasValue &&
+                        ((x.CreatedDate.Value.Month >= 4 ? x.CreatedDate.Value.Year : x.CreatedDate.Value.Year - 1) == financeYear) &&
+                        x.PolicyCodeId == netTaxPolicyCodeId &&
                         x.IsActive &&
                         !x.MarkedForDeletion)
             .ExecuteUpdateAsync(s => s
@@ -196,10 +216,9 @@ public sealed class RVPersistenceService : IRVPersistenceService
             newPolicyRecords.Add(new PolicyTaxDetailsEntity
             {
                 PropertyId           = propertyId,
-                PolicyCode           = "NETTAX",
-                PolicyDate           = now,
-                PolicyYear           = (short)financeYear,
-                PolicyRVorCVvalue    = totalRv,
+                PolicyCodeId         = netTaxPolicyCodeId,
+                PolicyCodeMaster     = policyCodeMaster,
+                CalculationValue     = totalRv,
                 TaxId                = taxId,
                 TaxAmount            = taxAmount,
                 IsActive             = true,
@@ -243,10 +262,9 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 newPolicyRecords.Add(new PolicyTaxDetailsEntity
                 {
                     PropertyId           = propertyId,
-                    PolicyCode           = "NETTAX",
-                    PolicyDate           = now,
-                    PolicyYear           = (short)financeYear,
-                    PolicyRVorCVvalue    = totalRv,
+                    PolicyCodeId         = netTaxPolicyCodeId,
+                    PolicyCodeMaster     = policyCodeMaster,
+                    CalculationValue     = totalRv,
                     TaxId                = educationTaxId.Value,
                     TaxAmount            = educationTaxAmount,
                     IsActive             = true,
@@ -285,10 +303,9 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 newPolicyRecords.Add(new PolicyTaxDetailsEntity
                 {
                     PropertyId           = propertyId,
-                    PolicyCode           = "NETTAX",
-                    PolicyDate           = now,
-                    PolicyYear           = (short)financeYear,
-                    PolicyRVorCVvalue    = totalRv,
+                    PolicyCodeId         = netTaxPolicyCodeId,
+                    PolicyCodeMaster     = policyCodeMaster,
+                    CalculationValue     = totalRv,
                     TaxId                = employmentTaxId.Value,
                     TaxAmount            = employmentTaxAmount,
                     IsActive             = true,

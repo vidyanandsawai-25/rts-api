@@ -933,7 +933,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.50m,
             IsActive = true,
@@ -945,7 +944,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 2,
             TaxAmount = 750.25m,
             IsActive = true,
@@ -997,7 +995,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2023",
             TaxId = 1,
             TaxAmount = 1800.00m,
             IsActive = true,
@@ -1010,7 +1007,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1057,7 +1053,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1069,7 +1064,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 500.00m,
             IsActive = false, // Inactive tax (should be filtered out anyway)
@@ -1119,7 +1113,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1172,7 +1165,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 1000.00m,
             IsActive = true,
@@ -1184,7 +1176,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 1000.00m,
             IsActive = true,

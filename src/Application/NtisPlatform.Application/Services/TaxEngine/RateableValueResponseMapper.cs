@@ -138,10 +138,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 policyDto = new PolicyTaxDto
                 {
-                    PolicyCode = firstPolicy.PolicyCode,
-                    PolicyDate = firstPolicy.PolicyDate,
-                    PolicyYear = firstPolicy.PolicyYear,
-                    PolicyRVorCVvalue = firstPolicy.PolicyRVorCVvalue ?? 0m,
+                    PolicyCode = firstPolicy.PolicyCodeMaster?.PolicyCode ?? string.Empty,
+                    PolicyDate = firstPolicy.CreatedDate,
+                    PolicyYear = firstPolicy.CreatedDate.HasValue ? (short?)firstPolicy.CreatedDate.Value.Year : null,
+                    PolicyRVorCVvalue = firstPolicy.CalculationValue ?? 0m,
                     TaxTotal = policyRows.Sum(x => x.TaxAmount ?? 0m),
                     Taxes = policyRows
                         .OrderBy(x => x.TaxId)

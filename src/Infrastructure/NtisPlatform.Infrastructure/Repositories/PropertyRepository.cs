@@ -69,11 +69,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             taxData = await (from td in _context.PolicyTaxDetailsCV
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
+                             join pcm in _context.PolicyCodeMaster on td.PolicyCodeId equals pcm.Id into pcmJoin
+                             from pcm in pcmJoin.DefaultIfEmpty()
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
-                                && tm.IsActive                              
+                                && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
-                                 td.PolicyCode,
+                                 pcm != null ? pcm.PolicyCode : string.Empty,
                                  tm.TaxName,
                                  td.TaxAmount
                              ))
@@ -84,11 +86,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             taxData = await (from td in _context.PolicyTaxDetails
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
+                             join pcm in _context.PolicyCodeMaster on td.PolicyCodeId equals pcm.Id into pcmJoin
+                             from pcm in pcmJoin.DefaultIfEmpty()
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
-                                && tm.IsActive                                
+                                && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
                              select new ValueTuple<string, string, decimal?>(
-                                 td.PolicyCode,
+                                 pcm != null ? pcm.PolicyCode : string.Empty,
                                  tm.TaxName,
                                  td.TaxAmount
                              ))

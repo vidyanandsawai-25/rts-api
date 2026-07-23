@@ -101,4 +101,15 @@ public interface IPropertySearchService
     /// category (ZoneId/WardId/PropertyNo/PropertyFrom) are missing or malformed.
     /// </exception>
     Task<List<int>> ResolvePropertyIdsByCategoryAsync(PropertySearchByCategoryQueryParameters queryParameters, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Query - Returns PropertyNo/PartitionNo typeahead suggestions for a ward, matching the given
+    /// terms anywhere in the value (SQL LIKE '%term%' semantics), for the Property-Wise Search
+    /// screen's autocomplete. Backed by a short-lived per-ward cache so repeated keystrokes stay fast.
+    /// </summary>
+    /// <exception cref="NtisPlatform.Application.Exceptions.PropertyValidationException">
+    /// Thrown when wardId is missing or not positive.
+    /// </exception>
+    Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults = 20, CancellationToken cancellationToken = default);
 }

@@ -89,7 +89,7 @@ public class PropertyTaxOperationsServiceTests
         };
         var policies = new List<PolicyTaxDetailsEntity>
         {
-            new() { Id = 1, PropertyId = 2, PolicyCode = "NETTAX", PolicyYear = 2025, IsActive = true, MarkedForDeletion = false }
+            new() { Id = 1, PropertyId = 2, IsActive = true, MarkedForDeletion = false }
         };
 
         _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
