@@ -37,6 +37,8 @@ public class DataEntrySameAsService : IDataEntrySameAsService
     private readonly IRepository<ZoneEntity, int> _zoneRepository;
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
     private readonly IRepository<PropertyCategoryEntity, int> _propertyCategoryRepository;
+    private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
+    private readonly IRepository<TypeOfUseCategoryEntity, int> _typeOfUseCategoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<DataEntrySameAsService> _logger;
 
@@ -53,6 +55,8 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         IRepository<ZoneEntity, int> zoneRepository,
         IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
         IRepository<PropertyCategoryEntity, int> propertyCategoryRepository,
+        IRepository<TypeOfUseEntity, int> typeOfUseRepository,
+        IRepository<TypeOfUseCategoryEntity, int> typeOfUseCategoryRepository,
         IUnitOfWork unitOfWork,
         ILogger<DataEntrySameAsService> logger)
     {
@@ -68,6 +72,8 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         _zoneRepository = zoneRepository;
         _propertyTypeRepository = propertyTypeRepository;
         _propertyCategoryRepository = propertyCategoryRepository;
+        _typeOfUseRepository = typeOfUseRepository;
+        _typeOfUseCategoryRepository = typeOfUseCategoryRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -286,6 +292,15 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         string? searchTerm = string.IsNullOrWhiteSpace(query.SearchTerm) ? null : query.SearchTerm;
         var hasPartition = partitionNo != null;
 
+        // TypeOfUse ids that belong to the PARKING category (TypeOfUseMaster -> TypeOfUseCategoryMaster).
+        // Materialized once and matched via Contains, so the main query needs no extra joins and the
+        // parking split stays null-safe. Mirrors the parkingTypeIds pattern used in ExecuteAsync.
+        var parkingTypeOfUseIds = await _typeOfUseRepository.GetQueryable()
+            .Where(tom => _typeOfUseCategoryRepository.GetQueryable()
+                .Any(c => c.Id == tom.TypeOfUseCategoryId && c.TypeOfUseCategoryCode == TypeOfUseConstants.Parking))
+            .Select(tom => tom.Id)
+            .ToListAsync(cancellationToken);
+
         // PropertyMast LEFT JOIN Ward/Zone/PropertyType/Category masters LEFT JOIN PropertyDetails, grouped
         // per property with carpet areas summed. Hard rules (always applied): only active/non-deleted
         // properties, PartType != 'Amenity', and IsWing = 0 (partition is not a WingMaster.WingNo).
@@ -316,7 +331,14 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                   && ptm != null && ptm.PartType != null && ptm.PartType != PartTypeConstants.Amenity
                   // Hard rule: IsWing = 0 — no WingMaster row whose WingNo equals this partition.
                   && !_wingRepository.GetQueryable().Any(w => w.WingNo == pm.PartitionNo)
-            group new { pd.CarpetAreaSqMeter, pd.CarpetAreaSqFeet } by new
+            group new
+            {
+                pd.CarpetAreaSqMeter,
+                pd.CarpetAreaSqFeet,
+                pd.BuiltupAreaSqMeter,
+                pd.BuiltupAreaSqFeet,
+                IsParking = parkingTypeOfUseIds.Contains(pd.TypeOfUseId)
+            } by new
             {
                 pm.Id,
                 pm.TaxZoneId,
@@ -350,8 +372,14 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                 IsWing = false,
                 Type = g.Key.Type ?? "0",
                 FlatOrShopNo = g.Key.FlatOrShopNo ?? "0",
-                CarpetAreaSqMeter = g.Sum(x => x.CarpetAreaSqMeter ?? 0),
-                CarpetAreaSqFeet = g.Sum(x => x.CarpetAreaSqFeet ?? 0)
+                TotalCarpetAreaSqMeter = g.Sum(x => x.CarpetAreaSqMeter ?? 0),
+                TotalCarpetAreaSqFeet = g.Sum(x => x.CarpetAreaSqFeet ?? 0),
+                TotalBuiltupAreaSqMeter = g.Sum(x => x.BuiltupAreaSqMeter ?? 0),
+                TotalBuiltupAreaSqFeet = g.Sum(x => x.BuiltupAreaSqFeet ?? 0),
+                ParkingCarpetAreaSqMeter = g.Sum(x => x.IsParking ? (x.CarpetAreaSqMeter ?? 0) : 0),
+                ParkingCarpetAreaSqFeet = g.Sum(x => x.IsParking ? (x.CarpetAreaSqFeet ?? 0) : 0),
+                ParkingBuiltupAreaSqMeter = g.Sum(x => x.IsParking ? (x.BuiltupAreaSqMeter ?? 0) : 0),
+                ParkingBuiltupAreaSqFeet = g.Sum(x => x.IsParking ? (x.BuiltupAreaSqFeet ?? 0) : 0)
             };
 
         // Optional filters + search applied on the projected rows (kept out of the join query so
