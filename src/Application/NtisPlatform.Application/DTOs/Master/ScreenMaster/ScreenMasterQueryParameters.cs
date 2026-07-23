@@ -13,6 +13,9 @@ public class ScreenMasterQueryParameters : BaseQueryParameters
     public int? ScreenGroupId { get; set; }
 
     [Filterable]
+    public int? DepartmentId { get; set; }
+
+    [Filterable]
     public int? ModuleId { get; set; }
 
     [Filterable]

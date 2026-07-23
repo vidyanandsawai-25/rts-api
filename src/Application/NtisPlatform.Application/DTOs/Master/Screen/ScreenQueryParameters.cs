@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -15,6 +15,10 @@ public class ScreenQueryParameters : BaseQueryParameters
     [Searchable]
     [Sortable]
     public string? ScreenCode { get; set; }
+
+    [Filterable]
+    [Sortable]
+    public int? DepartmentId { get; set; }
 
     [Filterable]
     [Sortable]

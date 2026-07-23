@@ -505,6 +505,7 @@ public class ScreenMasterEntityTests
         {
             Id = 1,
             ScreenGroupId = 5,
+            DepartmentId = 2,
             ModuleId = 10,
             ScreenCode = "SCR001",
             ScreenName = "Dashboard",
@@ -523,6 +524,7 @@ public class ScreenMasterEntityTests
 
         Assert.Equal(1, entity.Id);
         Assert.Equal(5, entity.ScreenGroupId);
+        Assert.Equal(2, entity.DepartmentId);
         Assert.Equal(10, entity.ModuleId);
         Assert.Equal("SCR001", entity.ScreenCode);
         Assert.Equal("Dashboard", entity.ScreenName);
@@ -550,19 +552,24 @@ public class ScreenMasterEntityTests
     public void ScreenMasterEntity_NavigationProperties_GetSet_WorksCorrectly()
     {
         var screenGroup = new ScreenGroupMasterEntity { Id = 5 };
+        var department = new DepartmentMasterEntity { Id = 2 };
         var module = new ModuleMasterEntity { Id = 10 };
 
         var entity = new ScreenMasterEntity
         {
             Id = 1,
             ScreenGroupId = 5,
+            DepartmentId = 2,
             ModuleId = 10,
             ScreenGroup = screenGroup,
+            Department = department,
             Module = module
         };
 
         Assert.NotNull(entity.ScreenGroup);
         Assert.Equal(5, entity.ScreenGroup.Id);
+        Assert.NotNull(entity.Department);
+        Assert.Equal(2, entity.Department.Id);
         Assert.NotNull(entity.Module);
         Assert.Equal(10, entity.Module.Id);
     }
@@ -578,6 +585,7 @@ public class ScreenMasterEntityTests
         };
 
         Assert.Null(entity.ScreenGroup);
+        Assert.Null(entity.Department);
         Assert.Null(entity.Module);
     }
 
@@ -588,6 +596,7 @@ public class ScreenMasterEntityTests
 
         Assert.Equal(0, entity.Id);
         Assert.Equal(0, entity.ScreenGroupId);
+        Assert.Null(entity.DepartmentId);
         Assert.Null(entity.ModuleId);
         Assert.True(entity.IsActive);
     }

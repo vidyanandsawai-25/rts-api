@@ -632,7 +632,7 @@ public class PropertyOldDetailsComprehensiveTests
             OldPropertyNo = "86",
             OldPartitionNo = "A",
             OldEgovNo = "MM1",
-            OldPlotArea = 1000.50,
+            OldPlotArea = "1000.5",
             OldPlotNo = "6",
             OldRV = 60000.75,
             OldALV = 50000.50,
@@ -641,8 +641,8 @@ public class PropertyOldDetailsComprehensiveTests
             OldConstructionYear = "2015",
             OldCarpetAreaSqFeet = 1200.50,
             OldCarpetAreaSqMeter = 111.48,
-            OldConstructionTypeId = 2,
-            OldTypeOfUseId = 3,
+            OldConstructionTypeId = "2",
+            OldTypeOfUseId = "3",
             OldConstructionArea = 500.25,
             OldCSN = "98/440",
             OldGeneralTax = 5000.25
@@ -654,7 +654,7 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal("86", dto.OldPropertyNo);
         Assert.Equal("A", dto.OldPartitionNo);
         Assert.Equal("MM1", dto.OldEgovNo);
-        Assert.Equal(1000.50, dto.OldPlotArea);
+        Assert.Equal("1000.5", dto.OldPlotArea);
         Assert.Equal("6", dto.OldPlotNo);
         Assert.Equal(60000.75, dto.OldRV);
         Assert.Equal(50000.50, dto.OldALV);
@@ -663,8 +663,8 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal("2015", dto.OldConstructionYear);
         Assert.Equal(1200.50, dto.OldCarpetAreaSqFeet);
         Assert.Equal(111.48, dto.OldCarpetAreaSqMeter);
-        Assert.Equal(2, dto.OldConstructionTypeId);
-        Assert.Equal(3, dto.OldTypeOfUseId);
+        Assert.Equal("2", dto.OldConstructionTypeId);
+        Assert.Equal("3", dto.OldTypeOfUseId);
         Assert.Equal(500.25, dto.OldConstructionArea);
         Assert.Equal("98/440", dto.OldCSN);
         Assert.Equal(5000.25, dto.OldGeneralTax);

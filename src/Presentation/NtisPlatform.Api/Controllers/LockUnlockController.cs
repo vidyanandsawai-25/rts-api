@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.DTOs.LockUnlock;
+using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
 using System.Security.Claims;
@@ -103,6 +105,53 @@ public class LockUnlockController : ControllerBase
         }
     }
 
+    // GET api/LockUnlock/properties/search-by-category
+    [HttpGet("properties/search-by-category")]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<PropertyLockRowDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetPropertiesByCategory([FromQuery] PropertySearchByCategoryQueryParameters request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GetPropertyLocksByCategoryAsync(request, ct);
+            return Ok(new ApiResponse<PagedResult<PropertyLockRowDto>>
+            {
+                Success = true,
+                Message = "Property locks fetched successfully",
+                Items = result
+            });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Valid user identification is required.", CorrelationId = correlationId });
+        }
+        catch (PropertyValidationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message, CorrelationId = correlationId });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message, CorrelationId = correlationId });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error filtering property locks by category. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = _environment.IsDevelopment() ? $"An error occurred: {ex.Message}" : "An error occurred",
+                CorrelationId = correlationId
+            });
+        }
+    }
+
     // POST api/LockUnlock/bulk
     [HttpPost("bulk")]
     [ProducesResponseType(typeof(ApiResponse<BulkLockResultDto>), StatusCodes.Status200OK)]
@@ -130,6 +179,49 @@ public class LockUnlockController : ControllerBase
         {
             var correlationId = Guid.NewGuid().ToString();
             _logger.LogError(ex, "Error during bulk lock/unlock. CorrelationId: {CorrelationId}", correlationId);
+            return StatusCode(500, new ApiResponse<object>
+            {
+                Success = false,
+                Message = _environment.IsDevelopment() ? $"An error occurred: {ex.Message}" : "An error occurred",
+                CorrelationId = correlationId
+            });
+        }
+    }
+
+    // POST api/LockUnlock/bulk-by-category
+    [HttpPost("bulk-by-category")]
+    [ProducesResponseType(typeof(BulkLockResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BulkByCategory([FromBody] BulkLockByCategoryRequestDto request, CancellationToken ct)
+    {
+        try
+        {
+            var userId = GetUserId();
+            var result = await _service.BulkApplyByCategoryAsync(request, userId, ct);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Unauthorized access. CorrelationId: {CorrelationId}", correlationId);
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Valid user identification is required.", CorrelationId = correlationId });
+        }
+        catch (PropertyValidationException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error in bulk lock/unlock scope. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message, CorrelationId = correlationId });
+        }
+        catch (ArgumentException ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogWarning(ex, "Validation error during bulk lock/unlock by category. CorrelationId: {CorrelationId}", correlationId);
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message, CorrelationId = correlationId });
+        }
+        catch (Exception ex)
+        {
+            var correlationId = Guid.NewGuid().ToString();
+            _logger.LogError(ex, "Error during bulk lock/unlock by category. CorrelationId: {CorrelationId}", correlationId);
             return StatusCode(500, new ApiResponse<object>
             {
                 Success = false,

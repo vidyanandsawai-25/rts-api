@@ -86,7 +86,11 @@ namespace NtisPlatform.Application.Services.Rules
                             }
 
                             object? actions = null;
-                            if (ruleElement.TryGetProperty("effect", out var effEl))
+                            if (ruleElement.TryGetProperty("effects", out var effsEl))
+                            {
+                                actions = BuildActionsForElement(effsEl);
+                            }
+                            else if (ruleElement.TryGetProperty("effect", out var effEl))
                             {
                                 actions = BuildActionsForElement(effEl);
                             }
@@ -449,16 +453,56 @@ namespace NtisPlatform.Application.Services.Rules
                     };
                 }
 
-                // Resolve the C# parameter expression for the rate field
-                // Ensure overrideRate is a valid C# property identifier (e.g. not a boolean/number like "1" or "true")
-                var isPropertyIdentifier = !string.IsNullOrWhiteSpace(overrideRate) &&
-                                           Regex.IsMatch(overrideRate, @"^[a-zA-Z_][a-zA-Z0-9_]*$");
-                var param = isPropertyIdentifier ? $"input.{overrideRate}" : "input.Rate";
+                string? overrideRateLabel = null;
+                if (effect.TryGetProperty("overrideRateLabel", out var orl))
+                {
+                    overrideRateLabel = orl.ValueKind == JsonValueKind.String ? orl.GetString() : orl.GetRawText();
+                }
+
+                string? parameterCode = null;
+                if (effect.TryGetProperty("parameterCode", out var pc))
+                {
+                    parameterCode = pc.ValueKind == JsonValueKind.String ? pc.GetString() : pc.GetRawText();
+                }
+
+                // Dynamic Parameter Resolution — NO static hardcoding!
+                // Priority order: parameterCode -> overrideRateLabel -> overrideRate -> default "Rate"
+                string rawParamCandidate = !string.IsNullOrWhiteSpace(parameterCode)
+                    ? parameterCode
+                    : !string.IsNullOrWhiteSpace(overrideRateLabel)
+                    ? overrideRateLabel
+                    : !string.IsNullOrWhiteSpace(overrideRate)
+                    ? overrideRate
+                    : string.Empty;
+
+                var param = "input.Rate";
+                if (!string.IsNullOrWhiteSpace(rawParamCandidate))
+                {
+                    // Extract code portion if candidate is hyphenated e.g. "Rent - Rent" -> "Rent"
+                    var candidate = rawParamCandidate.Trim();
+                    if (candidate.Contains('-'))
+                    {
+                        candidate = candidate.Split('-')[0].Trim();
+                    }
+                    else if (candidate.Contains('('))
+                    {
+                        candidate = candidate.Split('(')[0].Trim();
+                    }
+
+                    // Sanitize all special characters and spaces: e.g. "Rateable Value" -> "RateableValue"
+                    var cleanedParam = Regex.Replace(candidate, @"[^a-zA-Z0-9_]", "");
+                    if (!string.IsNullOrWhiteSpace(cleanedParam) && Regex.IsMatch(cleanedParam, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+                    {
+                        param = $"input.{cleanedParam}";
+                    }
+                }
 
                 // Build expression from effectType
                 var typeLower = effectType.ToLowerInvariant();
                 string expression;
-                if (typeLower.Contains("decrease"))
+                if (typeLower.Contains("ratelookup") || typeLower.Contains("rate lookup"))
+                    expression = $"{param} * ({value} / 100)";
+                else if (typeLower.Contains("decrease"))
                     expression = $"{param} * (1 - {value} / 100)";
                 else if (typeLower.Contains("increase"))
                     expression = $"{param} * (1 + {value} / 100)";
@@ -469,13 +513,43 @@ namespace NtisPlatform.Application.Services.Rules
                 else
                     expression = $"{param} * (1 - {value} / 100)"; // fallback
 
-                return new Dictionary<string, string>
+                var paramCodeValue = param.StartsWith("input.", StringComparison.OrdinalIgnoreCase)
+                    ? param.Substring("input.".Length)
+                    : param;
+
+                var resolvedLabel = !string.IsNullOrWhiteSpace(overrideRateLabel)
+                    ? overrideRateLabel
+                    : !string.IsNullOrWhiteSpace(parameterCode)
+                    ? parameterCode
+                    : !string.IsNullOrWhiteSpace(overrideRate)
+                    ? overrideRate
+                    : paramCodeValue;
+
+                var dict = new Dictionary<string, string>
                 {
                     ["Expression"] = expression,
                     ["effectType"] = effectType,
                     ["value"] = value,
-                    ["ParameterCode"] = param,
+                    ["ParameterCode"] = paramCodeValue,
+                    ["overrideRate"] = overrideRate ?? string.Empty,
+                    ["overrideRateLabel"] = resolvedLabel,
                 };
+
+                // Preserve RateLookup parameters if specified in JSON
+                string[] lookupKeys = new[] { "RateTypeOfUseGroupId", "RateFloorId", "RateConstructionTypeId", "RateTaxZoneId", "RateYearRangeRVId" };
+                foreach (var lk in lookupKeys)
+                {
+                    if (effect.TryGetProperty(lk, out var prop))
+                    {
+                        var strVal = prop.ValueKind == JsonValueKind.Number ? prop.GetRawText() : prop.GetString();
+                        if (!string.IsNullOrWhiteSpace(strVal))
+                        {
+                            dict[lk] = strVal;
+                        }
+                    }
+                }
+
+                return dict;
             }
             catch
             {

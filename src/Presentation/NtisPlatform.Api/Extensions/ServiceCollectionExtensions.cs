@@ -456,6 +456,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetFieldDefinitionService, AssetFieldDefinitionService>();
         services.AddScoped<IAssetAuthorityMasterService, AssetAuthorityMasterService>();
         services.AddScoped<IAssetOrganizationMasterService, AssetOrganizationMasterService>();
+        services.AddScoped<IGSTService, GSTService>();
 
 
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
