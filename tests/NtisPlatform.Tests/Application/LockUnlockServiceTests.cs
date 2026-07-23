@@ -3,8 +3,14 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Application.DTOs.LockUnlock;
+using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Interfaces.Property;
+using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
+using NtisPlatform.Core.Enums;
+using NtisPlatform.Core.Models;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Services;
 
@@ -14,10 +20,15 @@ public class LockUnlockServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly Mock<ILogger<LockUnlockService>> _mockLogger;
+    private readonly Mock<IPropertySearchService> _mockPropertySearchService;
     private readonly LockUnlockService _service;
 
     public LockUnlockServiceTests()
     {
+        // BulkApplyAsync issues a raw T-SQL MERGE (with OPENJSON), which only a real SQL Server
+        // engine can execute - the EF Core InMemory provider used here can't run that code path, so
+        // tests exercising it aren't included in this class (see BulkApplyAsync Tests - Validation /
+        // Error Handling below for the parts that don't require reaching that statement).
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
@@ -25,7 +36,8 @@ public class LockUnlockServiceTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _mockLogger = new Mock<ILogger<LockUnlockService>>();
-        _service = new LockUnlockService(_context, _mockLogger.Object);
+        _mockPropertySearchService = new Mock<IPropertySearchService>();
+        _service = new LockUnlockService(_context, _mockLogger.Object, _mockPropertySearchService.Object);
 
         SeedTestData();
     }
@@ -61,7 +73,6 @@ public class LockUnlockServiceTests : IDisposable
 
     public void Dispose()
     {
-        _context.Database.EnsureDeleted();
         _context.Dispose();
     }
 
@@ -447,6 +458,118 @@ public class LockUnlockServiceTests : IDisposable
 
     #endregion
 
+    #region GetPropertyLocksByCategoryAsync Tests
+
+    [Fact]
+    public async Task GetPropertyLocksByCategoryAsync_DelegatesScopeToPropertySearchService()
+    {
+        // Arrange
+        var request = new PropertySearchByCategoryQueryParameters
+        {
+            SearchCategory = PropertySearchCategory.WardWise,
+            WardId = 1,
+            PageNumber = 2,
+            PageSize = 5,
+        };
+        _mockPropertySearchService
+            .Setup(s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<PropertySearchByCategoryResponseDto>(
+                new List<PropertySearchByCategoryResponseDto>(), 0, request.PageNumber, request.PageSize));
+
+        // Act
+        await _service.GetPropertyLocksByCategoryAsync(request, CancellationToken.None);
+
+        // Assert - the exact same request instance is forwarded, so scope validation stays owned
+        // by IPropertySearchService rather than being duplicated here.
+        _mockPropertySearchService.Verify(
+            s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByCategoryAsync_PropagatesValidationException_FromPropertySearchService()
+    {
+        // Arrange - e.g. ZoneWise scope requested without ZoneId.
+        var request = new PropertySearchByCategoryQueryParameters { SearchCategory = PropertySearchCategory.ZoneWise };
+        _mockPropertySearchService
+            .Setup(s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PropertyValidationException("ZoneId is required for ZoneWise search."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<PropertyValidationException>(
+            () => _service.GetPropertyLocksByCategoryAsync(request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByCategoryAsync_MapsFieldsAndPassesThroughPaging()
+    {
+        // Arrange
+        var request = new PropertySearchByCategoryQueryParameters { SearchCategory = PropertySearchCategory.WardWise, WardId = 1 };
+        var searchItems = new List<PropertySearchByCategoryResponseDto>
+        {
+            new() { PropertyId = 1, WardId = 1, WardNo = "W001", PropertyNo = "P001", PartitionNo = "A" },
+            new() { PropertyId = 2, WardId = 1, WardNo = "W001", PropertyNo = "P002", PartitionNo = "B" },
+        };
+        _mockPropertySearchService
+            .Setup(s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<PropertySearchByCategoryResponseDto>(searchItems, totalCount: 42, pageNumber: 3, pageSize: 2));
+
+        // Act
+        var result = await _service.GetPropertyLocksByCategoryAsync(request, CancellationToken.None);
+
+        // Assert - paging metadata is passed through untouched, and each item's identifying fields
+        // are mapped across from the search response.
+        Assert.Equal(42, result.TotalCount);
+        Assert.Equal(3, result.PageNumber);
+        Assert.Equal(2, result.PageSize);
+        Assert.Collection(
+            result.Items,
+            p => { Assert.Equal(1, p.PropertyId); Assert.Equal("W001", p.WardNo); Assert.Equal("P001", p.PropertyNo); Assert.Equal("A", p.PartitionNo); },
+            p => { Assert.Equal(2, p.PropertyId); Assert.Equal("P002", p.PropertyNo); Assert.Equal("B", p.PartitionNo); });
+    }
+
+    [Fact]
+    public async Task GetPropertyLocksByCategoryAsync_EnrichesEachPropertyWithItsOwnLockedScreens()
+    {
+        // Arrange - property 1 has an active lock, property 2 has none.
+        _context.PropertyScreenLocks.Add(new PropertyScreenLockEntity
+        {
+            PropertyId = 1,
+            LockableScreenId = 1,
+            IsLocked = true,
+            IsActive = true,
+            LockedBy = 1,
+            LockedDate = DateTime.Now,
+            CreatedBy = 1,
+            CreatedDate = DateTime.Now,
+        });
+        await _context.SaveChangesAsync();
+
+        var request = new PropertySearchByCategoryQueryParameters { SearchCategory = PropertySearchCategory.WardWise, WardId = 1 };
+        var searchItems = new List<PropertySearchByCategoryResponseDto>
+        {
+            new() { PropertyId = 1, WardId = 1, WardNo = "W001", PropertyNo = "P001", PartitionNo = "A" },
+            new() { PropertyId = 2, WardId = 1, WardNo = "W001", PropertyNo = "P002", PartitionNo = "B" },
+        };
+        _mockPropertySearchService
+            .Setup(s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<PropertySearchByCategoryResponseDto>(searchItems, searchItems.Count, 1, 10));
+
+        // Act
+        var result = await _service.GetPropertyLocksByCategoryAsync(request, CancellationToken.None);
+
+        // Assert
+        var lockedProperty = result.Items.First(p => p.PropertyId == 1);
+        Assert.True(lockedProperty.IsLocked);
+        Assert.Single(lockedProperty.LockedScreens);
+        Assert.Equal("Basic Details", lockedProperty.LockedScreens.First().ScreenName);
+
+        var unlockedProperty = result.Items.First(p => p.PropertyId == 2);
+        Assert.False(unlockedProperty.IsLocked);
+        Assert.Empty(unlockedProperty.LockedScreens);
+    }
+
+    #endregion
+
     #region BulkApplyAsync Tests - Validation
 
     [Fact]
@@ -551,238 +674,6 @@ public class LockUnlockServiceTests : IDisposable
         Assert.Equal("At least one screen must be selected.", exception.Message);
     }
 
-    [Theory]
-    [InlineData("lock")]
-    [InlineData("Lock")]
-    [InlineData("LOCK")]
-    [InlineData(" lock ")]
-    public async Task BulkApplyAsync_AcceptsLockActionCaseInsensitive(string action)
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = action
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.SuccessCount);
-    }
-
-    [Theory]
-    [InlineData("unlock")]
-    [InlineData("Unlock")]
-    [InlineData("UNLOCK")]
-    [InlineData(" unlock ")]
-    public async Task BulkApplyAsync_AcceptsUnlockActionCaseInsensitive(string action)
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = action
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.SuccessCount);
-    }
-
-    #endregion
-
-    #region BulkApplyAsync Tests - Lock Operations
-
-    [Fact]
-    public async Task BulkApplyAsync_Lock_CreatesNewLockRecord()
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "lock"
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.TotalRequested);
-        Assert.Equal(1, result.SuccessCount);
-        Assert.Equal(0, result.FailedCount);
-        Assert.Empty(result.Errors);
-
-        var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync(l => l.PropertyId == 1 && l.LockableScreenId == 1);
-        Assert.NotNull(lockRecord);
-        Assert.True(lockRecord.IsLocked);
-        Assert.Equal(1, lockRecord.LockedBy);
-        Assert.NotNull(lockRecord.LockedDate);
-        Assert.Equal(1, lockRecord.CreatedBy);
-        Assert.NotNull(lockRecord.CreatedDate);
-    }
-
-    [Fact]
-    public async Task BulkApplyAsync_Lock_SetsCorrectAuditFields()
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "lock"
-        };
-        var userId = 123;
-
-        // Act
-        await _service.BulkApplyAsync(request, userId, CancellationToken.None);
-
-        // Assert
-        var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync();
-        Assert.NotNull(lockRecord);
-        Assert.Equal(userId, lockRecord.CreatedBy);
-        Assert.Equal(userId, lockRecord.LockedBy);
-        Assert.True(lockRecord.IsActive);
-        Assert.False(lockRecord.MarkedForDeletion);
-    }
-
-    [Fact]
-    public async Task BulkApplyAsync_Lock_UpdatesExistingUnlockedRecord()
-    {
-        // Arrange - Create an existing unlocked record
-        var existingLock = new PropertyScreenLockEntity
-        {
-            PropertyId = 1,
-            LockableScreenId = 1,
-            IsLocked = false,
-            IsActive = true,
-            UnlockedBy = 1,
-            UnlockedDate = DateTime.Now.AddDays(-1),
-            CreatedBy = 1,
-            CreatedDate = DateTime.Now.AddDays(-1)
-        };
-        _context.PropertyScreenLocks.Add(existingLock);
-        await _context.SaveChangesAsync();
-
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "lock"
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 2, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.SuccessCount);
-
-        var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync(l => l.PropertyId == 1 && l.LockableScreenId == 1);
-        Assert.NotNull(lockRecord);
-        Assert.True(lockRecord.IsLocked);
-        Assert.Equal(2, lockRecord.LockedBy);
-        Assert.Equal(2, lockRecord.UpdatedBy);
-        Assert.NotNull(lockRecord.LockedDate);
-        Assert.NotNull(lockRecord.UpdatedDate);
-    }
-
-    [Fact]
-    public async Task BulkApplyAsync_Lock_HandlesMultiplePropertiesAndScreens()
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1, 2, 3 },
-            ScreenIds = new List<int> { 1, 2 },
-            Action = "lock"
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(6, result.TotalRequested); // 3 properties x 2 screens
-        Assert.Equal(6, result.SuccessCount);
-        Assert.Equal(0, result.FailedCount);
-
-        var lockCount = await _context.PropertyScreenLocks.CountAsync();
-        Assert.Equal(6, lockCount);
-    }
-
-    #endregion
-
-    #region BulkApplyAsync Tests - Unlock Operations
-
-    [Fact]
-    public async Task BulkApplyAsync_Unlock_CreatesNewUnlockRecord()
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "unlock"
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.SuccessCount);
-
-        var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync();
-        Assert.NotNull(lockRecord);
-        Assert.False(lockRecord.IsLocked);
-        Assert.Equal(1, lockRecord.UnlockedBy);
-        Assert.NotNull(lockRecord.UnlockedDate);
-    }
-
-    [Fact]
-    public async Task BulkApplyAsync_Unlock_UpdatesExistingLockedRecord()
-    {
-        // Arrange - Create an existing locked record
-        var existingLock = new PropertyScreenLockEntity
-        {
-            PropertyId = 1,
-            LockableScreenId = 1,
-            IsLocked = true,
-            IsActive = true,
-            LockedBy = 1,
-            LockedDate = DateTime.Now.AddDays(-1),
-            CreatedBy = 1,
-            CreatedDate = DateTime.Now.AddDays(-1)
-        };
-        _context.PropertyScreenLocks.Add(existingLock);
-        await _context.SaveChangesAsync();
-
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "unlock"
-        };
-
-        // Act
-        var result = await _service.BulkApplyAsync(request, 2, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(1, result.SuccessCount);
-
-        var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync();
-        Assert.NotNull(lockRecord);
-        Assert.False(lockRecord.IsLocked);
-        Assert.Equal(2, lockRecord.UnlockedBy);
-        Assert.Equal(2, lockRecord.UpdatedBy);
-        Assert.NotNull(lockRecord.UnlockedDate);
-        Assert.NotNull(lockRecord.UpdatedDate);
-    }
-
     #endregion
 
     #region BulkApplyAsync Tests - Error Handling
@@ -850,64 +741,180 @@ public class LockUnlockServiceTests : IDisposable
         Assert.Contains("Screen 4 not found or inactive.", result.Errors);
     }
 
-    [Fact]
-    public async Task BulkApplyAsync_HandlesPartialSuccess()
-    {
-        // Arrange
-        var request = new BulkLockRequestDto
+    #endregion
+
+    #region BulkApplyByCategoryAsync Tests
+
+    private static BulkLockByCategoryRequestDto CategoryRequest(
+        int wardId = 1, List<int>? screenIds = null, string action = "lock")
+        => new()
         {
-            PropertyIds = new List<int> { 1, 999 }, // One valid, one invalid
-            ScreenIds = new List<int> { 1 },
-            Action = "lock"
+            Scope = new BulkLockCategoryScopeDto { SearchCategory = PropertySearchCategory.WardWise, WardId = wardId },
+            ScreenIds = screenIds ?? new List<int> { 1 },
+            Action = action,
         };
 
-        // Act
-        var result = await _service.BulkApplyAsync(request, 1, CancellationToken.None);
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_MapsScopeAndDelegatesToPropertySearchService()
+    {
+        // Arrange
+        var request = CategoryRequest(wardId: 7);
+        request.Scope.PropertyNo = "P1";
+        request.Scope.PartitionNo = "A";
+        request.Scope.PropertyFrom = "P1";
+        request.Scope.PropertyTo = "P9";
 
-        // Assert
-        Assert.Equal(2, result.TotalRequested);
-        Assert.Equal(1, result.SuccessCount);
-        Assert.Equal(1, result.FailedCount);
-        Assert.Single(result.Errors);
+        Func<PropertySearchByCategoryQueryParameters, bool> matchesScope = q =>
+            q.SearchCategory == request.Scope.SearchCategory &&
+            q.WardId == request.Scope.WardId &&
+            q.ZoneId == request.Scope.ZoneId &&
+            q.PropertyNo == request.Scope.PropertyNo &&
+            q.PartitionNo == request.Scope.PartitionNo &&
+            q.PropertyFrom == request.Scope.PropertyFrom &&
+            q.PropertyTo == request.Scope.PropertyTo;
+
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.Is<PropertySearchByCategoryQueryParameters>(q => matchesScope(q)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int>());
+
+        // Act
+        await _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None);
+
+        // Assert - Scope's fields are forwarded verbatim; the extra grid-only filters on
+        // PropertySearchByCategoryQueryParameters simply aren't populated (Scope has no analogue).
+        // If the mapping were wrong, the Setup above wouldn't match and the awaited call would fail.
+        _mockPropertySearchService.Verify(
+            s => s.ResolvePropertyIdsByCategoryAsync(It.Is<PropertySearchByCategoryQueryParameters>(q => matchesScope(q)), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
-    public async Task BulkApplyAsync_HandlesExistingUnlockedRecordAndRelocks()
+    public async Task BulkApplyByCategoryAsync_PropagatesValidationException_FromPropertySearchService()
     {
-        // Arrange - Create an existing unlocked record (simulating a previously unlocked property)
-        var existingLock = new PropertyScreenLockEntity
-        {
-            PropertyId = 1,
-            LockableScreenId = 1,
-            IsLocked = false,
-            IsActive = true,
-            CreatedBy = 1,
-            CreatedDate = DateTime.Now.AddDays(-10),
-            UnlockedBy = 1,
-            UnlockedDate = DateTime.Now.AddDays(-1)
-        };
-        _context.PropertyScreenLocks.Add(existingLock);
-        await _context.SaveChangesAsync();
+        // Arrange - e.g. ZoneWise scope requested without ZoneId.
+        var request = CategoryRequest();
+        request.Scope.SearchCategory = PropertySearchCategory.ZoneWise;
+        request.Scope.WardId = null;
 
-        var request = new BulkLockRequestDto
-        {
-            PropertyIds = new List<int> { 1 },
-            ScreenIds = new List<int> { 1 },
-            Action = "lock"
-        };
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PropertyValidationException("ZoneId is required for ZoneWise search."));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<PropertyValidationException>(
+            () => _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_ReturnsZeroedResult_WhenScopeMatchesNoProperties()
+    {
+        // Arrange
+        var request = CategoryRequest();
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int>());
 
         // Act
-        var result = await _service.BulkApplyAsync(request, 2, CancellationToken.None);
+        var result = await _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(0, result.TotalRequested);
+        Assert.Equal(0, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(await _context.PropertyScreenLocks.ToListAsync());
+    }
+
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_ReturnsError_WhenScreenNotFoundOrInactive()
+    {
+        // Arrange
+        var request = CategoryRequest(screenIds: new List<int> { 1, 999, 4 }); // 999 missing, 4 inactive
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int> { 1, 2 });
+
+        // Act
+        var result = await _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None);
+
+        // Assert - only the one valid screen (Id=1) applies; TotalRequested still reflects all 3
+        // requested screens x 2 properties, and the invalid ones are named in Errors.
+        Assert.Equal(6, result.TotalRequested);
+        Assert.Contains("Screen 999 not found or inactive.", result.Errors);
+        Assert.Contains("Screen 4 not found or inactive.", result.Errors);
+        Assert.Equal(2, result.SuccessCount); // 2 properties x 1 valid screen
+        Assert.Equal(4, result.FailedCount);
+    }
+
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_DedupesDuplicateScreenIds_SoTotalRequestedMatchesDistinctPairs()
+    {
+        // Arrange - screen 1 requested twice; the operation only ever applies it once per property,
+        // so TotalRequested/SuccessCount must be based on the distinct screen id, not the raw count.
+        var request = CategoryRequest(screenIds: new List<int> { 1, 1 });
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int> { 1, 2 });
+
+        // Act
+        var result = await _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, result.TotalRequested); // 2 properties x 1 distinct screen
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_Lock_CreatesNewLockRecordsForEveryResolvedPropertyAndScreen()
+    {
+        // Arrange - properties 1 and 2 have no existing PropertyScreenLock rows, so this only
+        // exercises the insert phase. The update-existing-row phase uses ExecuteUpdateAsync, which
+        // the EF Core InMemory provider used by these tests does not support, so it isn't covered here.
+        var request = CategoryRequest(screenIds: new List<int> { 1, 2 });
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int> { 1, 2 });
+
+        // Act
+        var result = await _service.BulkApplyByCategoryAsync(request, 5, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(4, result.TotalRequested); // 2 properties x 2 screens
+        Assert.Equal(4, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Errors);
+
+        var locks = await _context.PropertyScreenLocks.ToListAsync();
+        Assert.Equal(4, locks.Count);
+        Assert.All(locks, l =>
+        {
+            Assert.True(l.IsLocked);
+            Assert.Equal(5, l.LockedBy);
+            Assert.NotNull(l.LockedDate);
+            Assert.Equal(5, l.CreatedBy);
+        });
+    }
+
+    [Fact]
+    public async Task BulkApplyByCategoryAsync_Unlock_CreatesNewUnlockRecords()
+    {
+        // Arrange
+        var request = CategoryRequest(action: "unlock");
+        _mockPropertySearchService
+            .Setup(s => s.ResolvePropertyIdsByCategoryAsync(It.IsAny<PropertySearchByCategoryQueryParameters>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<int> { 1 });
+
+        // Act
+        var result = await _service.BulkApplyByCategoryAsync(request, 1, CancellationToken.None);
 
         // Assert
         Assert.Equal(1, result.SuccessCount);
-
         var lockRecord = await _context.PropertyScreenLocks.FirstOrDefaultAsync();
         Assert.NotNull(lockRecord);
-        Assert.True(lockRecord.IsLocked);
-        Assert.Equal(2, lockRecord.LockedBy);
-        Assert.Equal(2, lockRecord.UpdatedBy);
-        Assert.NotNull(lockRecord.LockedDate);
+        Assert.False(lockRecord.IsLocked);
+        Assert.Equal(1, lockRecord.UnlockedBy);
+        Assert.NotNull(lockRecord.UnlockedDate);
     }
 
     #endregion

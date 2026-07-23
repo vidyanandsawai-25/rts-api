@@ -30,7 +30,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null,
-            int? detailYearRangeRVId = null)
+            int? detailYearRangeRVId = null,
+            decimal? overrideRent = null)
         {
             if (detail == null)
                 throw new ArgumentNullException(nameof(detail));
@@ -105,11 +106,24 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             decimal rentYearly = 0m;
 
-            if (detail.IsRenter == true)
+            if (overrideRent.HasValue && overrideRent.Value > 0)
             {
-                var rentRow = renters?.FirstOrDefault(r => r.PropertyDetailsId == detail.Id);
+                rentYearly = overrideRent.Value;
+            }
+            else if (detail.IsRenter == true && renters != null)
+            {
+                var rentRow = renters
+                    .Where(r => r.PropertyDetailsId == detail.Id && r.IsActive && !r.MarkedForDeletion)
+                    .OrderByDescending(r => r.CreatedDate)
+                    .FirstOrDefault();
+
                 if (rentRow != null)
-                    rentYearly = Convert.ToDecimal(rentRow.FinalYearlyRent ?? 0d);
+                {
+                    double yearlyRentValue = rentRow.FinalYearlyRent > 0
+                        ? rentRow.FinalYearlyRent.Value
+                        : ((rentRow.RentMonthly ?? 0d) * 12d);
+                    rentYearly = Convert.ToDecimal(yearlyRentValue);
+                }
             }
 
             decimal depreciationRate = ResolveDepreciationRate(detail, financeYear, depreciations);

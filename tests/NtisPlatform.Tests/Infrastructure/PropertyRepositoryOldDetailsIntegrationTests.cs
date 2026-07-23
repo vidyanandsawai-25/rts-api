@@ -257,10 +257,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal("5", result.OldWardNo);
         Assert.Equal("123", result.OldPropertyNo);
         Assert.Equal("2015", result.OldConstructionYear);
-        Assert.Equal(1200, result.OldCarpetAreaSqFeet);
+        Assert.Equal(1200.0, result.OldCarpetAreaSqFeet);
         Assert.Equal(111.48, result.OldCarpetAreaSqMeter);
-        Assert.Equal(1, result.OldConstructionTypeId);
-        Assert.Equal(1, result.OldTypeOfUseId);
+        Assert.Equal("1", result.OldConstructionTypeId);
+        Assert.Equal("1", result.OldTypeOfUseId);
     }
 
     [Fact]
@@ -746,7 +746,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal("500", result.OldPropertyNo);
         Assert.Equal("B", result.OldPartitionNo);
         Assert.Equal("EG002", result.OldEgovNo);
-        Assert.Equal(2000, result.OldPlotArea);
+        Assert.Equal("2000", result.OldPlotArea);
         Assert.Equal("789", result.OldPlotNo);
         Assert.Equal(80000, result.OldRV);
         Assert.Equal(75000, result.OldALV);
@@ -796,10 +796,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal("2018", result.OldConstructionYear);
-        Assert.Equal(1500, result.OldCarpetAreaSqFeet);
+        Assert.Equal(1500.0, result.OldCarpetAreaSqFeet);
         Assert.Equal(139.35, result.OldCarpetAreaSqMeter);
-        Assert.Equal(1, result.OldConstructionTypeId);
-        Assert.Equal(2, result.OldTypeOfUseId);
+        Assert.Equal("1", result.OldConstructionTypeId);
+        Assert.Equal("2", result.OldTypeOfUseId);
 
         // Verify PropertyDetailsOld was created
         var createdDetails = await _context.PropertyDetailsOld
@@ -863,10 +863,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal("2020", result.OldConstructionYear);
-        Assert.Equal(1800, result.OldCarpetAreaSqFeet);
+        Assert.Equal(1800.0, result.OldCarpetAreaSqFeet);
         Assert.Equal(167.22, result.OldCarpetAreaSqMeter);
-        Assert.Equal(2, result.OldConstructionTypeId);
-        Assert.Equal(2, result.OldTypeOfUseId);
+        Assert.Equal("2", result.OldConstructionTypeId);
+        Assert.Equal("2", result.OldTypeOfUseId);
 
         // Verify existing record was updated, not new one created
         var allDetails = await _context.PropertyDetailsOld

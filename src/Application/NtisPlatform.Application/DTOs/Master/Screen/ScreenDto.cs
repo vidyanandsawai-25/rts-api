@@ -1,10 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.Master;
 
 public class ScreenDto : BaseDtos
 {
     public string ScreenName { get; set; } = string.Empty;
+    public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }
     public string ScreenCode { get; set; } = string.Empty;
     public string? ScreenNameLocal { get; set; }
@@ -29,6 +30,7 @@ public class CreateScreenDto : CreateBaseDtos
     [Required(ErrorMessage = "ScreenMaster_ScreenName_Required")]
     [StringLength(200, ErrorMessage = "ScreenMaster_ScreenName_MaxLen_200")]
     public string ScreenName { get; set; } = string.Empty;
+    public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }
 
     [Required(ErrorMessage = "ScreenMaster_ScreenCode_Required")]
@@ -76,6 +78,7 @@ public class UpdateScreenDto : UpdateBaseDtos
     [Required(ErrorMessage = "ScreenMaster_ScreenName_Required")]
     [StringLength(200, ErrorMessage = "ScreenMaster_ScreenName_MaxLen_200")]
     public string ScreenName { get; set; } = string.Empty;
+    public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }
 
     [Required(ErrorMessage = "ScreenMaster_ScreenCode_Required")]

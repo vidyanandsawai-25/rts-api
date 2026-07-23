@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 using System.ComponentModel.DataAnnotations;
@@ -9,6 +9,8 @@ namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
     {
         public int Id { get; set; } = 0;
         public string UserRoleName { get; set; } = string.Empty;
+        public int DepartmentId { get; set; }
+        public string DepartmentName { get; set; } = string.Empty;
     }
 
     public class CreateUserRoleMasterDto : CreateBaseDtos
@@ -16,6 +18,9 @@ namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
         [Required(ErrorMessage = "UserRoleName_Required")]
         [StringLength(100, ErrorMessage = "UserRoleName_MaxLen_100")]
         public string UserRoleName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "DepartmentId_Required")]
+        public int DepartmentId { get; set; }
     }
 
     public class UpdateUserRoleMasterDto : UpdateBaseDtos
@@ -23,6 +28,9 @@ namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
         [Required(ErrorMessage = "UserRoleName_Required")]
         [StringLength(100, ErrorMessage = "UserRoleName_MaxLen_100")]
         public string UserRoleName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "DepartmentId_Required")]
+        public int DepartmentId { get; set; }
     }
     
     public class UserRoleMasterQueryParameterDto : BaseQueryParameters
@@ -31,5 +39,7 @@ namespace NtisPlatform.Application.DTOs.Master.UserRoleMaster
         public string? UserRoleName { get; set; }
         [Filterable(FilterOperator.Equals)]
         public bool? IsActive { get; set; }
+        [Filterable(FilterOperator.Equals)]
+        public int? DepartmentId { get; set; }
     }
 }

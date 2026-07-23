@@ -13,7 +13,7 @@ public class PropertyOldDetailsDto
     public string? OldPropertyNo { get; set; }
     public string? OldPartitionNo { get; set; }
     public string? OldEgovNo { get; set; }
-    public double? OldPlotArea { get; set; }
+    public string? OldPlotArea { get; set; }
     public string? OldPlotNo { get; set; }
     public double? OldRV { get; set; }
     public double? OldALV { get; set; }
@@ -27,6 +27,6 @@ public class PropertyOldDetailsDto
     public string? OldConstructionYear { get; set; }
     public double? OldCarpetAreaSqFeet { get; set; }
     public double? OldCarpetAreaSqMeter { get; set; }
-    public int? OldConstructionTypeId { get; set; }
-    public int? OldTypeOfUseId { get; set; }
+    public string? OldConstructionTypeId { get; set; }
+    public string? OldTypeOfUseId { get; set; }
 }

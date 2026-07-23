@@ -554,6 +554,77 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal(150m, result.AppliedRules[4].ApplyRate);
         }
 
+        [Fact]
+        public async Task ApplyRulesAsync_WhenRenterPresent_FlattensRenterPropertiesIntoRuleInputContext()
+        {
+            // Arrange
+            RuleExecutionInputDto? capturedInput = null;
+            _ruleExecutionServiceMock
+                .Setup(r => r.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
+                .Callback<RuleExecutionInputDto, CancellationToken>((dto, _) => capturedInput = dto)
+                .ReturnsAsync(new List<RuleExecutionResultDto>());
+
+            _rulesFieldRepoMock
+                .Setup(r => r.GetQueryable())
+                .Returns(new List<RulesFieldEntity>().BuildMockDbSet().Object);
+
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 99,
+                FloorId = 4,
+                ConstructionTypeId = 5,
+                IsRenter = true
+            };
+
+            var detailTypeOfUse = new TypeOfUseEntity { TypeOfUseGroupId = 2 };
+            var property = new PropertyEntity { Id = 1, CategoryId = 6, WardId = 12, TaxZoneId = 3 };
+
+            var renter = new RenterMastEntity
+            {
+                Id = 10,
+                PropertyDetailsId = 99,
+                RentMonthly = 5000,
+                FinalYearlyRent = 60000,
+                TaxLiability = "Renter",
+                RenterNameEnglish = "John Doe",
+                IsActive = true,
+                MarkedForDeletion = false
+            };
+
+            var propertyContext = new PropertyCalculationContext
+            {
+                Property = property,
+                Renters = new List<RenterMastEntity> { renter },
+                Parameters = new PropertyCalculationParameters
+                {
+                    FinanceYear = 2026,
+                    ConstructionYearValue = 2020,
+                    YearRangeRVId = 1,
+                    Detail = detail,
+                    DetailTypeOfUse = detailTypeOfUse
+                }
+            };
+
+            var context = new RuleApplierContext
+            {
+                Category = "RV",
+                ValueKey = "Rate",
+                InitialValue = 1000m,
+                PropertyContext = propertyContext
+            };
+
+            // Act
+            await _service.ApplyRulesAsync(context);
+
+            // Assert
+            Assert.NotNull(capturedInput);
+            var inputDict = capturedInput.Input;
+            Assert.Equal(5000.0, inputDict["RentMonthly"]);
+            Assert.Equal(60000.0, inputDict["FinalYearlyRent"]);
+            Assert.Equal("Renter", inputDict["TaxLiability"]);
+            Assert.Equal("John Doe", inputDict["RenterName"]);
+        }
+
         // ─── Factory Helper ────────────────────────────────────────────────────────
 
         /// <summary>

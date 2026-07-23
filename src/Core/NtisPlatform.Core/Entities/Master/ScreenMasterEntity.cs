@@ -13,6 +13,11 @@ public class ScreenMasterEntity : BaseEntity
     public int ScreenGroupId { get; set; }
 
     /// <summary>
+    /// Foreign key to department
+    /// </summary>
+    public int? DepartmentId { get; set; }
+
+    /// <summary>
     /// Foreign key to module
     /// </summary>
     public int? ModuleId { get; set; }
@@ -64,6 +69,11 @@ public class ScreenMasterEntity : BaseEntity
     /// Navigation property to the screen group
     /// </summary>
     public ScreenGroupMasterEntity? ScreenGroup { get; set; }
+
+    /// <summary>
+    /// Navigation property to the department
+    /// </summary>
+    public DepartmentMasterEntity? Department { get; set; }
 
     /// <summary>
     /// Navigation property to the module

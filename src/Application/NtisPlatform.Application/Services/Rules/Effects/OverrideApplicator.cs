@@ -9,5 +9,7 @@ namespace NtisPlatform.Application.Services.Rules.Effects
         /// <summary>Result = effectValue (ignores baseRate entirely). E.g. fixed rate = 500.</summary>
         public Task<decimal> Apply(decimal baseRate, decimal effectValue) =>
             Task.FromResult(effectValue);
+
+        public decimal GetApplyRate(decimal effectValue) => effectValue;
     }
 }
