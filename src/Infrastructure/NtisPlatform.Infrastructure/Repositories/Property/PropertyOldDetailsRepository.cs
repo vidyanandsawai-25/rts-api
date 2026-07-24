@@ -50,7 +50,7 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
             .Select(id => id!.Value)
             .ToList();
 
-        if (property.PropertyMastOldId.HasValue && !oldPropertyIds.Contains(property.PropertyMastOldId.Value))
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
         {
             oldPropertyIds.Add(property.PropertyMastOldId.Value);
         }
