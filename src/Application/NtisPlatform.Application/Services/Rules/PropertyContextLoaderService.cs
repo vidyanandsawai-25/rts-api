@@ -117,16 +117,39 @@ namespace NtisPlatform.Application.Services.Rules
                 .OrderBy(x => x.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            // Load ALL social attributes for this property in one query.
+            // Gather all property IDs to fetch social attributes from:
+            // 1. Current property (could be partitioned)
+            // 2. Main property (same PropertyNo and WardId, but with no partition)
+            var targetPropertyIds = new List<int> { propertyId };
+            if (!string.IsNullOrWhiteSpace(property.PropertyNo))
+            {
+                var mainPropertyId = await _propertyRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.WardId == property.WardId 
+                             && p.PropertyNo == property.PropertyNo 
+                             && (p.PartitionNo == null || p.PartitionNo == "")
+                             && p.IsActive 
+                             && !p.MarkedForDeletion)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (mainPropertyId.HasValue && mainPropertyId.Value != propertyId)
+                {
+                    targetPropertyIds.Add(mainPropertyId.Value);
+                }
+            }
+
+            // Load ALL social attributes for the target property and main property in one query.
             // Each row maps SocialAttributeCode → typed value (bit/int/decimal/text).
             // This means ANY attribute from SocialAttributeMaster is available in rule
             // expressions as  input.HAS_LIFT, input.NO_OF_WELL, input.HAS_SOLAR, etc.
             // with ZERO code changes when new attributes are added to the master table.
             var socialDetails = await _propertySocialDetailsRepo.GetQueryable()
                 .AsNoTracking()
-                .Where(psd => psd.PropertyId == propertyId && psd.IsActive && psd.SocialAttribute != null)
+                .Where(psd => targetPropertyIds.Contains(psd.PropertyId) && psd.IsActive && psd.SocialAttribute != null)
                 .Select(psd => new
                 {
+                    PropertyId = psd.PropertyId,
                     SocialAttributeId = psd.SocialAttributeId,
                     Code = psd.SocialAttribute!.SocialAttributeCode,
                     DataType = psd.SocialAttribute!.DataType,
@@ -174,13 +197,18 @@ namespace NtisPlatform.Application.Services.Rules
                 };
             }
 
-            // Gather active SocialAttributeIds for the property
-            var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).ToList();
+            // Gather active SocialAttributeIds for the property (distinct list)
+            var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).Distinct().ToList();
 
             // Build a flat attribute dictionary: SocialAttributeCode → typed CLR value
             // Rule expressions can reference these directly: input.HAS_LIFT, input.NO_OF_WELL, etc.
             var socialAttributeDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            foreach (var attr in socialDetails)
+            
+            // Sort by PropertyId such that main property comes first, and current property comes last.
+            // This ensures current property's attributes override main property's in case of duplicates.
+            var orderedSocialDetails = socialDetails.OrderBy(s => s.PropertyId == propertyId ? 1 : 0);
+            
+            foreach (var attr in orderedSocialDetails)
             {
                 if (string.IsNullOrWhiteSpace(attr.Code)) continue;
                 object? val = attr.DataType?.ToUpperInvariant() switch

@@ -604,5 +604,134 @@ namespace NtisPlatform.Tests.Application
             // Should be 13 (floor13), since floor12 is smaller and floor5 is ignored (SequenceNo < 12)
             Assert.Equal(13, ctx.Parameters.BuildingMaxFloorSequence);
         }
+
+        [Fact]
+        public async Task LoadPropertyContextAsync_PartitionedProperty_MergesSocialAttributesFromMainProperty()
+        {
+            // Arrange
+            const int targetPropertyId = 10;
+            const int mainPropertyId = 20;
+            const string propertyNo = "PROP-100";
+
+            // Setup properties: partitioned property and main property
+            _propertyRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyEntity>
+                {
+                    new()
+                    {
+                        Id = targetPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        TaxZoneId = 1,
+                        WardId = 1,
+                        PropertyNo = propertyNo,
+                        PartitionNo = "A"
+                    },
+                    new()
+                    {
+                        Id = mainPropertyId,
+                        IsActive = true,
+                        MarkedForDeletion = false,
+                        TaxZoneId = 1,
+                        WardId = 1,
+                        PropertyNo = propertyNo,
+                        PartitionNo = null
+                    }
+                }.BuildMockDbSet().Object);
+
+            SetupPropertyDetails(targetPropertyId, constructionYear: "2010");
+
+            _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
+                .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
+
+            // Setup social attributes for both properties
+            _propertySocialDetailsRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertySocialDetailsEntity>
+                {
+                    // Partitioned property attributes
+                    new()
+                    {
+                        Id = 1,
+                        PropertyId = targetPropertyId,
+                        IsActive = true,
+                        SocialAttributeId = 101,
+                        BitValue = false,
+                        SocialAttribute = new SocialAttributeEntity
+                        {
+                            Id = 101,
+                            SocialAttributeCode = "HAS_LIFT",
+                            DataType = "BIT"
+                        }
+                    },
+                    new()
+                    {
+                        Id = 2,
+                        PropertyId = targetPropertyId,
+                        IsActive = true,
+                        SocialAttributeId = 102,
+                        BitValue = true,
+                        SocialAttribute = new SocialAttributeEntity
+                        {
+                            Id = 102,
+                            SocialAttributeCode = "HAS_PARKING",
+                            DataType = "BIT"
+                        }
+                    },
+                    // Main property attributes (with overlapping "HAS_LIFT")
+                    new()
+                    {
+                        Id = 3,
+                        PropertyId = mainPropertyId,
+                        IsActive = true,
+                        SocialAttributeId = 101,
+                        BitValue = true, // Main property says true, but target property says false
+                        SocialAttribute = new SocialAttributeEntity
+                        {
+                            Id = 101,
+                            SocialAttributeCode = "HAS_LIFT",
+                            DataType = "BIT"
+                        }
+                    },
+                    new()
+                    {
+                        Id = 4,
+                        PropertyId = mainPropertyId,
+                        IsActive = true,
+                        SocialAttributeId = 103,
+                        BitValue = true, // Unique to main property
+                        SocialAttribute = new SocialAttributeEntity
+                        {
+                            Id = 103,
+                            SocialAttributeCode = "HAS_SOLAR",
+                            DataType = "BIT"
+                        }
+                    }
+                }.BuildMockDbSet().Object);
+
+            var sut = CreateService();
+
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(targetPropertyId, 2026);
+
+            // Assert
+            Assert.NotNull(ctx);
+            // Overlapping attribute: partitioned property (targetPropertyId) takes precedence
+            Assert.True(ctx.Parameters.SocialAttributes.ContainsKey("HAS_LIFT"));
+            Assert.Equal(false, ctx.Parameters.SocialAttributes["HAS_LIFT"]);
+
+            // Partitioned property specific attribute
+            Assert.True(ctx.Parameters.SocialAttributes.ContainsKey("HAS_PARKING"));
+            Assert.Equal(true, ctx.Parameters.SocialAttributes["HAS_PARKING"]);
+
+            // Main property specific attribute (inherited)
+            Assert.True(ctx.Parameters.SocialAttributes.ContainsKey("HAS_SOLAR"));
+            Assert.Equal(true, ctx.Parameters.SocialAttributes["HAS_SOLAR"]);
+
+            // SocialAttributeId list should contain all of them (distinct)
+            Assert.Contains(101, ctx.Parameters.SocialAttributeId);
+            Assert.Contains(102, ctx.Parameters.SocialAttributeId);
+            Assert.Contains(103, ctx.Parameters.SocialAttributeId);
+            Assert.Equal(3, ctx.Parameters.SocialAttributeId.Count);
+        }
     }
 }
