@@ -1,4 +1,5 @@
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Asset_Management;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
@@ -107,4 +108,134 @@ public class HardDeleteTests
         // Assert
         Assert.True(property.MarkedForDeletion);
     }
+
+    // ============================================================
+    // AssetAgeFactorCVMasterEntity / AssetNatureFactorCVMasterEntity /
+    // AssetAssessmentYearRangeMasterCVEntity now implement IHardDeletable.
+    // These mirror the PropertyEntity coverage above, exercising the REAL
+    // Repository<T,TKey>.DeleteAsync soft-delete branch (not a mock) so the
+    // IHardDeletable-specific behavior (MarkedForDeletion/MarkedForDeletionDate
+    // set alongside IsActive=false) is actually verified end-to-end.
+    // ============================================================
+
+    #region AssetAgeFactorCVMasterEntity
+
+    [Fact]
+    public void AssetAgeFactorCVMasterEntity_MarkedForDeletion_DefaultsToFalse()
+    {
+        var entity = new AssetAgeFactorCVMasterEntity();
+
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Null(entity.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AssetAgeFactorCVMasterEntity_SetsMarkedForDeletionAndDeactivates()
+    {
+        var context = GetInMemoryDbContext();
+        var repository = new Repository<AssetAgeFactorCVMasterEntity, int>(context);
+
+        var entity = new AssetAgeFactorCVMasterEntity
+        {
+            ConstructionTypeId = 1,
+            AgeFrom = 0,
+            AgeTo = 5,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        };
+
+        await repository.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+
+        var deleted = await context.Set<AssetAgeFactorCVMasterEntity>().FindAsync(entity.Id);
+        Assert.NotNull(deleted); // Still exists — soft deleted, not removed
+        Assert.False(deleted!.IsActive);
+        Assert.True(deleted.MarkedForDeletion);
+        Assert.NotNull(deleted.MarkedForDeletionDate);
+    }
+
+    #endregion
+
+    #region AssetNatureFactorCVMasterEntity
+
+    [Fact]
+    public void AssetNatureFactorCVMasterEntity_MarkedForDeletion_DefaultsToFalse()
+    {
+        var entity = new AssetNatureFactorCVMasterEntity();
+
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Null(entity.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AssetNatureFactorCVMasterEntity_SetsMarkedForDeletionAndDeactivates()
+    {
+        var context = GetInMemoryDbContext();
+        var repository = new Repository<AssetNatureFactorCVMasterEntity, int>(context);
+
+        var entity = new AssetNatureFactorCVMasterEntity
+        {
+            ConstructionTypeId = 1,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        };
+
+        await repository.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+
+        var deleted = await context.Set<AssetNatureFactorCVMasterEntity>().FindAsync(entity.Id);
+        Assert.NotNull(deleted);
+        Assert.False(deleted!.IsActive);
+        Assert.True(deleted.MarkedForDeletion);
+        Assert.NotNull(deleted.MarkedForDeletionDate);
+    }
+
+    #endregion
+
+    #region AssetAssessmentYearRangeMasterCVEntity
+
+    [Fact]
+    public void AssetAssessmentYearRangeMasterCVEntity_MarkedForDeletion_DefaultsToFalse()
+    {
+        var entity = new AssetAssessmentYearRangeMasterCVEntity();
+
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Null(entity.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AssetAssessmentYearRangeMasterCVEntity_SetsMarkedForDeletionAndDeactivates()
+    {
+        var context = GetInMemoryDbContext();
+        var repository = new Repository<AssetAssessmentYearRangeMasterCVEntity, int>(context);
+
+        var entity = new AssetAssessmentYearRangeMasterCVEntity
+        {
+            FromYear = 2000,
+            ToYear = 2005,
+            IsActive = true
+        };
+
+        await repository.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+
+        var deleted = await context.Set<AssetAssessmentYearRangeMasterCVEntity>().FindAsync(entity.Id);
+        Assert.NotNull(deleted);
+        Assert.False(deleted!.IsActive);
+        Assert.True(deleted.MarkedForDeletion);
+        Assert.NotNull(deleted.MarkedForDeletionDate);
+    }
+
+    #endregion
 }

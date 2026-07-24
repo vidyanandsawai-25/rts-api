@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Asset_Management;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.Rules;
 
@@ -166,6 +167,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
+    public DbSet<AssetDesignationEntity> AssetDesignations { get; set; } = null!;
     public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
     public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;
     public DbSet<FieldConfigurationEntity> FieldConfiguration { get; set; } = null!;
@@ -179,6 +181,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
     public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
     public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
+    public DbSet<AssetRoomTypeMasterEntity> AssetRoomTypeMaster { get; set; } = null!;
+    public DbSet<AssetAgeFactorCVMasterEntity> AssetAgeFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetNatureFactorCVMasterEntity> AssetNatureFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetAssessmentYearRangeMasterCVEntity> AssetAssessmentYearRangeMasterCV { get; set; } = null!;
     public DbSet<PropertyAssessmentStatusEntity> PropertyAssessmentStatuses { get; set; } = null!;
     public DbSet<PropertyImagesMastEntity> PropertyImagesMast { get; set; } = null!;
     public DbSet<TaxPendingDetailsArchiveEntity> TaxPendingDetailsArchive { get; set; } = null!;
@@ -197,6 +203,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetFieldDefinitionEntity> AssetFieldDefinitions { get; set; } = null!;
     public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
+    public DbSet<AssetConditionMasterEntity> AssetConditionMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
@@ -4289,6 +4296,44 @@ public class ApplicationDbContext : DbContext
                 .HasConstraintName("FK_AssetTypeMaster_AssetCategoryMaster");
         });
 
+        modelBuilder.Entity<AssetDesignationEntity>(entity =>
+        {
+            entity.ToTable("DesignationMaster", "AMS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.OwningDepartmentId).IsRequired();
+            entity.Property(e => e.DesignationCode).HasMaxLength(50).IsRequired().IsUnicode(false);
+            entity.Property(e => e.DesignationName).HasMaxLength(100).IsRequired().IsUnicode(false);
+            entity.Property(e => e.DesignationLocal).HasMaxLength(150);
+            entity.Property(e => e.DesignationDescription).HasMaxLength(250);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.DesignationCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_DesignationMaster_DesignationCode");
+
+            entity.HasIndex(e => e.DesignationName)
+                .IsUnique()
+                .HasDatabaseName("UQ_DesignationMaster_DesignationName");
+
+            entity.HasOne<OwningDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.OwningDepartmentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_DesignationMaster_OwningDepartmentMaster");
+        });
+
         modelBuilder.Entity<OwningDepartmentEntity>(entity =>
         {
             entity.ToTable("OwningDepartmentMaster", "AMS");
@@ -5130,6 +5175,30 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_AuthorityMaster_AuthorityCode");
         });
 
+        // AssetConditionMaster configuration
+        modelBuilder.Entity<AssetConditionMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetConditionMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConditionCategory).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.CategoryId).IsRequired();
+            entity.Property(e => e.ConditionName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.ConditionFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.ConditionCategory, e.CategoryId, e.ConditionName })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetConditionMaster_CategoryCondition");
+        });
+
         // AssetOrganizationMaster configuration
         modelBuilder.Entity<AssetOrganizationMasterEntity>(entity =>
         {
@@ -5323,6 +5392,152 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
 
+        modelBuilder.Entity<AssetRoomTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetRoomTypeMaster", "AMS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.AssetCategoryId);
+
+            entity.Property(e => e.AssetTypeId)
+                .IsRequired();
+
+            entity.Property(e => e.RoomTypeName)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.RoomTypeCode)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.Property(e => e.CreatedBy);
+
+            entity.Property(e => e.CreatedDate)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy);
+
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => new { e.AssetTypeId, e.RoomTypeName })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetRoomTypeMaster_Asset_RoomTypeName");
+
+            entity.HasIndex(e => new { e.AssetTypeId, e.RoomTypeCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetRoomTypeMaster_Asset_RoomTypeCode");
+
+            entity.HasIndex(e => e.AssetTypeId);
+
+            entity.HasIndex(e => e.IsActive);
+
+            entity.HasOne<AssetTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetRoomTypeMaster_AssetTypeMaster");
+
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetRoomTypeMaster_AssetCategoryMaster");
+        });
+        modelBuilder.Entity<AssetAgeFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("AgeFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_AgeFactorCVMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.AgeFrom).IsRequired();
+            entity.Property(e => e.AgeTo).IsRequired();
+            entity.Property(e => e.Factor).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasIndex(e => new { e.ConstructionTypeId, e.AgeFrom, e.AgeTo, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_AgeFactorCVMaster");
+
+            entity.HasOne<ConstructionTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AgeFactorCVMaster_ConstructionTypeMaster");
+
+            entity.HasOne<AssetAssessmentYearRangeMasterCVEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AgeFactorCVMaster_AssessmentYearRangeMaster");
+        });
+
+        modelBuilder.Entity<AssetNatureFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("NatureFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_NatureFactorCVMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.Factor).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasIndex(e => new { e.ConstructionTypeId, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_NatureFactorCVMaster");
+
+            entity.HasOne<ConstructionTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_NatureFactorCVMaster_ConstructionTypeMaster");
+
+            entity.HasOne<AssetAssessmentYearRangeMasterCVEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_NatureFactorCVMaster_AssessmentYearRangeMaster");
+        });
+
+        modelBuilder.Entity<AssetAssessmentYearRangeMasterCVEntity>(entity =>
+        {
+            entity.ToTable("AssessmentYearRangeMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_AssessmentYearRangeMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FromYear).IsRequired();
+            entity.Property(e => e.ToYear).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+        });
         // SocietyWingDetails configuration
         modelBuilder.Entity<SocietyWingDetailsEntity>(entity =>
         {

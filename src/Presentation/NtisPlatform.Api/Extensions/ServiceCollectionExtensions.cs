@@ -50,6 +50,8 @@ using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
+using NtisPlatform.Application.Services.Asset_Management;
+using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Services.ReportDataProviders;
 
 namespace NtisPlatform.Api.Extensions;
@@ -447,6 +449,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
+        services.AddScoped<IAssetAgeFactorCVService, AssetAgeFactorCVService>();
+        services.AddScoped<IAssetNatureFactorCVService, AssetNatureFactorCVService>();
+        services.AddScoped<IAssetAssessmentYearRangeCVService, AssetAssessmentYearRangeCVService>();
+        services.AddScoped<IAssetDesignationService, AssetDesignationService>();
+        services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
+        services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
         // Rules namespace registrations
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();
