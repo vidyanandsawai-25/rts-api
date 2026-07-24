@@ -211,6 +211,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
     public DbSet<GSTMasterEntity> GSTMaster { get; set; } = null!;
     public DbSet<PenaltyRuleMasterEntity> PenaltyRuleMaster { get; set; } = null!;
+    public DbSet<AssetMoujaMasterEntity> AssetMoujaMaster { get; set; } = null!;
+    public DbSet<AssetSubZoneDetailsForCVEntity> AssetSubZoneDetailsForCVMaster { get; set; } = null!;
+    public DbSet<AssetTypeOfUseGroupEntity> AssetTypeOfUseGroupMaster { get; set; } = null!;
+    public DbSet<AssetTypeOfUseMasterEntity> AssetTypeOfUseMaster { get; set; } = null!;
+    public DbSet<AssetSubTypeOfUseEntity> AssetSubTypeOfUseMaster { get; set; } = null!;
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -5691,5 +5696,149 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_PropertyMapDetail_PropertyMapId_PropertySide_PropertyId_Status");
         });
 
+        // GSTMaster configuration
+        modelBuilder.Entity<GSTMasterEntity>(entity =>
+        {
+            entity.ToTable("GSTMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaxName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.TaxPercentage).HasColumnType("decimal(5,2)").IsRequired();
+            entity.Property(e => e.EffectiveFromDate).HasColumnType("date").IsRequired();
+            entity.Property(e => e.EffectiveToDate).HasColumnType("date").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.TaxCode).IsUnique();
+        });
+
+        // PenaltyRuleMaster configuration
+        modelBuilder.Entity<PenaltyRuleMasterEntity>(entity =>
+        {
+            entity.ToTable("PenaltyRuleMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PenaltyCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GracePeriodDays).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PenaltyCode).IsUnique().HasDatabaseName("UQ_PenaltyRuleMaster_PenaltyCode");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_CalculationType", "([CalculationType]='Percentage' OR [CalculationType]='FlatAmount' OR [CalculationType]='PerDay')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_PenaltyValue", "([PenaltyValue]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_GracePeriodDays", "([GracePeriodDays]>=(0))"));
+        });
+
+        // AssetMoujaMaster configuration
+        modelBuilder.Entity<AssetMoujaMasterEntity>(entity =>
+        {
+            entity.ToTable("MoujaMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.MoujaNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetSubZoneDetailsForCV configuration
+        modelBuilder.Entity<AssetSubZoneDetailsForCVEntity>(entity =>
+        {
+            entity.ToTable("SubZoneDetailsForCV", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.MoujaId).IsRequired();
+            entity.Property(e => e.SubZoneNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SubZoneName).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetTypeOfUseGroup configuration
+        modelBuilder.Entity<AssetTypeOfUseGroupEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseGroupMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeOfUseGroupCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.GroupName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.GroupIcon).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsFloorWiseRateApplicable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetTypeOfUseMaster configuration
+        modelBuilder.Entity<AssetTypeOfUseMasterEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired();
+            entity.Property(e => e.TypeOfUseCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Description).HasMaxLength(100).IsRequired(false);
+            entity.Property(e => e.Type).HasMaxLength(5).IsRequired(false);
+            entity.Property(e => e.TypeOfUseGroupId).IsRequired(false);
+            entity.Property(e => e.SearchSequence).IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetSubTypeOfUse configuration
+        modelBuilder.Entity<AssetSubTypeOfUseEntity>(entity =>
+        {
+            entity.ToTable("SubTypeOfUseMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeOfUseId).IsRequired();
+            entity.Property(e => e.Description).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SearchSequence).IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
     }
 }

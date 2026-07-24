@@ -468,6 +468,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetOrganizationMasterService, AssetOrganizationMasterService>();
         services.AddScoped<IGSTService, GSTService>();
         services.AddScoped<IPenaltyRuleService, PenaltyRuleService>();
+        services.AddScoped<IAssetMoujaService, AssetMoujaService>();
+        services.AddScoped<IAssetSubZoneDetailsForCVService, AssetSubZoneDetailsForCVService>();
+        services.AddScoped<IAssetTypeOfUseGroupService, AssetTypeOfUseGroupService>();
+        services.AddScoped<IAssetTypeOfUseService, AssetTypeOfUseService>();
+        services.AddScoped<IAssetSubTypeOfUseService, AssetSubTypeOfUseService>();
 
 
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
