@@ -163,7 +163,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
 
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
-                                 join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
+                                 join pt in _context.PropertyTypeMasters.AsNoTracking() on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
                                        (normalizedPartitionNo == null || (pm.PartitionNo != null && 
@@ -180,36 +180,26 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (propertyIds == null || !propertyIds.Any())
             return null;
 
-        var taxData = await (from tmrv in _context.TransMast
-                             join tm in _context.TaxMaster on tmrv.TaxId equals tm.Id
-                             join ym in _context.YearMaster on tmrv.FinanceYearId equals ym.Id
-                             where propertyIds.Contains(tmrv.PropertyId)
-                                && tmrv.CalculationType == "RV"
-                                && tmrv.IsActive && !tmrv.MarkedForDeletion
-                                && tm.IsActive
-                                && ym.IsActive
-                             orderby tm.DisplayOrder
-                             select new
-                             {
-                                 TaxName = tm.TaxName,
-                                 TaxAmount = tmrv.TaxAmount,
-                                 DisplayOrder = tm.DisplayOrder
-                             })
-                            .ToListAsync(cancellationToken);
+        var taxAmountList = await (from tmrv in _context.TransMast.AsNoTracking()
+                                   join tm in _context.TaxMaster.AsNoTracking() on tmrv.TaxId equals tm.Id
+                                   join ym in _context.YearMaster.AsNoTracking() on tmrv.FinanceYearId equals ym.Id
+                                   where propertyIds.Contains(tmrv.PropertyId)
+                                      && tmrv.CalculationType == "RV"
+                                      && tmrv.IsActive && !tmrv.MarkedForDeletion
+                                      && tm.IsActive
+                                      && ym.IsActive
+                                   group tmrv by new { tm.TaxName, tm.DisplayOrder } into g
+                                   orderby g.Key.DisplayOrder
+                                   select new TaxAmountDto
+                                   {
+                                       TaxName = g.Key.TaxName,
+                                       TaxAmount = g.Sum(x => x.TaxAmount),
+                                       DisplayOrder = g.Key.DisplayOrder
+                                   })
+                                  .ToListAsync(cancellationToken);
 
-        if (!taxData.Any())
+        if (!taxAmountList.Any())
             return null;
-
-        var taxAmountList = taxData
-            .GroupBy(x => new { x.TaxName, x.DisplayOrder })
-            .Select(g => new TaxAmountDto
-            {
-                TaxName = g.Key.TaxName,
-                TaxAmount = g.Sum(x => x.TaxAmount),
-                DisplayOrder = g.Key.DisplayOrder
-            })
-            .OrderBy(x => x.DisplayOrder)
-            .ToList();
 
         return new PropertyTaxApartmentDetailsDto
         {
@@ -233,7 +223,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var isPartitionInWingList = normalizedPartitionNo != null && totalwingList.Contains(normalizedPartitionNo);
 
         var propertyIds = await (from pm in _context.PropertyMast.AsNoTracking()
-                                 join pt in _context.PropertyTypeMasters on pm.PropertyTypeId equals pt.Id
+                                 join pt in _context.PropertyTypeMasters.AsNoTracking() on pm.PropertyTypeId equals pt.Id
                                  where (dto.WardId == null || pm.WardId == dto.WardId) &&
                                        (normalizedPropertyNo == null || (pm.PropertyNo != null && pm.PropertyNo.ToLower().Contains(normalizedPropertyNo))) &&
                                        (normalizedPartitionNo == null || (pm.PartitionNo != null && 
@@ -250,35 +240,26 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (propertyIds == null || !propertyIds.Any())
             return null;
 
-        var taxData = await (from tmcv in _context.TransMastCV
-                             join tm in _context.TaxMaster on tmcv.TaxId equals tm.Id
-                             join ym in _context.YearMaster on tmcv.FinanceYearId equals ym.Id
-                             where propertyIds.Contains(tmcv.PropertyId)
-                                && tmcv.IsActive && !tmcv.MarkedForDeletion
-                                && tm.IsActive
-                                && ym.IsActive
-                             orderby tm.DisplayOrder
-                             select new
-                             {
-                                 TaxName = tm.TaxName,
-                                 TaxAmount = tmcv.TaxAmount,
-                                 DisplayOrder = tm.DisplayOrder
-                             })
-                            .ToListAsync(cancellationToken);
+        var taxAmountList = await (from tmcv in _context.TransMast.AsNoTracking()
+                                   join tm in _context.TaxMaster.AsNoTracking() on tmcv.TaxId equals tm.Id
+                                   join ym in _context.YearMaster.AsNoTracking() on tmcv.FinanceYearId equals ym.Id
+                                   where propertyIds.Contains(tmcv.PropertyId)
+                                      && tmcv.CalculationType == "CV"
+                                      && tmcv.IsActive && !tmcv.MarkedForDeletion
+                                      && tm.IsActive
+                                      && ym.IsActive
+                                   group tmcv by new { tm.TaxName, tm.DisplayOrder } into g
+                                   orderby g.Key.DisplayOrder
+                                   select new TaxAmountDto
+                                   {
+                                       TaxName = g.Key.TaxName,
+                                       TaxAmount = g.Sum(x => x.TaxAmount),
+                                       DisplayOrder = g.Key.DisplayOrder
+                                   })
+                                  .ToListAsync(cancellationToken);
 
-        if (!taxData.Any())
+        if (!taxAmountList.Any())
             return null;
-
-        var taxAmountList = taxData
-            .GroupBy(x => new { x.TaxName, x.DisplayOrder })
-            .Select(g => new TaxAmountDto
-            {
-                TaxName = g.Key.TaxName,
-                TaxAmount = g.Sum(x => x.TaxAmount),
-                DisplayOrder = g.Key.DisplayOrder
-            })
-            .OrderBy(x => x.DisplayOrder)
-            .ToList();
 
         return new PropertyTaxApartmentDetailsCVDto
         {

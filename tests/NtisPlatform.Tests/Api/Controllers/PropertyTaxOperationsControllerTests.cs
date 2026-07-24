@@ -53,10 +53,10 @@ public class PropertyTaxOperationsControllerTests
     public async Task Init_ReturnsOkResult_WithInitDto()
     {
         var dto = new OperationsInitDto();
-        _mockService.Setup(s => s.GetInitAsync(1, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetInitAsync(1, It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(dto);
 
-        var result = await _controller.Init(CancellationToken.None);
+        var result = await _controller.Init(null, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(dto, okResult.Value);

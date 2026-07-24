@@ -15,6 +15,8 @@ public class FinanceYearOptionDto
 
     /// <summary>Display label, e.g. "2025-26".</summary>
     public string Label { get; set; } = string.Empty;
+
+    public bool IsActive { get; set; }
 }
 
 public class OperationPermissionsDto

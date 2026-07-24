@@ -20,6 +20,13 @@ public class OperationScopeDto
     public List<string>? Building { get; set; }
     public string? FromPropertyNo { get; set; }
     public string? ToPropertyNo { get; set; }
+
+    /// <summary>
+    /// Optional partition numbers to narrow selection within Building or Range scopes.
+    /// Supports single or multiple values (alphanumeric). Null means all partitions are included.
+    /// </summary>
+    public List<string>? PartitionNos { get; set; }
+
     public List<int>? PropertyIds { get; set; }
 
     /// <summary>Free-text search for Property-Wise scope (mobile / UPIC).</summary>

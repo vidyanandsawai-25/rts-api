@@ -42,8 +42,15 @@ public class PropertyTaxOperationsServiceTests
 
         _wardRepo.Setup(r => r.GetQueryable()).Returns(new List<WardEntity>().BuildMock());
         _zoneRepo.Setup(r => r.GetQueryable()).Returns(new List<ZoneEntity>().BuildMock());
+        var mockYears = new List<YearMasterEntity>
+        {
+            new() { Id = 1, Year = 2025, YearCode = "2025-26", IsActive = true, StartDate = new DateTime(2025, 4, 1), EndDate = new DateTime(2026, 3, 31) },
+            new() { Id = 2, Year = 2026, YearCode = "2026-27", IsActive = false, StartDate = new DateTime(2026, 4, 1), EndDate = new DateTime(2027, 3, 31) }
+        };
+        _yearMasterRepo.Setup(r => r.GetQueryable()).Returns(mockYears.BuildMock());
+
         _yearMasterRepo.Setup(r => r.GetByIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((int id, CancellationToken ct) => new YearMasterEntity { Id = id, Year = id == 1 ? 2025 : 2026, YearCode = id == 1 ? "2025-26" : "2026-27" });
+            .ReturnsAsync((int id, CancellationToken ct) => mockYears.FirstOrDefault(y => y.Id == id) ?? new YearMasterEntity { Id = id, Year = 2026, YearCode = "2026-27", IsActive = false, StartDate = new DateTime(2026, 4, 1), EndDate = new DateTime(2027, 3, 31) });
         
         var mockSection = new Mock<IConfigurationSection>();
         mockSection.Setup(s => s.Value).Returns((string?)null);
@@ -75,6 +82,7 @@ public class PropertyTaxOperationsServiceTests
         MarkedForDeletion = false,
         PropertyNo = $"PROP-{id:D8}",
         OwnerName = $"Owner {id}",
+        CreatedDate = new DateTime(2025, 5, 1)
     };
 
     [Fact]
@@ -343,5 +351,41 @@ public class PropertyTaxOperationsServiceTests
         job.SuccessCount.Should().Be(1);
         job.SkippedCount.Should().Be(0);
         job.RecordsProcessed.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task WritePropertiesCsvToStreamAsync_WritesCorrectEncodingAndBom()
+    {
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyNo = "P1", OwnerName = "Owner1", IsActive = true, MarkedForDeletion = false, WardId = 1, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var zones = new List<ZoneEntity>
+        {
+            new() { Id = 1, ZoneNo = "Z1", Description = "उथळसर" }
+        };
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 1, ZoneId = 1, Description = "Ward1" }
+        };
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _zoneRepo.Setup(r => r.GetQueryable()).Returns(zones.BuildMock());
+        _wardRepo.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyDetailsEntity>().BuildMock());
+
+        var service = CreateService();
+        using var ms = new System.IO.MemoryStream();
+        await service.WritePropertiesCsvToStreamAsync(ms, "all", null, CancellationToken.None);
+
+        var bytes = ms.ToArray();
+        // The first 3 bytes should be the UTF-8 BOM
+        bytes[0].Should().Be(0xEF);
+        bytes[1].Should().Be(0xBB);
+        bytes[2].Should().Be(0xBF);
+
+        var text = System.Text.Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
+        text.Should().Contain("उथळसर");
     }
 }

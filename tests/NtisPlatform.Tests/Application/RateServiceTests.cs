@@ -1009,7 +1009,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var typeOfUses = new List<TypeOfUseEntity>
             {
-                new() { Id = 1, TypeOfUseCode = "OP", Description = "Open Plot", TypeOfUseGroupId = 10, IsActive = true },
+                new() { Id = 1, TypeOfUseCode = "OP", Description = "Open Plot", TypeOfUseGroupId = 10, TypeOfUseCategoryId = 100, IsActive = true },
                 new() { Id = 2, TypeOfUseCode = "RES", Description = "Residential", TypeOfUseGroupId = 20, IsActive = true }
             };
 
