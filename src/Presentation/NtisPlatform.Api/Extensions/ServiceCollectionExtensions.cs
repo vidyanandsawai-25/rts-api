@@ -473,6 +473,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetTypeOfUseGroupService, AssetTypeOfUseGroupService>();
         services.AddScoped<IAssetTypeOfUseService, AssetTypeOfUseService>();
         services.AddScoped<IAssetSubTypeOfUseService, AssetSubTypeOfUseService>();
+        services.AddScoped<IAssetFloorFactorCVService, AssetFloorFactorCVService>();
+        services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
 
 
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)

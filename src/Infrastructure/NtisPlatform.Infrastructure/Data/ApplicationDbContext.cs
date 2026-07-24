@@ -216,6 +216,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetTypeOfUseGroupEntity> AssetTypeOfUseGroupMaster { get; set; } = null!;
     public DbSet<AssetTypeOfUseMasterEntity> AssetTypeOfUseMaster { get; set; } = null!;
     public DbSet<AssetSubTypeOfUseEntity> AssetSubTypeOfUseMaster { get; set; } = null!;
+    public DbSet<AssetFloorFactorCVEntity> AssetFloorFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetPhotoTypeEntity> AssetPhotoTypeMaster { get; set; } = null!;
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -5839,6 +5841,54 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
             entity.Property(e => e.UpdatedBy).IsRequired(false);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetFloorFactorCV configuration
+        modelBuilder.Entity<AssetFloorFactorCVEntity>(entity =>
+        {
+            entity.ToTable("FloorFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FloorId).IsRequired();
+            entity.Property(e => e.FactorWithLift).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.FactorWithoutLift).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => new { e.FloorId, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_AMS_FloorFactorCVMaster");
+        });
+
+        // AssetPhotoType configuration
+        modelBuilder.Entity<AssetPhotoTypeEntity>(entity =>
+        {
+            entity.ToTable("AssetPhotoType", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PhotoTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PhotoTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(250).IsRequired(false);
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+            entity.Property(e => e.AssetCategoryId).IsRequired(false);
+            entity.Property(e => e.AssetTypeId).IsRequired(false);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsSubUnit).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PhotoTypeCode)
+                .IsUnique().HasDatabaseName("UQ_AMS_AssetPhotoType_Code");
         });
     }
 }

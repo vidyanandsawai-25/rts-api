@@ -117,7 +117,8 @@ public class ReferenceValidationService : IReferenceValidationService
             ("Asset Type Master", (ctx, id) => ctx.Set<AssetTypeEntity>().Where(a => a.AssetCategoryId == id && !a.MarkedForDeletion).Cast<object>()),
             ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetCategoryId == id && !d.MarkedForDeletion).Cast<object>()),
             ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetCategoryId == id && !f.MarkedForDeletion).Cast<object>()),
-            ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetCategoryId == id && !u.MarkedForDeletion).Cast<object>())
+            ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetCategoryId == id && !u.MarkedForDeletion).Cast<object>()),
+            ("Asset Photo Type Master", (ctx, id) => ctx.Set<AssetPhotoTypeEntity>().Where(p => p.AssetCategoryId == id && !p.MarkedForDeletion).Cast<object>())
         );
         // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
         config.ForEntity<InventoryItemCategoryEntity>()
@@ -160,7 +161,8 @@ public class ReferenceValidationService : IReferenceValidationService
         .CheckReferences(
             ("Asset Document Definition", (ctx, id) => ctx.AssetDocumentDefinitions.Where(d => d.AssetTypeId == id && !d.MarkedForDeletion).Cast<object>()),
             ("Asset Field Definition", (ctx, id) => ctx.AssetFieldDefinitions.Where(f => f.AssetTypeId == id && !f.MarkedForDeletion).Cast<object>()),
-            ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetTypeId == id && !u.MarkedForDeletion).Cast<object>())
+            ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetTypeId == id && !u.MarkedForDeletion).Cast<object>()),
+            ("Asset Photo Type Master", (ctx, id) => ctx.Set<AssetPhotoTypeEntity>().Where(p => p.AssetTypeId == id && !p.MarkedForDeletion).Cast<object>())
         );
 
         config.ForEntity<AssetAuthorityMasterEntity>()
@@ -196,6 +198,12 @@ public class ReferenceValidationService : IReferenceValidationService
             .CheckReferences(
                 ("Asset SubType Of Use Master", (ctx, id) => ctx.AssetSubTypeOfUseMaster.Where(d => d.TypeOfUseId == id && !d.MarkedForDeletion).Cast<object>())
             );
+
+        config.ForEntity<AssetFloorFactorCVEntity>()
+            .CheckReferences();
+
+        config.ForEntity<AssetPhotoTypeEntity>()
+            .CheckReferences();
 
         _referenceConfig = config.Build();
     }
