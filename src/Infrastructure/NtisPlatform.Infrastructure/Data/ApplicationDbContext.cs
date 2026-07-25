@@ -80,6 +80,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
+    public DbSet<OwnerTitleMasterEntity> OwnerTitleMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;

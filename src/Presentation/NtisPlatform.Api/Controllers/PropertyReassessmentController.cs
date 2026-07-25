@@ -7,8 +7,17 @@ using NtisPlatform.Application.Models;
 namespace NtisPlatform.Api.Controllers;
 
 /// <summary>
-/// Serves the read-only "Property Re-Assessment" screen: for a single property it returns the
-/// old-vs-new photos, floor details and tax-head summary.
+/// Serves the read-only "Property Re-Assessment" screen with support for complex property mapping scenarios.
+///
+/// For a single new (current) property, resolves all mapped old properties via PropertyMapMaster/PropertyMapDetail
+/// and returns old-vs-new photos, floor details, and tax-head summary.
+///
+/// Supports all mapping categories:
+/// - ONE_TO_ONE: 1 old property ↔ 1 new property
+/// - SPLIT: 1 old property → multiple new properties (sibling new properties visible)
+/// - MERGE: multiple old properties → 1 new property (old data aggregated)
+/// - MAP: general/manual mappings (0, 1, or many old properties)
+///
 /// Clean-architecture replacement for the legacy single-property re-assessment SQL script.
 /// </summary>
 [ApiController]
@@ -30,9 +39,30 @@ public class PropertyReassessmentController : ControllerBase
         _environment = environment;
     }
 
-    // GET api/PropertyReassessment?wardId=&propertyNo=&partitionNo=
+    /// <summary>
+    /// GET api/PropertyReassessment
+    ///
+    /// Retrieve complete property re-assessment data (old vs new) for a single new property.
+    /// The search always starts with a new (current) property identified by Ward + PropertyNo (+ optional PartitionNo).
+    /// Old properties are discovered via PropertyMapMaster/PropertyMapDetail mappings.
+    ///
+    /// Response includes:
+    /// - PropertyId: the new (current) property ID
+    /// - OldPropertyIds: list of mapped old property IDs (0 to many depending on mapping category)
+    /// - SiblingNewPropertyIds: other new properties in the same mapping group (populated for SPLIT scenarios)
+    /// - Mappings: the full mapping group details for client context (includes mapping category, tax/area share %, status)
+    /// - Photos: latest new and old plan/property photos
+    /// - NewFloorDetails: current survey floor-wise data
+    /// - OldFloorDetails: historical floor-wise data from all mapped old properties (each row tagged with PropertyIdOld)
+    /// - TaxSummary: per-tax-head old vs new amounts (old aggregated across all mapped properties)
+    /// </summary>
+    /// <param name="query">Search parameters: WardId (required), PropertyNo (required), PartitionNo (optional)</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>PropertyReassessmentDto with all old-vs-new comparison data</returns>
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<PropertyReassessmentDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Get([FromQuery] PropertyReassessmentQueryParameters query, CancellationToken ct)
     {
         if (!ModelState.IsValid)

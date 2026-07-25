@@ -371,6 +371,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
+        services.AddScoped<IOwnerTitleService, OwnerTitleService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
         services.AddScoped<IPropertySocialDetailsService, PropertySocialDetailsService>();
 
