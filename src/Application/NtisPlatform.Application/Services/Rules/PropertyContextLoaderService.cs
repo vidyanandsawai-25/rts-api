@@ -47,6 +47,7 @@ namespace NtisPlatform.Application.Services.Rules
         private const int FirstFloorSequenceThreshold = 12;
 
         private readonly IRepository<PropertyEntity, int> _propertyRepo;
+        private readonly IRepository<PropertyCategoryEntity, int> _categoryRepo;
         private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepo;
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
@@ -62,6 +63,7 @@ namespace NtisPlatform.Application.Services.Rules
 
         public PropertyContextLoaderService(
             IRepository<PropertyEntity, int> propertyRepo,
+            IRepository<PropertyCategoryEntity, int> categoryRepo,
             IRepository<PropertyDetailsEntity, int> propertyDetailsRepo,
             IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepo,
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
@@ -75,6 +77,7 @@ namespace NtisPlatform.Application.Services.Rules
             ILogger<PropertyContextLoaderService> logger)
         {
             _propertyRepo = propertyRepo;
+            _categoryRepo = categoryRepo;
             _propertyDetailsRepo = propertyDetailsRepo;
             _propertyAssessmentRepo = propertyAssessmentRepo;
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
@@ -100,14 +103,27 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Phase 1: Core Property Fetch ──────────────────────────────────────
 
-            var property = await _propertyRepo.GetQueryable()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion,
-                    cancellationToken);
+            var propertyWithCategory = await (
+                from p in _propertyRepo.GetQueryable().AsNoTracking()
+                join c in _categoryRepo.GetQueryable().AsNoTracking() on p.CategoryId equals c.Id into categoryJoin
+                from c in categoryJoin.DefaultIfEmpty()
+                where p.Id == propertyId && p.IsActive && !p.MarkedForDeletion
+                select new 
+                { 
+                    Property = p, 
+                    CategoryName = c != null ? c.PropertyCategoryName : null 
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
-            if (property == null)
+            if (propertyWithCategory == null)
                 throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
+
+            var property = propertyWithCategory.Property;
+            var categoryName = propertyWithCategory.CategoryName;
+
+            bool isApartmentOrIndustry = categoryName != null && (
+                categoryName.Equals("Apartment", StringComparison.OrdinalIgnoreCase) ||
+                categoryName.Equals("Industry", StringComparison.OrdinalIgnoreCase));
 
             // ── Phase 2: Sequential Fetch of child details ───────────────────────────
 
@@ -119,9 +135,9 @@ namespace NtisPlatform.Application.Services.Rules
 
             // Gather all property IDs to fetch social attributes from:
             // 1. Current property (could be partitioned)
-            // 2. Main property (same PropertyNo and WardId, but with no partition)
+            // 2. Main property (same PropertyNo and WardId, but with no partition) - ONLY if category is Apartment or Industry
             var targetPropertyIds = new List<int> { propertyId };
-            if (!string.IsNullOrWhiteSpace(property.PropertyNo))
+            if (isApartmentOrIndustry && !string.IsNullOrWhiteSpace(property.PropertyNo))
             {
                 var mainPropertyId = await _propertyRepo.GetQueryable()
                     .AsNoTracking()
@@ -269,8 +285,10 @@ namespace NtisPlatform.Application.Services.Rules
             // ── Phase 6: Assemble and return the context ───────────────────────────
 
             // Calculate building's max floor sequence number across all related properties in the same building (single optimized query)
+            // Only search related properties in the building if category is Apartment or Industry.
+            // Otherwise, go with the provided propertyId.
             IQueryable<int> propertyIdsQuery;
-            if (!string.IsNullOrWhiteSpace(property.PropertyNo))
+            if (isApartmentOrIndustry && !string.IsNullOrWhiteSpace(property.PropertyNo))
             {
                 propertyIdsQuery = _propertyRepo.GetQueryable()
                     .AsNoTracking()
