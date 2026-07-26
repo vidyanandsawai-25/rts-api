@@ -13,6 +13,12 @@ public class ReassessmentFloorDto
     /// <summary>"Unchanged" (same floor in both), "Added" (new survey only), or "Removed" (old registration only).</summary>
     public string ChangeStatus { get; set; } = string.Empty;
 
+    /// <summary>
+    /// For OLD rows only: the source old property ID (populated for MERGE scenarios to allow grouping
+    /// floor details by which old property they came from). Null for NEW rows.
+    /// </summary>
+    public int? PropertyIdOld { get; set; }
+
     // ── Common columns (both new and old) ──────────────────────────────────
     public string? FloorCode { get; set; }
     public string? ConstructionCode { get; set; }
@@ -44,4 +50,11 @@ public class ReassessmentFloorDto
     public double? MonthlyRate { get; set; }
     public double? YearlyRate { get; set; }
     public double? YearlyRent { get; set; }
+
+    // ── Certificates (separate fields for each type) ——————————————————————
+    public string? OCCertificateNo { get; set; }
+    public DateTime? OCCertificateIssueDate { get; set; }
+
+    public string? CCCertificateNo { get; set; }
+    public DateTime? CCCertificateIssueDate { get; set; }
 }

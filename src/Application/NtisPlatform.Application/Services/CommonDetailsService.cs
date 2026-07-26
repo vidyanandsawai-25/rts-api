@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.CommonDetails;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services.CommonDetails;
 using NtisPlatform.Core.Entities;
@@ -32,6 +33,7 @@ public class CommonDetailsService : ICommonDetailsService
     private readonly IRepository<SocietyDetailsEntity> _societyRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDynamicEntityLoader _entityLoader;
+    private readonly IPropertySearchService _propertySearchService;
     private readonly ILogger<CommonDetailsService> _logger;
 
     public CommonDetailsService(
@@ -43,6 +45,7 @@ public class CommonDetailsService : ICommonDetailsService
         IRepository<SocietyDetailsEntity> societyRepo,
         IUnitOfWork unitOfWork,
         IDynamicEntityLoader entityLoader,
+        IPropertySearchService propertySearchService,
         ILogger<CommonDetailsService> logger)
     {
         _masterRepo = masterRepo;
@@ -53,6 +56,7 @@ public class CommonDetailsService : ICommonDetailsService
         _societyRepo = societyRepo;
         _unitOfWork = unitOfWork;
         _entityLoader = entityLoader;
+        _propertySearchService = propertySearchService;
         _logger = logger;
     }
 
@@ -128,16 +132,29 @@ public class CommonDetailsService : ICommonDetailsService
         return columns;
     }
 
+    /// <summary>
+    /// Resolves the bulk-update target table and its configured, whitelisted field names for a
+    /// given <paramref name="updateCode"/> - shared by <see cref="FilterPropertiesAsync"/> and
+    /// <see cref="FilterPropertiesByCategoryAsync"/>, which differ only in how they select the
+    /// candidate properties, not in how they resolve/whitelist the preview columns.
+    /// </summary>
+    private async Task<(string TargetTable, List<string> SafeColumns)> ResolveUpdateCodeContextAsync(
+        string updateCode, CancellationToken ct)
+    {
+        var master = await _masterRepo.GetQueryable()
+            .FirstOrDefaultAsync(m => m.UpdateCode == updateCode && m.IsActive, ct)
+            ?? throw new ArgumentException($"Update type '{updateCode}' not found.");
+
+        var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
+        var safeColumns = fieldConfigs.Select(f => f.FieldName).ToList();
+
+        return (master.ReferenceTableName, safeColumns);
+    }
+
     public async Task<PagedResult<PropertyPreviewDto>> FilterPropertiesAsync(
         FilterPropertiesRequestDto request, CancellationToken ct)
     {
-        var master = await _masterRepo.GetQueryable()
-            .FirstOrDefaultAsync(m => m.UpdateCode == request.UpdateCode && m.IsActive, ct)
-            ?? throw new ArgumentException($"Update type '{request.UpdateCode}' not found.");
-
-        var fieldConfigs = await GetFormFieldsAsync(request.UpdateCode, ct);
-        var safeColumns = fieldConfigs.Select(f => f.FieldName).ToList();
-        var targetTable = master.ReferenceTableName;
+        var (targetTable, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
 
         var query = _propertyRepo.GetQueryable()
             .Where(pm => pm.WardId == request.WardId);
@@ -193,6 +210,60 @@ public class CommonDetailsService : ICommonDetailsService
         }).ToList();
 
         return new PagedResult<PropertyPreviewDto>(items, totalCount, request.PageNumber, request.PageSize);
+    }
+
+    /// <summary>
+    /// Same preview/current-values behavior as <see cref="FilterPropertiesAsync"/>, but selects the
+    /// candidate properties via the shared SearchCategory scoping model (Zone/Ward/Building/Range -
+    /// see <see cref="PropertySearchByCategoryQueryParameters"/>) instead of the flat Ward+range
+    /// filter - delegated entirely to <see cref="IPropertySearchService.SearchByCategoryAsync"/>,
+    /// which owns SearchCategory validation (throws <see cref="Exceptions.PropertyValidationException"/>)
+    /// and natural-sort pagination, the same way <c>LockUnlockService.GetPropertyLocksByCategoryAsync</c> does.
+    /// </summary>
+    public async Task<PagedResult<PropertyPreviewDto>> FilterPropertiesByCategoryAsync(
+        FilterPropertiesByCategoryRequestDto request, CancellationToken ct)
+    {
+        var (targetTable, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
+
+        var searchResult = await _propertySearchService.SearchByCategoryAsync(request, ct);
+        var propertyIds = searchResult.Items.Select(p => p.PropertyId).ToList();
+
+        var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
+            && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+
+        // When the target table IS PropertyMast, current values must come from the full
+        // PropertyEntity row - PropertySearchByCategoryResponseDto only carries a narrow projection
+        // (Zone/Ward/PartType/Category/etc.), not every bulk-update-configurable field. Unlike
+        // FilterPropertiesAsync (whose own paged query already returns the full entity), this path
+        // has to load it separately, keyed by the resolved PropertyIds.
+        var propertyEntitiesById = isPropertyMast
+            ? await _propertyRepo.GetQueryable()
+                .Where(pm => propertyIds.Contains(pm.Id))
+                .ToDictionaryAsync(pm => pm.Id, ct)
+            : new Dictionary<int, PropertyEntity>();
+
+        var relatedEntities = isPropertyMast
+            ? new Dictionary<int, object>()
+            : await LoadTargetEntitiesAsync(targetTable, propertyIds, ct);
+
+        var items = searchResult.Items.Select(p =>
+        {
+            var dto = new PropertyPreviewDto
+            {
+                Id = p.PropertyId,
+                WardNo = p.WardNo ?? string.Empty,
+                PropertyNo = p.PropertyNo ?? string.Empty,
+                PartitionNo = p.PartitionNo ?? string.Empty,
+            };
+            object? source = isPropertyMast
+                ? propertyEntitiesById.GetValueOrDefault(p.PropertyId)
+                : relatedEntities.GetValueOrDefault(p.PropertyId);
+            if (source != null)
+                PopulateCurrentValues(dto, source, safeColumns);
+            return dto;
+        }).ToList();
+
+        return new PagedResult<PropertyPreviewDto>(items, searchResult.TotalCount, searchResult.PageNumber, searchResult.PageSize);
     }
 
     /// <summary>

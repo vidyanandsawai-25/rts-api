@@ -27,4 +27,9 @@ public interface IFieldRegistryService
         bool isActive,
         int? updatedBy,
         CancellationToken cancellationToken = default);
+
+    Task<FieldRegistryResponseDto?> UpdateFieldRegistryAsync(
+        string updateCode,
+        UpdateFieldRegistryDto updateDto,
+        CancellationToken cancellationToken = default);
 }

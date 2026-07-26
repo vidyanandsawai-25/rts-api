@@ -47,6 +47,9 @@ public partial class PropertyService
     private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
     private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
+    private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
+
 
     public PropertyService(
         IRepository<PropertyEntity, int> repository,
@@ -65,6 +68,8 @@ public partial class PropertyService
         IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<UserEntity, int> userRepository,
+        IRepository<PropertyMastOldEntity, int> propertyOldRepository,
+        IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
@@ -82,6 +87,8 @@ public partial class PropertyService
         _userRepository = userRepository;
         _propertyMapMasterRepository = propertyMapMasterRepository;
         _propertyMapDetailRepository = propertyMapDetailRepository;
+        _propertyOldRepository = propertyOldRepository;
+        _propertyTypeRepository = propertyTypeRepository;
     }
 
 
@@ -809,4 +816,6 @@ public partial class PropertyService
         }
     }
 
+
+   
 }

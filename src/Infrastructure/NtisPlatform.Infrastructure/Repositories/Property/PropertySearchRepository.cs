@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
@@ -23,12 +24,16 @@ public class PropertySearchRepository : IPropertySearchRepository
     private const string AssessedStatusName = "ASSESSED";
     private const string UnassessedStatusName = "UNASSESSED";
 
+    private const int SuggestionCacheDurationMinutes = 5;
+
     private readonly ApplicationDbContext _context;
+    private readonly IMemoryCache _cache;
     private string[]? _cachedValuationMethods;
 
-    public PropertySearchRepository(ApplicationDbContext context)
+    public PropertySearchRepository(ApplicationDbContext context, IMemoryCache cache)
     {
         _context = context;
+        _cache = cache;
     }
 
     /// <summary>
@@ -1331,6 +1336,73 @@ public class PropertySearchRepository : IPropertySearchRepository
         }
 
         return await query.Select(x => x.Property.Id).ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// The full active-property candidate set for one ward, cached so the LIKE-style suggestion
+    /// filtering below never re-queries the database while its cache entry is warm. This is the
+    /// only DB round trip <see cref="GetPropertySuggestionsAsync"/> makes; every filtered keystroke
+    /// against an already-cached ward is answered entirely in memory.
+    /// </summary>
+    private async Task<List<PropertySuggestionDto>> GetWardPropertyLookupAsync(int wardId, CancellationToken cancellationToken)
+    {
+        var cacheKey = $"PropWiseSuggest_Ward_{wardId}";
+
+        if (_cache.TryGetValue(cacheKey, out List<PropertySuggestionDto>? cached) && cached != null)
+            return cached;
+
+        // ZoneId/ZoneNo/WardNo are the same for every row (one ward), so they're resolved once here
+        // instead of joining WardMaster/ZoneMaster per property row below.
+        var ward = await _context.WardMaster.AsNoTracking()
+            .Where(w => w.Id == wardId)
+            .Select(w => new { w.WardNo, w.ZoneId, ZoneNo = w.Zone != null ? w.Zone.ZoneNo : null })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // Ward-scoped: WardId is the leading column of the UQ_Property_Ward_Property_Partition
+        // index, so this equality predicate can still use it for a seek even though that index is
+        // filtered/unique - confirm with a DBA if this ever shows up as a scan in practice, since
+        // this repo's schema is managed outside EF migrations (see ApplicationDbContext remarks).
+        var rows = await _context.PropertyMast.AsNoTracking()
+            .Where(p => p.WardId == wardId && p.IsActive && !p.MarkedForDeletion)
+            .Select(p => new PropertySuggestionDto
+            {
+                PropertyId = p.Id,
+                ZoneId = ward != null ? ward.ZoneId : 0,
+                ZoneNo = ward != null ? ward.ZoneNo : null,
+                WardId = p.WardId,
+                WardNo = ward != null ? ward.WardNo : null,
+                PropertyNo = p.PropertyNo,
+                PartitionNo = p.PartitionNo,
+                UpicId = p.UPICId,
+                DisplayLabel = p.PartitionNo == null || p.PartitionNo == string.Empty
+                    ? (p.PropertyNo ?? string.Empty)
+                    : $"{p.PropertyNo}-{p.PartitionNo}"
+            })
+            .ToListAsync(cancellationToken);
+
+        _cache.Set(cacheKey, rows, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(SuggestionCacheDurationMinutes),
+            Size = 1
+        });
+
+        return rows;
+    }
+
+    public async Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults, CancellationToken cancellationToken = default)
+    {
+        var candidates = await GetWardPropertyLookupAsync(wardId, cancellationToken);
+
+        IEnumerable<PropertySuggestionDto> results = candidates;
+
+        if (!string.IsNullOrWhiteSpace(propertyNo))
+            results = results.Where(x => x.PropertyNo != null && x.PropertyNo.Contains(propertyNo, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(partitionNo))
+            results = results.Where(x => x.PartitionNo != null && x.PartitionNo.Contains(partitionNo, StringComparison.OrdinalIgnoreCase));
+
+        return results.Take(maxResults).ToList();
     }
 
     /// <summary>

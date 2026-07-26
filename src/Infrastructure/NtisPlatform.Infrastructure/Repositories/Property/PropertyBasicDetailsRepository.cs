@@ -174,7 +174,7 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             .Select(id => id!.Value)
             .ToList();
 
-        if (mainResult.Property.PropertyMastOldId.HasValue && !oldPropertyIds.Contains(mainResult.Property.PropertyMastOldId.Value))
+        if (!oldPropertyIds.Any() && mainResult.Property.PropertyMastOldId.HasValue)
         {
             oldPropertyIds.Add(mainResult.Property.PropertyMastOldId.Value);
         }

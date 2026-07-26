@@ -7,4 +7,8 @@ public class LockableScreenDto
     public string ScreenName { get; set; } = string.Empty;
     public string? ScreenNameLocal { get; set; }
     public int? DisplayOrder { get; set; }
+    public int? ModuleId { get; set; }
+    public string? ModuleCode { get; set; }
+    public string? ModuleName { get; set; }
+    public string? ModuleNameLocal { get; set; }
 }

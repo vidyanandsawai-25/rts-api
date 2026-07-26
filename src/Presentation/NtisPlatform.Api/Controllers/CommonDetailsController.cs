@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Application.DTOs.CommonDetails;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -73,6 +74,38 @@ public class CommonDetailsController : ControllerBase
                 Success = true,
                 Items = result,
                 Message = $"{result.TotalCount} properties found"
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<PagedResult<PropertyPreviewDto>>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
+    [HttpGet("filter-properties-by-category")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> FilterPropertiesByCategory([FromQuery] FilterPropertiesByCategoryRequestDto request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.FilterPropertiesByCategoryAsync(request, ct);
+            return Ok(new ApiResponse<PagedResult<PropertyPreviewDto>>
+            {
+                Success = true,
+                Items = result,
+                Message = $"{result.TotalCount} properties found"
+            });
+        }
+        catch (PropertyValidationException ex)
+        {
+            return BadRequest(new ApiResponse<PagedResult<PropertyPreviewDto>>
+            {
+                Success = false,
+                Message = ex.Message
             });
         }
         catch (ArgumentException ex)

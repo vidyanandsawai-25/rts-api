@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Core.Entities;
 
@@ -8,7 +8,7 @@ public class RTSApplicationMappingProfile:Profile
 {
     public RTSApplicationMappingProfile()
     {
-      
+
         CreateMap<CreateRTSApplicationDetailsDto, RTSApplicationDetailsEntity>()  //insert mapping ApplicationDetails
             .ForMember(d => d.Id, o => o.Ignore())
             .ForMember(d => d.CreatedDate, o => o.MapFrom(s => DateTime.Now))
@@ -47,4 +47,3 @@ public class RTSApplicationMappingProfile:Profile
     }
 
 }
-

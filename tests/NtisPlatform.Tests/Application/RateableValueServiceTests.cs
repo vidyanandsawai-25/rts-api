@@ -118,10 +118,18 @@ public class RateableValueServiceTests
 
         // RVPersistenceService is wired with the same repo mocks so that callback-based
         // assertions on _policyTaxRepo.AddRangeAsync and _taxResultsRepo.AddRangeAsync still work.
+        var netTaxPolicyCodeMaster = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", IsActive = true };
+        var policyCodeMasterRepo = new Mock<IRepository<PolicyCodeMasterEntity, int>>();
+        policyCodeMasterRepo.Setup(r => r.GetQueryable())
+            .Returns(new List<PolicyCodeMasterEntity> { netTaxPolicyCodeMaster }.BuildMockDbSet().Object);
+        policyCodeMasterRepo.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(netTaxPolicyCodeMaster);
+
         var persistenceService = new RVPersistenceService(
             _taxResultsRepo.Object,
             _taxDetailsRepo.Object,
             _policyTaxRepo.Object,
+            policyCodeMasterRepo.Object,
             _transmastRVRepo.Object,
             _ruleLogRepo.Object,
             _unitOfWork.Object,
@@ -608,7 +616,7 @@ public class RateableValueServiceTests
         foreach (var policyRow in capturedPolicyRows)
         {
             Assert.Equal(propertyId, policyRow.PropertyId);
-            Assert.Equal("NETTAX", policyRow.PolicyCode);
+            Assert.Equal("NETTAX", policyRow.PolicyCodeMaster?.PolicyCode);
             Assert.True(policyRow.TaxAmount >= 0);
             Assert.True(policyRow.IsActive);
             Assert.False(policyRow.MarkedForDeletion);
@@ -690,7 +698,7 @@ public class RateableValueServiceTests
         Assert.All(capturedPolicyRows, row =>
         {
             Assert.Equal(propertyId, row.PropertyId);
-            Assert.Equal("NETTAX", row.PolicyCode);
+            Assert.Equal("NETTAX", row.PolicyCodeMaster?.PolicyCode);
             Assert.True(row.IsActive);
             Assert.False(row.MarkedForDeletion);
         });
@@ -722,8 +730,8 @@ public class RateableValueServiceTests
         Assert.NotNull(capturedPolicyRows);
         if (capturedPolicyRows.Any())
         {
-            // All policy rows should have the same total RV (PolicyRVorCVvalue)
-            var totalRvValues = capturedPolicyRows.Select(p => p.PolicyRVorCVvalue).Distinct().ToList();
+            // All policy rows should have the same total RV (CalculationValue)
+            var totalRvValues = capturedPolicyRows.Select(p => p.CalculationValue).Distinct().ToList();
             Assert.Single(totalRvValues); // All should have same total RV
 
             // Total RV should be positive

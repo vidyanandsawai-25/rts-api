@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Asset_Management;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Entities.PropertyTax;
 using NtisPlatform.Core.Entities.Rules;
@@ -80,6 +81,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<WingEntity> WingEntity { get; set; } = null!;
     public DbSet<SocietyDetailsEntity> SocietyDetailsMast { get; set; } = null!;
     public DbSet<OwnerTypeMasterEntity> OwnerTypeMaster { get; set; } = null!;
+    public DbSet<OwnerTitleMasterEntity> OwnerTitleMaster { get; set; } = null!;
     public DbSet<PropertyMastOldEntity> PropertyMastOld { get; set; } = null!;
     public DbSet<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = null!;
     public DbSet<ConfigValueMasterEntity> ConfigValueMasters { get; set; } = null!;
@@ -120,6 +122,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyCertificateEntity> PropertyCertificates { get; set; } = null!;
     public DbSet<PropertyPhotoEntity> PropertyPhotos { get; set; } = null!;
     public DbSet<PropertyPhotoOldEntity> PropertyPhotosOld { get; set; } = null!;
+
     public DbSet<DocumentEntity> Documents { get; set; } = null!;
     public DbSet<DocumentBindingEntity> DocumentBindings { get; set; } = null!;
     public DbSet<TaxPercentageMasterRVEntity> TaxPercentageMasterRVs { get; set; } = null!;
@@ -129,6 +132,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BuildingPlanTypeEntity> BuildingPlanType { get; set; } = null!;
     public DbSet<RuleScopeEntity> RuleScope { get; set; } = null!;
     public DbSet<PolicyTaxDetailsEntity> PolicyTaxDetails { get; set; } = null!;
+    public DbSet<PolicyCodeMasterEntity> PolicyCodeMaster { get; set; } = null!;
     public DbSet<CommonRemarkTypeMasterEntity> CommonRemarkTypeMasters { get; set; } = null!;
     public DbSet<RuleEffectTypeEntity> RuleEffectTypeMaster { get; set; } = null!;
 
@@ -165,6 +169,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
+    public DbSet<AssetDesignationEntity> AssetDesignations { get; set; } = null!;
     public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
     public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;
     public DbSet<FieldConfigurationEntity> FieldConfiguration { get; set; } = null!;
@@ -178,6 +183,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
     public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
     public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
+    public DbSet<AssetRoomTypeMasterEntity> AssetRoomTypeMaster { get; set; } = null!;
+    public DbSet<AssetAgeFactorCVMasterEntity> AssetAgeFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetNatureFactorCVMasterEntity> AssetNatureFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetAssessmentYearRangeMasterCVEntity> AssetAssessmentYearRangeMasterCV { get; set; } = null!;
     public DbSet<PropertyAssessmentStatusEntity> PropertyAssessmentStatuses { get; set; } = null!;
     public DbSet<PropertyImagesMastEntity> PropertyImagesMast { get; set; } = null!;
     public DbSet<TaxPendingDetailsArchiveEntity> TaxPendingDetailsArchive { get; set; } = null!;
@@ -187,6 +196,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxPendingDetailsRVEntity> TaxPendingDetailsRV { get; set; } = null!;
     public DbSet<TaxPendingDetailsEntity> TaxPendingDetails { get; set; } = null!;
     public DbSet<TaxPendingDetailsOldEntity> TaxPendingDetailsOld { get; set; } = null!;
+
     public DbSet<TransMastEntity> TransMast { get; set; } = null!;
     public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
@@ -195,6 +205,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetFieldDefinitionEntity> AssetFieldDefinitions { get; set; } = null!;
     public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
+    public DbSet<AssetConditionMasterEntity> AssetConditionMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
@@ -202,6 +213,15 @@ public class ApplicationDbContext : DbContext
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
     public DbSet<GSTMasterEntity> GSTMaster { get; set; } = null!;
+    public DbSet<PenaltyRuleMasterEntity> PenaltyRuleMaster { get; set; } = null!;
+    public DbSet<AssetMoujaMasterEntity> AssetMoujaMaster { get; set; } = null!;
+    public DbSet<AssetSubZoneDetailsForCVEntity> AssetSubZoneDetailsForCVMaster { get; set; } = null!;
+    public DbSet<AssetTypeOfUseGroupEntity> AssetTypeOfUseGroupMaster { get; set; } = null!;
+    public DbSet<AssetTypeOfUseMasterEntity> AssetTypeOfUseMaster { get; set; } = null!;
+    public DbSet<AssetSubTypeOfUseEntity> AssetSubTypeOfUseMaster { get; set; } = null!;
+    public DbSet<AssetFloorFactorCVEntity> AssetFloorFactorCVMaster { get; set; } = null!;
+    public DbSet<AssetPhotoTypeEntity> AssetPhotoTypeMaster { get; set; } = null!;
+
 
     public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
     public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
@@ -223,11 +243,8 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.PolicyDate).HasColumnType("datetime");
-            entity.Property(e => e.PolicyYear);
-            entity.Property(e => e.PolicyReason).HasMaxLength(200);
-            entity.Property(e => e.PolicyRVorCVvalue).HasColumnType("money");
+            entity.Property(e => e.PolicyCodeId).IsRequired();
+            entity.Property(e => e.CalculationValue).HasColumnType("money");
             entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.TaxAmount).HasColumnType("money");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -245,9 +262,43 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.PolicyCodeMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PolicyCodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Indexes for better query performance
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.TaxId);
+            entity.HasIndex(e => e.PolicyCodeId);
+        });
+
+        // PolicyCodeMaster configuration
+        modelBuilder.Entity<PolicyCodeMasterEntity>(entity =>
+        {
+            entity.ToTable("PolicyCodeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.PolicyName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.PolicyType).HasMaxLength(50);
+            entity.Property(e => e.IsFinalStage).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsExclusive).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RequiresStageTracking).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.NextPolicyCode)
+                .WithMany()
+                .HasForeignKey(e => e.NextPolicyCodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.PolicyCode).IsUnique().HasDatabaseName("UQ_PolicyCodeMaster_PolicyCode");
         });
 
         // NatureFactorCVMaster configuration
@@ -758,7 +809,7 @@ public class ApplicationDbContext : DbContext
         });
 
 
-        // MultilingualResource configuration 
+        // MultilingualResource configuration
         modelBuilder.Entity<MultilingualResourceEntity>(b =>
         {
             b.ToTable("MultilingualResource", "CORE");
@@ -874,19 +925,13 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("UserRoleMaster", "Core");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.UserRoleName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DepartmentId).IsRequired();
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate);
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.HasIndex(e => new { e.UserRoleName, e.DepartmentId }).IsUnique();
+            entity.HasIndex(e => e.UserRoleName).IsUnique();
             entity.HasIndex(e => e.IsActive);
-
-            entity.HasOne(e => e.Department)
-                .WithMany()
-                .HasForeignKey(e => e.DepartmentId)
-                .OnDelete(DeleteBehavior.Restrict);
         });
 
 
@@ -1146,7 +1191,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasColumnName("Id");
             entity.Property(e => e.ScreenGroupId).HasColumnName("ScreenGroupId");
-            entity.Property(e => e.DepartmentId).HasColumnName("DepartmentId");
             entity.Property(e => e.ModuleId).HasColumnName("ModuleId");
 
             // Required unique properties
@@ -1160,10 +1204,6 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.ScreenGroup)
                 .WithMany()
                 .HasForeignKey(e => e.ScreenGroupId)
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.Department)
-                .WithMany()
-                .HasForeignKey(e => e.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(e => e.Module)
                 .WithMany()
@@ -2278,77 +2318,6 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<PropertyPhotoOldEntity>(entity =>
-        {
-            entity.ToTable("PropertyPhotoOld", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyMastOldId).IsRequired();
-            entity.Property(e => e.PhotoTypeId).IsRequired();
-            entity.Property(e => e.DocumentBindingId);
-            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.DisplayOrder);
-            entity.Property(e => e.Remarks).HasMaxLength(500);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => e.PropertyMastOldId);
-
-            entity.HasOne<PropertyMastOldEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.PropertyMastOldId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne<PropertyPhotoTypeEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.PhotoTypeId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne<DocumentBindingEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.DocumentBindingId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<TaxPendingDetailsOldEntity>(entity =>
-        {
-            entity.ToTable("TaxPendingDetailsOld", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PropertyMastOldId).IsRequired();
-            entity.Property(e => e.PendingYearId).IsRequired();
-            entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.PendingAmount).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.PendingFixed).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-            entity.HasIndex(e => new { e.PropertyMastOldId, e.PendingYearId, e.TaxId });
-
-            entity.HasOne<PropertyMastOldEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.PropertyMastOldId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne<YearMasterEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.PendingYearId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne<TaxMasterEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.TaxId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
 
         // RefreshToken configuration
         modelBuilder.Entity<RefreshTokenEntity>(entity =>
@@ -2924,11 +2893,8 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.PolicyDate).HasColumnType("datetime");
-            entity.Property(e => e.PolicyYear);
-            entity.Property(e => e.PolicyReason).HasMaxLength(200);
-            entity.Property(e => e.PolicyRVorCVvalue).HasColumnType("money");
+            entity.Property(e => e.PolicyCodeId).IsRequired();
+            entity.Property(e => e.CalculationValue).HasColumnType("money");
             entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.TaxAmount).HasColumnType("money");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
@@ -2946,9 +2912,15 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasOne(e => e.PolicyCodeMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PolicyCodeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Indexes for better query performance
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.TaxId);
+            entity.HasIndex(e => e.PolicyCodeId);
         });
 
         modelBuilder.Entity<TransMastCVEntity>(entity =>
@@ -4337,6 +4309,44 @@ public class ApplicationDbContext : DbContext
                 .HasConstraintName("FK_AssetTypeMaster_AssetCategoryMaster");
         });
 
+        modelBuilder.Entity<AssetDesignationEntity>(entity =>
+        {
+            entity.ToTable("DesignationMaster", "AMS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.OwningDepartmentId).IsRequired();
+            entity.Property(e => e.DesignationCode).HasMaxLength(50).IsRequired().IsUnicode(false);
+            entity.Property(e => e.DesignationName).HasMaxLength(100).IsRequired().IsUnicode(false);
+            entity.Property(e => e.DesignationLocal).HasMaxLength(150);
+            entity.Property(e => e.DesignationDescription).HasMaxLength(250);
+
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.DesignationCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_DesignationMaster_DesignationCode");
+
+            entity.HasIndex(e => e.DesignationName)
+                .IsUnique()
+                .HasDatabaseName("UQ_DesignationMaster_DesignationName");
+
+            entity.HasOne<OwningDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.OwningDepartmentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_DesignationMaster_OwningDepartmentMaster");
+        });
+
         modelBuilder.Entity<OwningDepartmentEntity>(entity =>
         {
             entity.ToTable("OwningDepartmentMaster", "AMS");
@@ -5178,6 +5188,30 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("UQ_AuthorityMaster_AuthorityCode");
         });
 
+        // AssetConditionMaster configuration
+        modelBuilder.Entity<AssetConditionMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetConditionMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConditionCategory).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.CategoryId).IsRequired();
+            entity.Property(e => e.ConditionName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.ConditionFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.ConditionCategory, e.CategoryId, e.ConditionName })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetConditionMaster_CategoryCondition");
+        });
+
         // AssetOrganizationMaster configuration
         modelBuilder.Entity<AssetOrganizationMasterEntity>(entity =>
         {
@@ -5525,7 +5559,7 @@ public class ApplicationDbContext : DbContext
 
         });
 
-       
+
         modelBuilder.Entity<RTSApplicationDetailsEntity>(entity =>
         {
             entity.ToTable("ApplicationDetails", "RTS");
@@ -5722,6 +5756,152 @@ public class ApplicationDbContext : DbContext
 
 
 
+        modelBuilder.Entity<AssetRoomTypeMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetRoomTypeMaster", "AMS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.AssetCategoryId);
+
+            entity.Property(e => e.AssetTypeId)
+                .IsRequired();
+
+            entity.Property(e => e.RoomTypeName)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.RoomTypeCode)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.Property(e => e.CreatedBy);
+
+            entity.Property(e => e.CreatedDate)
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedBy);
+
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => new { e.AssetTypeId, e.RoomTypeName })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetRoomTypeMaster_Asset_RoomTypeName");
+
+            entity.HasIndex(e => new { e.AssetTypeId, e.RoomTypeCode })
+                .IsUnique()
+                .HasDatabaseName("UQ_AssetRoomTypeMaster_Asset_RoomTypeCode");
+
+            entity.HasIndex(e => e.AssetTypeId);
+
+            entity.HasIndex(e => e.IsActive);
+
+            entity.HasOne<AssetTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetRoomTypeMaster_AssetTypeMaster");
+
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetRoomTypeMaster_AssetCategoryMaster");
+        });
+        modelBuilder.Entity<AssetAgeFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("AgeFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_AgeFactorCVMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.AgeFrom).IsRequired();
+            entity.Property(e => e.AgeTo).IsRequired();
+            entity.Property(e => e.Factor).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasIndex(e => new { e.ConstructionTypeId, e.AgeFrom, e.AgeTo, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_AgeFactorCVMaster");
+
+            entity.HasOne<ConstructionTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AgeFactorCVMaster_ConstructionTypeMaster");
+
+            entity.HasOne<AssetAssessmentYearRangeMasterCVEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AgeFactorCVMaster_AssessmentYearRangeMaster");
+        });
+
+        modelBuilder.Entity<AssetNatureFactorCVMasterEntity>(entity =>
+        {
+            entity.ToTable("NatureFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_NatureFactorCVMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.Factor).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
+            entity.HasIndex(e => new { e.ConstructionTypeId, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_NatureFactorCVMaster");
+
+            entity.HasOne<ConstructionTypeEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConstructionTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_NatureFactorCVMaster_ConstructionTypeMaster");
+
+            entity.HasOne<AssetAssessmentYearRangeMasterCVEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.YearRangeCVId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_NatureFactorCVMaster_AssessmentYearRangeMaster");
+        });
+
+        modelBuilder.Entity<AssetAssessmentYearRangeMasterCVEntity>(entity =>
+        {
+            entity.ToTable("AssessmentYearRangeMaster", "AMS");
+            entity.HasKey(e => e.Id).HasName("PK_AssessmentYearRangeMaster");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FromYear).IsRequired();
+            entity.Property(e => e.ToYear).IsRequired();
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+        });
         // SocietyWingDetails configuration
         modelBuilder.Entity<SocietyWingDetailsEntity>(entity =>
         {
@@ -5793,7 +5973,7 @@ public class ApplicationDbContext : DbContext
         });
 
         // GlobalSurveyWardAllocation Entity
-        modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity => 
+        modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity =>
         {
             entity.ToTable("WardAllocation", "GSMS");
             entity.HasKey(x => x.Id);
@@ -5895,6 +6075,177 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
 
             entity.HasIndex(e => e.TaxCode).IsUnique();
+        });
+
+        // PenaltyRuleMaster configuration
+        modelBuilder.Entity<PenaltyRuleMasterEntity>(entity =>
+        {
+            entity.ToTable("PenaltyRuleMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PenaltyCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PenaltyValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.GracePeriodDays).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PenaltyCode).IsUnique().HasDatabaseName("UQ_PenaltyRuleMaster_PenaltyCode");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_CalculationType", "([CalculationType]='Percentage' OR [CalculationType]='FlatAmount' OR [CalculationType]='PerDay')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_PenaltyValue", "([PenaltyValue]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_PenaltyRuleMaster_GracePeriodDays", "([GracePeriodDays]>=(0))"));
+        });
+
+        // AssetMoujaMaster configuration
+        modelBuilder.Entity<AssetMoujaMasterEntity>(entity =>
+        {
+            entity.ToTable("MoujaMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.MoujaNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.MoujaName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetSubZoneDetailsForCV configuration
+        modelBuilder.Entity<AssetSubZoneDetailsForCVEntity>(entity =>
+        {
+            entity.ToTable("SubZoneDetailsForCV", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.MoujaId).IsRequired();
+            entity.Property(e => e.SubZoneNo).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SubZoneName).IsRequired().HasMaxLength(1000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetTypeOfUseGroup configuration
+        modelBuilder.Entity<AssetTypeOfUseGroupEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseGroupMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeOfUseGroupCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.GroupName).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.GroupIcon).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.IsFloorWiseRateApplicable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetTypeOfUseMaster configuration
+        modelBuilder.Entity<AssetTypeOfUseMasterEntity>(entity =>
+        {
+            entity.ToTable("TypeOfUseMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired();
+            entity.Property(e => e.TypeOfUseCode).IsRequired().HasMaxLength(10);
+            entity.Property(e => e.Description).HasMaxLength(100).IsRequired(false);
+            entity.Property(e => e.Type).HasMaxLength(5).IsRequired(false);
+            entity.Property(e => e.TypeOfUseGroupId).IsRequired(false);
+            entity.Property(e => e.SearchSequence).IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetSubTypeOfUse configuration
+        modelBuilder.Entity<AssetSubTypeOfUseEntity>(entity =>
+        {
+            entity.ToTable("SubTypeOfUseMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeOfUseId).IsRequired();
+            entity.Property(e => e.Description).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.SearchSequence).IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetFloorFactorCV configuration
+        modelBuilder.Entity<AssetFloorFactorCVEntity>(entity =>
+        {
+            entity.ToTable("FloorFactorCVMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FloorId).IsRequired();
+            entity.Property(e => e.FactorWithLift).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.FactorWithoutLift).IsRequired().HasColumnType("decimal(5,2)");
+            entity.Property(e => e.YearRangeCVId).HasColumnName("AssessmentYearRangeId").IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => new { e.FloorId, e.YearRangeCVId })
+                .IsUnique().HasDatabaseName("UQ_AMS_FloorFactorCVMaster");
+        });
+
+        // AssetPhotoType configuration
+        modelBuilder.Entity<AssetPhotoTypeEntity>(entity =>
+        {
+            entity.ToTable("AssetPhotoType", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.PhotoTypeCode).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PhotoTypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(250).IsRequired(false);
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+            entity.Property(e => e.AssetCategoryId).IsRequired(false);
+            entity.Property(e => e.AssetTypeId).IsRequired(false);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsSubUnit).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasIndex(e => e.PhotoTypeCode)
+                .IsUnique().HasDatabaseName("UQ_AMS_AssetPhotoType_Code");
         });
     }
 }

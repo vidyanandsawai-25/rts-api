@@ -44,14 +44,22 @@ public class LockUnlockServiceTests : IDisposable
 
     private void SeedTestData()
     {
+        // Seed ModuleMaster data
+        var modules = new List<ModuleMasterEntity>
+        {
+            new() { Id = 1, ModuleCode = "MOD001", ModuleName = "Property", ModuleNameLocal = "संपत्ति", DepartmentId = 1, IsActive = true },
+            new() { Id = 2, ModuleCode = "MOD002", ModuleName = "Tax", ModuleNameLocal = "कर", DepartmentId = 1, IsActive = true },
+        };
+        _context.ModuleMasters.AddRange(modules);
+
         // Seed ScreenMaster data
         var screens = new List<ScreenMasterEntity>
         {
-            new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Basic Details", ScreenNameLocal = "मूल विवरण", IsActive = true, IsPropertyLockable = true, DisplayOrder = 1 },
-            new() { Id = 2, ScreenCode = "SCR002", ScreenName = "Tax Details", ScreenNameLocal = "कर विवरण", IsActive = true, IsPropertyLockable = true, DisplayOrder = 2 },
-            new() { Id = 3, ScreenCode = "SCR003", ScreenName = "Floor Details", ScreenNameLocal = "मंजिल विवरण", IsActive = true, IsPropertyLockable = true, DisplayOrder = 3 },
-            new() { Id = 4, ScreenCode = "SCR004", ScreenName = "Inactive Screen", IsActive = false, IsPropertyLockable = true, DisplayOrder = 4 },
-            new() { Id = 5, ScreenCode = "SCR005", ScreenName = "Non-Lockable Screen", IsActive = true, IsPropertyLockable = false, DisplayOrder = 5 },
+            new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Basic Details", ScreenNameLocal = "मूल विवरण", ModuleId = 1, IsActive = true, IsPropertyLockable = true, DisplayOrder = 1 },
+            new() { Id = 2, ScreenCode = "SCR002", ScreenName = "Tax Details", ScreenNameLocal = "कर विवरण", ModuleId = 2, IsActive = true, IsPropertyLockable = true, DisplayOrder = 2 },
+            new() { Id = 3, ScreenCode = "SCR003", ScreenName = "Floor Details", ScreenNameLocal = "मंजिल विवरण", ModuleId = 1, IsActive = true, IsPropertyLockable = true, DisplayOrder = 3 },
+            new() { Id = 4, ScreenCode = "SCR004", ScreenName = "Inactive Screen", ModuleId = 1, IsActive = false, IsPropertyLockable = true, DisplayOrder = 4 },
+            new() { Id = 5, ScreenCode = "SCR005", ScreenName = "Non-Lockable Screen", ModuleId = 1, IsActive = true, IsPropertyLockable = false, DisplayOrder = 5 },
         };
         _context.ScreenMaster.AddRange(screens);
 
@@ -82,7 +90,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_ReturnsOnlyActiveAndLockableScreens()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
@@ -94,7 +102,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_ReturnsScreensOrderedByDisplayOrderThenByName()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         Assert.Equal("Basic Details", result[0].ScreenName);
@@ -106,7 +114,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_ReturnsCorrectDtoProperties()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         var firstScreen = result.First();
@@ -121,7 +129,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_ExcludesInactiveScreens()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         Assert.DoesNotContain(result, s => s.ScreenCode == "SCR004"); // Inactive screen
@@ -131,7 +139,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_ExcludesNonLockableScreens()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         Assert.DoesNotContain(result, s => s.ScreenCode == "SCR005"); // Non-lockable screen
@@ -145,11 +153,85 @@ public class LockUnlockServiceTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var result = await _service.GetLockableScreensAsync(CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_FiltersScreensByScreenName()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync("Basic", null, null, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal("Basic Details", result[0].ScreenName);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_FiltersScreensByModuleName()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync("Tax", null, null, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal("Tax Details", result[0].ScreenName);
+        Assert.Equal("Tax", result[0].ModuleName);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_ReturnsModuleFieldsWithScreens()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync(null, null, null, CancellationToken.None);
+
+        // Assert
+        var basicDetailsScreen = result.First(s => s.ScreenCode == "SCR001");
+        Assert.NotNull(basicDetailsScreen.ModuleId);
+        Assert.Equal(1, basicDetailsScreen.ModuleId);
+        Assert.Equal("MOD001", basicDetailsScreen.ModuleCode);
+        Assert.Equal("Property", basicDetailsScreen.ModuleName);
+        Assert.Equal("संपत्ति", basicDetailsScreen.ModuleNameLocal);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_FiltersScreensById()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync(null, 1, null, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Basic Details", result[0].ScreenName);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_FiltersScreensByModuleId()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync(null, null, 1, CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, result.Count); // SCR001 and SCR003 belong to module 1
+        Assert.All(result, screen => Assert.Equal(1, screen.ModuleId));
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_CombinesMultipleFilters()
+    {
+        // Act
+        var result = await _service.GetLockableScreensAsync("Details", 1, 1, CancellationToken.None);
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Basic Details", result[0].ScreenName);
+        Assert.Equal(1, result[0].ModuleId);
     }
 
     #endregion

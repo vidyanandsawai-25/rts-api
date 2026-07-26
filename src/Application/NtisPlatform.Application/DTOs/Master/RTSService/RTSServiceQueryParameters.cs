@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -18,4 +18,3 @@ public class RTSServiceQueryParameters:BaseQueryParameters
     [Sortable]
     public bool? IsActive { get; set; }
 }
-

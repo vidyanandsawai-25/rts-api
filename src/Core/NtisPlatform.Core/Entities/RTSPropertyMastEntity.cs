@@ -1,6 +1,6 @@
 
     namespace NtisPlatform.Core.Entities.PropertyTax;
-    
+
     public class RTSPropertyMastEntity:BaseEntity
     {
         public int OwnerID { get ; set ; }
@@ -16,4 +16,3 @@
         public string? MarathiOwnerPatta { get; set; }
         public string? MarathiOwnerDukanFlatNo { get; set; }
     }
-    

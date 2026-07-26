@@ -112,13 +112,26 @@ public class PropertyRepositoryComprehensiveTests
         {
             Id = 549357,
             IsActive = true,
-            MarkedForDeletion = false,
-            PropertyMastOldId = 100
+            MarkedForDeletion = false
         };
 
-        var mapDetail = new PropertyMapDetailEntity
+        var mapDetail1 = new PropertyMapDetailEntity
         {
             Id = 1,
+            PropertyMapId = 1,
+            PropertySide = "NEW",
+            PropertyNo = "22",
+            PropertyIdNew = 549357,
+            PropertyIdOld = 100,
+            IsActive = true,
+            IsCurrent = true,
+            Status = "ACTIVE",
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var mapDetail2 = new PropertyMapDetailEntity
+        {
+            Id = 2,
             PropertyMapId = 1,
             PropertySide = "NEW",
             PropertyNo = "22",
@@ -179,7 +192,7 @@ public class PropertyRepositoryComprehensiveTests
         };
 
         context.PropertyMast.Add(property);
-        context.PropertyMapDetails.Add(mapDetail);
+        context.PropertyMapDetails.AddRange(mapDetail1, mapDetail2);
         context.PropertyDetailsOld.Add(oldDetails1);
         context.PropertyDetailsOld.Add(oldDetails2);
         context.PropertyDetailsOld.Add(oldDetailsInactive);

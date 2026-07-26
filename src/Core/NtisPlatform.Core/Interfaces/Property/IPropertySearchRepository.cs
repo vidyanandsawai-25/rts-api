@@ -77,4 +77,17 @@ public interface IPropertySearchRepository
     /// </summary>
     Task<List<int>> GetPropertyIdsByCategoryAsync(
         PropertySearchByCategoryRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns PropertyNo/PartitionNo suggestions for properties in the given ward whose
+    /// PropertyNo and/or PartitionNo contain the supplied terms (SQL LIKE '%term%' semantics),
+    /// for a typeahead/autocomplete UI. The full active-property list for the ward is cached
+    /// in memory (see implementation) so repeated keystrokes only re-filter, they don't re-query.
+    /// </summary>
+    /// <param name="wardId">Ward to scope the suggestions to (required).</param>
+    /// <param name="propertyNo">Partial PropertyNo term to match anywhere in the value, or null/empty to skip this filter.</param>
+    /// <param name="partitionNo">Partial PartitionNo term to match anywhere in the value, or null/empty to skip this filter.</param>
+    /// <param name="maxResults">Maximum number of suggestions to return.</param>
+    Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults, CancellationToken cancellationToken = default);
 }

@@ -35,5 +35,16 @@ public class TypeOfUseQueryParameters : BaseQueryParameters
     [Sortable]
     [Searchable]
     public int? TypeOfUseCategoryId { get; set; }
+
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public string? TypeOfUseCategoryCode { get; set; }
+
+    [Filterable]
+    [Sortable]
+    [Searchable]
+    public string? TypeOfUseCategoryName { get; set; }
 }
 

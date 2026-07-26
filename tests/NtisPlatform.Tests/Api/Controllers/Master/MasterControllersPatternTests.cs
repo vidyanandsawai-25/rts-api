@@ -863,6 +863,28 @@ public class AllMasterControllersComprehensiveTests
 
     #endregion
 
+    #region OwnerTitleController Tests
+
+    [Fact]
+    public async Task OwnerTitleController_GetAll_CallsExtensionMethod()
+    {
+        var mockService = new Mock<IOwnerTitleService>();
+        var mockLogger = new Mock<ILogger<OwnerTitleController>>();
+        var controller = new OwnerTitleController(mockService.Object, mockLogger.Object);
+
+        var query = new OwnerTitleQueryParameters();
+        var pagedResult = new PagedResult<OwnerTitleDto>(new List<OwnerTitleDto>(), 0, 1, 10);
+
+        mockService.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    #endregion
+
     #region ScreenMasterController Tests
 
     [Fact]

@@ -21,7 +21,17 @@ public class DataEntrySameAsUnitDto
     public string? PropertyCategoryName { get; set; }
     public bool IsWing { get; set; }
     public string Type { get; set; } = "0";
-    public string FlatOrShopNo { get; set; } = "0";
-    public double CarpetAreaSqMeter { get; set; }
-    public double CarpetAreaSqFeet { get; set; }
+    public string FlatOrShopNo { get; set; } = "0";  
+
+    // Per-property area aggregates over the property's active, non-deleted PropertyDetails.
+    public double TotalCarpetAreaSqMeter { get; set; }
+    public double TotalCarpetAreaSqFeet { get; set; }
+    public double TotalBuiltupAreaSqMeter { get; set; }
+    public double TotalBuiltupAreaSqFeet { get; set; }
+
+    // The parking-only slice (PropertyDetails whose TypeOfUse maps to the PARKING category).
+    public double ParkingCarpetAreaSqMeter { get; set; }
+    public double ParkingCarpetAreaSqFeet { get; set; }
+    public double ParkingBuiltupAreaSqMeter { get; set; }
+    public double ParkingBuiltupAreaSqFeet { get; set; }
 }

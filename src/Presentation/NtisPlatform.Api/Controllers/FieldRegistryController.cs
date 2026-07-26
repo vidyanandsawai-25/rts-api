@@ -144,6 +144,52 @@ public class FieldRegistryController : ControllerBase
         }
     }
 
+    [HttpPut("UpdateFieldRegistry/{updateCode}")]
+    [ProducesResponseType(typeof(ApiResponse<FieldRegistryResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> UpdateFieldRegistry(string updateCode, [FromBody] UpdateFieldRegistryDto updateDto, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var result = await _fieldRegistryService.UpdateFieldRegistryAsync(updateCode, updateDto, cancellationToken);
+            if (result is null)
+            {
+                return NotFound(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Field registry not found"
+                });
+            }
+
+            return Ok(new ApiResponse<FieldRegistryResponseDto>
+            {
+                Success = true,
+                Message = "Field registry updated successfully",
+                Items = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error updating field registry for UpdateCode {UpdateCode}", updateCode);
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating field registry for UpdateCode {UpdateCode}", updateCode);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while updating the field registry"
+            });
+        }
+    }
+
     [HttpPatch("SetFieldRegistryStatus/{updateCode}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

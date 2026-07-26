@@ -116,7 +116,7 @@ public class DocumentControllerTests
     }
 
     [Fact]
-    public async Task Upload_ReturnsUnauthorized_OnUnauthorizedAccessException()
+    public async Task Upload_AllowsAnonymousCitizen_WithSystemUserId()
     {
         var controller = Create(out var docService, out _, userId: null);
         var dto = new DocumentUploadFormDto
@@ -126,7 +126,16 @@ public class DocumentControllerTests
 
         var result = await controller.Upload(dto, CancellationToken.None);
 
-        Assert.IsType<UnauthorizedObjectResult>(result);
+        Assert.IsType<OkObjectResult>(result);
+        docService.Verify(s => s.UploadDocumentAsync(
+            It.IsAny<Stream>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<long>(),
+            It.IsAny<DocumentUploadDto>(),
+            0,
+            It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

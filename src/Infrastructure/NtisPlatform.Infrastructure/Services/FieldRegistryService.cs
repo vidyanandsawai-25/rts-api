@@ -315,6 +315,119 @@ public class FieldRegistryService : IFieldRegistryService
         }
     }
 
+    public async Task<FieldRegistryResponseDto?> UpdateFieldRegistryAsync(
+        string updateCode,
+        UpdateFieldRegistryDto updateDto,
+        CancellationToken cancellationToken = default)
+    {
+        var masterEntity = await _context.BulkUpdateMasters
+            .Include(m => m.FieldConfigs)
+            .FirstOrDefaultAsync(m => m.UpdateCode == updateCode, cancellationToken);
+
+        if (masterEntity is null)
+        {
+            return null;
+        }
+
+        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var now = DateTime.Now;
+
+            masterEntity.UpdateName = updateDto.UpdateName;
+            masterEntity.UpdateNameMarathi = updateDto.UpdateNameMarathi;
+            masterEntity.ReferenceTableName = updateDto.ReferenceTableName;
+            masterEntity.DisplaySequence = updateDto.DisplaySequence;
+            masterEntity.Description = updateDto.Description;
+            masterEntity.Category = updateDto.Category;
+            masterEntity.IsApprovalRequired = updateDto.IsApprovalRequired;
+            masterEntity.IsActive = updateDto.IsActive;
+            masterEntity.UpdatedDate = now;
+            if (updateDto.UpdatedBy.HasValue)
+            {
+                masterEntity.UpdatedBy = updateDto.UpdatedBy;
+            }
+
+            var existingConfigIds = new HashSet<int>(masterEntity.FieldConfigs.Select(fc => fc.Id));
+            var incomingConfigIds = new HashSet<int>(updateDto.FieldConfigs.Where(fc => fc.Id.HasValue).Select(fc => fc.Id.Value));
+            var configsToRemove = masterEntity.FieldConfigs.Where(fc => !incomingConfigIds.Contains(fc.Id)).ToList();
+
+            foreach (var configToRemove in configsToRemove)
+            {
+                masterEntity.FieldConfigs.Remove(configToRemove);
+                _context.BulkUpdateFieldConfigs.Remove(configToRemove);
+            }
+
+            var sequenceNo = 1;
+            foreach (var fieldConfig in updateDto.FieldConfigs)
+            {
+                if (fieldConfig.Id.HasValue && fieldConfig.Id.Value > 0)
+                {
+                    var existingConfig = masterEntity.FieldConfigs.FirstOrDefault(fc => fc.Id == fieldConfig.Id.Value);
+                    if (existingConfig is not null)
+                    {
+                        existingConfig.FieldName = fieldConfig.FieldName;
+                        existingConfig.DisplayName = fieldConfig.DisplayName;
+                        existingConfig.DisplayNameMarathi = fieldConfig.DisplayNameMarathi;
+                        existingConfig.ControlType = fieldConfig.ControlType;
+                        existingConfig.DataType = fieldConfig.DataType;
+                        existingConfig.Placeholder = fieldConfig.Placeholder;
+                        existingConfig.IsRequired = fieldConfig.IsRequired;
+                        existingConfig.MaxLength = fieldConfig.MaxLength;
+                        existingConfig.ValidationRegex = fieldConfig.ValidationRegex;
+                        existingConfig.DefaultValue = fieldConfig.DefaultValue;
+                        existingConfig.BindApi = fieldConfig.BindApi;
+                        existingConfig.IsActive = updateDto.IsActive;
+                        existingConfig.SequenceNo = sequenceNo;
+                        existingConfig.UpdatedDate = now;
+                        if (updateDto.UpdatedBy.HasValue)
+                        {
+                            existingConfig.UpdatedBy = updateDto.UpdatedBy;
+                        }
+                    }
+                }
+                else
+                {
+                    var newFieldConfigEntity = new BulkUpdateFieldConfigEntity
+                    {
+                        BulkUpdateMasterId = masterEntity.Id,
+                        FieldName = fieldConfig.FieldName,
+                        DisplayName = fieldConfig.DisplayName,
+                        DisplayNameMarathi = fieldConfig.DisplayNameMarathi,
+                        ControlType = fieldConfig.ControlType,
+                        DataType = fieldConfig.DataType,
+                        Placeholder = fieldConfig.Placeholder,
+                        IsRequired = fieldConfig.IsRequired,
+                        MaxLength = fieldConfig.MaxLength,
+                        ValidationRegex = fieldConfig.ValidationRegex,
+                        DefaultValue = fieldConfig.DefaultValue,
+                        SequenceNo = sequenceNo,
+                        IsReadonly = false,
+                        BindApi = fieldConfig.BindApi,
+                        IsActive = updateDto.IsActive,
+                        CreatedBy = updateDto.UpdatedBy,
+                        CreatedDate = now
+                    };
+
+                    masterEntity.FieldConfigs.Add(newFieldConfigEntity);
+                    _context.BulkUpdateFieldConfigs.Add(newFieldConfigEntity);
+                }
+
+                sequenceNo++;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+
+            return MapToResponseDto(masterEntity);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     private static FieldRegistryResponseDto MapToResponseDto(BulkUpdateMasterEntity master)
     {
         return new FieldRegistryResponseDto

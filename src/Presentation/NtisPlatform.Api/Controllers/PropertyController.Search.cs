@@ -6,6 +6,7 @@ using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Enums;
 using NtisPlatform.Core.Models;
+using NtisPlatform.Application.DTOs.PropertySurveySearch;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -91,5 +92,44 @@ public partial class PropertyController
                 : "All scope category options retrieved successfully",
             Items = resultList
         });
+    }
+    /// <summary>
+    /// Searches survey properties based on ward, status, property type,
+    /// search text, partition number, and other available filters.
+    /// Supports pagination using PageNumber and PageSize.
+    /// </summary>
+    /// <response code="200">
+    /// Returns the paginated list of survey properties.
+    /// </response>
+    /// <response code="400">
+    /// Invalid survey search parameters.
+    /// </response>
+    [HttpGet("survey-search")]
+    [ProducesResponseType(
+        typeof(ApiResponse<PropertySurveySearchPaginatedResponseDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ApiResponse<PropertySurveySearchPaginatedResponseDto>),
+        StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SearchSurveyProperties(
+        [FromQuery] PropertySurveySearchQueryParameters queryParameters,
+        CancellationToken ct)
+    {
+        if (queryParameters == null)
+        {
+            return BadRequest(
+                new ApiResponse<PropertySurveySearchPaginatedResponseDto>
+                {
+                    Success = false,
+                    Message = "Query parameters cannot be null."
+                });
+        }
+
+        var result =
+            await _propertyService.SearchSurveyPropertiesAsync(
+                queryParameters,
+                ct);
+
+        return Ok(result);
     }
 }

@@ -121,8 +121,8 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
                     join toug in _typeOfUseGroupRepository.GetQueryable() on tou.TypeOfUseGroupId equals toug.Id into tougJoined
                     from toug in tougJoined.DefaultIfEmpty()
                     where tou.IsActive && (touc == null || touc.IsActive)
-                       && ( (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op))
-                            || tou.TypeOfUseCode == TypeOfUseConstants.Op )
+                       && (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.OpenSpace))
                     select new TypeOfUseDetailsDto
                     {
                         Id = tou.Id,
@@ -147,8 +147,9 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
                     join toug in _typeOfUseGroupRepository.GetQueryable() on tou.TypeOfUseGroupId equals toug.Id into tougJoined
                     from toug in tougJoined.DefaultIfEmpty()
                     where tou.IsActive && (touc == null || touc.IsActive)
-                       && ( (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op))
-                            || tou.TypeOfUseCode == TypeOfUseConstants.Op )
+                       && (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.OpenSpace))
                        && toug != null && toug.IsOpenPlot && toug.IsActive
                     select new TypeOfUseDetailsDto
                     {

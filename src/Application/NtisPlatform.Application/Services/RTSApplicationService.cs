@@ -53,5 +53,3 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
         return _mapper.Map<RTSApplicationDetailsDto>(entity);
     }
 }
-
-

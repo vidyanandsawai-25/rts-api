@@ -47,6 +47,7 @@ namespace NtisPlatform.Application.Services.Rules
         private const int FirstFloorSequenceThreshold = 12;
 
         private readonly IRepository<PropertyEntity, int> _propertyRepo;
+        private readonly IRepository<PropertyCategoryEntity, int> _categoryRepo;
         private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepo;
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
@@ -62,6 +63,7 @@ namespace NtisPlatform.Application.Services.Rules
 
         public PropertyContextLoaderService(
             IRepository<PropertyEntity, int> propertyRepo,
+            IRepository<PropertyCategoryEntity, int> categoryRepo,
             IRepository<PropertyDetailsEntity, int> propertyDetailsRepo,
             IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepo,
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
@@ -75,6 +77,7 @@ namespace NtisPlatform.Application.Services.Rules
             ILogger<PropertyContextLoaderService> logger)
         {
             _propertyRepo = propertyRepo;
+            _categoryRepo = categoryRepo;
             _propertyDetailsRepo = propertyDetailsRepo;
             _propertyAssessmentRepo = propertyAssessmentRepo;
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
@@ -100,14 +103,27 @@ namespace NtisPlatform.Application.Services.Rules
 
             // ── Phase 1: Core Property Fetch ──────────────────────────────────────
 
-            var property = await _propertyRepo.GetQueryable()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(
-                    x => x.Id == propertyId && x.IsActive && !x.MarkedForDeletion,
-                    cancellationToken);
+            var propertyWithCategory = await (
+                from p in _propertyRepo.GetQueryable().AsNoTracking()
+                join c in _categoryRepo.GetQueryable().AsNoTracking() on p.CategoryId equals c.Id into categoryJoin
+                from c in categoryJoin.DefaultIfEmpty()
+                where p.Id == propertyId && p.IsActive && !p.MarkedForDeletion
+                select new 
+                { 
+                    Property = p, 
+                    CategoryName = c != null ? c.PropertyCategoryName : null 
+                }
+            ).FirstOrDefaultAsync(cancellationToken);
 
-            if (property == null)
+            if (propertyWithCategory == null)
                 throw new InvalidOperationException($"Property not found for PropertyId={propertyId}");
+
+            var property = propertyWithCategory.Property;
+            var categoryName = propertyWithCategory.CategoryName;
+
+            bool isApartmentOrIndustry = categoryName != null && (
+                categoryName.Equals("Apartment", StringComparison.OrdinalIgnoreCase) ||
+                categoryName.Equals("Industry", StringComparison.OrdinalIgnoreCase));
 
             // ── Phase 2: Sequential Fetch of child details ───────────────────────────
 
@@ -117,16 +133,39 @@ namespace NtisPlatform.Application.Services.Rules
                 .OrderBy(x => x.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            // Load ALL social attributes for this property in one query.
+            // Gather all property IDs to fetch social attributes from:
+            // 1. Current property (could be partitioned)
+            // 2. Main property (same PropertyNo and WardId, but with no partition) - ONLY if category is Apartment or Industry
+            var targetPropertyIds = new List<int> { propertyId };
+            if (isApartmentOrIndustry && !string.IsNullOrWhiteSpace(property.PropertyNo))
+            {
+                var mainPropertyId = await _propertyRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(p => p.WardId == property.WardId 
+                             && p.PropertyNo == property.PropertyNo 
+                             && (p.PartitionNo == null || p.PartitionNo == "")
+                             && p.IsActive 
+                             && !p.MarkedForDeletion)
+                    .Select(p => (int?)p.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (mainPropertyId.HasValue && mainPropertyId.Value != propertyId)
+                {
+                    targetPropertyIds.Add(mainPropertyId.Value);
+                }
+            }
+
+            // Load ALL social attributes for the target property and main property in one query.
             // Each row maps SocialAttributeCode → typed value (bit/int/decimal/text).
             // This means ANY attribute from SocialAttributeMaster is available in rule
             // expressions as  input.HAS_LIFT, input.NO_OF_WELL, input.HAS_SOLAR, etc.
             // with ZERO code changes when new attributes are added to the master table.
             var socialDetails = await _propertySocialDetailsRepo.GetQueryable()
                 .AsNoTracking()
-                .Where(psd => psd.PropertyId == propertyId && psd.IsActive && psd.SocialAttribute != null)
+                .Where(psd => targetPropertyIds.Contains(psd.PropertyId) && psd.IsActive && psd.SocialAttribute != null)
                 .Select(psd => new
                 {
+                    PropertyId = psd.PropertyId,
                     SocialAttributeId = psd.SocialAttributeId,
                     Code = psd.SocialAttribute!.SocialAttributeCode,
                     DataType = psd.SocialAttribute!.DataType,
@@ -174,13 +213,18 @@ namespace NtisPlatform.Application.Services.Rules
                 };
             }
 
-            // Gather active SocialAttributeIds for the property
-            var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).ToList();
+            // Gather active SocialAttributeIds for the property (distinct list)
+            var socialAttributeIds = socialDetails.Select(s => s.SocialAttributeId).Distinct().ToList();
 
             // Build a flat attribute dictionary: SocialAttributeCode → typed CLR value
             // Rule expressions can reference these directly: input.HAS_LIFT, input.NO_OF_WELL, etc.
             var socialAttributeDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            foreach (var attr in socialDetails)
+            
+            // Sort by PropertyId such that main property comes first, and current property comes last.
+            // This ensures current property's attributes override main property's in case of duplicates.
+            var orderedSocialDetails = socialDetails.OrderBy(s => s.PropertyId == propertyId ? 1 : 0);
+            
+            foreach (var attr in orderedSocialDetails)
             {
                 if (string.IsNullOrWhiteSpace(attr.Code)) continue;
                 object? val = attr.DataType?.ToUpperInvariant() switch
@@ -241,8 +285,10 @@ namespace NtisPlatform.Application.Services.Rules
             // ── Phase 6: Assemble and return the context ───────────────────────────
 
             // Calculate building's max floor sequence number across all related properties in the same building (single optimized query)
+            // Only search related properties in the building if category is Apartment or Industry.
+            // Otherwise, go with the provided propertyId.
             IQueryable<int> propertyIdsQuery;
-            if (!string.IsNullOrWhiteSpace(property.PropertyNo))
+            if (isApartmentOrIndustry && !string.IsNullOrWhiteSpace(property.PropertyNo))
             {
                 propertyIdsQuery = _propertyRepo.GetQueryable()
                     .AsNoTracking()

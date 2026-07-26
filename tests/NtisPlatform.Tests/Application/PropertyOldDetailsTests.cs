@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using NtisPlatform.Application.DTOs.Property;
@@ -1394,7 +1394,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.GetOldDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.GetOldDetailsAsync(549357);
 
@@ -1418,7 +1418,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.GetOldDetailsAsync(999, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((PropertyOldDetailsDto?)null);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.GetOldDetailsAsync(999);
 
@@ -1453,7 +1453,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.UpdateOldDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResult);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.UpdateOldDetailsAsync(549357, dto);
 
@@ -1482,7 +1482,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.UpdateOldDetailsAsync(999, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((PropertyOldDetailsDto?)null);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.UpdateOldDetailsAsync(999, dto);
 
@@ -1506,7 +1506,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.UpdateOldDetailsAsync(549357, dto, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedResult);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.UpdateOldDetailsAsync(549357, dto, cts.Token);
 
@@ -1529,7 +1529,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.GetOldDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.GetOldDetailsAsync(549357, cts.Token);
 
@@ -1569,7 +1569,7 @@ public class PropertyOldDetailsTests
                 .Setup(r => r.GetOldDetailsAsync(549357, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(expectedDto);
 
-            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object);
+            var service = new PropertyService(mockRepo.Object, mockUnitOfWork.Object, mockMapper.Object, mockPropertyRepo.Object, new Mock<ILogger<PropertyService>>().Object, new Mock<Microsoft.Extensions.Options.IOptions<NtisPlatform.Application.Options.FeatureFlagsOptions>>().Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
             var result = await service.GetOldDetailsAsync(549357);
 
@@ -4837,4 +4837,5 @@ public class PropertyOldDetailsTests
         }
     }
 }
+
 

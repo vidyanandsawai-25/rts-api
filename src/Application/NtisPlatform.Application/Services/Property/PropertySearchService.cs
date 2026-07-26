@@ -177,6 +177,19 @@ public class PropertySearchService : IPropertySearchService
         return await _repository.GetPropertyIdsByCategoryAsync(searchRequest, cancellationToken);
     }
 
+    private const int MaxSuggestionResults = 100;
+
+    public Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults = 20, CancellationToken cancellationToken = default)
+    {
+        if (wardId <= 0)
+            throw new PropertyValidationException("WardId is required for property suggestions.");
+
+        var clampedMaxResults = Math.Clamp(maxResults <= 0 ? 20 : maxResults, 1, MaxSuggestionResults);
+
+        return _repository.GetPropertySuggestionsAsync(wardId, propertyNo, partitionNo, clampedMaxResults, cancellationToken);
+    }
+
     private static PropertySearchByCategoryRequestDto MapToSearchByCategoryRequest(PropertySearchByCategoryQueryParameters queryParameters)
     {
         return new PropertySearchByCategoryRequestDto

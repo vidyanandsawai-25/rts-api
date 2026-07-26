@@ -333,7 +333,7 @@ public class ApartmentQCServiceTests
         var result = await _service.UpdateDetailAsync(1, dtos, updatedBy: 1);
 
         Assert.NotNull(result);
-        Assert.True(result!.Failures.Any(f => f.Reason.Contains("Duplicate")));
+        Assert.Contains(result!.Failures,failure => failure.Reason.Contains("Duplicate"));
     }
 
     [Fact]
@@ -366,7 +366,7 @@ public class ApartmentQCServiceTests
         var result = await _service.UpdateDetailAsync(1, dtos, updatedBy: 1);
 
         Assert.NotNull(result);
-        Assert.True(result!.Failures.Any(f => f.Field == "FloorId" && f.InvalidId == 999));
+        Assert.Contains(result!.Failures,failure =>failure.Field == "FloorId" && failure.InvalidId == 999);
     }
 
     [Fact]
@@ -386,7 +386,7 @@ public class ApartmentQCServiceTests
         var result = await _service.UpdateDetailAsync(1, dtos, updatedBy: 1);
 
         Assert.NotNull(result);
-        Assert.True(result!.Failures.Any(f => f.Field == "ConstructionTypeId"));
+       Assert.Contains( result!.Failures,failure => failure.Field == "ConstructionTypeId");
     }
 
     [Fact]
@@ -408,7 +408,7 @@ public class ApartmentQCServiceTests
         var result = await _service.UpdateDetailAsync(1, dtos, updatedBy: 1);
 
         Assert.NotNull(result);
-        Assert.True(result!.Failures.Any(f => f.Field == "TypeOfUseId"));
+        Assert.Contains( result!.Failures,failure => failure.Field == "TypeOfUseId");
     }
 
     [Fact]
@@ -432,7 +432,7 @@ public class ApartmentQCServiceTests
         var result = await _service.UpdateDetailAsync(1, dtos, updatedBy: 1);
 
         Assert.NotNull(result);
-        Assert.True(result!.Failures.Any(f => f.Field == "SubTypeOfUseId"));
+        Assert.Contains(result!.Failures,failure => failure.Field == "SubTypeOfUseId");
     }
 
     [Fact]

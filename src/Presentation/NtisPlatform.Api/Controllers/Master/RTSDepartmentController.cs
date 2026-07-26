@@ -26,4 +26,3 @@ public class RTSDepartmentController : ControllerBase
         => this.ExecuteGetAllPaged(_service, queryParameters, _logger, ct);
 
 }
-    

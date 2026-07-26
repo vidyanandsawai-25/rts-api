@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using System;
 using System.Linq;
@@ -11,8 +12,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
 {
     public class RVCalculationCleanupService : IRVCalculationCleanupService
     {
+        private const string NetTaxPolicyCode = "NETTAX";
+
         private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
         private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
+        private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
         private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
         private readonly ILogger<RVCalculationCleanupService> _logger;
         private readonly TimeProvider _timeProvider;
@@ -20,12 +24,14 @@ namespace NtisPlatform.Application.Services.TaxEngine
         public RVCalculationCleanupService(
             IRepository<RVCalculationResultsEntity, int> taxResultsRepo,
             IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
+            IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
             IRepository<TransMastEntity, int> transmastRVRepo,
             ILogger<RVCalculationCleanupService> logger,
             TimeProvider timeProvider)
         {
             _taxResultsRepo = taxResultsRepo;
             _policyTaxRepo = policyTaxRepo;
+            _policyCodeMasterRepo = policyCodeMasterRepo;
             _transmastRVRepo = transmastRVRepo;
             _logger = logger;
             _timeProvider = timeProvider;
@@ -47,9 +53,17 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     .SetProperty(x => x.MarkedForDeletionDate, now)
                     .SetProperty(x => x.UpdatedDate,           now));
 
+            var netTaxPolicyCodeId = await _policyCodeMasterRepo.GetQueryable()
+                .Where(x => x.IsActive && x.PolicyCode == NetTaxPolicyCode)
+                .Select(x => x.Id)
+                .FirstOrDefaultAsync();
+
+            if (netTaxPolicyCodeId <= 0)
+                throw new InvalidOperationException($"Active policy code '{NetTaxPolicyCode}' not found in PolicyCodeMaster.");
+
             int policyCount = await _policyTaxRepo.GetQueryable()
                 .Where(x => x.PropertyId == propertyId &&
-                            x.PolicyCode == "NETTAX" &&
+                            x.PolicyCodeId == netTaxPolicyCodeId &&
                             x.IsActive &&
                             !x.MarkedForDeletion)
                 .ExecuteUpdateAsync(s => s

@@ -67,11 +67,12 @@ public class LockUnlockControllerTests
             new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Screen 1" },
             new() { Id = 2, ScreenCode = "SCR002", ScreenName = "Screen 2" }
         };
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(screens);
 
         // Act
-        var result = await _controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var result = await _controller.GetScreens(request, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -85,11 +86,12 @@ public class LockUnlockControllerTests
     public async Task GetScreens_ReturnsOkResult_WithEmptyList_WhenNoScreens()
     {
         // Arrange
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<LockableScreenDto>());
 
         // Act
-        var result = await _controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var result = await _controller.GetScreens(request, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -103,11 +105,12 @@ public class LockUnlockControllerTests
     public async Task GetScreens_ReturnsUnauthorized_WhenUnauthorizedAccessException()
     {
         // Arrange
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new UnauthorizedAccessException("Not authorized"));
 
         // Act
-        var result = await _controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var result = await _controller.GetScreens(request, CancellationToken.None);
 
         // Assert
         var unauthorizedResult = Assert.IsType<UnauthorizedObjectResult>(result);
@@ -120,11 +123,12 @@ public class LockUnlockControllerTests
     public async Task GetScreens_Returns500_WhenExceptionOccurs()
     {
         // Arrange
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Database error"));
 
         // Act
-        var result = await _controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var result = await _controller.GetScreens(request, CancellationToken.None);
 
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);
@@ -145,11 +149,12 @@ public class LockUnlockControllerTests
             _mockEnvironment.Object);
         controller.ControllerContext = _controller.ControllerContext;
 
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Sensitive error"));
 
         // Act
-        var result = await controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var result = await controller.GetScreens(request, CancellationToken.None);
 
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);
@@ -595,7 +600,7 @@ public class LockUnlockControllerTests
         {
             new() { Id = 1, ScreenCode = "SCR001", ScreenName = "Screen 1" }
         };
-        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.GetLockableScreensAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(screens);
 
         var properties = new List<PropertyLockRowDto>
@@ -611,12 +616,13 @@ public class LockUnlockControllerTests
             .ReturnsAsync(bulkResult);
 
         // Act - Get screens
-        var screensResult = await _controller.GetScreens(CancellationToken.None);
+        var request = new GetLockableScreensQueryParameters();
+        var screensResult = await _controller.GetScreens(request, CancellationToken.None);
         Assert.IsType<OkObjectResult>(screensResult);
 
         // Act - Get properties
         var propertiesResult = await _controller.GetProperties(
-            new FilterPropertyLocksRequestDto { WardId = 1 }, 
+            new FilterPropertyLocksRequestDto { WardId = 1 },
             CancellationToken.None);
         Assert.IsType<OkObjectResult>(propertiesResult);
 
