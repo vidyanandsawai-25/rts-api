@@ -452,8 +452,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
         services.AddScoped<IAssetAgeFactorCVService, AssetAgeFactorCVService>();
         services.AddScoped<IAssetNatureFactorCVService, AssetNatureFactorCVService>();
+        services.AddScoped<IAssetUseFactorCVService, AssetUseFactorCVService>();
         services.AddScoped<IAssetAssessmentYearRangeCVService, AssetAssessmentYearRangeCVService>();
         services.AddScoped<IAssetDesignationService, AssetDesignationService>();
+        services.AddScoped<IAssetApplicationTypeService, AssetApplicationTypeService>();
         services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
         services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
         // Rules namespace registrations
