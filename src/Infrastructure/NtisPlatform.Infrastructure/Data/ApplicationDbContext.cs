@@ -176,6 +176,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleEngineEntity> RuleEngine { get; set; } = null!;
     public DbSet<RuleVersionHistoryEntity> RuleVersionHistory { get; set; } = null!;
     public DbSet<RuleCategoryEntity> RuleCategory { get; set; } = null!;
+    public DbSet<AssetRentDocumentTypeEntity> AssetRentDocumentTypes { get; set; } = null!;
+    public DbSet<InventoryDocumentTypeEntity> InventoryDocumentTypes { get; set; } = null!;
 
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
@@ -5890,6 +5892,54 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.PhotoTypeCode)
                 .IsUnique().HasDatabaseName("UQ_AMS_AssetPhotoType_Code");
+        });
+
+        // AssetRentDocumentType configuration (AMS schema)
+        modelBuilder.Entity<AssetRentDocumentTypeEntity>(entity =>
+        {
+            entity.ToTable("AssetRentDocumentType", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.DocumentTypeName).IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+            entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_AssetRentDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
+        });
+
+        // InventoryDocumentType configuration (AMS schema)
+        modelBuilder.Entity<InventoryDocumentTypeEntity>(entity =>
+        {
+            entity.ToTable("InventoryDocumentType", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.DocumentTypeName).IsRequired().HasMaxLength(200).HasColumnType("nvarchar(200)");
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+            entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_InventoryDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
         });
     }
 }

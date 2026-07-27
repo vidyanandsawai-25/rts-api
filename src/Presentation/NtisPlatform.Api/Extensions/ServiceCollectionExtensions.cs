@@ -476,8 +476,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetSubTypeOfUseService, AssetSubTypeOfUseService>();
         services.AddScoped<IAssetFloorFactorCVService, AssetFloorFactorCVService>();
         services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
-
-
+        services.AddScoped<IAssetRentDocumentTypeService, AssetRentDocumentTypeService>();
+        services.AddScoped<IInventoryDocumentTypeService, InventoryDocumentTypeService>();
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
         // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests
         // Effect applicators are stateless, safe as singleton for better performance
