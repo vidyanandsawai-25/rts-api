@@ -17,28 +17,28 @@ public class TransMastService : BaseCommonCrudService<TransMastEntity, TransMast
     {
     }
 
-    public async Task<TransMastDto?> GetByPropertyFinanceYearAndTaxIdAsync(long propertyId, string RVorCV, int financeYearId, int taxId, CancellationToken cancellationToken = default)
+    public async Task<TransMastDto?> GetByPropertyFinanceYearAndTaxIdAsync(long propertyId, string CalculationType, int financeYearId, int taxId, CancellationToken cancellationToken = default)
     {
         var entity = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.FinanceYearId == financeYearId && x.TaxId == taxId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == RVorCV)
+            .Where(x => x.PropertyId == propertyId && x.FinanceYearId == financeYearId && x.TaxId == taxId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == CalculationType)
             .FirstOrDefaultAsync(cancellationToken);
 
         return entity == null ? null : _mapper.Map<TransMastDto>(entity);
     }
 
-    public async Task<List<TransMastDto>> GetByPropertyIdAsync(int propertyId, string RVorCV, CancellationToken cancellationToken = default)
+    public async Task<List<TransMastDto>> GetByPropertyIdAsync(int propertyId, string CalculationType, CancellationToken cancellationToken = default)
     {
         var entities = await _repository.GetQueryable()
-             .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == RVorCV)
+             .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == CalculationType)
             .ToListAsync(cancellationToken);
 
         return _mapper.Map<List<TransMastDto>>(entities);
     }
 
-    public async Task DeactivateByPropertyIdAsync(int propertyId,string RVorCV, int? updatedBy = null, CancellationToken cancellationToken = default)
+    public async Task DeactivateByPropertyIdAsync(int propertyId,string CalculationType, int? updatedBy = null, CancellationToken cancellationToken = default)
     {
         var entities = await _repository.GetQueryable()
-            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == RVorCV)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion && x.CalculationType == CalculationType)
             .ToListAsync(cancellationToken);
 
         foreach (var entity in entities)

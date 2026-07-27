@@ -51,9 +51,8 @@ namespace NtisPlatform.Application.DTOs.RateableValue
     public class PolicyTaxDto
     {
         public string PolicyCode { get; set; } = string.Empty;
-        public DateTime? PolicyDate { get; set; }
         public short? PolicyYear { get; set; }
-        public decimal PolicyRVorCVvalue { get; set; }
+        public decimal CalculationValue { get; set; }
         public decimal TaxTotal { get; set; }
         public Dictionary<string, decimal> Taxes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }

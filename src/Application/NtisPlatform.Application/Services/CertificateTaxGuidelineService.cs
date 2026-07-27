@@ -41,7 +41,7 @@ public class CertificateTaxGuidelineService
     {
         var guidelines = await _repository.GetQueryable()
             .Where(g => g.GuidelineGroup == group && g.IsActive)
-            .OrderBy(g => g.DisplayOrder ?? 0)
+            .OrderBy(g => g.DisplayOrder)
             .ToListAsync(cancellationToken);
 
         return guidelines.ToDictionary(
@@ -115,7 +115,7 @@ public class CertificateTaxGuidelineService
                 existing.GuidelineName        = dto.GuidelineName;
                 existing.Description          = dto.Description;
                 existing.GuidelineGroup       = dto.GuidelineGroup ?? string.Empty;
-                existing.DisplayOrder         = dto.DisplayOrder;
+                existing.DisplayOrder         = dto.DisplayOrder ?? 0;
                 existing.DataType             = dto.DataType;
                 existing.GuidelineValue       = dto.GuidelineValue;
                 existing.AllowedValues        = dto.AllowedValues;

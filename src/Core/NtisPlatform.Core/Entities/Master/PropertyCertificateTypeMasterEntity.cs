@@ -26,12 +26,32 @@ public class PropertyCertificateTypeMasterEntity : BaseEntity
     /// <summary>
     /// Short code identifying the certificate type. Example: 'BP', 'CC', 'OC'.
     /// </summary>
-    [Column(TypeName = "nvarchar(50)")]
+    [Column(TypeName = "varchar(50)")]
     public string CertificateTypeCode { get; set; } = string.Empty;
 
+    [Column(TypeName = "nvarchar(500)")]
+    public string? Description { get; set; }
+
     /// <summary>
-    /// When true, this certificate type is a protected/system-defined type
-    /// that cannot be removed or reassigned through standard maintenance.
+    /// When true, this certificate type is a protected/system-defined type that cannot be
+    /// removed or reassigned through standard maintenance. This is purely a delete-protection
+    /// flag — it does NOT gate Occupation Tax recalculation; see <see cref="IsTaxable"/> for that.
     /// </summary>
     public bool IsProtected { get; set; }
+
+    /// <summary>
+    /// Descriptive/UI-facing flag indicating a document is expected for a certificate of this
+    /// type. Not enforced by SaveCertificateAsync — certificate metadata can be saved without an
+    /// uploaded document (the document, when present, is attached separately via the Global
+    /// Document endpoint).
+    /// </summary>
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// When true, saving/changing a certificate of this type should trigger
+    /// Occupation Tax recalculation. Distinct from IsProtected (delete-protection).
+    /// The certificate type is correlated to a PolicyCodeMaster family (OC/CC/ELECTRIC_BILL)
+    /// via CertificateTypeCode matching, not a dedicated FK column.
+    /// </summary>
+    public bool IsTaxable { get; set; }
 }

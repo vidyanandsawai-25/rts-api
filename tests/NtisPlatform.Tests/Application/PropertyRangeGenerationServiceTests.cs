@@ -36,7 +36,7 @@ namespace NtisPlatform.Tests.Repositories
                 .Options;
 
             _context = new ApplicationDbContext(options);
-            _repository = new PropertyRepository(_context);
+            _repository = new PropertyRepository(_context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         }
 
         public void Dispose()

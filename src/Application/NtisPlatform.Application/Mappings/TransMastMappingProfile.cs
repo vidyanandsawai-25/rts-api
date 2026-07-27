@@ -11,7 +11,9 @@ public class TransMastMappingProfile : Profile
         // Entity to DTO mapping
         CreateMap<TransMastEntity, TransMastDto>()
             .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => src.Tax != null ? src.Tax.TaxName : null))
-            .ForMember(dest => dest.FinanceYear, opt => opt.MapFrom(src => src.FinanceYear != null ? src.FinanceYear.Year : (int?)null));
+            .ForMember(dest => dest.FinanceYear, opt => opt.MapFrom(src => src.FinanceYear != null ? src.FinanceYear.Year : (int?)null))
+            .ForMember(dest => dest.CalculationType, opt => opt.MapFrom(src => src.CalculationType))
+            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue));
 
         // CreateDto to Entity mapping
         CreateMap<CreateTransMastDto, TransMastEntity>()
@@ -22,7 +24,9 @@ public class TransMastMappingProfile : Profile
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
             .ForMember(dest => dest.Property, opt => opt.Ignore())
             .ForMember(dest => dest.Tax, opt => opt.Ignore())
-            .ForMember(dest => dest.FinanceYear, opt => opt.Ignore());
+            .ForMember(dest => dest.FinanceYear, opt => opt.Ignore())
+            .ForMember(dest => dest.CalculationType, opt => opt.MapFrom(src => src.CalculationType))
+            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue));
 
         // UpdateDto to Entity mapping
         CreateMap<UpdateTransMastDto, TransMastEntity>()
@@ -36,6 +40,8 @@ public class TransMastMappingProfile : Profile
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
             .ForMember(dest => dest.Property, opt => opt.Ignore())
             .ForMember(dest => dest.Tax, opt => opt.Ignore())
-            .ForMember(dest => dest.FinanceYear, opt => opt.Ignore());
+            .ForMember(dest => dest.FinanceYear, opt => opt.Ignore())
+            .ForMember(dest => dest.CalculationType, opt => opt.MapFrom(src => src.CalculationType))
+            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue));
     }
 }

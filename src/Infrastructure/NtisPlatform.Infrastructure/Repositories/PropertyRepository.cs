@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -17,8 +18,11 @@ namespace NtisPlatform.Infrastructure.Repositories;
 /// </summary>
 public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepository
 {
-    public PropertyRepository(ApplicationDbContext context) : base(context)
+    private readonly IFinanceYearProvider _financeYearProvider;
+
+    public PropertyRepository(ApplicationDbContext context, IFinanceYearProvider financeYearProvider) : base(context)
     {
+        _financeYearProvider = financeYearProvider;
     }
 
     public async Task<PropertyTaxDetailsDto?> GetTaxDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
@@ -62,10 +66,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             return null;
 
         // Step 2: Query tax details with TaxMaster join, ordered by DisplayOrder
-        List<(string PolicyCode, string TaxName, decimal? TaxAmount)> taxData;
+        List<(string PolicyCode, string PolicyName, string TaxName, decimal? TaxAmount, int TaxId)> taxData;
 
         if (isCapitalValue)
         {
+            // PolicyTaxDetailsCV has no separate display name column, so the code itself is used
+            // as the name (matching the RV side's fallback when PolicyCodeMaster is missing).
             taxData = await (from td in _context.PolicyTaxDetailsCV
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
@@ -74,15 +80,22 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
-                             select new ValueTuple<string, string, decimal?>(
+                             select new ValueTuple<string, string, string, decimal?, int>(
+                                 pcm != null ? pcm.PolicyCode : string.Empty,
                                  pcm != null ? pcm.PolicyCode : string.Empty,
                                  tm.TaxName,
-                                 td.TaxAmount
+                                 td.TaxAmount,
+                                 td.TaxId
                              ))
                             .ToListAsync(cancellationToken);
         }
         else
         {
+            // DBA/lead/business-confirmed schema: PolicyTaxDetails holds exactly ONE active row per
+            // (PropertyId, PolicyCodeId, TaxId) -- the CURRENT state only, no per-year history and no
+            // PolicyYear column. Retro/arrears years live only in TaxPendingDetails/TaxPendingDetailsRetro,
+            // never here, so no year-based filter is needed: IsActive/MarkedForDeletion already scope
+            // this query to the property's current, active determination.
             taxData = await (from td in _context.PolicyTaxDetails
                              join tm in _context.TaxMaster on td.TaxId equals tm.Id
                              join tc in _context.TaxCategoryMaster on tm.TaxCategoryId equals tc.Id
@@ -91,10 +104,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
-                             select new ValueTuple<string, string, decimal?>(
+                             select new ValueTuple<string, string, string, decimal?, int>(
                                  pcm != null ? pcm.PolicyCode : string.Empty,
+                                 pcm != null ? pcm.PolicyName : string.Empty,
                                  tm.TaxName,
-                                 td.TaxAmount
+                                 td.TaxAmount,
+                                 td.TaxId
                              ))
                             .ToListAsync(cancellationToken);
         }
@@ -103,17 +118,58 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         if (taxData.Count == 0)
             return null;
 
+        // Step 3b (RV only): PolicyTaxDetails holds the raw annual Rateable Value amount, but
+        // OccupationTaxApplicationService writes certificate-driven (prorated/retrospective)
+        // amounts for the CURRENT finance year into TransMast, not back into PolicyTaxDetails.
+        // Without this, the Tax Details panel would never reflect a CC/OC/Electricity-Bill date
+        // change even though the certificate-change pipeline ran successfully end-to-end. Use the
+        // TransMast amount per TaxId when one exists for the current finance year; otherwise fall
+        // back to the raw PolicyTaxDetails amount (e.g. the certificate-change pipeline has never
+        // run for this property yet). Safe now that taxData (above) is itself already filtered to
+        // the current finance year -- this can no longer misattribute a retro year's row.
+        Dictionary<int, decimal> transMastOverridesByTaxId = new();
+        if (!isCapitalValue)
+        {
+            var currentYear = _financeYearProvider.GetCurrentFinanceYear();
+            var currentFinanceYearId = await _context.YearMaster
+                .Where(y => y.Year == currentYear)
+                .Select(y => (int?)y.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (currentFinanceYearId.HasValue)
+            {
+                transMastOverridesByTaxId = await _context.TransMast
+                    .Where(tm => tm.PropertyId == propertyId
+                        && tm.FinanceYearId == currentFinanceYearId.Value
+                        && tm.CalculationType == "RV"
+                        && tm.IsActive
+                        && !tm.MarkedForDeletion)
+                    .GroupBy(tm => tm.TaxId)
+                    .Select(g => new { TaxId = g.Key, Amount = g.Sum(x => x.TaxAmount) })
+                    .ToDictionaryAsync(x => x.TaxId, x => x.Amount, cancellationToken);
+            }
+        }
+
         // Step 4: Group by PolicyCode and create pivoted structure
         var policies = taxData
             .GroupBy(x => x.Item1)
             .Select(g =>
             {
+                var policyName = g.First().Item2;
+
                 var taxAmounts = g
-                    .GroupBy(x => x.Item2)
+                    .GroupBy(x => x.Item3)
                     .Select(tg => new TaxAmountDetail
                     {
                         TaxName = tg.Key,
-                        TaxAmount = tg.Sum(x => x.Item3 ?? 0)
+                        // Apply the TransMast override once per distinct TaxId (not once per
+                        // source PolicyTaxDetails row) -- multiple rows sharing a TaxId, or
+                        // multiple TaxIds sharing a TaxName, would otherwise double-count it.
+                        TaxAmount = tg
+                            .GroupBy(x => x.Item5)
+                            .Sum(taxIdGroup => transMastOverridesByTaxId.TryGetValue(taxIdGroup.Key, out var overridden)
+                                ? overridden
+                                : taxIdGroup.Sum(x => x.Item4 ?? 0))
                     })
                     .ToList();
 
@@ -122,10 +178,221 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 return new PolicyTaxDetail
                 {
                     PolicyCode = g.Key,
+                    PolicyName = policyName,
                     TaxAmounts = taxAmounts,
                     TaxTotal = taxTotal
                 };
             })
+            .ToList();
+
+        // Step 5 (RV only): attach the year-wise retro/arrears breakdown from
+        // TaxPendingDetailsRetro (joined with YearMaster for its YearCode) onto whichever policy
+        // group(s) belong to the certificate-tax family (OC/CC/Electric-Bill and their PARTIAL_
+        // variants) -- this is purely additive display data alongside the current-year TaxAmounts
+        // computed above; it does not change what those current-year figures are, and it does not
+        // reintroduce retro-year rows into the main taxData query (Step 2 above still correctly
+        // filters PolicyTaxDetails to the current finance year only).
+        if (!isCapitalValue)
+        {
+            // Floor the pending-years breakdown at the earliest active taxable formal certificate's
+            // (CC or OC) finance year when formal certificates exist, or Electric Bill when only
+            // Electric Bill exists -- ensuring Electric Bill does not apply or floor tax before CC/OC onset.
+            var certsQuery = _context.PropertyCertificates
+                .Where(pc => pc.PropertyId == propertyId && pc.IsActive && !pc.MarkedForDeletion
+                    && pc.IssueDate.HasValue && pc.CertificateType != null && pc.CertificateType.IsTaxable);
+
+            var formalCertDate = await certsQuery
+                .Where(pc => pc.CertificateType != null &&
+                             ((pc.CertificateType.CertificateTypeCode != null && (pc.CertificateType.CertificateTypeCode.Contains("CC") || pc.CertificateType.CertificateTypeCode.Contains("OC"))) ||
+                              (pc.CertificateType.CertificateTypeName != null && (pc.CertificateType.CertificateTypeName.Contains("Completion") ||
+                                                                                   pc.CertificateType.CertificateTypeName.Contains("Commencement") ||
+                                                                                   pc.CertificateType.CertificateTypeName.Contains("Occupancy") ||
+                                                                                   pc.CertificateType.CertificateTypeName.Contains("Occupation")))))
+                .OrderBy(pc => pc.IssueDate)
+                .Select(pc => (DateTime?)pc.IssueDate)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var earliestCertIssueDate = formalCertDate ?? await certsQuery
+                .OrderBy(pc => pc.IssueDate)
+                .Select(pc => (DateTime?)pc.IssueDate)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            int? certStartYear = null;
+            if (earliestCertIssueDate.HasValue)
+            {
+                var certDate = earliestCertIssueDate.Value.Date;
+                certStartYear = certDate.Month >= 4 ? certDate.Year : certDate.Year - 1;
+            }
+
+            var retroPendingQuery = (from tpr in _context.TaxPendingDetailsRetro
+                                     join ym in _context.YearMaster on tpr.PendingYearId equals ym.Id
+                                     join tm in _context.TaxMaster on tpr.TaxId equals tm.Id
+                                     where tpr.PropertyId == propertyId && tpr.IsActive && !tpr.MarkedForDeletion
+                                     select new
+                                     {
+                                         tpr.PendingYearId,
+                                         ym.YearCode,
+                                         ym.Year,
+                                         tm.TaxName,
+                                         PendingAmount = tpr.PendingAmount ?? 0m,
+                                         tm.DisplayOrder
+                                     });
+
+            if (certStartYear.HasValue)
+            {
+                retroPendingQuery = retroPendingQuery.Where(x => x.Year >= certStartYear.Value);
+            }
+
+            var retroPendingRows = await retroPendingQuery.ToListAsync(cancellationToken);
+
+            if (retroPendingRows.Any())
+            {
+                // Resolve which certificate (OC/CC/ELECTRIC_BILL) actually governed EACH pending
+                // year individually, so the grid can tag every year's row with its own real
+                // certificate instead of inheriting whichever policy group's PolicyCode string
+                // happens to match below (a property whose certificate history changed over time
+                // -- e.g. a CC-only period followed by a later OC -- can have retro years governed
+                // by different certificate types).
+                var certificatesForYearTagging = await (from pc in _context.PropertyCertificates
+                                                        join pct in _context.PropertyCertificateTypeMasters on pc.CertificateTypeId equals pct.Id
+                                                        where pc.PropertyId == propertyId && pc.IsActive && !pc.MarkedForDeletion
+                                                           && pct.IsActive && pc.IssueDate.HasValue
+                                                        orderby pc.IssueDate!.Value
+                                                        select new
+                                                        {
+                                                            pc.IssueDate,
+                                                            pct.CertificateTypeCode,
+                                                            pct.CertificateTypeName
+                                                        })
+                                                        .ToListAsync(cancellationToken);
+
+                string ResolveYearPolicyCode(int financeYearStart)
+                {
+                    var fyEnd = new DateTime(financeYearStart + 1, 3, 31);
+                    var applicableCert = certificatesForYearTagging
+                        .Where(c => c.IssueDate!.Value.Date <= fyEnd)
+                        .OrderByDescending(c => c.IssueDate!.Value)
+                        .FirstOrDefault();
+
+                    if (applicableCert == null)
+                    {
+                        return "CC";
+                    }
+
+                    var codeUpper = (applicableCert.CertificateTypeCode ?? string.Empty).ToUpperInvariant().Trim();
+                    var nameUpper = (applicableCert.CertificateTypeName ?? string.Empty).ToUpperInvariant().Trim();
+
+                    if (codeUpper.Contains("OC") || nameUpper.Contains("OCCUPANCY") || nameUpper.Contains("OCCUPATION"))
+                        return "OC";
+                    if (codeUpper.Contains("ELECTRIC") || codeUpper.Contains("EB") || codeUpper.Contains("BILL") || nameUpper.Contains("ELECTRIC") || nameUpper.Contains("BILL"))
+                        return "ELECTRIC_BILL";
+                    if (codeUpper.Contains("CC") || nameUpper.Contains("COMMENCEMENT") || nameUpper.Contains("COMPLETION"))
+                        return "CC";
+
+                    return applicableCert.CertificateTypeCode ?? "CC";
+                }
+
+                var pendingYearsList = retroPendingRows
+                    .GroupBy(r => new { r.PendingYearId, r.YearCode, r.Year })
+                    .OrderBy(g => g.Key.Year)
+                    .Select(gy =>
+                    {
+                        var amounts = gy
+                            .OrderBy(r => r.DisplayOrder)
+                            .Select(r => new TaxAmountDetail
+                            {
+                                TaxName = r.TaxName,
+                                TaxAmount = r.PendingAmount
+                            })
+                            .ToList();
+
+                        return new PendingYearTaxDetail
+                        {
+                            PendingYearId = gy.Key.PendingYearId,
+                            YearCode = gy.Key.YearCode,
+                            PolicyCode = ResolveYearPolicyCode(gy.Key.Year),
+                            TaxAmounts = amounts,
+                            TaxTotal = amounts.Sum(a => a.TaxAmount)
+                        };
+                    })
+                    .ToList();
+
+                // Synthesize policy groups for any certificate policy code (CC, OC, ELECTRIC_BILL) present in pending years that is missing from policies
+                var distinctPolicyCodesInRetro = pendingYearsList
+                    .Select(p => p.PolicyCode)
+                    .Where(code => !string.IsNullOrWhiteSpace(code))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                foreach (var retroPolicyCode in distinctPolicyCodesInRetro)
+                {
+                    var existingPolicy = policies.FirstOrDefault(p =>
+                        string.Equals(p.PolicyCode, retroPolicyCode, StringComparison.OrdinalIgnoreCase) ||
+                        p.PolicyCode.StartsWith(retroPolicyCode, StringComparison.OrdinalIgnoreCase) ||
+                        retroPolicyCode.StartsWith(p.PolicyCode, StringComparison.OrdinalIgnoreCase));
+
+                    if (existingPolicy == null)
+                    {
+                        var policyMasterRow = await _context.PolicyCodeMaster
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(p => p.PolicyCode == retroPolicyCode, cancellationToken);
+
+                        var policyName = policyMasterRow?.PolicyName ?? retroPolicyCode switch
+                        {
+                            "CC" => "Completion Certificate",
+                            "OC" => "Occupancy Certificate",
+                            "ELECTRIC_BILL" => "Electricity Bill",
+                            _ => retroPolicyCode
+                        };
+
+                        var synthPolicy = new PolicyTaxDetail
+                        {
+                            PolicyCode = retroPolicyCode,
+                            PolicyName = policyName,
+                            TaxAmounts = new List<TaxAmountDetail>(),
+                            TaxTotal = 0m,
+                            PendingYears = pendingYearsList.Where(p => string.Equals(p.PolicyCode, retroPolicyCode, StringComparison.OrdinalIgnoreCase)).ToList()
+                        };
+
+                        policies.Add(synthPolicy);
+                    }
+                }
+
+                foreach (var policy in policies)
+                {
+                    if (policy.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase))
+                    {
+                        policy.PendingYears = new List<PendingYearTaxDetail>();
+                        continue;
+                    }
+
+                    var matchingPendingYears = pendingYearsList
+                        .Where(p => string.Equals(p.PolicyCode, policy.PolicyCode, StringComparison.OrdinalIgnoreCase) ||
+                                   policy.PolicyCode.Contains(p.PolicyCode, StringComparison.OrdinalIgnoreCase) ||
+                                   p.PolicyCode.Contains(policy.PolicyCode, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    policy.PendingYears = matchingPendingYears.Any()
+                        ? matchingPendingYears
+                        : (policy.PolicyCode.Contains("OC", StringComparison.OrdinalIgnoreCase) ||
+                           policy.PolicyCode.Contains("CC", StringComparison.OrdinalIgnoreCase) ||
+                           policy.PolicyCode.Contains("ELECTRIC", StringComparison.OrdinalIgnoreCase)
+                            ? pendingYearsList
+                            : new List<PendingYearTaxDetail>());
+                }
+            }
+        }
+
+        // Step 6: order policy groups by PolicyCodeMaster.Id (DBA-configured display order) so the
+        // Tax Details grid presents them consistently instead of relying on incidental query order.
+        var policyMasterOrder = await _context.PolicyCodeMaster
+            .AsNoTracking()
+            .Select(p => new { p.PolicyCode, p.Id })
+            .ToDictionaryAsync(p => p.PolicyCode, p => p.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
+
+        policies = policies
+            .OrderBy(p => policyMasterOrder.TryGetValue(p.PolicyCode, out var order) ? order : int.MaxValue)
+            .ThenBy(p => p.PolicyCode)
             .ToList();
 
         return policies;
@@ -796,6 +1063,8 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         var taxPendingRV = await _context.TaxPendingDetailsRV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
         relatedEntities.AddRange(taxPendingRV);
 
+        // TransMast now holds both RV and CV rows (CalculationType discriminator), so this single
+        // query already covers what a separate TransMastCV load used to cover.
         var transMast = await _context.TransMast.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
         relatedEntities.AddRange(transMast);
 
@@ -804,9 +1073,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
         var transMastLookup = await _context.TransMastLookup.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
         relatedEntities.AddRange(transMastLookup);
-
-        var transMastCV = await _context.TransMastCV.Where(x => x.PropertyId == propertyId).ToListAsync(cancellationToken);
-        relatedEntities.AddRange(transMastCV);
 
         // TODO: Uncomment when database table structure is finalized
 

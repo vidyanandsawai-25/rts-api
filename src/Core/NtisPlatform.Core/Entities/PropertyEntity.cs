@@ -150,7 +150,6 @@ public class PropertyEntity : BaseEntity, IHardDeletable
     public ICollection<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = new List<PropertyTaxCalculationCVResultsEntity>();
     public ICollection<RVCalculationResultsEntity> RVCalculationResults { get; set; } = new List<RVCalculationResultsEntity>();
     public ICollection<PlotDetailsEntity> PlotDetails { get; set; } = new List<PlotDetailsEntity>();
-    public ICollection<TransMastCVEntity> TransMastCV { get; set; } = new List<TransMastCVEntity>();
     public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
     public ICollection<PropertyDetailsOldEntity> PropertyDetailsOld { get; set; } = new List<PropertyDetailsOldEntity>();
     public ICollection<PropertyMastOldEntity> PropertyMastOld { get; set; } = new List<PropertyMastOldEntity>();

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -708,7 +709,7 @@ public class PropertyOldDetailsTests
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
             var result = await repository.GetOldDetailsAsync(999);
 
@@ -736,7 +737,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -786,7 +787,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -838,7 +839,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -895,7 +896,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -928,7 +929,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.Null(result);
@@ -955,7 +956,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.Null(result);
@@ -969,7 +970,7 @@ public class PropertyOldDetailsTests
                 .Options;
 
             using var context = new ApplicationDbContext(options);
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
             var dto = new UpdatePropertyOldDetailsDto
             {
@@ -1003,7 +1004,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79",
@@ -1076,7 +1077,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "NEW",
@@ -1138,7 +1139,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldPlotArea = 2000.0 // Only updating plot area
@@ -1174,7 +1175,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto(); // Empty DTO
 
             var result = await repository.UpdateOldDetailsAsync(549357, dto);
@@ -1210,7 +1211,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79",
@@ -1254,7 +1255,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldConstructionYear = "2015",
@@ -1296,7 +1297,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79",
@@ -1347,7 +1348,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldConstructionYear = "2015",
@@ -1620,7 +1621,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79"
@@ -1652,7 +1653,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79"
@@ -1693,7 +1694,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -1730,7 +1731,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -1767,7 +1768,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -1804,7 +1805,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetOldDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -1849,7 +1850,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.AddRange(oldMast1, oldMast2);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "UPDATED"
@@ -1905,7 +1906,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.AddRange(oldDetails1, oldDetails2);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldConstructionYear = "2023"
@@ -1962,7 +1963,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "NEW_WARD",
@@ -2030,7 +2031,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldConstructionYear = "2023",
@@ -2075,7 +2076,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79"
@@ -2109,7 +2110,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var cts = new CancellationTokenSource();
 
             var result = await repository.GetOldDetailsAsync(549357, cts.Token);
@@ -2158,7 +2159,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "NEW",
@@ -2214,7 +2215,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldCarpetAreaSqFeet = 1500.0 // Only update this field
@@ -2251,7 +2252,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79",
@@ -2317,7 +2318,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 // No PropertyMastOld fields
@@ -2373,7 +2374,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 // PropertyMastOld fields
@@ -2439,7 +2440,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastOld.Add(oldMast);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "NEW",
@@ -2491,7 +2492,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetailsOld.Add(oldDetails);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyOldDetailsDto
             {
                 OldWardNo = "W79",
@@ -4131,7 +4132,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -4190,7 +4191,7 @@ public class PropertyOldDetailsTests
             context.PropertyDetails.Add(detail2);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -4241,7 +4242,7 @@ public class PropertyOldDetailsTests
             context.PlotDetails.Add(plot);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -4290,7 +4291,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4346,7 +4347,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4417,7 +4418,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4475,7 +4476,7 @@ public class PropertyOldDetailsTests
             context.PlotDetails.Add(plot);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4539,7 +4540,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4596,7 +4597,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,
@@ -4663,7 +4664,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -4706,7 +4707,7 @@ public class PropertyOldDetailsTests
             context.PropertyMast.Add(property);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var result = await repository.GetBasicDetailsAsync(549357);
 
             Assert.NotNull(result);
@@ -4755,7 +4756,7 @@ public class PropertyOldDetailsTests
             context.PropertyMastDetails.Add(assessment);
             await context.SaveChangesAsync();
 
-            var repository = new PropertyRepository(context);
+            var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
             var dto = new UpdatePropertyBasicDetailsDto
             {
                 WardId = 79,

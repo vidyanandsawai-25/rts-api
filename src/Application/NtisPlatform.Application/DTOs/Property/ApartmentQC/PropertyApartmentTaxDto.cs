@@ -58,7 +58,7 @@ public class PropertyApartmentTaxDto
     public decimal? OldTotalTax { get; set; }
     public string?  OldCSN { get; set; }
 
-    public decimal? RVorCVValue { get; set; }
+    public decimal? CalculationValue { get; set; }
     public decimal? CapitalValue { get; set; }
     public decimal? RateableValue { get; set; }
 

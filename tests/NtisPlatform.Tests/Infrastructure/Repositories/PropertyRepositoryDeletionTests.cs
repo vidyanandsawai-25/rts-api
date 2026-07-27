@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -51,7 +53,7 @@ public class PropertyRepositoryDeletionTests
         context.PropertyDetails.AddRange(propertyDetails);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetPropertyDetailsByPropertyIdAsync(propertyId);
@@ -69,7 +71,7 @@ public class PropertyRepositoryDeletionTests
         using var context = CreateInMemoryContext();
         var propertyId = 999;
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetPropertyDetailsByPropertyIdAsync(propertyId);
@@ -99,7 +101,7 @@ public class PropertyRepositoryDeletionTests
         context.RVCalculationResults.AddRange(rvResults);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRvResultsByPropertyIdAsync(propertyId);
@@ -115,7 +117,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRvResultsByPropertyIdAsync(999);
@@ -144,7 +146,7 @@ public class PropertyRepositoryDeletionTests
         context.PropertyTaxCalculationSection129Results.AddRange(section129Results);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetSection129ResultsByPropertyIdAsync(propertyId);
@@ -160,7 +162,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetSection129ResultsByPropertyIdAsync(999);
@@ -197,7 +199,7 @@ public class PropertyRepositoryDeletionTests
         context.PropertyOccupancyDetails.AddRange(occupancyDetails);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetPropertyOccupancyByPropertyDetailIdsAsync(propertyDetailIds);
@@ -215,7 +217,7 @@ public class PropertyRepositoryDeletionTests
         using var context = CreateInMemoryContext();
         var propertyDetailIds = new List<int> { 999 };
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetPropertyOccupancyByPropertyDetailIdsAsync(propertyDetailIds);
@@ -230,7 +232,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetPropertyOccupancyByPropertyDetailIdsAsync(new List<int>());
@@ -259,7 +261,7 @@ public class PropertyRepositoryDeletionTests
         context.RenterMast.AddRange(renters);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRentersByPropertyDetailIdsAsync(propertyDetailIds);
@@ -289,7 +291,7 @@ public class PropertyRepositoryDeletionTests
         context.RoomWiseSubmissionDetails.AddRange(submissions);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRoomWiseSubmissionByPropertyIdAsync(propertyId);
@@ -316,7 +318,7 @@ public class PropertyRepositoryDeletionTests
         context.RoomWiseSubmissionDetails.AddRange(submissions);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRoomWiseSubmissionByPropertyIdAsync(propertyId);
@@ -332,7 +334,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRoomWiseSubmissionByPropertyIdAsync(999);
@@ -361,7 +363,7 @@ public class PropertyRepositoryDeletionTests
 
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
@@ -379,7 +381,7 @@ public class PropertyRepositoryDeletionTests
         using var context = CreateInMemoryContext();
         var propertyId = 999;
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
@@ -396,21 +398,21 @@ public class PropertyRepositoryDeletionTests
         using var context = CreateInMemoryContext();
         var propertyId = 1;
 
-        // Add transaction-related entities
+        // Add transaction-related entities. TransMast now holds both CV and RV rows
+        // (CalculationType discriminator) since TransMastCV/TransMastRV were folded into it.
         context.TransMast.Add(new TransMastEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, CalculationType = "CV", IsActive = true, MarkedForDeletion = false });
         context.TransMast.Add(new TransMastEntity { Id = 2, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, CalculationType = "RV", IsActive = true, MarkedForDeletion = false });
-        context.TransMastCV.Add(new TransMastCVEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, IsActive = true, MarkedForDeletion = false });
 
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(3, result.Count);
+        Assert.Equal(2, result.Count);
     }
 
     [Fact]
@@ -427,7 +429,7 @@ public class PropertyRepositoryDeletionTests
 
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
@@ -455,7 +457,7 @@ public class PropertyRepositoryDeletionTests
 
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
@@ -485,7 +487,7 @@ public class PropertyRepositoryDeletionTests
 
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRelatedEntitiesForDeletionAsync(propertyId);
@@ -517,7 +519,7 @@ public class PropertyRepositoryDeletionTests
         context.RoomWiseMinusData.AddRange(minusData);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRoomWiseMinusBySubmissionIdsAsync(submissionIds);
@@ -533,7 +535,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetRoomWiseMinusBySubmissionIdsAsync(new List<int>());
@@ -548,7 +550,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var minusData = new RoomWiseMinusDataEntity
         {
@@ -578,7 +580,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var entities = new List<PropertyDetailsEntity>
         {
@@ -614,7 +616,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var existingDeletionDate = DateTime.Now.AddDays(-1);
         var entity = new PropertyDetailsEntity
@@ -646,7 +648,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var entities = new List<PropertyDetailsEntity>();
 
         // Act & Assert - Should not throw
@@ -658,7 +660,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var propertyDetails = new PropertyDetailsEntity
         {
@@ -707,7 +709,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var entities = new List<PropertyDetailsEntity>
         {
@@ -745,7 +747,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         var plotDetails = new PlotDetailsEntity
         {
@@ -799,7 +801,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var now = DateTime.Now;
         var entities = new List<BaseEntity>
         {
@@ -828,7 +830,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var entities = new List<BaseEntity>();
 
         // Act & Assert - Should not throw
@@ -840,7 +842,7 @@ public class PropertyRepositoryDeletionTests
     {
         // Arrange
         using var context = CreateInMemoryContext();
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var entity = new PropertySocialDetailsEntity 
         { 
             Id = 1, 

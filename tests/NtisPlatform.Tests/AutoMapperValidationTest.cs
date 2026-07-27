@@ -143,7 +143,7 @@ public class AutoMapperValidationTest
                 // Computed/derived rate fields (populated from navigation properties after mapping)
                 "RateAmount",
                 // Local record types used in data layer projections (not entity mappings)
-                "RVorCV", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
+                "CalculationType", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
                 // SocietyDetailsEntity fields unmapped from SocietyWingDetails cross-mapping
                 "SocietyName", "SocietyAddress", "SecretaryName", "ManagerName",
                 "LandOwnerName", "BuilderName",
@@ -152,7 +152,9 @@ public class AutoMapperValidationTest
                 "ManagerMobileNo", "ManagerMobileNoRemarkId",
                 "SecretaryMobileNo", "SecretaryMobileNoRemarkId",
                 "BuilderMobileNo", "BuilderMobileNoRemarkId",
-                "SocietyEmailId", "SecretaryEmailId", "ManagerEmailId"
+                "SocietyEmailId", "SecretaryEmailId", "ManagerEmailId",
+                // PropertyCertificateTypeMasterEntity.PolicyCode (nav prop to PolicyCodeMaster)
+                "PolicyCode"
              };
 
             // Check if all unmapped properties are in the expected list

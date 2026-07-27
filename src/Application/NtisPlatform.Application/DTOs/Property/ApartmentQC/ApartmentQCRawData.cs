@@ -89,7 +89,7 @@ public sealed record ApartmentQCRawData
 
     public DateTime? OCDate { get; init; }
 
-    public decimal? RVorCVValue { get; init; }
+    public decimal? CalculationValue { get; init; }
     public decimal? CapitalValue { get; init; }
     public decimal? RateableValue { get; init; }
 

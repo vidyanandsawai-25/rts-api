@@ -20,6 +20,12 @@ public class PropertyCertificateNotFoundException : EntityNotFoundException
         : base("PropertyCertificate", propertyCertificateId, "PROPERTY_CERTIFICATE_NOT_FOUND")
     {
     }
+
+    /// <summary>Used when looking up by (PropertyId, CertificateTypeId, PropertyDetailsId) rather than the internal Id.</summary>
+    public PropertyCertificateNotFoundException(string lookupDescription)
+        : base("PropertyCertificate", lookupDescription, "PROPERTY_CERTIFICATE_NOT_FOUND")
+    {
+    }
 }
 
 /// <summary>

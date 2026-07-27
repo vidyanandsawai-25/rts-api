@@ -57,6 +57,13 @@ public class PropertyCertificateItemDto
     public int? PropertyCertificateId { get; set; }
 
     /// <summary>
+    /// Property Details ID for floor-wise certificates
+    /// NULL = property-level (Building Permission screen)
+    /// set = floor-level (Floor screen, tied to a specific floor)
+    /// </summary>
+    public int? PropertyDetailsId { get; set; }
+
+    /// <summary>
     /// Existing Document GUID (for existing certificates with documents)
     /// </summary>
     public Guid? ExistingDocumentGuid { get; set; }

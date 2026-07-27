@@ -90,7 +90,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertySocialDetailsEntity> PropertySocialDetails { get; set; } = null!;
     public DbSet<PropertyWorkflowStageMasterEntity> PropertyWorkflowStageMaster { get; set; } = null!;
     public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
-    public DbSet<TransMastCVEntity> TransMastCV { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
     public DbSet<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = null!;
@@ -266,39 +265,46 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.PolicyCodeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Indexes for better query performance
-            entity.HasIndex(e => e.PropertyId);
-            entity.HasIndex(e => e.TaxId);
-            entity.HasIndex(e => e.PolicyCodeId);
+            // Indexes match the DBA/lead/business-confirmed live DDL exactly. The names
+            // "...PropertyYear" and "UX_..._Property_Year_PolicyCode_TaxId" are historical leftovers
+            // from an earlier design -- neither index actually includes a Year column any more.
+            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PolicyTaxDetails_PropertyId");
+            entity.HasIndex(e => e.TaxId).HasDatabaseName("IX_PolicyTaxDetails_TaxId");
+            entity.HasIndex(e => e.PropertyId)
+                .HasDatabaseName("IX_PolicyTaxDetails_PropertyYear")
+                .IncludeProperties(e => new { e.TaxId, e.TaxAmount, e.PolicyCodeId });
+            entity.HasIndex(e => new { e.PropertyId, e.PolicyCodeId, e.TaxId })
+                .IsUnique()
+                .HasDatabaseName("UX_PolicyTaxDetails_Property_Year_PolicyCode_TaxId")
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
-        // PolicyCodeMaster configuration
         modelBuilder.Entity<PolicyCodeMasterEntity>(entity =>
         {
             entity.ToTable("PolicyCodeMaster", "PTIS");
-            entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.Id).HasName("PK_PolicyCodeMaster");
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(20);
-            entity.Property(e => e.PolicyName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.PolicyType).HasMaxLength(50);
+            entity.Property(e => e.PolicyCode).IsRequired().HasMaxLength(30).HasColumnType("varchar(30)");
+            entity.Property(e => e.PolicyName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
+            entity.Property(e => e.Description).HasMaxLength(300).HasColumnType("nvarchar(300)");
+            entity.Property(e => e.PolicyType).IsRequired().HasMaxLength(20).HasColumnType("varchar(20)");
             entity.Property(e => e.IsFinalStage).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.IsExclusive).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.RequiresStageTracking).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
             entity.HasOne(e => e.NextPolicyCode)
                 .WithMany()
                 .HasForeignKey(e => e.NextPolicyCodeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            entity.HasCheckConstraint("CK_PolicyCodeMaster_PolicyType", "[PolicyType] IN ('NORMAL', 'DATE_BASED', 'STAGE_BASED', 'DECISION')");
             entity.HasIndex(e => e.PolicyCode).IsUnique().HasDatabaseName("UQ_PolicyCodeMaster_PolicyCode");
         });
+
 
         // NatureFactorCVMaster configuration
         modelBuilder.Entity<NatureFactorCVMasterEntity>(entity =>
@@ -1038,13 +1044,14 @@ public class ApplicationDbContext : DbContext
         {
             entity.ToTable("CertificateTaxGuideline", "PTIS");
             entity.HasKey(e => e.Id).HasName("PK_CertificateTaxGuideline");
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
 
-            entity.Property(e => e.GuidelineCode).IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)");
+            entity.Property(e => e.GuidelineCode).IsRequired().HasMaxLength(50).IsUnicode(false).HasColumnType("varchar(50)");
             entity.Property(e => e.GuidelineName).IsRequired().HasMaxLength(150).HasColumnType("nvarchar(150)");
             entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)");
-            entity.Property(e => e.GuidelineGroup).HasMaxLength(50).HasColumnType("nvarchar(50)");
-            entity.Property(e => e.DisplayOrder);
-            entity.Property(e => e.DataType).IsRequired().HasMaxLength(20).HasColumnType("nvarchar(20)");
+            entity.Property(e => e.GuidelineGroup).IsRequired().HasMaxLength(30).IsUnicode(false).HasColumnType("varchar(30)");
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.DataType).IsRequired().HasMaxLength(20).IsUnicode(false).HasColumnType("varchar(20)");
             entity.Property(e => e.GuidelineValue).HasMaxLength(500).HasColumnType("nvarchar(500)");
             entity.Property(e => e.AllowedValues).HasMaxLength(500).HasColumnType("nvarchar(500)");
 
@@ -1053,6 +1060,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasCheckConstraint("CK_CertificateTaxGuideline_DataType", "[DataType] IN ('BIT','INT','DECIMAL','VARCHAR','DATE')");
+            entity.HasIndex(e => e.GuidelineCode).IsUnique().HasDatabaseName("UQ_CertificateTaxGuideline_GuidelineCode");
         });
 
         modelBuilder.Entity<RoleWiseScreenAccessMasterEntity>(entity =>
@@ -1453,15 +1463,17 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.PropertyId);
 
-            // Unique constraint on PropertyId, FinanceYearId, TaxId AND CalculationType for active, non-deleted rows only.
-            // CalculationType must be part of the key: this table holds both CV rows (CapitalValuePersistenceService)
-            // and RV rows (RVPersistenceService) for the same PropertyId/FinanceYearId/TaxId, so a key without
-            // CalculationType would make the two collide. Matches the pre-merge UQ_TransMastRV_Property_Year_Tax
-            // filtered index.
-            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.TaxId, e.CalculationType })
+            // Unique constraint on PropertyId, FinanceYearId, CalculationType, TaxId -- CalculationType
+            // must be part of the key because this table now holds both CV rows (CapitalValueService)
+            // and RV rows (RVPersistenceService/OccupationTaxApplicationService) for the same
+            // PropertyId/FinanceYearId/TaxId; a key without CalculationType would make the two collide.
+            // Matches the live DB's UQ_TransMast_Property_Year_CalculationType_Tax exactly -- a plain
+            // UNIQUE CONSTRAINT, NOT filtered on IsActive/MarkedForDeletion (an inactive row still
+            // occupies its key, same reasoning as the old UQ_TransMast_Property_Year_Tax before this
+            // table absorbed TransMastRV/TransMastCV).
+            entity.HasIndex(e => new { e.PropertyId, e.FinanceYearId, e.CalculationType, e.TaxId })
                 .IsUnique()
-                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0")
-                .HasDatabaseName("UQ_TransMast_Property_Year_Tax_Calc");
+                .HasDatabaseName("UQ_TransMast_Property_Year_CalculationType_Tax");
 
         });
 
@@ -1972,11 +1984,6 @@ public class ApplicationDbContext : DbContext
                 .WithOne(d => d.PropertyMast)
                 .HasForeignKey(d => d.PropertyId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasMany(e => e.TransMastCV)
-              .WithOne(d => d.PropertyMast)
-              .HasForeignKey(d => d.PropertyId)
-              .OnDelete(DeleteBehavior.Restrict);
 
             // Configure PlotDetails relationship
             entity.HasMany(e => e.PlotDetails)
@@ -2860,14 +2867,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.CertificateTypeName).IsRequired().HasMaxLength(100).HasColumnType("nvarchar(100)");
             entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
-            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50).HasColumnType("nvarchar(50)").HasDefaultValue(string.Empty);
-            entity.Property(e => e.IsProtected).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CertificateTypeCode).IsRequired().HasMaxLength(50).HasColumnType("varchar(50)");
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.IsTaxable).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsProtected).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
+            entity.HasIndex(e => e.CertificateTypeCode).IsUnique().HasDatabaseName("UQ_PropertyCertificateTypeMaster_Code");
             entity.HasIndex(e => e.CertificateTypeName).IsUnique().HasDatabaseName("UQ_PropertyCertificateTypeMaster_Name");
         });
 
@@ -2920,36 +2931,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.TaxId);
             entity.HasIndex(e => e.PolicyCodeId);
-        });
-
-        modelBuilder.Entity<TransMastCVEntity>(entity =>
-        {
-            entity.ToTable("TransMastCV", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.FinanceYearId).IsRequired();
-            entity.Property(e => e.CapitalValue).HasColumnType("decimal(18,2)");
-            entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.TaxAmount).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
-
-            // Configure foreign key relationships explicitly
-            entity.HasOne(e => e.PropertyMast)
-                  .WithMany(p => p.TransMastCV)
-                  .HasForeignKey(e => e.PropertyId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.TaxMaster)
-                  .WithMany()
-                  .HasForeignKey(e => e.TaxId)
-                  .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.YearMaster)
-                  .WithMany()
-                  .HasForeignKey(e => e.FinanceYearId)
-                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // BlockMaster configuration
@@ -3192,7 +3173,9 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CertificateNo).HasMaxLength(100).HasColumnType("nvarchar(100)");
             entity.Property(e => e.IssueDate).HasColumnName("CertificateIssueDate").HasColumnType("date");
             entity.Property(e => e.DocumentBindingId);
-            entity.Property(e => e.PropertyDetailsId);
+            entity.Property(e => e.PropertyDetailsId); // NULL = property-level, set = floor-level
+            entity.Property(e => e.TaxApplied).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.TaxAppliedDate).HasColumnType("datetime");
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
@@ -3217,13 +3200,20 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(pc => pc.DocumentBindingId)
                 .OnDelete(DeleteBehavior.NoAction);
 
+            entity.HasOne<PropertyDetailsEntity>()
+                .WithMany()
+                .HasForeignKey(pc => pc.PropertyDetailsId)
+                .OnDelete(DeleteBehavior.NoAction);
+
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyCertificates_PropertyId");
             entity.HasIndex(e => e.CertificateTypeId).HasDatabaseName("IX_PropertyCertificates_CertificateTypeId");
             entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertyCertificates_DocumentBindingId")
                 .HasFilter("[DocumentBindingId] IS NOT NULL");
+            entity.HasIndex(e => e.PropertyDetailsId).HasDatabaseName("IX_PropertyCertificates_PropertyDetailsId")
+                .HasFilter("[PropertyDetailsId] IS NOT NULL");
             entity.HasIndex(e => new { e.PropertyId, e.IsActive, e.MarkedForDeletion })
                 .HasDatabaseName("IX_PropertyCertificates_Property_Active")
-                .IncludeProperties(e => new { e.CertificateTypeId, e.CertificateNo, e.IssueDate, e.DocumentBindingId });
+                .IncludeProperties(e => new { e.CertificateTypeId, e.CertificateNo, e.IssueDate, e.DocumentBindingId, e.PropertyDetailsId });
         });
 
         // PropertyPhoto configuration
@@ -4749,7 +4739,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.PropertyId);
             entity.HasIndex(e => e.SocialAttributeId);
             entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_PropertySocialDetails_DocumentBindingId");
-            entity.HasIndex(e => new { e.PropertyId, e.SocialAttributeId }).IsUnique().HasDatabaseName("UQ_PropertySocialDetails").HasFilter("[IsActive] = 1");
+            entity.HasIndex(e => new { e.PropertyId, e.SocialAttributeId }).IsUnique().HasDatabaseName("UX_PropertySocialDetails_Property_SocialAttribute").HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
         // rule operator configuration

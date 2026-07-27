@@ -704,9 +704,12 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 .Select(ym => ym.Id)
                 .FirstOrDefaultAsync();
 
+        // TransMast now also holds CV rows (CalculationType discriminator) since TransMastCV was
+        // folded into it -- filter to "RV" so this keeps its original meaning (this table never
+        // held CV data before that consolidation) instead of silently picking up CV rows too.
         var transMastList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "RV" && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastRow(
                 g.Key,
@@ -714,13 +717,13 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
-        var transMastCVList = await _context.TransMastCV
+        var transMastCVList = await _context.TransMast
             .AsNoTracking()
-            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.IsActive && !x.MarkedForDeletion)
+            .Where(x => propertyIds.Contains(x.PropertyId) && x.FinanceYearId == financeYearId && x.CalculationType == "CV" && x.IsActive && !x.MarkedForDeletion)
             .GroupBy(x => x.PropertyId)
             .Select(g => new TransMastCVRow(
                 g.Key,
-                g.Max(x => (decimal?)x.CapitalValue),
+                g.Max(x => (decimal?)x.CalculationValue),
                 g.Sum(x => (decimal?)x.TaxAmount) ?? 0m))
             .ToListAsync(cancellationToken);
 
@@ -849,7 +852,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
                               .ToDictionary(r => r!.PropertyDetailsId,
                                   r => new ApartmentQCRenterData(r!.PropertyDetailsId, r.RenterName, r.RenterNameEnglish, r.FinalYearlyRent, r.RentMonthly)),
             Tm          = transMastList.ToDictionary(x => x.PropertyId,
-                              x => new ApartmentQCTransactionData(x.PropertyId, x.RVorCVValue, x.TmTaxAmount)),
+                              x => new ApartmentQCTransactionData(x.PropertyId, x.CalculationValue, x.TmTaxAmount)),
             Tmcv        = transMastCVList.ToDictionary(x => x.PropertyId,
                               x => new ApartmentQCTransactionCVData(x.PropertyId, x.CapitalValue, x.TmcvTaxAmount)),
             Tmrv        = transMastRVList.ToDictionary(x => x.PropertyId,
@@ -953,7 +956,7 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
     private sealed record WardZoneRow(int Id, string? WardNo, string? ZoneNo);
     private sealed record OccupancyRow(int PropertyDetailId, DateTime? OccupancyDate);
     private sealed record RenterRow(int PropertyDetailsId, string? RenterName, string? RenterNameEnglish, decimal? FinalYearlyRent, decimal? RentMonthly);
-    private sealed record TransMastRow(int PropertyId, decimal? RVorCVValue, decimal TmTaxAmount);
+    private sealed record TransMastRow(int PropertyId, decimal? CalculationValue, decimal TmTaxAmount);
     private sealed record TransMastCVRow(int PropertyId, decimal? CapitalValue, decimal TmcvTaxAmount);
     private sealed record TransMastRVRow(int PropertyId, decimal? RateableValue, decimal TmrvTaxAmount);
     private sealed record TaxPendingRow(int PropertyId, decimal PendingAmount);
