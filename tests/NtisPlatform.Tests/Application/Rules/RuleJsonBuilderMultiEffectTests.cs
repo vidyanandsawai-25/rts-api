@@ -53,7 +53,7 @@ namespace NtisPlatform.Tests.Application.Rules
             // Flat fields must be present
             Assert.Equal("Increase %", context.GetProperty("effectType").GetString());
             Assert.Equal("5",          context.GetProperty("value").GetString());
-            Assert.Equal("input.Rate", context.GetProperty("ParameterCode").GetString());
+            Assert.Equal("Rate",       context.GetProperty("ParameterCode").GetString());
             Assert.Equal("input.Rate * (1 + 5 / 100)", context.GetProperty("Expression").GetString());
 
             // "effects" array must NOT exist in single-effect context
@@ -117,13 +117,13 @@ namespace NtisPlatform.Tests.Application.Rules
             var e0 = effects[0];
             Assert.Equal("Increase %", e0.GetProperty("effectType").GetString());
             Assert.Equal("5",          e0.GetProperty("value").GetString());
-            Assert.Equal("input.Rate", e0.GetProperty("ParameterCode").GetString());
+            Assert.Equal("Rate",       e0.GetProperty("ParameterCode").GetString());
             Assert.Equal("input.Rate * (1 + 5 / 100)", e0.GetProperty("Expression").GetString());
 
             var e1 = effects[1];
             Assert.Equal("Decrease %", e1.GetProperty("effectType").GetString());
             Assert.Equal("20",         e1.GetProperty("value").GetString());
-            Assert.Equal("input.Rate", e1.GetProperty("ParameterCode").GetString());
+            Assert.Equal("Rate",       e1.GetProperty("ParameterCode").GetString());
             Assert.Equal("input.Rate * (1 - 20 / 100)", e1.GetProperty("Expression").GetString());
         }
 
@@ -131,7 +131,7 @@ namespace NtisPlatform.Tests.Application.Rules
         public void Build_MultiEffectWithCustomOverrideRate_ResolvesCorrectParameterCode()
         {
             // GIVEN overrideRate = "MonthlyRate"
-            // THEN ParameterCode = "input.MonthlyRate" and Expression uses it
+            // THEN ParameterCode = "MonthlyRate" and Expression uses it
             var conditions = @"{ ""logicalOperator"": ""AND"", ""conditions"": [
                 { ""fieldId"": ""FloorSequenceNo"", ""operator"": ""EQUALS"", ""value"": 1 }
             ]}";
@@ -144,9 +144,9 @@ namespace NtisPlatform.Tests.Application.Rules
             var ctx = GetRuleContext(ruleJson);
             var effects = ctx.GetProperty("effects");
 
-            Assert.Equal("input.MonthlyRate", effects[0].GetProperty("ParameterCode").GetString());
+            Assert.Equal("MonthlyRate", effects[0].GetProperty("ParameterCode").GetString());
             Assert.Equal("input.MonthlyRate * (1 + 5 / 100)",  effects[0].GetProperty("Expression").GetString());
-            Assert.Equal("input.MonthlyRate", effects[1].GetProperty("ParameterCode").GetString());
+            Assert.Equal("MonthlyRate", effects[1].GetProperty("ParameterCode").GetString());
             Assert.Equal("input.MonthlyRate * (1 - 10 / 100)", effects[1].GetProperty("Expression").GetString());
         }
 

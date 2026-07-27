@@ -24,7 +24,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         DateTime? issueDate = null,
         int? documentBindingId = null,
         bool markedForDeletion = false,
-        DateTime? markedForDeletionDate = null)
+        DateTime? markedForDeletionDate = null,
+        int? propertyDetailsId = null)
     {
         PropertyId = propertyId;
         CertificateTypeId = certificateTypeId;
@@ -33,6 +34,7 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         DocumentBindingId = documentBindingId;
         _markedForDeletion = markedForDeletion;
         _markedForDeletionDate = markedForDeletionDate;
+        PropertyDetailsId = propertyDetailsId;
     }
 
     /// <summary>
@@ -135,6 +137,11 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// FK to DocumentBinding - links to the uploaded document
     /// </summary>
     public int? DocumentBindingId { get; private set; }
+
+    /// <summary>
+    /// FK to PropertyDetails - links to specific floor/unit
+    /// </summary>
+    public int? PropertyDetailsId { get; private set; }
 
     // IHardDeletable - Explicit interface implementation
     private bool _markedForDeletion = false;

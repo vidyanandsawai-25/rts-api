@@ -9,7 +9,7 @@ namespace NtisPlatform.Application.Interfaces;
 /// </summary>
 public interface IDataEntryService : ICommonCrudService<PropertyDetailsEntity, PropertyDetailsDto, CreatePropertyDetailsDto, UpdatePropertyDetailsDto, PropertyDetailsQueryParameters, int>
 {
-    Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default);
+    //Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default);
 
-    Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
+    //Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 }

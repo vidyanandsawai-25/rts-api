@@ -3,6 +3,7 @@ using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs.DataEntrySameAs;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -35,6 +36,12 @@ public class DataEntrySameAsServiceTests
     private readonly Mock<IRepository<SocietyDetailsEntity, int>> _societyRepo = new();
     private readonly Mock<IRepository<WingEntity, int>> _wingRepo = new();
     private readonly Mock<IRepository<BuildingPlanTypeEntity, int>> _buildingPlanTypeRepo = new();
+    private readonly Mock<IRepository<WardEntity, int>> _wardRepo = new();
+    private readonly Mock<IRepository<ZoneEntity, int>> _zoneRepo = new();
+    private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _propertyTypeRepo = new();
+    private readonly Mock<IRepository<PropertyCategoryEntity, int>> _propertyCategoryRepo = new();
+    private readonly Mock<IRepository<TypeOfUseEntity, int>> _typeOfUseRepo = new();
+    private readonly Mock<IRepository<TypeOfUseCategoryEntity, int>> _typeOfUseCategoryRepo = new();
     private readonly Mock<IUnitOfWork> _unitOfWork = new();
     private readonly Mock<ILogger<DataEntrySameAsService>> _logger = new();
 
@@ -59,6 +66,12 @@ public class DataEntrySameAsServiceTests
         _societyRepo.Setup(r => r.GetQueryable()).Returns(new List<SocietyDetailsEntity>().BuildMock());
         _wingRepo.Setup(r => r.GetQueryable()).Returns(new List<WingEntity>().BuildMock());
         _buildingPlanTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<BuildingPlanTypeEntity>().BuildMock());
+        _wardRepo.Setup(r => r.GetQueryable()).Returns(new List<WardEntity>().BuildMock());
+        _zoneRepo.Setup(r => r.GetQueryable()).Returns(new List<ZoneEntity>().BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _propertyCategoryRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyCategoryEntity>().BuildMock());
+        _typeOfUseRepo.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseEntity>().BuildMock());
+        _typeOfUseCategoryRepo.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseCategoryEntity>().BuildMock());
 
         _unitOfWork.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -78,6 +91,12 @@ public class DataEntrySameAsServiceTests
             _societyRepo.Object,
             _wingRepo.Object,
             _buildingPlanTypeRepo.Object,
+            _wardRepo.Object,
+            _zoneRepo.Object,
+            _propertyTypeRepo.Object,
+            _propertyCategoryRepo.Object,
+            _typeOfUseRepo.Object,
+            _typeOfUseCategoryRepo.Object,
             _unitOfWork.Object,
             _logger.Object);
     }
@@ -274,5 +293,123 @@ public class DataEntrySameAsServiceTests
             () => service.ExecuteAsync(request, UpdatedBy));
 
         Assert.Contains("No valid destination properties supplied", ex.Message);
+    }
+
+    // ── GetSiblingPropertiesAsync: unmatched-wing rows must not duplicate ──────
+
+    [Fact]
+    public async Task GetSiblingPropertiesAsync_DropsUnmatchedWingRows_ReturnsNoDuplicate()
+    {
+        // A property with two society rows: one whose WingId matches a WingMaster (WingNo differs from
+        // the partition, so it is kept) and one whose WingId matches nothing (unmatched left join → null
+        // wing number). Raw SQL drops the unmatched row (`PartitionNo != NULL` is UNKNOWN); the service
+        // must do the same instead of emitting a duplicate. (Pre-fix, `pm.PartitionNo != wm.WingNo`
+        // relied on EF's C# null-semantics and kept the unmatched row.)
+        const int propertyId = 579097;
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = propertyId, WardId = 18, PropertyNo = "1", PartitionNo = "A", Type = "4" }
+        };
+        var society = new List<SocietyDetailsEntity>
+        {
+            new() { PropertyId = propertyId, WingId = 5, WingName = "GG" },    // matches WingMaster 5
+            new() { PropertyId = propertyId, WingId = 999, WingName = null }   // no matching WingMaster
+        };
+        var wings = new List<WingEntity> { new() { Id = 5, WingNo = "B" } };   // WingNo "B" != partition "A"
+        var details = new List<PropertyDetailsEntity>
+        {
+            new() { Id = 1, PropertyId = propertyId, IsActive = true, MarkedForDeletion = false,
+                    CarpetAreaSqMeter = 38.72, CarpetAreaSqFeet = 416.78 }
+        };
+
+        var service = CreateService(properties: properties, propertyDetails: details);
+        _societyRepo.Setup(r => r.GetQueryable()).Returns(society.BuildMock());
+        _wingRepo.Setup(r => r.GetQueryable()).Returns(wings.BuildMock());
+
+        var result = await service.GetSiblingPropertiesAsync(
+            new DataEntrySameAsQueryParameters { WardId = 18, PropertyNo = "1", PartitionNo = "A" });
+
+        var row = Assert.Single(result);
+        Assert.Equal(propertyId, row.PropertyId);
+        Assert.Equal("GG", row.WingName);
+        Assert.Equal(38.72, row.CarpetAreaSqMeter);
+    }
+
+    // ── GetPropertyUnitsAsync: excludes amenity/wing rows; totals + parking split ──
+
+    [Fact]
+    public async Task GetPropertyUnitsAsync_ExcludesAmenityAndWingRows_SplitsTotalAndParkingAreas()
+    {
+        const int residentialTypeId = 1;
+        const int amenityTypeId = 2;
+        const int parkingTypeOfUseId = 20;      // maps to the PARKING category
+        const int residentialTypeOfUseId = 10;  // maps to a non-parking category
+
+        var wards = new List<WardEntity> { new() { Id = 18, WardNo = "18", ZoneId = 3 } };
+        var zones = new List<ZoneEntity> { new() { Id = 3, ZoneNo = "Z3" } };
+        var propertyTypes = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = residentialTypeId, PartType = PartTypeConstants.Residential },
+            new() { Id = amenityTypeId, PartType = PartTypeConstants.Amenity }
+        };
+        var categories = new List<PropertyCategoryEntity> { new() { Id = 7, PropertyCategoryName = "Residential" } };
+        var wings = new List<WingEntity> { new() { Id = 5, WingNo = "GG" } };
+        var typeOfUses = new List<TypeOfUseEntity>
+        {
+            new() { Id = residentialTypeOfUseId, TypeOfUseCategoryId = 100 },
+            new() { Id = parkingTypeOfUseId, TypeOfUseCategoryId = 200 }
+        };
+        var typeOfUseCategories = new List<TypeOfUseCategoryEntity>
+        {
+            new() { Id = 100, TypeOfUseCategoryCode = "RES" },
+            new() { Id = 200, TypeOfUseCategoryCode = TypeOfUseConstants.Parking }
+        };
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 100, WardId = 18, PropertyNo = "1", PartitionNo = "A1", TaxZoneId = 50,
+                    PropertyTypeId = residentialTypeId, CategoryId = 7, Type = "4", FlatOrShopNo = "101" },
+            new() { Id = 101, WardId = 18, PropertyNo = "1", PartitionNo = "A2", TaxZoneId = 50,
+                    PropertyTypeId = amenityTypeId, CategoryId = 7 },                 // amenity -> excluded
+            new() { Id = 102, WardId = 18, PropertyNo = "1", PartitionNo = "GG", TaxZoneId = 50,
+                    PropertyTypeId = residentialTypeId, CategoryId = 7 }              // wing -> excluded
+        };
+        var details = new List<PropertyDetailsEntity>
+        {
+            // property 100: one non-parking detail + one parking detail
+            new() { Id = 1, PropertyId = 100, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false,
+                    CarpetAreaSqMeter = 10.5, CarpetAreaSqFeet = 110, BuiltupAreaSqMeter = 12, BuiltupAreaSqFeet = 120 },
+            new() { Id = 2, PropertyId = 100, TypeOfUseId = parkingTypeOfUseId, IsActive = true, MarkedForDeletion = false,
+                    CarpetAreaSqMeter = 4.5, CarpetAreaSqFeet = 40, BuiltupAreaSqMeter = 5, BuiltupAreaSqFeet = 50 },
+            // excluded properties' details (should never reach the result)
+            new() { Id = 3, PropertyId = 101, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 },
+            new() { Id = 4, PropertyId = 102, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 }
+        };
+
+        var service = CreateService(properties: properties, propertyDetails: details);
+        _wardRepo.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+        _zoneRepo.Setup(r => r.GetQueryable()).Returns(zones.BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(propertyTypes.BuildMock());
+        _propertyCategoryRepo.Setup(r => r.GetQueryable()).Returns(categories.BuildMock());
+        _wingRepo.Setup(r => r.GetQueryable()).Returns(wings.BuildMock());
+        _typeOfUseRepo.Setup(r => r.GetQueryable()).Returns(typeOfUses.BuildMock());
+        _typeOfUseCategoryRepo.Setup(r => r.GetQueryable()).Returns(typeOfUseCategories.BuildMock());
+
+        var result = await service.GetPropertyUnitsAsync(
+            new DataEntrySameAsUnitsQueryParameters { WardId = 18, PropertyNo = "1" });
+
+        var row = Assert.Single(result);            // amenity + wing rows dropped
+        Assert.Equal(100, row.PropertyId);
+        Assert.Equal(PartTypeConstants.Residential, row.PartType);
+        Assert.Equal("Z3", row.ZoneNo);
+        // Totals across both active details.
+        Assert.Equal(15.0, row.TotalCarpetAreaSqMeter);   // 10.5 + 4.5
+        Assert.Equal(150.0, row.TotalCarpetAreaSqFeet);   // 110 + 40
+        Assert.Equal(17.0, row.TotalBuiltupAreaSqMeter);  // 12 + 5
+        Assert.Equal(170.0, row.TotalBuiltupAreaSqFeet);  // 120 + 50
+        // Parking slice = the parking detail only.
+        Assert.Equal(4.5, row.ParkingCarpetAreaSqMeter);
+        Assert.Equal(40.0, row.ParkingCarpetAreaSqFeet);
+        Assert.Equal(5.0, row.ParkingBuiltupAreaSqMeter);
+        Assert.Equal(50.0, row.ParkingBuiltupAreaSqFeet);
     }
 }

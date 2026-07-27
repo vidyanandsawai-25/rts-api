@@ -39,6 +39,9 @@ namespace NtisPlatform.Application.Services.Rules.Effects
         // Store input dictionary to extract TaxZoneId, ConstructionTypeId, etc.
         private Dictionary<string, object>? _inputDict;
 
+        private decimal? _lastLookedUpRate;
+        public decimal? ReferenceRate => _lastLookedUpRate;
+
         public RateLookupApplicator(
             IRepository<RateEntity, int> rateRepository,
             ILogger<RateLookupApplicator> logger)
@@ -47,9 +50,14 @@ namespace NtisPlatform.Application.Services.Rules.Effects
             _logger = logger;
         }
 
-        public bool CanHandle(string effectType) =>
-            effectType.Contains("RateLookup", StringComparison.OrdinalIgnoreCase) ||
-            effectType.Contains("Rate Lookup", StringComparison.OrdinalIgnoreCase);
+        public bool CanHandle(string effectType)
+        {
+            if (string.IsNullOrWhiteSpace(effectType)) return false;
+            var clean = effectType.Replace("_", "").Replace(" ", "");
+            return clean.Equals("RateLookup", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public decimal GetApplyRate(decimal effectValue) => effectValue;
 
         /// <summary>
         /// Sets the lookup context from the rule's Context JSON.
@@ -76,6 +84,7 @@ namespace NtisPlatform.Application.Services.Rules.Effects
         /// </summary>
         public async Task<decimal> Apply(decimal baseRate, decimal effectValue)
         {
+            _lastLookedUpRate = null;
             if (_lookupContext == null)
             {
                 _logger.LogWarning(
@@ -86,7 +95,9 @@ namespace NtisPlatform.Application.Services.Rules.Effects
             try
             {
                 // REQUIRED: RateTypeOfUseGroupId from rule context (which property type to lookup)
-                var typeOfUseGroupId = GetContextInt(_lookupContext, "RateTypeOfUseGroupId");
+                var typeOfUseGroupId = GetContextInt(_lookupContext, "RateTypeOfUseGroupId")
+                   ?? GetContextInt(_lookupContext, "overrideRate")
+                   ?? GetContextInt(_lookupContext, "TypeOfUseGroupId");
 
                 if (!typeOfUseGroupId.HasValue)
                 {
@@ -109,10 +120,8 @@ namespace NtisPlatform.Application.Services.Rules.Effects
                     ?? GetContextInt(_inputDict, "YearRangeRVId")
                     ?? GetContextInt(_inputDict, "FinanceYear");  // Use FinanceYear as fallback (needs lookup)
 
-                // FloorId is typically NOT needed for rate lookup (rates are per TypeOfUse, not Floor)
-                // But allow override if specified in rule
-                var floorId = GetContextInt(_lookupContext, "RateFloorId")
-                    ?? GetContextInt(_inputDict, "Floor");
+                // FloorId is only applied if explicitly requested by rule context
+                var floorId = GetContextInt(_lookupContext, "RateFloorId") ?? GetContextInt(_inputDict, "FloorId");
 
                 _logger.LogInformation(
                     "[RateLookupApplicator] Looking up rate: TypeOfUseGroupId={TypeOfUseGroupId}, " +
@@ -135,7 +144,15 @@ namespace NtisPlatform.Application.Services.Rules.Effects
 
                 // Execute query asynchronously to avoid blocking
                 // Using AsNoTracking for read-only operation
-                var rateEntity = await query.AsNoTracking().FirstOrDefaultAsync();
+                RateEntity? rateEntity = null;
+                try
+                {
+                    rateEntity = await query.FirstOrDefaultAsync();
+                }
+                catch (InvalidOperationException)
+                {
+                    rateEntity = query.FirstOrDefault();
+                }
 
                 if (rateEntity == null)
                 {
@@ -152,6 +169,8 @@ namespace NtisPlatform.Application.Services.Rules.Effects
                                    (rateEntity.RateSquareFeet.HasValue
                                        ? rateEntity.RateSquareFeet.Value * 10.764m  // Convert sq.ft to sq.m
                                        : 0m);
+
+                _lastLookedUpRate = lookedUpRate;
 
                 if (lookedUpRate == 0m)
                 {

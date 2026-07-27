@@ -1,3 +1,5 @@
+using System.IO;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -80,7 +82,7 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
 
     // ---------------------------------------------------------------- Init
 
-    public async Task<OperationsInitDto> GetInitAsync(int actingUserId, CancellationToken cancellationToken = default)
+    public async Task<OperationsInitDto> GetInitAsync(int actingUserId, int? financeYearId = null, CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
 
@@ -90,14 +92,25 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
 
         var allYears = await _yearMasterRepo.GetQueryable()
             .AsNoTracking()
-            .Where(y => y.IsActive)
             .OrderByDescending(y => y.Year)
             .ToListAsync(cancellationToken);
 
-        var currentYearEntity = allYears.FirstOrDefault(y => y.StartDate <= today && y.EndDate >= today);
-        int financeYear = currentYearEntity?.Year ?? (today.Month >= 4 ? today.Year : today.Year - 1);
+        var currentYearEntity = allYears.FirstOrDefault(y => y.IsActive)
+            ?? allYears.FirstOrDefault(y => y.StartDate <= today && y.EndDate >= today)
+            ?? allYears.FirstOrDefault();
+
+        var selectedYearEntity = financeYearId.HasValue && financeYearId > 0
+            ? allYears.FirstOrDefault(y => y.Id == financeYearId.Value)
+            : currentYearEntity;
+
+        int financeYear = selectedYearEntity?.Year ?? (today.Month >= 4 ? today.Year : today.Year - 1);
 
         var candidates = ActiveProperties();
+        if (selectedYearEntity?.StartDate.HasValue == true && selectedYearEntity?.EndDate.HasValue == true)
+        {
+            candidates = candidates.Where(p => p.CreatedDate >= selectedYearEntity.StartDate.Value && p.CreatedDate <= selectedYearEntity.EndDate.Value);
+        }
+
         int total = await candidates.CountAsync(cancellationToken);
         int eligible = await ApplyEligibility(candidates, financeYear).CountAsync(cancellationToken);
         int runningJobs = await _jobRepo.GetQueryable().AsNoTracking()
@@ -108,7 +121,8 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
             FinanceYears = allYears.Select(y => new FinanceYearOptionDto
             {
                 Value = y.Id.ToString(),
-                Label = !string.IsNullOrWhiteSpace(y.YearCode) ? y.YearCode : $"{y.Year}-{(y.Year + 1) % 100:D2}"
+                Label = !string.IsNullOrWhiteSpace(y.YearCode) ? y.YearCode : $"{y.Year}-{(y.Year + 1) % 100:D2}",
+                IsActive = y.IsActive
             }).ToList(),
             Permissions = new OperationPermissionsDto
             {
@@ -130,13 +144,8 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
         {
             Columns = new List<ImportTemplateColumnDto>
             {
-                new() { Key = "Zone", Header = "Zone", DataType = "string", Required = false },
-                new() { Key = "Ward", Header = "Ward", DataType = "string", Required = false },
-                new() { Key = "PropertyNo", Header = "Property No", DataType = "string", Required = false },
-                new() { Key = "UpicId", Header = "UPIC Id", DataType = "string", Required = false },
-                new() { Key = "MobileNo", Header = "Mobile No", DataType = "string", Required = false },
-                new() { Key = "PropertyType", Header = "Property Type", DataType = "string", Required = false },
-                new() { Key = "AssessmentStatus", Header = "Assessment Status", DataType = "string", Required = false }
+                new() { Key = "Ward", Header = "Ward", DataType = "string", Required = true },
+                new() { Key = "PropertyNoPartitionNo", Header = "PropertyNo-PartitionNo", DataType = "string", Required = true }
             },
             ScopeCategories = new List<ScopeCategoryOptionDto>
             {
@@ -159,7 +168,7 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
         if (yearEntity is null) throw new ArgumentException("Invalid finance year ID.");
         int financeYear = yearEntity.Year;
         var scopeType = ParseScopeType(request.ScopeType);
-        var candidates = BuildCandidateQuery(scopeType, request.Scope);
+        var candidates = BuildCandidateQuery(scopeType, request.Scope, yearEntity);
 
         int total = await candidates.CountAsync(cancellationToken);
         int eligible = await ApplyEligibility(candidates, financeYear).CountAsync(cancellationToken);
@@ -181,7 +190,7 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
         if (yearEntity is null) throw new ArgumentException("Invalid finance year ID.");
         int financeYear = yearEntity.Year;
         var scopeType = ParseScopeType(request.ScopeType);
-        var candidates = BuildCandidateQuery(scopeType, request.Scope);
+        var candidates = BuildCandidateQuery(scopeType, request.Scope, yearEntity);
 
         int total = await candidates.CountAsync(cancellationToken);
 
@@ -216,10 +225,21 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
         var ids = page.Select(p => p.Id).ToList();
         var sets = await GetReasonSetsAsync(ids, financeYear, cancellationToken);
 
+        // Batch-load detail fields for the page's "no details" properties (small set — page-sized)
+        var noDetailPageIds = ids.Where(id => !sets.WithDetails.Contains(id) && !sets.Locked.Contains(id)).ToList();
+        var detailFields = await GetPropertyDetailFieldsAsync(noDetailPageIds, cancellationToken);
+
         var records = new List<JobPropertyPreviewDto>(page.Count);
         foreach (var p in page)
         {
             var reason = ResolveSkipReason(p.Id, sets);
+            string? skipReasonText = reason switch
+            {
+                SkipReason.PropertyLocked      => "Property is locked",
+                SkipReason.PendingVerification => BuildDetailsSkipReason(detailFields.GetValueOrDefault(p.Id)),
+                null                           => null,
+                _                              => ToDisplayReason(reason.Value)
+            };
             records.Add(new JobPropertyPreviewDto
             {
                 PropertyId = p.Id,
@@ -230,7 +250,7 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 Owner = p.OwnerName ?? string.Empty,
                 PropertyTypeId = p.PropertyTypeId,
                 IsEligible = reason is null,
-                SkipReason = reason is null ? null : ToLocalizationKey(reason.Value)
+                SkipReason = skipReasonText
             });
         }
 
@@ -273,11 +293,14 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
 
         var yearEntity = await _yearMasterRepo.GetByIdAsync(request.FinanceYearId, cancellationToken);
         if (yearEntity is null) throw new ArgumentException("Invalid finance year ID.");
+        if (!yearEntity.IsActive)
+            throw new InvalidOperationException("Tax calculation can only be performed for the current active finance year.");
+
         int financeYear = yearEntity.Year;
         var scopeType = ParseScopeType(request.ScopeType);
         ValidateScope(scopeType, request.Scope);
 
-        var candidates = BuildCandidateQuery(scopeType, request.Scope);
+        var candidates = BuildCandidateQuery(scopeType, request.Scope, yearEntity);
         var eligibleQuery = ApplyEligibility(candidates, financeYear);
 
         int totalSelected = await candidates.CountAsync(cancellationToken);
@@ -782,9 +805,14 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
     private IQueryable<PropertyEntity> ActiveProperties() =>
         _propertyRepo.GetQueryable().AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion);
 
-    private IQueryable<PropertyEntity> BuildCandidateQuery(JobScopeType scopeType, OperationScopeDto scope)
+    private IQueryable<PropertyEntity> BuildCandidateQuery(JobScopeType scopeType, OperationScopeDto scope, YearMasterEntity? year = null)
     {
         var q = ActiveProperties();
+
+        if (year?.StartDate.HasValue == true && year?.EndDate.HasValue == true)
+        {
+            q = q.Where(p => p.CreatedDate >= year.StartDate.Value && p.CreatedDate <= year.EndDate.Value);
+        }
 
         switch (scopeType)
         {     
@@ -811,6 +839,7 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 if (scope.ZoneIds is { Count: > 0 } zids3) q = q.Where(p => zids3.Contains(p.Ward!.ZoneId));
                 if (scope.WardIds is { Count: > 0 } wIds3) q = q.Where(p => wIds3.Contains(p.WardId));
                 if (scope.Building is { Count: > 0 } buildings) q = q.Where(p => buildings.Contains(p.PropertyNo ?? string.Empty));
+                if (scope.PartitionNos is { Count: > 0 } partNos3) q = q.Where(p => partNos3.Contains(p.PartitionNo ?? string.Empty));
                 break;
 
             case JobScopeType.Property:
@@ -836,14 +865,26 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 break;
 
             case JobScopeType.Range:
-                // PropertyNo is a string; compare lexically (same pattern as LockUnlockService).
-                // Zone/ward are validated internally and not re-prompted (spec rule).
+                // PropertyNo and PartitionNo are combined and compared lexically against range bounds.
                 if (!string.IsNullOrWhiteSpace(scope.FromPropertyNo))
-                    q = q.Where(p => string.Compare(p.PropertyNo, scope.FromPropertyNo) >= 0);
+                {
+                    q = q.Where(p => string.Compare(
+                        p.PartitionNo != null && p.PartitionNo != "" 
+                            ? p.PropertyNo + "-" + p.PartitionNo 
+                            : p.PropertyNo, 
+                        scope.FromPropertyNo) >= 0);
+                }
                 if (!string.IsNullOrWhiteSpace(scope.ToPropertyNo))
-                    q = q.Where(p => string.Compare(p.PropertyNo, scope.ToPropertyNo) <= 0);
+                {
+                    q = q.Where(p => string.Compare(
+                        p.PartitionNo != null && p.PartitionNo != "" 
+                            ? p.PropertyNo + "-" + p.PartitionNo 
+                            : p.PropertyNo, 
+                        scope.ToPropertyNo) <= 0);
+                }
                 if (scope.ZoneIds is { Count: > 0 } zids4) q = q.Where(p => zids4.Contains(p.Ward!.ZoneId));
                 if (scope.WardIds is { Count: > 0 } wIds4) q = q.Where(p => wIds4.Contains(p.WardId));
+                if (scope.PartitionNos is { Count: > 0 } partNos4) q = q.Where(p => partNos4.Contains(p.PartitionNo ?? string.Empty));
                 break;
         }
 
@@ -1004,4 +1045,289 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
         string.IsNullOrEmpty(value) || value.Length <= max ? value : value[..max];
 
     private sealed record ReasonSets(HashSet<int> Locked, HashSet<int> WithDetails);
+    private static readonly string DefaultDetailsMissingReason =
+        "Property details not found: Floor type, Construction type, Carpet area, Built-up area, Type of use, Assessment year missing";
+
+    public async Task WritePreviewExportCsvToStreamAsync(
+        Stream outputStream,
+        OperationPreviewRequestDto request,
+        string downloadType,
+        CancellationToken cancellationToken = default)
+    {
+        var yearEntity = await _yearMasterRepo.GetByIdAsync(request.FinanceYearId, cancellationToken);
+        if (yearEntity is null) throw new ArgumentException("Invalid finance year ID.");
+        int financeYear = yearEntity.Year;
+
+        var scopeType = ParseScopeType(request.ScopeType);
+        var candidates = BuildCandidateQuery(scopeType, request.Scope, yearEntity);
+
+        var locks = _lockRepo.GetQueryable().AsNoTracking();
+        var details = _propertyDetailsRepo.GetQueryable().AsNoTracking();
+
+        // Apply eligibility filter based on downloadType
+        if (string.Equals(downloadType, "eligible", StringComparison.OrdinalIgnoreCase))
+        {
+            candidates = candidates.Where(p =>
+                !locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion) &&
+                details.Any(d => d.PropertyId == p.Id && d.IsActive)
+            );
+        }
+        else if (string.Equals(downloadType, "skipped", StringComparison.OrdinalIgnoreCase))
+        {
+            candidates = candidates.Where(p =>
+                locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion) ||
+                !details.Any(d => d.PropertyId == p.Id && d.IsActive)
+            );
+        }
+        // else "all" — no extra filter, use candidates as-is
+
+        var wards = _wardRepo.GetQueryable().AsNoTracking();
+        var zones = _zoneRepo.GetQueryable().AsNoTracking();
+
+        var query = from p in candidates
+                    join w in wards on p.WardId equals w.Id into wardJoin
+                    from w in wardJoin.DefaultIfEmpty()
+                    join z in zones on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
+                    from z in zoneJoin.DefaultIfEmpty()
+                    select new
+                    {
+                        PropertyId = p.Id,
+                        Zone = z != null ? z.Description : string.Empty,
+                        Ward = w != null ? w.Description : string.Empty,
+                        PropertyNo = p.PropertyNo ?? string.Empty,
+                        PartitionNo = p.PartitionNo ?? string.Empty,
+                        OwnerName = p.OwnerName ?? string.Empty,
+                        IsLocked = locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion),
+                        HasDetails = details.Any(d => d.PropertyId == p.Id && d.IsActive)
+                    };
+
+        await using var writer = new StreamWriter(outputStream, new System.Text.UTF8Encoding(true), bufferSize: 1024, leaveOpen: true);
+
+        await writer.WriteLineAsync("Zone,Ward,Property No,Partition No,Owner,Status,Skip Reason");
+
+        int count = 0;
+        await foreach (var item in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            bool isEligible = !item.IsLocked && item.HasDetails;
+            string status = isEligible ? "Eligible" : "Skipped";
+            string skipReason = isEligible ? "-"
+                : item.IsLocked ? "Property is locked"
+                : DefaultDetailsMissingReason;
+
+            string zone = EscapeCsvField(item.Zone);
+            string ward = EscapeCsvField(item.Ward);
+            string propNo = EscapeCsvField(item.PropertyNo);
+            string partNo = EscapeCsvField(item.PartitionNo);
+            string owner = EscapeCsvField(item.OwnerName);
+            string reason = EscapeCsvField(skipReason);
+
+            await writer.WriteLineAsync($"{zone},{ward},{propNo},{partNo},{owner},{status},{reason}");
+
+            count++;
+            if (count % 500 == 0)
+            {
+                await writer.FlushAsync(cancellationToken);
+            }
+        }
+    }
+
+    public async Task WritePropertiesCsvToStreamAsync(
+        Stream outputStream,
+        string statusFilter,
+        int? financeYearId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var candidates = _propertyRepo.GetQueryable().AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion);
+
+        var resolvedYearId = financeYearId;
+        if (!resolvedYearId.HasValue || resolvedYearId <= 0)
+        {
+            var today = DateTime.Today;
+            var activeYear = await _yearMasterRepo.GetQueryable().AsNoTracking()
+                .FirstOrDefaultAsync(y => y.IsActive, cancellationToken)
+                ?? await _yearMasterRepo.GetQueryable().AsNoTracking()
+                    .FirstOrDefaultAsync(y => y.StartDate <= today && y.EndDate >= today, cancellationToken)
+                    ?? await _yearMasterRepo.GetQueryable().AsNoTracking()
+                        .FirstOrDefaultAsync(cancellationToken);
+            
+            resolvedYearId = activeYear?.Id;
+        }
+
+        if (resolvedYearId.HasValue && resolvedYearId > 0)
+        {
+            var yearEntity = await _yearMasterRepo.GetByIdAsync(resolvedYearId.Value, cancellationToken);
+            if (yearEntity?.StartDate.HasValue == true && yearEntity?.EndDate.HasValue == true)
+            {
+                candidates = candidates.Where(p => p.CreatedDate >= yearEntity.StartDate.Value && p.CreatedDate <= yearEntity.EndDate.Value);
+            }
+        }
+
+        var locks = _lockRepo.GetQueryable().AsNoTracking();
+        var details = _propertyDetailsRepo.GetQueryable().AsNoTracking();
+
+        // 1. Filter directly in SQL
+        if (string.Equals(statusFilter, "eligible", StringComparison.OrdinalIgnoreCase))
+        {
+            candidates = candidates.Where(p => 
+                !locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion) &&
+                details.Any(d => d.PropertyId == p.Id && d.IsActive)
+            );
+        }
+        else if (string.Equals(statusFilter, "skipped", StringComparison.OrdinalIgnoreCase))
+        {
+            candidates = candidates.Where(p => 
+                locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion) ||
+                !details.Any(d => d.PropertyId == p.Id && d.IsActive)
+            );
+        }
+
+        var wards = _wardRepo.GetQueryable().AsNoTracking();
+        var zones = _zoneRepo.GetQueryable().AsNoTracking();
+
+        // 2. Fetch list using EF Core's ToListAsync with explicit Left Joins to ensure no rows are lost
+        var query = from p in candidates
+                    join w in wards on p.WardId equals w.Id into wardJoin
+                    from w in wardJoin.DefaultIfEmpty()
+                    join z in zones on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
+                    from z in zoneJoin.DefaultIfEmpty()
+                    select new
+                    {
+                        PropertyId = p.Id,
+                        Zone = z != null ? z.Description : string.Empty,
+                        Ward = w != null ? w.Description : string.Empty,
+                        PropertyNo = p.PropertyNo ?? string.Empty,
+                        PartitionNo = p.PartitionNo ?? string.Empty,
+                        OwnerName = p.OwnerName ?? string.Empty,
+                        IsLocked = locks.Any(l => l.PropertyId == p.Id && l.IsLocked && l.IsActive && !l.MarkedForDeletion),
+                        HasDetails = details.Any(d => d.PropertyId == p.Id && d.IsActive)
+                    };
+
+        await using var writer = new StreamWriter(outputStream, new System.Text.UTF8Encoding(true), bufferSize: 1024, leaveOpen: true);
+
+        // Write headers
+        await writer.WriteLineAsync("Zone,Ward,Property No,Partition No,Owner,Status,Skip Reason");
+
+        int count = 0;
+        await foreach (var item in query.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            bool isEligible = !item.IsLocked && item.HasDetails;
+            string status = isEligible ? "Eligible" : "Skipped";
+            string skipReason = isEligible ? "-"
+                : item.IsLocked ? "Property is locked"
+                : DefaultDetailsMissingReason;
+
+            // Escape fields for CSV format safety & formula injection protection
+            var zone = EscapeCsvField(item.Zone);
+            var ward = EscapeCsvField(item.Ward);
+            var propNo = EscapeCsvField(item.PropertyNo);
+            var partNo = EscapeCsvField(item.PartitionNo);
+            var owner = EscapeCsvField(item.OwnerName);
+            var reason = EscapeCsvField(skipReason);
+
+            await writer.WriteLineAsync($"{zone},{ward},{propNo},{partNo},{owner},{status},{reason}");
+
+            count++;
+            if (count % 500 == 0)
+            {
+                await writer.FlushAsync(cancellationToken);
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Detail-level skip reason helpers
+
+    private sealed record PropertyDetailFields(
+        int? FloorId, int? ConstructionTypeId,
+        double? CarpetAreaSqMeter, double? CarpetAreaSqFeet,
+        double? BuiltupAreaSqMeter, double? BuiltupAreaSqFeet,
+        int? TypeOfUseId, string? AssessmentYear);
+
+    /// <summary>
+    /// Builds a human-readable skip reason that lists exactly which required PropertyDetails
+    /// fields are absent. When <paramref name="fields"/> is null the property has no active
+    /// details record at all, so every required field is reported as missing.
+    /// </summary>
+    private static string BuildDetailsSkipReason(PropertyDetailFields? fields)
+    {
+        var missing = new List<string>();
+
+        if (fields is null || !fields.FloorId.HasValue)                                     missing.Add("Floor type");
+        if (fields is null || !fields.ConstructionTypeId.HasValue)                          missing.Add("Construction type");
+        if (fields is null || (!fields.CarpetAreaSqMeter.HasValue && !fields.CarpetAreaSqFeet.HasValue))   missing.Add("Carpet area");
+        if (fields is null || (!fields.BuiltupAreaSqMeter.HasValue && !fields.BuiltupAreaSqFeet.HasValue)) missing.Add("Built-up area");
+        if (fields is null || !fields.TypeOfUseId.HasValue || fields.TypeOfUseId <= 0)      missing.Add("Type of use");
+        if (fields is null || string.IsNullOrWhiteSpace(fields.AssessmentYear))             missing.Add("Assessment year");
+
+        return missing.Count > 0
+            ? $"Property details not found: {string.Join(", ", missing)} missing"
+            : "Property details complete";
+    }
+
+    /// <summary>
+    /// Batch-loads the required detail fields for a set of property IDs in a single SQL query.
+    /// Returns null for any ID that has no active PropertyDetails record.
+    /// </summary>
+    private async Task<Dictionary<int, PropertyDetailFields>> GetPropertyDetailFieldsAsync(
+        IList<int> propertyIds, CancellationToken cancellationToken)
+    {
+        if (propertyIds.Count == 0) return new Dictionary<int, PropertyDetailFields>();
+
+        var rows = await _propertyDetailsRepo.GetQueryable().AsNoTracking()
+            .Where(d => d.IsActive && propertyIds.Contains(d.PropertyId))
+            .GroupBy(d => d.PropertyId)
+            .Select(g => new
+            {
+                PropertyId       = g.Key,
+                FloorId          = g.Min(d => d.FloorId),
+                ConstructionType = g.Min(d => d.ConstructionTypeId),
+                CarpetSqm        = g.Min(d => d.CarpetAreaSqMeter),
+                CarpetSqft       = g.Min(d => d.CarpetAreaSqFeet),
+                BuiltupSqm       = g.Min(d => d.BuiltupAreaSqMeter),
+                BuiltupSqft      = g.Min(d => d.BuiltupAreaSqFeet),
+                TypeOfUse        = g.Min(d => d.TypeOfUseId),
+                AssessmentYear   = g.Min(d => d.AssessmentYear)
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.ToDictionary(
+            r => r.PropertyId,
+            r => new PropertyDetailFields(
+                r.FloorId,
+                r.ConstructionType,
+                r.CarpetSqm,
+                r.CarpetSqft,
+                r.BuiltupSqm,
+                r.BuiltupSqft,
+                r.TypeOfUse,
+                r.AssessmentYear));
+    }
+
+    /// <summary>
+    /// Returns a plain-English display message for a skip reason (locked case only).
+    /// Details-missing cases use <see cref="BuildDetailsSkipReason"/> for field-level specifics.
+    /// </summary>
+    private static string ToDisplayReason(SkipReason reason) => reason switch
+    {
+        SkipReason.PropertyLocked => "Property is locked",
+        _                         => reason.ToString()
+    };
+
+    private static string EscapeCsvField(string? field)
+    {
+        if (string.IsNullOrEmpty(field)) return string.Empty;
+        
+        // Neutralize formula injection
+        char first = field[0];
+        if (first == '=' || first == '+' || first == '-' || first == '@')
+        {
+            field = "'" + field;
+        }
+        
+        if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+        {
+            return $"\"{field.Replace("\"", "\"\"")}\"";
+        }
+        return field;
+    }
 }

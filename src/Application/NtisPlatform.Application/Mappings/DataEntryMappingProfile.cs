@@ -20,7 +20,11 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.TypeOfUseDescription,
                 opt => opt.MapFrom(src => src.TypeOfUse != null ? src.TypeOfUse.Description : null))
             .ForMember(dest => dest.SubTypeOfUseDescription,
-                opt => opt.MapFrom(src => src.SubTypeOfUse != null ? src.SubTypeOfUse.Description : null));
+                opt => opt.MapFrom(src => src.SubTypeOfUse != null ? src.SubTypeOfUse.Description : null))
+            .ForMember(dest => dest.Length, opt => opt.Ignore())
+            .ForMember(dest => dest.Width, opt => opt.Ignore())
+            .ForMember(dest => dest.PropertyCertificates, opt => opt.Ignore())
+            .ForMember(dest => dest.Property, opt => opt.Ignore());
 
         // ── Create DTO → Entity ──────────────────────────────────────
         // Description fields (FloorDescription etc.) only exist on the DTO
@@ -44,7 +48,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 
@@ -67,7 +71,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.Renters, opt => opt.Ignore())
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
 

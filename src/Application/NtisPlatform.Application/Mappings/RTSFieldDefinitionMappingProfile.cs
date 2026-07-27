@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master.RTSFieldDefinition;
 using NtisPlatform.Core.Entities.Master;
 
@@ -29,5 +29,3 @@ public class RTSFieldDefinitionMappingProfile:Profile
             .ForMember(d => d.UpdatedBy, o => o.MapFrom(s => s.UpdatedBy));
     }
 }
-
-

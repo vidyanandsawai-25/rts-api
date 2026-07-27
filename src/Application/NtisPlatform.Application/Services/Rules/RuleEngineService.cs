@@ -5,6 +5,7 @@ using NtisPlatform.Application.DTOs.Rules.RuleEngine;
 using NtisPlatform.Application.DTOs.Rules.RuleCategory;
 using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Extensions;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Rules;
 using NtisPlatform.Core.Interfaces;
 using System.Text.Json;
@@ -18,17 +19,20 @@ namespace NtisPlatform.Application.Services.Rules
     {
         private readonly IRepository<RuleVersionHistoryEntity, long> _versionHistoryRepository;
         private readonly IRuleExecutionService _ruleExecutionService;
+        private readonly IRepository<PropertyRuleApplicationLogEntity, int>? _ruleLogRepository;
 
         public RuleEngineService(
             IRepository<RuleEngineEntity, int> repository,
             IUnitOfWork unitOfWork,
             IMapper mapper,
             IRepository<RuleVersionHistoryEntity, long> versionHistoryRepository,
-            IRuleExecutionService ruleExecutionService)
+            IRuleExecutionService ruleExecutionService,
+            IRepository<PropertyRuleApplicationLogEntity, int>? ruleLogRepository = null)
             : base(repository, unitOfWork, mapper)
         {
             _versionHistoryRepository = versionHistoryRepository;
             _ruleExecutionService = ruleExecutionService;
+            _ruleLogRepository = ruleLogRepository;
         }
 
         /// <summary>
@@ -205,6 +209,9 @@ namespace NtisPlatform.Application.Services.Rules
                 // Explicitly update the entity in repository
                 await _repository.UpdateAsync(entity, cancellationToken);
 
+                // Soft-delete historical audit logs for this rule code when updated
+                await SoftDeleteApplicationLogsForRuleAsync(entity.RuleCode, cancellationToken);
+
                 // Create version history before committing to ensure atomicity
                 var changeSummary = GenerateChangeSummary(oldState, entity);
                 await CreateVersionHistoryAsync(entity, changeType, updateDto.UpdatedBy ?? 0, updateDto.ChangeReason, changeSummary, cancellationToken);
@@ -241,6 +248,10 @@ namespace NtisPlatform.Application.Services.Rules
 
                 // Delete the entity
                 await _repository.DeleteAsync(entity, cancellationToken);
+
+                // Soft-delete historical audit logs for this rule code when deleted
+                await SoftDeleteApplicationLogsForRuleAsync(entity.RuleCode, cancellationToken);
+
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
                 await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
@@ -251,6 +262,26 @@ namespace NtisPlatform.Application.Services.Rules
                 await _unitOfWork.RollbackTransactionAsync(cancellationToken);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Soft-deletes all historical PropertyRuleApplicationLogEntity rows associated with a given RuleCode
+        /// whenever that rule is updated or deleted.
+        /// </summary>
+        private async Task SoftDeleteApplicationLogsForRuleAsync(string ruleCode, CancellationToken cancellationToken)
+        {
+            if (_ruleLogRepository == null || string.IsNullOrWhiteSpace(ruleCode))
+                return;
+
+            var now = DateTime.Now;
+            await _ruleLogRepository.GetQueryable()
+                .Where(x => x.RuleCode == ruleCode && x.IsActive && !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.IsActive, false)
+                    .SetProperty(x => x.MarkedForDeletion, true)
+                    .SetProperty(x => x.MarkedForDeletionDate, now)
+                    .SetProperty(x => x.UpdatedDate, now),
+                    cancellationToken);
         }
 
         /// <summary>

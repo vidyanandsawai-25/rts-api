@@ -34,7 +34,7 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// <summary>
     /// Retrieves aggregated property tax details by filtering properties and summing tax amounts across multiple properties.
     /// Filters properties by WardId, PropertyNo (substring match), PartType (substring match), and PropertyId.
-    /// Returns aggregated tax data grouped by TaxName from TransMastRV and TaxMaster tables.
+    /// Returns aggregated tax data grouped by TaxName from TransMast (CalculationType = "RV") and TaxMaster tables.
     /// </summary>
     /// <param name="dto">The request DTO containing property filter fields (e.g., WardId, PropertyNo, PartType, PropertyId)</param>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -89,7 +89,7 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     /// USED FOR DELETION: PropertyId alone is sufficient because it's the primary FK relationship.
     /// All RV results for a property MUST have PropertyId, so this query guarantees complete coverage.
     /// </summary>
-    Task<List<PropertyTaxCalculationRVResultsEntity>> GetRvResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
+    Task<List<RVCalculationResultsEntity>> GetRvResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Retrieves Section129 calculation results for a property by PropertyId.

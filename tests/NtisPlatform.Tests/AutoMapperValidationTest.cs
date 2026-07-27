@@ -73,7 +73,7 @@ public class AutoMapperValidationTest
               // Navigation properties (managed by EF Core)
               "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
               "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
-              "FlagMaster", "PropertyTaxCalculationCVResults", "PropertyTaxCalculationRVResults", "PlotDetails", "PropertyDetails",
+              "FlagMaster", "PropertyTaxCalculationCVResults", "RVCalculationResults", "PlotDetails", "PropertyDetails",
               "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
               "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", "DocumentBinding", "DocumentBindingId", // Navigation properties
               "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
@@ -88,7 +88,7 @@ public class AutoMapperValidationTest
               "ConstructionCode", "ConstructionDescription", "FromYear", "ToYear",
               "FloorCode", "FloorDescription",
               "ZoneCode", "ZoneName", "WardCode", "WardName",
-              "TypeCode", "TypeName", "CategoryCode", "CategoryName",
+              "TypeCode", "TypeName", "CategoryCode", "CategoryName", "PolicyCode",
               "SubZoneNo", "SubZoneName", "TypeOfUseGroupName", "FloorGroupName",
               "OpenPlotRate", "ResidentialRate", "OfficeRate", "ShopRate", "IndustrialRate",
               "SDRR", "SearchKey", "Type", // Computed/search fields
@@ -126,7 +126,6 @@ public class AutoMapperValidationTest
               "RoomWiseSubmissionDetails", "PropertyImagesMast", "PropertySocialDetails", "TaxPendingDetails",
               "WaterConnectionMaster", "TaxPendingDetailsArchive", "TaxPendingDetailsCV", "TaxPendingDetailsLookup",
               "TaxPendingDetailsRetro", "TaxPendingDetailsRV", "TransMast", "TransMastArchive", "TransMastLookup","AllowedValues",
-             "TransMastRV",
              // Workflow navigation properties (intentionally unmapped - EF Core managed)
              "WorkflowHistory", "WorkflowDetails", "WorkflowStage",
              // Rule exclusion properties (navigation properties)

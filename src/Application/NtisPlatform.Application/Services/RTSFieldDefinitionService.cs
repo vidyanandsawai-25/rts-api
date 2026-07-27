@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Master.RTSFieldDefinition;
 using NtisPlatform.Application.Interfaces;
@@ -61,6 +61,3 @@ public class RTSFieldDefinitionService:BaseCommonCrudService<RTSFieldDefinitionE
         return await _referenceValidator.ValidateReferencesAsync<AssetFieldDefinitionEntity>(id, cancellationToken);
     }
 }
-
-
-

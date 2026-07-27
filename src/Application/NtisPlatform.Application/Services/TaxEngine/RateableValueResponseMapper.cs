@@ -15,7 +15,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             int propertyId,
             int financeYear,
             IReadOnlyList<PropertyDetailsEntity> details,
-            List<PropertyTaxCalculationRVResultsEntity> resultRows,
+            List<RVCalculationResultsEntity> resultRows,
+            List<RVCalculationTaxDetailsEntity> taxDetailRows,
             List<PolicyTaxDetailsEntity> policyRows,
             IReadOnlyList<FloorEntity> floors,
             IReadOnlyList<ConstructionTypeEntity> constructionTypes,
@@ -53,17 +54,28 @@ namespace NtisPlatform.Application.Services.TaxEngine
             // Include ALL details, even those with no tax rows (when detailYearRangeRVId == 0)
             var resultsByDetail = resultRows.GroupBy(x => x.PropertyDetailsId).ToDictionary(g => g.Key, g => g.ToList());
 
+            // Group tax details by results ID for easier lookup
+            var taxDetailsByResultsId = taxDetailRows
+                .Where(x => x.IsActive && !x.MarkedForDeletion)
+                .GroupBy(x => x.RVCalculationResultsId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             var detailDtos = details
                 .Select(detail =>
                 {
-                    var taxRows = resultsByDetail.TryGetValue(detail.Id, out var rows) ? rows : new List<PropertyTaxCalculationRVResultsEntity>();
-                    var first = taxRows.FirstOrDefault();
+                    var resultsForDetail = resultsByDetail.TryGetValue(detail.Id, out var rows) ? rows : new List<RVCalculationResultsEntity>();
+                    var first = resultsForDetail.FirstOrDefault();
 
                     var renter = renterMap.TryGetValue(detail.Id, out var r) ? r : null;
                     var occupancy = occupancyMap.TryGetValue(detail.Id, out var o) ? o : null;
 
+                    // Get all tax details for this detail's results rows
+                    var allTaxDetails = resultsForDetail
+                        .SelectMany(r => taxDetailsByResultsId.TryGetValue(r.Id, out var taxDetails) ? taxDetails : Enumerable.Empty<RVCalculationTaxDetailsEntity>())
+                        .ToList();
+
                     // Exclude Education (EDU) and Employment (EMP) taxes from details response
-                    var taxes = taxRows
+                    var taxes = allTaxDetails
                         .Where(x =>
                         {
                             var categoryCode = taxMasterCache.GetTaxCategoryCode(x.TaxId);
@@ -111,7 +123,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         AnnualRentalValue = ToDecimal(first?.AnnualRentalValue),
                         Maintenance = first?.Maintenance ?? 0m,
                         RateableValue = first?.RateableValue ?? 0m,
-                        TaxTotal = taxRows.Sum(x => x.TaxAmount ?? 0m),
+                        TaxTotal = taxes.Values.Sum(),
                         Taxes = taxes
                     };
                 })
@@ -126,10 +138,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                 policyDto = new PolicyTaxDto
                 {
-                    PolicyCode = firstPolicy.PolicyCode,
-                    PolicyDate = firstPolicy.PolicyDate,
-                    PolicyYear = firstPolicy.PolicyYear,
-                    PolicyRVorCVvalue = firstPolicy.PolicyRVorCVvalue ?? 0m,
+                    PolicyCode = firstPolicy.PolicyCodeMaster?.PolicyCode ?? string.Empty,
+                    PolicyDate = firstPolicy.CreatedDate,
+                    PolicyYear = firstPolicy.CreatedDate.HasValue ? (short?)firstPolicy.CreatedDate.Value.Year : null,
+                    PolicyRVorCVvalue = firstPolicy.CalculationValue ?? 0m,
                     TaxTotal = policyRows.Sum(x => x.TaxAmount ?? 0m),
                     Taxes = policyRows
                         .OrderBy(x => x.TaxId)

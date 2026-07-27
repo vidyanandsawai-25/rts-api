@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -487,6 +487,19 @@ public class InventoryItemNameServiceTests
 
         Assert.True(okResult is OkObjectResult || okResult is NotFoundResult);
         Assert.True(notFoundResult is OkObjectResult || notFoundResult is NotFoundResult);
+    }
+
+    [Fact]
+    public void InventoryItemNameEntity_Properties_Coverage()
+    {
+        var date = DateTime.Now;
+        var entity = new InventoryItemNameEntity
+        {
+            MarkedForDeletion = true,
+            MarkedForDeletionDate = date
+        };
+        Assert.True(entity.MarkedForDeletion);
+        Assert.Equal(date, entity.MarkedForDeletionDate);
     }
 
     #endregion

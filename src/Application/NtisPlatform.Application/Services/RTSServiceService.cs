@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Core.Entities.Master;
@@ -12,4 +12,3 @@ public class RTSServiceService:BaseCommonCrudService<RTSServiceEntity, RTSServic
     {
     }
 }
-

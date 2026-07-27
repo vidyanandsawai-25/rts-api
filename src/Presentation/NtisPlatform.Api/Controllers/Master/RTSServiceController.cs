@@ -29,4 +29,3 @@ public class RTSServiceController : ControllerBase
         => this.ExecuteGetById(_service, id, _logger, ct);
 
 }
-

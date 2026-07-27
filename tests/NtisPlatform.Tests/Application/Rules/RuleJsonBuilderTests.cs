@@ -55,7 +55,7 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal("input.Rate * (1 - 10 / 100)", context.GetProperty("Expression").GetString());
             Assert.Equal("Decrease %", context.GetProperty("effectType").GetString());
             Assert.Equal("10", context.GetProperty("value").GetString());
-            Assert.Equal("input.Rate", context.GetProperty("ParameterCode").GetString());
+            Assert.Equal("Rate", context.GetProperty("ParameterCode").GetString());
         }
 
         [Fact]
@@ -325,6 +325,39 @@ namespace NtisPlatform.Tests.Application
             Assert.Contains("input.TypeOfUseGroupId == 3", expr);
             Assert.Contains("input.TypeOfUseGroupId2 == 1", expr);
             Assert.Contains("input.SocialAttributeId.Contains(28)", expr);
+        }
+
+        [Fact]
+        public void Build_WithRentParameter_GeneratesInputRentExpression()
+        {
+            // Arrange
+            var ruleName = "Rent Parameter Test";
+            var ruleCode = "R001";
+            var conditions = @"{
+                ""logicalOperator"": ""AND"",
+                ""conditions"": [
+                    { ""fieldId"": ""IsRenter"", ""operator"": ""EQUALS"", ""value"": ""true"" }
+                ]
+            }";
+            var effect = @"{
+                ""effectType"": ""Decrease %"",
+                ""value"": 80,
+                ""overrideRate"": ""Rent - Rent""
+            }";
+
+            // Act
+            var result = RuleJsonBuilder.Build(ruleName, ruleCode, true, "RV", conditions, effect, "Rent decrease rule");
+
+            // Assert
+            Assert.NotNull(result);
+            using var doc = JsonDocument.Parse(result);
+            var actions = doc.RootElement.GetProperty("rules")[0].GetProperty("Actions");
+            var context = actions.GetProperty("OnSuccess").GetProperty("Context");
+
+            Assert.Equal("input.Rent * (1 - 80 / 100)", context.GetProperty("Expression").GetString());
+            Assert.Equal("Decrease %", context.GetProperty("effectType").GetString());
+            Assert.Equal("80", context.GetProperty("value").GetString());
+            Assert.Equal("Rent", context.GetProperty("ParameterCode").GetString());
         }
     }
 }

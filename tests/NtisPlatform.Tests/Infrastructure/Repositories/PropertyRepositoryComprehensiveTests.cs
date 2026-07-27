@@ -99,6 +99,117 @@ public class PropertyRepositoryComprehensiveTests
     }
 
     [Fact]
+    public async Task GetBasicDetailsAsync_WithMappedOldProperties_ReturnsSummedOldAreas()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity
+        {
+            Id = 549357,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var mapDetail1 = new PropertyMapDetailEntity
+        {
+            Id = 1,
+            PropertyMapId = 1,
+            PropertySide = "NEW",
+            PropertyNo = "22",
+            PropertyIdNew = 549357,
+            PropertyIdOld = 100,
+            IsActive = true,
+            IsCurrent = true,
+            Status = "ACTIVE",
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var mapDetail2 = new PropertyMapDetailEntity
+        {
+            Id = 2,
+            PropertyMapId = 1,
+            PropertySide = "NEW",
+            PropertyNo = "22",
+            PropertyIdNew = 549357,
+            PropertyIdOld = 101,
+            IsActive = true,
+            IsCurrent = true,
+            Status = "ACTIVE",
+            CreatedDate = DateTime.UtcNow
+        };
+
+        var oldDetails1 = new PropertyDetailsOldEntity
+        {
+            Id = 10,
+            PropertyMastOldId = 100,
+            OldCarpetAreaSqFeet = 100,
+            OldCarpetAreaSqMeter = 9.29,
+            OldBuiltupAreaSqFeet = 120,
+            OldBuiltupAreaSqMeter = 11.15,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var oldDetails2 = new PropertyDetailsOldEntity
+        {
+            Id = 11,
+            PropertyMastOldId = 101,
+            OldCarpetAreaSqFeet = 200,
+            OldCarpetAreaSqMeter = 18.58,
+            OldBuiltupAreaSqFeet = 240,
+            OldBuiltupAreaSqMeter = 22.3,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        var oldDetailsInactive = new PropertyDetailsOldEntity
+        {
+            Id = 12,
+            PropertyMastOldId = 100,
+            OldCarpetAreaSqFeet = 999,
+            OldCarpetAreaSqMeter = 999,
+            OldBuiltupAreaSqFeet = 999,
+            OldBuiltupAreaSqMeter = 999,
+            IsActive = false,
+            MarkedForDeletion = false
+        };
+
+        var oldDetailsDeleted = new PropertyDetailsOldEntity
+        {
+            Id = 13,
+            PropertyMastOldId = 101,
+            OldCarpetAreaSqFeet = 999,
+            OldCarpetAreaSqMeter = 999,
+            OldBuiltupAreaSqFeet = 999,
+            OldBuiltupAreaSqMeter = 999,
+            IsActive = true,
+            MarkedForDeletion = true
+        };
+
+        context.PropertyMast.Add(property);
+        context.PropertyMapDetails.AddRange(mapDetail1, mapDetail2);
+        context.PropertyDetailsOld.Add(oldDetails1);
+        context.PropertyDetailsOld.Add(oldDetails2);
+        context.PropertyDetailsOld.Add(oldDetailsInactive);
+        context.PropertyDetailsOld.Add(oldDetailsDeleted);
+        await context.SaveChangesAsync();
+
+        var service = CreateBasicDetailsService(context);
+        var result = await service.GetBasicDetailsAsync(549357);
+
+        Assert.NotNull(result);
+        Assert.Equal(300, result.OldCarpetAreaSqFeet);
+        Assert.Equal(27.87, result.OldCarpetAreaSqMeter);
+        Assert.Equal(360, result.OldBuiltupAreaSqFeet);
+        Assert.Equal(33.45, result.OldBuiltupAreaSqMeter);
+    }
+
+    [Fact]
     public async Task GetBasicDetailsAsync_WithSocietyAndWing_ReturnsWingNoFromWingMaster()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

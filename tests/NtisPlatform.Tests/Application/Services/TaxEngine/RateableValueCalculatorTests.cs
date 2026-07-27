@@ -12,7 +12,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
     {
         // Convenience wrapper matching the old static signature (no selectedArea / policyOptions).
         // Computes selectedArea from policyOptions so call sites stay concise.
-        private static PropertyTaxCalculationRVResultsEntity Calculate(
+        private static RVCalculationResultsEntity Calculate(
             PropertyDetailsEntity detail,
             int financeYear,
             int taxZoneId,
@@ -250,6 +250,126 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.NotNull(result);
             Assert.Equal("Type is N", result.AppliedOn);
             Assert.Equal(0m, result.RateableValue);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WithRenter_WhenFinalYearlyRentIsZero_CalculatesFromMonthlyRent()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true, IsRenter = true,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 10d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            // Area rent = 10 * 100 * 12 = 12,000 yearly
+            // Renter monthly rent = 2,000 -> 24,000 yearly (higher than 12,000)
+            var renters = new List<RenterMastEntity>
+            {
+                new()
+                {
+                    Id = 1,
+                    PropertyDetailsId = 100,
+                    RentMonthly = 2000,
+                    FinalYearlyRent = 0,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = DateTime.Now
+                }
+            };
+
+            var result = Calculate(detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, renters);
+
+            Assert.NotNull(result);
+            Assert.Equal("Rent", result.AppliedOn);
+            Assert.Equal(24000.0, result.YearlyRent);
+            Assert.Equal(0m, result.Depreciation); // No depreciation when actual rent applied
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WithMultipleRenters_SelectsLatestActiveRenter()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true, IsRenter = true,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 10d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            var renters = new List<RenterMastEntity>
+            {
+                new()
+                {
+                    Id = 1,
+                    PropertyDetailsId = 100,
+                    FinalYearlyRent = 15000,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = DateTime.Now.AddDays(-10)
+                },
+                new()
+                {
+                    Id = 2,
+                    PropertyDetailsId = 100,
+                    FinalYearlyRent = 30000,
+                    IsActive = true,
+                    MarkedForDeletion = false,
+                    CreatedDate = DateTime.Now // Latest
+                }
+            };
+
+            var result = Calculate(detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, renters);
+
+            Assert.NotNull(result);
+            Assert.Equal("Rent", result.AppliedOn);
+            Assert.Equal(30000.0, result.YearlyRent);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WithOverrideRent_UsesOverrideRent()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true, IsRenter = true,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 10d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            // Area rent = 10 * 100 * 12 = 12,000
+            // Override rent (rule-adjusted rent) = 20,000
+            var service = new RateableValueCalculatorService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RateableValueCalculatorService>.Instance);
+            var result = service.CalculateBaseValues(
+                detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
+                10m, RateableValuePolicyOptions.Default, null, 1, 20000m);
+
+            Assert.NotNull(result);
+            Assert.Equal("Rent", result.AppliedOn);
+            Assert.Equal(20000.0, result.YearlyRent);
+            Assert.Equal(0m, result.Depreciation);
         }
     }
 }

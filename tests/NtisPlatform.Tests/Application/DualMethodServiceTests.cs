@@ -66,15 +66,15 @@ public class DualMethodServiceTests
         // CV Data - uses PolicyTaxDetailsCVEntity
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 1000.50m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 500.25m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 1000.50m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 500.25m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
         };
 
         // RV Data - uses PolicyTaxDetailsEntity
         var rvData = new List<PolicyTaxDetailsEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 800.75m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 300.50m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 800.75m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 300.50m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
         };
 
         var oldData = new List<TransMastOldEntity>
@@ -124,9 +124,9 @@ public class DualMethodServiceTests
         // Test edge cases for MidpointRounding.AwayFromZero
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 10.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 11.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
-            new() { Id = 3, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = -10.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 10.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 1, TaxAmount = 11.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
+            new() { Id = 3, PropertyId = propertyId, TaxId = 1, TaxAmount = -10.5m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -156,9 +156,9 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 },
-            new() { Id = 3, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 3, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster3 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 },
+            new() { Id = 3, PropertyId = propertyId, TaxId = 3, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster3 }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -192,9 +192,9 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 },
-            new() { Id = 3, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 3, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster3 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 },
+            new() { Id = 3, PropertyId = propertyId, TaxId = 3, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster3 }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -232,8 +232,8 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -269,9 +269,9 @@ public class DualMethodServiceTests
         // Multiple records for the same tax should be summed
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 3, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 300.75m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 3, PropertyId = propertyId, TaxId = 1, TaxAmount = 300.75m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -300,9 +300,9 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = activeTaxMaster },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = inactiveTaxMaster }, // Active transaction with inactive TaxMaster
-            new() { Id = 3, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = activeTaxMaster }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = activeTaxMaster },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = inactiveTaxMaster }, // Active transaction with inactive TaxMaster
+            new() { Id = 3, PropertyId = propertyId, TaxId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false, TaxMaster = activeTaxMaster }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -333,8 +333,8 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 0, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false, TaxMaster = null! } // Invalid TaxId
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 0, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false, TaxMaster = null! } // Invalid TaxId
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -396,14 +396,14 @@ public class DualMethodServiceTests
         // CV has both taxes
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
-            new() { Id = 2, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 },
+            new() { Id = 2, PropertyId = propertyId, TaxId = 2, TaxAmount = 200m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster2 }
         };
 
         // RV only has Property Tax
         var rvData = new List<PolicyTaxDetailsEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 150m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 }
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 150m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster1 }
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());
@@ -438,8 +438,9 @@ public class DualMethodServiceTests
 
         var cvData = new List<PolicyTaxDetailsCVEntity>
         {
-            new() { Id = 1, PropertyId = propertyId, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
-            new() { Id = 2, PropertyId = 999, PolicyCode = "NETTAX", TaxId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster } // Different property
+            new() { Id = 1, PropertyId = propertyId, TaxId = 1, TaxAmount = 100m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster },
+            new() { Id = 2, PropertyId = 999, TaxId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false, TaxMaster = taxMaster } // Different property
+
         };
 
         _transMastRepo.Setup(x => x.GetQueryable()).Returns(cvData.BuildMock());

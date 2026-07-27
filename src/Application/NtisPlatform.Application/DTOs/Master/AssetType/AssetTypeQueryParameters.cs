@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -8,7 +8,7 @@ public class AssetTypeQueryParameters : BaseQueryParameters
 {
     [Filterable]
     [Sortable]
-    public int? CategoryId { get; set; }
+    public int? AssetCategoryId { get; set; }
 
     [Filterable]
     [Sortable]
@@ -28,6 +28,10 @@ public class AssetTypeQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     public bool? IsActive { get; set; }
+
+    [Filterable]
+    [Sortable]
+    public bool? MarkedForDeletion { get; set; }
 
     [Filterable]
     [Searchable]

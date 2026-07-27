@@ -14,9 +14,7 @@ public class PropertyMappingProfile : Profile
 {
     public PropertyMappingProfile()
     {
-        // Entity to read-only DTO mapping
-        CreateMap<PropertyEntity, PropertyDto>()
-            ;
+        CreateMap<PropertyEntity, PropertyDto>();
 
         // CreateDto to Entity
         CreateMap<CreatePropertyDto, PropertyEntity>()
@@ -72,67 +70,6 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore()) // Immutable - set on creation
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore()) // Updated by Repository
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
-
-
-        CreateMap<UpdatePropertyMastDto, PropertyEntity>()
-            // Map only these three properties
-            .ForMember(dest => dest.TotalPlotArea, opt => opt.MapFrom(src => src.TotalPlotArea))
-            .ForMember(dest => dest.Length, opt => opt.MapFrom(src => src.Length))
-            .ForMember(dest => dest.Width, opt => opt.MapFrom(src => src.Width))
-            // Explicitly ignore all other properties
-            .ForMember(dest => dest.Id, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertySeqNo, opt => opt.Ignore())
-            .ForMember(dest => dest.MoujaId, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxZoneId, opt => opt.Ignore())
-            .ForMember(dest => dest.WardId, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyNo, opt => opt.Ignore())
-            .ForMember(dest => dest.PartitionNo, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTypeId, opt => opt.Ignore())
-            .ForMember(dest => dest.UPICId, opt => opt.Ignore())
-            .ForMember(dest => dest.OpenPlot, opt => opt.Ignore())
-            .ForMember(dest => dest.CSN, opt => opt.Ignore())
-            .ForMember(dest => dest.SubZoneNo, opt => opt.Ignore())
-            .ForMember(dest => dest.PlotNo, opt => opt.Ignore())
-            .ForMember(dest => dest.CategoryId, opt => opt.Ignore())
-            .ForMember(dest => dest.Type, opt => opt.Ignore())
-            .ForMember(dest => dest.OwnerTitle, opt => opt.Ignore())
-            .ForMember(dest => dest.OwnerName, opt => opt.Ignore())
-            .ForMember(dest => dest.OwnerTitleEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.OwnerNameEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierTitle, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierName, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierTitleEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierNameEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.FlatOrShopNo, opt => opt.Ignore())
-            .ForMember(dest => dest.FlatOrShopName, opt => opt.Ignore())
-            .ForMember(dest => dest.FlatOrShopNoEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.FlatOrShopNameEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.Address, opt => opt.Ignore())
-            .ForMember(dest => dest.Location, opt => opt.Ignore())
-            .ForMember(dest => dest.AddressEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.LocationEnglish, opt => opt.Ignore())
-            .ForMember(dest => dest.MobileNo, opt => opt.Ignore())
-            .ForMember(dest => dest.EmailId, opt => opt.Ignore())
-            .ForMember(dest => dest.PinCode, opt => opt.Ignore())
-            .ForMember(dest => dest.MobileNoRemarkId, opt => opt.Ignore())
-            .ForMember(dest => dest.AlternateMobileNo, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierMobileNo, opt => opt.Ignore())
-            .ForMember(dest => dest.OccupierMobileNoRemarkId, opt => opt.Ignore())
-            .ForMember(dest => dest.SocietyDetailId, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyAssessmentStatusId, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyMastOldId, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyFloorId, opt => opt.Ignore())
-            .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
-            .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
-            .ForMember(dest => dest.IsActive, opt => opt.Ignore())
-            .ForMember(dest => dest.TaxZone, opt => opt.Ignore())
-            .ForMember(dest => dest.Ward, opt => opt.Ignore())
-            .ForMember(dest => dest.Mouja, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyAssessmentStatus, opt => opt.Ignore());
 
         // UpdateAllPropertyDetailsDto to Entities
         CreateMap<UpdateAllPropertyDetailsDto, PropertyEntity>()
@@ -191,7 +128,7 @@ public class PropertyMappingProfile : Profile
             // Child entity navigation collections
             .ForMember(dest => dest.FlagMaster, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationRVResults, opt => opt.Ignore())
+            .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PlotDetails, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastCV, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore())
@@ -218,7 +155,6 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.TransMast, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastArchive, opt => opt.Ignore())
             .ForMember(dest => dest.TransMastLookup, opt => opt.Ignore())
-            .ForMember(dest => dest.TransMastRV, opt => opt.Ignore())
             .ForMember(dest => dest.WorkflowHistory, opt => opt.Ignore());
     }
 }

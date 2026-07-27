@@ -7,7 +7,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
 {
     public interface IRateableValueCalculatorService
     {
-        PropertyTaxCalculationRVResultsEntity CalculateBaseValues(
+        RVCalculationResultsEntity CalculateBaseValues(
             PropertyDetailsEntity detail,
             int financeYear,
             int taxZoneId,
@@ -20,6 +20,7 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
             decimal selectedArea,
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null,
-            int? detailYearRangeRVId = null);
+            int? detailYearRangeRVId = null,
+            decimal? overrideRent = null);
     }
 }

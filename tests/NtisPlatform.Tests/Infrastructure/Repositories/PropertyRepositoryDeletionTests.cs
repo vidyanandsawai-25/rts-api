@@ -90,13 +90,13 @@ public class PropertyRepositoryDeletionTests
         using var context = CreateInMemoryContext();
         var propertyId = 1;
 
-        var rvResults = new List<PropertyTaxCalculationRVResultsEntity>
+        var rvResults = new List<RVCalculationResultsEntity>
         {
             new() { Id = 1, PropertyId = propertyId, PropertyDetailsId = 1, IsActive = true, MarkedForDeletion = false },
             new() { Id = 2, PropertyId = propertyId, PropertyDetailsId = 2, IsActive = true, MarkedForDeletion = false }
         };
 
-        context.PropertyTaxCalculationRVResults.AddRange(rvResults);
+        context.RVCalculationResults.AddRange(rvResults);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -397,8 +397,8 @@ public class PropertyRepositoryDeletionTests
         var propertyId = 1;
 
         // Add transaction-related entities
-        context.TransMast.Add(new TransMastEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, IsActive = true, MarkedForDeletion = false });
-        context.TransMastRV.Add(new TransMastRVEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, IsActive = true, MarkedForDeletion = false });
+        context.TransMast.Add(new TransMastEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, CalculationType = "CV", IsActive = true, MarkedForDeletion = false });
+        context.TransMast.Add(new TransMastEntity { Id = 2, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, CalculationType = "RV", IsActive = true, MarkedForDeletion = false });
         context.TransMastCV.Add(new TransMastCVEntity { Id = 1, PropertyId = propertyId, TaxId = 1, FinanceYearId = 1, IsActive = true, MarkedForDeletion = false });
 
         await context.SaveChangesAsync();
@@ -671,7 +671,7 @@ public class PropertyRepositoryDeletionTests
             MarkedForDeletion = false
         };
 
-        var rvResult = new PropertyTaxCalculationRVResultsEntity
+        var rvResult = new RVCalculationResultsEntity
         {
             Id = 1,
             PropertyDetailsId = 1,
@@ -680,7 +680,7 @@ public class PropertyRepositoryDeletionTests
         };
 
         context.PropertyDetails.Add(propertyDetails);
-        context.PropertyTaxCalculationRVResults.Add(rvResult);
+        context.RVCalculationResults.Add(rvResult);
         context.SaveChanges();
 
         var entities = new List<IHardDeletable> { propertyDetails, rvResult };

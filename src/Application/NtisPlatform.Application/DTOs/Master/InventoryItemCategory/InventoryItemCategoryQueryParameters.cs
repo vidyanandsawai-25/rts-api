@@ -14,6 +14,10 @@ public class InventoryItemCategoryQueryParameters : BaseQueryParameters
     [Sortable]
     public bool? IsActive { get; set; }
 
+    [Filterable]
+    [Sortable]
+    public bool? MarkedForDeletion { get; set; }
+
     [Filterable(FilterOperator.Contains)]
     [Sortable]
     [Searchable]

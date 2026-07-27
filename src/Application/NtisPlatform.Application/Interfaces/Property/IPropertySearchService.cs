@@ -75,4 +75,41 @@ public interface IPropertySearchService
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Apartment unit list with all properties displayed as units and total count</returns>
     Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Performs an independent unified search using pattern-matching heuristics and multi-term keyword matching.
+    /// </summary>
+    Task<PagedResult<PropertySearchResponseDto>> UnifiedSearchPropertiesAsync(string query, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Query - Searches properties scoped by SearchCategory (Zone-wise, Ward-wise, Building-wise,
+    /// or a From/To property-number range within a ward), with server-side pagination.
+    /// </summary>
+    /// <exception cref="NtisPlatform.Application.Exceptions.PropertyValidationException">
+    /// Thrown when SearchCategory is invalid, or when the fields required by the selected
+    /// category (ZoneId/WardId/PropertyNo/PropertyFrom) are missing or malformed.
+    /// </exception>
+    Task<PagedResult<PropertySearchByCategoryResponseDto>> SearchByCategoryAsync(PropertySearchByCategoryQueryParameters queryParameters, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Query - Validates the SearchCategory scope (same rules as SearchByCategoryAsync) and
+    /// resolves the bare PropertyIds matching it, without paging/sorting/mapping - for bulk
+    /// actions over "every property matching this scope" (e.g. bulk lock/unlock by category).
+    /// </summary>
+    /// <exception cref="NtisPlatform.Application.Exceptions.PropertyValidationException">
+    /// Thrown when SearchCategory is invalid, or when the fields required by the selected
+    /// category (ZoneId/WardId/PropertyNo/PropertyFrom) are missing or malformed.
+    /// </exception>
+    Task<List<int>> ResolvePropertyIdsByCategoryAsync(PropertySearchByCategoryQueryParameters queryParameters, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Query - Returns PropertyNo/PartitionNo typeahead suggestions for a ward, matching the given
+    /// terms anywhere in the value (SQL LIKE '%term%' semantics), for the Property-Wise Search
+    /// screen's autocomplete. Backed by a short-lived per-ward cache so repeated keystrokes stay fast.
+    /// </summary>
+    /// <exception cref="NtisPlatform.Application.Exceptions.PropertyValidationException">
+    /// Thrown when wardId is missing or not positive.
+    /// </exception>
+    Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults = 20, CancellationToken cancellationToken = default);
 }

@@ -111,30 +111,20 @@ namespace NtisPlatform.Application.Services.Rules
                         if (applicator == null)
                             continue;
 
+                        if (applicator is RateLookupApplicator rateLookupApplicator)
+                        {
+                            rateLookupApplicator.SetInputDictionary(inputContext);
+                            if (rule.Context != null)
+                            {
+                                var dictContext = rule.Context.ToDictionary(k => k.Key, v => (object)v.Value);
+                                rateLookupApplicator.SetLookupContext(dictContext);
+                            }
+                        }
+
                         applyOrder++;
                         decimal nextValue = await applicator.Apply(cumulativeValue, rule.EffectValue);
 
-                        decimal applyRate = rule.EffectValue;
-                        if (rule.EffectType != null)
-                        {
-                            var effectLower = rule.EffectType.ToLowerInvariant();
-                            if (effectLower.Contains("decrease") && (effectLower.Contains("%") || effectLower.Contains("percent")))
-                            {
-                                applyRate = 100m - rule.EffectValue;
-                            }
-                            else if (effectLower.Contains("increase") && (effectLower.Contains("%") || effectLower.Contains("percent")))
-                            {
-                                applyRate = 100m + rule.EffectValue;
-                            }
-                            else if (effectLower.Contains("exempt"))
-                            {
-                                applyRate = 0m;
-                            }
-                            else if (effectLower.Contains("multiply"))
-                            {
-                                applyRate = rule.EffectValue * 100m;
-                            }
-                        }
+                        decimal applyRate = applicator.GetApplyRate(rule.EffectValue);
 
                         appliedRules.Add(new RuleApplicationTraceEntry
                         {
@@ -143,7 +133,7 @@ namespace NtisPlatform.Application.Services.Rules
                             EffectType = rule.EffectType,
                             EffectValue = rule.EffectValue,
                             ApplyRate = applyRate,
-                            BaseValue = context.InitialValue,
+                            BaseValue = applicator.ReferenceRate ?? cumulativeValue,
                             ComputedValue = nextValue,
                             CumulativeValue = nextValue,
                             ApplyOrder = applyOrder,
@@ -211,6 +201,33 @@ namespace NtisPlatform.Application.Services.Rules
             FlattenObject(detailTypeOfUse, entityScalarPropertiesDict);
             FlattenObject(assessment, entityScalarPropertiesDict);
 
+            // Flatten active Renter details if present for this detail scope
+            if (pContext.Renters != null && detail != null)
+            {
+                var renter = pContext.Renters
+                    .Where(r => r.PropertyDetailsId == detail.Id && r.IsActive && !r.MarkedForDeletion)
+                    .OrderByDescending(r => r.CreatedDate)
+                    .FirstOrDefault();
+
+                if (renter != null)
+                {
+                    FlattenObject(renter, entityScalarPropertiesDict);
+
+                    double rentYearlyValue = renter.FinalYearlyRent > 0
+                        ? renter.FinalYearlyRent.Value
+                        : ((renter.RentMonthly ?? 0d) * 12d);
+
+                    entityScalarPropertiesDict["RentMonthly"] = renter.RentMonthly ?? 0d;
+                    entityScalarPropertiesDict["FinalYearlyRent"] = rentYearlyValue;
+                    entityScalarPropertiesDict["Rent"] = rentYearlyValue;
+                    entityScalarPropertiesDict["Rent - Rent"] = rentYearlyValue;
+                    entityScalarPropertiesDict["TaxLiability"] = renter.TaxLiability ?? string.Empty;
+                    entityScalarPropertiesDict["RenterName"] = !string.IsNullOrWhiteSpace(renter.RenterNameEnglish)
+                        ? renter.RenterNameEnglish!
+                        : (renter.RenterName ?? string.Empty);
+                }
+            }
+
             // ── Step 2: Derived helper values ────────────────────────────────────
             // PropertyAge: computed formula — no entity column exists for this
             entityScalarPropertiesDict["PropertyAge"] = p.FinanceYear - p.ConstructionYearValue;
@@ -221,6 +238,15 @@ namespace NtisPlatform.Application.Services.Rules
 
             // Building floor properties
             entityScalarPropertiesDict["BuildingMaxFloorSequence"] = p.BuildingMaxFloorSequence;
+
+            // Resolve per-detail YearRangeRVId from propertyContext map
+            if (detail != null && pContext.DetailYearRangeRVIdMap != null)
+            {
+                var detailYearRangeRVId = pContext.DetailYearRangeRVIdMap.TryGetValue(detail.Id, out var yearRangeId)
+                    ? yearRangeId
+                    : p.YearRangeRVId;
+                entityScalarPropertiesDict["YearRangeRVId"] = detailYearRangeRVId;
+            }
 
             // Current floor properties for the detail scope
             if (detail?.Floor != null)

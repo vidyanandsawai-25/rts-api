@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using NtisPlatform.Application.DTOs.Master.RTSServiceMaster;
 using NtisPlatform.Core.Entities.Master;
 
@@ -25,4 +25,3 @@ public class RTSServiceMappingProfile:Profile
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }
 }
-

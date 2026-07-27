@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.Attributes;
+using NtisPlatform.Application.Attributes;
 using NtisPlatform.Application.DTOs.Queries;
 using NtisPlatform.Application.Enums;
 
@@ -27,4 +27,3 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         [Sortable]
         public bool? IsActive { get; set; }
     }
-

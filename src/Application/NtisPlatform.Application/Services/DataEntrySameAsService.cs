@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.DataEntrySameAs;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Utilities;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -31,6 +33,12 @@ public class DataEntrySameAsService : IDataEntrySameAsService
     private readonly IRepository<SocietyDetailsEntity, int> _societyDetailsRepository;
     private readonly IRepository<WingEntity, int> _wingRepository;
     private readonly IRepository<BuildingPlanTypeEntity, int> _buildingPlanTypeRepository;
+    private readonly IRepository<WardEntity, int> _wardRepository;
+    private readonly IRepository<ZoneEntity, int> _zoneRepository;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
+    private readonly IRepository<PropertyCategoryEntity, int> _propertyCategoryRepository;
+    private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
+    private readonly IRepository<TypeOfUseCategoryEntity, int> _typeOfUseCategoryRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<DataEntrySameAsService> _logger;
 
@@ -43,6 +51,12 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         IRepository<SocietyDetailsEntity, int> societyDetailsRepository,
         IRepository<WingEntity, int> wingRepository,
         IRepository<BuildingPlanTypeEntity, int> buildingPlanTypeRepository,
+        IRepository<WardEntity, int> wardRepository,
+        IRepository<ZoneEntity, int> zoneRepository,
+        IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
+        IRepository<PropertyCategoryEntity, int> propertyCategoryRepository,
+        IRepository<TypeOfUseEntity, int> typeOfUseRepository,
+        IRepository<TypeOfUseCategoryEntity, int> typeOfUseCategoryRepository,
         IUnitOfWork unitOfWork,
         ILogger<DataEntrySameAsService> logger)
     {
@@ -54,6 +68,12 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         _societyDetailsRepository = societyDetailsRepository;
         _wingRepository = wingRepository;
         _buildingPlanTypeRepository = buildingPlanTypeRepository;
+        _wardRepository = wardRepository;
+        _zoneRepository = zoneRepository;
+        _propertyTypeRepository = propertyTypeRepository;
+        _propertyCategoryRepository = propertyCategoryRepository;
+        _typeOfUseRepository = typeOfUseRepository;
+        _typeOfUseCategoryRepository = typeOfUseCategoryRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -207,8 +227,12 @@ public class DataEntrySameAsService : IDataEntrySameAsService
         var hasPartition = !string.IsNullOrEmpty(partitionNo);
 
         // PropertyMast LEFT JOIN SocietyDetailsMast LEFT JOIN WingMaster LEFT JOIN PropertyDetails.
-        // The `PartitionNo != WingNo` predicate compares against a possibly-NULL wing number; as in SQL,
-        // a NULL comparison is "unknown" and excludes the row (so rows without a matching wing drop out).
+        // The `PartitionNo != WingNo` predicate must drop rows whose wing did not match. In raw SQL
+        // `PartitionNo != NULL` is "unknown" and excludes the row, but EF Core rewrites `!=` with C#
+        // null-semantics ("A" != null == true), which would WRONGLY keep unmatched-wing rows and produce
+        // a duplicate per society row. The explicit `wm != null` guard drops those rows (WingNo is
+        // non-nullable, so an unmatched left join is the only source of a null wing number), restoring
+        // the SQL behaviour and keeping the expression null-safe when run in-memory.
         // PropertyDetails is grouped so that CarpetArea columns are summed per property.
         var rows =
             from pm in _propertyRepository.GetQueryable()
@@ -225,6 +249,7 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                   && pm.PropertyNo == propertyNo
                   && (!hasPartition || pm.PartitionNo == partitionNo)
                   && pm.PartitionNo != ""
+                  && wm != null
                   && pm.PartitionNo != wm.WingNo
             group new { pd.CarpetAreaSqMeter, pd.CarpetAreaSqFeet } by new
             {
@@ -250,6 +275,134 @@ public class DataEntrySameAsService : IDataEntrySameAsService
             };
 
         return await rows.ToListAsync(cancellationToken);
+    }
+
+    public async Task<List<DataEntrySameAsUnitDto>> GetPropertyUnitsAsync(
+        DataEntrySameAsUnitsQueryParameters query,
+        CancellationToken cancellationToken = default)
+    {
+        var wardId = query.WardId;
+        var propertyNo = query.PropertyNo;
+
+        // Treat blank optional inputs as "not supplied" so empty query strings don't filter.
+        string? partitionNo = string.IsNullOrWhiteSpace(query.PartitionNo) ? null : query.PartitionNo;
+        string? partType = string.IsNullOrWhiteSpace(query.PartType) ? null : query.PartType;
+        string? categoryName = string.IsNullOrWhiteSpace(query.CategoryName) ? null : query.CategoryName;
+        string? type = string.IsNullOrWhiteSpace(query.Type) ? null : query.Type;
+        string? searchTerm = string.IsNullOrWhiteSpace(query.SearchTerm) ? null : query.SearchTerm;
+        var hasPartition = partitionNo != null;
+
+        // TypeOfUse ids that belong to the PARKING category (TypeOfUseMaster -> TypeOfUseCategoryMaster).
+        // Materialized once and matched via Contains, so the main query needs no extra joins and the
+        // parking split stays null-safe. Mirrors the parkingTypeIds pattern used in ExecuteAsync.
+        var parkingTypeOfUseIds = await _typeOfUseRepository.GetQueryable()
+            .Where(tom => _typeOfUseCategoryRepository.GetQueryable()
+                .Any(c => c.Id == tom.TypeOfUseCategoryId && c.TypeOfUseCategoryCode == TypeOfUseConstants.Parking))
+            .Select(tom => tom.Id)
+            .ToListAsync(cancellationToken);
+
+        // PropertyMast LEFT JOIN Ward/Zone/PropertyType/Category masters LEFT JOIN PropertyDetails, grouped
+        // per property with carpet areas summed. Hard rules (always applied): only active/non-deleted
+        // properties, PartType != 'Amenity', and IsWing = 0 (partition is not a WingMaster.WingNo).
+        // Like GetSiblingPropertiesAsync, the null guards (ptm != null, ptm.PartType != null) restore SQL
+        // three-valued logic — EF would otherwise keep NULL-PartType rows via C# null-semantics.
+        var rows =
+            from pm in _propertyRepository.GetQueryable()
+            join wm in _wardRepository.GetQueryable()
+                on pm.WardId equals wm.Id into wmGroup
+            from wm in wmGroup.DefaultIfEmpty()
+            join zm in _zoneRepository.GetQueryable()
+                on wm.ZoneId equals zm.Id into zmGroup
+            from zm in zmGroup.DefaultIfEmpty()
+            join ptm in _propertyTypeRepository.GetQueryable()
+                on pm.PropertyTypeId equals (int?)ptm.Id into ptmGroup
+            from ptm in ptmGroup.DefaultIfEmpty()
+            join pcm in _propertyCategoryRepository.GetQueryable()
+                on pm.CategoryId equals (int?)pcm.Id into pcmGroup
+            from pcm in pcmGroup.DefaultIfEmpty()
+            join pd in _propertyDetailsRepository.GetQueryable().Where(pd => pd.IsActive && !pd.MarkedForDeletion)
+                on pm.Id equals pd.PropertyId into pdGroup
+            from pd in pdGroup.DefaultIfEmpty()
+            where pm.IsActive && !pm.MarkedForDeletion
+                  && pm.WardId == wardId
+                  && pm.PropertyNo == propertyNo
+                  && (!hasPartition || pm.PartitionNo == partitionNo)
+                  // Hard rule: PartType present and not 'Amenity' (NULL PartType excluded, as in SQL).
+                  && ptm != null && ptm.PartType != null && ptm.PartType != PartTypeConstants.Amenity
+                  // Hard rule: IsWing = 0 — no WingMaster row whose WingNo equals this partition.
+                  && !_wingRepository.GetQueryable().Any(w => w.WingNo == pm.PartitionNo)
+            group new
+            {
+                pd.CarpetAreaSqMeter,
+                pd.CarpetAreaSqFeet,
+                pd.BuiltupAreaSqMeter,
+                pd.BuiltupAreaSqFeet,
+                IsParking = parkingTypeOfUseIds.Contains(pd.TypeOfUseId)
+            } by new
+            {
+                pm.Id,
+                pm.TaxZoneId,
+                ZoneId = (int?)zm.Id,
+                zm.ZoneNo,
+                pm.WardId,
+                wm.WardNo,
+                pm.PropertyNo,
+                pm.PartitionNo,
+                pm.PropertyTypeId,
+                ptm.PartType,
+                pm.CategoryId,
+                pcm.PropertyCategoryName,
+                pm.Type,
+                pm.FlatOrShopNo
+            } into g
+            select new DataEntrySameAsUnitDto
+            {
+                PropertyId = g.Key.Id,
+                TaxZoneId = g.Key.TaxZoneId,
+                ZoneId = g.Key.ZoneId,
+                ZoneNo = g.Key.ZoneNo,
+                WardId = g.Key.WardId,
+                WardNo = g.Key.WardNo,
+                PropertyNo = g.Key.PropertyNo,
+                PartitionNo = g.Key.PartitionNo ?? string.Empty,
+                PropertyTypeId = g.Key.PropertyTypeId,
+                PartType = g.Key.PartType,
+                CategoryId = g.Key.CategoryId,
+                PropertyCategoryName = g.Key.PropertyCategoryName,
+                IsWing = false,
+                Type = g.Key.Type ?? "0",
+                FlatOrShopNo = g.Key.FlatOrShopNo ?? "0",
+                TotalCarpetAreaSqMeter = g.Sum(x => x.CarpetAreaSqMeter ?? 0),
+                TotalCarpetAreaSqFeet = g.Sum(x => x.CarpetAreaSqFeet ?? 0),
+                TotalBuiltupAreaSqMeter = g.Sum(x => x.BuiltupAreaSqMeter ?? 0),
+                TotalBuiltupAreaSqFeet = g.Sum(x => x.BuiltupAreaSqFeet ?? 0),
+                ParkingCarpetAreaSqMeter = g.Sum(x => x.IsParking ? (x.CarpetAreaSqMeter ?? 0) : 0),
+                ParkingCarpetAreaSqFeet = g.Sum(x => x.IsParking ? (x.CarpetAreaSqFeet ?? 0) : 0),
+                ParkingBuiltupAreaSqMeter = g.Sum(x => x.IsParking ? (x.BuiltupAreaSqMeter ?? 0) : 0),
+                ParkingBuiltupAreaSqFeet = g.Sum(x => x.IsParking ? (x.BuiltupAreaSqFeet ?? 0) : 0)
+            };
+
+        // Optional filters + search applied on the projected rows (kept out of the join query so
+        // nullable-reference narrowing behaves normally; still translated to SQL by EF).
+        if (partType != null)
+            rows = rows.Where(r => r.PartType == partType);
+        if (categoryName != null)
+            rows = rows.Where(r => r.PropertyCategoryName == categoryName);
+        if (type != null)
+            rows = rows.Where(r => r.Type == type);
+        if (searchTerm != null)
+            rows = rows.Where(r =>
+                (r.PartType != null && r.PartType.Contains(searchTerm))
+                || (r.PropertyCategoryName != null && r.PropertyCategoryName.Contains(searchTerm))
+                || r.Type.Contains(searchTerm));
+
+        var results = await rows.ToListAsync(cancellationToken);
+
+        // Natural ordering ("A2" before "A10") can't be translated to SQL, so sort in memory.
+        return results
+            .OrderBy(r => r.PartitionNo, NaturalStringComparer.Instance)
+            .ThenBy(r => r.FlatOrShopNo, NaturalStringComparer.Instance)
+            .ToList();
     }
 
     /// <summary>

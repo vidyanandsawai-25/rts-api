@@ -121,8 +121,8 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
                     join toug in _typeOfUseGroupRepository.GetQueryable() on tou.TypeOfUseGroupId equals toug.Id into tougJoined
                     from toug in tougJoined.DefaultIfEmpty()
                     where tou.IsActive && (touc == null || touc.IsActive)
-                       && ( (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op))
-                            || tou.TypeOfUseCode == TypeOfUseConstants.Op )
+                       && (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.OpenSpace))
                     select new TypeOfUseDetailsDto
                     {
                         Id = tou.Id,
@@ -136,6 +136,42 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
                         GroupName = toug != null ? toug.GroupName : null
                     };
 
+        return await ExecuteTypeOfUseQueryAsync(query, queryParameters, cancellationToken);
+    }
+
+    public async Task<PagedResult<TypeOfUseDetailsDto>> GetOpenPlotTypeOfUseDetailsAsync(TypeOfUseQueryParameters queryParameters, CancellationToken cancellationToken = default)
+    {
+        var query = from tou in _typeOfUseRepository.GetQueryable()
+                    join touc in _typeOfUseCategoryRepository.GetQueryable() on tou.TypeOfUseCategoryId equals touc.Id into toucJoined
+                    from touc in toucJoined.DefaultIfEmpty()
+                    join toug in _typeOfUseGroupRepository.GetQueryable() on tou.TypeOfUseGroupId equals toug.Id into tougJoined
+                    from toug in tougJoined.DefaultIfEmpty()
+                    where tou.IsActive && (touc == null || touc.IsActive)
+                       && (touc != null && (touc.TypeOfUseCategoryCode == TypeOfUseConstants.Parking || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.Op || 
+                                            touc.TypeOfUseCategoryCode == TypeOfUseConstants.OpenSpace))
+                       && toug != null && toug.IsOpenPlot && toug.IsActive
+                    select new TypeOfUseDetailsDto
+                    {
+                        Id = tou.Id,
+                        Description = tou.Description,
+                        TypeOfUseCode = tou.TypeOfUseCode,
+                        TypeOfUseGroupId = tou.TypeOfUseGroupId,
+                        TypeOfUseCategoryId = tou.TypeOfUseCategoryId,
+                        TypeOfUseCategoryName = touc != null ? touc.TypeOfUseCategoryName : null,
+                        TypeOfUseCategoryCode = touc != null ? touc.TypeOfUseCategoryCode : null,
+                        TypeOfUseGroupCode = toug.TypeOfUseGroupCode,
+                        GroupName = toug.GroupName
+                    };
+
+        return await ExecuteTypeOfUseQueryAsync(query, queryParameters, cancellationToken);
+    }
+
+    private static async Task<PagedResult<TypeOfUseDetailsDto>> ExecuteTypeOfUseQueryAsync(
+        IQueryable<TypeOfUseDetailsDto> query,
+        TypeOfUseQueryParameters queryParameters,
+        CancellationToken cancellationToken)
+    {
         // Handle SearchTerm if provided
         if (!string.IsNullOrWhiteSpace(queryParameters.SearchTerm))
         {
@@ -193,6 +229,39 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
         return new PagedResult<TypeOfUseDetailsDto>(items, totalCount, pagination.pageNumber, pagination.pageSize);
     }
 
+    public override async Task<RateDto> CreateAsync(CreateRateDto createDto, CancellationToken cancellationToken = default)
+    {
+        if (createDto.FloorId == 0)
+        {
+            var floorId = await ResolveGroundFloorIdAsync(cancellationToken);
+            if (floorId > 0)
+            {
+                createDto.FloorId = floorId;
+            }
+        }
+        return await base.CreateAsync(createDto, cancellationToken);
+    }
+
+    public override async Task<BulkResult<RateDto>> BulkCreateAsync(CreateRateDto[] items, CancellationToken cancellationToken = default)
+    {
+        var groundFloorId = 0;
+        foreach (var item in items)
+        {
+            if (item.FloorId == 0)
+            {
+                if (groundFloorId == 0)
+                {
+                    groundFloorId = await ResolveGroundFloorIdAsync(cancellationToken);
+                }
+                if (groundFloorId > 0)
+                {
+                    item.FloorId = groundFloorId;
+                }
+            }
+        }
+        return await base.BulkCreateAsync(items, cancellationToken);
+    }
+
     public async Task<RateDto> CreateOpenPlotAsync(CreateOpenPlotRateDto createDto, CancellationToken cancellationToken = default)
     {
         var constructionTypeId = await ResolveOpenPlotConstructionTypeIdAsync(cancellationToken);
@@ -214,6 +283,24 @@ public class RateService : BaseCommonCrudService<RateEntity, RateDto, CreateRate
             .ToArray();
 
         return await BulkCreateAsync(rateCreateDtos, cancellationToken);
+    }
+
+    private async Task<int> ResolveGroundFloorIdAsync(CancellationToken cancellationToken)
+    {
+        var floorId = await _floorRepository.GetQueryable()
+            .Where(f => f.FloorCode == "G" && f.IsActive)
+            .OrderBy(f => f.Id)
+            .Select(f => f.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (floorId == 0)
+        {
+            throw new ValidationException(
+                "Ground floor (code 'G') is not configured. Please add an active floor with code 'G' before creating rates with FloorId = 0.",
+                OperationType.Create);
+        }
+
+        return floorId;
     }
 
     private async Task<int> ResolveOpenPlotConstructionTypeIdAsync(CancellationToken cancellationToken)

@@ -51,4 +51,43 @@ public interface IPropertySearchRepository
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Apartment unit list with all properties displayed as units and total count</returns>
     Task<ApartmentUnitListResponseDto> GetApartmentUnitListAsync(int propertyId, PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Performs an independent unified search using pattern-matching heuristics and multi-term keyword matching.
+    /// </summary>
+    Task<(int TotalCount, List<PropertySearchResponseDto> Items)> UnifiedSearchPropertiesAsync(string query, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches properties scoped by <see cref="Core.Enums.PropertySearchCategory"/> - Zone-wise,
+    /// Ward-wise, Building-wise, or a From/To property-number range within a ward.
+    /// </summary>
+    /// <param name="request">Category and its associated scope parameters</param>
+    /// <param name="pageNumber">Page number for pagination</param>
+    /// <param name="pageSize">Page size for pagination (-1 returns all matching rows)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Total count and list of properties matching the category scope</returns>
+    Task<(int TotalCount, List<PropertySearchByCategoryResponseDto> Items)> SearchByCategoryAsync(
+        PropertySearchByCategoryRequestDto request, int pageNumber, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves the bare PropertyIds matching a SearchCategory scope (same category-switch and
+    /// optional filters as <see cref="SearchByCategoryAsync"/>), without the response-DTO mapping,
+    /// wing lookup, or natural-sort ordering - for bulk actions over "every property matching this
+    /// scope" (e.g. bulk lock/unlock by category).
+    /// </summary>
+    Task<List<int>> GetPropertyIdsByCategoryAsync(
+        PropertySearchByCategoryRequestDto request, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Returns PropertyNo/PartitionNo suggestions for properties in the given ward whose
+    /// PropertyNo and/or PartitionNo contain the supplied terms (SQL LIKE '%term%' semantics),
+    /// for a typeahead/autocomplete UI. The full active-property list for the ward is cached
+    /// in memory (see implementation) so repeated keystrokes only re-filter, they don't re-query.
+    /// </summary>
+    /// <param name="wardId">Ward to scope the suggestions to (required).</param>
+    /// <param name="propertyNo">Partial PropertyNo term to match anywhere in the value, or null/empty to skip this filter.</param>
+    /// <param name="partitionNo">Partial PartitionNo term to match anywhere in the value, or null/empty to skip this filter.</param>
+    /// <param name="maxResults">Maximum number of suggestions to return.</param>
+    Task<List<PropertySuggestionDto>> GetPropertySuggestionsAsync(
+        int wardId, string? propertyNo, string? partitionNo, int maxResults, CancellationToken cancellationToken = default);
 }

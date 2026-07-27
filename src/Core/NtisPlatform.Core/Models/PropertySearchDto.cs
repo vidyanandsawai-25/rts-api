@@ -221,5 +221,5 @@ public class ApartmentUnitListResponseDto
     /// <summary>
     /// Display label: always "Units" (all properties are units)
     /// </summary>
-    public string ItemType => "Units";
+    public string ItemType { get; set; } = "Units";
 }

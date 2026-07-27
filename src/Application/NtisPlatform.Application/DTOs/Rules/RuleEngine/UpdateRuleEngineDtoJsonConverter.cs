@@ -59,8 +59,14 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
                     : condJsonPropCaps.GetRawText();
             }
 
-            // Map EffectJson / effect
-            if (root.TryGetProperty("effect", out var effProp))
+            // Map EffectJson / effect / effects
+            if (root.TryGetProperty("effects", out var effsProp))
+            {
+                dto.EffectJson = effsProp.ValueKind == JsonValueKind.String 
+                    ? effsProp.GetString() 
+                    : effsProp.GetRawText();
+            }
+            else if (root.TryGetProperty("effect", out var effProp))
             {
                 dto.EffectJson = effProp.ValueKind == JsonValueKind.String 
                     ? effProp.GetString() 

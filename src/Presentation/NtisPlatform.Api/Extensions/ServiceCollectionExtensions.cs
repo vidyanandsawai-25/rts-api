@@ -50,6 +50,8 @@ using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
+using NtisPlatform.Application.Services.Asset_Management;
+using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Services.ReportDataProviders;
 
 namespace NtisPlatform.Api.Extensions;
@@ -200,6 +202,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<ITypeOfUseByPropertyTypeRepository, TypeOfUseByPropertyTypeRepository>();
+       
+
         // Per-tab Clean Architecture split (Basic Details): shared master checks + feature repository
         services.AddScoped<IMasterRepository, MasterRepository>();
         services.AddScoped<IPropertyBasicDetailsRepository, PropertyBasicDetailsRepository>();
@@ -368,12 +372,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyWorkflowDetailsService, PropertyWorkflowDetailsService>();
         services.AddScoped<IApartmentQCService, ApartmentQCService>();
         services.AddScoped<IOwnerTypeService, OwnerTypeService>();
+        services.AddScoped<IOwnerTitleService, OwnerTitleService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
         services.AddScoped<IPropertySocialDetailsService, PropertySocialDetailsService>();
 
         // Localization (DB-backed)
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
         services.AddScoped<IDepartmentMasterService, DepartmentMasterService>();
+        services.AddScoped<IApprovalFlowMasterService, ApprovalFlowMasterService>();
+        services.AddScoped<IApprovalFlowStageMasterService, ApprovalFlowStageMasterService>();
         services.AddScoped<IGrievanceCategoryService, GrievanceCategoryService>();
         services.AddScoped<IPropertyCategoryService, PropertyCategoryService>();
         services.AddScoped<IConfigCategoryMasterService, ConfigCategoryMasterService>();
@@ -432,7 +439,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IPropertyAssessmentStatusService, PropertyAssessmentStatusService>();
-        services.AddScoped<ITaxCalculationGuidelineService, TaxCalculationGuidelineService>();
+        services.AddScoped<ICertificateTaxGuidelineService, CertificateTaxGuidelineService>();
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
         services.AddScoped<IAssetTypeService, AssetTypeService>();
@@ -446,6 +453,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
+        services.AddScoped<IAssetAgeFactorCVService, AssetAgeFactorCVService>();
+        services.AddScoped<IAssetNatureFactorCVService, AssetNatureFactorCVService>();
+        services.AddScoped<IAssetAssessmentYearRangeCVService, AssetAssessmentYearRangeCVService>();
+        services.AddScoped<IAssetDesignationService, AssetDesignationService>();
+        services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
+        services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
         // Rules namespace registrations
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();
@@ -457,6 +470,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetFieldDefinitionService, AssetFieldDefinitionService>();
         services.AddScoped<IAssetAuthorityMasterService, AssetAuthorityMasterService>();
         services.AddScoped<IAssetOrganizationMasterService, AssetOrganizationMasterService>();
+        services.AddScoped<IGSTService, GSTService>();
+        services.AddScoped<IPenaltyRuleService, PenaltyRuleService>();
+        services.AddScoped<IAssetMoujaService, AssetMoujaService>();
+        services.AddScoped<IAssetSubZoneDetailsForCVService, AssetSubZoneDetailsForCVService>();
+        services.AddScoped<IAssetTypeOfUseGroupService, AssetTypeOfUseGroupService>();
+        services.AddScoped<IAssetTypeOfUseService, AssetTypeOfUseService>();
+        services.AddScoped<IAssetSubTypeOfUseService, AssetSubTypeOfUseService>();
+        services.AddScoped<IAssetFloorFactorCVService, AssetFloorFactorCVService>();
+        services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
 
 
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)

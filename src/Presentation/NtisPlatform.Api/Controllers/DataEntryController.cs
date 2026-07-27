@@ -31,12 +31,12 @@ public class DataEntryController : ControllerBase
 
 
 
-    [HttpGet("GetByPropertyId/{propertyId}")]
-    public async Task<IActionResult> GetByPropertyId(int propertyId, CancellationToken ct)
-    {
-        var result = await _service.GetByPropertyIdAsync(propertyId, ct);
-        return result is null ? NotFound() : Ok(result);
-    }
+    //[HttpGet("GetByPropertyId/{propertyId}")]
+    //public async Task<IActionResult> GetByPropertyId(int propertyId, CancellationToken ct)
+    //{
+    //    var result = await _service.GetByPropertyIdAsync(propertyId, ct);
+    //    return result is null ? NotFound() : Ok(result);
+    //}
 
     [HttpPost]
     public Task<IActionResult> Create( [FromBody] CreatePropertyDetailsDto createDto, CancellationToken ct)
@@ -53,12 +53,12 @@ public class DataEntryController : ControllerBase
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertyDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
  
-    [HttpPut("UpdateProperty/{propertyId}")]
-    public async Task<IActionResult> UpdateProperty(int propertyId, [FromBody] UpdatePropertyMastDto updateDto, CancellationToken ct)
-    {
-        var result = await _service.UpdatePropertyAsync(propertyId, updateDto, ct);
-        return result is null ? NotFound() : Ok(result);
-    }
+    //[HttpPut("UpdateProperty/{propertyId}")]
+    //public async Task<IActionResult> UpdateProperty(int propertyId, [FromBody] UpdatePropertyMastDto updateDto, CancellationToken ct)
+    //{
+    //    var result = await _service.UpdatePropertyAsync(propertyId, updateDto, ct);
+    //    return result is null ? NotFound() : Ok(result);
+    //}
 
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)

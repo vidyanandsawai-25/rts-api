@@ -21,6 +21,7 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
 {
     private readonly IPropertyTaxCalculationCVResultsService _cvResultsService;
     private readonly IPolicyTaxDetailsCVService _policyTaxService;
+    private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
     private readonly ITransMastService _transMastService;
     private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
     private readonly ILogger<CapitalValuePersistenceService> _logger;
@@ -28,12 +29,14 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
     public CapitalValuePersistenceService(
         IPropertyTaxCalculationCVResultsService cvResultsService,
         IPolicyTaxDetailsCVService policyTaxService,
+        IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
         ITransMastService transMastService,
         IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
         ILogger<CapitalValuePersistenceService> logger)
     {
         _cvResultsService = cvResultsService;
         _policyTaxService = policyTaxService;
+        _policyCodeMasterRepo = policyCodeMasterRepo;
         _transMastService = transMastService;
         _ruleLogRepo = ruleLogRepo;
         _logger = logger;
@@ -64,6 +67,18 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
         if (!aggregatedTaxes.Any())
             return;
 
+        var normalizedPolicyCode = (policyCode ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPolicyCode))
+            throw new InvalidOperationException("Policy code is required for CV aggregated persistence.");
+
+var policyCodeId = await _policyCodeMasterRepo.GetQueryable()
+    .Where(x => x.IsActive && x.PolicyCode == normalizedPolicyCode)
+    .Select(x => x.Id)
+    .FirstOrDefaultAsync(cancellationToken);
+
+        if (policyCodeId <= 0)
+            throw new InvalidOperationException($"Active policy code '{normalizedPolicyCode}' not found in PolicyCodeMaster.");
+
         // Prepare bulk operations
         var policyUpdates = new List<BulkUpdateItem<int, UpdatePolicyTaxDetailsCVDto>>();
         var policyCreates = new List<CreatePolicyTaxDetailsCVDto>();
@@ -79,14 +94,12 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     existingPolicy.Id,
                     new UpdatePolicyTaxDetailsCVDto
                     {
-                        PolicyCode = policyCode,
-                        PolicyDate = policyDate,
-                        PolicyYear = (short)policyYear,
-                        PolicyReason = policyReason,
-                        PolicyRVorCVvalue = totalCV,
+                        PolicyCodeId = policyCodeId,
+                     
+                        CalculationValue = totalCV,
                          TaxAmount = totalTax,
                         UpdatedBy = createdBy,
-                        UpdatedDate = DateTime.Now
+                        UpdatedDate = policyDate
 
                     }
                 ));
@@ -96,11 +109,9 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                 policyCreates.Add(new CreatePolicyTaxDetailsCVDto
                 {
                     PropertyId = propertyId,
-                    PolicyCode = policyCode,
-                    PolicyDate = policyDate,
-                    PolicyYear = (short)policyYear,
-                    PolicyReason = policyReason,
-                    PolicyRVorCVvalue = totalCV,
+                    PolicyCodeId = policyCodeId,
+                    
+                    CalculationValue = totalCV,
                     TaxId = taxId,
                     TaxAmount = totalTax,
                      CreatedBy = createdBy,
@@ -117,8 +128,8 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                     existingTrans.Id,
                     new UpdateTransMastDto
                     {
-                        RVorCV = "CV",
-                        RVorCVValue = totalCV,
+                        CalculationType = "CV",
+                        CalculationValue = totalCV,
                         TaxAmount = totalTax,
                         IsActive = true,
                         UpdatedBy = createdBy,                        
@@ -133,8 +144,8 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
                 {
                     PropertyId = propertyId,
                     FinanceYearId = financeYear.Id,
-                    RVorCV = "CV",
-                    RVorCVValue = totalCV,
+                    CalculationType = "CV",
+                    CalculationValue = totalCV,
                     TaxId = taxId,
                     TaxAmount = totalTax,
                     CreatedBy = createdBy,
@@ -154,12 +165,24 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
         if (creates.Any())
         {
             var result = await _policyTaxService.BulkCreateAsync(creates.ToArray(), cancellationToken);
+            if (result.FailedCount > 0)
+            {
+                var errors = string.Join("; ", result.Errors ?? []);
+                _logger.LogError("Bulk create failed for PolicyTaxDetailsCV. FailedCount={FailedCount}. Errors={Errors}", result.FailedCount, errors);
+                throw new InvalidOperationException($"Failed to create PolicyTaxDetailsCV rows. {errors}");
+            }
             _logger.LogDebug("Bulk created {Count} PolicyTaxDetails records", result.SuccessCount);
         }
 
         if (updates.Any())
         {
             var result = await _policyTaxService.BulkUpdateAsync(updates.ToArray(), cancellationToken);
+            if (result.FailedCount > 0)
+            {
+                var errors = string.Join("; ", result.Errors ?? []);
+                _logger.LogError("Bulk update failed for PolicyTaxDetailsCV. FailedCount={FailedCount}. Errors={Errors}", result.FailedCount, errors);
+                throw new InvalidOperationException($"Failed to update PolicyTaxDetailsCV rows. {errors}");
+            }
             _logger.LogDebug("Bulk updated {Count} PolicyTaxDetails records", result.SuccessCount);
         }
     }
@@ -169,12 +192,24 @@ public class CapitalValuePersistenceService : ICapitalValuePersistenceService
         if (creates.Any())
         {
             var result = await _transMastService.BulkCreateAsync(creates.ToArray(), cancellationToken);
+            if (result.FailedCount > 0)
+            {
+                var errors = string.Join("; ", result.Errors ?? []);
+                _logger.LogError("Bulk create failed for TransMastCV. FailedCount={FailedCount}. Errors={Errors}", result.FailedCount, errors);
+                throw new InvalidOperationException($"Failed to create TransMastCV rows. {errors}");
+            }
             _logger.LogDebug("Bulk created {Count} TransMast records", result.SuccessCount);
         }
 
         if (updates.Any())
         {
             var result = await _transMastService.BulkUpdateAsync(updates.ToArray(), cancellationToken);
+            if (result.FailedCount > 0)
+            {
+                var errors = string.Join("; ", result.Errors ?? []);
+                _logger.LogError("Bulk update failed for TransMastCV. FailedCount={FailedCount}. Errors={Errors}", result.FailedCount, errors);
+                throw new InvalidOperationException($"Failed to update TransMastCV rows. {errors}");
+            }
             _logger.LogDebug("Bulk updated {Count} TransMast records", result.SuccessCount);
         }
     }

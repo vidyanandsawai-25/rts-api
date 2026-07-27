@@ -160,6 +160,54 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             .Select(x => x.ConstructionYear)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // Retrieve mapped old property details sums
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && mainResult.Property.PropertyMastOldId.HasValue)
+        {
+            oldPropertyIds.Add(mainResult.Property.PropertyMastOldId.Value);
+        }
+
+        double? oldCarpetAreaSqFeet = null;
+        double? oldCarpetAreaSqMeter = null;
+        double? oldBuiltupAreaSqFeet = null;
+        double? oldBuiltupAreaSqMeter = null;
+
+        if (oldPropertyIds.Any())
+        {
+            var oldDetailsSum = await _context.PropertyDetailsOld
+                .AsNoTracking()
+                .Where(x => oldPropertyIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion)
+                .GroupBy(x => 1)
+                .Select(g => new
+                {
+                    OldCarpetAreaSqFeet = g.Sum(x => x.OldCarpetAreaSqFeet ?? 0),
+                    OldCarpetAreaSqMeter = g.Sum(x => x.OldCarpetAreaSqMeter ?? 0),
+                    OldBuiltupAreaSqFeet = g.Sum(x => x.OldBuiltupAreaSqFeet ?? 0),
+                    OldBuiltupAreaSqMeter = g.Sum(x => x.OldBuiltupAreaSqMeter ?? 0)
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (oldDetailsSum != null)
+            {
+                oldCarpetAreaSqFeet = Math.Round(oldDetailsSum.OldCarpetAreaSqFeet, 2);
+                oldCarpetAreaSqMeter = Math.Round(oldDetailsSum.OldCarpetAreaSqMeter, 2);
+                oldBuiltupAreaSqFeet = Math.Round(oldDetailsSum.OldBuiltupAreaSqFeet, 2);
+                oldBuiltupAreaSqMeter = Math.Round(oldDetailsSum.OldBuiltupAreaSqMeter, 2);
+            }
+        }
+
         // Build and return DTO
         return new PropertyBasicDetailsDto
         {
@@ -202,7 +250,11 @@ public class PropertyBasicDetailsRepository : PropertyRepositoryBase, IPropertyB
             RateSectionDescription = rateSectionDescription,
             Latitude = assessment?.Latitude,
             Longitude = assessment?.Longitude,
-            ConstructionYear = constructionYear
+            ConstructionYear = constructionYear,
+            OldCarpetAreaSqFeet = oldCarpetAreaSqFeet,
+            OldCarpetAreaSqMeter = oldCarpetAreaSqMeter,
+            OldBuiltupAreaSqFeet = oldBuiltupAreaSqFeet,
+            OldBuiltupAreaSqMeter = oldBuiltupAreaSqMeter
         };
     }
 

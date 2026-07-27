@@ -23,8 +23,7 @@ public class DataEntryMappingProfileTests
             cfg.AddProfile<RenterDetailMappingProfile>();
             cfg.AddProfile<RenterMastMappingProfile>();
             cfg.AddProfile<RoomWiseSubmissionDetailsMappingProfile>();
-            cfg.CreateMap<PropertyEntity, PropertyDto>();
-        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         _mapper = _configuration.CreateMapper();
     }

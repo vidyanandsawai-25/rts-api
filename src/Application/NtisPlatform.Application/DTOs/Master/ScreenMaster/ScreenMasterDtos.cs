@@ -9,6 +9,7 @@ public class ScreenMasterDto : BaseDtos
 {
     public int Id { get; set; }
     public int ScreenGroupId { get; set; }
+    public int? DepartmentId { get; set; }
     public int? ModuleId { get; set; }
     public string? ScreenCode { get; set; }
     public string? ScreenName { get; set; }
@@ -29,6 +30,8 @@ public class CreateScreenMasterDto: CreateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupId_Required")]
     public int ScreenGroupId { get; set; }
+
+    public int? DepartmentId { get; set; }
 
     public int? ModuleId { get; set; }
 
@@ -63,6 +66,8 @@ public class UpdateScreenMasterDto : UpdateBaseDtos
 {
     [Required(ErrorMessage = "ScreenGroupId_Required")]
     public int ScreenGroupId { get; set; }
+
+    public int? DepartmentId { get; set; }
 
     public int? ModuleId { get; set; }
 

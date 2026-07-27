@@ -15,5 +15,15 @@ namespace NtisPlatform.Application.Services.Rules.Effects
         /// <param name="baseRate">The original rate value (e.g. 1000.0).</param>
         /// <param name="effectValue">The magnitude from Context.value (e.g. 40 for 40%).</param>
         Task<decimal> Apply(decimal baseRate, decimal effectValue);
+
+        /// <summary>
+        /// Returns the effective percentage/rate representation applied by this rule (for audit/log display).
+        /// </summary>
+        decimal GetApplyRate(decimal effectValue) => effectValue;
+
+        /// <summary>
+        /// If this applicator looks up a reference rate internally, returns that reference rate (for audit logging).
+        /// </summary>
+        decimal? ReferenceRate => null;
     }
 }

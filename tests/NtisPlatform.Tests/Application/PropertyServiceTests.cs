@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -737,7 +737,7 @@ public class PropertyServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockPropertyRepository.Object, _mockLogger.Object, _mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object);
+        _service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockPropertyRepository.Object, _mockLogger.Object, _mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
     [Fact]
@@ -814,7 +814,7 @@ public class PropertyServiceTests
             AllowPropertyDeletionWithoutPaymentValidation = true
         });
 
-        var service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, mockPropertyRepo.Object, _mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object);
+        var service = new PropertyService(_mockRepository.Object, _mockUnitOfWork.Object, mapper, mockPropertyRepo.Object, _mockLogger.Object, mockFeatureFlags.Object, new Mock<IRepository<WardEntity, int>>().Object, new Mock<IRepository<PropertyCategoryEntity, int>>().Object, new Mock<IRepository<SocietyDetailsEntity, int>>().Object, new Mock<IRepository<PropertyDetailsEntity, int>>().Object, new Mock<IRepository<RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
 
         var qp = new PropertyQueryParameters
         {
@@ -990,7 +990,7 @@ public class PropertyServiceTests
             .ReturnsAsync(new List<PropertyDetailsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetRvResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyTaxCalculationRVResultsEntity>());
+            .ReturnsAsync(new List<RVCalculationResultsEntity>());
 
         _mockPropertyRepository.Setup(r => r.GetSection129ResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PropertyTaxCalculationSection129ResultsEntity>());
@@ -1878,5 +1878,6 @@ public class PropertyServiceTests
 }
 
 #endregion
+
 
 

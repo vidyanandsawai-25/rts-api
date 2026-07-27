@@ -37,6 +37,34 @@ public partial class RateController
         }
     }
 
+    [HttpGet("openplot/typeofuse")]
+    public async Task<IActionResult> GetOpenPlotTypeOfUseDetails([FromQuery] TypeOfUseQueryParameters queryParameters, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GetOpenPlotTypeOfUseDetailsAsync(queryParameters, ct);
+            return Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (FilterValidationException ex)
+        {
+            _logger.LogWarning(ex, "Filter validation failed: {Message}", ex.Message);
+            return BadRequest(new
+            {
+                message = ex.Message,
+                errors = ex.Errors
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in GetOpenPlotTypeOfUseDetails");
+            return StatusCode(500, new { message = "An error occurred while fetching open plot type of use details" });
+        }
+    }
+
     [HttpPost("openplot")]
     public async Task<IActionResult> CreateOpenPlot([FromBody] CreateOpenPlotRateDto createDto, CancellationToken ct)
     {

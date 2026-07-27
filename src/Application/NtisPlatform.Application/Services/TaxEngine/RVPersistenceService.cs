@@ -3,36 +3,45 @@ using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.DTOs.Rules.RuleExecution;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services.TaxEngine;
 
 /// <summary>
 /// Handles the write phase of an RV calculation: replacing result rows and persisting
-/// the aggregated PolicyTaxDetails + TransMastRV records.
+/// the aggregated PolicyTaxDetails + TransMast (CalculationType = "RV") records.
 /// Extracted from <c>RateableValueService</c> to satisfy the Single Responsibility Principle.
 /// </summary>
 public sealed class RVPersistenceService : IRVPersistenceService
 {
-    private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _taxResultsRepo;
+    private const string NetTaxPolicyCode = "NETTAX";
+
+    private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
+    private readonly IRepository<RVCalculationTaxDetailsEntity, int> _taxDetailsRepo;
     private readonly IRepository<PolicyTaxDetailsEntity, int> _policyTaxRepo;
-    private readonly IRepository<TransMastRVEntity, int> _transmastRVRepo;
+    private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
+    private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
     private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RVPersistenceService> _logger;
     private readonly TimeProvider _timeProvider;
 
     public RVPersistenceService(
-        IRepository<PropertyTaxCalculationRVResultsEntity, int> taxResultsRepo,
+        IRepository<RVCalculationResultsEntity, int> taxResultsRepo,
+        IRepository<RVCalculationTaxDetailsEntity, int> taxDetailsRepo,
         IRepository<PolicyTaxDetailsEntity, int> policyTaxRepo,
-        IRepository<TransMastRVEntity, int> transmastRVRepo,
+        IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
+        IRepository<TransMastEntity, int> transmastRVRepo,
         IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
         IUnitOfWork unitOfWork,
         ILogger<RVPersistenceService> logger,
         TimeProvider timeProvider)
     {
         _taxResultsRepo = taxResultsRepo;
+        _taxDetailsRepo = taxDetailsRepo;
         _policyTaxRepo = policyTaxRepo;
+        _policyCodeMasterRepo = policyCodeMasterRepo;
         _transmastRVRepo = transmastRVRepo;
         _ruleLogRepo = ruleLogRepo;
         _unitOfWork = unitOfWork;
@@ -43,7 +52,8 @@ public sealed class RVPersistenceService : IRVPersistenceService
     /// <inheritdoc/>
     public async Task ReplaceExistingResultsAsync(
         int propertyId,
-        List<PropertyTaxCalculationRVResultsEntity> newRows)
+        List<RVCalculationResultsEntity> newResultsRows,
+        List<RVCalculationTaxDetailsEntity> newTaxDetailRows)
     {
         var now = _timeProvider.GetLocalNow().DateTime;
 
@@ -56,14 +66,70 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 .SetProperty(x => x.MarkedForDeletionDate, now)
                 .SetProperty(x => x.UpdatedDate,           now));
 
-        foreach (var row in newRows)
+        // Bulk soft-delete tax detail rows for the property
+        await _taxDetailsRepo.GetQueryable()
+            .Where(x => x.RVCalculationResults!.PropertyId == propertyId &&
+                        !x.MarkedForDeletion)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.IsActive,
+                             false)
+                .SetProperty(x => x.MarkedForDeletion,
+                             true)
+                .SetProperty(x => x.MarkedForDeletionDate, now)
+                .SetProperty(x => x.UpdatedDate,
+                             now));
+
+        // Store PropertyDetailsId mapping BEFORE saving (navigation property becomes detached after save)
+        var taxDetailToPropertyDetailsMap = new Dictionary<RVCalculationTaxDetailsEntity, int>();
+        foreach (var detail in newTaxDetailRows)
+        {
+            if (detail.RVCalculationResults != null)
+            {
+                taxDetailToPropertyDetailsMap[detail] = detail.RVCalculationResults.PropertyDetailsId;
+            }
+        }
+
+        foreach (var row in newResultsRows)
         {
             row.IsActive = true;
             row.MarkedForDeletion = false;
             row.MarkedForDeletionDate = null;
         }
 
-        await _taxResultsRepo.AddRangeAsync(newRows);
+        await _taxResultsRepo.AddRangeAsync(newResultsRows);
+
+        // Save results rows first so they get database-generated IDs.
+        // Required to set RVCalculationResultsId on tax detail rows before inserting them.
+        await _unitOfWork.SaveChangesAsync();
+
+        // Now set the FK on tax details using the results row IDs that were just assigned
+        foreach (var detail in newTaxDetailRows)
+        {
+            detail.IsActive = true;
+            detail.MarkedForDeletion = false;
+            detail.MarkedForDeletionDate = null;
+            detail.CreatedDate ??= now;
+            detail.UpdatedDate = now;
+
+            // Find the corresponding results row using the stored PropertyDetailsId
+            // (navigation property is detached after SaveChangesAsync, so we use the map)
+            if (taxDetailToPropertyDetailsMap.TryGetValue(detail, out var propertyDetailsId))
+            {
+                var correspondingResultsRow = newResultsRows.FirstOrDefault(r =>
+                    r.PropertyDetailsId == propertyDetailsId);
+
+                if (correspondingResultsRow != null)
+                {
+                    detail.RVCalculationResultsId = correspondingResultsRow.Id;
+                }
+            }
+        }
+
+        await _taxDetailsRepo.AddRangeAsync(newTaxDetailRows);
+
+        _logger.LogInformation(
+            "Replaced results for PropertyId={PropertyId}: {ResultsRowCount} results rows and {TaxDetailCount} tax details",
+            propertyId, newResultsRows.Count, newTaxDetailRows.Count);
     }
 
     /// <inheritdoc/>
@@ -71,7 +137,8 @@ public sealed class RVPersistenceService : IRVPersistenceService
         int propertyId,
         int financeYear,
         int yearMasterId,
-        List<PropertyTaxCalculationRVResultsEntity> detailRows,
+        List<RVCalculationResultsEntity> resultsRows,
+        List<RVCalculationTaxDetailsEntity> taxDetailRows,
         decimal totalRv,
         int? educationTaxId,
         int? employmentTaxId)
@@ -80,12 +147,26 @@ public sealed class RVPersistenceService : IRVPersistenceService
             propertyId, financeYear);
 
         var now = _timeProvider.GetLocalNow().DateTime;
+        var netTaxPolicyCodeId = await _policyCodeMasterRepo.GetQueryable()
+            .Where(x => x.IsActive && x.PolicyCode == NetTaxPolicyCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync();
+
+        if (netTaxPolicyCodeId <= 0)
+            throw new InvalidOperationException($"Active policy code '{NetTaxPolicyCode}' not found in PolicyCodeMaster.");
+
+        // Tracked by the same DbContext as _policyTaxRepo (both are Scoped, same request) - assigning
+        // this as the PolicyCodeMaster navigation below lets callers (e.g. RateableValueResponseMapper)
+        // read the policy code text off the newly-created rows without a DB round trip, and without
+        // EF mistaking it for a new row to insert (it's already tracked as Unchanged).
+        var policyCodeMaster = await _policyCodeMasterRepo.GetByIdAsync(netTaxPolicyCodeId);
 
         // Deactivate stale PolicyTaxDetails rows — bulk SQL UPDATE
         int oldPolicyCount = await _policyTaxRepo.GetQueryable()
             .Where(x => x.PropertyId == propertyId &&
-                        x.PolicyYear == financeYear &&
-                        x.PolicyCode == "NETTAX" &&
+                        x.CreatedDate.HasValue &&
+                        ((x.CreatedDate.Value.Month >= 4 ? x.CreatedDate.Value.Year : x.CreatedDate.Value.Year - 1) == financeYear) &&
+                        x.PolicyCodeId == netTaxPolicyCodeId &&
                         x.IsActive &&
                         !x.MarkedForDeletion)
             .ExecuteUpdateAsync(s => s
@@ -94,10 +175,11 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 .SetProperty(x => x.MarkedForDeletionDate, now)
                 .SetProperty(x => x.UpdatedDate,           now));
 
-        // Deactivate stale TransmastRV rows — bulk SQL UPDATE
+        // Deactivate stale TransMast (RV) rows — bulk SQL UPDATE
         int oldTransmastCount = await _transmastRVRepo.GetQueryable()
             .Where(x => x.PropertyId == propertyId &&
                         x.FinanceYearId == yearMasterId &&
+                        x.CalculationType == "RV" &&
                         x.IsActive &&
                         !x.MarkedForDeletion)
             .ExecuteUpdateAsync(s => s
@@ -110,35 +192,33 @@ public sealed class RVPersistenceService : IRVPersistenceService
             oldPolicyCount, oldTransmastCount);
 
         // Aggregate by tax
-        var taxGroups = detailRows
-            .Where(x => x.TaxId > 0)
+        var taxGroups = taxDetailRows
+            .Where(x => x.TaxId > 0 && x.IsActive && !x.MarkedForDeletion)
             .OrderBy(x => x.TaxId)
             .GroupBy(x => x.TaxId)
             .ToList();
 
         var newPolicyRecords  = new List<PolicyTaxDetailsEntity>();
-        var newTransmastRecords = new List<TransMastRVEntity>();
+        var newTransmastRecords = new List<TransMastEntity>();
 
         foreach (var taxGroup in taxGroups)
         {
             var taxId = taxGroup.Key;
 
-            // Education/employment tax rows are written once per detail in the type group.
-            // MAX prevents double-counting; SUM is correct for all other taxes.
+            // Skip education and employment taxes  they're handled separately below
             bool isSpecial = (educationTaxId.HasValue && taxId == educationTaxId.Value) ||
                              (employmentTaxId.HasValue  && taxId == employmentTaxId.Value);
+            if (isSpecial)
+                continue;
 
-            decimal taxAmount = isSpecial
-                ? taxGroup.Max(x => x.TaxAmount ?? 0m)
-                : taxGroup.Sum(x => x.TaxAmount ?? 0m);
+            decimal taxAmount = taxGroup.Sum(x => x.TaxAmount ?? 0m);
 
             newPolicyRecords.Add(new PolicyTaxDetailsEntity
             {
                 PropertyId           = propertyId,
-                PolicyCode           = "NETTAX",
-                PolicyDate           = now,
-                PolicyYear           = (short)financeYear,
-                PolicyRVorCVvalue    = totalRv,
+                PolicyCodeId         = netTaxPolicyCodeId,
+                PolicyCodeMaster     = policyCodeMaster,
+                CalculationValue     = totalRv,
                 TaxId                = taxId,
                 TaxAmount            = taxAmount,
                 IsActive             = true,
@@ -148,18 +228,107 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 UpdatedDate          = now
             });
 
-            newTransmastRecords.Add(new TransMastRVEntity
+            newTransmastRecords.Add(new TransMastEntity
             {
                 PropertyId        = propertyId,
                 FinanceYearId     = yearMasterId,
                 TaxId             = taxId,
                 TaxAmount         = taxAmount,
-                RateableValue     = totalRv,
+                CalculationType   = "RV",
+                CalculationValue  = totalRv,
                 IsActive          = true,
                 MarkedForDeletion = false,
                 CreatedDate       = now,
                 UpdatedDate       = now
             });
+        }
+
+        // Handle education tax: MAX(REducationTax) + MAX(CEducationTax)
+        // (Each type group has one shared value, MAX prevents duplicates)
+        if (educationTaxId.HasValue)
+        {
+            decimal rEducationTax = resultsRows
+                .Where(x => x.IsActive && !x.MarkedForDeletion && x.REducationTax.HasValue)
+                .Max(x => x.REducationTax) ?? 0m;
+
+            decimal cEducationTax = resultsRows
+                .Where(x => x.IsActive && !x.MarkedForDeletion && x.CEducationTax.HasValue)
+                .Max(x => x.CEducationTax) ?? 0m;
+
+            decimal educationTaxAmount = rEducationTax + cEducationTax;
+
+            if (educationTaxAmount > 0)
+            {
+                newPolicyRecords.Add(new PolicyTaxDetailsEntity
+                {
+                    PropertyId           = propertyId,
+                    PolicyCodeId         = netTaxPolicyCodeId,
+                    PolicyCodeMaster     = policyCodeMaster,
+                    CalculationValue     = totalRv,
+                    TaxId                = educationTaxId.Value,
+                    TaxAmount            = educationTaxAmount,
+                    IsActive             = true,
+                    MarkedForDeletion    = false,
+                    MarkedForDeletionDate = null,
+                    CreatedDate          = now,
+                    UpdatedDate          = now
+                });
+
+                newTransmastRecords.Add(new TransMastEntity
+                {
+                    PropertyId        = propertyId,
+                    FinanceYearId     = yearMasterId,
+                    TaxId             = educationTaxId.Value,
+                    TaxAmount         = educationTaxAmount,
+                    CalculationType   = "RV",
+                    CalculationValue  = totalRv,
+                    IsActive          = true,
+                    MarkedForDeletion = false,
+                    CreatedDate       = now,
+                    UpdatedDate       = now
+                });
+            }
+        }
+
+        // Handle employment tax: MAX(CEmploymentTax)
+        // (All C-type details share one value, MAX prevents duplicates)
+        if (employmentTaxId.HasValue)
+        {
+            decimal employmentTaxAmount = resultsRows
+                .Where(x => x.IsActive && !x.MarkedForDeletion && x.CEmploymentTax.HasValue)
+                .Max(x => x.CEmploymentTax) ?? 0m;
+
+            if (employmentTaxAmount > 0)
+            {
+                newPolicyRecords.Add(new PolicyTaxDetailsEntity
+                {
+                    PropertyId           = propertyId,
+                    PolicyCodeId         = netTaxPolicyCodeId,
+                    PolicyCodeMaster     = policyCodeMaster,
+                    CalculationValue     = totalRv,
+                    TaxId                = employmentTaxId.Value,
+                    TaxAmount            = employmentTaxAmount,
+                    IsActive             = true,
+                    MarkedForDeletion    = false,
+                    MarkedForDeletionDate = null,
+                    CreatedDate          = now,
+                    UpdatedDate          = now
+                });
+
+                newTransmastRecords.Add(new TransMastEntity
+                {
+                    PropertyId        = propertyId,
+                    FinanceYearId     = yearMasterId,
+                    TaxId             = employmentTaxId.Value,
+                    TaxAmount         = employmentTaxAmount,
+                    CalculationType   = "RV",
+                    CalculationValue  = totalRv,
+                    IsActive          = true,
+                    MarkedForDeletion = false,
+                    CreatedDate       = now,
+                    UpdatedDate       = now
+                });
+            }
         }
 
         if (newPolicyRecords.Any())

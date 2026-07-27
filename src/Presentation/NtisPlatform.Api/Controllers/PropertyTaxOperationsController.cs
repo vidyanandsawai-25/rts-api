@@ -32,11 +32,32 @@ public class PropertyTaxOperationsController : ControllerBase
         _logger = logger;
     }
 
-    // GET api/property-tax/operations/init
+    // GET api/property-tax/operations/init?financeYearId=3002
     [HttpGet("init")]
     [ProducesResponseType(typeof(OperationsInitDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> Init(CancellationToken ct)
-        => Ok(await _service.GetInitAsync(GetUserId(), ct));
+    public async Task<IActionResult> Init([FromQuery] int? financeYearId, CancellationToken ct)
+        => Ok(await _service.GetInitAsync(GetUserId(), financeYearId, ct));
+
+    // GET api/property-tax/operations/export-properties?status=eligible&financeYearId=3002
+    [HttpGet("export-properties")]
+    public async Task ExportProperties(
+        [FromQuery] string status = "all",
+        [FromQuery] int? financeYearId = null,
+        CancellationToken ct = default)
+    {
+        var allowed = new[] { "all", "eligible", "skipped" };
+        if (!allowed.Contains(status, StringComparer.OrdinalIgnoreCase))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(Response, $"Invalid status '{status}'. Allowed values: all, eligible, skipped.", ct);
+            return;
+        }
+
+        var normalizedStatus = status.ToLowerInvariant();
+        Response.ContentType = "text/csv; charset=utf-8";
+        Response.Headers.Append("Content-Disposition", $"attachment; filename=\"property_tax_properties_{normalizedStatus}.csv\"");
+        await _service.WritePropertiesCsvToStreamAsync(Response.Body, normalizedStatus, financeYearId, ct);
+    }
 
     // GET api/property-tax/operations/import-template
     [HttpGet("import-template")]
@@ -59,6 +80,28 @@ public class PropertyTaxOperationsController : ControllerBase
     public async Task<IActionResult> Preview(
         [FromBody] OperationPreviewRequestDto request, CancellationToken ct)
         => Ok(await _service.GetPreviewAsync(request, GetUserId(), ct));
+
+    // POST api/property-tax/operations/preview-export?downloadType=all|eligible|skipped
+    [HttpPost("preview-export")]
+    public async Task PreviewExport(
+        [FromBody] OperationPreviewRequestDto request,
+        [FromQuery] string downloadType = "all",
+        CancellationToken ct = default)
+    {
+        var allowed = new[] { "all", "eligible", "skipped" };
+        if (!allowed.Contains(downloadType, StringComparer.OrdinalIgnoreCase))
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            await Microsoft.AspNetCore.Http.HttpResponseWritingExtensions.WriteAsync(Response, $"Invalid downloadType '{downloadType}'. Allowed values: all, eligible, skipped.", ct);
+            return;
+        }
+
+        Response.ContentType = "text/csv; charset=utf-8";
+        var fileName = $"preview_{downloadType.ToLowerInvariant()}_{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+        Response.Headers.Append("Content-Disposition", $"attachment; filename=\"{fileName}\"");
+
+        await _service.WritePreviewExportCsvToStreamAsync(Response.Body, request, downloadType, ct);
+    }
 
     // POST api/property-tax/operations/execute
     [HttpPost("execute")]

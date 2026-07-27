@@ -247,7 +247,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 pm.CreatedDate,
                 RVorCVValue = _transRepository.GetQueryable()
                 .Where(t => t.PropertyId == pm.Id && t.FinanceYearId == activeYearId)
-                .Select(t => (decimal?)t.RVorCVValue)
+                .Select(t => (decimal?)t.CalculationValue)
                 .FirstOrDefault() ?? 0m,
 
                 // ---------------- ULB ----------------

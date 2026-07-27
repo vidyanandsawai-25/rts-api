@@ -10,18 +10,15 @@ public class PropertyReassessmentDto
     /// <summary>Current (new-survey) property id — PTIS.PropertyMast.Id.</summary>
     public int PropertyId { get; set; }
 
-    /// <summary>Historical property id — PTIS.PropertyMast.PropertyMastOldId (null when no old record is linked).</summary>
-    public int? PropertyOldId { get; set; }
-
     /// <summary>Old/new plan &amp; property photos (STEP 2).</summary>
     public List<ReassessmentPhotoDto> Photos { get; set; } = [];
 
     /// <summary>New Survey floor-wise details (STEP 3).</summary>
     public List<ReassessmentFloorDto> NewFloorDetails { get; set; } = [];
 
-    /// <summary>Municipal Corp. Registration (old) floor-wise details (STEP 3).</summary>
+    /// <summary>Municipal Corp. Registration (old) floor-wise details (STEP 3). Multiple rows for MERGE scenarios.</summary>
     public List<ReassessmentFloorDto> OldFloorDetails { get; set; } = [];
 
-    /// <summary>Per-tax-head old-vs-new amounts (STEP 4).</summary>
+    /// <summary>Per-tax-head old-vs-new amounts (STEP 4). Old amounts aggregated across all mapped old properties.</summary>
     public List<ReassessmentTaxHeadDto> TaxSummary { get; set; } = [];
 }

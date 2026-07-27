@@ -8,4 +8,3 @@ public interface IRTSCitizenSessionService:ICommonCrudService<RTSCitizenSessionE
     Task<RTSCitizenSessionValidationResultDto> ValidateAndUpdateSessionAsync(string sessionId, CancellationToken ct);
     Task<bool> LogoutSessionAsync(string sessionId, CancellationToken ct);
 }
-

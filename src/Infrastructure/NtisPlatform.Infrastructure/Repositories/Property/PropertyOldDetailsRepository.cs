@@ -26,7 +26,7 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
 
     public async Task<PropertyOldDetailsDto?> GetOldDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast — read-only projection.
+        // Step 1: Get property if it exists
         var property = await _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
@@ -36,106 +36,148 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
         if (property == null)
             return null;
 
-        if (!property.PropertyMastOldId.HasValue)
+        // Step 2: Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
+        {
+            oldPropertyIds.Add(property.PropertyMastOldId.Value);
+        }
+
+        if (!oldPropertyIds.Any())
             return new PropertyOldDetailsDto { PropertyId = propertyId };
 
-        var propertyMastOldId = property.PropertyMastOldId.Value;
-
-        // Step 2: Get PropertyMastOld data
-        var oldMastData = await _context.PropertyMastOld
+        // Step 3: Fetch PropertyMastOld data
+        var pmoList = await _context.PropertyMastOld
             .AsNoTracking()
-            .Where(x => x.Id == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(x => oldPropertyIds.Contains(x.Id) && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
 
-        // Step 3: Get first PropertyDetailsOld data (or aggregate if needed)
-        var oldDetailsData = await _context.PropertyDetailsOld
+        // Step 4: Fetch PropertyDetailsOld data
+        var pdoList = await _context.PropertyDetailsOld
             .AsNoTracking()
-            .Where(x => x.PropertyMastOldId == propertyMastOldId && x.IsActive && !x.MarkedForDeletion)
-            .OrderBy(x => x.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(x => oldPropertyIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
 
-        // Step 4: Calculate OldTotalTax and OldGeneralTax from TransMastOld if exists, otherwise use PropertyMastOld values
-        double? oldTotalTax = null;
-        double? oldGeneralTax = null;
-        var transMastOldExists = await _context.TransMastOld
-            .AnyAsync(t => t.PropertyMastOldId == propertyMastOldId && t.IsActive && !t.MarkedForDeletion, cancellationToken);
+        // Step 5: Load TransMastOld and TaxMaster records to calculate OldTotalTax and OldGeneralTax accurately
+        var transMastOldRecords = await _context.TransMastOld
+            .AsNoTracking()
+            .Where(t => oldPropertyIds.Contains(t.PropertyMastOldId) && t.IsActive && !t.MarkedForDeletion)
+            .ToListAsync(cancellationToken);
 
-        if (transMastOldExists)
+        var oldTaxes = await _context.TaxMaster
+            .AsNoTracking()
+            .Where(t => t.IsActive && t.OldTaxStatus)
+            .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
+            .ToListAsync(cancellationToken);
+
+        var interestTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
+
+        var generalTaxId = oldTaxes.FirstOrDefault(t =>
+            t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+            t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
+            (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
+                                        t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
+
+        // Step 6: Perform sums for OldRV, OldALV, OldTotalTax, OldGeneralTax, and OldConstructionArea
+        double totalOldRV = 0;
+        double totalOldALV = 0;
+        double totalOldTotalTax = 0;
+        double totalOldConstructionArea = 0;
+        var generalTaxValues = new List<double>();
+
+        foreach (var pmo in pmoList)
         {
-            // Get all taxes to identify Interest and General Tax
-            var oldTaxes = await _context.TaxMaster
-                .Where(t => t.IsActive && t.OldTaxStatus)
-                .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
-                .ToListAsync(cancellationToken);
+            totalOldRV += pmo.OldRV ?? 0;
+            totalOldALV += pmo.OldALV ?? 0;
+            totalOldConstructionArea += pmo.OldConstructionArea ?? 0;
 
-            var interestTaxId = oldTaxes.FirstOrDefault(t =>
-                t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
-                (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
-
-            var generalTaxId = oldTaxes.FirstOrDefault(t =>
-                t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
-                t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
-                (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
-                                            t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
-
-            // Calculate Total Tax (excluding Interest)
-            var totalTaxFromTransMastOld = await _context.TransMastOld
-                .Where(t => t.PropertyMastOldId == propertyMastOldId &&
-                           t.IsActive &&
-                           !t.MarkedForDeletion &&
-                           (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
-                .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
-
-            oldTotalTax = totalTaxFromTransMastOld;
-
-            // Calculate General Tax
-            if (generalTaxId.HasValue)
+            var hasTrans = transMastOldRecords.Any(t => t.PropertyMastOldId == pmo.Id);
+            if (hasTrans)
             {
-                var generalTaxFromTransMastOld = await _context.TransMastOld
-                    .Where(t => t.PropertyMastOldId == propertyMastOldId &&
-                               t.IsActive &&
-                               !t.MarkedForDeletion &&
-                               t.TaxId == generalTaxId.Value)
-                    .SumAsync(t => (double?)t.TaxAmount, cancellationToken);
+                var sumTax = transMastOldRecords
+                    .Where(t => t.PropertyMastOldId == pmo.Id && (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
+                    .Sum(t => (double?)t.TaxAmount) ?? 0;
+                totalOldTotalTax += sumTax;
 
-                oldGeneralTax = generalTaxFromTransMastOld;
+                if (generalTaxId.HasValue)
+                {
+                    var genTax = transMastOldRecords
+                        .Where(t => t.PropertyMastOldId == pmo.Id && t.TaxId == generalTaxId.Value)
+                        .Sum(t => (double?)t.TaxAmount) ?? 0;
+                    generalTaxValues.Add(genTax);
+                }
+                else if (pmo.OldGeneralTax.HasValue)
+                {
+                    generalTaxValues.Add(pmo.OldGeneralTax.Value);
+                }
             }
             else
             {
-                // If General Tax is not configured in TaxMaster, use PropertyMastOld value
-                oldGeneralTax = oldMastData?.OldGeneralTax;
+                totalOldTotalTax += pmo.OldTotalTax ?? 0;
+                if (pmo.OldGeneralTax.HasValue)
+                {
+                    generalTaxValues.Add(pmo.OldGeneralTax.Value);
+                }
             }
         }
-        else
-        {
-            oldTotalTax = oldMastData?.OldTotalTax;
-            oldGeneralTax = oldMastData?.OldGeneralTax;
-        }
+
+        double totalOldGeneralTax = generalTaxValues.Sum();
+
+        // Sum carpet area columns from PDO
+        double totalOldCarpetAreaSqFeet = pdoList.Sum(x => x.OldCarpetAreaSqFeet ?? 0);
+        double totalOldCarpetAreaSqMeter = pdoList.Sum(x => x.OldCarpetAreaSqMeter ?? 0);
+
+        // Step 7: Process distinct comma-separated values for PMO properties
+        var oldWardNoList = pmoList.Select(x => x.OldWardNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldPropertyNoList = pmoList.Select(x => x.OldPropertyNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldPartitionNoList = pmoList.Select(x => x.OldPartitionNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldEgovNoList = pmoList.Select(x => x.OldEgovNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldPlotAreaList = pmoList.Where(x => x.OldPlotArea.HasValue).Select(x => Math.Round(x.OldPlotArea!.Value, 2).ToString()).Distinct().ToList();
+        var oldPlotNoList = pmoList.Select(x => x.OldPlotNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldZoneNoList = pmoList.Select(x => x.OldZoneNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldCSNList = pmoList.Select(x => x.OldCSN?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+
+        // Step 8: Process distinct comma-separated values for PDO properties
+        var oldConstructionYearList = pdoList.Select(x => x.OldConstructionYear?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
+        var oldConstructionTypeIdList = pdoList.Select(x => x.OldConstructionTypeId.ToString()).Distinct().ToList();
+        var oldTypeOfUseIdList = pdoList.Select(x => x.OldTypeOfUseId.ToString()).Distinct().ToList();
 
         // Build and return DTO
         return new PropertyOldDetailsDto
         {
             PropertyId = propertyId,
-            // From PropertyMastOld
-            OldWardNo = oldMastData?.OldWardNo,
-            OldPropertyNo = oldMastData?.OldPropertyNo,
-            OldPartitionNo = oldMastData?.OldPartitionNo,
-            OldEgovNo = oldMastData?.OldEgovNo,
-            OldPlotArea = oldMastData?.OldPlotArea != null ? Math.Round(oldMastData.OldPlotArea.Value, 2) : null,
-            OldPlotNo = oldMastData?.OldPlotNo,
-            OldRV = oldMastData?.OldRV != null ? Math.Round(oldMastData.OldRV.Value, 2) : null,
-            OldALV = oldMastData?.OldALV != null ? Math.Round(oldMastData.OldALV.Value, 2) : null,
-            OldTotalTax = oldTotalTax != null ? Math.Round(oldTotalTax.Value, 2) : null,
-            OldZoneNo = oldMastData?.OldZoneNo,
-            OldGeneralTax = oldGeneralTax != null ? Math.Round(oldGeneralTax.Value, 2) : null,
-            OldCSN = oldMastData?.OldCSN,
-            OldConstructionArea = oldMastData?.OldConstructionArea != null ? Math.Round(oldMastData.OldConstructionArea.Value, 2) : null,
-            // From PropertyDetailsOld
-            OldConstructionYear = oldDetailsData?.OldConstructionYear,
-            OldCarpetAreaSqFeet = oldDetailsData?.OldCarpetAreaSqFeet != null ? Math.Round(oldDetailsData.OldCarpetAreaSqFeet.Value, 2) : null,
-            OldCarpetAreaSqMeter = oldDetailsData?.OldCarpetAreaSqMeter != null ? Math.Round(oldDetailsData.OldCarpetAreaSqMeter.Value, 2) : null,
-            OldConstructionTypeId = oldDetailsData?.OldConstructionTypeId,
-            OldTypeOfUseId = oldDetailsData?.OldTypeOfUseId
+            OldWardNo = oldWardNoList.Any() ? string.Join(", ", oldWardNoList) : null,
+            OldPropertyNo = oldPropertyNoList.Any() ? string.Join(", ", oldPropertyNoList) : null,
+            OldPartitionNo = oldPartitionNoList.Any() ? string.Join(", ", oldPartitionNoList) : null,
+            OldEgovNo = oldEgovNoList.Any() ? string.Join(", ", oldEgovNoList) : null,
+            OldPlotArea = oldPlotAreaList.Any() ? string.Join(", ", oldPlotAreaList) : null,
+            OldPlotNo = oldPlotNoList.Any() ? string.Join(", ", oldPlotNoList) : null,
+            OldRV = Math.Round(totalOldRV, 2),
+            OldALV = Math.Round(totalOldALV, 2),
+            OldTotalTax = Math.Round(totalOldTotalTax, 2),
+            OldZoneNo = oldZoneNoList.Any() ? string.Join(", ", oldZoneNoList) : null,
+            OldGeneralTax = Math.Round(totalOldGeneralTax, 2),
+            OldCSN = oldCSNList.Any() ? string.Join(", ", oldCSNList) : null,
+            OldConstructionArea = Math.Round(totalOldConstructionArea, 2),
+            OldConstructionYear = oldConstructionYearList.Any() ? string.Join(", ", oldConstructionYearList) : null,
+            OldCarpetAreaSqFeet = Math.Round(totalOldCarpetAreaSqFeet, 2),
+            OldCarpetAreaSqMeter = Math.Round(totalOldCarpetAreaSqMeter, 2),
+            OldConstructionTypeId = oldConstructionTypeIdList.Any() ? string.Join(", ", oldConstructionTypeIdList) : null,
+            OldTypeOfUseId = oldTypeOfUseIdList.Any() ? string.Join(", ", oldTypeOfUseIdList) : null
         };
     }
 

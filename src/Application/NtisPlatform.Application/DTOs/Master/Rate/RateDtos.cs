@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 //main dto
-public class RateDto: BaseDtos
+public class RateDto : BaseDtos
 {
     public int Id { get; set; } = 0;
     public int FloorId { get; set; }
@@ -39,17 +39,17 @@ public class DetailedRateDto : BaseDtos
     public int? UpdatedBy { get; set; }
 }
 
-public class CreateRateDto: CreateBaseDtos
+public class CreateRateDto : CreateBaseDtos
 {
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int TaxZoneId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
+    [Range(0, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
     public int FloorId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_ConstructionTypeId_Required")]
-    public int ConstructionTypeId { get; set; } 
+    public int ConstructionTypeId { get; set; }
 
     // No StringLength/Range in entity for this (keeping as-is)
     public int TypeOfUseGroupId { get; set; }
@@ -60,21 +60,22 @@ public class CreateRateDto: CreateBaseDtos
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
     public decimal? RateSquareMeter { get; set; }
 
-    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
+    [Range(typeof(decimal), "0", "1076390", ErrorMessage = "Rate_RateSquareFeet_Range_0_1076390")]
     public decimal? RateSquareFeet { get; set; }
-    public int RateSectionId { get; set; } 
+    
+    public int RateSectionId { get; set; }
 
     [StringLength(40, ErrorMessage = "Rate_RateRemark_MaxLen_40")]
     public string? RateRemark { get; set; } = string.Empty;
 }
 
-public class CreateOpenPlotRateDto: CreateBaseDtos
+public class CreateOpenPlotRateDto : CreateBaseDtos
 {
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TaxZoneId_Required")]
     public int TaxZoneId { get; set; }
 
-    [Range(1, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
+    [Range(0, int.MaxValue, ErrorMessage = "Rate_FloorId_Required")]
     public int FloorId { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_TypeOfUseGroupId_Required")]
@@ -87,7 +88,7 @@ public class CreateOpenPlotRateDto: CreateBaseDtos
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
     public decimal? RateSquareMeter { get; set; }
 
-    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
+    [Range(typeof(decimal), "0", "1076390", ErrorMessage = "Rate_RateSquareFeet_Range_0_1076390")]
     public decimal? RateSquareFeet { get; set; }
 
     [Range(1, int.MaxValue, ErrorMessage = "Rate_RateSectionId_Required")]
@@ -97,7 +98,7 @@ public class CreateOpenPlotRateDto: CreateBaseDtos
     public string? RateRemark { get; set; } = string.Empty;
 }
 
-public class UpdateRateDto: UpdateBaseDtos
+public class UpdateRateDto : UpdateBaseDtos
 {
 
 
@@ -118,7 +119,7 @@ public class UpdateRateDto: UpdateBaseDtos
     [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareMeter_Range_0_99999")]
     public decimal? RateSquareMeter { get; set; }
 
-    [Range(typeof(decimal), "0", "99999", ErrorMessage = "Rate_RateSquareFeet_Range_0_99999")]
+    [Range(typeof(decimal), "0", "1076390", ErrorMessage = "Rate_RateSquareFeet_Range_0_1076390")]
     public decimal? RateSquareFeet { get; set; }
     public int? RateSectionId { get; set; }
 

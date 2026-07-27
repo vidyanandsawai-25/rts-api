@@ -42,14 +42,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Water Tax", TaxCode = "WATER", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(tax1, tax2);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2);
+        context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -88,15 +88,15 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rvActive = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rvInactive = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = false, MarkedForDeletion = false };
-        var rvDeleted = new TransMastRVEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = true };
+        var rvActive = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rvInactive = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = false, MarkedForDeletion = false };
+        var rvDeleted = new TransMastEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, CalculationType = "RV", IsActive = true, MarkedForDeletion = true };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rvActive, rvInactive, rvDeleted);
+        context.TransMast.AddRange(rvActive, rvInactive, rvDeleted);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -124,14 +124,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2);
+        context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -160,14 +160,14 @@ public class PropertyRepositoryTaxDetailsTests
         var taxInactive = new TaxMasterEntity { Id = 2, TaxName = "Inactive Tax", TaxCode = "I", DisplayOrder = 2, IsActive = false };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rvActive = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rvInactive = new TransMastRVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rvActive = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rvInactive = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(taxActive, taxInactive);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rvActive, rvInactive);
+        context.TransMast.AddRange(rvActive, rvInactive);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -198,14 +198,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.AddRange(propertyType1, propertyType2);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2);
+        context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -237,14 +237,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.AddRange(propertyTypeActive, propertyTypeInactive);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2);
+        context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -270,13 +270,13 @@ public class PropertyRepositoryTaxDetailsTests
         var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
-        var rv = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
+        var rv = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.Add(rv);
+        context.TransMast.Add(rv);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -305,14 +305,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2);
+        context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -346,16 +346,16 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
-        var rv3 = new TransMastRVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv3 = new TransMastEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2, property3);
         context.Set<WingEntity>().Add(wing);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2, rv3);
+        context.TransMast.AddRange(rv1, rv2, rv3);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -390,16 +390,16 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Property Tax", TaxCode = "PROP", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var rv1 = new TransMastRVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, IsActive = true, MarkedForDeletion = false };
-        var rv2 = new TransMastRVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
-        var rv3 = new TransMastRVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+        var rv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 1000m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
+        var rv3 = new TransMastEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, CalculationType = "RV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2, property3);
         context.Set<WingEntity>().Add(wing);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastRV.AddRange(rv1, rv2, rv3);
+        context.TransMast.AddRange(rv1, rv2, rv3);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -447,14 +447,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax2 = new TaxMasterEntity { Id = 2, TaxName = "Education Cess", TaxCode = "EDU", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(tax1, tax2);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2);
+        context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -493,15 +493,15 @@ public class PropertyRepositoryTaxDetailsTests
         var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cvActive = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cvInactive = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = false, MarkedForDeletion = false };
-        var cvDeleted = new TransMastCVEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, IsActive = true, MarkedForDeletion = true };
+        var cvActive = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cvInactive = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "CV", IsActive = false, MarkedForDeletion = false };
+        var cvDeleted = new TransMastEntity { Id = 3, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 200m, CalculationType = "CV", IsActive = true, MarkedForDeletion = true };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax1);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cvActive, cvInactive, cvDeleted);
+        context.TransMast.AddRange(cvActive, cvInactive, cvDeleted);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -529,14 +529,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2);
+        context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -565,14 +565,14 @@ public class PropertyRepositoryTaxDetailsTests
         var taxInactive = new TaxMasterEntity { Id = 2, TaxName = "Inactive Tax", TaxCode = "I", DisplayOrder = 2, IsActive = false };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cvActive = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cvInactive = new TransMastCVEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, IsActive = true, MarkedForDeletion = false };
+        var cvActive = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cvInactive = new TransMastEntity { Id = 2, PropertyId = 1, TaxId = 2, FinanceYearId = 1, TaxAmount = 500m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.AddRange(taxActive, taxInactive);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cvActive, cvInactive);
+        context.TransMast.AddRange(cvActive, cvInactive);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -603,14 +603,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.AddRange(propertyType1, propertyType2);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2);
+        context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -642,14 +642,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.AddRange(propertyTypeActive, propertyTypeInactive);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2);
+        context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -675,13 +675,13 @@ public class PropertyRepositoryTaxDetailsTests
         var property = new PropertyEntity { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
-        var cv = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
+        var cv = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.Add(property);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.Add(cv);
+        context.TransMast.Add(cv);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -710,14 +710,14 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2);
+        context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -751,16 +751,16 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
-        var cv3 = new TransMastCVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv3 = new TransMastEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2, property3);
         context.Set<WingEntity>().Add(wing);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2, cv3);
+        context.TransMast.AddRange(cv1, cv2, cv3);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -795,16 +795,16 @@ public class PropertyRepositoryTaxDetailsTests
         var tax = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, IsActive = true };
         var year = new YearMasterEntity { Id = 1, YearCode = "2024-25", IsActive = true };
 
-        var cv1 = new TransMastCVEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, IsActive = true, MarkedForDeletion = false };
-        var cv2 = new TransMastCVEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, IsActive = true, MarkedForDeletion = false };
-        var cv3 = new TransMastCVEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, IsActive = true, MarkedForDeletion = false };
+        var cv1 = new TransMastEntity { Id = 1, PropertyId = 1, TaxId = 1, FinanceYearId = 1, TaxAmount = 2000m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv2 = new TransMastEntity { Id = 2, PropertyId = 2, TaxId = 1, FinanceYearId = 1, TaxAmount = 750m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
+        var cv3 = new TransMastEntity { Id = 3, PropertyId = 3, TaxId = 1, FinanceYearId = 1, TaxAmount = 300m, CalculationType = "CV", IsActive = true, MarkedForDeletion = false };
 
         context.PropertyTypeMasters.Add(propertyType);
         context.PropertyMast.AddRange(property1, property2, property3);
         context.Set<WingEntity>().Add(wing);
         context.TaxMaster.Add(tax);
         context.YearMaster.Add(year);
-        context.TransMastCV.AddRange(cv1, cv2, cv3);
+        context.TransMast.AddRange(cv1, cv2, cv3);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context);
@@ -933,7 +933,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.50m,
             IsActive = true,
@@ -945,7 +944,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 2,
             TaxAmount = 750.25m,
             IsActive = true,
@@ -997,7 +995,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2023",
             TaxId = 1,
             TaxAmount = 1800.00m,
             IsActive = true,
@@ -1010,7 +1007,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1057,7 +1053,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1069,7 +1064,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 500.00m,
             IsActive = false, // Inactive tax (should be filtered out anyway)
@@ -1119,7 +1113,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 2000.00m,
             IsActive = true,
@@ -1172,7 +1165,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 1,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 1000.00m,
             IsActive = true,
@@ -1184,7 +1176,6 @@ public class PropertyRepositoryTaxDetailsTests
         {
             Id = 2,
             PropertyId = 1,
-            PolicyCode = "POLCV2024",
             TaxId = 1,
             TaxAmount = 1000.00m,
             IsActive = true,

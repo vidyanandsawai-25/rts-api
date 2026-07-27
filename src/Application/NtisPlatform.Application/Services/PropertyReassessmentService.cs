@@ -8,24 +8,36 @@ using NtisPlatform.Core.Interfaces;
 namespace NtisPlatform.Application.Services;
 
 /// <summary>
-/// Re-implements the legacy "Property Re-Assessment" SQL script (single-property variant) in application
-/// code. Read-only: resolves the property from Ward + PropertyNo (+ optional PartitionNo), then assembles
-/// old/new photos (STEP 2), old/new floor details (STEP 3) and the old-vs-new tax-head summary (STEP 4).
+/// Re-implements the legacy "Property Re-Assessment" SQL script in application code, now with support
+/// for PropertyMapMaster/PropertyMapDetail mappings (ONE_TO_ONE, SPLIT, MERGE, MAP scenarios).
+/// Read-only: resolves the property from Ward + PropertyNo (+ optional PartitionNo), discovers all
+/// mapped old properties via the mapping tables, then assembles old/new photos (STEP 2),
+/// old/new floor details (STEP 3) and the old-vs-new tax-head summary (STEP 4).
 ///
 /// Per the repo convention (see <see cref="DataEntrySameAsService"/> and PropertyOldDetailsRepository),
-/// everything is EF Core LINQ over <see cref="IRepository{T,TKey}"/> — no raw SQL. The dynamic PIVOT of
-/// STEP 4 is replaced by an in-memory tax-head projection.
+/// everything is EF Core LINQ over <see cref="IRepository{T,TKey}"/> — no raw SQL. The dynamic PIVOT
+/// of STEP 4 is replaced by an in-memory tax-head projection.
 /// </summary>
 public class PropertyReassessmentService : IPropertyReassessmentService
 {
     private const string PlanPhotoCode = "PLAN_PHOTO";
     private const string PropertyPhotoCode = "PROPERTY_PHOTO";
 
+    // Certificate type codes (PropertyCertificateTypeMaster.CertificateTypeCode) relevant to reassessment
+    // Format: comma-separated values (e.g., "OC" or "OC,CC")
+    // Change this string to modify which certificate types are included — no other code changes needed
+    private const string PropertyReassessmentCertificateTypeCode = "OC,CC";
+
+    // Derived set of string codes to match against database values
+    private static readonly HashSet<string> ReassessmentCertificateTypeCodes =
+        PropertyReassessmentCertificateTypeCode.Split(',').Select(c => c.Trim()).ToHashSet();
+
     private readonly IRepository<PropertyEntity, int> _propertyRepository;
     private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
     private readonly IRepository<PropertyDetailsOldEntity, int> _propertyDetailsOldRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
     private readonly IRepository<PropertyPhotoEntity, int> _propertyPhotoRepository;
+    private readonly IRepository<PropertyPhotoOldEntity, int> _propertyPhotoOldRepository;
     private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
     private readonly IRepository<DocumentEntity, int> _documentRepository;
     private readonly IRepository<DocumentBindingEntity, int> _documentBindingRepository;
@@ -33,11 +45,14 @@ public class PropertyReassessmentService : IPropertyReassessmentService
     private readonly IRepository<ConstructionTypeEntity, int> _constructionTypeRepository;
     private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
     private readonly IRepository<RenterMastEntity, int> _renterRepository;
-    private readonly IRepository<PropertyTaxCalculationRVResultsEntity, int> _rvResultsRepository;
+    private readonly IRepository<RVCalculationResultsEntity, int> _rvResultsRepository;
     private readonly IRepository<TransMastEntity, int> _transMastRepository;
     private readonly IRepository<TransMastOldEntity, int> _transMastOldRepository;
     private readonly IRepository<TaxMasterEntity, int> _taxMasterRepository;
     private readonly IRepository<YearMasterEntity, int> _yearMasterRepository;
+    private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
+    private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
+    private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepository;
 
     public PropertyReassessmentService(
         IRepository<PropertyEntity, int> propertyRepository,
@@ -45,6 +60,7 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         IRepository<PropertyDetailsOldEntity, int> propertyDetailsOldRepository,
         IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
         IRepository<PropertyPhotoEntity, int> propertyPhotoRepository,
+        IRepository<PropertyPhotoOldEntity, int> propertyPhotoOldRepository,
         IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
         IRepository<DocumentEntity, int> documentRepository,
         IRepository<DocumentBindingEntity, int> documentBindingRepository,
@@ -52,17 +68,21 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         IRepository<ConstructionTypeEntity, int> constructionTypeRepository,
         IRepository<TypeOfUseEntity, int> typeOfUseRepository,
         IRepository<RenterMastEntity, int> renterRepository,
-        IRepository<PropertyTaxCalculationRVResultsEntity, int> rvResultsRepository,
+        IRepository<RVCalculationResultsEntity, int> rvResultsRepository,
         IRepository<TransMastEntity, int> transMastRepository,
         IRepository<TransMastOldEntity, int> transMastOldRepository,
         IRepository<TaxMasterEntity, int> taxMasterRepository,
-        IRepository<YearMasterEntity, int> yearMasterRepository)
+        IRepository<YearMasterEntity, int> yearMasterRepository,
+        IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
+        IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
+        IRepository<PropertyCertificateEntity, int> propertyCertificateRepository)
     {
         _propertyRepository = propertyRepository;
         _propertyDetailsRepository = propertyDetailsRepository;
         _propertyDetailsOldRepository = propertyDetailsOldRepository;
         _propertyMastOldRepository = propertyMastOldRepository;
         _propertyPhotoRepository = propertyPhotoRepository;
+        _propertyPhotoOldRepository = propertyPhotoOldRepository;
         _propertyPhotoTypeRepository = propertyPhotoTypeRepository;
         _documentRepository = documentRepository;
         _documentBindingRepository = documentBindingRepository;
@@ -75,29 +95,26 @@ public class PropertyReassessmentService : IPropertyReassessmentService
         _transMastOldRepository = transMastOldRepository;
         _taxMasterRepository = taxMasterRepository;
         _yearMasterRepository = yearMasterRepository;
+        _propertyMapMasterRepository = propertyMapMasterRepository;
+        _propertyMapDetailRepository = propertyMapDetailRepository;
+        _propertyCertificateRepository = propertyCertificateRepository;
     }
 
     public async Task<PropertyReassessmentDto> GetReassessmentAsync(
         PropertyReassessmentQueryParameters query,
         CancellationToken cancellationToken = default)
     {
-        // ── STEP 1: resolve the single property (new id + old id) ─────────────
+        // ── STEP 1: resolve the single new property ────────────────────────────
         var propertyNo = query.PropertyNo;
-        var partitionNo = query.PartitionNo?.Trim();
-        var hasPartition = !string.IsNullOrEmpty(partitionNo);
+        var partitionNo = query.PartitionNo;  // Don't trim; use ISNULL logic per spec
 
-        // Tightened vs the SP's loose "ISNULL(PartitionNo,'')='' OR PartitionNo=@x": a supplied partition
-        // must match exactly; an omitted partition matches only building-level (empty/null) rows. This,
-        // combined with the uniqueness check below, guarantees the screen shows exactly one property.
         var matches = await _propertyRepository.GetQueryable()
             .Where(p => p.WardId == query.WardId
                         && p.PropertyNo == propertyNo
+                        && (string.IsNullOrEmpty(partitionNo) ? (p.PartitionNo == null || p.PartitionNo == "") : p.PartitionNo == partitionNo)
                         && p.IsActive
-                        && !p.MarkedForDeletion
-                        && (hasPartition
-                                ? p.PartitionNo == partitionNo
-                                : (p.PartitionNo == null || p.PartitionNo == "")))
-            .Select(p => new { p.Id, p.PropertyMastOldId })
+                        && !p.MarkedForDeletion)
+            .Select(p => new { p.Id })
             .Take(2)
             .ToListAsync(cancellationToken);
 
@@ -109,95 +126,233 @@ public class PropertyReassessmentService : IPropertyReassessmentService
                 "More than one property matches the supplied Ward and Property No. Please specify a Partition No.");
 
         var propertyId = matches[0].Id;
-        var propertyOldId = matches[0].PropertyMastOldId;
+
+        // ── STEP 2: resolve old properties via PropertyMapMaster/PropertyMapDetail ────────
+        var (oldPropertyIds, siblingNewPropertyIds, mappings) =
+            await ResolveMappingAsync(propertyId, cancellationToken);
 
         var result = new PropertyReassessmentDto
         {
-            PropertyId = propertyId,
-            PropertyOldId = propertyOldId
+            PropertyId = propertyId
         };
 
-        // ── STEP 2: photos (old = superseded/IsLatest 0, new = current/IsLatest 1) ──
-        result.Photos = await GetPhotosAsync(propertyId, cancellationToken);
+        // ── STEP 3: photos (new + old if mapped) ──────────────────────────────
+        result.Photos = await GetPhotosAsync(propertyId, oldPropertyIds, cancellationToken);
 
-        // ── STEP 3: floor details (new from PropertyDetails, old from PropertyDetailsOld) ──
-        result.NewFloorDetails = await GetNewFloorDetailsAsync(propertyId, cancellationToken);
-        result.OldFloorDetails = propertyOldId.HasValue
-            ? await GetOldFloorDetailsAsync(propertyOldId.Value, cancellationToken)
+        // ── Get certificates (CC/OC) for new properties only ────────────────
+        var (ocCerts, ccCerts) = await GetCertificatesAsync(propertyId, cancellationToken);
+
+        // ── STEP 4: floor details (new + old from all mapped old properties) ───
+        result.NewFloorDetails = await GetNewFloorDetailsAsync(propertyId, ocCerts, ccCerts, cancellationToken);
+        result.OldFloorDetails = oldPropertyIds.Count > 0
+            ? await GetOldFloorDetailsAsync(oldPropertyIds, cancellationToken)
             : [];
 
         ApplyFloorChangeStatus(result.NewFloorDetails, result.OldFloorDetails);
 
-        // ── STEP 4: tax-head summary (old vs new) ─────────────────────────────
-        result.TaxSummary = await GetTaxSummaryAsync(propertyId, propertyOldId, cancellationToken);
+        // ── STEP 5: tax-head summary (old aggregated across all mapped properties) ──
+        result.TaxSummary = await GetTaxSummaryAsync(propertyId, oldPropertyIds, cancellationToken);
 
         return result;
     }
 
-    /// <summary>STEP 2 — the latest plan/property document for old (IsLatest=false) and new (IsLatest=true).</summary>
-    private async Task<List<ReassessmentPhotoDto>> GetPhotosAsync(int propertyId, CancellationToken cancellationToken)
+    /// <summary>
+    /// STEP 2 — Resolve mapping group: two-step query to fetch the entire mapping family.
+    /// STEP 2.1: Find PropertyMapIds touching this property (where PropertyIdNew == propertyId).
+    /// STEP 2.2: Fetch ALL rows in those mapping groups (no PropertyIdNew filter) to capture siblings in SPLIT scenarios.
+    /// </summary>
+    private async Task<(List<int> OldPropertyIds, List<int> SiblingNewPropertyIds, List<PropertyMappingDto> Mappings)>
+        ResolveMappingAsync(int propertyId, CancellationToken cancellationToken)
     {
-        var planTypeIds = await _propertyPhotoTypeRepository.GetQueryable()
-            .Where(pt => pt.PhotoTypeCode == PlanPhotoCode)
-            .Select(pt => pt.Id)
+        // STEP 2.1: Find PropertyMapMasterIds linked to this new property
+        var mapIds = await _propertyMapDetailRepository.GetQueryable()
+            .Where(pmd => pmd.PropertyIdNew == propertyId
+                         && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE")
+            .Select(pmd => pmd.PropertyMapId)
+            .Distinct()
             .ToListAsync(cancellationToken);
 
-        var propertyTypeIds = await _propertyPhotoTypeRepository.GetQueryable()
-            .Where(pt => pt.PhotoTypeCode == PropertyPhotoCode)
-            .Select(pt => pt.Id)
+        // Early exit if no mapping exists
+        if (mapIds.Count == 0)
+            return ([], [], []);
+
+        // STEP 2.2: Fetch ALL rows in those PropertyMapMasterIds (no PropertyIdNew filter, so siblings are included)
+        var mappings = await (
+            from pmd in _propertyMapDetailRepository.GetQueryable()
+            join pmm in _propertyMapMasterRepository.GetQueryable() on pmd.PropertyMapId equals pmm.Id
+            //where mapIds.Contains(pmd.PropertyMapId)
+            where pmd.PropertyIdNew == propertyId
+                  && pmd.IsActive && pmd.IsCurrent && pmd.Status == "ACTIVE"
+                  && pmm.IsActive
+            select new PropertyMappingDto
+            {
+                PropertyMapId = pmm.Id,
+                MappingCategory = pmm.MappingCategory,
+                VersionNo = pmm.VersionNo,
+                PropertyIdOld = pmd.PropertyIdOld,
+                PropertyIdNew = pmd.PropertyIdNew,
+                PropertyNo = string.Empty,
+                TaxSharePercent = pmd.TaxSharePercent,
+                AreaSharePercent = pmd.AreaSharePercent,
+                Status = pmd.Status
+            }
+        ).ToListAsync(cancellationToken);
+
+        var oldPropertyIds = mappings
+            .Where(m => m.PropertyIdOld.HasValue)
+            .Select(m => m.PropertyIdOld!.Value)
+            .Distinct()
+            .ToList();
+
+        var siblingNewPropertyIds = mappings
+            .Where(m => m.PropertyIdNew.HasValue && m.PropertyIdNew.Value != propertyId)
+            .Select(m => m.PropertyIdNew!.Value)
+            .Distinct()
+            .ToList();
+
+        return (oldPropertyIds, siblingNewPropertyIds, mappings);
+    }
+
+    /// <summary>Fetch per-floor certificates for new properties only, separated by type (OC/CC). Per-PropertyDetailsId lookup. Certificate types matched from ReassessmentCertificateTypeCodes (configured via PropertyReassessmentCertificateTypeCode string constant).</summary>
+    private async Task<(Dictionary<(int PropertyId, int? DetailId), (string? CertNo, DateTime? IssueDate)> OCCerts, Dictionary<(int PropertyId, int? DetailId), (string? CertNo, DateTime? IssueDate)> CCCerts)> GetCertificatesAsync(
+        int propertyId,
+        CancellationToken cancellationToken)
+    {
+        var certRows = await _propertyCertificateRepository.GetQueryable()
+            .Include(pc => pc.CertificateType)
+            .Where(pc => pc.PropertyId == propertyId
+                         && pc.IsActive && !pc.MarkedForDeletion
+                         && pc.PropertyDetailsId.HasValue
+                         && pc.CertificateType != null
+                         && ReassessmentCertificateTypeCodes.Contains(pc.CertificateType.CertificateTypeCode)
+                         && pc.CertificateType.IsActive)
+            .Select(pc => new { pc.PropertyId, pc.PropertyDetailsId, pc.CertificateNo, pc.IssueDate, CertificateTypeCode = pc.CertificateType!.CertificateTypeCode })
             .ToListAsync(cancellationToken);
+
+        // Separate into OC and CC dictionaries
+        var ocCerts = certRows
+            .Where(c => c.CertificateTypeCode == "OC")
+            .GroupBy(c => (c.PropertyId, c.PropertyDetailsId))
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var r = g.OrderByDescending(x => x.IssueDate ?? DateTime.MinValue).First();
+                    return (r.CertificateNo, r.IssueDate);
+                });
+
+        var ccCerts = certRows
+            .Where(c => c.CertificateTypeCode == "CC")
+            .GroupBy(c => (c.PropertyId, c.PropertyDetailsId))
+            .ToDictionary(
+                g => g.Key,
+                g =>
+                {
+                    var r = g.OrderByDescending(x => x.IssueDate ?? DateTime.MinValue).First();
+                    return (r.CertificateNo, r.IssueDate);
+                });
+
+        return (ocCerts, ccCerts);
+    }
+
+    /// <summary>STEP 3 — Optimized single-query photo retrieval for new (IsLatest=true) and old (IsLatest=false).</summary>
+    private async Task<List<ReassessmentPhotoDto>> GetPhotosAsync(
+        int propertyId,
+        List<int> oldPropertyIds,
+        CancellationToken cancellationToken)
+    {
+        // Get photo type IDs (combine both queries into one)
+        var photoTypesByCode = await _propertyPhotoTypeRepository.GetQueryable()
+            .Where(pt => pt.PhotoTypeCode == PlanPhotoCode || pt.PhotoTypeCode == PropertyPhotoCode)
+            .GroupBy(pt => pt.PhotoTypeCode)
+            .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.Id).ToList(), cancellationToken);
+
+        if (photoTypesByCode.Count == 0)
+            return [];
+
+        var planTypeIds = photoTypesByCode.ContainsKey(PlanPhotoCode) ? photoTypesByCode[PlanPhotoCode] : [];
+        var propertyTypeIds = photoTypesByCode.ContainsKey(PropertyPhotoCode) ? photoTypesByCode[PropertyPhotoCode] : [];
+
+        var photoTypeIdSet = new HashSet<int>(planTypeIds.Concat(propertyTypeIds));
+        if (photoTypeIdSet.Count == 0)
+            return [];
+
+        // Single consolidated query for all photos (NEW + OLD)
+        var allPhotoBindings = await (
+            from pp in _propertyPhotoRepository.GetQueryable()
+            where pp.PropertyId == propertyId && pp.IsActive && photoTypeIdSet.Contains(pp.PhotoTypeId) && pp.DocumentBindingId != null
+            select new
+            {
+                BindingId = pp.DocumentBindingId!.Value,
+                pp.IsLatest,
+                pp.PhotoTypeId,
+                SortDate = pp.UpdatedDate ?? pp.CreatedDate,
+                IsOld = false,
+                OldPropertyId = (int?)null
+            }
+        ).Union(
+            from ppo in _propertyPhotoOldRepository.GetQueryable()
+             where oldPropertyIds.Contains(ppo.PropertyMastOldId) && ppo.IsActive && !ppo.MarkedForDeletion && !ppo.IsLatest && photoTypeIdSet.Contains(ppo.PhotoTypeId) && ppo.DocumentBindingId != null
+             select new
+             {
+                 BindingId = ppo.DocumentBindingId!.Value,
+                 ppo.IsLatest,
+                 ppo.PhotoTypeId,
+                 SortDate = ppo.UpdatedDate ?? ppo.CreatedDate,
+                 IsOld = true,
+                 OldPropertyId = (int?)ppo.PropertyMastOldId
+             }
+        ).ToListAsync(cancellationToken);
+
+        // Get document GUIDs for all bindings in one query
+        var bindingIds = allPhotoBindings.Select(p => p.BindingId).Distinct().ToList();
+        var documentGuids = await (
+            from b in _documentBindingRepository.GetQueryable()
+            join d in _documentRepository.GetQueryable() on b.DocumentId equals d.Id
+            where bindingIds.Contains(b.Id) && d.IsActive
+            select new { b.Id, d.DocumentGuid }
+        ).ToDictionaryAsync(x => x.Id, x => x.DocumentGuid, cancellationToken);
 
         var photos = new List<ReassessmentPhotoDto>();
 
-        await AddLatestPhotoAsync(photos, propertyId, planTypeIds, isLatest: false, "OLD_PLAN_PHOTO", cancellationToken);
-        await AddLatestPhotoAsync(photos, propertyId, propertyTypeIds, isLatest: false, "OLD_PROPERTY_PHOTO", cancellationToken);
-        await AddLatestPhotoAsync(photos, propertyId, planTypeIds, isLatest: true, "NEW_PLAN_PHOTO", cancellationToken);
-        await AddLatestPhotoAsync(photos, propertyId, propertyTypeIds, isLatest: true, "NEW_PROPERTY_PHOTO", cancellationToken);
+        void AddPhotoIfFound(object? photo, List<int> typeIds, string type)
+        {
+            if (photo == null)
+                return;
+
+            var binding = (dynamic)photo;
+            if (documentGuids.TryGetValue(binding.BindingId, out Guid guid))
+            {
+                photos.Add(new ReassessmentPhotoDto { DocumentGuid = guid, Type = type });
+            }
+        }
+
+        // Process NEW photos (latest per type)
+        var newPlanPhoto = allPhotoBindings.Where(p => !p.IsOld && p.IsLatest && planTypeIds.Contains(p.PhotoTypeId)).OrderByDescending(p => p.SortDate).FirstOrDefault();
+        AddPhotoIfFound(newPlanPhoto, planTypeIds, "NEW_PLAN_PHOTO");
+
+        var newPropertyPhoto = allPhotoBindings.Where(p => !p.IsOld && p.IsLatest && propertyTypeIds.Contains(p.PhotoTypeId)).OrderByDescending(p => p.SortDate).FirstOrDefault();
+        AddPhotoIfFound(newPropertyPhoto, propertyTypeIds, "NEW_PROPERTY_PHOTO");
+
+        // Process OLD photos (latest per type across all old properties)
+        if (oldPropertyIds.Count > 0)
+        {
+            var oldPlanPhoto = allPhotoBindings.FirstOrDefault(p => p.IsOld && !p.IsLatest && planTypeIds.Contains(p.PhotoTypeId));
+            AddPhotoIfFound(oldPlanPhoto, planTypeIds, "OLD_PLAN_PHOTO");
+
+            var oldPropertyPhoto = allPhotoBindings.FirstOrDefault(p => p.IsOld && !p.IsLatest && propertyTypeIds.Contains(p.PhotoTypeId));
+            AddPhotoIfFound(oldPropertyPhoto, propertyTypeIds, "OLD_PROPERTY_PHOTO");
+        }
 
         return photos;
     }
 
-    /// <summary>
-    /// Mirrors the SP's "TOP 1 photo ordered by ISNULL(UpdatedDate,CreatedDate) DESC, then look up the
-    /// active document" — two steps so an inactive document yields no photo (rather than picking the next one).
-    /// </summary>
-    private async Task AddLatestPhotoAsync(
-        List<ReassessmentPhotoDto> photos,
+    /// <summary>STEP 4 (new) — PropertyDetails + master codes + latest-year renter + RV calculation figures + certificates (separate OC/CC fields).</summary>
+    private async Task<List<ReassessmentFloorDto>> GetNewFloorDetailsAsync(
         int propertyId,
-        List<int> photoTypeIds,
-        bool isLatest,
-        string type,
+        Dictionary<(int PropertyId, int? DetailId), (string? CertNo, DateTime? IssueDate)> ocCerts,
+        Dictionary<(int PropertyId, int? DetailId), (string? CertNo, DateTime? IssueDate)> ccCerts,
         CancellationToken cancellationToken)
-    {
-        if (photoTypeIds.Count == 0)
-            return;
-
-        var bindingId = await _propertyPhotoRepository.GetQueryable()
-            .Where(p => p.PropertyId == propertyId
-                        && p.IsActive
-                        && p.IsLatest == isLatest
-                        && photoTypeIds.Contains(p.PhotoTypeId)
-                        && p.DocumentBindingId != null)
-            .OrderByDescending(p => p.UpdatedDate ?? p.CreatedDate)
-            .Select(p => p.DocumentBindingId)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (bindingId == null)
-            return;
-
-        var documentGuid = await (
-            from b in _documentBindingRepository.GetQueryable()
-            join d in _documentRepository.GetQueryable() on b.DocumentId equals d.Id
-            where b.Id == bindingId.Value && d.IsActive
-            select (Guid?)d.DocumentGuid
-        ).FirstOrDefaultAsync(cancellationToken);
-
-        if (documentGuid.HasValue)
-            photos.Add(new ReassessmentPhotoDto { DocumentGuid = documentGuid.Value, Type = type });
-    }
-
-    /// <summary>STEP 3 (new) — PropertyDetails + master codes + latest-year renter + RV calculation figures.</summary>
-    private async Task<List<ReassessmentFloorDto>> GetNewFloorDetailsAsync(int propertyId, CancellationToken cancellationToken)
     {
         var detailRows = await (
             from pd in _propertyDetailsRepository.GetQueryable()
@@ -229,39 +384,24 @@ public class PropertyReassessmentService : IPropertyReassessmentService
 
         var detailIds = detailRows.Select(d => d.Id).ToList();
 
-        // Renters: latest active finance year only (SP: RM.FinancialYear = MAX(active YearMaster.Year)).
-        var maxActiveYear = await _yearMasterRepository.GetQueryable()
-            .Where(y => y.IsActive)
-            .Select(y => (int?)y.Year)
-            .MaxAsync(cancellationToken);
-
-        var renterByDetailId = new Dictionary<int, (string? RenterName, string? TaxLiability, double? RentMonthly, double? FinalYearlyRent, string? FinancialYear)>();
-        if (maxActiveYear.HasValue)
+        // Renters: latest active finance year only, combined with YearMaster.Year lookup in single query.
+        var renterByDetailId = await (
+            from r in _renterRepository.GetQueryable()
+            join y in _yearMasterRepository.GetQueryable() on r.FinancialYear equals y.Year.ToString()
+            where r.IsActive && !r.MarkedForDeletion && y.IsActive && detailIds.Contains(r.PropertyDetailsId)
+            orderby y.Year descending, r.PropertyDetailsId
+            select new { r.PropertyDetailsId, r.RenterName, r.TaxLiability, r.RentMonthly, r.FinalYearlyRent, r.FinancialYear }
+        )
+        .GroupBy(r => r.PropertyDetailsId)
+        .Select(g => new
         {
-            var maxYearText = maxActiveYear.Value.ToString();
-            var renterRows = await _renterRepository.GetQueryable()
-                .Where(r => r.IsActive && !r.MarkedForDeletion && r.FinancialYear == maxYearText && detailIds.Contains(r.PropertyDetailsId))
-                .Select(r => new
-                {
-                    r.PropertyDetailsId,
-                    r.RenterName,
-                    r.TaxLiability,
-                    r.RentMonthly,
-                    r.FinalYearlyRent,
-                    r.FinancialYear
-                })
-                .ToListAsync(cancellationToken);
-
-            renterByDetailId = renterRows
-                .GroupBy(r => r.PropertyDetailsId)
-                .ToDictionary(
-                    g => g.Key,
-                    g =>
-                    {
-                        var r = g.First();
-                        return (r.RenterName, r.TaxLiability, r.RentMonthly, r.FinalYearlyRent, r.FinancialYear);
-                    });
-        }
+            DetailId = g.Key,
+            Data = new { g.First().RenterName, g.First().TaxLiability, g.First().RentMonthly, g.First().FinalYearlyRent, g.First().FinancialYear }
+        })
+        .ToDictionaryAsync(
+            g => g.DetailId,
+            g => (g.Data.RenterName, g.Data.TaxLiability, g.Data.RentMonthly, g.Data.FinalYearlyRent, g.Data.FinancialYear),
+            cancellationToken);
 
         // RV calculation figures are detail-level but stored once per tax row — collapse to one per detail
         // (the SP's SELECT DISTINCT) to avoid multiplying floor rows.
@@ -324,53 +464,106 @@ public class PropertyReassessmentService : IPropertyReassessmentService
                 dto.YearlyRent = rv.YearlyRent;
             }
 
+            if (ocCerts.TryGetValue((propertyId, d.Id), out var ocCert))
+            {
+                dto.OCCertificateNo = ocCert.CertNo;
+                dto.OCCertificateIssueDate = ocCert.IssueDate;
+            }
+
+            if (ccCerts.TryGetValue((propertyId, d.Id), out var ccCert))
+            {
+                dto.CCCertificateNo = ccCert.CertNo;
+                dto.CCCertificateIssueDate = ccCert.IssueDate;
+            }
+
             return dto;
         }).ToList();
     }
 
     /// <summary>
-    /// STEP 3 (old) — PropertyDetailsOld + master codes, with RateableValue/AnnualRentalValue sourced
-    /// from PropertyMastOld (OldRV/OldALV); Depreciation/Maintenance/MonthlyRate/YearlyRate/YearlyRent
-    /// aren't tracked for old records and stay 0. Every row shares the same PropertyMastOldId (the
-    /// method's input), so PropertyMastOld is looked up once rather than joined per row.
+    /// STEP 4 (old) — PropertyDetailsOld + master codes from ALL mapped old properties.
+    /// RateableValue/AnnualRentalValue sourced from each row's PropertyMastOld (OldRV/OldALV).
+    /// Other calculated fields (Depreciation, Maintenance, etc.) always 0 for old records.
+    /// For MERGE scenarios: returns rows from all mapped old properties, each tagged with PropertyIdOld.
+    /// Master-table lookups (Floor, ConstructionType, TypeOfUse) performed via pre-fetched dictionaries
+    /// to avoid SQL-level join multiplication risk.
     /// </summary>
-    private async Task<List<ReassessmentFloorDto>> GetOldFloorDetailsAsync(int propertyOldId, CancellationToken cancellationToken)
+    private async Task<List<ReassessmentFloorDto>> GetOldFloorDetailsAsync(
+        List<int> oldPropertyIds,
+        CancellationToken cancellationToken)
     {
-        var oldMast = await _propertyMastOldRepository.GetQueryable()
-            .Where(pm => pm.Id == propertyOldId)
-            .Select(pm => new { pm.OldRV, pm.OldALV })
-            .FirstOrDefaultAsync(cancellationToken);
+        // Pre-fetch all PropertyMastOld rows to avoid repeated lookups
+        var oldMastDict = await _propertyMastOldRepository.GetQueryable()
+            .Where(pm => oldPropertyIds.Contains(pm.Id))
+            .ToDictionaryAsync(pm => pm.Id, pm => new { pm.OldRV, pm.OldALV }, cancellationToken);
 
-        return await (
-            from pd in _propertyDetailsOldRepository.GetQueryable()
-            where pd.PropertyMastOldId == propertyOldId && pd.IsActive
-            join f in _floorRepository.GetQueryable() on pd.OldFloorId equals f.Id into fj
-            from f in fj.DefaultIfEmpty()
-            join ct in _constructionTypeRepository.GetQueryable() on pd.OldConstructionTypeId equals ct.Id into ctj
-            from ct in ctj.DefaultIfEmpty()
-            join tu in _typeOfUseRepository.GetQueryable() on pd.OldTypeOfUseId equals tu.Id into tuj
-            from tu in tuj.DefaultIfEmpty()
-            select new ReassessmentFloorDto
+        // Fetch PropertyDetailsOld rows with their FK values, filtering by IsActive and MarkedForDeletion
+        var oldDetailRows = await _propertyDetailsOldRepository.GetQueryable()
+            .Where(pd => oldPropertyIds.Contains(pd.PropertyMastOldId) && pd.IsActive && !pd.MarkedForDeletion)
+            .Select(pd => new
             {
-                Type = "OLD",
-                FloorCode = f != null ? f.FloorCode : null,
-                ConstructionCode = ct != null ? ct.ConstructionCode : null,
-                Description = tu != null ? tu.Description : null,
-                ConstructionYear = pd.OldConstructionYear,
-                AssessmentYear = pd.OldAssessmentYear,
-                CarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
-                CarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
-                BuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
-                BuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
-                RateableValue = (decimal?)(oldMast != null ? oldMast.OldRV : null),
-                AnnualRentalValue = oldMast != null ? oldMast.OldALV : null,
-                Depreciation = 0m,
-                Maintenance = 0m,
-                MonthlyRate = 0d,
-                YearlyRate = 0d,
-                YearlyRent = 0d
+                pd.PropertyMastOldId,
+                pd.OldFloorId,
+                pd.OldConstructionTypeId,
+                pd.OldTypeOfUseId,
+                pd.OldConstructionYear,
+                pd.OldAssessmentYear,
+                pd.OldCarpetAreaSqMeter,
+                pd.OldCarpetAreaSqFeet,
+                pd.OldBuiltupAreaSqMeter,
+                pd.OldBuiltupAreaSqFeet
             })
             .ToListAsync(cancellationToken);
+
+        if (oldDetailRows.Count == 0)
+            return [];
+
+        // Pre-fetch all needed master records by ID
+        var floorIds = oldDetailRows.Where(d => d.OldFloorId.HasValue).Select(d => d.OldFloorId!.Value).Distinct().ToList();
+        var constructionTypeIds = oldDetailRows.Where(d => d.OldConstructionTypeId.HasValue).Select(d => d.OldConstructionTypeId!.Value).Distinct().ToList();
+        var typeOfUseIds = oldDetailRows.Where(d => d.OldTypeOfUseId.HasValue).Select(d => d.OldTypeOfUseId!.Value).Distinct().ToList();
+
+        var floorDict = floorIds.Count > 0
+            ? await _floorRepository.GetQueryable()
+                .Where(f => floorIds.Contains(f.Id))
+                .ToDictionaryAsync(f => f.Id, f => f.FloorCode, cancellationToken)
+            : new Dictionary<int, string>();
+
+        var constructionTypeDict = constructionTypeIds.Count > 0
+            ? await _constructionTypeRepository.GetQueryable()
+                .Where(ct => constructionTypeIds.Contains(ct.Id))
+                .ToDictionaryAsync(ct => ct.Id, ct => ct.ConstructionCode, cancellationToken)
+            : new Dictionary<int, string>();
+
+        var typeOfUseDict = typeOfUseIds.Count > 0
+            ? await _typeOfUseRepository.GetQueryable()
+                .Where(tu => typeOfUseIds.Contains(tu.Id))
+                .ToDictionaryAsync(tu => tu.Id, tu => tu.Description, cancellationToken)
+            : new Dictionary<int, string>();
+
+        // Build DTOs in-memory with dictionary lookups (no SQL-level joins, no row multiplication possible)
+        return oldDetailRows.Select(pd => new ReassessmentFloorDto
+        {
+            Type = "OLD",
+            PropertyIdOld = pd.PropertyMastOldId,
+            FloorCode = pd.OldFloorId.HasValue && floorDict.TryGetValue(pd.OldFloorId.Value, out var fc) ? fc : null,
+            ConstructionCode = pd.OldConstructionTypeId.HasValue && constructionTypeDict.TryGetValue(pd.OldConstructionTypeId.Value, out var cc) ? cc : null,
+            Description = pd.OldTypeOfUseId.HasValue && typeOfUseDict.TryGetValue(pd.OldTypeOfUseId.Value, out var desc) ? desc : null,
+            ConstructionYear = pd.OldConstructionYear,
+            AssessmentYear = pd.OldAssessmentYear,
+            CarpetAreaSqMeter = pd.OldCarpetAreaSqMeter,
+            CarpetAreaSqFeet = pd.OldCarpetAreaSqFeet,
+            BuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
+            BuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
+            RateableValue = oldMastDict.TryGetValue(pd.PropertyMastOldId, out var m1) ? (decimal?)m1.OldRV : null,
+            AnnualRentalValue = oldMastDict.TryGetValue(pd.PropertyMastOldId, out var m2) ? m2.OldALV : null,
+            Depreciation = 0m,
+            Maintenance = 0m,
+            MonthlyRate = 0d,
+            YearlyRate = 0d,
+            YearlyRent = 0d
+            // Certificate fields left as null for OLD rows (no certificate support for old properties)
+        }).ToList();
     }
 
     /// <summary>
@@ -395,13 +588,13 @@ public class PropertyReassessmentService : IPropertyReassessmentService
     }
 
     /// <summary>
-    /// STEP 4 — old (TransMastOld) vs new (TransMast) amount per active tax head, ordered by DisplayOrder.
-    /// Replaces the dynamic PIVOT: amounts are summed per tax head into a single old/new figure (the screen
-    /// shows one old row and one new row), which for the common single-finance-year case equals the SP output.
+    /// STEP 5 — old (TransMastOld) vs new (TransMast) amount per active tax head, ordered by DisplayOrder.
+    /// Old amounts are aggregated across ALL mapped old properties (important for MERGE scenarios).
+    /// Example: Old100 Tax=100 + Old101 Tax=200 + Old102 Tax=300 → OldAmount=600.
     /// </summary>
     private async Task<List<ReassessmentTaxHeadDto>> GetTaxSummaryAsync(
         int propertyId,
-        int? propertyOldId,
+        List<int> oldPropertyIds,
         CancellationToken cancellationToken)
     {
         var taxes = await _taxMasterRepository.GetQueryable()
@@ -420,10 +613,10 @@ public class PropertyReassessmentService : IPropertyReassessmentService
             .ToDictionaryAsync(x => x.TaxId, x => x.Amount, cancellationToken);
 
         var oldByTaxId = new Dictionary<int, decimal>();
-        if (propertyOldId.HasValue)
+        if (oldPropertyIds.Count > 0)
         {
             oldByTaxId = await _transMastOldRepository.GetQueryable()
-                .Where(t => t.PropertyMastOldId == propertyOldId.Value && t.IsActive && !t.MarkedForDeletion)
+                .Where(t => oldPropertyIds.Contains(t.PropertyMastOldId) && t.IsActive && !t.MarkedForDeletion)
                 .GroupBy(t => t.TaxId)
                 .Select(g => new { TaxId = g.Key, Amount = g.Sum(x => x.TaxAmount) })
                 .ToDictionaryAsync(x => x.TaxId, x => x.Amount, cancellationToken);

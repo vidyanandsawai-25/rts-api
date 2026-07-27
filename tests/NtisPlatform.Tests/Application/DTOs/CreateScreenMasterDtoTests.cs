@@ -22,6 +22,7 @@ public class CreateScreenMasterDtoTests
         var dto = new CreateScreenMasterDto
         {
             ScreenGroupId = 5,
+            DepartmentId = 2,
             ModuleId = 10,
             ScreenCode = "SCR001",
             ScreenName = "Dashboard",
@@ -36,6 +37,7 @@ public class CreateScreenMasterDtoTests
         };
 
         Assert.Equal(5, dto.ScreenGroupId);
+        Assert.Equal(2, dto.DepartmentId);
         Assert.Equal(10, dto.ModuleId);
         Assert.Equal("SCR001", dto.ScreenCode);
         Assert.Equal("Dashboard", dto.ScreenName);
@@ -111,6 +113,7 @@ public class CreateScreenMasterDtoTests
         var dto = new UpdateScreenMasterDto
         {
             ScreenGroupId = 6,
+            DepartmentId = 3,
             ModuleId = 11,
             ScreenCode = "SCR002",
             ScreenName = "Reports",
@@ -125,6 +128,7 @@ public class CreateScreenMasterDtoTests
         };
 
         Assert.Equal(6, dto.ScreenGroupId);
+        Assert.Equal(3, dto.DepartmentId);
         Assert.Equal(11, dto.ModuleId);
         Assert.Equal("SCR002", dto.ScreenCode);
         Assert.Equal("Reports", dto.ScreenName);

@@ -81,8 +81,5 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         [Required(ErrorMessage = "RTSApplication_ApplicationStatus_Required")]
         public string? ApplicationStatus { get; set; }
         public List<CreateRTSFieldValueDto>? FieldValues { get; set; }
-        
+
     }
-
-
-

@@ -39,4 +39,3 @@ public class UpdateRTSDepartmentDto : UpdateBaseDtos
 
     public int DisplayOrder { get; set; }
 }
-

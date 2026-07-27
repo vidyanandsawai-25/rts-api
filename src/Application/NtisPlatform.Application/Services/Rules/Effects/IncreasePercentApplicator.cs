@@ -10,5 +10,7 @@ namespace NtisPlatform.Application.Services.Rules.Effects
         /// <summary>Result = baseRate × (1 + effectValue / 100). E.g. 1000 × (1 + 20/100) = 1200.</summary>
         public Task<decimal> Apply(decimal baseRate, decimal effectValue) =>
             Task.FromResult(baseRate * (1m + effectValue / 100m));
+
+        public decimal GetApplyRate(decimal effectValue) => 100m + effectValue;
     }
 }

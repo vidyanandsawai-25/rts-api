@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+using NtisPlatform.Application.Interfaces;
+using AutoMapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using MockQueryable;
 using Moq;
@@ -8,6 +9,11 @@ using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Api.Controllers.Master;
+using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -20,6 +26,7 @@ public class AssetTypeServiceTests
     private readonly Mock<IRepository<AssetTypeEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly AssetTypeService _service;
 
     public AssetTypeServiceTests()
@@ -27,6 +34,7 @@ public class AssetTypeServiceTests
         _mockRepository = new Mock<IRepository<AssetTypeEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -44,7 +52,11 @@ public class AssetTypeServiceTests
             .Setup(u => u.RollbackTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<AssetTypeEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        _service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
     }
 
     private static IMapper CreateRealMapper()
@@ -61,7 +73,7 @@ public class AssetTypeServiceTests
 
     private static AssetTypeEntity CreateEntity(
         int id = 1,
-        int categoryId = 10,
+        int AssetCategoryId = 10,
         string typeCode = "BLD",
         string typeName = "Building",
         string? typeNameLocal = null,
@@ -75,7 +87,7 @@ public class AssetTypeServiceTests
         return new AssetTypeEntity
         {
             Id = id,
-            CategoryId = categoryId,
+            AssetCategoryId = AssetCategoryId,
             TypeCode = typeCode,
             TypeName = typeName,
             TypeNameLocal = typeNameLocal,
@@ -100,7 +112,7 @@ public class AssetTypeServiceTests
     public void Constructor_WithValidParameters_CreatesInstance()
     {
         // Arrange & Act
-        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -116,7 +128,7 @@ public class AssetTypeServiceTests
         // Arrange
         var entity = CreateEntity(
             id: 1,
-            categoryId: 100,
+            AssetCategoryId: 100,
             typeName: "Vehicle",
             typeCode: "VEH",
             codeFormat: "VEH-{000}");
@@ -130,7 +142,7 @@ public class AssetTypeServiceTests
             .Returns(new AssetTypeDto
             {
                 Id = 1,
-                CategoryId = 100,
+                AssetCategoryId = 100,
                 TypeName = "Vehicle",
                 TypeCode = "VEH",
                 CodeFormat = "VEH-{000}",
@@ -145,7 +157,7 @@ public class AssetTypeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal(100, result.CategoryId);
+        Assert.Equal(100, result.AssetCategoryId);
         Assert.Equal("Vehicle", result.TypeName);
         Assert.Equal("VEH", result.TypeCode);
         Assert.Equal("VEH-{000}", result.CodeFormat);
@@ -219,17 +231,14 @@ public class AssetTypeServiceTests
         // Arrange
         var entities = new List<AssetTypeEntity>
         {
-            CreateEntity(id: 1, categoryId: 10, typeName: "Building", typeCode: "BLD", codeFormat: "BLD-{000}"),
-            CreateEntity(id: 2, categoryId: 20, typeName: "Vehicle", typeCode: "VEH", codeFormat: "VEH-{000}")
+            CreateEntity(id: 1, AssetCategoryId: 10, typeName: "Building", typeCode: "BLD", codeFormat: "BLD-{000}"),
+            CreateEntity(id: 2, AssetCategoryId: 20, typeName: "Vehicle", typeCode: "VEH", codeFormat: "VEH-{000}")
         };
 
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -261,10 +270,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -290,7 +296,7 @@ public class AssetTypeServiceTests
         {
             entities.Add(CreateEntity(
                 id: i,
-                categoryId: 100 + i,
+                AssetCategoryId: 100 + i,
                 typeName: $"Asset Type {i}",
                 typeCode: $"AT{i}",
                 codeFormat: $"AT{i}-{{000}}"));
@@ -299,10 +305,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -335,10 +338,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -370,10 +370,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -406,10 +403,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -437,10 +431,7 @@ public class AssetTypeServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
-        var service = new AssetTypeService(
-            _mockRepository.Object,
-            _mockUnitOfWork.Object,
-            CreateRealMapper());
+        var service = new AssetTypeService(_mockRepository.Object, _mockUnitOfWork.Object, CreateRealMapper(), _mockReferenceValidator.Object);
 
         var queryParams = new AssetTypeQueryParameters
         {
@@ -465,23 +456,31 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 10,
+            AssetCategoryId = 10,
             TypeName = "Building",
             TypeCode = "BLD",
-            CodeFormat = "BLD-{000}"
+            CodeFormat = "BLD-{000}",
+            IsSubUnit = true,
+            AllowUnitRegistration = true,
+            AllowRoomRegistration = false,
+            AssetWardNo = "Ward-1"
         };
 
         _mockMapper
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns((CreateAssetTypeDto dto) => new AssetTypeEntity
             {
-                CategoryId = dto.CategoryId ?? 0,
+                AssetCategoryId = dto.AssetCategoryId ?? 0,
                 TypeName = dto.TypeName!,
                 TypeCode = dto.TypeCode!,
                 CodeFormat = dto.CodeFormat!,
                 CreatedBy = 1,
                 CreatedDate = DateTime.Now,
-                IsActive = true
+                IsActive = true,
+                IsSubUnit = dto.IsSubUnit,
+                AllowUnitRegistration = dto.AllowUnitRegistration,
+                AllowRoomRegistration = dto.AllowRoomRegistration,
+                AssetWardNo = dto.AssetWardNo
             });
 
         _mockRepository
@@ -492,11 +491,15 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
                 CodeFormat = e.CodeFormat,
-                IsActive = true
+                IsActive = true,
+                IsSubUnit = e.IsSubUnit,
+                AllowUnitRegistration = e.AllowUnitRegistration,
+                AllowRoomRegistration = e.AllowRoomRegistration,
+                AssetWardNo = e.AssetWardNo
             });
 
         // Act
@@ -504,11 +507,15 @@ public class AssetTypeServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(10, result.CategoryId);
+        Assert.Equal(10, result.AssetCategoryId);
         Assert.Equal("Building", result.TypeName);
         Assert.Equal("BLD", result.TypeCode);
         Assert.Equal("BLD-{000}", result.CodeFormat);
         Assert.True(result.IsActive);
+        Assert.True(result.IsSubUnit);
+        Assert.True(result.AllowUnitRegistration);
+        Assert.False(result.AllowRoomRegistration);
+        Assert.Equal("Ward-1", result.AssetWardNo);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<AssetTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -523,7 +530,7 @@ public class AssetTypeServiceTests
         var longCodeFormat = $"EQP-{new string('X', 50)}-{{000}}";
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 30,
+            AssetCategoryId = 30,
             TypeName = "Equipment",
             TypeCode = "EQP",
             CodeFormat = longCodeFormat
@@ -533,7 +540,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns(new AssetTypeEntity
             {
-                CategoryId = createDto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = createDto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeName = createDto.TypeName!,
                 TypeCode = createDto.TypeCode!,
                 CodeFormat = createDto.CodeFormat!,
@@ -548,7 +555,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns(new AssetTypeDto
             {
-                CategoryId = createDto.CategoryId.Value,
+                AssetCategoryId = createDto.AssetCategoryId.Value,
                 TypeName = createDto.TypeName!,
                 TypeCode = createDto.TypeCode!,
                 CodeFormat = createDto.CodeFormat!
@@ -569,7 +576,7 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 40,
+            AssetCategoryId = 40,
             TypeName = "Furniture",
             TypeCode = "FUR",
             CodeFormat = "FUR-{000}"
@@ -595,7 +602,7 @@ public class AssetTypeServiceTests
 
         // Assert
         Assert.NotNull(capturedDto);
-        Assert.Equal(40, capturedDto.CategoryId);
+        Assert.Equal(40, capturedDto.AssetCategoryId);
         Assert.Equal("Furniture", capturedDto.TypeName);
         Assert.Equal("FUR", capturedDto.TypeCode);
         Assert.Equal("FUR-{000}", capturedDto.CodeFormat);
@@ -608,7 +615,7 @@ public class AssetTypeServiceTests
         var cancellationToken = new CancellationToken();
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 10,
+            AssetCategoryId = 10,
             TypeName = "Test Type",
             TypeCode = "TST",
             CodeFormat = "TST-{000}"
@@ -640,7 +647,7 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 50,
+            AssetCategoryId = 50,
             TypeName = "Plant & Machinery",
             TypeCode = "P&M",
             CodeFormat = "P&M/{YYYY}/{000}"
@@ -650,7 +657,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns(new AssetTypeEntity
             {
-                CategoryId = createDto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = createDto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeName = createDto.TypeName!,
                 TypeCode = createDto.TypeCode!,
                 CodeFormat = createDto.CodeFormat!,
@@ -665,7 +672,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns(new AssetTypeDto
             {
-                CategoryId = createDto.CategoryId.Value,
+                AssetCategoryId = createDto.AssetCategoryId.Value,
                 TypeName = createDto.TypeName!,
                 TypeCode = createDto.TypeCode!,
                 CodeFormat = createDto.CodeFormat!
@@ -687,10 +694,10 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 60,
+            AssetCategoryId = 60,
             TypeCode = "VEH",
             TypeName = "Vehicle",
-            TypeNameLocal = "वाहन",
+            TypeNameLocal = "????",
             CodeFormat = "VEH-{000}"
         };
 
@@ -698,7 +705,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns(new AssetTypeEntity
             {
-                CategoryId = createDto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = createDto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 TypeNameLocal = createDto.TypeNameLocal,
@@ -714,7 +721,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns(new AssetTypeDto
             {
-                CategoryId = createDto.CategoryId.Value,
+                AssetCategoryId = createDto.AssetCategoryId.Value,
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 TypeNameLocal = createDto.TypeNameLocal,
@@ -727,7 +734,7 @@ public class AssetTypeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("Vehicle", result.TypeName);
-        Assert.Equal("वाहन", result.TypeNameLocal);
+        Assert.Equal("????", result.TypeNameLocal);
         Assert.Equal("VEH", result.TypeCode);
     }
 
@@ -737,7 +744,7 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 70,
+            AssetCategoryId = 70,
             TypeCode = "IT",
             TypeName = "IT Equipment",
             Icon = "fas fa-laptop",
@@ -748,7 +755,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns(new AssetTypeEntity
             {
-                CategoryId = createDto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = createDto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 Icon = createDto.Icon,
@@ -764,7 +771,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns(new AssetTypeDto
             {
-                CategoryId = createDto.CategoryId.Value,
+                AssetCategoryId = createDto.AssetCategoryId.Value,
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 Icon = createDto.Icon,
@@ -787,10 +794,10 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 80,
+            AssetCategoryId = 80,
             TypeCode = "OFF",
             TypeName = "Office Furniture",
-            TypeNameLocal = "कार्यालय फर्नीचर",
+            TypeNameLocal = "???????? ???????",
             Description = "Furniture for office use",
             Icon = "fas fa-chair",
             CodeFormat = "OFF-{000}"
@@ -800,7 +807,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeEntity>(It.IsAny<CreateAssetTypeDto>()))
             .Returns(new AssetTypeEntity
             {
-                CategoryId = createDto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = createDto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 TypeNameLocal = createDto.TypeNameLocal,
@@ -819,7 +826,7 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
             .Returns(new AssetTypeDto
             {
-                CategoryId = createDto.CategoryId.Value,
+                AssetCategoryId = createDto.AssetCategoryId.Value,
                 TypeCode = createDto.TypeCode!,
                 TypeName = createDto.TypeName!,
                 TypeNameLocal = createDto.TypeNameLocal,
@@ -834,7 +841,7 @@ public class AssetTypeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("Office Furniture", result.TypeName);
-        Assert.Equal("कार्यालय फर्नीचर", result.TypeNameLocal);
+        Assert.Equal("???????? ???????", result.TypeNameLocal);
         Assert.Equal("fas fa-chair", result.Icon);
         Assert.Equal("OFF", result.TypeCode);
         Assert.Equal(0, result.LastSequence);
@@ -850,14 +857,23 @@ public class AssetTypeServiceTests
         // Arrange
         var updateDto = new UpdateAssetTypeDto
         {
+            AssetCategoryId = 15,
             TypeName = "Updated Building",
             TypeCode = "UBLD",
-            CodeFormat = "UBLD-{000}"
+            TypeNameLocal = "Updated Local Name",
+            Description = "Updated Description",
+            Icon = "updated-icon.png",
+            CodeFormat = "UBLD-{000}",
+            IsSubUnit = false,
+            AllowUnitRegistration = true,
+            AllowRoomRegistration = true,
+            AssetWardNo = "Ward-15",
+            IsActive = true
         };
 
         var existingEntity = CreateEntity(
             id: 1,
-            categoryId: 10,
+            AssetCategoryId: 10,
             typeName: "Old Building",
             typeCode: "OLD",
             codeFormat: "OLD-{000}");
@@ -874,9 +890,18 @@ public class AssetTypeServiceTests
             .Setup(m => m.Map(It.IsAny<UpdateAssetTypeDto>(), It.IsAny<AssetTypeEntity>()))
             .Callback((UpdateAssetTypeDto src, AssetTypeEntity dest) =>
             {
+                dest.AssetCategoryId = src.AssetCategoryId ?? dest.AssetCategoryId;
                 dest.TypeName = src.TypeName!;
                 dest.TypeCode = src.TypeCode!;
+                dest.TypeNameLocal = src.TypeNameLocal;
+                dest.Description = src.Description;
+                dest.Icon = src.Icon;
                 dest.CodeFormat = src.CodeFormat!;
+                dest.IsActive = src.IsActive;
+                dest.IsSubUnit = src.IsSubUnit;
+                dest.AllowUnitRegistration = src.AllowUnitRegistration;
+                dest.AllowRoomRegistration = src.AllowRoomRegistration;
+                dest.AssetWardNo = src.AssetWardNo;
             });
 
         _mockMapper
@@ -884,10 +909,18 @@ public class AssetTypeServiceTests
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
                 Id = e.Id,
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
-                CodeFormat = e.CodeFormat
+                TypeNameLocal = e.TypeNameLocal,
+                Description = e.Description,
+                Icon = e.Icon,
+                CodeFormat = e.CodeFormat,
+                IsActive = e.IsActive,
+                IsSubUnit = e.IsSubUnit,
+                AllowUnitRegistration = e.AllowUnitRegistration,
+                AllowRoomRegistration = e.AllowRoomRegistration,
+                AssetWardNo = e.AssetWardNo
             });
 
         // Act
@@ -896,10 +929,18 @@ public class AssetTypeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.Id);
-        Assert.Equal(10, result.CategoryId);
+        Assert.Equal(15, result.AssetCategoryId);
         Assert.Equal("Updated Building", result.TypeName);
         Assert.Equal("UBLD", result.TypeCode);
+        Assert.False(result.IsSubUnit);
+        Assert.True(result.AllowUnitRegistration);
+        Assert.True(result.AllowRoomRegistration);
+        Assert.Equal("Ward-15", result.AssetWardNo);
+        Assert.Equal("Updated Local Name", result.TypeNameLocal);
+        Assert.Equal("Updated Description", result.Description);
+        Assert.Equal("updated-icon.png", result.Icon);
         Assert.Equal("UBLD-{000}", result.CodeFormat);
+        Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<AssetTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -907,9 +948,14 @@ public class AssetTypeServiceTests
         _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Never);
 
+        Assert.Equal(15, existingEntity.AssetCategoryId);
         Assert.Equal("Updated Building", existingEntity.TypeName);
         Assert.Equal("UBLD", existingEntity.TypeCode);
+        Assert.Equal("Updated Local Name", existingEntity.TypeNameLocal);
+        Assert.Equal("Updated Description", existingEntity.Description);
+        Assert.Equal("updated-icon.png", existingEntity.Icon);
         Assert.Equal("UBLD-{000}", existingEntity.CodeFormat);
+        Assert.True(existingEntity.IsActive);
     }
 
     [Fact]
@@ -950,7 +996,7 @@ public class AssetTypeServiceTests
 
         var existingEntity = CreateEntity(
             id: 3,
-            categoryId: 30,
+            AssetCategoryId: 30,
             typeName: "Old Furniture",
             typeCode: "OLDFUR",
             codeFormat: "OLDFUR-{000}");
@@ -977,7 +1023,7 @@ public class AssetTypeServiceTests
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
                 Id = e.Id,
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
                 CodeFormat = e.CodeFormat
@@ -1044,7 +1090,7 @@ public class AssetTypeServiceTests
 
         var existingEntity = CreateEntity(
             id: 10,
-            categoryId: 99,
+            AssetCategoryId: 99,
             typeName: "Old Name",
             typeCode: "OLD",
             codeFormat: "OLD-{000}");
@@ -1071,7 +1117,7 @@ public class AssetTypeServiceTests
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
                 Id = e.Id,
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
                 CodeFormat = e.CodeFormat,
@@ -1085,7 +1131,7 @@ public class AssetTypeServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(10, result.Id);
-        Assert.Equal(99, result.CategoryId);
+        Assert.Equal(99, result.AssetCategoryId);
         Assert.Equal("New Name", result.TypeName);
         Assert.Equal("NEW", result.TypeCode);
         Assert.Equal("NEW-{000}", result.CodeFormat);
@@ -1139,7 +1185,7 @@ public class AssetTypeServiceTests
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
                 Id = e.Id,
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
                 CodeFormat = e.CodeFormat
@@ -1154,6 +1200,120 @@ public class AssetTypeServiceTests
         Assert.Equal("Second Update", result.TypeName);
         Assert.Equal("SND", result.TypeCode);
         Assert.Equal("SND-{000}", result.CodeFormat);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingEntityWithReferences_ThrowsValidationException()
+    {
+        // Arrange
+        var updateDto = new UpdateAssetTypeDto
+        {
+            TypeName = "Updated Building",
+            TypeCode = "UBLD",
+            CodeFormat = "UBLD-{000}",
+            IsActive = false
+        };
+
+        var existingEntity = CreateEntity(
+            id: 1,
+            AssetCategoryId: 10,
+            typeName: "Old Building",
+            typeCode: "OLD",
+            codeFormat: "OLD-{000}",
+            isActive: true);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(rv => rv.ValidateReferencesAsync<AssetTypeEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Cannot deactivate asset type with active references"));
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateAssetTypeDto>(), It.IsAny<AssetTypeEntity>()))
+            .Callback((UpdateAssetTypeDto src, AssetTypeEntity dest) =>
+            {
+                dest.TypeName = src.TypeName!;
+                dest.TypeCode = src.TypeCode!;
+                dest.CodeFormat = src.CodeFormat!;
+                dest.IsActive = src.IsActive;
+            });
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+
+        Assert.Contains("Cannot deactivate", exception.Message);
+        _mockReferenceValidator.Verify(
+            rv => rv.ValidateReferencesAsync<AssetTypeEntity>(1, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingEntityWithoutReferences_UpdatesSuccessfully()
+    {
+        // Arrange
+        var updateDto = new UpdateAssetTypeDto
+        {
+            TypeName = "Updated Building",
+            TypeCode = "UBLD",
+            CodeFormat = "UBLD-{000}",
+            IsActive = false
+        };
+
+        var existingEntity = CreateEntity(
+            id: 1,
+            AssetCategoryId: 10,
+            typeName: "Old Building",
+            typeCode: "OLD",
+            codeFormat: "OLD-{000}",
+            isActive: true);
+
+        _mockRepository
+            .Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+
+        _mockReferenceValidator
+            .Setup(rv => rv.ValidateReferencesAsync<AssetTypeEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<AssetTypeEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateAssetTypeDto>(), It.IsAny<AssetTypeEntity>()))
+            .Callback((UpdateAssetTypeDto src, AssetTypeEntity dest) =>
+            {
+                dest.TypeName = src.TypeName!;
+                dest.TypeCode = src.TypeCode!;
+                dest.CodeFormat = src.CodeFormat!;
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<AssetTypeDto>(It.IsAny<AssetTypeEntity>()))
+            .Returns((AssetTypeEntity e) => new AssetTypeDto
+            {
+                Id = e.Id,
+                AssetCategoryId = e.AssetCategoryId,
+                TypeName = e.TypeName,
+                TypeCode = e.TypeCode,
+                CodeFormat = e.CodeFormat,
+                IsActive = e.IsActive
+            });
+
+        // Act
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(result.IsActive);
+        _mockReferenceValidator.Verify(
+            rv => rv.ValidateReferencesAsync<AssetTypeEntity>(1, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<AssetTypeEntity>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
@@ -1313,7 +1473,7 @@ public class AssetTypeServiceTests
         // Arrange
         var createDto = new CreateAssetTypeDto
         {
-            CategoryId = 10,
+            AssetCategoryId = 10,
             TypeName = "Integration Test Type",
             TypeCode = "ITT",
             CodeFormat = "ITT-{000}"
@@ -1321,7 +1481,7 @@ public class AssetTypeServiceTests
 
         var createdEntity = CreateEntity(
             id: 100,
-            categoryId: createDto.CategoryId.Value, // FIX: Added .Value
+            AssetCategoryId: createDto.AssetCategoryId.Value, // FIX: Added .Value
             typeName: createDto.TypeName!,
             typeCode: createDto.TypeCode!,
             codeFormat: createDto.CodeFormat!);
@@ -1339,7 +1499,7 @@ public class AssetTypeServiceTests
             .Returns(new AssetTypeDto
             {
                 Id = 100,
-                CategoryId = createdEntity.CategoryId,
+                AssetCategoryId = createdEntity.AssetCategoryId,
                 TypeName = createdEntity.TypeName,
                 TypeCode = createdEntity.TypeCode,
                 CodeFormat = createdEntity.CodeFormat
@@ -1400,7 +1560,7 @@ public class AssetTypeServiceTests
             .Returns((AssetTypeEntity e) => new AssetTypeDto
             {
                 Id = e.Id,
-                CategoryId = e.CategoryId,
+                AssetCategoryId = e.AssetCategoryId,
                 TypeName = e.TypeName,
                 TypeCode = e.TypeCode,
                 CodeFormat = e.CodeFormat
@@ -1456,16 +1616,16 @@ public class AssetTypeServiceTests
         // Arrange
         var createDtos = new[]
         {
-            new CreateAssetTypeDto { CategoryId = 1, TypeName = "Type 1", TypeCode = "T1", CodeFormat = "T1-{000}" },
-            new CreateAssetTypeDto { CategoryId = 2, TypeName = "Type 2", TypeCode = "T2", CodeFormat = "T2-{000}" },
-            new CreateAssetTypeDto { CategoryId = 3, TypeName = "Type 3", TypeCode = "T3", CodeFormat = "T3-{000}" }
+            new CreateAssetTypeDto { AssetCategoryId = 1, TypeName = "Type 1", TypeCode = "T1", CodeFormat = "T1-{000}" },
+            new CreateAssetTypeDto { AssetCategoryId = 2, TypeName = "Type 2", TypeCode = "T2", CodeFormat = "T2-{000}" },
+            new CreateAssetTypeDto { AssetCategoryId = 3, TypeName = "Type 3", TypeCode = "T3", CodeFormat = "T3-{000}" }
         };
 
         foreach (var dto in createDtos)
         {
             var entity = new AssetTypeEntity
             {
-                CategoryId = dto.CategoryId.Value, // FIX: Added .Value
+                AssetCategoryId = dto.AssetCategoryId.Value, // FIX: Added .Value
                 TypeName = dto.TypeName!,
                 TypeCode = dto.TypeCode!,
                 CodeFormat = dto.CodeFormat!
@@ -1483,7 +1643,7 @@ public class AssetTypeServiceTests
                 .Setup(m => m.Map<AssetTypeDto>(It.Is<AssetTypeEntity>(e => e.TypeName == dto.TypeName)))
                 .Returns(new AssetTypeDto
                 {
-                    CategoryId = entity.CategoryId,
+                    AssetCategoryId = entity.AssetCategoryId,
                     TypeName = entity.TypeName,
                     TypeCode = entity.TypeCode,
                     CodeFormat = entity.CodeFormat
@@ -1507,4 +1667,117 @@ public class AssetTypeServiceTests
     }
 
     #endregion
+
+    #region Entity Properties Coverage Test
+
+    [Fact]
+    public void TestAllProperties_ToEnsureCodeCoverage()
+    {
+        var entity = new AssetTypeEntity
+        {
+            Id = 1,
+            AssetCategoryId = 2,
+            TypeCode = "EQP",
+            TypeName = "Equipment",
+            TypeNameLocal = "Local Name",
+            Description = "Description",
+            Icon = "icon.png",
+            CodeFormat = "FORMAT",
+            LastSequence = 5,
+            RowVersion = new byte[] { 1, 2, 3 },
+            AllowUnitRegistration = true,
+            AllowRoomRegistration = true,
+            AssetWardNo = "Ward 1",
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        Assert.Equal(1, entity.Id);
+        Assert.Equal(2, entity.AssetCategoryId);
+        Assert.Equal("EQP", entity.TypeCode);
+        Assert.Equal("Equipment", entity.TypeName);
+        Assert.Equal("Local Name", entity.TypeNameLocal);
+        Assert.Equal("Description", entity.Description);
+        Assert.Equal("icon.png", entity.Icon);
+        Assert.Equal("FORMAT", entity.CodeFormat);
+        Assert.Equal(5, entity.LastSequence);
+        Assert.NotNull(entity.RowVersion);
+        Assert.True(entity.AllowUnitRegistration);
+        Assert.True(entity.AllowRoomRegistration);
+        Assert.Equal("Ward 1", entity.AssetWardNo);
+        Assert.True(entity.IsActive);
+        Assert.False(entity.MarkedForDeletion);
+    }
+
+    #endregion
+}
+
+public class AssetTypeControllerTests
+{
+    private static AssetTypeController Create(
+        out Mock<IAssetTypeService> service,
+        out Mock<IHardDeleteCleanupService> cleanupService,
+        out Mock<IReferenceValidationService> referenceValidationService)
+    {
+        service = new Mock<IAssetTypeService>();
+        cleanupService = new Mock<IHardDeleteCleanupService>();
+        referenceValidationService = new Mock<IReferenceValidationService>();
+        var logger = new Mock<ILogger<AssetTypeController>>();
+        return new AssetTypeController(service.Object, cleanupService.Object, referenceValidationService.Object, logger.Object);
+    }
+
+    [Fact]
+    public async Task GetAll_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var query = new AssetTypeQueryParameters();
+        service.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<AssetTypeDto>(new List<AssetTypeDto>(), 0, 1, 10));
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task GetById_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        service.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssetTypeDto { Id = 1 });
+
+        var result = await controller.GetById(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Create_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var dto = new CreateAssetTypeDto { TypeName = "Equipment" };
+        service.Setup(s => s.CreateAsync(dto, It.IsAny<CancellationToken>())).ReturnsAsync(new AssetTypeDto { Id = 1 });
+
+        var result = await controller.Create(dto, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Update_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        var dto = new UpdateAssetTypeDto { TypeName = "Updated Equipment" };
+        service.Setup(s => s.UpdateAsync(1, dto, It.IsAny<CancellationToken>())).ReturnsAsync(new AssetTypeDto { Id = 1 });
+
+        var result = await controller.Update(1, dto, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task Delete_ReturnsOk()
+    {
+        var controller = Create(out var service, out _, out _);
+        service.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await controller.Delete(1, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(result);
+    }
 }
