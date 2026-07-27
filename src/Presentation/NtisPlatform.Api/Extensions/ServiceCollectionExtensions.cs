@@ -425,6 +425,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserScreenAccessService, UserScreenAccessService>();
+        services.AddScoped<IUserDepartmentAllocationService, UserDepartmentAllocationService>();
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
 
