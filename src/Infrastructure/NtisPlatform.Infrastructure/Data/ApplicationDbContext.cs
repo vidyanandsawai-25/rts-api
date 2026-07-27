@@ -5469,7 +5469,7 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_FieldValue_ApplicationDetails");
 
-            entity.HasOne<RTSFieldDefinitionEntity>()
+            entity.HasOne(e => e.FieldDefinition)
                 .WithMany()
                 .HasForeignKey(e => e.FieldDefinitionId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -5513,12 +5513,12 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MarkedForDeletionDate)
                 .HasColumnType("datetime");
 
-            entity.HasOne<RTSDepartmentEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.DepartmentId)
-                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.Department)
+               .WithMany()
+               .HasForeignKey(e => e.DepartmentId)
+               .OnDelete(DeleteBehavior.Restrict);
 
-            entity.HasOne<RTSServiceEntity>()
+            entity.HasOne(e => e.Service)
                 .WithMany()
                 .HasForeignKey(e => e.ServiceId)
                 .OnDelete(DeleteBehavior.Restrict);
