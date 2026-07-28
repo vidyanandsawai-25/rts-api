@@ -36,7 +36,7 @@ public class TaxApplicabilityControllerTests
             PropertyId = 1,
             FinancialYearId = 2,
             TypeOfUseGroupId = 3,
-            RvOrCv = "RV",
+            CalculationType = "RV",
             PageNumber = 1,
             PageSize = 10
         };
@@ -85,7 +85,7 @@ public class TaxApplicabilityControllerTests
             PropertyId = 1,
             FinancialYearId = 2,
             TypeOfUseGroupId = 3,
-            RvOrCv = "RV"
+            CalculationType = "RV"
         };
 
         _mockService.Setup(s => s.GetAllAsync(request, It.IsAny<CancellationToken>()))

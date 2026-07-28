@@ -23,7 +23,7 @@ public class TaxApplicabilityRequestDto : BaseQueryParameters
     public int TypeOfUseGroupId { get; set; }
 
     /// <summary>
-    /// Rateable Value or Capital Value indicator
+    /// Rateable Value or Capital Value indicator / Calculation Type (e.g. RV or CV)
     /// </summary>
-    public string RvOrCv { get; set; } = string.Empty;
+    public string CalculationType { get; set; } = string.Empty;
 }

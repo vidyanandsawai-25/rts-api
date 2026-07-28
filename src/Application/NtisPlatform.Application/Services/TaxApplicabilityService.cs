@@ -85,18 +85,6 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         TaxApplicabilityRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        // Get calculated tax amounts from TransMast - this is the source of truth for which taxes to display
-        var taxAmounts = await _transMastRepository
-            .GetQueryable()
-            .Where(tm => tm.PropertyId == request.PropertyId 
-                      && tm.FinanceYearId == request.FinancialYearId
-                      && tm.CalculationType == request.RvOrCv.Trim().ToUpperInvariant()
-                      && tm.IsActive 
-                      && !tm.MarkedForDeletion)
-            .OrderBy(tm => tm.TaxId)
-            .ToListAsync(cancellationToken);
-
-        // If no TransMast records found, return empty response (not null)
         var response = new TaxApplicabilityResponseDto
         {
             PropertyId = request.PropertyId,
@@ -104,80 +92,60 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
             TypeOfUseGroupId = request.TypeOfUseGroupId
         };
 
-        // If no tax amounts found in TransMast, return empty lists
-        if (taxAmounts == null || !taxAmounts.Any())
+        // Query TaxMaster joined with TaxPercentageMasterRV, TypeOfUseMaster, TransMast, and ApplyTaxesMaster
+        var query = from tm in _taxMasterRepository.GetQueryable()
+                    join tpr in _taxPercentageRVRepository.GetQueryable()
+                        .Where(x => x.YearRangeRVId == request.FinancialYearId && x.IsActive)
+                        on tm.Id equals tpr.TaxId into tprGroup
+                    from tpr in tprGroup.DefaultIfEmpty()
+
+                    join tu in _typeOfUseRepository.GetQueryable()
+                        .Where(x => x.TypeOfUseGroupId == request.TypeOfUseGroupId)
+                        on tpr.TypeOfUseId equals tu.Id into tuGroup
+                    from tu in tuGroup.DefaultIfEmpty()
+
+                    join tr in _transMastRepository.GetQueryable()
+                        .Where(x => x.PropertyId == request.PropertyId
+                                 && x.FinanceYearId == request.FinancialYearId
+                                 && x.CalculationType == request.CalculationType.Trim().ToUpperInvariant()
+                                 && !x.MarkedForDeletion)
+                        on tm.Id equals tr.TaxId into trGroup
+                    from tr in trGroup.DefaultIfEmpty()
+
+                    join app in _repository.GetQueryable()
+                        .Where(x => x.PropertyId == request.PropertyId
+                                 && x.IsActive
+                                 && !x.MarkedForDeletion)
+                        on tm.Id equals app.TaxId into appGroup
+                    from app in appGroup.DefaultIfEmpty()
+
+                    group new { tm, tpr, tr, app } by new
+                    {
+                        tm.Id,
+                        tm.TaxName,
+                        tm.TaxCode,
+                        tm.DisplayOrder,
+                        tm.IsActive,
+                        trCalculationType = tr != null ? tr.CalculationType : null
+                    } into g
+                    orderby g.Key.DisplayOrder
+                    select new TaxApplicabilityDetailDto
+                    {
+                        TaxId = g.Key.Id,
+                        TaxHead = g.Key.TaxName,
+                        TaxCode = g.Key.TaxCode ?? string.Empty,
+                        CalculationType = g.Key.trCalculationType,
+                        TaxPercentage = g.Max(x => x.tpr != null ? (decimal?)x.tpr.TaxPercentage : null) ?? 0,
+                        TaxAmount = g.Max(x => x.tr != null ? (decimal?)x.tr.TaxAmount : null) ?? 0,
+                        // If an active exemption record exists in ApplyTaxesMaster, it is exempted (IsApplicable = false)
+                        IsApplicable = g.Any(x => x.tpr != null) && !g.Any(x => x.app != null),
+                        IsActive = g.Key.IsActive
+                    };
+
+        var taxDetails = await query.ToListAsync(cancellationToken);
+
+        foreach (var taxDetail in taxDetails)
         {
-            return response;
-        }
-
-        // Fetch all ApplyTaxesMaster records for this property
-        var applyTaxesMasterList = await _repository
-            .GetQueryable()
-            .Where(x => x.PropertyId == request.PropertyId)
-            .ToListAsync(cancellationToken);
-
-        // Get all tax master details for the taxes in TransMast
-        var taxIds = taxAmounts.Select(ta => ta.TaxId).Distinct().ToList();
-        var taxMasterList = await _taxMasterRepository
-            .GetQueryable()
-            .Where(t => taxIds.Contains(t.Id))
-            .ToListAsync(cancellationToken);
-
-        // Get all active year ranges to find the correct YearRangeRVId
-        var yearRanges = await _yearRangeRepository
-            .GetQueryable()
-            .Where(yr => yr.IsActive)
-            .ToListAsync(cancellationToken);
-
-        var yearRange = yearRanges.FirstOrDefault();
-        var yearRangeRVId = yearRange?.Id ?? 0;
-
-        // Get all TypeOfUse IDs belonging to the specified TypeOfUseGroupId
-        var typeOfUseIds = await _typeOfUseRepository
-            .GetQueryable()
-            .Where(t => t.TypeOfUseGroupId == request.TypeOfUseGroupId && t.IsActive)
-            .Select(t => t.Id)
-            .ToListAsync(cancellationToken);
-
-        // Get tax percentage configurations for all TypeOfUse IDs in the group and YearRangeRVId
-        var taxPercentages = await _taxPercentageRVRepository
-            .GetQueryable()
-            .Where(tp => typeOfUseIds.Contains(tp.TypeOfUseId) 
-                      && tp.YearRangeRVId == yearRangeRVId
-                      && tp.IsActive)
-            .ToListAsync(cancellationToken);
-
-        // Pre-build dictionaries to optimize search inside the loop from O(n^2) to O(n)
-        var taxMasterDict = taxMasterList.ToDictionary(t => t.Id);
-        var taxPercentageDict = taxPercentages.GroupBy(tp => tp.TaxId).ToDictionary(g => g.Key, g => g.First());
-        var applyTaxesDict = applyTaxesMasterList.GroupBy(x => x.TaxId).ToDictionary(g => g.Key, g => g.First());
-
-        // Process each tax from TransMast and categorize as applicable or exempted
-        foreach (var taxAmount in taxAmounts)
-        {
-            // Get tax master details
-            taxMasterDict.TryGetValue(taxAmount.TaxId, out var taxMaster);
-            
-            // Get tax percentage for this tax (take the first matching percentage if multiple exist)
-            taxPercentageDict.TryGetValue(taxAmount.TaxId, out var taxPercentage);
-
-            // Determine applicability status: if record exists in ApplyTaxesMaster, use the inversion of its IsActive status (since IsActive=1 means active exemption/disabled), otherwise use TaxMaster.IsActive
-            applyTaxesDict.TryGetValue(taxAmount.TaxId, out var applyTaxRecord);
-            bool isApplicableState = applyTaxRecord != null ? !applyTaxRecord.IsActive : (taxMaster?.IsActive ?? false);
-
-            var taxDetail = new TaxApplicabilityDetailDto
-            {
-                TaxId = taxAmount.TaxId,
-                TaxHead = taxMaster?.TaxName ?? "Unknown Tax",
-                TaxCode = taxMaster?.TaxCode ?? "",
-                CalculationType = null,
-                TaxPercentage = taxPercentage?.TaxPercentage ?? 0,
-                TaxAmount = taxAmount.TaxAmount,
-                IsActive = isApplicableState,
-                IsApplicable = isApplicableState
-            };
-
-            // Classify tax as applicable or exempted based on applicability (which mirrors active status)
             if (taxDetail.IsApplicable)
             {
                 response.ApplicableTaxes.Add(taxDetail);
