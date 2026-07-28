@@ -57,6 +57,8 @@ using System.Text;
 using NtisPlatform.Application.Services.Asset_Management;
 using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Services.ReportDataProviders;
+using NtisPlatform.Core.Interfaces.Asset_Management;
+using NtisPlatform.Infrastructure.Services.Asset_Management;
 
 namespace NtisPlatform.Api.Extensions;
 
@@ -252,6 +254,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
         services.AddScoped<IFieldRegistryService, FieldRegistryService>();
+        services.AddScoped<IAssetPhotoService, AssetPhotoService>();
 
         // Translation Management
         services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
@@ -272,6 +275,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
+        services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
 
         // Global Document Binding Handlers (OCP extension points).
         // Each module registers its own handler — DocumentApplicationService dispatches to them
@@ -281,6 +285,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, PropertyPhotoDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, PropertyCertificateDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, RenterMastDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, AssetPhotoDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
