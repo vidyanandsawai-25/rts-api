@@ -1,3 +1,4 @@
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
@@ -18,4 +19,5 @@ public class RTSFieldValueEntity : BaseEntity, IHardDeletable
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
     public virtual RTSApplicationDetailsEntity? Application { get; set; }
+    public virtual RTSFieldDefinitionEntity? FieldDefinition { get; set; }
 }
