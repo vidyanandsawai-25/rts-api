@@ -12,6 +12,7 @@ using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Application.Services.CommonDetails;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
@@ -31,6 +32,7 @@ public class CommonDetailsService : ICommonDetailsService
     private readonly IRepository<PropertyEntity> _propertyRepo;
     private readonly IRepository<WardEntity> _wardRepo;
     private readonly IRepository<SocietyDetailsEntity> _societyRepo;
+    private readonly IRepository<UserEntity> _userRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDynamicEntityLoader _entityLoader;
     private readonly IPropertySearchService _propertySearchService;
@@ -43,6 +45,7 @@ public class CommonDetailsService : ICommonDetailsService
         IRepository<PropertyEntity> propertyRepo,
         IRepository<WardEntity> wardRepo,
         IRepository<SocietyDetailsEntity> societyRepo,
+        IRepository<UserEntity> userRepo,
         IUnitOfWork unitOfWork,
         IDynamicEntityLoader entityLoader,
         IPropertySearchService propertySearchService,
@@ -54,6 +57,7 @@ public class CommonDetailsService : ICommonDetailsService
         _propertyRepo = propertyRepo;
         _wardRepo = wardRepo;
         _societyRepo = societyRepo;
+        _userRepo = userRepo;
         _unitOfWork = unitOfWork;
         _entityLoader = entityLoader;
         _propertySearchService = propertySearchService;
@@ -732,6 +736,132 @@ public class CommonDetailsService : ICommonDetailsService
         }
 
         return result;
+    }
+
+    public async Task<PagedResult<UpdateHistoryDto>> GetUpdateHistoryAsync(
+        UpdateHistoryQueryParameters request, CancellationToken ct)
+    {
+        var query =
+            from h in _historyRepo.GetQueryable()
+            join m in _masterRepo.GetQueryable() on h.BulkUpdateMasterId equals m.Id into mj
+            from m in mj.DefaultIfEmpty()
+            join pm in _propertyRepo.GetQueryable() on h.PropertyId equals (long)pm.Id into pmj
+            from pm in pmj.DefaultIfEmpty()
+            join w in _wardRepo.GetQueryable()
+                on (pm != null ? (int?)pm.WardId : null) equals (int?)w.Id into wj
+            from w in wj.DefaultIfEmpty()
+            join u in _userRepo.GetQueryable()                
+                on(h.UpdatedBy ?? h.CreatedBy) equals(int ?)u.Id into uj
+            from u in uj.DefaultIfEmpty()
+            select new { h, m, pm, w, u };
+
+        if (!string.IsNullOrWhiteSpace(request.UpdateName))
+            query = query.Where(x => x.m != null && x.m.UpdateName == request.UpdateName);
+        if (!string.IsNullOrWhiteSpace(request.WardNo))
+            query = query.Where(x => x.w != null && x.w.WardNo == request.WardNo);
+        if (!string.IsNullOrWhiteSpace(request.PropertyNo))
+            query = query.Where(x => x.pm != null && x.pm.PropertyNo == request.PropertyNo);
+        if (!string.IsNullOrWhiteSpace(request.PartitionNo))
+            query = query.Where(x => x.pm != null && x.pm.PartitionNo == request.PartitionNo);
+        if (!string.IsNullOrWhiteSpace(request.UpdatedColumns))
+            query = query.Where(x => x.h.UpdatedColumns != null && x.h.UpdatedColumns.Contains(request.UpdatedColumns));
+        if (!string.IsNullOrWhiteSpace(request.Username))
+            query = query.Where(x => x.u != null && x.u.UserName == request.Username);
+
+        query = query.OrderByDescending(x => x.h.UpdatedDate ?? x.h.CreatedDate).ThenByDescending(x => x.h.Id);
+
+        var totalCount = await query.CountAsync(ct);
+
+        int pageNumber;
+        int pageSize;
+        if (request.PageSize == -1)
+        {
+            pageNumber = 1;
+            pageSize = totalCount > 0 ? totalCount : 1;
+        }
+        else
+        {
+            pageNumber = request.PageNumber;
+            pageSize = request.PageSize;
+            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        }
+
+        var items = await query
+            .Select(x => new UpdateHistoryDto
+            {
+                Id = x.h.Id,
+                UpdateName = x.m != null ? x.m.UpdateName : null,
+                WardNo = x.w != null ? x.w.WardNo : null,
+                PropertyNo = x.pm != null ? x.pm.PropertyNo : null,
+                PartitionNo = x.pm != null ? x.pm.PartitionNo : null,
+                OldValue = x.h.OldValue,
+                NewValue = x.h.NewValue,
+                UpdatedColumns = x.h.UpdatedColumns,
+                Remarks = x.h.Remarks,
+                IPAddress = x.h.IpAddress,
+                Username = x.u != null ? x.u.UserName : null,
+                UpdatedDate = x.h.UpdatedDate ?? x.h.CreatedDate
+            })
+            .ToListAsync(ct);
+
+        return new PagedResult<UpdateHistoryDto>(items, totalCount, pageNumber, pageSize);
+    }
+
+    public async Task<byte[]> ExportUpdateHistoryToExcelAsync(
+        UpdateHistoryQueryParameters request, CancellationToken ct)
+    {
+        // Export the full filtered set (ignore paging).
+        var unpagedRequest = new UpdateHistoryQueryParameters
+        {
+            UpdateName = request.UpdateName,
+            WardNo = request.WardNo,
+            PropertyNo = request.PropertyNo,
+            PartitionNo = request.PartitionNo,
+            UpdatedColumns = request.UpdatedColumns,
+            Username = request.Username,
+            PageNumber = 1,
+            PageSize = -1
+        };
+        var paged = await GetUpdateHistoryAsync(unpagedRequest, ct);
+
+        var headers = new[]
+        {
+            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo",
+            "OldValue", "NewValue", "UpdatedColumns", "Remarks", "IPAddress", "Username", "UpdatedDate"
+        };
+
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("UpdateHistory");
+
+        for (var c = 0; c < headers.Length; c++)
+        {
+            var cell = worksheet.Cell(1, c + 1);
+            cell.Value = headers[c];
+            cell.Style.Font.Bold = true;
+        }
+
+        var rows = paged.Items.ToList();
+        for (var r = 0; r < rows.Count; r++)
+        {
+            var item = rows[r];
+            object?[] values =
+            {
+                item.Id, item.UpdateName, item.WardNo, item.PropertyNo, item.PartitionNo,
+                item.OldValue, item.NewValue, item.UpdatedColumns, item.Remarks,
+                item.IPAddress, item.Username, item.UpdatedDate
+            };
+            for (var c = 0; c < values.Length; c++)
+            {
+                var v = values[c] is string s && s.Length > 0 && "=+-@".Contains(s[0]) ? "'" + s : values[c];
+                SetCellValue(worksheet.Cell(r + 2, c + 1), v);
+            }
+        }
+
+        worksheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
     }
 
     /// <summary>

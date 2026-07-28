@@ -214,7 +214,7 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_FiltersScreensByModuleId()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync(null, null, 1, CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync(null, null, "1", CancellationToken.None);
 
         // Assert
         Assert.Equal(2, result.Count); // SCR001 and SCR003 belong to module 1
@@ -225,13 +225,33 @@ public class LockUnlockServiceTests : IDisposable
     public async Task GetLockableScreensAsync_CombinesMultipleFilters()
     {
         // Act
-        var result = await _service.GetLockableScreensAsync("Details", 1, 1, CancellationToken.None);
+        var result = await _service.GetLockableScreensAsync("Details", 1, "1", CancellationToken.None);
 
         // Assert
         Assert.Single(result);
         Assert.Equal(1, result[0].Id);
         Assert.Equal("Basic Details", result[0].ScreenName);
         Assert.Equal(1, result[0].ModuleId);
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_ThrowsArgumentException_WhenModuleIdsHasNoValidIntegers()
+    {
+        // Act & Assert - an all-invalid ModuleIds filter must not silently fall back to "no filter"
+        // (which would return every screen instead of rejecting the bad input).
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.GetLockableScreensAsync(null, null, "abc,xyz", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLockableScreensAsync_FiltersScreensByModuleIds_WhenSomeAreInvalid_UsesOnlyValidOnes()
+    {
+        // Act - one valid id mixed with garbage should still filter by the valid id, not throw.
+        var result = await _service.GetLockableScreensAsync(null, null, "1,abc", CancellationToken.None);
+
+        // Assert
+        Assert.Equal(2, result.Count); // SCR001 and SCR003 belong to module 1
+        Assert.All(result, screen => Assert.Equal(1, screen.ModuleId));
     }
 
     #endregion

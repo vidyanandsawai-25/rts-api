@@ -352,7 +352,11 @@ public class DataEntrySameAsServiceTests
             new() { Id = residentialTypeId, PartType = PartTypeConstants.Residential },
             new() { Id = amenityTypeId, PartType = PartTypeConstants.Amenity }
         };
-        var categories = new List<PropertyCategoryEntity> { new() { Id = 7, PropertyCategoryName = "Residential" } };
+        var categories = new List<PropertyCategoryEntity>
+        {
+            new() { Id = 7, PropertyCategoryName = "Residential" },
+            new() { Id = 8, PropertyCategoryName = PropertyConstants.Categories.Apartment }
+        };
         var wings = new List<WingEntity> { new() { Id = 5, WingNo = "GG" } };
         var typeOfUses = new List<TypeOfUseEntity>
         {
@@ -371,7 +375,11 @@ public class DataEntrySameAsServiceTests
             new() { Id = 101, WardId = 18, PropertyNo = "1", PartitionNo = "A2", TaxZoneId = 50,
                     PropertyTypeId = amenityTypeId, CategoryId = 7 },                 // amenity -> excluded
             new() { Id = 102, WardId = 18, PropertyNo = "1", PartitionNo = "GG", TaxZoneId = 50,
-                    PropertyTypeId = residentialTypeId, CategoryId = 7 }              // wing -> excluded
+                    PropertyTypeId = residentialTypeId, CategoryId = 7 },              // wing -> excluded
+            new() { Id = 103, WardId = 18, PropertyNo = "1", PartitionNo = "", TaxZoneId = 50,
+                    PropertyTypeId = residentialTypeId, CategoryId = 8 },              // Apartment + blank partition -> excluded
+            new() { Id = 104, WardId = 18, PropertyNo = "1", PartitionNo = "A3", TaxZoneId = 50,
+                    PropertyTypeId = residentialTypeId, CategoryId = 8 }               // Apartment + non-blank partition -> included
         };
         var details = new List<PropertyDetailsEntity>
         {
@@ -382,7 +390,9 @@ public class DataEntrySameAsServiceTests
                     CarpetAreaSqMeter = 4.5, CarpetAreaSqFeet = 40, BuiltupAreaSqMeter = 5, BuiltupAreaSqFeet = 50 },
             // excluded properties' details (should never reach the result)
             new() { Id = 3, PropertyId = 101, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 },
-            new() { Id = 4, PropertyId = 102, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 }
+            new() { Id = 4, PropertyId = 102, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 },
+            new() { Id = 5, PropertyId = 103, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 99 },
+            new() { Id = 6, PropertyId = 104, TypeOfUseId = residentialTypeOfUseId, IsActive = true, MarkedForDeletion = false, CarpetAreaSqMeter = 7 }
         };
 
         var service = CreateService(properties: properties, propertyDetails: details);
@@ -397,8 +407,9 @@ public class DataEntrySameAsServiceTests
         var result = await service.GetPropertyUnitsAsync(
             new DataEntrySameAsUnitsQueryParameters { WardId = 18, PropertyNo = "1" });
 
-        var row = Assert.Single(result);            // amenity + wing rows dropped
-        Assert.Equal(100, row.PropertyId);
+        // amenity, wing, and blank-partition Apartment rows all dropped
+        Assert.Equal(2, result.Count);
+        var row = result.Single(r => r.PropertyId == 100);
         Assert.Equal(PartTypeConstants.Residential, row.PartType);
         Assert.Equal("Z3", row.ZoneNo);
         // Totals across both active details.
@@ -411,5 +422,10 @@ public class DataEntrySameAsServiceTests
         Assert.Equal(40.0, row.ParkingCarpetAreaSqFeet);
         Assert.Equal(5.0, row.ParkingBuiltupAreaSqMeter);
         Assert.Equal(50.0, row.ParkingBuiltupAreaSqFeet);
+
+        // Apartment category with a non-blank partition is still included.
+        var apartmentRow = result.Single(r => r.PropertyId == 104);
+        Assert.Equal("A3", apartmentRow.PartitionNo);
+        Assert.Equal(7.0, apartmentRow.TotalCarpetAreaSqMeter);
     }
 }

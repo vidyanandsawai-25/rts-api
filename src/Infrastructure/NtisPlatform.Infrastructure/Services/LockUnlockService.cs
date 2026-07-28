@@ -35,7 +35,7 @@ public class LockUnlockService : ILockUnlockService
     }
 
     public async Task<List<LockableScreenDto>> GetLockableScreensAsync(
-        string? search = null, int? id = null, int? moduleId = null, CancellationToken ct = default)
+        string? search = null, int? id = null, string? moduleIds = null, CancellationToken ct = default)
     {
         var query = _context.ScreenMaster
             .AsNoTracking()
@@ -49,9 +49,19 @@ public class LockUnlockService : ILockUnlockService
             query = query.Where(x => x.Screen.Id == id.Value);
         }
 
-        if (moduleId.HasValue)
+        if (!string.IsNullOrWhiteSpace(moduleIds))
         {
-            query = query.Where(x => x.Module != null && x.Module.Id == moduleId.Value);
+            var moduleIdList = moduleIds
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(m => int.TryParse(m, out _))
+                .Select(int.Parse)
+                .Distinct()
+                .ToList();
+
+            if (moduleIdList.Count == 0)
+                throw new ArgumentException("ModuleIds did not contain any valid integer values.");
+
+            query = query.Where(x => x.Module != null && moduleIdList.Contains(x.Module.Id));
         }
 
         if (!string.IsNullOrWhiteSpace(search))

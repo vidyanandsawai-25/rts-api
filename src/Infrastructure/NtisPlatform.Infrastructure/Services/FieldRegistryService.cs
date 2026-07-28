@@ -47,11 +47,25 @@ public class FieldRegistryService : IFieldRegistryService
             .ToList();
 
         var totalCount = ordered.Count;
-        var isUnpaged = queryParameters.PageSize == -1;
-        var pageNumber = isUnpaged ? 1 : queryParameters.PageNumber;
-        var pageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParameters.PageSize;
 
-        var pageItems = (isUnpaged ? ordered : ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize))
+        int pageNumber;
+        int pageSize;
+        List<(string Schema, string Table)> pagedTables;
+
+        if (queryParameters.PageSize == -1)
+        {
+            pageNumber = 1;
+            pageSize = totalCount > 0 ? totalCount : 1;
+            pagedTables = ordered;
+        }
+        else
+        {
+            pageNumber = queryParameters.PageNumber;
+            pageSize = queryParameters.PageSize;
+            pagedTables = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        }
+
+        var pageItems = pagedTables
             .Select(t => new FieldRegistryDetailsDto
             {
                 SchemaName = t.Schema,
@@ -79,11 +93,25 @@ public class FieldRegistryService : IFieldRegistryService
             .ToList();
 
         var totalCount = ordered.Count;
-        var isUnpaged = queryParameters.PageSize == -1;
-        var pageNumber = isUnpaged ? 1 : queryParameters.PageNumber;
-        var pageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParameters.PageSize;
 
-        var pageItems = (isUnpaged ? ordered : ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize))
+        int pageNumber;
+        int pageSize;
+        List<string> pagedColumns;
+
+        if (queryParameters.PageSize == -1)
+        {
+            pageNumber = 1;
+            pageSize = totalCount > 0 ? totalCount : 1;
+            pagedColumns = ordered;
+        }
+        else
+        {
+            pageNumber = queryParameters.PageNumber;
+            pageSize = queryParameters.PageSize;
+            pagedColumns = ordered.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToList();
+        }
+
+        var pageItems = pagedColumns
             .Select(c => new FieldRegistryTableDetailsDto { ColumnName = c })
             .ToList();
 
@@ -217,53 +245,70 @@ public class FieldRegistryService : IFieldRegistryService
         FieldRegistryQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.BulkUpdateMasters
-            .Include(m => m.FieldConfigs)
-            .AsNoTracking()
-            .AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(queryParameters.UpdateCode))
+        try
         {
-            query = query.Where(m => m.UpdateCode == queryParameters.UpdateCode);
-        }
+            var query = _context.BulkUpdateMasters
+                .Include(m => m.FieldConfigs)
+                .AsNoTracking()
+                .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(queryParameters.UpdateName))
+            if (!string.IsNullOrWhiteSpace(queryParameters.UpdateCode))
+            {
+                query = query.Where(m => m.UpdateCode == queryParameters.UpdateCode);
+            }
+
+            if (!string.IsNullOrWhiteSpace(queryParameters.UpdateName))
+            {
+                query = query.Where(m => m.UpdateName == queryParameters.UpdateName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(queryParameters.ReferenceTableName))
+            {
+                query = query.Where(m => m.ReferenceTableName == queryParameters.ReferenceTableName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(queryParameters.Category))
+            {
+                query = query.Where(m => m.Category == queryParameters.Category);
+            }
+
+            if (!string.IsNullOrWhiteSpace(queryParameters.FieldName))
+            {
+                query = query.Where(m => m.FieldConfigs != null && m.FieldConfigs.Any(fc => fc.FieldName == queryParameters.FieldName));
+            }
+
+            query = query.OrderBy(m => m.DisplaySequence).ThenBy(m => m.Id);
+
+            var totalCount = await query.CountAsync(cancellationToken);
+
+            int pageNumber;
+            int pageSize;
+
+            if (queryParameters.PageSize == -1)
+            {
+                pageNumber = 1;
+                pageSize = totalCount > 0 ? totalCount : 1;
+            }
+            else
+            {
+                pageNumber = queryParameters.PageNumber;
+                pageSize = queryParameters.PageSize;
+                query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+            }
+
+            var masters = await query.ToListAsync(cancellationToken);
+            var items = masters.Select(MapToResponseDto).ToList();
+
+            return new PagedResult<FieldRegistryResponseDto>(items, totalCount, pageNumber, pageSize);
+        }
+        catch (ArgumentException)
         {
-            query = query.Where(m => m.UpdateName == queryParameters.UpdateName);
+            throw;
         }
-
-        if (!string.IsNullOrWhiteSpace(queryParameters.ReferenceTableName))
+        catch (Exception ex)
         {
-            query = query.Where(m => m.ReferenceTableName == queryParameters.ReferenceTableName);
+            throw new ApplicationException($"Error retrieving field registries: {ex.Message}", ex);
         }
-
-        if (!string.IsNullOrWhiteSpace(queryParameters.Category))
-        {
-            query = query.Where(m => m.Category == queryParameters.Category);
-        }
-
-        if (!string.IsNullOrWhiteSpace(queryParameters.FieldName))
-        {
-            query = query.Where(m => m.FieldConfigs.Any(fc => fc.FieldName == queryParameters.FieldName));
-        }
-
-        query = query.OrderBy(m => m.DisplaySequence).ThenBy(m => m.Id);
-
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var isUnpaged = queryParameters.PageSize == -1;
-        var pageNumber = isUnpaged ? 1 : queryParameters.PageNumber;
-        var pageSize = isUnpaged ? (totalCount > 0 ? totalCount : 1) : queryParameters.PageSize;
-
-        if (!isUnpaged)
-        {
-            query = query.Skip((pageNumber - 1) * pageSize).Take(pageSize);
-        }
-
-        var masters = await query.ToListAsync(cancellationToken);
-        var items = masters.Select(MapToResponseDto).ToList();
-
-        return new PagedResult<FieldRegistryResponseDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public async Task<bool> SetActiveStatusAsync(
@@ -428,8 +473,78 @@ public class FieldRegistryService : IFieldRegistryService
         }
     }
 
+    public async Task<PurgeFieldRegistryResultDto> PurgeFieldRegistryAsync(
+        string? updateCode,
+        string? fieldConfigId,
+        CancellationToken cancellationToken = default)
+    {
+        var hasFieldConfigIds = !string.IsNullOrWhiteSpace(fieldConfigId);
+        var hasUpdateCode = !string.IsNullOrWhiteSpace(updateCode);
+
+        if (!hasFieldConfigIds && !hasUpdateCode)
+            throw new ArgumentException("Either UpdateCode or FieldConfigId must be provided.");
+
+        var result = new PurgeFieldRegistryResultDto();
+
+        using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            if (hasFieldConfigIds)
+            {
+                // Case 2: specific field config rows only, by their own Id - master rows untouched.
+                var fieldConfigIds = fieldConfigId!
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Where(id => int.TryParse(id, out _))
+                    .Select(int.Parse)
+                    .Distinct()
+                    .ToList();
+
+                if (fieldConfigIds.Count == 0)
+                    throw new ArgumentException("FieldConfigId did not contain any valid integer values.");
+
+                result.DeletedFieldConfigCount = await _context.BulkUpdateFieldConfigs
+                    .Where(fc => fieldConfigIds.Contains(fc.Id))
+                    .ExecuteDeleteAsync(cancellationToken);
+            }
+            else
+            {
+                // Case 1: field configs + history + master, for the given UpdateCode.
+                var masterIds = await _context.BulkUpdateMasters
+                    .Where(m => m.UpdateCode == updateCode)
+                    .Select(m => m.Id)
+                    .ToListAsync(cancellationToken);
+
+                if (masterIds.Count > 0)
+                {
+                    result.DeletedFieldConfigCount = await _context.BulkUpdateFieldConfigs
+                        .Where(fc => masterIds.Contains(fc.BulkUpdateMasterId))
+                        .ExecuteDeleteAsync(cancellationToken);
+
+                    // BulkUpdateHistory has a RESTRICT FK to BulkUpdateMaster, so it must be
+                    // cleared before the master row can be deleted.
+                    result.DeletedHistoryCount = await _context.BulkUpdateHistory
+                        .Where(h => masterIds.Contains(h.BulkUpdateMasterId))
+                        .ExecuteDeleteAsync(cancellationToken);
+
+                    result.DeletedMasterCount = await _context.BulkUpdateMasters
+                        .Where(m => masterIds.Contains(m.Id))
+                        .ExecuteDeleteAsync(cancellationToken);
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     private static FieldRegistryResponseDto MapToResponseDto(BulkUpdateMasterEntity master)
     {
+        var fieldConfigs = master.FieldConfigs ?? [];
         return new FieldRegistryResponseDto
         {
             MasterId = master.Id,
@@ -444,7 +559,7 @@ public class FieldRegistryService : IFieldRegistryService
             IsActive = master.IsActive,
             CreatedDate = master.CreatedDate,
             CreatedBy = master.CreatedBy,
-            FieldConfigs = master.FieldConfigs.OrderBy(fc => fc.SequenceNo).Select(fc => new FieldRegistryFieldConfigResponseDto
+            FieldConfigs = fieldConfigs.OrderBy(fc => fc.SequenceNo).Select(fc => new FieldRegistryFieldConfigResponseDto
             {
                 Id = fc.Id,
                 BulkUpdateMasterId = fc.BulkUpdateMasterId,

@@ -32,4 +32,15 @@ public interface IFieldRegistryService
         string updateCode,
         UpdateFieldRegistryDto updateDto,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hard-deletes field registry data. If <paramref name="fieldConfigId"/> (comma-separated
+    /// PTIS.BulkUpdateFieldConfig.Id values) is supplied, only those specific BulkUpdateFieldConfig
+    /// rows are removed and it takes precedence over <paramref name="updateCode"/>. Otherwise, all data
+    /// (BulkUpdateFieldConfig, BulkUpdateHistory, and BulkUpdateMaster) for the given UpdateCode is removed.
+    /// </summary>
+    Task<PurgeFieldRegistryResultDto> PurgeFieldRegistryAsync(
+        string? updateCode,
+        string? fieldConfigId,
+        CancellationToken cancellationToken = default);
 }

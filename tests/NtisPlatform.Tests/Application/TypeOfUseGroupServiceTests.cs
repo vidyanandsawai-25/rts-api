@@ -20,6 +20,7 @@ public class TypeOfUseGroupServiceTests
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
+    private readonly Mock<IRepository<TypeOfUseEntity, int>> _mockTypeOfUseRepository;
     private readonly TypeOfUseGroupService _service;
 
     public TypeOfUseGroupServiceTests()
@@ -28,6 +29,7 @@ public class TypeOfUseGroupServiceTests
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
         _mockReferenceValidator = new Mock<IReferenceValidationService>();
+        _mockTypeOfUseRepository = new Mock<IRepository<TypeOfUseEntity, int>>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -41,11 +43,16 @@ public class TypeOfUseGroupServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        _mockTypeOfUseRepository
+            .Setup(r => r.GetQueryable())
+            .Returns(new List<TypeOfUseEntity>().BuildMock());
+
         _service = new TypeOfUseGroupService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
-            _mockReferenceValidator.Object);
+            _mockReferenceValidator.Object,
+            _mockTypeOfUseRepository.Object);
     }
 
     [Fact]
@@ -118,10 +125,12 @@ public class TypeOfUseGroupServiceTests
 
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseEntity>().BuildMock());
 
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>();
+            cfg.CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>()
+                .ForMember(dest => dest.CountOfTypes, opt => opt.MapFrom(src => src.TypeOfUse.Count));
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
@@ -131,7 +140,8 @@ public class TypeOfUseGroupServiceTests
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper,
-            _mockReferenceValidator.Object);
+            _mockReferenceValidator.Object,
+            _mockTypeOfUseRepository.Object);
 
         var qp = new TypeOfUseGroupQueryParameters
         {
@@ -149,10 +159,61 @@ public class TypeOfUseGroupServiceTests
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
 
+        // The service appends a synthetic "TOTAL" row on top of the paged items.
         var items = result.Items.ToList();
-        Assert.Equal(2, items.Count);
+        Assert.Equal(3, items.Count);
         Assert.Contains(items, x => x.Id == 1);
         Assert.Contains(items, x => x.Id == 2);
+        Assert.Contains(items, x => x.TypeOfUseGroupCode == "TOTAL");
+    }
+
+    [Fact]
+    public async Task GetAllAsync_AppendsTotalRowWithCountOfTypesFromTypeOfUseRepository()
+    {
+        // Arrange
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<TypeOfUseGroupEntity>().BuildMock());
+
+        var typeOfUseEntities = new List<TypeOfUseEntity>
+        {
+            new() { Id = 1 },
+            new() { Id = 2 },
+            new() { Id = 3 }
+        };
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typeOfUseEntities.BuildMock());
+
+        var mapperConfig = new MapperConfiguration(cfg =>
+        {
+            cfg.CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>()
+                .ForMember(dest => dest.CountOfTypes, opt => opt.MapFrom(src => src.TypeOfUse.Count));
+        }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+        mapperConfig.AssertConfigurationIsValid();
+        IMapper mapper = mapperConfig.CreateMapper();
+
+        var service = new TypeOfUseGroupService(
+            _mockRepository.Object,
+            _mockUnitOfWork.Object,
+            mapper,
+            _mockReferenceValidator.Object,
+            _mockTypeOfUseRepository.Object);
+
+        var qp = new TypeOfUseGroupQueryParameters
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            FilterLogic = NtisPlatform.Application.Enums.FilterLogic.And,
+            SearchTerm = null!,
+            SortBy = null!
+        };
+
+        // Act
+        var result = await service.GetAllAsync(qp, CancellationToken.None);
+
+        // Assert
+        var totalRow = Assert.Single(result.Items, x => x.TypeOfUseGroupCode == "TOTAL");
+        Assert.Equal(0, totalRow.Id);
+        Assert.Equal("all", totalRow.GroupName);
+        Assert.Equal(3, totalRow.CountOfTypes);
+        Assert.True(totalRow.IsActive);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ public class GetLockableScreensQueryParameters
     public int? Id { get; set; }
 
     /// <summary>
-    /// Optional filter by specific module ID.
+    /// Optional filter by module IDs as comma-separated values (e.g., "1,2,3").
     /// </summary>
-    public int? ModuleId { get; set; }
+    public string? ModuleIds { get; set; }
 }

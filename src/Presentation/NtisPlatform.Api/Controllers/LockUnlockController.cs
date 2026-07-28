@@ -34,11 +34,12 @@ public class LockUnlockController : ControllerBase
     // GET api/LockUnlock/screens
     [HttpGet("screens")]
     [ProducesResponseType(typeof(ApiResponse<List<LockableScreenDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetScreens([FromQuery] GetLockableScreensQueryParameters request, CancellationToken ct)
     {
         try
         {
-            var result = await _service.GetLockableScreensAsync(request.Search, request.Id, request.ModuleId, ct);
+            var result = await _service.GetLockableScreensAsync(request.Search, request.Id, request.ModuleIds, ct);
             return Ok(new ApiResponse<List<LockableScreenDto>>
             {
                 Success = true,
@@ -51,6 +52,11 @@ public class LockUnlockController : ControllerBase
             var correlationId = Guid.NewGuid().ToString();
             _logger.LogWarning(ex, "Unauthorized access. CorrelationId: {CorrelationId}", correlationId);
             return Unauthorized(new ApiResponse<object> { Success = false, Message = "Valid user identification is required.", CorrelationId = correlationId });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error fetching lockable screens");
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
         }
         catch (Exception ex)
         {
