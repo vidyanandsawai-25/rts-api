@@ -130,7 +130,6 @@ public class PropertyMappingProfile : Profile
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
             .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
             .ForMember(dest => dest.PlotDetails, opt => opt.Ignore())
-            .ForMember(dest => dest.TransMastCV, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyDetailsOld, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyMastOld, opt => opt.Ignore())

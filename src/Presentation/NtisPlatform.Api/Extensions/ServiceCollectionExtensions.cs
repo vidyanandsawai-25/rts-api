@@ -1,4 +1,5 @@
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -11,6 +12,8 @@ using NtisPlatform.Api.Filters;
 using NtisPlatform.Api.Localization;
 using NtisPlatform.Api.Middleware;
 using NtisPlatform.Application.Configuration;
+using NtisPlatform.Application.Events;
+using NtisPlatform.Application.EventHandlers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Interfaces.ICapitalValueService;
@@ -32,6 +35,7 @@ using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.FieldConfiguration;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Application.Services.TaxEngine.OccupationTax;
 using NtisPlatform.Application.Services.PropertyTaxOperations;
 using NtisPlatform.Application.Services.CapitalValue;
 using NtisPlatform.Application.Services.CapitalValue.CVCalculator;
@@ -313,6 +317,18 @@ public static class ServiceCollectionExtensions
                            NtisPlatform.Application.Services.TaxEngine.RVPersistenceService>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<NtisPlatform.Application.Interfaces.IFinanceYearProvider, NtisPlatform.Application.Services.SystemFinanceYearProvider>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.IPolicyCodeLookupService, NtisPlatform.Application.Services.PolicyCodeLookupService>();
+
+        // MediatR for event publishing pipeline
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<PropertyCertificateChangedEvent>());
+
+        services.AddScoped<IOccupationTaxEngine, OccupationTaxEngine>();
+        services.AddScoped<IOccupationTaxService, OccupationTaxApplicationService>();
+        // PropertyCertificateChangedEventHandler is registered via AddMediatR assembly scanning.
+        // RateableValueApiClient delegates directly to IRateableValueService (no HTTP call), so it
+        // must be a plain scoped registration, not AddHttpClient (which requires a constructor
+        // taking HttpClient and would fail to resolve at runtime).
+        services.AddScoped<IRateableValueApiClient, RateableValueApiClient>();
         services.AddScoped<ITaxZoningService, TaxZoningService>();
         services.AddScoped<IPolicyConfigurationService, PolicyConfigurationService>();
         services.AddScoped<ICombinePropertyService, CombinePropertyService>();
@@ -412,6 +428,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserScreenAccessService, UserScreenAccessService>();
+        services.AddScoped<IUserDepartmentAllocationService, UserDepartmentAllocationService>();
         services.AddScoped<IEmployeeType, EmployeeTypeService>();
         services.AddScoped<IPasswordGeneratorService, PasswordGeneratorService>();
 
@@ -439,6 +456,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWaterConnectionDetailsService, WaterConnectionDetailsService>();
 
         services.AddScoped<IPropertyAssessmentStatusService, PropertyAssessmentStatusService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.ICertificateTaxGuidelineReaderService, NtisPlatform.Application.Services.TaxEngine.CertificateTaxGuidelineReaderService>();
         services.AddScoped<ICertificateTaxGuidelineService, CertificateTaxGuidelineService>();
         services.AddScoped<IRoomTypeMasterService, RoomTypeMasterService>();
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
@@ -455,8 +473,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IScreenFormFieldMasterService, ScreenFormFieldMasterService>();
         services.AddScoped<IAssetAgeFactorCVService, AssetAgeFactorCVService>();
         services.AddScoped<IAssetNatureFactorCVService, AssetNatureFactorCVService>();
+        services.AddScoped<IAssetUseFactorCVService, AssetUseFactorCVService>();
         services.AddScoped<IAssetAssessmentYearRangeCVService, AssetAssessmentYearRangeCVService>();
         services.AddScoped<IAssetDesignationService, AssetDesignationService>();
+        services.AddScoped<IAssetApplicationTypeService, AssetApplicationTypeService>();
         services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
         services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
         // Rules namespace registrations
@@ -479,8 +499,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetSubTypeOfUseService, AssetSubTypeOfUseService>();
         services.AddScoped<IAssetFloorFactorCVService, AssetFloorFactorCVService>();
         services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
-
-
+        services.AddScoped<IAssetRentDocumentTypeService, AssetRentDocumentTypeService>();
+        services.AddScoped<IInventoryDocumentTypeService, InventoryDocumentTypeService>();
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
         // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests
         // Effect applicators are stateless, safe as singleton for better performance

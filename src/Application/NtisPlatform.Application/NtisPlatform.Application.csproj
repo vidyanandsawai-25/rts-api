@@ -13,6 +13,7 @@
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftPackageVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="$(MicrosoftPackageVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftPackageVersion)" />
+		<PackageReference Include="MediatR" Version="$(MediatRVersion)" />
 		<PackageReference Include="RulesEngine" Version="6.0.0" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
 		<!-- AutoMapper 16.1.1 patches vulnerability GHSA-rvv3-g6hj-g44x (affected versions < 16.1.1) -->

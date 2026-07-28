@@ -30,6 +30,10 @@ public class PropertyCertificateTypeQueryParameters : BaseQueryParameters
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]
+    public bool? IsRequired { get; set; }
+
+    [Filterable(FilterOperator.Equals)]
+    [Sortable]
     public bool? IsActive { get; set; }
 
     [Filterable(FilterOperator.Contains)]

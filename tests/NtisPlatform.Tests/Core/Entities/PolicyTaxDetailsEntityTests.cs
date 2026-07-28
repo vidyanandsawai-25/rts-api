@@ -12,7 +12,7 @@ public class PolicyTaxDetailsEntityTests
         {
             Id = 1,
             PropertyId = 9,
-            PolicyCodeId = 4,
+            PolicyCodeId = 7,
             CreatedDate = new DateTime(2024, 1, 5),
             CalculationValue = 10000m,
             TaxId = 3,
@@ -23,7 +23,7 @@ public class PolicyTaxDetailsEntityTests
 
         Assert.Equal(1, entity.Id);
         Assert.Equal(9, entity.PropertyId);
-        Assert.Equal(4, entity.PolicyCodeId);
+        Assert.Equal(7, entity.PolicyCodeId);
         Assert.Equal(new DateTime(2024, 1, 5), entity.CreatedDate);
         Assert.Equal(10000m, entity.CalculationValue);
         Assert.Equal(3, entity.TaxId);

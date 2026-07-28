@@ -72,7 +72,7 @@ public sealed record ApartmentQCRenterData(
     decimal? FinalYearlyRent,
     decimal? RentMonthly);
 
-public sealed record ApartmentQCTransactionData(int PropertyId, decimal? RVorCVValue, decimal TmTaxAmount);
+public sealed record ApartmentQCTransactionData(int PropertyId, decimal? CalculationValue, decimal TmTaxAmount);
 
 public sealed record ApartmentQCTransactionCVData(int PropertyId, decimal? CapitalValue, decimal TmcvTaxAmount);
 

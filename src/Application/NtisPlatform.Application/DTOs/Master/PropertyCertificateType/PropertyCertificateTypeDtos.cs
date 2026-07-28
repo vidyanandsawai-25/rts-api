@@ -9,6 +9,13 @@ public class PropertyCertificateTypeDto : BaseDtos
     public string CertificateTypeCode { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
     public bool IsProtected { get; set; }
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// When true, saving/changing a certificate of this type triggers Occupation Tax
+    /// recalculation. This is the flag that gates the tax trigger — IsProtected does not.
+    /// </summary>
+    public bool IsTaxable { get; set; }
 }
 
 public class CreatePropertyCertificateTypeDto : CreateBaseDtos
@@ -22,6 +29,14 @@ public class CreatePropertyCertificateTypeDto : CreateBaseDtos
     public string CertificateTypeCode { get; set; } = string.Empty;
 
     public int DisplayOrder { get; set; }
+
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// When true, saving/changing a certificate of this type triggers Occupation Tax
+    /// recalculation.
+    /// </summary>
+    public bool IsTaxable { get; set; }
 }
 
 public class UpdatePropertyCertificateTypeDto : UpdateBaseDtos
@@ -35,4 +50,12 @@ public class UpdatePropertyCertificateTypeDto : UpdateBaseDtos
     public string CertificateTypeCode { get; set; } = string.Empty;
 
     public int DisplayOrder { get; set; }
+
+    public bool IsRequired { get; set; }
+
+    /// <summary>
+    /// When true, saving/changing a certificate of this type triggers Occupation Tax
+    /// recalculation.
+    /// </summary>
+    public bool IsTaxable { get; set; }
 }

@@ -7,6 +7,7 @@
     
     <!-- Third-party packages -->
     <SwashbuckleVersion>10.0.1</SwashbuckleVersion>
+    <MediatRVersion>12.4.1</MediatRVersion>
     <MoqVersion>4.20.72</MoqVersion>
     <XunitVersion>2.9.3</XunitVersion>
     <XunitRunnerVersion>3.1.4</XunitRunnerVersion>

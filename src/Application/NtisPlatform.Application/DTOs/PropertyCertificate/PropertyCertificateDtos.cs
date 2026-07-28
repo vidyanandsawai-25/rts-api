@@ -43,6 +43,9 @@ public class PropertyCertificateWithStatusDto
 {
     public int CertificateTypeId { get; set; }
     public string CertificateTypeName { get; set; } = string.Empty;
+    public string CertificateTypeCode { get; set; } = string.Empty;
+    public bool IsProtected { get; set; }
+    public bool IsRequired { get; set; }
     public int DisplayOrder { get; set; }
     public bool HasCertificate { get; set; }
     public int? PropertyCertificateId { get; set; }
@@ -51,6 +54,11 @@ public class PropertyCertificateWithStatusDto
     public DateTime? IssueDate { get; set; }
     public Guid? DocumentGuid { get; set; }
     public string? FileName { get; set; }
+
+    /// <summary>
+    /// NULL = property-level certificate (Building Permission "Apply to Property" scope).
+    /// Set = floor-level certificate tied to this PropertyDetails/floor row.
+    /// </summary>
     public int? PropertyDetailsId { get; set; }
 }
 

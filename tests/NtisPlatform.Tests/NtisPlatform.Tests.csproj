@@ -7,10 +7,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+	  <!-- Pre-existing exclusion: this file references PropertyMastOldEntity/PropertyRepository
+	       members (OldConstArea, PropertyId, GetOldDetailsAsync, UpdateOldDetailsAsync) that no
+	       longer exist, from before this PR. The PropertyRepository constructor call sites were
+	       fixed to the current (context, IFinanceYearProvider) signature regardless, but fully
+	       resurrecting this file needs its own separate pass. -->
 	  <Compile Remove="Application\PropertyOldDetailsTests.cs" />
 	</ItemGroup>
 
- 
 	<ItemGroup>
 		<PackageReference Include="AutoMapper" Version="16.1.1" />
 		<PackageReference Include="coverlet.collector" Version="$(CoverletVersion)" />

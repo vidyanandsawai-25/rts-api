@@ -1,4 +1,5 @@
 using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Range;
@@ -62,4 +63,8 @@ public interface IPropertyService
     SearchSurveyPropertiesAsync(
         PropertySurveySearchQueryParameters request,
         CancellationToken cancellationToken = default);
+		
+		 Task<PagedResult<PropertyBuildingInformationDto>>
+    SearchBuildingInformationAsync(
+        BuildingInformationQueryParameters queryParameters,CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Models;
@@ -21,7 +23,7 @@ public class PropertyRepositoryTaxDetailsTests
             .Options;
 
         using var context = new ApplicationDbContext(options);
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
         Assert.Null(result);
@@ -52,7 +54,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -99,7 +101,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rvActive, rvInactive, rvDeleted);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -134,7 +136,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -170,7 +172,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rvActive, rvInactive);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -208,7 +210,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -247,7 +249,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto();
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -279,7 +281,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.Add(rv);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -315,7 +317,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A-1" };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
 
@@ -358,7 +360,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2, rv3);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A" };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
@@ -402,7 +404,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(rv1, rv2, rv3);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A1" };
         var result = await repository.GetAggregatedPropertyTaxDetailsAsync(request);
@@ -426,7 +428,7 @@ public class PropertyRepositoryTaxDetailsTests
             .Options;
 
         using var context = new ApplicationDbContext(options);
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
         Assert.Null(result);
@@ -457,7 +459,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -504,7 +506,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cvActive, cvInactive, cvDeleted);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -539,7 +541,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -575,7 +577,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cvActive, cvInactive);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PropertyId = 1 };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -613,7 +615,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartType = "Apartment" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -652,7 +654,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto();
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -684,7 +686,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.Add(cv);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { PartType = "APARTMENT" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -720,7 +722,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A-1" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
 
@@ -763,7 +765,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2, cv3);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
@@ -807,7 +809,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.TransMast.AddRange(cv1, cv2, cv3);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
         
         var request = new PropertyApartmentTaxRequestDto { WardId = 1, PartitionNo = "A1" };
         var result = await repository.GetAggregatedPropertyTaxDetailsCVAsync(request);
@@ -832,7 +834,7 @@ public class PropertyRepositoryTaxDetailsTests
             .Options;
 
         using var context = new ApplicationDbContext(options);
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsAsync(999999);
@@ -863,7 +865,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsAsync(1);
@@ -894,13 +896,183 @@ public class PropertyRepositoryTaxDetailsTests
         context.PropertyMast.Add(property);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsAsync(1);
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetTaxDetailsAsync_CurrentYearTransMastExists_ReturnsTransMastAmountNotRawPolicyAmount()
+    {
+        // A certificate save (CC/OC/Electric Bill) runs OccupationTaxApplicationService, which
+        // writes its prorated/retrospective-adjusted amount into TransMast for the CURRENT
+        // finance year -- NOT back into PolicyTaxDetails. Before this fix, GetTaxDetailsAsync only
+        // ever read the raw annual PolicyTaxDetails amount, so the Tax Details UI panel never
+        // reflected a certificate date change even though the pipeline ran successfully.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
+
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
+
+        // Raw annual RV amount (what the RV engine computed, unchanged by occupation timing).
+        var policyTax = new PolicyTaxDetailsEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCodeId = 1,
+            TaxId = 1,
+            TaxAmount = 10_000m,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        // OccupationTaxApplicationService's prorated/adjusted amount for the current finance year.
+        var transMast = new TransMastEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            TaxId = 1,
+            FinanceYearId = 10,
+            CalculationType = "RV",
+            TaxAmount = 4_110m,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.Add(year2026);
+        context.PolicyCodeMaster.Add(nettaxPolicy);
+        context.PolicyTaxDetails.Add(policyTax);
+        context.TransMast.Add(transMast);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
+
+        var result = await repository.GetTaxDetailsAsync(1);
+
+        Assert.NotNull(result);
+        var policy = Assert.Single(result!.Policies);
+        var taxAmount = Assert.Single(policy.TaxAmounts);
+        Assert.Equal("General Tax", taxAmount.TaxName);
+        Assert.Equal(4_110m, taxAmount.TaxAmount); // TransMast override, not the raw 10,000 PolicyTaxDetails amount
+        Assert.Equal(4_110m, policy.TaxTotal);
+    }
+
+    [Fact]
+    public async Task GetTaxDetailsAsync_TaxPendingDetailsRetroExists_AttachesPendingYearsToOcGroupOnly()
+    {
+        // Year-wise retro/arrears breakdown from TaxPendingDetailsRetro should surface as
+        // PolicyTaxDetail.PendingYears on the certificate-tax family group (OC/CC/Electric-Bill)
+        // it belongs to -- purely additive display data, never on the unrelated NETTAX group, and
+        // never by reintroducing those retro years into the main current-year TaxAmounts.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        var year2024 = new YearMasterEntity { Id = 8, Year = 2024, YearCode = "2024-25", IsActive = true };
+        var year2025 = new YearMasterEntity { Id = 9, Year = 2025, YearCode = "2025-26", IsActive = true };
+        var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
+
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
+        var ocPolicy = new PolicyCodeMasterEntity { Id = 2, PolicyCode = "PARTIAL_OC", PolicyName = "Partial OC", PolicyType = "NORMAL", IsActive = true };
+
+        var nettaxRow = new PolicyTaxDetailsEntity { Id = 1, PropertyId = 1, PolicyCodeId = 1, TaxId = 1, TaxAmount = 10_000m, IsActive = true, MarkedForDeletion = false };
+        var ocRow = new PolicyTaxDetailsEntity { Id = 2, PropertyId = 1, PolicyCodeId = 2, TaxId = 1, TaxAmount = 4_110m, IsActive = true, MarkedForDeletion = false };
+
+        var retro2024 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 8, TaxId = 1, PendingAmount = 3_540m, IsActive = true, MarkedForDeletion = false };
+        var retro2025 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 9, TaxId = 1, PendingAmount = 3_560m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
+        context.TaxMaster.Add(tax);
+        context.YearMaster.AddRange(year2024, year2025, year2026);
+        context.PolicyCodeMaster.AddRange(nettaxPolicy, ocPolicy);
+        context.PolicyTaxDetails.AddRange(nettaxRow, ocRow);
+        context.TaxPendingDetailsRetro.AddRange(retro2024, retro2025);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
+
+        var result = await repository.GetTaxDetailsAsync(1);
+
+        Assert.NotNull(result);
+        var ocGroup = result!.Policies.Single(p => p.PolicyCode == "PARTIAL_OC");
+        var nettaxGroup = result.Policies.Single(p => p.PolicyCode == "NETTAX");
+
+        Assert.Empty(nettaxGroup.PendingYears); // unrelated group never gets pending years attached
+
+        Assert.Equal(2, ocGroup.PendingYears.Count);
+        Assert.Equal("2024-25", ocGroup.PendingYears[0].YearCode);
+        Assert.Equal(3_540m, ocGroup.PendingYears[0].TaxTotal);
+        Assert.Equal("2025-26", ocGroup.PendingYears[1].YearCode);
+        Assert.Equal(3_560m, ocGroup.PendingYears[1].TaxTotal);
+
+        // Current-year TaxAmounts are untouched by this -- still just the 4,110 current figure.
+        Assert.Equal(4_110m, ocGroup.TaxTotal);
+    }
+
+    [Fact]
+    public async Task GetTaxDetailsAsync_NoTransMastForCurrentYear_FallsBackToRawPolicyAmount()
+    {
+        // The certificate-change pipeline has never run for this property (no TransMast rows at
+        // all) -- must fall back to the raw PolicyTaxDetails amount unchanged, not show zero/null.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+        var tax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
+
+        var policyTax = new PolicyTaxDetailsEntity
+        {
+            Id = 1,
+            PropertyId = 1,
+            PolicyCodeId = 1,
+            TaxId = 1,
+            TaxAmount = 10_000m,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
+        context.TaxMaster.Add(tax);
+        context.PolicyCodeMaster.Add(nettaxPolicy);
+        context.PolicyTaxDetails.Add(policyTax);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
+
+        var result = await repository.GetTaxDetailsAsync(1);
+
+        Assert.NotNull(result);
+        var policy = Assert.Single(result!.Policies);
+        var taxAmount = Assert.Single(policy.TaxAmounts);
+        Assert.Equal(10_000m, taxAmount.TaxAmount);
     }
 
     [Fact]
@@ -957,7 +1129,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsCVAsync(1);
@@ -1019,7 +1191,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsCVAsync(999999);
@@ -1078,7 +1250,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PolicyTaxDetailsCV.Add(inactiveTax);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsCVAsync(1);
@@ -1126,7 +1298,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PolicyTaxDetailsCV.Add(deletedTax);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsCVAsync(1);
@@ -1189,7 +1361,7 @@ public class PropertyRepositoryTaxDetailsTests
         context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
         await context.SaveChangesAsync();
 
-        var repository = new PropertyRepository(context);
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Act
         var result = await repository.GetTaxDetailsCVAsync(1);

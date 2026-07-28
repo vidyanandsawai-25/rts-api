@@ -33,7 +33,12 @@ public class PolicyTaxDetail
     /// Policy code identifier
     /// </summary>
     public string PolicyCode { get; set; } = string.Empty;
-    
+
+    /// <summary>
+    /// Policy name from PolicyCodeMaster
+    /// </summary>
+    public string PolicyName { get; set; } = string.Empty;
+
     /// <summary>
     /// List of individual tax amounts
     /// </summary>
@@ -42,6 +47,29 @@ public class PolicyTaxDetail
     /// <summary>
     /// Total sum of all tax amounts
     /// </summary>
+    public decimal TaxTotal { get; set; }
+
+    /// <summary>
+    /// Year-wise retro pending tax details breakdown joined with YearMaster (YearCode)
+    /// </summary>
+    public List<PendingYearTaxDetail> PendingYears { get; set; } = new List<PendingYearTaxDetail>();
+}
+
+/// <summary>
+/// Pending tax details for a specific financial year (from TaxPendingDetailsRetro + YearMaster)
+/// </summary>
+public class PendingYearTaxDetail
+{
+    public int PendingYearId { get; set; }
+    public string YearCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Which certificate (OC/CC/ELECTRIC_BILL) actually governed THIS specific pending year,
+    /// resolved independently per year rather than inherited from whichever policy group this
+    /// row happens to be attached to on the grid.
+    /// </summary>
+    public string PolicyCode { get; set; } = string.Empty;
+    public List<TaxAmountDetail> TaxAmounts { get; set; } = new List<TaxAmountDetail>();
     public decimal TaxTotal { get; set; }
 }
 

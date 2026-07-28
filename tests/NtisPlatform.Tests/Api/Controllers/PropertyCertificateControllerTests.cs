@@ -26,13 +26,7 @@ public class PropertyCertificateControllerTests
         var env = new Mock<IWebHostEnvironment>();
         env.SetupGet(e => e.EnvironmentName).Returns(isDevelopment ? "Development" : "Production");
 
-        var config = new Mock<IConfiguration>();
-        var section = new Mock<IConfigurationSection>();
-        section.Setup(s => s.Value).Returns((string?)null);
-        config.Setup(c => c.GetSection(It.IsAny<string>())).Returns(section.Object);
-        var fileHelper = new FileValidationHelper(config.Object);
-
-        var controller = new PropertyCertificateController(service.Object, logger.Object, env.Object, fileHelper);
+        var controller = new PropertyCertificateController(service.Object, logger.Object, env.Object);
 
         var httpContext = new DefaultHttpContext();
         if (userId.HasValue)
@@ -64,7 +58,7 @@ public class PropertyCertificateControllerTests
     {
         var controller = Create(out _);
 
-        var result = await controller.GetCertificateTypesWithStatus(0, CancellationToken.None);
+        var result = await controller.GetCertificateTypesWithStatus(0, null, CancellationToken.None);
 
         Assert.IsType<BadRequestObjectResult>(result);
     }
@@ -73,10 +67,10 @@ public class PropertyCertificateControllerTests
     public async Task GetCertificateTypesWithStatus_ReturnsOk_WhenPropertyIdValid()
     {
         var controller = Create(out var service);
-        service.Setup(s => s.GetCertificateTypesWithStatusAsync(123, It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetCertificateTypesWithStatusAsync(123, It.IsAny<CancellationToken>(), It.IsAny<int?>()))
             .ReturnsAsync(new List<PropertyCertificateWithStatusDto>());
 
-        var result = await controller.GetCertificateTypesWithStatus(123, CancellationToken.None);
+        var result = await controller.GetCertificateTypesWithStatus(123, null, CancellationToken.None);
 
         Assert.IsType<OkObjectResult>(result);
     }
@@ -85,13 +79,26 @@ public class PropertyCertificateControllerTests
     public async Task GetCertificateTypesWithStatus_Returns500_OnException()
     {
         var controller = Create(out var service);
-        service.Setup(s => s.GetCertificateTypesWithStatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+        service.Setup(s => s.GetCertificateTypesWithStatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>(), It.IsAny<int?>()))
             .ThrowsAsync(new InvalidOperationException("error"));
 
-        var result = await controller.GetCertificateTypesWithStatus(123, CancellationToken.None);
+        var result = await controller.GetCertificateTypesWithStatus(123, null, CancellationToken.None);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(500, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetCertificateTypesWithStatus_PassesPropertyDetailsIdThrough_WhenProvided()
+    {
+        var controller = Create(out var service);
+        service.Setup(s => s.GetCertificateTypesWithStatusAsync(123, It.IsAny<CancellationToken>(), 1702274))
+            .ReturnsAsync(new List<PropertyCertificateWithStatusDto>());
+
+        var result = await controller.GetCertificateTypesWithStatus(123, 1702274, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(result);
+        service.Verify(s => s.GetCertificateTypesWithStatusAsync(123, It.IsAny<CancellationToken>(), 1702274), Times.Once);
     }
 
     #endregion

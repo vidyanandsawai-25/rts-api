@@ -245,7 +245,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 wn.WardNo,
                 zm.ZoneNo,
                 pm.CreatedDate,
-                RVorCVValue = _transRepository.GetQueryable()
+                CalculationValue = _transRepository.GetQueryable()
                 .Where(t => t.PropertyId == pm.Id && t.FinanceYearId == activeYearId)
                 .Select(t => (decimal?)t.CalculationValue)
                 .FirstOrDefault() ?? 0m,
@@ -280,8 +280,8 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
 
         foreach (var p in props)
         {
-            //var amountInWords = Convert.ToInt64(p.RVorCVValue).ToWords();
-            var amountInWords = AmountToWords(p.RVorCVValue);
+            //var amountInWords = Convert.ToInt64(p.CalculationValue).ToWords();
+            var amountInWords = AmountToWords(p.CalculationValue);
 
             var row = new Dictionary<string, object?>
             {
@@ -319,7 +319,7 @@ public class NoticeNewDataProvider : IPagedReportDataProvider
                 ["MarathiSocietyName"] = p.SocietyName,
 
                 ["FirstTaxAssessmentDate"] = p.CreatedDate?.Year.ToString(),
-                ["TotalCapitalValue"] = p.RVorCVValue,
+                ["TotalCapitalValue"] = p.CalculationValue,
                 ["TotalCapitalValueInWords"] = amountInWords,
 
                 ["wardId"] = wardId,

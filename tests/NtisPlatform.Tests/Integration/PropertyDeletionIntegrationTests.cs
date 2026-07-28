@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Infrastructure.Data;
@@ -29,7 +30,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
             .Options;
 
         _context = new ApplicationDbContext(options);
-        _repository = new PropertyRepository(_context);
+        _repository = new PropertyRepository(_context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
 
         // Ensure database is created
         await _context.Database.EnsureCreatedAsync();

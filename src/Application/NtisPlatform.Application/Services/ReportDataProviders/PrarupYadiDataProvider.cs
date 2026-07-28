@@ -528,7 +528,7 @@ namespace NtisPlatform.Application.Services.ReportDataProviders
 
         // ─────────────────────────────────────────────────────────────────────────
         // Section 3 — Tax Details: one pivoted row of TransMast amounts
-        //   SELECT TaxCode, TaxName, RVorCV, RVorCVValue, TaxAmount
+        //   SELECT TaxCode, TaxName, CalculationType, CalculationValue, TaxAmount
         //   FROM PTIS.TransMast TM JOIN PTIS.TaxMaster TAM ON TM.TaxId = TAM.Id
         //   WHERE TM.PropertyId = @propertyId
         //   ORDER BY TAM.DisplayOrder

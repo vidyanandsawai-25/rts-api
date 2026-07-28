@@ -1,0 +1,64 @@
+namespace NtisPlatform.Application.Interfaces.TaxEngine;
+
+/// <summary>
+/// The subset of PTIS.CertificateTaxGuideline settings the Occupation Tax engine consumes.
+/// </summary>
+public sealed record CertificateTaxGuidelineSettings(
+    bool EnableCertificateBasedTax,
+    bool ApplyOnlyTaxableCertTypes,
+    string DatePriority1,
+    string DatePriority2,
+    string DatePriority3,
+    string DatePriority4,
+    bool CertificateRequireNoAndDate,
+    string MissingCertificateNoAction,
+    string MissingCertificateDateAction,
+    int IgnoreCcToOcWithinValue,
+    string IgnoreCcToOcWithinType,
+    string CcOcGapComparison,
+    string CcOcGapWithinAction,
+    string CcOcGapExceededAction,
+    string InvalidCcOcDateOrderAction,
+    string CcOnlyAction,
+    string OcOnlyAction,
+    byte FinancialYearStartMonth,
+    byte FinancialYearStartDay,
+    decimal CCPeriodMultiplier,
+    decimal OCPeriodMultiplier,
+    string ElectricBillDateRule,
+    int ElectricBillAddMonths,
+    decimal ElectricBillMultiplier,
+    int ElectricBillMinimumFinancialYear,
+    bool EnableRetrospectiveTax,
+    string NoDateRule,
+    int LookbackYears,
+    decimal DefaultRetrospectiveMultiplier,
+    int MinimumBackdateFinancialYear,
+    bool EnableCurrentYearProration,
+    string ProrationMethod,
+    string CurrentYearProrationStartRule,
+    string TaxPersistenceMode,
+    bool SaveInPolicyTaxDetails,
+    bool SaveInTransMast,
+    bool DoNotUpdateNettax,
+    bool RecalculateOnSave,
+    bool RecalculateOnDelete,
+    string GuidelineChangeApplyMode,
+    string CcPartialPolicyCode,
+    string CcFullPolicyCode,
+    string OcPartialPolicyCode,
+    string OcFullPolicyCode,
+    string ElectricBillPartialPolicyCode,
+    string ElectricBillFullPolicyCode,
+    string CertificateTaxScopeMode,
+    bool AllowFloorWiseCertificateMetadata,
+    bool EnableCcToOcSplit,
+    string ElectricBillCertificateCodes,
+    int RetrospectiveCurrentYearCount,
+    string RetrospectivePendingYearCountMode,
+    string FloorPolicyDisplayRule);
+
+public interface ICertificateTaxGuidelineReaderService
+{
+    Task<CertificateTaxGuidelineSettings> GetActiveSettingsAsync(CancellationToken cancellationToken = default);
+}

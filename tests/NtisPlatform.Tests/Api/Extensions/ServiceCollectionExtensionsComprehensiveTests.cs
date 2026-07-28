@@ -4,11 +4,14 @@ using Xunit;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Infrastructure.Data;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace NtisPlatform.Tests.Api.Extensions;
 
@@ -71,6 +74,25 @@ public class ServiceCollectionExtensionsComprehensiveTests
         Assert.Contains(_services, sd => sd.ServiceType == typeof(IDocumentAuthorizationService));
         Assert.Contains(_services, sd => sd.ServiceType == typeof(IFileStorageService));
         Assert.Contains(_services, sd => sd.ServiceType == typeof(IPropertyCertificateService));
+    }
+
+    [Fact]
+    public void AddAllServices_RegistersRateableValueApiClient_AsPlainScopedService_NotTypedHttpClient()
+    {
+        // RateableValueApiClient's constructor takes (IRateableValueService, ILogger<...>) --
+        // it delegates directly to the local RV service and makes no HTTP calls. Registering it
+        // via AddHttpClient<TClient, TImplementation>() requires TImplementation to have a
+        // constructor accepting HttpClient, which this class does not, and fails at resolution
+        // time with "A suitable constructor for type 'RateableValueApiClient' could not be
+        // located. A Typed client must provide a constructor taking a 'System.Net.Http.HttpClient'
+        // as a parameter." It must stay a plain AddScoped registration.
+        _services.AddAllServices(_configuration);
+
+        var descriptor = _services.SingleOrDefault(sd => sd.ServiceType == typeof(IRateableValueApiClient));
+
+        Assert.NotNull(descriptor);
+        Assert.Equal(typeof(RateableValueApiClient), descriptor!.ImplementationType);
+        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
     }
 
     [Fact]

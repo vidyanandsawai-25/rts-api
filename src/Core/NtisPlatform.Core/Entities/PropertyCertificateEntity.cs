@@ -45,7 +45,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         int propertyId,
         int certificateTypeId,
         string? certificateNo = null,
-        DateTime? issueDate = null)
+        DateTime? issueDate = null,
+        int? propertyDetailsId = null)
     {
         if (propertyId <= 0)
             throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
@@ -66,6 +67,7 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             CertificateNo = certificateNo,
             IssueDate = issueDate,
             DocumentBindingId = null,
+            PropertyDetailsId = propertyDetailsId,
             IsActive = true,
             _markedForDeletion = false
         };
@@ -82,7 +84,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
         int certificateTypeId,
         int documentBindingId,
         string? certificateNo = null,
-        DateTime? issueDate = null)
+        DateTime? issueDate = null,
+        int? propertyDetailsId = null)
     {
         if (propertyId <= 0)
             throw new ArgumentException("Property ID must be greater than zero.", nameof(propertyId));
@@ -106,6 +109,7 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
             CertificateNo = certificateNo,
             IssueDate = issueDate,
             DocumentBindingId = documentBindingId,
+            PropertyDetailsId = propertyDetailsId,
             IsActive = true,
             _markedForDeletion = false
         };
@@ -139,6 +143,8 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     public int? DocumentBindingId { get; private set; }
 
     /// <summary>
+    /// FK to PropertyDetails - NULL = property-level (Building Permission screen),
+    /// set = floor-level (Floor screen). Enables floor-wise taxation.
     /// FK to PropertyDetails - links to specific floor/unit
     /// </summary>
     public int? PropertyDetailsId { get; private set; }
@@ -168,6 +174,21 @@ public class PropertyCertificateEntity : BaseEntity, IHardDeletable
     /// Automatically updated by EF Core on each save.
     /// </summary>
     public byte[]? RowVersion { get; set; }
+
+    /// <summary>
+    /// True once this certificate's date has been factored into an Occupation Tax
+    /// computation (PolicyTaxDetails), so the tax engine can tell already-applied
+    /// certificates apart from freshly saved ones.
+    /// </summary>
+    public bool TaxApplied { get; private set; }
+    public DateTime? TaxAppliedDate { get; private set; }
+
+    /// <summary>Marks this certificate as having been applied to a tax computation.</summary>
+    public void MarkTaxApplied(DateTime appliedAt)
+    {
+        TaxApplied = true;
+        TaxAppliedDate = appliedAt;
+    }
 
     // Navigation Properties
     public Master.PropertyCertificateTypeMasterEntity? CertificateType { get; private set; }

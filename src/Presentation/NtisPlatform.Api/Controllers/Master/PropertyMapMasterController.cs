@@ -37,4 +37,30 @@ public class PropertyMapMasterController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [HttpGet("mapped-properties")]
+    public async Task<IActionResult> GetMappedProperties([FromQuery] PropertyMapDetailQueryParameters queryParameters, CancellationToken ct)
+    {
+        var result = await _service.GetMappedPropertiesAsync(queryParameters, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Searches across up to 10 fields (6 old-property + 4 new-property).
+    /// Returns:
+    ///   - mappedProperties  — paged pairs already linked in PropertyMapDetail (old + new blocks)
+    ///   - oldPropertySuggestions — up to 20 unlinked old-property candidates sorted by match %
+    ///   - newPropertySuggestions — up to 20 unlinked new-property candidates sorted by match %
+    ///
+    /// Each result carries matchPercentage (0–100) and mappingDecision (AUTO_MAP / MANUAL_REVIEW / LOW_MATCH).
+    /// Match % = (fields that matched / fields caller provided) × 100.
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchPropertyMappings(
+        [FromQuery] PropertyMapDetailQueryParameters queryParameters,
+        CancellationToken ct)
+    {
+        var result = await _service.SearchPropertyMappingsAsync(queryParameters, ct);
+        return Ok(result);
+    }
 }

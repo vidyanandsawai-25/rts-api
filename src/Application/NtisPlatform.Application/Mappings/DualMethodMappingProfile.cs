@@ -21,12 +21,12 @@ namespace NtisPlatform.Application.Mappings
                         : $"Tax_{src.TaxId}"))
                 .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount ?? 0m));
 
-            // TransMastCVEntity to TaxDataDto
-            CreateMap<TransMastCVEntity, TaxDataDto>()
+            // TransMastEntity (CalculationType="CV") to TaxDataDto
+            CreateMap<TransMastEntity, TaxDataDto>()
                 .ForMember(dest => dest.TaxId, opt => opt.MapFrom(src => src.TaxId))
-                .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src => 
-                    src.TaxMaster != null && !string.IsNullOrWhiteSpace(src.TaxMaster.TaxName) 
-                        ? src.TaxMaster.TaxName 
+                .ForMember(dest => dest.TaxName, opt => opt.MapFrom(src =>
+                    src.Tax != null && !string.IsNullOrWhiteSpace(src.Tax.TaxName)
+                        ? src.Tax.TaxName
                         : $"Tax_{src.TaxId}"))
                 .ForMember(dest => dest.TaxAmount, opt => opt.MapFrom(src => src.TaxAmount));
 
