@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using NtisPlatform.Application.DTOs.FieldRegistry;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
@@ -94,20 +96,28 @@ public class FieldRegistryController : ControllerBase
 
     [HttpGet("GetFieldRegistries")]
     [ProducesResponseType(typeof(PagedResult<FieldRegistryResponseDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetFieldRegistries([FromQuery] FieldRegistryQueryParameters queryParameters,CancellationToken cancellationToken)
     {
         try
-        {
+        {           
             var result = await _fieldRegistryService.GetFieldRegistriesAsync(queryParameters, cancellationToken);
             return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error getting field registries");
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error getting field registries");
+            var isDevelopment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment();
             return StatusCode(StatusCodes.Status500InternalServerError, new
             {
-                message = "An error occurred while retrieving field registries"
+                message = "An error occurred while retrieving field registries",
+                detail = isDevelopment ? ex.Message : null
             });
         }
     }
@@ -221,6 +231,51 @@ public class FieldRegistryController : ControllerBase
             {
                 success = false,
                 message = "An error occurred while updating the field registry status"
+            });
+        }
+    }
+
+    // DELETE api/FieldRegistry/PurgeFieldRegistry?updateCode=... OR ?fieldConfigId=1,2
+    [HttpDelete("PurgeFieldRegistry")]
+    [ProducesResponseType(typeof(ApiResponse<PurgeFieldRegistryResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> PurgeFieldRegistry(
+        [FromQuery] string? updateCode,
+        [FromQuery] string? fieldConfigId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(updateCode) && string.IsNullOrWhiteSpace(fieldConfigId))
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Either updateCode or fieldConfigId must be provided"
+                });
+            }
+
+            var result = await _fieldRegistryService.PurgeFieldRegistryAsync(updateCode, fieldConfigId, cancellationToken);
+            return Ok(new ApiResponse<PurgeFieldRegistryResultDto>
+            {
+                Success = true,
+                Message = "Field registry purged successfully",
+                Items = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Validation error purging field registry");
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error purging field registry");
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "An error occurred while purging the field registry"
             });
         }
     }

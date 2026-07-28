@@ -331,6 +331,9 @@ public class DataEntrySameAsService : IDataEntrySameAsService
                   && ptm != null && ptm.PartType != null && ptm.PartType != PartTypeConstants.Amenity
                   // Hard rule: IsWing = 0 — no WingMaster row whose WingNo equals this partition.
                   && !_wingRepository.GetQueryable().Any(w => w.WingNo == pm.PartitionNo)
+                  // Hard rule: skip Apartment-category rows whose PartitionNo is blank.
+                  && !(pcm.PropertyCategoryName == PropertyConstants.Categories.Apartment
+                       && (pm.PartitionNo == null || pm.PartitionNo == ""))
             group new
             {
                 pd.CarpetAreaSqMeter,

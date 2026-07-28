@@ -232,6 +232,43 @@ public class CommonDetailsController : ControllerBase
         }
     }
 
+    [HttpGet("update-history")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetUpdateHistory([FromQuery] UpdateHistoryQueryParameters request, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.GetUpdateHistoryAsync(request, ct);
+            return Ok(new ApiResponse<PagedResult<UpdateHistoryDto>>
+            {
+                Success = true,
+                Items = result,
+                Message = $"{result.TotalCount} update history record(s) found"
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }    
+    }
+
+    [HttpGet("update-history/export-excel")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExportUpdateHistoryExcel([FromQuery] UpdateHistoryQueryParameters request, CancellationToken ct)
+    {
+        try
+        {
+            var bytes = await _service.ExportUpdateHistoryToExcelAsync(request, ct);
+            var fileName = $"UpdateHistory_{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+    }
+
     private int GetValidatedUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;

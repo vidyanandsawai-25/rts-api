@@ -19,6 +19,13 @@ public class FieldRegistryTableDetailsDto
     public string ColumnName { get; set; } = string.Empty;
 }
 
+public class PurgeFieldRegistryResultDto
+{
+    public int DeletedMasterCount { get; set; }
+    public int DeletedFieldConfigCount { get; set; }
+    public int DeletedHistoryCount { get; set; }
+}
+
 public class FieldRegistryDetailsQueryParameters : BaseQueryParameters
 {
     [Required(ErrorMessage = "SchemaName is required")]

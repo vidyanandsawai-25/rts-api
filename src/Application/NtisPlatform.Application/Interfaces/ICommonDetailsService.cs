@@ -14,4 +14,10 @@ public interface ICommonDetailsService
     Task<byte[]> ExportPropertiesToExcelAsync(FilterPropertiesRequestDto request, CancellationToken ct);
     Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(
         string updateCode, Stream fileStream, int updatedBy, string? ipAddress, CancellationToken ct);
+
+    Task<PagedResult<UpdateHistoryDto>> GetUpdateHistoryAsync(
+        UpdateHistoryQueryParameters request, CancellationToken ct);
+
+    Task<byte[]> ExportUpdateHistoryToExcelAsync(
+        UpdateHistoryQueryParameters request, CancellationToken ct);
 }

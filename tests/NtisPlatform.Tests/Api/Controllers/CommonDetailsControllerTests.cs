@@ -4,9 +4,11 @@ using Microsoft.Extensions.Configuration;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.CommonDetails;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Helpers;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Models;
+using NtisPlatform.Core.Enums;
 using System.Security.Claims;
 using Xunit;
 
@@ -241,6 +243,92 @@ public class CommonDetailsControllerTests
 
     // Note: Request null validation and authentication are handled by ASP.NET pipeline.
     // Integration tests should verify these behaviors.
+
+    // ============== FilterPropertiesByCategory Tests ==============
+
+    [Fact]
+    public async Task FilterPropertiesByCategory_ReturnsOk_WithPagedProperties()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new FilterPropertiesByCategoryRequestDto
+        {
+            UpdateCode = "PROPERTY_BASIC",
+            SearchCategory = PropertySearchCategory.WardWise,
+            WardId = 1,
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        var properties = new List<PropertyPreviewDto>
+        {
+            new() { Id = 100, PropertyNo = "001", WardNo = "1", PartitionNo = "" }
+        };
+
+        var pagedResult = new PagedResult<PropertyPreviewDto>(properties, 1, 1, 10);
+
+        service.Setup(s => s.FilterPropertiesByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.FilterPropertiesByCategory(request, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = okResult.Value as ApiResponse<PagedResult<PropertyPreviewDto>>;
+        Assert.NotNull(response);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Equal(1, response.Items.Items.Count());
+        Assert.Equal(1, response.Items.TotalCount);
+        Assert.Equal("1 properties found", response.Message);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesByCategory_Returns400_WhenServiceThrowsPropertyValidationException()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new FilterPropertiesByCategoryRequestDto
+        {
+            UpdateCode = "PROPERTY_BASIC",
+            SearchCategory = PropertySearchCategory.ZoneWise
+        };
+
+        service.Setup(s => s.FilterPropertiesByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new PropertyValidationException("ZoneId is required for Zone-wise search"));
+
+        var result = await controller.FilterPropertiesByCategory(request, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PagedResult<PropertyPreviewDto>>>(badRequest.Value);
+        Assert.False(response.Success);
+        Assert.Equal("ZoneId is required for Zone-wise search", response.Message);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesByCategory_Returns400_WhenServiceThrowsArgumentException()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new FilterPropertiesByCategoryRequestDto
+        {
+            UpdateCode = "INVALID",
+            SearchCategory = PropertySearchCategory.WardWise,
+            WardId = 1
+        };
+
+        service.Setup(s => s.FilterPropertiesByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ArgumentException("Update type not found"));
+
+        var result = await controller.FilterPropertiesByCategory(request, CancellationToken.None);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<PagedResult<PropertyPreviewDto>>>(badRequest.Value);
+        Assert.False(response.Success);
+        Assert.Equal("Update type not found", response.Message);
+    }
 
     // ============== Update (BulkUpdate) Tests ==============
 
@@ -576,6 +664,122 @@ public class CommonDetailsControllerTests
         var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
         Assert.False(response.Success);
         Assert.Equal("Update type not found", response.Message);
+    }
+
+    // ============== GetUpdateHistory Tests ==============
+
+    [Fact]
+    public async Task GetUpdateHistory_ReturnsOk_WithPopulatedResults()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateHistoryQueryParameters
+        {
+            UpdateName = "PROPERTY_BASIC",
+            WardNo = "1",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        var history = new List<UpdateHistoryDto>
+        {
+            new()
+            {
+                Id = 1,
+                UpdateName = "PROPERTY_BASIC",
+                WardNo = "1",
+                PropertyNo = "001",
+                PartitionNo = "",
+                OldValue = "500",
+                NewValue = "600",
+                UpdatedColumns = "PlotArea",
+                Username = "admin",
+                UpdatedDate = DateTime.UtcNow
+            },
+            new()
+            {
+                Id = 2,
+                UpdateName = "PROPERTY_BASIC",
+                WardNo = "1",
+                PropertyNo = "002",
+                PartitionNo = "",
+                OldValue = "400",
+                NewValue = "450",
+                UpdatedColumns = "PlotArea",
+                Username = "admin",
+                UpdatedDate = DateTime.UtcNow
+            }
+        };
+
+        var pagedResult = new PagedResult<UpdateHistoryDto>(history, 2, 1, 10);
+
+        service.Setup(s => s.GetUpdateHistoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetUpdateHistory(request, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = okResult.Value as ApiResponse<PagedResult<UpdateHistoryDto>>;
+        Assert.NotNull(response);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Equal(2, response.Items.TotalCount);
+        Assert.Equal(2, response.Items.Items.Count());
+        Assert.Equal("2 update history record(s) found", response.Message);
+    }
+
+    [Fact]
+    public async Task GetUpdateHistory_ReturnsOk_WithEmptyResultSet()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateHistoryQueryParameters
+        {
+            UpdateName = "NON_EXISTENT",
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        var pagedResult = new PagedResult<UpdateHistoryDto>(new List<UpdateHistoryDto>(), 0, 1, 10);
+
+        service.Setup(s => s.GetUpdateHistoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetUpdateHistory(request, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = okResult.Value as ApiResponse<PagedResult<UpdateHistoryDto>>;
+        Assert.NotNull(response);
+        Assert.True(response.Success);
+        Assert.NotNull(response.Items);
+        Assert.Empty(response.Items.Items);
+        Assert.Equal(0, response.Items.TotalCount);
+        Assert.Equal("0 update history record(s) found", response.Message);
+    }
+
+    // ============== ExportUpdateHistoryExcel Tests ==============
+
+    [Fact]
+    public async Task ExportUpdateHistoryExcel_ReturnsFile_WithXlsxContentType()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUser(controller);
+
+        var request = new UpdateHistoryQueryParameters { UpdateName = "PROPERTY_BASIC" };
+        var bytes = new byte[] { 1, 2, 3, 4 };
+
+        service.Setup(s => s.ExportUpdateHistoryToExcelAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(bytes);
+
+        var result = await controller.ExportUpdateHistoryExcel(request, CancellationToken.None);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        Assert.Equal(bytes, fileResult.FileContents);
+        Assert.StartsWith("UpdateHistory_", fileResult.FileDownloadName);
+        Assert.EndsWith(".xlsx", fileResult.FileDownloadName);
     }
 
     // ============== Helper Methods ==============

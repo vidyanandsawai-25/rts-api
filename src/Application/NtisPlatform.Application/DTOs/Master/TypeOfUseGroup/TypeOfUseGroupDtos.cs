@@ -7,11 +7,11 @@ namespace NtisPlatform.Application.DTOs
 {
     public class TypeOfUseGroupDto : BaseDtos
     {
-        public int Id { get; set; } 
         public string TypeOfUseGroupCode { get; set; } = "";
         public string GroupName { get; set; } = "";
         public string? GroupIcon { get; set; }
         public bool IsOpenPlot { get; set; }
+        public int CountOfTypes { get; set; }
     }
 
     public class CreateTypeOfUseGroupDto : CreateBaseDtos

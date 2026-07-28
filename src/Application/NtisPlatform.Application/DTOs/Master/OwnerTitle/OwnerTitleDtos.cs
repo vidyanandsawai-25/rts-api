@@ -4,7 +4,6 @@ namespace NtisPlatform.Application.DTOs;
 
 public class OwnerTitleDto : BaseDtos
 {
-    public int Id { get; set; }
     public string OwnerTitle { get; set; } = string.Empty;
 }
 

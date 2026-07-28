@@ -9,7 +9,8 @@ namespace NtisPlatform.Application.Mappings
         public TypeOfUseGroupMappingProfile()
         {
             CreateMap<TypeOfUseGroupEntity, TypeOfUseGroupDto>()
-                ;
+
+                .ForMember(dest => dest.CountOfTypes, opt => opt.MapFrom(src => src.TypeOfUse.Count));
 
             CreateMap<CreateTypeOfUseGroupDto, TypeOfUseGroupEntity>()
                 .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
