@@ -5111,46 +5111,59 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AssetDocumentDefinitionEntity>(entity =>
         {
             entity.ToTable("AssetDocumentDefinition", "AMS");
-            entity.HasKey(e => e.Id);
+            entity.HasKey(e => e.Id).HasName("PK_AssetDocumentDefinition");
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.AssetCategoryId).IsRequired();
+
+            entity.Property(e => e.AssetCategoryId).IsRequired(false);
             entity.Property(e => e.AssetTypeId).IsRequired(false);
-            entity.Property(e => e.DocumentCode).IsRequired().HasMaxLength(50);
-            entity.Property(e => e.DocumentName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.Description).HasMaxLength(500);
+
+            entity.Property(e => e.DocumentCode)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnType("varchar(50)");
+
+            entity.Property(e => e.DocumentName)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasColumnType("nvarchar(200)");
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnType("nvarchar(500)");
+
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+
             entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MaxFileSizeMB).IsRequired().HasDefaultValue(10);
-            entity.Property(e => e.AllowedExtensions).IsRequired().HasMaxLength(200).HasDefaultValue(".pdf,.jpg,.jpeg,.png,.doc,.docx");
-            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+
             entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
 
-            entity.HasOne<AssetCategoryEntity>()
+            entity.HasOne(e => e.AssetCategory)
                 .WithMany()
                 .HasForeignKey(e => e.AssetCategoryId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetDocumentDefinition_AssetCategoryMaster");
 
-            entity.HasOne<AssetTypeEntity>()
+            entity.HasOne(e => e.AssetType)
                 .WithMany()
                 .HasForeignKey(e => e.AssetTypeId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetDocumentDefinition_AssetTypeMaster");
 
-            entity.HasIndex(e => new { e.AssetCategoryId, e.AssetTypeId, e.DocumentCode })
+            // Enforce global uniqueness of DocumentCode
+            entity.HasIndex(e => e.DocumentCode)
                 .IsUnique()
-                .HasDatabaseName("UQ_DocDef_CategoryTypeCode")
-                .HasFilter("[AssetTypeId] IS NOT NULL");
-
-            entity.HasIndex(e => new { e.AssetCategoryId, e.DocumentCode })
-                .IsUnique()
-                .HasDatabaseName("UQ_DocDef_CategoryCode_WhenTypeNull")
-                .HasFilter("[AssetTypeId] IS NULL");
+                .HasDatabaseName("UQ_AssetDocumentDefinition_Code");
         });
-
         // AssetFieldDefinition configuration
         modelBuilder.Entity<AssetFieldDefinitionEntity>(entity =>
         {
