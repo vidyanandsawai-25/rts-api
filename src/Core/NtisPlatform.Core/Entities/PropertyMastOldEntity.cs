@@ -108,6 +108,9 @@ public class PropertyMastOldEntity : BaseEntity
     [Column(TypeName = "varchar(13)")]
     public string? OldMobileNo { get; set; }
 
+    [NotMapped]
+    public string? MappedNewBuildingNo { get; set; }
+
     public bool MarkedForDeletion { get; set; } = false;
 
     public DateTime? MarkedForDeletionDate { get; set; }

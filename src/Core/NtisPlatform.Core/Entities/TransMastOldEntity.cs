@@ -19,11 +19,25 @@ public class TransMastOldEntity : BaseEntity
 
     [Required]
     [Column(TypeName = "char(2)")]
-    public string RVorCV { get; set; } = null!;
+    public string CalculationType { get; set; } = null!;
 
     [Required]
     [Column(TypeName = "decimal(18,2)")]
-    public decimal RVorCVValue { get; set; }
+    public decimal CalculationValue { get; set; }
+
+    [NotMapped]
+    public string RVorCV
+    {
+        get => CalculationType;
+        set => CalculationType = value;
+    }
+
+    [NotMapped]
+    public decimal RVorCVValue
+    {
+        get => CalculationValue;
+        set => CalculationValue = value;
+    }
 
     [Required]
     public int TaxId { get; set; }

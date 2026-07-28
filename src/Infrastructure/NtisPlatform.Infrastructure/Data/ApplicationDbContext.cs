@@ -198,7 +198,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TaxPendingDetailsRVEntity> TaxPendingDetailsRV { get; set; } = null!;
     public DbSet<TaxPendingDetailsEntity> TaxPendingDetails { get; set; } = null!;
     public DbSet<TaxPendingDetailsOldEntity> TaxPendingDetailsOld { get; set; } = null!;
-   
+
     public DbSet<TransMastEntity> TransMast { get; set; } = null!;
     public DbSet<TransMastArchiveEntity> TransMastArchive { get; set; } = null!;
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
@@ -3005,8 +3005,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.PropertyMastOldId).IsRequired();
             entity.Property(e => e.FinanceYearId).IsRequired();
-            entity.Property(e => e.RVorCV).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
-            entity.Property(e => e.RVorCVValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
+            entity.Property(e => e.CalculationValue).IsRequired().HasColumnType("decimal(18,2)");
             entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
@@ -3430,7 +3430,7 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.ParentPropertyMapId);
             entity.HasIndex(e => e.MappingCategory);
             entity.HasIndex(e => e.IsActive);
-            entity.HasIndex(e => new {e.ModuleId,e.ParentPropertyMapId,e.MappingCategory})
+            entity.HasIndex(e => new { e.ModuleId, e.ParentPropertyMapId, e.MappingCategory })
             .IsUnique()
             .HasDatabaseName("UQ_PropertyMapMaster_ModuleId_ParentPropertyMapId_MappingCategory");
         });
@@ -5681,7 +5681,7 @@ public class ApplicationDbContext : DbContext
         });
 
         // GlobalSurveyWardAllocation Entity
-        modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity => 
+        modelBuilder.Entity<GlobalSurveyWardAllocationEntity>(entity =>
         {
             entity.ToTable("WardAllocation", "GSMS");
             entity.HasKey(x => x.Id);

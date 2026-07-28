@@ -4,8 +4,10 @@ using MockQueryable.Moq;
 using Moq;
 using NtisPlatform.Application.DTOs.Master.PropertyMapMaster;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Models;
 using Xunit;
 
 namespace NtisPlatform.Tests.Application;
@@ -1150,6 +1152,392 @@ public class PropertyMapMasterServiceTests
         Assert.NotNull(result);
         Assert.Equal(2, result.TotalCount);
         Assert.All(result.Items, item => Assert.Equal(1, item.ParentPropertyMapId));
+    }
+
+    #endregion
+
+    #region SearchPropertyMappingsAsync Tests
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldSearchByUnifiedSearchTerm_ForOldProperties()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+
+        var pmList = new List<PropertyEntity>
+        {
+            new()
+            {
+                Id = 20,
+                PropertyNo = "PROP-NEW-99",
+                OwnerName = "Jane Smith New",
+                MobileNo = "9998887770",
+                IsActive = true
+            }
+        }.BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new()
+            {
+                Id = 10,
+                OldPropertyNo = "PROP-OLD-88",
+                OldOwnerName = "Jane Smith Old",
+                OldMobileNo = "9998887770",
+                IsActive = true
+            }
+        }.BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters
+        {
+            SearchTerm = "Jane Smith" // Single unified search term
+        };
+
+        // Act
+        var result = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.OldPropertySuggestions);
+        Assert.Equal("Jane Smith Old", result.OldPropertySuggestions.First().OldOwnerName);
+    }
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldSearchByUnifiedSearchTerm_MatchingOldWardNo_OldPropertyNo_AndOldPartitionNo()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+        var pmList = new List<PropertyEntity>().BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new()
+            {
+                Id = 10,
+                OldPropertyNo = "PROP-111",
+                OldWardNo = "Ward-X",
+                OldPartitionNo = "Part-Y",
+                IsActive = true
+            },
+            new()
+            {
+                Id = 11,
+                OldPropertyNo = "PROP-222",
+                OldWardNo = "Ward-Z",
+                OldPartitionNo = "Part-W",
+                IsActive = true
+            }
+        }.BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object
+        );
+
+        // Test matching old partition number
+        var qPartition = new PropertyMapDetailQueryParameters { SearchTerm = "Part-Y" };
+        var resultPartition = await service.SearchPropertyMappingsAsync(qPartition, CancellationToken.None);
+        Assert.NotNull(resultPartition);
+        Assert.Single(resultPartition.OldPropertySuggestions);
+        Assert.Equal(10, resultPartition.OldPropertySuggestions.First().Id);
+
+        // Test matching old property number
+        var qProp = new PropertyMapDetailQueryParameters { SearchTerm = "PROP-222" };
+        var resultProp = await service.SearchPropertyMappingsAsync(qProp, CancellationToken.None);
+        Assert.NotNull(resultProp);
+        Assert.Single(resultProp.OldPropertySuggestions);
+        Assert.Equal(11, resultProp.OldPropertySuggestions.First().Id);
+
+        // Test matching old ward number
+        var qWard = new PropertyMapDetailQueryParameters { SearchTerm = "Ward-Z" };
+        var resultWard = await service.SearchPropertyMappingsAsync(qWard, CancellationToken.None);
+        Assert.NotNull(resultWard);
+        Assert.Single(resultWard.OldPropertySuggestions);
+        Assert.Equal(11, resultWard.OldPropertySuggestions.First().Id);
+    }
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldReturnPropertyDetailsOld_ForSuggestedProperties()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+        var pmList = new List<PropertyEntity>().BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new()
+            {
+                Id = 10,
+                OldPropertyNo = "PROP-111",
+                IsActive = true
+            }
+        }.BuildMock();
+
+        var pdoList = new List<PropertyDetailsOldEntity>
+        {
+            new()
+            {
+                Id = 100,
+                PropertyMastOldId = 10,
+                OldFloorId = 1,
+                OldConstructionYear = "2015",
+                IsActive = true,
+                MarkedForDeletion = false
+            }
+        }.BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object,
+            mockPdoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters { SearchTerm = "PROP-111" };
+
+        // Act
+        var result = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.OldPropertySuggestions);
+        var sug = result.OldPropertySuggestions.First();
+        Assert.Equal(10, sug.Id);
+        Assert.Single(sug.PropertyDetailsOld);
+        var detail = sug.PropertyDetailsOld.First();
+        Assert.Equal(100, detail.Id);
+        Assert.Equal(10, detail.PropertyId);
+        Assert.Equal(1, detail.OldFloorId);
+        Assert.Equal("2015", detail.OldConstructionYear);
+    }
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldReturnMappedNewPropertyNo_WhenAlreadyMapped()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>
+        {
+            new()
+            {
+                Id = 1,
+                IsActive = true
+            }
+        }.BuildMock();
+        
+        var pmdList = new List<PropertyMapDetailEntity>
+        {
+            new()
+            {
+                Id = 1,
+                PropertyMapId = 1,
+                PropertyIdOld = 10,
+                PropertyIdNew = 20,
+                IsActive = true
+            }
+        }.BuildMock();
+
+        var pmList = new List<PropertyEntity>
+        {
+            new()
+            {
+                Id = 20,
+                PropertyNo = "PROP-NEW-123",
+                PartitionNo = "PART-A",
+                WardId = 5,
+                IsActive = true,
+                Ward = new WardEntity { Id = 5, WardNo = "WARD-5" }
+            }
+        }.BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new()
+            {
+                Id = 10,
+                OldPropertyNo = "PROP-OLD-111",
+                IsActive = true
+            }
+        }.BuildMock();
+
+        var pdoList = new List<PropertyDetailsOldEntity>().BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object,
+            mockPdoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters { SearchTerm = "PROP-OLD-111" };
+
+        // Act
+        var result = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.OldPropertySuggestions);
+        var sug = result.OldPropertySuggestions.First();
+        Assert.Equal(10, sug.Id);
+        Assert.True(sug.IsMapped);
+        Assert.Equal("WARD-5-PROP-NEW-123/PART-A", sug.MappedNewPropertyNo);
+    }
+
+    [Fact]
+    public async Task GetMappedPropertiesAsync_ShouldFilterBySearchParameters_AndReturnPropertyDetailsOld()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>
+        {
+            new() { Id = 1, MappingCategory = "ONE_TO_ONE", IsActive = true }
+        }.BuildMock();
+
+        var pmdList = new List<PropertyMapDetailEntity>
+        {
+            new() { Id = 5, PropertyMapId = 1, PropertyIdOld = 10, PropertyIdNew = 20, IsActive = true }
+        }.BuildMock();
+
+        var pmList = new List<PropertyEntity>
+        {
+            new() { Id = 20, PropertyNo = "PROP-NEW", OwnerName = "John Doe New", IsActive = true }
+        }.BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new() { Id = 10, OldPropertyNo = "PROP-OLD", OldOwnerName = "John Doe Old", IsActive = true }
+        }.BuildMock();
+
+        var pdoList = new List<PropertyDetailsOldEntity>
+        {
+            new()
+            {
+                Id = 100,
+                PropertyMastOldId = 10,
+                OldFloorId = 1,
+                OldConstructionYear = "2015",
+                IsActive = true,
+                MarkedForDeletion = false
+            }
+        }.BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object,
+            mockPdoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters
+        {
+            SearchTerm = "John Doe" // Should match both
+        };
+
+        // Act
+        var result = await service.GetMappedPropertiesAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Items);
+        var item = result.Items.First();
+        Assert.Equal(20, item.PropertyId);
+        Assert.Equal("PROP-OLD", item.OldPropertyNo);
+        Assert.Equal("John Doe Old", item.OldOwnerName);
+        Assert.Equal("ONE_TO_ONE", item.MappingCategory);
+        Assert.Single(item.PropertyDetailsOld);
+        var detail = item.PropertyDetailsOld.First();
+        Assert.Equal(100, detail.Id);
+        Assert.Equal(10, detail.PropertyId);
+        Assert.Equal("2015", detail.OldConstructionYear);
     }
 
     #endregion
