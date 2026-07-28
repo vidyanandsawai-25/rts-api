@@ -17,7 +17,7 @@ public class RTSApplicationQueryParameters:BaseQueryParameters
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     [Searchable]
-    public string? ApplicationNo { get; set; } 
+    public string? ApplicationNo { get; set; }
 
     [Filterable(FilterOperator.Equals)]
     [Sortable]

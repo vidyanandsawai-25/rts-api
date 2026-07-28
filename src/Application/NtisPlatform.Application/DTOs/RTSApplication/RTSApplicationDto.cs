@@ -51,7 +51,7 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         public string? FieldValue { get; set; }
     }
 
-    //Get application approval dashBoard work end 
+    //Get application approval dashBoard work end
 
     public class RTSApplicationDetailsDto
     {

@@ -126,9 +126,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                  x.CreatedDate.HasValue &&
                  x.CreatedDate.Value.AddDays(Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))).Date == DateTime.Today)
 
-            }).SingleOrDefaultAsync(cancellationToken);
+        }).SingleOrDefaultAsync(cancellationToken);
 
-       
         var pageNumber = queryParameters.PageNumber < 1 ? 1 : queryParameters.PageNumber;
         var pageSize = queryParameters.PageSize < 1 ? 10 : queryParameters.PageSize;
 
@@ -145,7 +144,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 ApplicationStatus = x.ApplicationStatus,
                 CreatedDate = x.CreatedDate,
                 UpdatedDate = x.UpdatedDate,
-                SessionId = x.SessionId, 
+                SessionId = x.SessionId,
                 OwnerId = x.OwnerId,
                 DepartmentName = x.Department.DepartmentName,
                 ServiceName = x.Service.ServiceName,
@@ -165,8 +164,6 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 })
                 .ToList()
             }).ToListAsync(cancellationToken);
-
-                
 
        var result = new RTSApplicationDashboardResponseDto
        {
