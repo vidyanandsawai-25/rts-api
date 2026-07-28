@@ -179,6 +179,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RuleCategoryEntity> RuleCategory { get; set; } = null!;
     public DbSet<AssetRentDocumentTypeEntity> AssetRentDocumentTypes { get; set; } = null!;
     public DbSet<InventoryDocumentTypeEntity> InventoryDocumentTypes { get; set; } = null!;
+    public DbSet<AssetPhotoEntity> AssetPhotos { get; set; } = null!;
+    public DbSet<AssetMasterEntity> AssetMaster { get; set; } = null!;
 
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
@@ -6358,6 +6360,46 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy).IsRequired(false);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
             entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_InventoryDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
+        });
+
+        // AssetMaster minimal placeholder configuration (AMS schema)
+        modelBuilder.Entity<AssetMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+        });
+
+        // AssetPhoto configuration (AMS schema)
+        modelBuilder.Entity<AssetPhotoEntity>(entity =>
+        {
+            entity.ToTable("AssetPhoto", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.SubUnitsDetailsId).IsRequired(false);
+            entity.Property(e => e.PhotoTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId).IsRequired(false);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.PhotoType)
+                .WithMany()
+                .HasForeignKey(e => e.PhotoTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
