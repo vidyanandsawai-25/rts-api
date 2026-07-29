@@ -253,7 +253,6 @@ public class PropertyTaxOperationsServiceTests
 
         var rvResult = new NtisPlatform.Application.DTOs.RateableValue.RateableValueResponseDto
         {
-            TotalTax = 100m,
             Policy = new NtisPlatform.Application.DTOs.RateableValue.PolicyTaxDto
             {
                 Taxes = new Dictionary<string, decimal>

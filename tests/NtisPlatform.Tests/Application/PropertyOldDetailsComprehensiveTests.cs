@@ -308,8 +308,8 @@ public class PropertyOldDetailsComprehensiveTests
             Id = 1,
             PropertyMastOldId = 100,
             FinanceYearId = 10,
-            RVorCV = "RV",
-            RVorCVValue = 50000.50m,
+            CalculationType = "RV",
+            CalculationValue = 50000.50m,
             TaxId = 5,
             TaxAmount = 5000.25m,
             MarkedForDeletion = false,
@@ -325,8 +325,8 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal(1, entity.Id);
         Assert.Equal(100, entity.PropertyMastOldId);
         Assert.Equal(10, entity.FinanceYearId);
-        Assert.Equal("RV", entity.RVorCV);
-        Assert.Equal(50000.50m, entity.RVorCVValue);
+        Assert.Equal("RV", entity.CalculationType);
+        Assert.Equal(50000.50m, entity.CalculationValue);
         Assert.Equal(5, entity.TaxId);
         Assert.Equal(5000.25m, entity.TaxAmount);
         Assert.False(entity.MarkedForDeletion);
@@ -348,8 +348,8 @@ public class PropertyOldDetailsComprehensiveTests
         Assert.Equal(0, entity.Id);
         Assert.Equal(0, entity.PropertyMastOldId);
         Assert.Equal(0, entity.FinanceYearId);
-        Assert.Null(entity.RVorCV);
-        Assert.Equal(0m, entity.RVorCVValue);
+        Assert.Null(entity.CalculationType);
+        Assert.Equal(0m, entity.CalculationValue);
         Assert.Equal(0, entity.TaxId);
         Assert.Equal(0m, entity.TaxAmount);
         Assert.False(entity.MarkedForDeletion);
@@ -360,7 +360,7 @@ public class PropertyOldDetailsComprehensiveTests
     public void TransMastOldEntity_MarkedForDeletion_CanBeSet()
     {
         // Arrange
-        var entity = new TransMastOldEntity { PropertyMastOldId = 100, RVorCV = "RV" };
+        var entity = new TransMastOldEntity { PropertyMastOldId = 100, CalculationType = "RV" };
         var deletionDate = DateTime.Now;
 
         // Act

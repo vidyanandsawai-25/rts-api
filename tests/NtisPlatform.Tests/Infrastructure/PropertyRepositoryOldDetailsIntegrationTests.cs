@@ -1217,8 +1217,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 1,
                 TaxAmount = 1000m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             },
@@ -1228,8 +1228,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 2,
                 TaxAmount = 500m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             },
@@ -1239,8 +1239,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 3,
                 TaxAmount = 100m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -1301,9 +1301,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Add transactions for multiple years
         _context.TransMastOld.AddRange(
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 1, TaxId = 1, TaxAmount = 1000m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 2, TaxId = 1, TaxAmount = 1100m, RVorCV = "RV", RVorCVValue = 55000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 3, TaxId = 1, TaxAmount = 1200m, RVorCV = "RV", RVorCVValue = 60000m, IsActive = true, MarkedForDeletion = false }
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 1, TaxId = 1, TaxAmount = 1000m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 2, TaxId = 1, TaxAmount = 1100m, CalculationType = "RV", CalculationValue = 55000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 3, TaxId = 1, TaxAmount = 1200m, CalculationType = "RV", CalculationValue = 60000m, IsActive = true, MarkedForDeletion = false }
         );
 
         await _context.SaveChangesAsync();
@@ -1348,9 +1348,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Add active and inactive transactions for the active year (year 3)
         _context.TransMastOld.AddRange(
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 1, TaxAmount = 1000m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 2, TaxAmount = 500m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = false, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 3, TaxAmount = 100m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = true }
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 1, TaxAmount = 1000m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 2, TaxAmount = 500m, CalculationType = "RV", CalculationValue = 50000m, IsActive = false, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 3, TaxAmount = 100m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = true }
         );
 
         await _context.SaveChangesAsync();
@@ -1480,8 +1480,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         });
@@ -1535,8 +1535,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         });
@@ -1592,8 +1592,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = false,
             MarkedForDeletion = true
         });
@@ -2165,11 +2165,11 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Contains("Duplicate TaxId", exception.Message);
     }
 
-    // Test removed: RVorCV validation is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType validation is no longer applicable as the field has been removed from the API
 
-    // Test removed: RVorCV default value logic is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType default value logic is no longer applicable as the field has been removed from the API
 
-    // Test removed: RVorCV default value logic is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType default value logic is no longer applicable as the field has been removed from the API
 
     [Fact]
     public async Task UpdateOldTaxesDetailsAsync_InsertNewTransaction_Success()
@@ -2221,8 +2221,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         var tax1 = transactions.First(t => t.TaxId == 1);
         Assert.Equal(1000m, tax1.TaxAmount);
-        Assert.Equal("RV", tax1.RVorCV);
-        Assert.Equal(0m, tax1.RVorCVValue);
+        Assert.Equal("RV", tax1.CalculationType);
+        Assert.Equal(0m, tax1.CalculationValue);
 
         var tax2 = transactions.First(t => t.TaxId == 2);
         Assert.Equal(500m, tax2.TaxAmount);
@@ -2253,8 +2253,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -2287,7 +2287,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         Assert.NotNull(updatedTransaction);
         Assert.Equal(1500m, updatedTransaction.TaxAmount);
-        // RVorCV is preserved from existing record, not overwritten
+        // CalculationType is preserved from existing record, not overwritten
         Assert.True(updatedTransaction.IsActive);
         Assert.False(updatedTransaction.MarkedForDeletion);
     }
@@ -2317,8 +2317,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = false,
             MarkedForDeletion = true,
             MarkedForDeletionDate = DateTime.Now
@@ -2419,14 +2419,14 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Verify year 1 transactions
         var year1Transactions = transactions.Where(t => t.FinanceYearId == 1).ToList();
         Assert.Equal(3, year1Transactions.Count);
-        // RVorCV defaults to "RV" when not provided by API
-        Assert.All(year1Transactions, t => Assert.Equal("RV", t.RVorCV));
+        // CalculationType defaults to "RV" when not provided by API
+        Assert.All(year1Transactions, t => Assert.Equal("RV", t.CalculationType));
 
         // Verify year 2 transactions
         var year2Transactions = transactions.Where(t => t.FinanceYearId == 2).ToList();
         Assert.Equal(2, year2Transactions.Count);
-        // RVorCV defaults to "RV" when not provided by API
-        Assert.All(year2Transactions, t => Assert.Equal("RV", t.RVorCV));
+        // CalculationType defaults to "RV" when not provided by API
+        Assert.All(year2Transactions, t => Assert.Equal("RV", t.CalculationType));
     }
 
     #endregion

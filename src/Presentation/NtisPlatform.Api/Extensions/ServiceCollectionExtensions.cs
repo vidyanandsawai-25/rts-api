@@ -340,6 +340,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
         services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
         services.AddScoped<ICombinePropertyTaxService, CombinePropertyTaxService>();
+        services.AddScoped<IPropertyComparisonService, PropertyComparisonService>();
         services.AddScoped<ILockUnlockService, LockUnlockService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();

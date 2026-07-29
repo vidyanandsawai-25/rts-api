@@ -92,8 +92,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     {
                         PropertyId = propertyId,
                         FinanceYear = propertyContext.Parameters.FinanceYear,
-                        TotalRateableValue = 0,
-                        TotalTax = 0
+                        TotalRateableValue = 0
                     };
                 }
 
@@ -552,7 +551,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 }
 
                 // 11. Total RV across all details
-                decimal totalRv = baseResultsCache.Values.Sum(r => r.RateableValue ?? 0m);
+                // Calculate total RV from unique details (first result per detail) to match response mapper
+                // Group by PropertyDetailsId once to avoid O(n²) complexity from repeated Where scans
+                decimal totalRv = newResultsRows
+                    .GroupBy(r => r.PropertyDetailsId)
+                    .Sum(g => g.FirstOrDefault()?.RateableValue ?? 0m);
 
                 _logger.LogInformation(
                     "Row summary for PropertyId={PropertyId}: ResultsRows={Results}, TaxDetailRows={TaxDetails}, TotalRV={TotalRv}",
@@ -614,15 +617,12 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
                         renters ?? new List<RenterMastEntity>(), occupancies, taxMasterCache);
 
-                    LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
-                        { { "PropertyId", propertyId.ToString() } });
                     LogMetric("TaxCalculation.TotalRV", (double)response.TotalRateableValue, new Dictionary<string, string>
                         { { "PropertyId", propertyId.ToString() } });
 
                     _logger.LogInformation(
-                        "RV calculation completed for PropertyId={PropertyId}, TotalTax={TotalTax}, " +
-                        "TotalRV={TotalRV}, Duration={DurationMs}ms",
-                        propertyId, response.TotalTax, response.TotalRateableValue,
+                        "RV calculation completed for PropertyId={PropertyId}, TotalRV={TotalRV}, Duration={DurationMs}ms",
+                        propertyId, response.TotalRateableValue,
                         operationStopwatch.ElapsedMilliseconds);
 
                     return response;

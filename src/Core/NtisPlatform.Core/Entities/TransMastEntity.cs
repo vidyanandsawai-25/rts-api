@@ -28,7 +28,13 @@ public class TransMastEntity : BaseEntity, IHardDeletable
     /// The calculated RV or CV value for this property
     /// </summary>
 
-    public decimal CalculationValue { get; set; }
+    public decimal? CalculationValue { get; set; }
+
+    /// <summary>
+    /// The sum of Annual Rental Value for this property
+    /// </summary>
+
+    public decimal? CalculationAnnualValue { get; set; }
 
     [NotMapped]
     public string RVorCV
@@ -40,7 +46,7 @@ public class TransMastEntity : BaseEntity, IHardDeletable
     [NotMapped]
     public decimal RVorCVValue
     {
-        get => CalculationValue;
+        get => CalculationValue ?? 0;
         set => CalculationValue = value;
     }
 

@@ -16,6 +16,7 @@ namespace NtisPlatform.Application.Services.TaxEngine;
 public sealed class RVPersistenceService : IRVPersistenceService
 {
     private const string NetTaxPolicyCode = "NETTAX";
+    private const string TaxTotalCode = "TaxTotal";
 
     private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
     private readonly IRepository<RVCalculationTaxDetailsEntity, int> _taxDetailsRepo;
@@ -23,6 +24,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
     private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
     private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
     private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
+    private readonly IRepository<TaxMasterEntity, int> _taxMasterRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RVPersistenceService> _logger;
     private readonly TimeProvider _timeProvider;
@@ -34,6 +36,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
         IRepository<TransMastEntity, int> transmastRVRepo,
         IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
+        IRepository<TaxMasterEntity, int> taxMasterRepo,
         IUnitOfWork unitOfWork,
         ILogger<RVPersistenceService> logger,
         TimeProvider timeProvider)
@@ -44,6 +47,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _policyCodeMasterRepo = policyCodeMasterRepo;
         _transmastRVRepo = transmastRVRepo;
         _ruleLogRepo = ruleLogRepo;
+        _taxMasterRepo = taxMasterRepo;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _timeProvider = timeProvider;
@@ -191,6 +195,11 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _logger.LogDebug("Deactivated {PolicyCount} policy and {TransCount} transmast records",
             oldPolicyCount, oldTransmastCount);
 
+        // Calculate total ALV (Annual Rental Value)
+        decimal totalALV = resultsRows
+            .Where(x => x.IsActive && !x.MarkedForDeletion)
+            .Sum(x => Convert.ToDecimal(x.AnnualRentalValue ?? 0d));
+
         // Aggregate by tax
         var taxGroups = taxDetailRows
             .Where(x => x.TaxId > 0 && x.IsActive && !x.MarkedForDeletion)
@@ -236,6 +245,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 TaxAmount         = taxAmount,
                 CalculationType   = "RV",
                 CalculationValue  = totalRv,
+                CalculationAnnualValue    = totalALV,
                 IsActive          = true,
                 MarkedForDeletion = false,
                 CreatedDate       = now,
@@ -282,6 +292,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
                     TaxAmount         = educationTaxAmount,
                     CalculationType   = "RV",
                     CalculationValue  = totalRv,
+                    CalculationAnnualValue    = totalALV,
                     IsActive          = true,
                     MarkedForDeletion = false,
                     CreatedDate       = now,
@@ -323,11 +334,59 @@ public sealed class RVPersistenceService : IRVPersistenceService
                     TaxAmount         = employmentTaxAmount,
                     CalculationType   = "RV",
                     CalculationValue  = totalRv,
+                    CalculationAnnualValue    = totalALV,
                     IsActive          = true,
                     MarkedForDeletion = false,
                     CreatedDate       = now,
                     UpdatedDate       = now
                 });
+            }
+        }
+
+        // Save TaxTotal record: sum of all policy records created (excluding special taxes already added separately)
+        var taxTotalId = await _taxMasterRepo.GetQueryable()
+            .Where(x => x.IsActive && x.TaxCode == TaxTotalCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync();
+
+        if (taxTotalId > 0)
+        {
+            // Calculate the actual sum of individual tax records saved (excludes education/employment already added separately)
+            decimal actualTotalTaxAmount = newPolicyRecords.Sum(x => x.TaxAmount ?? 0m);
+
+            if (actualTotalTaxAmount > 0)
+            {
+                newPolicyRecords.Add(new PolicyTaxDetailsEntity
+                {
+                    PropertyId           = propertyId,
+                    PolicyCodeId         = netTaxPolicyCodeId,
+                    PolicyCodeMaster     = policyCodeMaster,
+                    CalculationValue     = totalRv,
+                    TaxId                = taxTotalId,
+                    TaxAmount            = actualTotalTaxAmount,
+                    IsActive             = true,
+                    MarkedForDeletion    = false,
+                    MarkedForDeletionDate = null,
+                    CreatedDate          = now,
+                    UpdatedDate          = now
+                });
+
+                newTransmastRecords.Add(new TransMastEntity
+                {
+                    PropertyId        = propertyId,
+                    FinanceYearId     = yearMasterId,
+                    TaxId             = taxTotalId,
+                    TaxAmount         = actualTotalTaxAmount,
+                    CalculationType   = "RV",
+                    CalculationValue  = totalRv,
+                    CalculationAnnualValue    = totalALV,
+                    IsActive          = true,
+                    MarkedForDeletion = false,
+                    CreatedDate       = now,
+                    UpdatedDate       = now
+                });
+
+                _logger.LogDebug("Saved TaxTotal record with amount={TaxAmount} for PropertyId={PropertyId}", actualTotalTaxAmount, propertyId);
             }
         }
 

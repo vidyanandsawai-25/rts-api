@@ -274,8 +274,8 @@ public partial class PropertyOldDetailsRepository
                             FinanceYearId = yearDto.FinanceYearId,
                             TaxId = taxDto.TaxId,
                             TaxAmount = taxDto.TaxAmount,
-                            RVorCV = "RV",
-                            RVorCVValue = 0m,
+                            CalculationType = "RV",
+                            CalculationValue = 0m,
                             IsActive = true,
                             MarkedForDeletion = false,
                             CreatedDate = DateTime.Now
@@ -364,8 +364,8 @@ public partial class PropertyOldDetailsRepository
                         FinanceYearId = yearDto.FinanceYearId,
                         TaxId = taxDto.TaxId,
                         TaxAmount = taxDto.TaxAmount,
-                        RVorCV = "RV",
-                        RVorCVValue = 0m,
+                        CalculationType = "RV",
+                        CalculationValue = 0m,
                         IsActive = true,
                         MarkedForDeletion = false,
                         CreatedDate = DateTime.Now

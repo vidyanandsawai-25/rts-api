@@ -89,8 +89,7 @@ public class CombinePropertyTaxServiceTests
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
             .ReturnsAsync(new RateableValueResponseDto
             {
-                TotalRateableValue = 100000,
-                TotalTax = 5000
+                TotalRateableValue = 100000
             });
 
         // Act
@@ -131,8 +130,7 @@ public class CombinePropertyTaxServiceTests
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
             .ReturnsAsync(new RateableValueResponseDto
             {
-                TotalRateableValue = 150000,
-                TotalTax = 7500
+                TotalRateableValue = 150000
             });
 
         // Act
@@ -515,8 +513,7 @@ public class CombinePropertyTaxServiceTests
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
             .ReturnsAsync(new RateableValueResponseDto
             {
-                TotalRateableValue = 100000,
-                TotalTax = 5000
+                TotalRateableValue = 100000
             });
 
         // Act
@@ -566,8 +563,7 @@ public class CombinePropertyTaxServiceTests
         var sourcePropertyId = 1;
         var expectedResult = new RateableValueResponseDto
         {
-            TotalRateableValue = 150000,
-            TotalTax = 7500
+            TotalRateableValue = 150000
         };
 
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
@@ -622,8 +618,7 @@ public class CombinePropertyTaxServiceTests
         _mockRateableValueService.Setup(r => r.CalculateAndSaveAsync(sourcePropertyId))
             .ReturnsAsync(new RateableValueResponseDto
             {
-                TotalRateableValue = 250000,
-                TotalTax = 12500
+                TotalRateableValue = 250000
             });
 
         // Act

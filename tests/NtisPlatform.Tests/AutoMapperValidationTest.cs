@@ -143,7 +143,7 @@ public class AutoMapperValidationTest
                 // Computed/derived rate fields (populated from navigation properties after mapping)
                 "RateAmount",
                 // Local record types used in data layer projections (not entity mappings)
-                "CalculationType", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
+                "CalculationType", "CalculationAnnualValue", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
                 // SocietyDetailsEntity fields unmapped from SocietyWingDetails cross-mapping
                 "SocietyName", "SocietyAddress", "SecretaryName", "ManagerName",
                 "LandOwnerName", "BuilderName",

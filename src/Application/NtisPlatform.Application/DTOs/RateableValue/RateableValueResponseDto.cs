@@ -9,7 +9,6 @@ namespace NtisPlatform.Application.DTOs.RateableValue
         public int PropertyId { get; set; }
         public int FinanceYear { get; set; }
         public decimal TotalRateableValue { get; set; }
-        public decimal TotalTax { get; set; }
         public PolicyTaxDto? Policy { get; set; }
         public List<RateableValueDetailDto> Details { get; set; } = new();
     }
@@ -51,9 +50,7 @@ namespace NtisPlatform.Application.DTOs.RateableValue
     public class PolicyTaxDto
     {
         public string PolicyCode { get; set; } = string.Empty;
-        public short? PolicyYear { get; set; }
-        public decimal CalculationValue { get; set; }
-        public decimal TaxTotal { get; set; }
+        public decimal PolicyRVorCValue { get; set; }
         public Dictionary<string, decimal> Taxes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 }

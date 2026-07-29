@@ -585,7 +585,17 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 {
                     var rv = await _rateableValueService.CalculateAndSaveAsync(detail.PropertyId);
                     detail.Status = nameof(JobDetailStatus.Added);
-                    detail.Amount = rv.TotalTax;
+
+                    // Prefer TaxTotal if present to avoid double-counting (TaxTotal is sum of individual taxes)
+                    if (rv.Policy?.Taxes != null && rv.Policy.Taxes.TryGetValue("TaxTotal", out var taxTotal))
+                    {
+                        detail.Amount = taxTotal;
+                    }
+                    else
+                    {
+                        detail.Amount = rv.Policy?.Taxes?.Values.Sum() ?? 0m;
+                    }
+
                     detail.TaxHead = rv.Policy?.Taxes.Count > 0
                         ? string.Join(", ", rv.Policy.Taxes.Keys)
                         : NetTaxPolicyCode;

@@ -393,7 +393,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                         PropertyId = x.PropertyId,
                         FinanceYearId = x.FinanceYearId,
                         CalculationType = x.CalculationType,
-                        CalculationValue = x.CalculationValue,
+                        CalculationValue = (x.CalculationValue.HasValue ? x.CalculationValue.Value : 0),
                         TaxId = x.TaxId,
                         TaxAmount = x.TaxAmount
                     }).ToList());
@@ -414,7 +414,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                         PropertyMastOldId = x.PropertyMastOldId,
                         FinanceYearId = x.FinanceYearId,
                         CalculationType = x.CalculationType,
-                        CalculationValue = x.CalculationValue,
+                        CalculationValue = (x.CalculationValue.HasValue ? x.CalculationValue.Value : 0),
                         TaxId = x.TaxId,
                         TaxAmount = x.TaxAmount
                     }).ToList());
@@ -530,7 +530,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                         PropertyMastOldId = x.PropertyMastOldId,
                         FinanceYearId = x.FinanceYearId,
                         CalculationType = x.CalculationType,
-                        CalculationValue = x.CalculationValue,
+                        CalculationValue = (x.CalculationValue.HasValue ? x.CalculationValue.Value : 0),
                         TaxId = x.TaxId,
                         TaxAmount = x.TaxAmount
                     }).ToList());

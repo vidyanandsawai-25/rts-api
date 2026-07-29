@@ -351,7 +351,7 @@ public partial class PropertyService
                     PropertySide = mainProperty.PropertyMastOldId.HasValue ? "OLD" : "NEW",
                     PropertyIdNew = newProperties[i].Id,
                     PropertyIdOld = mainProperty.PropertyMastOldId,
-                    PropertyNo = $"New-{newProperties[i].PropertyNo}",
+                    PropertyNoNew = $"New-{newProperties[i].PropertyNo}",
                     Status = "MODIFIED",
                     Remark = $"SPLIT: property {mainProperty.PropertyNo} mapped to new property {newProperties[i].PropertyNo}{(string.IsNullOrEmpty(newProperties[i].PartitionNo) ? "" : $"-{newProperties[i].PartitionNo}")}",
                     IsCurrent = true,

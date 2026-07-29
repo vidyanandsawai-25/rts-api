@@ -3008,7 +3008,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyMastOldId).IsRequired();
             entity.Property(e => e.FinanceYearId).IsRequired();
             entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
-            entity.Property(e => e.CalculationValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculationAnnualValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.CalculationValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
@@ -5759,7 +5760,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd().UseIdentityColumn(1, 1);
             entity.Property(e => e.PropertyMapId).IsRequired();
             entity.Property(e => e.PropertySide).IsRequired().HasMaxLength(10).IsUnicode(false).HasConversion<string>();
-            entity.Property(e => e.PropertyNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PropertyNoOld).HasMaxLength(50).HasDefaultValue(string.Empty);
+            entity.Property(e => e.PropertyNoNew).IsRequired().HasMaxLength(50);
             entity.Property(e => e.TaxSharePercent).HasColumnType("decimal(9,4)");
             entity.Property(e => e.AreaSharePercent).HasColumnType("decimal(9,4)");
             entity.Property(e => e.Status).IsRequired().HasMaxLength(20).IsUnicode(false).HasDefaultValue("ACTIVE");

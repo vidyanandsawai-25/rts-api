@@ -425,8 +425,8 @@ public class PropertySearchRepository : IPropertySearchRepository
                 select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
             ).ToListAsync(cancellationToken);
 
-            rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
-            cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue);
+            rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue ?? 0m);
+            cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue ?? 0m);
             totalTaxDictionary = totalTaxAmounts.ToDictionary(x => x.PropertyId, x => x.TotalTax);
 
             // Apply Top N sorting BEFORE pagination
@@ -508,8 +508,8 @@ public class PropertySearchRepository : IPropertySearchRepository
                 select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
             ).ToListAsync(cancellationToken);
 
-            rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
-            cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue);
+            rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue ?? 0m);
+            cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue ?? 0m);
             totalTaxDictionary = totalTaxAmounts.ToDictionary(x => x.PropertyId, x => x.TotalTax);
         }
 
