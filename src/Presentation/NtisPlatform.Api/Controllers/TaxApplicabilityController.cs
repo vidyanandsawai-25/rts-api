@@ -27,7 +27,7 @@ namespace NtisPlatform.Api.Controllers
         }
 
         /// <summary>
-        /// Gets tax applicability details based on property, financial year, type of use group, and RV/CV indicator
+        /// Gets tax applicability details based on property, financial year, type of use group, and calculation type
         /// </summary>
         /// <param name="query">Query parameters for tax applicability</param>
         /// <param name="ct">Cancellation token</param>
