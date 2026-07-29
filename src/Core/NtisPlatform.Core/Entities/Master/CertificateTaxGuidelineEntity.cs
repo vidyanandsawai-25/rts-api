@@ -11,6 +11,6 @@ public class CertificateTaxGuidelineEntity : BaseEntity
     public string GuidelineGroup { get; set; } = string.Empty;
     public int DisplayOrder { get; set; }
     public string DataType { get; set; } = string.Empty;
-    public string GuidelineValue { get; set; } = string.Empty;
+    public string? GuidelineValue { get; set; }
     public string? AllowedValues { get; set; }
 }
