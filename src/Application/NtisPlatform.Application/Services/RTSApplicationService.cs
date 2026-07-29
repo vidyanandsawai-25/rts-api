@@ -149,7 +149,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 DepartmentName = x.Department.DepartmentName,
                 ServiceName = x.Service.ServiceName,
                 Sla = x.Service.Sla,
-
+                Remark= x.Remark,
                 ApplicantDetails = x.FieldValueData
                 .Where(fv => fv.FieldDefinition != null)
                 .Where(fv => fv.FieldDefinition!.FieldGroup ==
