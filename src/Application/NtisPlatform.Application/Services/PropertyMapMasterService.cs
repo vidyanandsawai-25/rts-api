@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,14 +86,17 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
         {
             var st = queryParams.SearchTerm.Trim();
-            bool hasHyphen = st.Contains('-');
+            var (tWard, tProp, tPart) = ParseSearchTokens(st);
 
             rawQuery = rawQuery.Where(x =>
                 (x.pm.PropertyNo != null && x.pm.PropertyNo.Contains(st)) ||
                 (x.pmo.OldWardNo != null && x.pmo.OldWardNo.Contains(st)) ||
                 (x.pmo.OldPropertyNo != null && x.pmo.OldPropertyNo.Contains(st)) ||
                 (x.pmo.OldPartitionNo != null && x.pmo.OldPartitionNo.Contains(st)) ||
-                (hasHyphen && (((x.pmo.OldWardNo ?? "") + "-" + (x.pmo.OldPropertyNo ?? "") + "-" + (x.pmo.OldPartitionNo ?? "")).Contains(st))) ||
+                (!string.IsNullOrEmpty(tWard) && !string.IsNullOrEmpty(tProp) && (
+                    (x.pmo.OldWardNo == tWard && x.pmo.OldPropertyNo != null && x.pmo.OldPropertyNo.Contains(tProp) && (string.IsNullOrEmpty(tPart) || (x.pmo.OldPartitionNo != null && x.pmo.OldPartitionNo.Contains(tPart)))) ||
+                    (x.pm.Ward != null && x.pm.Ward.WardNo == tWard && x.pm.PropertyNo != null && x.pm.PropertyNo.Contains(tProp) && (string.IsNullOrEmpty(tPart) || (x.pm.PartitionNo != null && x.pm.PartitionNo.Contains(tPart))))
+                )) ||
                 (x.pm.OwnerName != null && x.pm.OwnerName.Contains(st)) ||
                 (x.pmo.OldOwnerName != null && x.pmo.OldOwnerName.Contains(st)) ||
                 (x.pm.OwnerNameEnglish != null && x.pm.OwnerNameEnglish.Contains(st)) ||
@@ -438,7 +442,15 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         PropertyMapDetailQueryParameters q,
         CancellationToken cancellationToken = default)
     {
-        bool hasSearchFields = !string.IsNullOrWhiteSpace(q.SearchTerm);
+        bool hasSearchFields = !string.IsNullOrWhiteSpace(q.SearchTerm) ||
+                               !string.IsNullOrWhiteSpace(q.OldOwnerName) ||
+                               !string.IsNullOrWhiteSpace(q.OldOwnerNameEnglish) ||
+                               !string.IsNullOrWhiteSpace(q.OldMobileNo) ||
+                               !string.IsNullOrWhiteSpace(q.OldAddress) ||
+                               !string.IsNullOrWhiteSpace(q.OldSocietyName) ||
+                               !string.IsNullOrWhiteSpace(q.OldOccupierName) ||
+                               !string.IsNullOrWhiteSpace(q.OldBuilderName) ||
+                               !string.IsNullOrWhiteSpace(q.OldConstructionYear);
 
         if (!hasSearchFields && !q.PropertyId.HasValue)
         {
@@ -629,40 +641,247 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
             PropertyMapDetailQueryParameters q,
             CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(q.SearchTerm))
+        var st = q.SearchTerm?.Trim();
+        var ownerName = q.OldOwnerName?.Trim();
+        var ownerNameEng = q.OldOwnerNameEnglish?.Trim();
+        var mobileNo = q.OldMobileNo?.Trim();
+        var address = q.OldAddress?.Trim();
+        var societyName = q.OldSocietyName?.Trim();
+        var occupierName = q.OldOccupierName?.Trim();
+        var builderName = q.OldBuilderName?.Trim();
+        var constrYear = q.OldConstructionYear?.Trim();
+
+        bool hasSearchTerm = !string.IsNullOrWhiteSpace(st);
+        bool hasOwnerName = !string.IsNullOrWhiteSpace(ownerName);
+        bool hasOwnerNameEng = !string.IsNullOrWhiteSpace(ownerNameEng);
+        bool hasMobileNo = !string.IsNullOrWhiteSpace(mobileNo);
+        bool hasAddress = !string.IsNullOrWhiteSpace(address);
+        bool hasSocietyName = !string.IsNullOrWhiteSpace(societyName);
+        bool hasOccupierName = !string.IsNullOrWhiteSpace(occupierName);
+        bool hasBuilderName = !string.IsNullOrWhiteSpace(builderName);
+        bool hasConstrYear = !string.IsNullOrWhiteSpace(constrYear);
+
+        if (!hasSearchTerm && !hasOwnerName && !hasOwnerNameEng && !hasMobileNo &&
+            !hasAddress && !hasSocietyName && !hasOccupierName && !hasBuilderName && !hasConstrYear)
+        {
+            return new List<(int id, OldPropertyInfoDto dto)>();
+        }
+
+        List<int> detailConstrYearMastIds = new();
+        if (hasConstrYear)
+        {
+            if (_serviceProvider != null)
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var pdRepo = scope.ServiceProvider.GetRequiredService<IRepository<PropertyDetailsOldEntity, int>>();
+                detailConstrYearMastIds = await pdRepo.GetQueryable()
+                    .AsNoTracking()
+                    .Where(x => x.IsActive && !x.MarkedForDeletion && x.OldConstructionYear != null && x.OldConstructionYear.Contains(constrYear!))
+                    .Select(x => x.PropertyMastOldId)
+                    .Distinct()
+                    .ToListAsync(ct);
+            }
+
+        }
+
+        var param = Expression.Parameter(typeof(PropertyMastOldEntity), "x");
+        Expression? combinedOr = null;
+
+        void AddOr(Expression clause)
+        {
+            combinedOr = combinedOr == null ? clause : Expression.OrElse(combinedOr, clause);
+        }
+
+        if (hasSearchTerm)
+        {
+            bool hasSpecial = st!.Contains('-') || st!.Contains('/');
+
+            var containsWard = BuildContains(param, nameof(PropertyMastOldEntity.OldWardNo), st!);
+            var containsProp = BuildContains(param, nameof(PropertyMastOldEntity.OldPropertyNo), st!);
+            var containsPart = BuildContains(param, nameof(PropertyMastOldEntity.OldPartitionNo), st!);
+            var containsOwner = BuildContains(param, nameof(PropertyMastOldEntity.OldOwnerName), st!);
+            var containsOwnerEng = BuildContains(param, nameof(PropertyMastOldEntity.OldOwnerNameEnglish), st!);
+            var containsMobile = BuildContains(param, nameof(PropertyMastOldEntity.OldMobileNo), st!);
+            var containsAddr = BuildContains(param, nameof(PropertyMastOldEntity.OldAddress), st!);
+            var containsAddrEng = BuildContains(param, nameof(PropertyMastOldEntity.OldAddressEnglish), st!);
+            var containsSoc = BuildContains(param, nameof(PropertyMastOldEntity.OldSocietyName), st!);
+            var containsOcc = BuildContains(param, nameof(PropertyMastOldEntity.OldOccupierName), st!);
+            var containsEgov = BuildContains(param, nameof(PropertyMastOldEntity.OldEgovNo), st!);
+
+            Expression stCombined = Expression.OrElse(containsWard, containsProp);
+            stCombined = Expression.OrElse(stCombined, containsPart);
+            if (hasSpecial)
+            {
+                var (tWard, tProp, tPart) = ParseSearchTokens(st!);
+                if (!string.IsNullOrEmpty(tWard) && !string.IsNullOrEmpty(tProp))
+                {
+                    var wardAccess = Expression.Property(param, nameof(PropertyMastOldEntity.OldWardNo));
+                    var wardEqual = Expression.Equal(wardAccess, Expression.Constant(tWard));
+
+                    var propAccess = Expression.Property(param, nameof(PropertyMastOldEntity.OldPropertyNo));
+                    var propNotNull = Expression.NotEqual(propAccess, Expression.Constant(null, typeof(string)));
+                    var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+                    var propContains = Expression.Call(propAccess, containsMethod, Expression.Constant(tProp));
+                    var propExpr = Expression.AndAlso(propNotNull, propContains);
+
+                    Expression tokenMatch = Expression.AndAlso(wardEqual, propExpr);
+                    if (!string.IsNullOrEmpty(tPart))
+                    {
+                        var partAccess = Expression.Property(param, nameof(PropertyMastOldEntity.OldPartitionNo));
+                        var partNotNull = Expression.NotEqual(partAccess, Expression.Constant(null, typeof(string)));
+                        var partContains = Expression.Call(partAccess, containsMethod, Expression.Constant(tPart));
+                        var partExpr = Expression.AndAlso(partNotNull, partContains);
+                        tokenMatch = Expression.AndAlso(tokenMatch, partExpr);
+                    }
+
+                    stCombined = Expression.OrElse(stCombined, tokenMatch);
+                }
+            }
+            stCombined = Expression.OrElse(stCombined, containsOwner);
+            stCombined = Expression.OrElse(stCombined, containsOwnerEng);
+            stCombined = Expression.OrElse(stCombined, containsMobile);
+            stCombined = Expression.OrElse(stCombined, containsAddr);
+            stCombined = Expression.OrElse(stCombined, containsAddrEng);
+            stCombined = Expression.OrElse(stCombined, containsSoc);
+            stCombined = Expression.OrElse(stCombined, containsOcc);
+            stCombined = Expression.OrElse(stCombined, containsEgov);
+
+            AddOr(stCombined);
+        }
+
+        if (hasOwnerName)
+            AddOr(BuildContains(param, nameof(PropertyMastOldEntity.OldOwnerName), ownerName!));
+
+        if (hasOwnerNameEng)
+            AddOr(BuildContains(param, nameof(PropertyMastOldEntity.OldOwnerNameEnglish), ownerNameEng!));
+
+        if (hasMobileNo)
+            AddOr(BuildContains(param, nameof(PropertyMastOldEntity.OldMobileNo), mobileNo!));
+
+        if (hasAddress)
+        {
+            var containsAddr = BuildContains(param, nameof(PropertyMastOldEntity.OldAddress), address!);
+            var containsAddrEng = BuildContains(param, nameof(PropertyMastOldEntity.OldAddressEnglish), address!);
+            AddOr(Expression.OrElse(containsAddr, containsAddrEng));
+        }
+
+        if (hasSocietyName)
+            AddOr(BuildContains(param, nameof(PropertyMastOldEntity.OldSocietyName), societyName!));
+
+        if (hasOccupierName)
+        {
+            var containsOcc = BuildContains(param, nameof(PropertyMastOldEntity.OldOccupierName), occupierName!);
+            var containsOccEng = BuildContains(param, nameof(PropertyMastOldEntity.OldOccupierNameEnglish), occupierName!);
+            AddOr(Expression.OrElse(containsOcc, containsOccEng));
+        }
+
+        if (hasBuilderName)
+            AddOr(BuildContains(param, nameof(PropertyMastOldEntity.OldSocietyName), builderName!));
+
+        if (hasConstrYear)
+        {
+            var containsYear = BuildContains(param, nameof(PropertyMastOldEntity.OldConstructionYear), constrYear!);
+            if (detailConstrYearMastIds.Any())
+            {
+                var idProp = Expression.Property(param, nameof(PropertyMastOldEntity.Id));
+                var containsInList = Expression.Call(
+                    typeof(Enumerable),
+                    nameof(Enumerable.Contains),
+                    new[] { typeof(int) },
+                    Expression.Constant(detailConstrYearMastIds),
+                    idProp
+                );
+                AddOr(Expression.OrElse(containsYear, containsInList));
+            }
+            else
+            {
+                AddOr(containsYear);
+            }
+        }
+
+        if (combinedOr == null)
             return new List<(int id, OldPropertyInfoDto dto)>();
 
-        var query = oldQuery.Where(x => x.IsActive);
+        var lambda = Expression.Lambda<Func<PropertyMastOldEntity, bool>>(combinedOr, param);
 
-        var st = q.SearchTerm.Trim();
-        bool hasHyphen = st.Contains('-');
-
-        query = query.Where(x =>
-            (x.OldWardNo != null && x.OldWardNo.Contains(st)) ||
-            (x.OldPropertyNo != null && x.OldPropertyNo.Contains(st)) ||
-            (x.OldPartitionNo != null && x.OldPartitionNo.Contains(st)) ||
-            (hasHyphen && (((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")).Contains(st))) ||
-            (x.OldOwnerName != null && x.OldOwnerName.Contains(st)) ||
-            (x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(st)) ||
-            (x.OldMobileNo != null && x.OldMobileNo.Contains(st)) ||
-            (x.OldAddress != null && x.OldAddress.Contains(st)) ||
-            (x.OldAddressEnglish != null && x.OldAddressEnglish.Contains(st)) ||
-            (x.OldSocietyName != null && x.OldSocietyName.Contains(st)) ||
-            (x.OldOccupierName != null && x.OldOccupierName.Contains(st)) ||
-            (x.OldEgovNo != null && x.OldEgovNo.Contains(st))
-        );
+        var query = oldQuery.Where(x => x.IsActive).Where(lambda);
 
         var entities = await query
             .OrderBy(x => x.Id)
-            .Take(20)
+            .Take(50)
             .ToListAsync(ct);
 
         if (!entities.Any())
             return new List<(int id, OldPropertyInfoDto dto)>();
 
+        if (hasSearchTerm)
+        {
+            entities = entities
+                .OrderByDescending(x =>
+                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
+                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
+                    x.OldPartitionNo == st)
+                .ThenBy(x => x.Id)
+                .Take(20)
+                .ToList();
+        }
+        else
+        {
+            entities = entities.Take(20).ToList();
+        }
+
         return entities.Select(e => (
             e.Id,
             dto: _mapper.Map<OldPropertyInfoDto>(e)
         )).ToList();
+    }
+
+    private static (string? ward, string? prop, string? part) ParseSearchTokens(string st)
+    {
+        if (string.IsNullOrWhiteSpace(st) || !st.Contains('-'))
+            return (null, null, null);
+
+        var firstHyphen = st.IndexOf('-');
+        var ward = st.Substring(0, firstHyphen).Trim();
+        var remainder = st.Substring(firstHyphen + 1).Trim();
+
+        if (string.IsNullOrWhiteSpace(ward) || string.IsNullOrWhiteSpace(remainder))
+            return (null, null, null);
+
+        var lastSep = Math.Max(remainder.LastIndexOf('-'), remainder.LastIndexOf('/'));
+        if (lastSep > 0 && lastSep < remainder.Length - 1)
+        {
+            var prop = remainder.Substring(0, lastSep).Trim();
+            var part = remainder.Substring(lastSep + 1).Trim();
+            return (ward, prop, part);
+        }
+
+        return (ward, remainder, null);
+    }
+
+    private static readonly MethodInfo StringConcat2Method = typeof(string).GetMethod(nameof(string.Concat), new[] { typeof(string), typeof(string) })!;
+
+    private static Expression ConcatStrings(params Expression[] expressions)
+    {
+        if (expressions == null || expressions.Length == 0)
+            return Expression.Constant("");
+        if (expressions.Length == 1)
+            return expressions[0];
+
+        Expression result = expressions[0];
+        for (int i = 1; i < expressions.Length; i++)
+        {
+            result = Expression.Add(result, expressions[i], StringConcat2Method);
+        }
+        return result;
+    }
+
+    private static Expression BuildContains(ParameterExpression param, string propertyName, string value)
+    {
+        var propAccess = Expression.Property(param, propertyName);
+        var notNull = Expression.NotEqual(propAccess, Expression.Constant(null, typeof(string)));
+        var containsMethod = typeof(string).GetMethod(nameof(string.Contains), new[] { typeof(string) })!;
+        var containsCall = Expression.Call(propAccess, containsMethod, Expression.Constant(value));
+        return Expression.AndAlso(notNull, containsCall);
     }
 }
