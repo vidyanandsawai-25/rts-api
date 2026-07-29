@@ -46,6 +46,7 @@ public partial class PropertyService
     private readonly IRepository<UserEntity, int> _userRepository;
     private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
     private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
+    private readonly IRepository<WingEntity, int> _wingMasterRepository;
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
@@ -67,6 +68,7 @@ public partial class PropertyService
         IRepository<GlobalSurveyWardAllocationEntity, int> wardAllocationRepository,
         IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
+        IRepository<WingEntity, int> wingMasterRepository,
         IRepository<UserEntity, int> userRepository,
         IRepository<PropertyMastOldEntity, int> propertyOldRepository,
         IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
@@ -89,6 +91,7 @@ public partial class PropertyService
         _propertyMapDetailRepository = propertyMapDetailRepository;
         _propertyOldRepository = propertyOldRepository;
         _propertyTypeRepository = propertyTypeRepository;
+        _wingMasterRepository = wingMasterRepository;
     }
 
 

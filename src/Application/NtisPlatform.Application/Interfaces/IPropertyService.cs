@@ -1,12 +1,11 @@
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyBuildingInformation;
-using NtisPlatform.Application.DTOs.PropertyDetails;
-using NtisPlatform.Application.DTOs.Bulk;
+using NtisPlatform.Application.DTOs.PropertySurveySearch;
 using NtisPlatform.Application.DTOs.Range;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Models;
-using NtisPlatform.Application.DTOs.PropertySurveySearch;
 namespace NtisPlatform.Application.Interfaces;
 
 public interface IPropertyService
@@ -67,4 +66,11 @@ public interface IPropertyService
 		 Task<PagedResult<PropertyBuildingInformationDto>>
     SearchBuildingInformationAsync(
         BuildingInformationQueryParameters queryParameters,CancellationToken cancellationToken = default);
+    Task<PropertyResponse> MergePropertyAsync(PropertyMergeDto dto, CancellationToken cancellationToken = default);
+    Task<PropertyMergeDetailResponse> GetPropertyMergeDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
+    Task<PropertyResponse> DemergePropertyAsync(PropertyDemergeDto dto, CancellationToken cancellationToken = default);
+    Task<PropertyResponse> MergeMultiplePropertyAsync(PropertyMergeMultipleDto dto, CancellationToken cancellationToken = default);
+    Task<PropertyResponse> DemergeMultiplePropertyAsync(PropertyDemergeMultipleDto dto, CancellationToken cancellationToken = default);
+    Task<PagedResults<PropertyUnMergeResponseDto>> GetUnMergePropertyDetailsAsync(UnMergePropertydetailDto request, CancellationToken cancellationToken = default);
+    Task<PagedResults<OldPropertyUnMergeResponseDto>> GetUnMergeOldPropertyDetailsAsync(UnMergePropertydetailDto request, CancellationToken cancellationToken = default);
 }

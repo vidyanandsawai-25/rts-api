@@ -55,6 +55,9 @@ public class PropertyServiceSurveySearchTests
     private readonly Mock<IRepository<PropertyMapDetailEntity, int>>
         _mockPropertyMapDetailRepository;
 
+    private readonly Mock<IRepository<WingEntity, int>>
+    _mockWingRepository;
+
     private readonly Mock<IRepository<UserEntity, int>>
         _mockUserRepository;
 
@@ -116,6 +119,9 @@ public class PropertyServiceSurveySearchTests
         _mockPropertyMapDetailRepository =
             new Mock<IRepository<PropertyMapDetailEntity, int>>();
 
+        _mockWingRepository =
+           new Mock<IRepository<WingEntity, int>>();
+
         _mockUserRepository =
             new Mock<IRepository<UserEntity, int>>();
 
@@ -148,6 +154,7 @@ public class PropertyServiceSurveySearchTests
             _mockWardAllocationRepository.Object,
             _mockPropertyMapMasterRepository.Object,
             _mockPropertyMapDetailRepository.Object,
+            _mockWingRepository.Object,
             _mockUserRepository.Object,
             _mockPropertyOldRepository.Object,
             _mockPropertyTypeRepository.Object,

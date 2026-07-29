@@ -12,6 +12,7 @@ public class PropertyMapDetailEntity : BaseEntity
     public int? PropertyIdOld { get; set; }
     public string PropertyNoOld { get; set; } = string.Empty;
     public string PropertyNoNew { get; set; } = string.Empty;
+    public string PropertyNo { get; set; } = string.Empty;
     public decimal? TaxSharePercent { get; set; }
     public decimal? AreaSharePercent { get; set; }
     public string Status { get; set; } = "ACTIVE"; // ACTIVE, MODIFIED, CANCELLED, DRAFT

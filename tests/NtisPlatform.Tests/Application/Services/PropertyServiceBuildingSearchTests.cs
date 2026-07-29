@@ -659,6 +659,7 @@ public class PropertyServiceBuildingSearchTests
             wardAllocationRepository.Object,
             propertyMapMasterRepository.Object,
             _propertyMapDetailRepository.Object,
+            new Mock<IRepository<WingEntity, int>>().Object,
             userRepository.Object,
             _propertyOldRepository.Object,
             propertyTypeRepository.Object,
