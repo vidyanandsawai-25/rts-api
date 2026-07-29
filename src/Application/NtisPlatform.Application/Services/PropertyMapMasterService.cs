@@ -777,9 +777,12 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
 
         var query = oldQuery.Where(x => x.IsActive).Where(lambda);
 
+        int targetLimit = q.PageSize > 0 ? q.PageSize : 20;
+        int sqlFetchLimit = Math.Max(targetLimit * 2, targetLimit + 30);
+
         var entities = await query
             .OrderBy(x => x.Id)
-            .Take(50)
+            .Take(sqlFetchLimit)
             .ToListAsync(ct);
 
         if (!entities.Any())
@@ -793,12 +796,12 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                     ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
                     x.OldPartitionNo == st)
                 .ThenBy(x => x.Id)
-                .Take(20)
+                .Take(targetLimit)
                 .ToList();
         }
         else
         {
-            entities = entities.Take(20).ToList();
+            entities = entities.Take(targetLimit).ToList();
         }
 
         return entities.Select(e => (
