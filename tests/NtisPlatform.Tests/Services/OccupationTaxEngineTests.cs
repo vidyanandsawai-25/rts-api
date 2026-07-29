@@ -1,4 +1,4 @@
-﻿using FluentAssertions;
+using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -1117,10 +1117,10 @@ public class OccupationTaxEngineTests
 
         await service.ApplyAsync(propertyId, userId: 1);
 
-        // Only Floor 6001's OC-based share (half NETTAX, prorated 321 days) was applied.
+        // Floor 6001's OC-based share is 16,050m; Floor 6002 has no certificate and noDateRule is NO_TAX, so it is skipped.
         savedTrans.Should().HaveCount(1);
         var genTax = savedTrans.Single(t => t.TaxId == 1);
-        genTax.TaxAmount.Should().Be(16_050m); // (36500/2) * 321/365 = 18250 * 321/365 = 16050
+        genTax.TaxAmount.Should().Be(16_050m);
     }
 
     // =========================================================================================
@@ -1190,7 +1190,7 @@ public class OccupationTaxEngineTests
             EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
-            GuidelineService().Object, // default mode = DEFAULT_RETROSPECTIVE
+            GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, // mode = NO_TAX (uncovered floor skipped)
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -1238,7 +1238,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             _engine, repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object,
             mockYearRepo.Object, EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), PolicyCodeLookup().Object,
-            mockFyProvider.Object, GuidelineService().Object, mockUow.Object,
+            mockFyProvider.Object, GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance);
 
         var act = async () => await service.PreviewAsync(propertyId);
@@ -1567,7 +1567,7 @@ public class OccupationTaxEngineTests
         var certs = new List<PropertyCertificateEntity> { BuildCertificate(propertyId, new DateTime(2026, 5, 15), "Occupancy Certificate") };
         var mockEngine = new Mock<IOccupationTaxEngine>();
 
-        var guideline = DefaultGuideline(noDateRule: "DEFAULT_RETROSPECTIVE") with
+        var guideline = DefaultGuideline(noDateRule: "NO_TAX") with
         {
             CertificateRequireNoAndDate = true,
             MissingCertificateNoAction = "IGNORE_FOR_TAX",
@@ -2105,7 +2105,7 @@ public class OccupationTaxEngineTests
 
         var certs = new List<PropertyCertificateEntity>(); // no certificate at all
 
-        var guideline = DefaultGuideline(noDateRule: "DEFAULT_RETROSPECTIVE") with
+        var guideline = DefaultGuideline(noDateRule: "NO_TAX") with
         {
             EnableRetrospectiveTax = true,
             LookbackYears = 6,
@@ -2632,7 +2632,7 @@ public class OccupationTaxEngineTests
         issueDateProperty!.SetValue(cert, null);
         var certs = new List<PropertyCertificateEntity> { cert };
 
-        var guideline = DefaultGuideline(noDateRule: "DEFAULT_RETROSPECTIVE") with
+        var guideline = DefaultGuideline(noDateRule: "NO_TAX") with
         {
             CertificateRequireNoAndDate = true,
             MissingCertificateNoAction = "REJECT",
@@ -2640,13 +2640,6 @@ public class OccupationTaxEngineTests
         };
         var service = BuildRulesEngineService(propertyId, certs, guideline, repo, mockPolicyRepo, mockTransRepo, mockYearRepo, mockFyProvider, mockUow);
 
-        // PreviewAsync throws either way now (no other certificate exists, and the no-certificate
-        // fallback is permanently disabled -- see T4f) -- the fix under test is which REASON it
-        // throws for. If the bug were still present, missingNo would be checked first and
-        // MISSING_CERTIFICATE_NO_ACTION = REJECT would incorrectly reject the whole property with a
-        // message naming this specific certificate's missing number/date. The certificate being
-        // correctly ignored instead (both fields missing) means the exception carries the neutral
-        // "no certificate at all" message, not one naming this certificate.
         var act = async () => await service.PreviewAsync(propertyId);
 
         (await act.Should().ThrowAsync<InvalidOperationException>())

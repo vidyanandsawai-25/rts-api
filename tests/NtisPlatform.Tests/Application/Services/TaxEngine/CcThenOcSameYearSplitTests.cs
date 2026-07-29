@@ -118,7 +118,8 @@ public class CcThenOcSameYearSplitTests
     }
 
     private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock(
-        string invalidCcOcDateOrderAction = "USE_PRIORITY_AND_LOG")
+        string invalidCcOcDateOrderAction = "USE_PRIORITY_AND_LOG",
+        string noDateRule = "NO_TAX")
     {
         var mock = new Mock<ICertificateTaxGuidelineReaderService>();
         mock.Setup(g => g.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
@@ -140,7 +141,7 @@ public class CcThenOcSameYearSplitTests
                 CCPeriodMultiplier: 1.5m, OCPeriodMultiplier: 1.0m,
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
+                NoDateRule: noDateRule, LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
                 MinimumBackdateFinancialYear: 0,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",

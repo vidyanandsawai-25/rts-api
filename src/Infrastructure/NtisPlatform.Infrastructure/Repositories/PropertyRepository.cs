@@ -150,24 +150,29 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             }
         }
 
+        var policyGroupCount = taxData.Select(x => x.Item1).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
         // Step 4: Group by PolicyCode and create pivoted structure
         var policies = taxData
             .GroupBy(x => x.Item1)
             .Select(g =>
             {
+                var policyCode = g.Key;
                 var policyName = g.First().Item2;
+                var isNetTax = string.Equals(policyCode, "NETTAX", StringComparison.OrdinalIgnoreCase);
 
                 var taxAmounts = g
                     .GroupBy(x => x.Item3)
                     .Select(tg => new TaxAmountDetail
                     {
                         TaxName = tg.Key,
-                        // Apply the TransMast override once per distinct TaxId (not once per
-                        // source PolicyTaxDetails row) -- multiple rows sharing a TaxId, or
-                        // multiple TaxIds sharing a TaxName, would otherwise double-count it.
+                        // Apply the TransMast override once per distinct TaxId for certificate policy rows
+                        // (PARTIAL_OC, OC, etc.), or for NETTAX when it is the single policy group present.
+                        // Baseline NETTAX must NOT be overridden when certificate policy rows co-exist so that
+                        // the UI can display both base NETTAX and the prorated certificate tax line item.
                         TaxAmount = tg
                             .GroupBy(x => x.Item5)
-                            .Sum(taxIdGroup => transMastOverridesByTaxId.TryGetValue(taxIdGroup.Key, out var overridden)
+                            .Sum(taxIdGroup => (!isNetTax || policyGroupCount == 1) && transMastOverridesByTaxId.TryGetValue(taxIdGroup.Key, out var overridden)
                                 ? overridden
                                 : taxIdGroup.Sum(x => x.Item4 ?? 0))
                     })
@@ -276,7 +281,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                     if (applicableCert == null)
                     {
-                        return "CC";
+                        return "RETROSPECTIVE";
                     }
 
                     var codeUpper = (applicableCert.CertificateTypeCode ?? string.Empty).ToUpperInvariant().Trim();
@@ -317,22 +322,40 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     })
                     .ToList();
 
-                // Synthesize policy groups for any certificate policy code (CC, OC, ELECTRIC_BILL) present in pending years that is missing from policies
-                var distinctPolicyCodesInRetro = pendingYearsList
-                    .Select(p => p.PolicyCode)
-                    .Where(code => !string.IsNullOrWhiteSpace(code))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                foreach (var retroPolicyCode in distinctPolicyCodesInRetro)
+                // Distribute pending years cleanly to policy groups without duplication.
+                foreach (var policy in policies)
                 {
-                    var existingPolicy = policies.FirstOrDefault(p =>
-                        string.Equals(p.PolicyCode, retroPolicyCode, StringComparison.OrdinalIgnoreCase) ||
-                        p.PolicyCode.StartsWith(retroPolicyCode, StringComparison.OrdinalIgnoreCase) ||
-                        retroPolicyCode.StartsWith(p.PolicyCode, StringComparison.OrdinalIgnoreCase));
+                    policy.PendingYears = new List<PendingYearTaxDetail>();
+                }
 
-                    if (existingPolicy == null)
+                foreach (var pendingYear in pendingYearsList)
+                {
+                    // Find the single best policy group for this pending year
+                    var bestPolicy = policies.FirstOrDefault(p =>
+                        !p.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(p.PolicyCode, pendingYear.PolicyCode, StringComparison.OrdinalIgnoreCase));
+
+                    if (bestPolicy == null && !string.IsNullOrWhiteSpace(pendingYear.PolicyCode))
                     {
+                        bestPolicy = policies.FirstOrDefault(p =>
+                            !string.IsNullOrWhiteSpace(p.PolicyCode) &&
+                            !p.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase) &&
+                            (p.PolicyCode.Contains(pendingYear.PolicyCode, StringComparison.OrdinalIgnoreCase) ||
+                             pendingYear.PolicyCode.Contains(p.PolicyCode, StringComparison.OrdinalIgnoreCase)));
+                    }
+
+                    if (bestPolicy == null)
+                    {
+                        bestPolicy = policies.FirstOrDefault(p =>
+                            !string.IsNullOrWhiteSpace(p.PolicyCode) &&
+                            !p.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase))
+                            ?? policies.FirstOrDefault();
+                    }
+
+                    if (bestPolicy == null)
+                    {
+                        // Synthesize a policy group for this retro policy code if none exists yet
+                        var retroPolicyCode = pendingYear.PolicyCode;
                         var policyMasterRow = await _context.PolicyCodeMaster
                             .AsNoTracking()
                             .FirstOrDefaultAsync(p => p.PolicyCode == retroPolicyCode, cancellationToken);
@@ -345,43 +368,29 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                             _ => retroPolicyCode
                         };
 
-                        var synthPolicy = new PolicyTaxDetail
+                        bestPolicy = new PolicyTaxDetail
                         {
                             PolicyCode = retroPolicyCode,
                             PolicyName = policyName,
                             TaxAmounts = new List<TaxAmountDetail>(),
                             TaxTotal = 0m,
-                            PendingYears = pendingYearsList.Where(p => string.Equals(p.PolicyCode, retroPolicyCode, StringComparison.OrdinalIgnoreCase)).ToList()
+                            PendingYears = new List<PendingYearTaxDetail>()
                         };
 
-                        policies.Add(synthPolicy);
-                    }
-                }
-
-                foreach (var policy in policies)
-                {
-                    if (policy.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase))
-                    {
-                        policy.PendingYears = new List<PendingYearTaxDetail>();
-                        continue;
+                        policies.Add(bestPolicy);
                     }
 
-                    var matchingPendingYears = pendingYearsList
-                        .Where(p => string.Equals(p.PolicyCode, policy.PolicyCode, StringComparison.OrdinalIgnoreCase) ||
-                                   policy.PolicyCode.Contains(p.PolicyCode, StringComparison.OrdinalIgnoreCase) ||
-                                   p.PolicyCode.Contains(policy.PolicyCode, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-
-                    policy.PendingYears = matchingPendingYears.Any()
-                        ? matchingPendingYears
-                        : (policy.PolicyCode.Contains("OC", StringComparison.OrdinalIgnoreCase) ||
-                           policy.PolicyCode.Contains("CC", StringComparison.OrdinalIgnoreCase) ||
-                           policy.PolicyCode.Contains("ELECTRIC", StringComparison.OrdinalIgnoreCase)
-                            ? pendingYearsList
-                            : new List<PendingYearTaxDetail>());
+                    bestPolicy.PendingYears.Add(pendingYear);
                 }
             }
         }
+
+        // Filter out zero-tax placeholder policies with no pending years
+        policies = policies
+            .Where(p => p.PolicyCode.Equals("NETTAX", StringComparison.OrdinalIgnoreCase) ||
+                        p.TaxTotal > 0m ||
+                        (p.PendingYears != null && p.PendingYears.Count > 0))
+            .ToList();
 
         // Step 6: order policy groups by PolicyCodeMaster.Id (DBA-configured display order) so the
         // Tax Details grid presents them consistently instead of relying on incidental query order.

@@ -158,7 +158,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         FinanceYear CurrentFy,
         IReadOnlyDictionary<int, string>? YearPolicyCodes = null,
         bool IsGlobalToggleOff = false,
-        OccupationTaxOptions? Options = null);
+        OccupationTaxOptions? Options = null,
+        bool IsNoCertificateFallback = false);
 
     /// <summary>Result of resolving a single property/floor's applicable certificate(s) and running the engine.</summary>
     private sealed record ResolvedComputation(
@@ -268,7 +269,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                 PolicyCodes.ElectricBill, null, currentFy, IsGlobalToggleOff: true);
         }
 
-        var priorityOrder = new[] { guideline.DatePriority1, guideline.DatePriority2, guideline.DatePriority3, guideline.DatePriority4 };
+        // Phase 1: Certificate Date Priority sequence resolved dynamically from guideline settings (DatePriority1..4)
+        var priorityOrder = BuildPriorityOrder(guideline);
 
         var certificates = await _propertyCertificateRepository.GetQueryable()
             .Include(pc => pc.CertificateType)
@@ -309,17 +311,27 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                 return new OccupationComputation(OccupationTaxResult.Rejected(propertyId, rejectionReason), PolicyCodes.ElectricBill, null, currentFy);
             }
 
+            var isNoCertificateFallback = false;
             var resolved = ResolveAndCompute(oc, cc, bill, priorityOrder, options, guideline, currentFy, propertyId);
 
             if (resolved == null)
             {
-                // No certificate anywhere for this property -- no CC/OC/Electric Bill date at all.
-                // Strict rule: no tax, no row (see ComputeNoCertificateFallback).
-                var fallbackResult = ComputeNoCertificateFallback(propertyId, options, fallback, currentFy);
-                return new OccupationComputation(fallbackResult, PolicyCodes.ElectricBill, null, currentFy, Options: options);
+                // No certificate anywhere for this property -- Phase 4: Retrospective fallback mode
+                resolved = ComputeNoCertificateFallback(propertyId, options, guideline, currentFy);
+                if (resolved != null)
+                {
+                    isNoCertificateFallback = true;
+                }
             }
 
-            return new OccupationComputation(resolved.Result, resolved.PolicyCode, resolved.EffectiveDate, currentFy, resolved.YearPolicyCodes, Options: options);
+            if (resolved == null)
+            {
+                return new OccupationComputation(
+                    OccupationTaxResult.Rejected(propertyId, "No CC/OC/Electric Bill certificate date is available for this scope -- certificate-based tax is never applied without one."),
+                    PolicyCodes.ElectricBill, null, currentFy, Options: options);
+            }
+
+            return new OccupationComputation(resolved.Result, resolved.PolicyCode, resolved.EffectiveDate, currentFy, resolved.YearPolicyCodes, Options: options, IsNoCertificateFallback: isNoCertificateFallback);
         }
 
         // ---- Floor-wise path: run the engine once per floor, aggregate to property level. ----
@@ -382,54 +394,39 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
 
             var resolved = ResolveAndCompute(oc, cc, bill, priorityOrder, perFloorOptions, guideline, currentFy, propertyId);
 
-            OccupationTaxResult floorResult;
-            string floorPolicyCode;
-            DateTime? floorEffectiveDate;
+            if (resolved == null)
+            {
+                // This floor has no certificate date -- Phase 4: Retrospective mode
+                resolved = ComputeNoCertificateFallback(propertyId, perFloorOptions, guideline, currentFy);
+            }
 
             if (resolved == null)
             {
-                // This floor has neither its own floor-wise certificate nor a property-wise
-                // certificate to fall back to -- no CC/OC/Electric Bill date at all for this
-                // floor. Strict rule: no tax, no row (see ComputeNoCertificateFallback), so this
-                // always comes back invalid and the floor is skipped below.
-                floorResult = ComputeNoCertificateFallback(propertyId, perFloorOptions, fallback, currentFy);
-                floorPolicyCode = PolicyCodes.ElectricBill;
-                floorEffectiveDate = null;
-
-                if (!floorResult.IsValid)
-                {
-                    _logger.LogWarning(
-                        "Occupation Tax skipped for property {PropertyId}, floor {PropertyDetailsId}: {Reason}",
-                        propertyId, floor.Id, floorResult.RejectionReason);
-                    skippedFloors.Add((floor.Id, floorResult.RejectionReason ?? "unknown reason"));
-                    continue;
-                }
+                _logger.LogWarning(
+                    "Occupation Tax skipped for property {PropertyId}, floor {PropertyDetailsId}: No certificate date available",
+                    propertyId, floor.Id);
+                skippedFloors.Add((floor.Id, "No certificate date available"));
+                continue;
             }
-            else
+
+            var floorResult = resolved.Result;
+            var floorPolicyCode = resolved.PolicyCode;
+            var floorEffectiveDate = resolved.EffectiveDate;
+
+            if (!floorResult.IsValid)
             {
-                floorResult = resolved.Result;
-                floorPolicyCode = resolved.PolicyCode;
-                floorEffectiveDate = resolved.EffectiveDate;
+                _logger.LogWarning(
+                    "Occupation Tax skipped for property {PropertyId}, floor {PropertyDetailsId}: {Reason}",
+                    propertyId, floor.Id, floorResult.RejectionReason);
+                skippedFloors.Add((floor.Id, floorResult.RejectionReason ?? "unknown reason"));
+                continue;
+            }
 
-                if (!floorResult.IsValid)
+            if (resolved.YearPolicyCodes != null)
+            {
+                foreach (var (financeYear, policyCode) in resolved.YearPolicyCodes)
                 {
-                    // Certificate data the engine rejects for this floor (e.g. invalid CC/OC date
-                    // order configured to REJECT) must NOT block tax computation for the
-                    // property's other, properly-documented floors. Skip just this floor — logged
-                    // loudly, not silently — and keep aggregating the rest.
-                    _logger.LogWarning(
-                        "Occupation Tax skipped for property {PropertyId}, floor {PropertyDetailsId}: {Reason}",
-                        propertyId, floor.Id, floorResult.RejectionReason);
-                    skippedFloors.Add((floor.Id, floorResult.RejectionReason ?? "unknown reason"));
-                    continue;
-                }
-
-                if (resolved.YearPolicyCodes != null)
-                {
-                    foreach (var (financeYear, policyCode) in resolved.YearPolicyCodes)
-                    {
-                        representativeYearPolicyCodes.TryAdd(financeYear, policyCode);
-                    }
+                    representativeYearPolicyCodes.TryAdd(financeYear, policyCode);
                 }
             }
 
@@ -776,26 +773,6 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
     /// </summary>
     private bool ResolveUseFloorWiseCertificates(CertificateTaxGuidelineSettings guideline, int propertyId)
     {
-        // CERTIFICATE_TAX_SCOPE_MODE describes final PERSISTENCE only -- persistence is ALWAYS
-        // property-aggregated regardless of this setting's value (see TAX_PERSISTENCE_MODE /
-        // SaveTaxesAsync) -- and must NEVER gate whether floor-wise certificate metadata is
-        // considered as computation INPUT. ALLOW_FLOOR_WISE_CERTIFICATE_METADATA is the sole gate
-        // for that. An earlier version of this method treated CERTIFICATE_TAX_SCOPE_MODE=
-        // PROPERTY_WISE as "ignore floor-wise input entirely", which silently produced zero tax for
-        // a floor-wise-only certificate with no property-wise fallback to catch it -- confirmed
-        // wrong per explicit business correction. Still validated here (a value that's neither
-        // PROPERTY_WISE nor FLOOR_WISE logs a warning) so a DBA typo/unsupported value stays
-        // visible, but it never blocks floor-wise input on its own.
-        if (!string.Equals(guideline.CertificateTaxScopeMode, "PROPERTY_WISE", StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(guideline.CertificateTaxScopeMode, "FLOOR_WISE", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogWarning(
-                "PTIS.CertificateTaxGuideline.CERTIFICATE_TAX_SCOPE_MODE is '{Mode}', which is not " +
-                "recognized -- only PROPERTY_WISE and FLOOR_WISE are valid (this setting describes final " +
-                "persistence only; both values persist property-aggregated regardless). Continuing for " +
-                "property {PropertyId}.", guideline.CertificateTaxScopeMode, propertyId);
-        }
-
         return guideline.AllowFloorWiseCertificateMetadata;
     }
 
@@ -855,31 +832,56 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
     /// </summary>
     private static DateTime? AdjustElectricBillDate(DateTime billDate, CertificateTaxGuidelineSettings guideline)
     {
-        return guideline.ElectricBillDateRule switch
+        if (string.Equals(guideline.ElectricBillDateRule, "NO_TAX", StringComparison.OrdinalIgnoreCase))
         {
-            "NO_TAX" => null,
-            "ADD_MONTHS" => billDate.AddMonths(guideline.ElectricBillAddMonths),
-            _ => billDate,
+            return null;
+        }
+
+        var dateToUse = string.Equals(guideline.ElectricBillDateRule, "ADD_MONTHS", StringComparison.OrdinalIgnoreCase)
+            ? billDate.AddMonths(guideline.ElectricBillAddMonths)
+            : billDate;
+
+        // Phase 3 Rule 1 (Normalization): Shift bill date to the start of its Financial Year (01-Apr-YYYY)
+        var fy = FinanceYear.ForDate(dateToUse, guideline.FinancialYearStartMonth, guideline.FinancialYearStartDay);
+        return fy.Start;
+    }
+
+    private static string[] BuildPriorityOrder(CertificateTaxGuidelineSettings guideline)
+    {
+        var rawPriorities = new[]
+        {
+            guideline.DatePriority1,
+            guideline.DatePriority2,
+            guideline.DatePriority3,
+            guideline.DatePriority4
         };
+
+        var resolved = rawPriorities
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Select(p => p.Trim().ToUpperInvariant() switch
+            {
+                "CC" or "CC DATE" or "COMMENCEMENT CERTIFICATE" or "COMPLETION CERTIFICATE" => PolicyCodes.Cc,
+                "OC" or "OC DATE" or "OCCUPANCY CERTIFICATE" or "OCCUPATION CERTIFICATE" => PolicyCodes.Oc,
+                "ELECTRIC_BILL" or "ELECTRIC BILL" or "ELECTRIC BILL DATE" or "ELECTRICITY BILL" => PolicyCodes.ElectricBill,
+                "RETROSPECTIVE" or "RETROSPECTIVE (NO DATE)" or "NO DATE" => "RETROSPECTIVE",
+                _ => p.Trim().ToUpperInvariant()
+            })
+            .Distinct()
+            .ToArray();
+
+        return resolved.Length > 0
+            ? resolved
+            : new[] { PolicyCodes.Cc, PolicyCodes.Oc, PolicyCodes.ElectricBill, "RETROSPECTIVE" };
     }
 
     /// <summary>
-    /// Floors an Electric Bill effective date at CertificateTaxGuideline.ELECTRIC_BILL_MINIMUM_FINANCIAL_YEAR
-    /// -- an Electric-Bill-ONLY floor, separate from MINIMUM_BACKDATE_FINANCIAL_YEAR (which applies
-    /// uniformly to CC/OC/Bill via <see cref="BuildOptionsAsync"/>'s RetroCutoffDate). A bill dated
-    /// before this financial year is treated as if it were dated on this financial year's start
-    /// (Thane example: bill = 2014 with ELECTRIC_BILL_MINIMUM_FINANCIAL_YEAR = 2016 -&gt; effective
-    /// start date = 01/04/2016). A value of 0 (or less) disables this floor.
+    /// Phase 3 Rule 2 (Hard Limit/Floor): Floors an Electric Bill effective date at minimum financial year (defaults to 2016).
     /// </summary>
     private static DateTime FloorElectricBillDate(DateTime effectiveDate, CertificateTaxGuidelineSettings guideline)
     {
-        if (guideline.ElectricBillMinimumFinancialYear <= 0)
-        {
-            return effectiveDate;
-        }
-
+        var floorYear = guideline.ElectricBillMinimumFinancialYear > 0 ? guideline.ElectricBillMinimumFinancialYear : 2016;
         var minimumDate = new DateTime(
-            guideline.ElectricBillMinimumFinancialYear, guideline.FinancialYearStartMonth, guideline.FinancialYearStartDay);
+            floorYear, guideline.FinancialYearStartMonth, guideline.FinancialYearStartDay);
 
         return effectiveDate < minimumDate ? minimumDate : effectiveDate;
     }
@@ -958,19 +960,37 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                 : ComputeSingleCondition(priorityWinner.Value.PolicyCode, priorityWinner.Value.Date, options, guideline, currentFy, propertyId);
         }
 
+        // Phase 2: CC & OC Rules (Gap Calculation)
         var gapDays = (ocDate - ccDate).Days;
-        var withinThreshold = string.Equals(guideline.CcOcGapComparison, "LESS_THAN", StringComparison.OrdinalIgnoreCase)
-            ? CompareGap(gapDays, guideline.IgnoreCcToOcWithinValue, guideline.IgnoreCcToOcWithinType) < 0
-            : CompareGap(gapDays, guideline.IgnoreCcToOcWithinValue, guideline.IgnoreCcToOcWithinType) <= 0;
+        var thresholdValue = guideline.IgnoreCcToOcWithinValue > 0 ? guideline.IgnoreCcToOcWithinValue : 6;
+        var thresholdUnit = string.IsNullOrWhiteSpace(guideline.IgnoreCcToOcWithinType) ? "MONTHS" : guideline.IgnoreCcToOcWithinType.ToUpperInvariant();
 
-        var action = withinThreshold ? guideline.CcOcGapWithinAction : guideline.CcOcGapExceededAction;
+        var compResult = CompareGap(gapDays, thresholdValue, thresholdUnit);
+
+        var isWithinThreshold = (guideline.CcOcGapComparison ?? string.Empty).ToUpperInvariant() switch
+        {
+            "LESS_THAN" => compResult < 0,
+            "EQUAL" => compResult == 0,
+            "GREATER_THAN" => compResult > 0,
+            "GREATER_THAN_OR_EQUAL" => compResult >= 0,
+            _ => compResult <= 0, // LESS_THAN_OR_EQUAL (default)
+        };
+
+        var action = isWithinThreshold
+            ? (string.IsNullOrWhiteSpace(guideline.CcOcGapWithinAction) ? "APPLY_OC_ONLY" : guideline.CcOcGapWithinAction)
+            : (string.IsNullOrWhiteSpace(guideline.CcOcGapExceededAction) ? "APPLY_CC_THEN_OC" : guideline.CcOcGapExceededAction);
 
         if (string.Equals(action, "APPLY_OC_ONLY", StringComparison.OrdinalIgnoreCase))
         {
             return ComputeSingleCondition(PolicyCodes.Oc, ocDate, options, guideline, currentFy, propertyId);
         }
 
-        // APPLY_CC_AND_OC / APPLY_CC_THEN_OC: both describe the same CC-then-OC merge.
+        if (string.Equals(action, "APPLY_CC_ONLY", StringComparison.OrdinalIgnoreCase))
+        {
+            return ComputeSingleCondition(PolicyCodes.Cc, ccDate, options, guideline, currentFy, propertyId);
+        }
+
+        // APPLY_CC_THEN_OC or APPLY_CC_AND_OC: split billing (CC date to OC date Under Construction, OC date onwards Completed Building).
         return ComputeCcThenOcMerge(ccDate, ocDate, options, guideline, currentFy, propertyId);
     }
 
@@ -1305,24 +1325,34 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         PendingYearCountMode: guideline.RetrospectivePendingYearCountMode);
 
     /// <summary>
-    /// STRICT BUSINESS RULE (2026-07-21, explicit user instruction -- supersedes the earlier "apply
-    /// a default retrospective onset date instead of rejecting outright" behavior): when a
-    /// property/floor has NO certificate date at all for CC, OC, or Electric Bill, NO
-    /// certificate-based tax is ever computed and NO PolicyTaxDetails/TransMast row is created for
-    /// it -- unconditionally, regardless of PTIS.CertificateTaxGuideline.NO_DATE_RULE/
-    /// ENABLE_RETROSPECTIVE_TAX or any other setting in <paramref name="fallback"/>. Always returns
-    /// a rejected result, which both call sites already handle correctly: the property-wide path
-    /// treats the whole computation as invalid (ApplyAsync cleans up any stale CC/OC/Bill rows left
-    /// from a prior valid state and persists nothing new); the floor-wise path skips just this
-    /// floor and excludes its share from the aggregated result, same as any other
-    /// no-certificate-coverage floor.
+    /// Phase 4: Retrospective Rules (Fallback & Loop Capping).
+    /// When no certificate document (Null records) is found, tax engine enters Retrospective Mode.
+    /// Max_Backdate_Years = 6; Start_Year = Current_Year - 6 (e.g. 2026 - 6 = 2020).
+    /// Generates tax rows only for Start_Year (2020) to Current_Year (2026).
     /// </summary>
-    private OccupationTaxResult ComputeNoCertificateFallback(
-        int propertyId, OccupationTaxOptions options, NoCertificateFallbackConfig fallback, FinanceYear currentFy)
+    private ResolvedComputation? ComputeNoCertificateFallback(
+        int propertyId, OccupationTaxOptions options, CertificateTaxGuidelineSettings guideline, FinanceYear currentFy)
     {
-        return OccupationTaxResult.Rejected(
-            propertyId,
-            "No CC/OC/Electric Bill certificate date is available for this scope -- certificate-based tax is never applied without one.");
+        if (!guideline.EnableRetrospectiveTax || string.Equals(guideline.NoDateRule, "NO_TAX", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var totalSpanYears = guideline.LookbackYears > 0 ? guideline.LookbackYears : 6;
+        var startYear = currentFy.StartYear - (totalSpanYears - 1);
+        var onsetDate = new DateTime(startYear, guideline.FinancialYearStartMonth, guideline.FinancialYearStartDay);
+
+        var retroOptions = new OccupationTaxOptions
+        {
+            AnnualNetTax = options.AnnualNetTax,
+            GeneralTaxPortion = options.GeneralTaxPortion,
+            ComponentCount = options.ComponentCount,
+            CompletionCertificateMultiplier = options.CompletionCertificateMultiplier,
+            FloorDivisor = options.FloorDivisor,
+            DefaultRetroLookbackYears = totalSpanYears,
+            RetroCutoffDate = options.RetroCutoffDate
+        };
+        return ComputeSingleCondition(PolicyCodes.ElectricBill, onsetDate, retroOptions, guideline, currentFy, propertyId);
     }
 
     private static OccupationTaxResult ScaleResult(OccupationTaxResult result, decimal multiplier)
@@ -2051,7 +2081,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         {
             if (!yearMasters.TryGetValue(yearResult.FinanceYear, out var yearId))
             {
-                throw new InvalidOperationException($"Finance year {yearResult.FinanceYear} not found in YearMaster.");
+                _logger.LogWarning("Finance year {FinanceYear} not found in YearMaster for property {PropertyId}; skipping tax persistence for this year.", yearResult.FinanceYear, propertyId);
+                return;
             }
 
             // Every finance year uses the SAME current NETTAX snapshot (see LoadNetTaxSnapshotAsync)
@@ -2084,50 +2115,54 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             // with it. Year-wise certificate history lives exclusively in TaxPendingDetailsRetro now.
             var isRetroYear = yearResult.FinanceYear < computation.CurrentFy.StartYear;
 
-            // General Tax
+            // General Tax & Component Taxes: Reconstruct exact proportional scaling factor
+            // (overall year tax / snapshot annual NETTAX) to scale individual components and general tax
+            // directly from the property's baseline NETTAX rates, eliminating per-floor integer rounding drift.
+            var overallFactor = (yearSnapshot.GeneralTaxPortion > 0m)
+                ? (yearResult.IsProrated
+                    ? (yearResult.GeneralTax + yearResult.ComponentTax * yearSnapshot.ComponentCount) / yearSnapshot.AnnualNetTax
+                    : (yearResult.GeneralTax == yearSnapshot.GeneralTaxPortion
+                        ? 1.0m
+                        : yearResult.GeneralTax / yearSnapshot.GeneralTaxPortion))
+                : (yearSnapshot.AnnualNetTax > 0m
+                    ? (yearResult.GeneralTax + yearResult.ComponentTax * yearSnapshot.ComponentCount) / yearSnapshot.AnnualNetTax
+                    : 1.0m);
+
+            var generalTaxAmount = (yearResult.IsProrated || (yearSnapshot.GeneralTaxPortion > 0m && yearResult.GeneralTax == yearSnapshot.GeneralTaxPortion))
+                ? yearResult.GeneralTax
+                : Math.Round(yearSnapshot.GeneralTaxPortion * overallFactor, 0, MidpointRounding.AwayFromZero);
+
             if (yearSnapshot.GeneralTaxDetail != null)
             {
                 if (!isRetroYear)
                 {
-                    UpsertTransMast(yearId, yearSnapshot.GeneralTaxDetail.TaxId, yearSnapshot.GeneralTaxDetail.CalculationValue ?? 0m, yearResult.GeneralTax);
-                    UpsertPolicyTaxDetail(yearSnapshot.GeneralTaxDetail.TaxId, policyCodeId, yearSnapshot.GeneralTaxDetail.CalculationValue, yearResult.GeneralTax);
+                    UpsertTransMast(yearId, yearSnapshot.GeneralTaxDetail.TaxId, yearSnapshot.GeneralTaxDetail.CalculationValue ?? 0m, generalTaxAmount);
+                    if (!computation.IsNoCertificateFallback)
+                    {
+                        UpsertPolicyTaxDetail(yearSnapshot.GeneralTaxDetail.TaxId, policyCodeId, yearSnapshot.GeneralTaxDetail.CalculationValue, generalTaxAmount);
+                    }
                 }
 
-                if (isRetroYear)
+                if (isRetroYear && !computation.IsNoCertificateFallback)
                 {
-                    UpsertTaxPendingRetro(yearId, yearSnapshot.GeneralTaxDetail.TaxId, yearResult.GeneralTax);
-                    AccumulatePendingTotal(yearSnapshot.GeneralTaxDetail.TaxId, yearResult.GeneralTax);
+                    UpsertTaxPendingRetro(yearId, yearSnapshot.GeneralTaxDetail.TaxId, generalTaxAmount);
+                    AccumulatePendingTotal(yearSnapshot.GeneralTaxDetail.TaxId, generalTaxAmount);
                 }
             }
 
-            // Component Taxes: yearResult.ComponentTax is a single value representing this year's
-            // per-component share under the engine's own EVENLY-SPLIT model (componentTotal /
-            // ComponentCount) -- writing that same number to every component TaxId would flatten
-            // real, non-uniform tax rates (e.g. StateEducationTax=16, TreeCess=4, RoadCess=24, ...)
-            // into one identical figure, which is wrong whenever a property's component taxes
-            // aren't all equal (the common case; every existing test happened to use equal-valued
-            // fixtures, which is why this went uncaught). Instead, reconstruct the OVERALL factor
-            // (day-count proration x leap add-back x CC/OC/Electric-Bill multiplier, all already
-            // baked into yearResult.ComponentTax) as a RATIO relative to the per-component input
-            // this year's OWN snapshot would have produced, then apply that same ratio to EACH
-            // component's own NETTAX amount -- so a property with different rates per tax keeps
-            // those different rates, correctly scaled, instead of being averaged together. A ratio
-            // of 1 (every component already equal, matching every existing test's fixtures) reduces
-            // to exactly the previous behavior.
-            var snapshotComponentTotal = yearSnapshot.AnnualNetTax - yearSnapshot.GeneralTaxPortion;
-            var snapshotPerComponent = yearSnapshot.ComponentCount > 0 ? snapshotComponentTotal / yearSnapshot.ComponentCount : 0m;
-            var componentRatio = snapshotPerComponent == 0m ? 0m : yearResult.ComponentTax / snapshotPerComponent;
-
             foreach (var comp in yearSnapshot.Components)
             {
-                var compTaxAmount = Math.Round((comp.TaxAmount ?? 0m) * componentRatio, 0, MidpointRounding.AwayFromZero);
+                var compTaxAmount = Math.Round((comp.TaxAmount ?? 0m) * overallFactor, 0, MidpointRounding.AwayFromZero);
                 if (!isRetroYear)
                 {
                     UpsertTransMast(yearId, comp.TaxId, comp.CalculationValue ?? 0m, compTaxAmount);
-                    UpsertPolicyTaxDetail(comp.TaxId, policyCodeId, comp.CalculationValue, compTaxAmount);
+                    if (!computation.IsNoCertificateFallback)
+                    {
+                        UpsertPolicyTaxDetail(comp.TaxId, policyCodeId, comp.CalculationValue, compTaxAmount);
+                    }
                 }
 
-                if (isRetroYear)
+                if (isRetroYear && !computation.IsNoCertificateFallback)
                 {
                     UpsertTaxPendingRetro(yearId, comp.TaxId, compTaxAmount);
                     AccumulatePendingTotal(comp.TaxId, compTaxAmount);
