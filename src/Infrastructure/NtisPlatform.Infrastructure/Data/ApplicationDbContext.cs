@@ -212,6 +212,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetConditionMasterEntity> AssetConditionMasters { get; set; } = null!;
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
+
+    // Property Sign-off Module
+    public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
+    public DbSet<PropertySignatureDetailsEntity> PropertySignatureDetails { get; set; } = null!;
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
@@ -4398,18 +4402,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
         modelBuilder.Entity<EducationTaxMasterEntity>(entity =>
-       {
-           entity.ToTable("EducationTaxMaster", "PTIS");
-           entity.HasKey(e => e.Id);
-           entity.Property(e => e.Id).ValueGeneratedOnAdd();
-           entity.Property(e => e.Type).HasMaxLength(50);
-           entity.Property(e => e.Year);
-           entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
-           entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-       });
+        {
+            entity.ToTable("EducationTaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
         modelBuilder.Entity<EmploymentTaxMasterEntity>(entity =>
         {
             entity.ToTable("EmploymentTaxMaster", "PTIS");
@@ -4455,24 +4459,24 @@ public class ApplicationDbContext : DbContext
         });
         //Asset Inventory Item Category configuration
         modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
-            {
-                entity.ToTable("InventoryItemCategoryMaster", "AMS");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).ValueGeneratedOnAdd();
-                entity.Property(e => e.TypeCode).HasMaxLength(100);
-                entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
-                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-                entity.Property(e => e.CreatedBy);
-                entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-                entity.Property(e => e.UpdatedBy);
-                entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+        {
+            entity.ToTable("InventoryItemCategoryMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TypeCode).HasMaxLength(100);
+            entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
-                // Indexes for performance
-                entity.HasIndex(e => e.TypeCode);
-                entity.HasIndex(e => e.TypeName);
-                entity.HasIndex(e => e.IsActive);
-            });
+            // Indexes for performance
+            entity.HasIndex(e => e.TypeCode);
+            entity.HasIndex(e => e.TypeName);
+            entity.HasIndex(e => e.IsActive);
+        });
 
         modelBuilder.Entity<InventoryItemNameEntity>(entity =>
         {
@@ -5439,6 +5443,57 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.IsActive)
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
+        });
+
+        // Fluent mappings for Sign-off Module
+        modelBuilder.Entity<SignAuthorityMasterEntity>(entity =>
+        {
+            entity.ToTable("SignAuthorityMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AuthorityName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AuthorityCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SequenceOrder).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.AuthorityCode).IsUnique();
+            entity.HasIndex(e => e.SequenceOrder).IsUnique();
+        });
+
+        modelBuilder.Entity<PropertySignatureDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertySignatureDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.SignAuthorityId).IsRequired();
+            entity.Property(e => e.NoticeNo).HasMaxLength(30);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.PropertyId, e.SignAuthorityId }).IsUnique();
+
+            // FK to UserEntity
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK to PropertyEntity
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK to SignAuthorityMasterEntity
+            entity.HasOne(e => e.SignAuthority)
+                .WithMany(s => s.SignatureDetails)
+                .HasForeignKey(e => e.SignAuthorityId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<AssetRoomTypeMasterEntity>(entity =>

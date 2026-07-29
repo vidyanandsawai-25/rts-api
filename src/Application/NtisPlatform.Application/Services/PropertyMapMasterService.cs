@@ -298,7 +298,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                         PropertyId = x.PropertyId,
                         FinanceYearId = x.FinanceYearId,
                         CalculationType = x.CalculationType,
-                        CalculationValue = (x.CalculationValue.HasValue ? x.CalculationValue.Value : 0),
+                        CalculationValue = x.CalculationValue,
                         TaxId = x.TaxId,
                         TaxAmount = x.TaxAmount
                     }).ToList());

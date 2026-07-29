@@ -15,19 +15,22 @@ using NtisPlatform.Application.Configuration;
 using NtisPlatform.Application.Events;
 using NtisPlatform.Application.EventHandlers;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.Property;
+using NtisPlatform.Application.Interfaces.Asset_Management;
+using NtisPlatform.Application.Interfaces.AutomationDashboard;
+using NtisPlatform.Application.Interfaces.FieldConfiguration;
 using NtisPlatform.Application.Interfaces.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Interfaces.FieldConfiguration;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Asset_Management;
 using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Services.Master;
@@ -43,11 +46,22 @@ using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
 using NtisPlatform.Application.Services.CapitalValue.DataLoader;
 using NtisPlatform.Application.Services.CapitalValue.MasterDataProviders;
 using NtisPlatform.Application.Services.CapitalValueService;
+using NtisPlatform.Application.Services.FieldConfiguration;
+using NtisPlatform.Application.Services.Master;
+using NtisPlatform.Application.Services.Property;
+using NtisPlatform.Application.Services.PropertyTaxOperations;
+using NtisPlatform.Application.Services.ReportDataProviders;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
+using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Interfaces.Rules;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
 using NtisPlatform.Infrastructure.Repositories.Property;
 using NtisPlatform.Infrastructure.Repositories.Rules;
 using NtisPlatform.Infrastructure.Services;
@@ -207,7 +221,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<ITypeOfUseByPropertyTypeRepository, TypeOfUseByPropertyTypeRepository>();
-       
+
 
         // Per-tab Clean Architecture split (Basic Details): shared master checks + feature repository
         services.AddScoped<IMasterRepository, MasterRepository>();
@@ -221,6 +235,16 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyWorkflowDetailsRepository, PropertyWorkflowDetailsRepository>();
         services.AddScoped<IRuleFieldsRepository, RuleFieldsRepository>();
         services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
+
+        // Automation Dashboard Repositories (separate per stage)
+        services.AddScoped<IAutomationDashboardRepository, AutomationDashboardRepository>();
+        services.AddScoped<IGeoSequencingStageRepository, GeoSequencingStageRepository>();
+        services.AddScoped<IInternalSurveyStageRepository, InternalSurveyStageRepository>();
+        services.AddScoped<IDataEntryStageRepository, DataEntryStageRepository>();
+        services.AddScoped<IAssessmentStageRepository, AssessmentStageRepository>();
+
+        // Property Sign-off Module
+        services.AddScoped<IPropertySignatureRepository, PropertySignatureRepository>();
 
         // Infrastructure Layer - Services
         services.AddScoped<ITokenService, JwtTokenService>();
@@ -254,6 +278,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
         services.AddScoped<IFieldRegistryService, FieldRegistryService>();
+        services.AddScoped<IExcelUploadService, ExcelUploadService>();
         services.AddScoped<IAssetPhotoService, AssetPhotoService>();
 
         // Translation Management
@@ -396,6 +421,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOwnerTitleService, OwnerTitleService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
         services.AddScoped<IPropertySocialDetailsService, PropertySocialDetailsService>();
+        services.AddScoped<IAutomationDashboardService, AutomationDashboardService>();
+        services.AddScoped<IGeoSequencingStageService, GeoSequencingStageService>();
+        services.AddScoped<IInternalSurveyStageService, InternalSurveyStageService>();
+        services.AddScoped<IDataEntryStageService, DataEntryStageService>();
+        services.AddScoped<IAssessmentStageService, AssessmentStageService>();
+
+        // Property Sign-off Module
+        services.AddScoped<IPropertySignatureService, PropertySignatureService>();
+
 
         // Localization (DB-backed)
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
