@@ -23,6 +23,7 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         public int ServiceId { get; set; }
         public string? ApplicationNo { get; set; }
         public string? ApplicationStatus { get; set; }
+        public string? Remark { get; set; }
         public DateTime? CreatedDate { get; set; }
         public DateTime? UpdatedDate { get; set; }
         public int AssignedTo { get; set; }
