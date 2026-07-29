@@ -211,18 +211,21 @@ public class OccupationTaxEngineTests
 
     // =========================================================================================
     // 6. BR4 - Config-driven cut-off.
-    //    EleBillDt 10-Feb-2015, RetroCutoffDate ABSENT -> default 6-year cap -> retro FY2020..FY2025,
-    //    total 2,19,200 (incl. FY2020 & FY2024 leap add-backs).
-    //    With RetroCutoffDate = 2016-04-01 -> retro FY2016..FY2025.
+    //    EleBillDt 10-Feb-2015 (normalizes to FY2014 start), RetroCutoffDate ABSENT -> retro spans
+    //    the FULL gap from the onset FY through FY2025 (FY2014..FY2025, 12 years) -- there is no
+    //    "lookback years" truncation once a real certificate/bill date is known; tax applies from
+    //    that date forward, full stop. Total 4,38,300 (incl. FY2016/FY2020/FY2024 leap add-backs).
+    //    With an EXPLICIT RetroCutoffDate = 2016-04-01 (MINIMUM_BACKDATE_FINANCIAL_YEAR) -> retro
+    //    FY2016..FY2025 -- a deliberate configured floor is still honored.
     // =========================================================================================
     [Fact]
     public void BR4_CutoffDate_ConfigDriven()
     {
-        // --- Case A: no configured cut-off -> default 6-year look-back cap. ---
+        // --- Case A: no configured cut-off -> retro spans all the way back to the bill date. ---
         var noCutoff = new OccupationTaxInput
         {
             PropertyId = 106,
-            ElectricityBillDate = new DateTime(2015, 2, 10), // far older than the default cap
+            ElectricityBillDate = new DateTime(2015, 2, 10), // 11+ years before "today" (FY2026)
             Options = Options(retroCutoff: null),
         };
 
@@ -231,16 +234,23 @@ public class OccupationTaxEngineTests
         resultA.IsValid.Should().BeTrue();
         resultA.Condition.Should().Be(OccupationCondition.ElectricityBill);
 
-        // Default cut-off caps the TOTAL span (retro + current) to 6 years: floor = CurrentFY -
-        // (6-1) = FY2021, spanning FY2021..FY2025 (5 retro years) + FY2026 (current).
+        // NO cut-off configured -> retro spans the ENTIRE gap from the onset FY (2014, since the
+        // bill date 10-Feb-2015 normalizes to FY2014's start per Electricity Bill rules) through
+        // FY2025 (12 retro years). "Lookback years" is NOT a truncation cap once a real
+        // certificate/bill date is known -- tax is owed for every year since that date, full stop;
+        // the only legitimate floor above the onset FY is an explicit RetroCutoffDate (Case B).
         resultA.RetroYears.Select(y => y.FinanceYear)
-            .Should().Equal(2021, 2022, 2023, 2024, 2025);
+            .Should().Equal(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025);
 
-        // FY2024 is a leap finance year (start year 2024) -> +100.
-        resultA.RetroYears.Single(y => y.FinanceYear == 2024).LeapAddbackApplied.Should().BeTrue();
+        // FY2016, FY2020, FY2024 are leap finance years (start year divisible by 4) -> +100 each.
+        resultA.RetroYears.Where(y => y.FinanceYear is 2016 or 2020 or 2024)
+            .Should().OnlyContain(y => y.LeapAddbackApplied);
+        resultA.RetroYears.Where(y => y.FinanceYear is not (2016 or 2020 or 2024))
+            .Should().OnlyContain(y => !y.LeapAddbackApplied);
 
-        // Total across the retro window = 1,82,600.
-        resultA.RetroRollUp.Should().Be(182_600m);
+        // Total across the 12-year retro window = 9 non-leap years @ 36,500 + 3 leap years @
+        // 36,600 = 3,28,500 + 1,09,800 = 4,38,300.
+        resultA.RetroRollUp.Should().Be(438_300m);
 
         // --- Case B: explicit RetroCutoffDate = 2016-04-01 overrides the default cap. ---
         var withCutoff = new OccupationTaxInput
@@ -253,7 +263,7 @@ public class OccupationTaxEngineTests
         var resultB = _engine.Compute(withCutoff, CurrentFy);
 
         resultB.IsValid.Should().BeTrue();
-        // Retro now spans FY2016..FY2025 (cut-off wins over the 6-year default).
+        // Retro now spans FY2016..FY2025 -- the explicit cut-off floors it above the onset FY2014.
         resultB.RetroYears.Select(y => y.FinanceYear)
             .Should().Equal(2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025);
     }

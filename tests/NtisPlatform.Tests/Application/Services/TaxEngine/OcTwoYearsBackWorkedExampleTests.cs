@@ -106,7 +106,7 @@ public class OcTwoYearsBackWorkedExampleTests
         context.SaveChanges();
     }
 
-    private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock()
+    private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock(int lookbackYears = 6)
     {
         var mock = new Mock<ICertificateTaxGuidelineReaderService>();
         mock.Setup(g => g.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
@@ -128,7 +128,7 @@ public class OcTwoYearsBackWorkedExampleTests
                 CCPeriodMultiplier: 1.5m, OCPeriodMultiplier: 1.0m,
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
+                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: lookbackYears, DefaultRetrospectiveMultiplier: 1.0m,
                 MinimumBackdateFinancialYear: 0,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",
@@ -282,5 +282,57 @@ public class OcTwoYearsBackWorkedExampleTests
         Assert.Equal("General Tax", ocRow.TaxName);
         Assert.Equal(500m, ocRow.TaxAmount); // current year only -- matches NETTAX
         Assert.Equal(500m, ocPolicy.TaxTotal);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Regression for the 2026-07-29 report: an OC (or Electric Bill) date years in the past showed
+    // NO pending years on the Tax Details grid when the live PTIS.CertificateTaxGuideline row for
+    // NO_DATE_LOOKBACK_YEARS was missing/blank -- CertificateTaxGuidelineReaderService defaults a
+    // missing/unparseable row to 0, and OccupationTaxApplicationService.BuildOptionsAsync used to
+    // pass that straight through as DefaultRetroLookbackYears with no floor, which made the
+    // engine's retro-year loop never execute (floorStartYear ends up one year past the current FY)
+    // -- for ANY certificate date, no matter how far back. Once a real certificate date is known,
+    // "lookback years" is not a legitimate truncation at all (tax is owed from that date forward,
+    // full stop), so OccupationTaxEngine.BuildRetroYears no longer consults it -- the retro floor
+    // is simply the onset FY, and NO_DATE_LOOKBACK_YEARS/LookbackYears is irrelevant to this path
+    // regardless of its configured value. This test proves an OC dated 01-Apr-2022, evaluated in
+    // FY2026-27 with LookbackYears simulated as unseeded (0), still produces its 4 retro years
+    // (2022-2025) and a non-empty PendingYears list on the grid.
+    // ------------------------------------------------------------------------------------------
+    [Fact]
+    public async Task OcFourYearsBack_WithUnseededLookbackYears_StillProducesPendingYears()
+    {
+        using var context = CreateContext();
+        var years = new[] { 2022, 2023, 2024, 2025, 2026 };
+        const decimal annualTax = 500m;
+        var propertyId = Seed(context, annualTax: annualTax, years: years);
+        AddOcCertificate(context, propertyId, new DateTime(2022, 4, 1)); // 01-04-2022, matches the reported scenario
+
+        var guidelineReader = BuildGuidelineReaderMock(lookbackYears: 0); // simulates a missing/blank NO_DATE_LOOKBACK_YEARS row
+        var service = BuildService(context, guidelineReader);
+        await service.ApplyAsync(propertyId, userId: 1);
+
+        // ---- TaxPendingDetailsRetro: 4 retro years generated (2022, 2023, 2024, 2025) despite
+        // LookbackYears resolving to 0 -- proves the engine no longer truncates by lookback years
+        // once a real certificate date is known. ----
+        var retro = context.TaxPendingDetailsRetro.Where(r => r.PropertyId == propertyId && r.IsActive).ToList();
+        Assert.Equal(4, retro.Count);
+        Assert.All(retro, r => Assert.True(r.PendingAmount > 0m));
+
+        // ---- TaxPendingDetails: non-zero summary row must exist (the reported symptom was an
+        // empty/zero pending demand). ----
+        var pending = context.TaxPendingDetails.Where(r => r.PropertyId == propertyId && r.IsActive).ToList();
+        Assert.Single(pending);
+        Assert.True(pending[0].PendingAmount > 0m);
+
+        // ---- Tax Details grid: PendingYears must be populated, not empty -- this is exactly what
+        // the user observed as missing ("no pending year taxes demand displaying"). ----
+        var propertyRepo = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == CurrentFyYear));
+        var grid = await propertyRepo.GetTaxDetailsAsync(propertyId);
+
+        Assert.NotNull(grid);
+        var ocPolicy = grid!.Policies.Single(p => p.PolicyCode == "OC");
+        Assert.Equal(4, ocPolicy.PendingYears.Count);
+        Assert.DoesNotContain(ocPolicy.PendingYears, py => py.PendingYearId == 2026); // current FY must never appear as "pending"
     }
 }

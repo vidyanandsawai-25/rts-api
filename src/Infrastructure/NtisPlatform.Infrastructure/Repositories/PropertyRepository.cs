@@ -128,11 +128,11 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
         // run for this property yet). Safe now that taxData (above) is itself already filtered to
         // the current finance year -- this can no longer misattribute a retro year's row.
         Dictionary<int, decimal> transMastOverridesByTaxId = new();
+        var liveCurrentYear = _financeYearProvider.GetCurrentFinanceYear();
         if (!isCapitalValue)
         {
-            var currentYear = _financeYearProvider.GetCurrentFinanceYear();
             var currentFinanceYearId = await _context.YearMaster
-                .Where(y => y.Year == currentYear)
+                .Where(y => y.Year == liveCurrentYear)
                 .Select(y => (int?)y.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -204,7 +204,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             // Electric Bill exists -- ensuring Electric Bill does not apply or floor tax before CC/OC onset.
             var certsQuery = _context.PropertyCertificates
                 .Where(pc => pc.PropertyId == propertyId && pc.IsActive && !pc.MarkedForDeletion
-                    && pc.IssueDate.HasValue && pc.CertificateType != null && pc.CertificateType.IsTaxable);
+                    && pc.IssueDate.HasValue && pc.CertificateType != null);
 
             var formalCertDate = await certsQuery
                 .Where(pc => pc.CertificateType != null &&
@@ -229,26 +229,88 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 certStartYear = certDate.Month >= 4 ? certDate.Year : certDate.Year - 1;
             }
 
-            var retroPendingQuery = (from tpr in _context.TaxPendingDetailsRetro
-                                     join ym in _context.YearMaster on tpr.PendingYearId equals ym.Id
-                                     join tm in _context.TaxMaster on tpr.TaxId equals tm.Id
-                                     where tpr.PropertyId == propertyId && tpr.IsActive && !tpr.MarkedForDeletion
-                                     select new
-                                     {
-                                         tpr.PendingYearId,
-                                         ym.YearCode,
-                                         ym.Year,
-                                         tm.TaxName,
-                                         PendingAmount = tpr.PendingAmount ?? 0m,
-                                         tm.DisplayOrder
-                                     });
+            var retroPendingRowsRaw = await (from tpr in _context.TaxPendingDetailsRetro
+                                            join ym in _context.YearMaster on tpr.PendingYearId equals ym.Id
+                                            join tm in _context.TaxMaster on tpr.TaxId equals tm.Id
+                                            where tpr.PropertyId == propertyId && tpr.IsActive && !tpr.MarkedForDeletion
+                                            select new
+                                            {
+                                                tpr.PendingYearId,
+                                                ym.YearCode,
+                                                ym.Year,
+                                                ym.StartDate,
+                                                tm.TaxName,
+                                                PendingAmount = tpr.PendingAmount ?? 0m,
+                                                tm.DisplayOrder
+                                            }).ToListAsync(cancellationToken);
 
-            if (certStartYear.HasValue)
+            var retroPendingRows = retroPendingRowsRaw
+                .Select(x =>
+                {
+                    int startYear;
+                    if (x.StartDate.HasValue)
+                    {
+                        startYear = x.StartDate.Value.Year;
+                    }
+                    else if (!string.IsNullOrEmpty(x.YearCode) && int.TryParse(x.YearCode.Split('-')[0].Trim(), out var parsed))
+                    {
+                        startYear = parsed;
+                    }
+                    else
+                    {
+                        startYear = x.Year;
+                    }
+                    return new
+                    {
+                        x.PendingYearId,
+                        x.YearCode,
+                        Year = startYear,
+                        x.TaxName,
+                        x.PendingAmount,
+                        x.DisplayOrder
+                    };
+                })
+                .Where(x => (!certStartYear.HasValue || x.Year >= certStartYear.Value) && x.Year < liveCurrentYear)
+                .ToList();
+
+            if (!retroPendingRows.Any())
             {
-                retroPendingQuery = retroPendingQuery.Where(x => x.Year >= certStartYear.Value);
-            }
+                // Fall back to TaxPendingDetails summary rows if TaxPendingDetailsRetro has no retro rows
+                var summaryPendingRowsRaw = await (from tp in _context.TaxPendingDetails
+                                                  join ym in _context.YearMaster on tp.PendingYearId equals ym.Id
+                                                  join tm in _context.TaxMaster on tp.TaxId equals tm.Id
+                                                  where tp.PropertyId == propertyId && tp.IsActive && !tp.MarkedForDeletion
+                                                  select new
+                                                  {
+                                                      tp.PendingYearId,
+                                                      ym.YearCode,
+                                                      ym.Year,
+                                                      ym.StartDate,
+                                                      tm.TaxName,
+                                                      PendingAmount = tp.PendingAmount ?? 0m,
+                                                      tm.DisplayOrder
+                                                  }).ToListAsync(cancellationToken);
 
-            var retroPendingRows = await retroPendingQuery.ToListAsync(cancellationToken);
+                retroPendingRows = summaryPendingRowsRaw
+                    .Select(x =>
+                    {
+                        int startYear;
+                        if (x.StartDate.HasValue) startYear = x.StartDate.Value.Year;
+                        else if (!string.IsNullOrEmpty(x.YearCode) && int.TryParse(x.YearCode.Split('-')[0].Trim(), out var parsed)) startYear = parsed;
+                        else startYear = x.Year;
+                        return new
+                        {
+                            x.PendingYearId,
+                            x.YearCode,
+                            Year = startYear,
+                            x.TaxName,
+                            x.PendingAmount,
+                            x.DisplayOrder
+                        };
+                    })
+                    .Where(x => (!certStartYear.HasValue || x.Year >= certStartYear.Value) && x.Year < liveCurrentYear)
+                    .ToList();
+            }
 
             if (retroPendingRows.Any())
             {
@@ -271,6 +333,24 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                                                         })
                                                         .ToListAsync(cancellationToken);
 
+                // Priority Rule Enforcement: If any formal certificate (CC or OC) exists, ignore Electric Bill for year tagging
+                var hasFormalCert = certificatesForYearTagging.Any(c => {
+                    var cCode = (c.CertificateTypeCode ?? string.Empty).ToUpperInvariant();
+                    var cName = (c.CertificateTypeName ?? string.Empty).ToUpperInvariant();
+                    return cCode.Contains("CC") || cCode.Contains("OC") || cName.Contains("COMPLETION") || cName.Contains("COMMENCEMENT") || cName.Contains("OCCUPANCY") || cName.Contains("OCCUPATION");
+                });
+
+                if (hasFormalCert)
+                {
+                    certificatesForYearTagging = certificatesForYearTagging
+                        .Where(c => {
+                            var cCode = (c.CertificateTypeCode ?? string.Empty).ToUpperInvariant();
+                            var cName = (c.CertificateTypeName ?? string.Empty).ToUpperInvariant();
+                            return !cCode.Contains("ELECTRIC") && !cCode.Contains("BILL") && !cCode.Contains("EB") && !cName.Contains("ELECTRIC") && !cName.Contains("BILL");
+                        })
+                        .ToList();
+                }
+
                 string ResolveYearPolicyCode(int financeYearStart)
                 {
                     var fyEnd = new DateTime(financeYearStart + 1, 3, 31);
@@ -281,18 +361,27 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
 
                     if (applicableCert == null)
                     {
-                        return "RETROSPECTIVE";
+                        var fallbackCert = certificatesForYearTagging.FirstOrDefault();
+                        if (fallbackCert != null)
+                        {
+                            applicableCert = fallbackCert;
+                        }
+                        else
+                        {
+                            return "RETROSPECTIVE";
+                        }
                     }
 
                     var codeUpper = (applicableCert.CertificateTypeCode ?? string.Empty).ToUpperInvariant().Trim();
                     var nameUpper = (applicableCert.CertificateTypeName ?? string.Empty).ToUpperInvariant().Trim();
 
+                    // CC and OC MUST take priority over Electric Bill
                     if (codeUpper.Contains("OC") || nameUpper.Contains("OCCUPANCY") || nameUpper.Contains("OCCUPATION"))
                         return "OC";
-                    if (codeUpper.Contains("ELECTRIC") || codeUpper.Contains("EB") || codeUpper.Contains("BILL") || nameUpper.Contains("ELECTRIC") || nameUpper.Contains("BILL"))
-                        return "ELECTRIC_BILL";
                     if (codeUpper.Contains("CC") || nameUpper.Contains("COMMENCEMENT") || nameUpper.Contains("COMPLETION"))
                         return "CC";
+                    if (codeUpper.Contains("ELECTRIC") || codeUpper.Contains("EB") || codeUpper.Contains("BILL") || nameUpper.Contains("ELECTRIC") || nameUpper.Contains("BILL"))
+                        return "ELECTRIC_BILL";
 
                     return applicableCert.CertificateTypeCode ?? "CC";
                 }

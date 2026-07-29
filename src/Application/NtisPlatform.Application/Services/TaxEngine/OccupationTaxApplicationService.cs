@@ -1582,6 +1582,14 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             }
         }
 
+        // Strict priority hierarchy: whenever a valid CC or OC date exists, Electric Bill is never
+        // even considered, regardless of DATE_PRIORITY configuration -- backstops the reported UI
+        // bug ("CC enabled but electric bill still applies") independent of guideline misconfiguration.
+        if (ocDate.HasValue || ccDate.HasValue)
+        {
+            electricityBillDate = null;
+        }
+
         return (ocDate, ccDate, electricityBillDate, null);
     }
 
@@ -1620,22 +1628,15 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             componentCount = 4;
         }
 
-        // MINIMUM_BACKDATE_FINANCIAL_YEAR is an ADDITIONAL floor on top of the lookback-years cap
-        // the engine already enforces (BuildRetroYears): whichever floor year is MORE restrictive
-        // (later) wins. Only set RetroCutoffDate when the minimum-backdate floor is actually more
-        // restrictive than the lookback-only floor, so the engine's existing lookback-only branch
-        // (and its already-approved golden figures) run unchanged when no minimum is configured.
-        DateTime? retroCutoffDate = null;
-        if (guideline.MinimumBackdateFinancialYear > 0)
-        {
-            // Mirrors the engine's own floor formula (BuildRetroYears): LookbackYears is the
-            // TOTAL span (retro + current), so the floor year is CurrentFY - (LookbackYears - 1).
-            var lookbackFloorYear = currentFy.StartYear - (guideline.LookbackYears - 1);
-            if (guideline.MinimumBackdateFinancialYear > lookbackFloorYear)
-            {
-                retroCutoffDate = new DateTime(guideline.MinimumBackdateFinancialYear, currentFy.StartMonth, currentFy.StartDay);
-            }
-        }
+        // BuildRetroYears floors the retro window at the certificate's own onset year by default --
+        // no "lookback years" truncation applies once a real OC/CC/Electric-Bill date is known; tax
+        // is owed from that date forward, full stop. The ONLY legitimate floor above the onset year
+        // is an explicit, deliberately-configured cut-off: MINIMUM_BACKDATE_FINANCIAL_YEAR (a real
+        // "don't back-date past year X" business rule, distinct from NO_DATE_LOOKBACK_YEARS, which
+        // exists solely for the no-certificate-date fallback below and is not consulted here).
+        DateTime? retroCutoffDate = guideline.MinimumBackdateFinancialYear > 0
+            ? new DateTime(guideline.MinimumBackdateFinancialYear, currentFy.StartMonth, currentFy.StartDay)
+            : null;
 
         return new OccupationTaxOptions
         {
@@ -1644,7 +1645,6 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             ComponentCount = componentCount,
             CompletionCertificateMultiplier = guideline.CCPeriodMultiplier,
             FloorDivisor = 2,
-            DefaultRetroLookbackYears = guideline.LookbackYears,
             RetroCutoffDate = retroCutoffDate
         };
     }
@@ -1695,9 +1695,39 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             .Distinct()
             .ToList();
 
-        var yearMasters = await _yearRepository.GetQueryable()
-            .Where(y => years.Contains(y.Year))
-            .ToDictionaryAsync(y => y.Year, y => y.Id, cancellationToken);
+        // Now that retro years can span far further back than a fixed lookback cap (tax applies
+        // from the certificate's actual date forward, with no lookback truncation), a plain
+        // YearMaster.Year match can miss older rows whose Year/YearCode/StartDate don't line up
+        // perfectly. Try several ways to identify the right row before giving up on a finance year.
+        var allYearMasters = await _yearRepository.GetQueryable().ToListAsync(cancellationToken);
+        var yearMasters = new Dictionary<int, int>();
+        foreach (var fyYear in years)
+        {
+            var match = allYearMasters.FirstOrDefault(y =>
+            {
+                if (y.StartDate.HasValue && y.StartDate.Value.Year == fyYear) return true;
+                if (y.Year == fyYear) return true;
+                if (!string.IsNullOrEmpty(y.YearCode))
+                {
+                    var clean = y.YearCode.Trim();
+                    if (clean.StartsWith($"{fyYear}-") || clean.StartsWith($"{fyYear}/") || clean.StartsWith(fyYear.ToString()))
+                        return true;
+
+                    var parts = clean.Split('-', '/');
+                    if (parts.Length > 0 && int.TryParse(parts[0].Trim(), out var startY))
+                    {
+                        if (startY == fyYear) return true;
+                        if (startY < 100 && (2000 + startY) == fyYear) return true;
+                    }
+                }
+                return false;
+            }) ?? allYearMasters.FirstOrDefault(y => y.Year == fyYear + 1 || y.Year == fyYear);
+
+            if (match != null)
+            {
+                yearMasters[fyYear] = match.Id;
+            }
+        }
 
         // PTIS.PolicyTaxDetails holds exactly ONE active NETTAX row per (PropertyId, TaxId) -- no
         // per-year history -- so the SAME current snapshot is used for every finance year this
@@ -1797,16 +1827,16 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             .GroupBy(tp => tp.TaxId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Load existing TaxPendingDetailsRetro rows (retro/arrears years only -- see AddYearRecords
-        // below) for this property/these years/these taxes, keyed the same way as TransMast
-        // (YearMaster.Id + TaxId), for the same reactivate-in-place reasoning -- this table DOES
-        // keep one row per year, unlike TaxPendingDetails above.
-
+        // Load existing TaxPendingDetailsRetro rows for this property/these taxes, keyed the same
+        // way as TransMast (YearMaster.Id + TaxId), for the same reactivate-in-place reasoning --
+        // this table DOES keep one row per year, unlike TaxPendingDetails above. Loaded by TaxId
+        // only (not scoped to this run's own yearIds), same rationale as existingTaxPendingDetails
+        // above: retro years can now span far further back than before (no lookback truncation), so
+        // a prior run's certificate could have written rows for years outside this run's yearIds --
+        // those must still be visible here for the stale-row cleanup below to find and deactivate.
         var existingTaxPendingDetailsRetroBySlot = new Dictionary<(int YearId, int TaxId), TaxPendingDetailsRetroEntity>();
         var existingTaxPendingDetailsRetro = await _taxPendingDetailsRetroRepository.GetQueryable()
-            .Where(tpr => tpr.PropertyId == propertyId &&
-                          yearIds.Contains(tpr.PendingYearId) &&
-                          taxIds.Contains(tpr.TaxId))
+            .Where(tpr => tpr.PropertyId == propertyId && taxIds.Contains(tpr.TaxId))
             .ToListAsync(cancellationToken);
         foreach (var tpr in existingTaxPendingDetailsRetro)
         {

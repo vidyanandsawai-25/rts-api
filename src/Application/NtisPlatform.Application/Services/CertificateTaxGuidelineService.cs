@@ -44,18 +44,20 @@ public class CertificateTaxGuidelineService
             .OrderBy(g => g.DisplayOrder)
             .ToListAsync(cancellationToken);
 
-        return guidelines.ToDictionary(
-            g => g.GuidelineCode,
-            g => ConvertValue(g.GuidelineValue, g.DataType)
-        );
+        return guidelines
+            .Where(g => !string.IsNullOrEmpty(g.GuidelineCode))
+            .ToDictionary(
+                g => g.GuidelineCode!,
+                g => ConvertValue(g.GuidelineValue, g.DataType)
+            );
     }
 
-    private static object? ConvertValue(string? value, string dataType)
+    private static object? ConvertValue(string? value, string? dataType)
     {
         if (string.IsNullOrWhiteSpace(value))
             return null;
 
-        return dataType.ToUpperInvariant() switch
+        return (dataType ?? "VARCHAR").ToUpperInvariant() switch
         {
             "BIT" => value == "1" ? true :
                      value == "0" ? false :
@@ -102,8 +104,8 @@ public class CertificateTaxGuidelineService
 
         // Load only the rows we might update (keyed by GuidelineCode)
         var existingByCode = await _repository.GetQueryable()
-            .Where(e => codes.Contains(e.GuidelineCode))
-            .ToDictionaryAsync(e => e.GuidelineCode, cancellationToken);
+            .Where(e => e.GuidelineCode != null && codes.Contains(e.GuidelineCode))
+            .ToDictionaryAsync(e => e.GuidelineCode!, cancellationToken);
 
         var results = new List<CertificateTaxGuidelineDto>(items.Count);
 
