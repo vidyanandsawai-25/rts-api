@@ -1519,7 +1519,7 @@ public class PropertyMapMasterServiceTests
 
         var q = new PropertyMapDetailQueryParameters
         {
-            SearchTerm = "John Doe" // Should match both
+            PropertyId = 20
         };
 
         // Act
@@ -1538,6 +1538,65 @@ public class PropertyMapMasterServiceTests
         Assert.Equal(100, detail.Id);
         Assert.Equal(10, detail.PropertyId);
         Assert.Equal("2015", detail.OldConstructionYear);
+    }
+
+    [Fact]
+    public async Task GetMappedPropertiesAsync_UnmappedProperty_ReturnsPropertyFromPropertyMast()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockPdoRepo = new Mock<IRepository<PropertyDetailsOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock(); // No mapping record
+
+        var pmList = new List<PropertyEntity>
+        {
+            new() { Id = 3740000, PropertyNo = "PROP-3740000", OwnerName = "Unmapped Owner", IsActive = true }
+        }.BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>().BuildMock();
+        var pdoList = new List<PropertyDetailsOldEntity>().BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPdoRepo.Setup(r => r.GetQueryable()).Returns(pdoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object,
+            mockPdoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters
+        {
+            PropertyId = 3740000
+        };
+
+        // Act
+        var result = await service.GetMappedPropertiesAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Items);
+        var item = result.Items.First();
+        Assert.Equal(3740000, item.PropertyId);
+        Assert.NotNull(item.NewPropertyInfo);
+        Assert.Equal("PROP-3740000", item.NewPropertyInfo.PropertyNo);
+        Assert.Equal("Unmapped Owner", item.NewPropertyInfo.OwnerName);
+        Assert.Null(item.OldPropertyNo);
+        Assert.Empty(item.MappingCategory);
     }
 
     #endregion

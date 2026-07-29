@@ -66,157 +66,62 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         PropertyMapDetailQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
-        var pmdQuery = _propertyMapDetailRepository.GetQueryable().AsNoTracking();
-        var pmQuery = _propertyRepository.GetQueryable().AsNoTracking();
-        var pmmQuery = _repository.GetQueryable().AsNoTracking();
-        var pmoQuery = _propertyMastOldRepository.GetQueryable().AsNoTracking();
-
-        var rawQuery = from pmd in pmdQuery
-                       join pm in pmQuery on pmd.PropertyIdNew equals (int?)pm.Id
-                       join pmm in pmmQuery on pmd.PropertyMapId equals pmm.Id
-                       join pmo in pmoQuery on pmd.PropertyIdOld equals (int?)pmo.Id
-                       where pmd.IsActive && pm.IsActive && pmm.IsActive && pmo.IsActive
-                       select new { pmd.PropertyIdNew, pmd.PropertyIdOld, pm, pmm, pmo };
+        var pmQuery = _propertyRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive);
 
         if (queryParams.PropertyId.HasValue)
         {
-            rawQuery = rawQuery.Where(x => x.pm.Id == queryParams.PropertyId.Value);
+            pmQuery = pmQuery.Where(x => x.Id == queryParams.PropertyId.Value);
         }
 
-        if (!string.IsNullOrWhiteSpace(queryParams.SearchTerm))
+        int totalCount = await pmQuery.CountAsync(cancellationToken);
+
+        if (totalCount == 0)
         {
-            var st = queryParams.SearchTerm.Trim();
-            var (tWard, tProp, tPart) = ParseSearchTokens(st);
-
-            rawQuery = rawQuery.Where(x =>
-                (x.pm.PropertyNo != null && x.pm.PropertyNo.Contains(st)) ||
-                (x.pmo.OldWardNo != null && x.pmo.OldWardNo.Contains(st)) ||
-                (x.pmo.OldPropertyNo != null && x.pmo.OldPropertyNo.Contains(st)) ||
-                (x.pmo.OldPartitionNo != null && x.pmo.OldPartitionNo.Contains(st)) ||
-                (!string.IsNullOrEmpty(tWard) && !string.IsNullOrEmpty(tProp) && (
-                    (x.pmo.OldWardNo == tWard && x.pmo.OldPropertyNo != null && x.pmo.OldPropertyNo.Contains(tProp) && (string.IsNullOrEmpty(tPart) || (x.pmo.OldPartitionNo != null && x.pmo.OldPartitionNo.Contains(tPart)))) ||
-                    (x.pm.Ward != null && x.pm.Ward.WardNo == tWard && x.pm.PropertyNo != null && x.pm.PropertyNo.Contains(tProp) && (string.IsNullOrEmpty(tPart) || (x.pm.PartitionNo != null && x.pm.PartitionNo.Contains(tPart))))
-                )) ||
-                (x.pm.OwnerName != null && x.pm.OwnerName.Contains(st)) ||
-                (x.pmo.OldOwnerName != null && x.pmo.OldOwnerName.Contains(st)) ||
-                (x.pm.OwnerNameEnglish != null && x.pm.OwnerNameEnglish.Contains(st)) ||
-                (x.pmo.OldOwnerNameEnglish != null && x.pmo.OldOwnerNameEnglish.Contains(st)) ||
-                (x.pm.MobileNo != null && x.pm.MobileNo.Contains(st)) ||
-                (x.pmo.OldMobileNo != null && x.pmo.OldMobileNo.Contains(st)) ||
-                (x.pm.Address != null && x.pm.Address.Contains(st)) ||
-                (x.pmo.OldAddress != null && x.pmo.OldAddress.Contains(st)) ||
-                (x.pm.AddressEnglish != null && x.pm.AddressEnglish.Contains(st)) ||
-                (x.pmo.OldAddressEnglish != null && x.pmo.OldAddressEnglish.Contains(st)) ||
-                (x.pmo.OldSocietyName != null && x.pmo.OldSocietyName.Contains(st)) ||
-                (x.pm.FlatOrShopName != null && x.pm.FlatOrShopName.Contains(st)) ||
-                (x.pm.OccupierName != null && x.pm.OccupierName.Contains(st)) ||
-                (x.pmo.OldOccupierName != null && x.pmo.OldOccupierName.Contains(st))
-            );
+            return new PagedResult<PropertyMapDetailReturnDto>(new List<PropertyMapDetailReturnDto>(), 0, queryParams.PageNumber, queryParams.PageSize);
         }
 
-        int totalCount = await rawQuery.CountAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(queryParams.SortBy))
-        {
-            bool isDesc = string.Equals(queryParams.SortOrder, "desc", System.StringComparison.OrdinalIgnoreCase);
-            switch (queryParams.SortBy.ToLowerInvariant())
-            {
-                case "propertyid":
-                    rawQuery = isDesc ? rawQuery.OrderByDescending(x => x.pm.Id) : rawQuery.OrderBy(x => x.pm.Id);
-                    break;
-                case "mappingcategory":
-                    rawQuery = isDesc ? rawQuery.OrderByDescending(x => x.pmm.MappingCategory) : rawQuery.OrderBy(x => x.pmm.MappingCategory);
-                    break;
-                case "oldpropertyno":
-                    rawQuery = isDesc ? rawQuery.OrderByDescending(x => x.pmo.OldPropertyNo) : rawQuery.OrderBy(x => x.pmo.OldPropertyNo);
-                    break;
-                case "oldownername":
-                    rawQuery = isDesc ? rawQuery.OrderByDescending(x => x.pmo.OldOwnerName) : rawQuery.OrderBy(x => x.pmo.OldOwnerName);
-                    break;
-                default:
-                    rawQuery = rawQuery.OrderBy(x => x.pm.Id);
-                    break;
-            }
-        }
-        else
-        {
-            rawQuery = rawQuery.OrderBy(x => x.pm.Id);
-        }
-
-        var pagedQuery = rawQuery;
+        IQueryable<PropertyEntity> pagedPmQuery = pmQuery.OrderBy(x => x.Id);
         if (queryParams.PageSize != -1)
         {
-            pagedQuery = rawQuery.Skip((queryParams.PageNumber - 1) * queryParams.PageSize).Take(queryParams.PageSize);
+            pagedPmQuery = pagedPmQuery.Skip((queryParams.PageNumber - 1) * queryParams.PageSize).Take(queryParams.PageSize);
         }
 
-        var rawItems = await pagedQuery
+        var pagedPms = await pagedPmQuery.ToListAsync(cancellationToken);
+        var pmIds = pagedPms.Select(x => x.Id).ToList();
+
+        var pmds = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+            .Where(x => x.PropertyIdNew.HasValue && pmIds.Contains(x.PropertyIdNew.Value) && x.IsActive)
             .Select(x => new
             {
-                PropertyMastOldId = x.pmo.Id,
-                Dto = new PropertyMapDetailReturnDto
-                {
-                    PropertyId = x.pm.Id,
-                    MappingCategory = x.pmm.MappingCategory,
-                    OldWardNo = x.pmo.OldWardNo,
-                    OldPropertyNo = x.pmo.OldPropertyNo,
-                    OldPartitionNo = x.pmo.OldPartitionNo,
-                    OldEgovNo = x.pmo.OldEgovNo,
-                    OldPropertyTypeId = x.pmo.OldPropertyTypeId,
-                    OldALV = x.pmo.OldALV,
-                    OldRV = x.pmo.OldRV,
-                    OldGeneralTax = x.pmo.OldGeneralTax,
-                    OldTotalTax = x.pmo.OldTotalTax,
-                    OldZoneNo = x.pmo.OldZoneNo,
-                    OldPlotNo = x.pmo.OldPlotNo,
-                    OldCSN = x.pmo.OldCSN,
-                    OldPlotArea = x.pmo.OldPlotArea,
-                    OldConstructionYear = x.pmo.OldConstructionYear,
-                    OldAssessmentYear = x.pmo.OldAssessmentYear,
-                    OldFloor = x.pmo.OldFloor,
-                    OldConstructionTypeOfUseId = x.pmo.OldConstructionTypeOfUseId,
-                    OldUseType = x.pmo.OldUseType,
-                    OldConstructionArea = x.pmo.OldConstructionArea,
-                    OldOwnerName = x.pmo.OldOwnerName,
-                    OldOccupierName = x.pmo.OldOccupierName,
-                    OldAddress = x.pmo.OldAddress,
-                    OldOwnerNameEnglish = x.pmo.OldOwnerNameEnglish,
-                    OldOccupierNameEnglish = x.pmo.OldOccupierNameEnglish,
-                    OldAddressEnglish = x.pmo.OldAddressEnglish,
-                    NoOfOldToilets = x.pmo.NoOfOldToilets,
-                    OldTotalRooms = x.pmo.OldTotalRooms,
-                    OldSocietyName = x.pmo.OldSocietyName,
-                    OldEmailId = x.pmo.OldEmailId,
-                    OldParkingAreaSqFt = x.pmo.OldParkingAreaSqFt,
-                    OldParkingAreaSqMtr = x.pmo.OldParkingAreaSqMtr,
-                    OldAssessmentDate = x.pmo.OldAssessmentDate,
-                    OldFlatOrShopNumber = x.pmo.OldFlatOrShopNumber,
-                    OldWing = x.pmo.OldWing,
-                    OldMobileNo = x.pmo.OldMobileNo,
-                    NewPropertyInfo = new NewPropertyInfoDto
-                    {
-                        Id = x.pm.Id,
-                        PropertyNo = x.pm.PropertyNo,
-                        PartitionNo = x.pm.PartitionNo,
-                        OwnerName = x.pm.OwnerName,
-                        OwnerNameEnglish = x.pm.OwnerNameEnglish,
-                        OccupierName = x.pm.OccupierName,
-                        OccupierNameEnglish = x.pm.OccupierNameEnglish,
-                        Address = x.pm.Address,
-                        AddressEnglish = x.pm.AddressEnglish,
-                        MobileNo = x.pm.MobileNo,
-                        EmailId = x.pm.EmailId,
-                        FlatOrShopName = x.pm.FlatOrShopName,
-                        FlatOrShopNo = x.pm.FlatOrShopNo,
-                        CSN = x.pm.CSN,
-                        PlotNo = x.pm.PlotNo,
-                        PropertyTypeId = x.pm.PropertyTypeId,
-                        WardId = x.pm.WardId,
-                        TaxZoneId = x.pm.TaxZoneId,
-                        CategoryId = x.pm.CategoryId
-                    }
-                }
+                x.PropertyMapId,
+                x.PropertyIdNew,
+                x.PropertyIdOld
             })
             .ToListAsync(cancellationToken);
+        var pmdMap = pmds.GroupBy(x => x.PropertyIdNew!.Value).ToDictionary(g => g.Key, g => g.First());
+
+        var pmmIds = pmds.Select(x => x.PropertyMapId).Distinct().ToList();
+        var pmmMap = pmmIds.Any()
+            ? (await _repository.GetQueryable().AsNoTracking().Where(x => pmmIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+            : new Dictionary<int, PropertyMapMasterEntity>();
+
+        var pmoIds = pmds.Select(x => x.PropertyIdOld).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+        var pmoMap = pmoIds.Any()
+            ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+            : new Dictionary<int, PropertyMastOldEntity>();
+
+        var rawItems = pagedPms.Select(pm =>
+        {
+            pmdMap.TryGetValue(pm.Id, out var pmd);
+            PropertyMapMasterEntity? pmm = (pmd != null && pmmMap.TryGetValue(pmd.PropertyMapId, out var m)) ? m : null;
+            PropertyMastOldEntity? pmo = (pmd != null && pmd.PropertyIdOld.HasValue && pmoMap.TryGetValue(pmd.PropertyIdOld.Value, out var o)) ? o : null;
+
+            return new
+            {
+                PropertyMastOldId = pmo != null ? (int?)pmo.Id : null,
+                Dto = MapToReturnDto(pm, pmm, pmo)
+            };
+        }).ToList();
 
         if (!rawItems.Any())
         {
@@ -271,7 +176,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
                 info.CategoryName = cat.PropertyCategoryName;
         }
 
-        var oldIds = rawItems.Select(x => x.PropertyMastOldId).Distinct().ToList();
+        var oldIds = rawItems.Select(x => x.PropertyMastOldId).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
         var detailsLookup = new Dictionary<int, List<PropertyDetailsOldDto>>();
 
         if (oldIds.Any())
@@ -424,14 +329,80 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         var items = rawItems.Select(x =>
         {
             var dto = x.Dto;
-            dto.PropertyDetailsOld = detailsLookup.TryGetValue(x.PropertyMastOldId, out var details) ? details : new List<PropertyDetailsOldDto>();
+            dto.PropertyDetailsOld = (x.PropertyMastOldId.HasValue && detailsLookup.TryGetValue(x.PropertyMastOldId.Value, out var details)) ? details : new List<PropertyDetailsOldDto>();
             dto.NewPropertyDetails = newDetailsLookup.TryGetValue(x.Dto.PropertyId, out var newDets) ? newDets : new List<NewPropertyDetailDto>();
             dto.TransMastRecords = transMastLookup.TryGetValue(x.Dto.PropertyId, out var tm) ? tm : new List<TransMastDto>();
-            dto.TransMastOldRecords = transMastOldLookup.TryGetValue(x.PropertyMastOldId, out var tmo) ? tmo : new List<TransMastOldDto>();
+            dto.TransMastOldRecords = (x.PropertyMastOldId.HasValue && transMastOldLookup.TryGetValue(x.PropertyMastOldId.Value, out var tmo)) ? tmo : new List<TransMastOldDto>();
             return dto;
         }).ToList();
 
         return new PagedResult<PropertyMapDetailReturnDto>(items, totalCount, queryParams.PageNumber, queryParams.PageSize);
+    }
+
+    private static PropertyMapDetailReturnDto MapToReturnDto(PropertyEntity pm, PropertyMapMasterEntity? pmm, PropertyMastOldEntity? pmo)
+    {
+        return new PropertyMapDetailReturnDto
+        {
+            PropertyId = pm.Id,
+            MappingCategory = pmm != null ? pmm.MappingCategory : string.Empty,
+            OldWardNo = pmo?.OldWardNo,
+            OldPropertyNo = pmo?.OldPropertyNo,
+            OldPartitionNo = pmo?.OldPartitionNo,
+            OldEgovNo = pmo?.OldEgovNo,
+            OldPropertyTypeId = pmo?.OldPropertyTypeId,
+            OldALV = pmo?.OldALV,
+            OldRV = pmo?.OldRV,
+            OldGeneralTax = pmo?.OldGeneralTax,
+            OldTotalTax = pmo?.OldTotalTax,
+            OldZoneNo = pmo?.OldZoneNo,
+            OldPlotNo = pmo?.OldPlotNo,
+            OldCSN = pmo?.OldCSN,
+            OldPlotArea = pmo?.OldPlotArea,
+            OldConstructionYear = pmo?.OldConstructionYear,
+            OldAssessmentYear = pmo?.OldAssessmentYear,
+            OldFloor = pmo?.OldFloor,
+            OldConstructionTypeOfUseId = pmo?.OldConstructionTypeOfUseId,
+            OldUseType = pmo?.OldUseType,
+            OldConstructionArea = pmo?.OldConstructionArea,
+            OldOwnerName = pmo?.OldOwnerName,
+            OldOccupierName = pmo?.OldOccupierName,
+            OldAddress = pmo?.OldAddress,
+            OldOwnerNameEnglish = pmo?.OldOwnerNameEnglish,
+            OldOccupierNameEnglish = pmo?.OldOccupierNameEnglish,
+            OldAddressEnglish = pmo?.OldAddressEnglish,
+            NoOfOldToilets = pmo?.NoOfOldToilets,
+            OldTotalRooms = pmo?.OldTotalRooms,
+            OldSocietyName = pmo?.OldSocietyName,
+            OldEmailId = pmo?.OldEmailId,
+            OldParkingAreaSqFt = pmo?.OldParkingAreaSqFt,
+            OldParkingAreaSqMtr = pmo?.OldParkingAreaSqMtr,
+            OldAssessmentDate = pmo?.OldAssessmentDate,
+            OldFlatOrShopNumber = pmo?.OldFlatOrShopNumber,
+            OldWing = pmo?.OldWing,
+            OldMobileNo = pmo?.OldMobileNo,
+            NewPropertyInfo = new NewPropertyInfoDto
+            {
+                Id = pm.Id,
+                PropertyNo = pm.PropertyNo,
+                PartitionNo = pm.PartitionNo,
+                OwnerName = pm.OwnerName,
+                OwnerNameEnglish = pm.OwnerNameEnglish,
+                OccupierName = pm.OccupierName,
+                OccupierNameEnglish = pm.OccupierNameEnglish,
+                Address = pm.Address,
+                AddressEnglish = pm.AddressEnglish,
+                MobileNo = pm.MobileNo,
+                EmailId = pm.EmailId,
+                FlatOrShopName = pm.FlatOrShopName,
+                FlatOrShopNo = pm.FlatOrShopNo,
+                CSN = pm.CSN,
+                PlotNo = pm.PlotNo,
+                PropertyTypeId = pm.PropertyTypeId,
+                WardId = pm.WardId,
+                TaxZoneId = pm.TaxZoneId,
+                CategoryId = pm.CategoryId
+            }
+        };
     }
 
     // -------------------------------------------------------------------------
