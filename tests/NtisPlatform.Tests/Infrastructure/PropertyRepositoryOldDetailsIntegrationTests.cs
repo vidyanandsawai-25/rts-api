@@ -1313,11 +1313,13 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year (year 2022 is active)
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(3, result.TaxYears.Count);
 
-        // Verify the active year is returned
+        // Verify all years are returned in descending order
         Assert.Equal(2022, result.TaxYears[0].Year);
+        Assert.Equal(2021, result.TaxYears[1].Year);
+        Assert.Equal(2020, result.TaxYears[2].Year);
     }
 
     [Fact]
@@ -1720,8 +1722,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year in GET response
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(2, result.TaxYears.Count);
+        Assert.Equal(2, result.TaxYears[0].FinanceYearId);
+        Assert.Equal(1, result.TaxYears[1].FinanceYearId);
 
         var transactions = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == 104)
@@ -2401,8 +2405,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year in GET response
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(2, result.TaxYears.Count);
+        Assert.Equal(2, result.TaxYears[0].FinanceYearId);
+        Assert.Equal(1, result.TaxYears[1].FinanceYearId);
 
         var transactions = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == 40)
@@ -3340,7 +3346,15 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
     public async Task GetFloorDetailsOldAsync_WithFloorRecords_ReturnsCompleteData()
     {
         // Arrange
-        var propertyMastOld = new PropertyMastOldEntity { Id = 71, IsActive = true, MarkedForDeletion = false };
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 71,
+            IsActive = true,
+            MarkedForDeletion = false,
+            OldWardNo = "W1",
+            OldPropertyNo = "P1",
+            OldPartitionNo = "PA1"
+        };
         _context.PropertyMastOld.Add(propertyMastOld);
 
         var property = new PropertyEntity
@@ -3415,6 +3429,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal(2020, floor1.ConstructionYearValue);
         Assert.Equal("2021", floor1.OldAssessmentYear);
         Assert.Equal(2021, floor1.AssessmentYearValue);
+        Assert.Equal("W1", floor1.OldWardNo);
+        Assert.Equal("P1", floor1.OldPropertyNo);
+        Assert.Equal("PA1", floor1.OldPartitionNo);
 
         // Verify second floor
         var floor2 = result.FloorDetails[1];
@@ -3427,6 +3444,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal(2019, floor2.ConstructionYearValue);
         Assert.Null(floor2.OldAssessmentYear);
         Assert.Null(floor2.AssessmentYearValue);
+        Assert.Equal("W1", floor2.OldWardNo);
+        Assert.Equal("P1", floor2.OldPropertyNo);
+        Assert.Equal("PA1", floor2.OldPartitionNo);
     }
 
     [Fact]

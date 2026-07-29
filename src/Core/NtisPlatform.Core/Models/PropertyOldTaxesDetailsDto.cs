@@ -18,6 +18,26 @@ public class PropertyOldTaxesDetailsDto
 public class OldTaxYearDto
 {
     /// <summary>
+    /// The PropertyMastOld primary key (PM.Id in SQL).
+    /// </summary>
+    public int? OldPropertyId { get; set; }
+
+    /// <summary>
+    /// Old ward number from PropertyMastOld.
+    /// </summary>
+    public string? OldWardNo { get; set; }
+
+    /// <summary>
+    /// Old property number from PropertyMastOld.
+    /// </summary>
+    public string? OldPropertyNo { get; set; }
+
+    /// <summary>
+    /// Old partition number from PropertyMastOld.
+    /// </summary>
+    public string? OldPartitionNo { get; set; }
+
+    /// <summary>
     /// The finance year ID. Null when no TransMastOld records exist for the property.
     /// </summary>
     public int? FinanceYearId { get; set; }
