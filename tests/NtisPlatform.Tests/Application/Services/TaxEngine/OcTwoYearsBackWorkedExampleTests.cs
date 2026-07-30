@@ -74,6 +74,7 @@ public class OcTwoYearsBackWorkedExampleTests
 
         context.TaxCategoryMaster.Add(new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true });
         context.TaxMaster.Add(new TaxMasterEntity { Id = GeneralTaxId, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true });
+        context.TaxMaster.Add(new TaxMasterEntity { Id = 99, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 99, TaxCategoryId = 1, IsActive = true });
 
         // Exactly ONE active NETTAX row per (PropertyId, TaxId) -- the DBA-confirmed schema has no
         // PolicyYear column, so this single current rate is used uniformly for every finance year
@@ -152,6 +153,7 @@ public class OcTwoYearsBackWorkedExampleTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
+        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -160,7 +162,7 @@ public class OcTwoYearsBackWorkedExampleTests
 
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
-            taxPendingRepo, taxPendingRetroRepo,
+            taxPendingRepo, taxPendingRetroRepo, taxMasterRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance);
     }
@@ -201,7 +203,7 @@ public class OcTwoYearsBackWorkedExampleTests
         // PolicyTaxDetails holds exactly ONE row now (current year only, per the DBA-confirmed
         // schema -- no PolicyYear column, unique index on PropertyId+PolicyCodeId+TaxId); the two
         // retro years (2024, 2025) live in TaxPendingDetailsRetro/TaxPendingDetails instead. ----
-        var policyRows = context.PolicyTaxDetails.Where(p => p.PropertyId == propertyId && p.IsActive && p.PolicyCodeId != NetTaxPolicyCodeId).ToList();
+        var policyRows = context.PolicyTaxDetails.Where(p => p.PropertyId == propertyId && p.IsActive && p.PolicyCodeId != NetTaxPolicyCodeId && p.TaxId != 99).ToList();
         Assert.Single(policyRows); // current year only
 
         var propertyRepo = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == CurrentFyYear));

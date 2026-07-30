@@ -922,6 +922,9 @@ public class PropertyRepositoryTaxDetailsTests
         var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
         var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        // Reserved "TaxTotal" row: TaxMaster now carries the precomputed policy total directly,
+        // so PropertyRepository reads it instead of summing the individual tax amounts.
+        var taxTotalTax = new TaxMasterEntity { Id = 2, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 2, TaxCategoryId = 1, IsActive = true };
         var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
 
         var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
@@ -934,6 +937,18 @@ public class PropertyRepositoryTaxDetailsTests
             PolicyCodeId = 1,
             TaxId = 1,
             TaxAmount = 10_000m,
+            IsActive = true,
+            MarkedForDeletion = false
+        };
+
+        // Precomputed TaxTotal for this policy, already reflecting the certificate-driven amount.
+        var policyTaxTotal = new PolicyTaxDetailsEntity
+        {
+            Id = 2,
+            PropertyId = 1,
+            PolicyCodeId = 1,
+            TaxId = 2,
+            TaxAmount = 4_110m,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -953,10 +968,10 @@ public class PropertyRepositoryTaxDetailsTests
 
         context.PropertyMast.Add(property);
         context.TaxCategoryMaster.Add(categoryTax);
-        context.TaxMaster.Add(tax);
+        context.TaxMaster.AddRange(tax, taxTotalTax);
         context.YearMaster.Add(year2026);
         context.PolicyCodeMaster.Add(nettaxPolicy);
-        context.PolicyTaxDetails.Add(policyTax);
+        context.PolicyTaxDetails.AddRange(policyTax, policyTaxTotal);
         context.TransMast.Add(transMast);
         await context.SaveChangesAsync();
 
@@ -988,6 +1003,9 @@ public class PropertyRepositoryTaxDetailsTests
         var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
         var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
         var tax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        // Reserved "TaxTotal" row: TaxMaster now carries the precomputed policy total directly,
+        // so PropertyRepository reads it instead of summing the individual tax amounts.
+        var taxTotalTax = new TaxMasterEntity { Id = 3, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 2, TaxCategoryId = 1, IsActive = true };
         var year2024 = new YearMasterEntity { Id = 8, Year = 2024, YearCode = "2024-25", IsActive = true };
         var year2025 = new YearMasterEntity { Id = 9, Year = 2025, YearCode = "2025-26", IsActive = true };
         var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
@@ -997,16 +1015,18 @@ public class PropertyRepositoryTaxDetailsTests
 
         var nettaxRow = new PolicyTaxDetailsEntity { Id = 1, PropertyId = 1, PolicyCodeId = 1, TaxId = 1, TaxAmount = 10_000m, IsActive = true, MarkedForDeletion = false };
         var ocRow = new PolicyTaxDetailsEntity { Id = 2, PropertyId = 1, PolicyCodeId = 2, TaxId = 1, TaxAmount = 4_110m, IsActive = true, MarkedForDeletion = false };
+        var nettaxTotalRow = new PolicyTaxDetailsEntity { Id = 3, PropertyId = 1, PolicyCodeId = 1, TaxId = 3, TaxAmount = 10_000m, IsActive = true, MarkedForDeletion = false };
+        var ocTotalRow = new PolicyTaxDetailsEntity { Id = 4, PropertyId = 1, PolicyCodeId = 2, TaxId = 3, TaxAmount = 4_110m, IsActive = true, MarkedForDeletion = false };
 
         var retro2024 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 8, TaxId = 1, PendingAmount = 3_540m, IsActive = true, MarkedForDeletion = false };
         var retro2025 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 9, TaxId = 1, PendingAmount = 3_560m, IsActive = true, MarkedForDeletion = false };
 
         context.PropertyMast.Add(property);
         context.TaxCategoryMaster.Add(categoryTax);
-        context.TaxMaster.Add(tax);
+        context.TaxMaster.AddRange(tax, taxTotalTax);
         context.YearMaster.AddRange(year2024, year2025, year2026);
         context.PolicyCodeMaster.AddRange(nettaxPolicy, ocPolicy);
-        context.PolicyTaxDetails.AddRange(nettaxRow, ocRow);
+        context.PolicyTaxDetails.AddRange(nettaxRow, ocRow, nettaxTotalRow, ocTotalRow);
         context.TaxPendingDetailsRetro.AddRange(retro2024, retro2025);
         await context.SaveChangesAsync();
 
@@ -1331,6 +1351,9 @@ public class PropertyRepositoryTaxDetailsTests
         var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
 
         var tax1 = new TaxMasterEntity { Id = 1, TaxName = "Capital Value Tax", TaxCode = "CV", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        // Reserved "TaxTotal" row: TaxMaster now carries the precomputed policy total directly,
+        // so PropertyRepository reads it instead of summing the individual tax amounts.
+        var taxTotalTax = new TaxMasterEntity { Id = 2, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 2, TaxCategoryId = 1, IsActive = true };
 
         // Same PolicyCode and TaxName - should be summed
         var policyTaxCV1 = new PolicyTaxDetailsCVEntity
@@ -1355,10 +1378,21 @@ public class PropertyRepositoryTaxDetailsTests
             CreatedDate = DateTime.UtcNow
         };
 
+        var policyTaxTotal = new PolicyTaxDetailsCVEntity
+        {
+            Id = 3,
+            PropertyId = 1,
+            TaxId = 2,
+            TaxAmount = 2000.00m,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = DateTime.UtcNow
+        };
+
         context.PropertyMast.Add(property);
         context.TaxCategoryMaster.Add(categoryTax);
-        context.TaxMaster.Add(tax1);
-        context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2);
+        context.TaxMaster.AddRange(tax1, taxTotalTax);
+        context.PolicyTaxDetailsCV.AddRange(policyTaxCV1, policyTaxCV2, policyTaxTotal);
         await context.SaveChangesAsync();
 
         var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));

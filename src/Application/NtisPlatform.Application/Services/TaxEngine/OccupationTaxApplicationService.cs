@@ -51,6 +51,9 @@ namespace NtisPlatform.Application.Services.TaxEngine;
 /// </remarks>
 public sealed class OccupationTaxApplicationService : IOccupationTaxService
 {
+    /// <summary>Reserved TaxMaster row holding a policy group's precomputed total (see CapitalValueConstants.Tax.TaxTotalName).</summary>
+    private const string TaxTotalCode = "TaxTotal";
+
     private readonly IOccupationTaxEngine _engine;
     private readonly IPropertyRepository _propertyRepository;
     private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepository;
@@ -59,6 +62,7 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
     private readonly IRepository<YearMasterEntity, int> _yearRepository;
     private readonly IRepository<TaxPendingDetailsEntity, int> _taxPendingDetailsRepository;
     private readonly IRepository<TaxPendingDetailsRetroEntity, int> _taxPendingDetailsRetroRepository;
+    private readonly IRepository<TaxMasterEntity, int> _taxMasterRepository;
     private readonly IPolicyCodeLookupService _policyCodeLookup;
     private readonly IFinanceYearProvider _financeYearProvider;
     private readonly ICertificateTaxGuidelineReaderService _guidelineReader;
@@ -74,6 +78,7 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         IRepository<YearMasterEntity, int> yearRepository,
         IRepository<TaxPendingDetailsEntity, int> taxPendingDetailsRepository,
         IRepository<TaxPendingDetailsRetroEntity, int> taxPendingDetailsRetroRepository,
+        IRepository<TaxMasterEntity, int> taxMasterRepository,
         IPolicyCodeLookupService policyCodeLookup,
         IFinanceYearProvider financeYearProvider,
         ICertificateTaxGuidelineReaderService guidelineReader,
@@ -88,6 +93,7 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         _yearRepository = yearRepository ?? throw new ArgumentNullException(nameof(yearRepository));
         _taxPendingDetailsRepository = taxPendingDetailsRepository ?? throw new ArgumentNullException(nameof(taxPendingDetailsRepository));
         _taxPendingDetailsRetroRepository = taxPendingDetailsRetroRepository ?? throw new ArgumentNullException(nameof(taxPendingDetailsRetroRepository));
+        _taxMasterRepository = taxMasterRepository ?? throw new ArgumentNullException(nameof(taxMasterRepository));
         _policyCodeLookup = policyCodeLookup ?? throw new ArgumentNullException(nameof(policyCodeLookup));
         _financeYearProvider = financeYearProvider ?? throw new ArgumentNullException(nameof(financeYearProvider));
         _guidelineReader = guidelineReader ?? throw new ArgumentNullException(nameof(guidelineReader));
@@ -1874,6 +1880,16 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         // CORE.YearMaster, never hardcoded.
         var pendingTotalsByTaxId = new Dictionary<int, decimal>();
 
+        // Accumulated current-finance-year total across the general tax + component taxes actually
+        // upserted into PolicyTaxDetails for this run's certificate-tax policy group (OC/PARTIAL_OC/
+        // CC/PARTIAL_CC/ELECTRIC_BILL/PARTIAL_ELECTRIC_BILL) -- mirrors RVPersistenceService's NETTAX
+        // "TaxTotal" row so PropertyRepository.GetTaxDetailsPivotedAsync can read a precomputed total
+        // for certificate policy groups too, instead of summing TaxAmounts itself. Only ever set for
+        // the current finance year (retro years never call UpsertPolicyTaxDetail at all), so exactly
+        // one policy code owns it per run.
+        var currentYearCertificateTaxTotal = 0m;
+        int? currentYearCertificatePolicyCodeId = null;
+
         void AccumulatePendingTotal(int taxId, decimal amount)
         {
             pendingTotalsByTaxId[taxId] = pendingTotalsByTaxId.GetValueOrDefault(taxId) + amount;
@@ -2170,6 +2186,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                     if (!computation.IsNoCertificateFallback)
                     {
                         UpsertPolicyTaxDetail(yearSnapshot.GeneralTaxDetail.TaxId, policyCodeId, yearSnapshot.GeneralTaxDetail.CalculationValue, generalTaxAmount);
+                        currentYearCertificateTaxTotal += generalTaxAmount;
+                        currentYearCertificatePolicyCodeId = policyCodeId;
                     }
                 }
 
@@ -2189,6 +2207,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                     if (!computation.IsNoCertificateFallback)
                     {
                         UpsertPolicyTaxDetail(comp.TaxId, policyCodeId, comp.CalculationValue, compTaxAmount);
+                        currentYearCertificateTaxTotal += compTaxAmount;
+                        currentYearCertificatePolicyCodeId = policyCodeId;
                     }
                 }
 
@@ -2226,6 +2246,22 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         foreach (var yearResult in yearResultsToPersist)
         {
             AddYearRecords(yearResult);
+        }
+
+        // Upsert the certificate policy group's own precomputed "TaxTotal" row for the current
+        // finance year -- same reserved TaxMaster row (TaxCode/TaxName = "TaxTotal") RVPersistenceService
+        // writes for NETTAX, so the Tax Details grid can read every policy group's total the same way.
+        if (currentYearCertificatePolicyCodeId.HasValue && currentYearCertificateTaxTotal > 0)
+        {
+            var taxTotalId = await _taxMasterRepository.GetQueryable()
+                .Where(t => t.IsActive && t.TaxCode == TaxTotalCode)
+                .Select(t => t.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (taxTotalId > 0)
+            {
+                UpsertPolicyTaxDetail(taxTotalId, currentYearCertificatePolicyCodeId.Value, null, currentYearCertificateTaxTotal);
+            }
         }
 
         // Flush the accumulated per-TaxId retro totals to ONE summary row per TaxId -- this is the

@@ -189,6 +189,7 @@ public class ReplaceCertificateEndToEndTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
+        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var financeYearProvider = Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == CurrentFyYear);
@@ -196,7 +197,7 @@ public class ReplaceCertificateEndToEndTests
 
         var occupationTaxService = new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
-            taxPendingRepo, taxPendingRetroRepo,
+            taxPendingRepo, taxPendingRetroRepo, taxMasterRepo,
             policyCodeLookup, financeYearProvider, guidelineReaderMock.Object, unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance);
 

@@ -18,6 +18,10 @@ namespace NtisPlatform.Infrastructure.Repositories;
 /// </summary>
 public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepository
 {
+    /// <summary>Reserved TaxMaster row holding the DB-precomputed policy total (see CapitalValueConstants.Tax.TaxTotalName).</summary>
+    private const string TaxTotalCode = "TaxTotal";
+    private const string TaxTotalName = "TaxTotal";
+
     private readonly IFinanceYearProvider _financeYearProvider;
 
     public PropertyRepository(ApplicationDbContext context, IFinanceYearProvider financeYearProvider) : base(context)
@@ -66,7 +70,7 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
             return null;
 
         // Step 2: Query tax details with TaxMaster join, ordered by DisplayOrder
-        List<(string PolicyCode, string PolicyName, string TaxName, decimal? TaxAmount, int TaxId)> taxData;
+        List<(string PolicyCode, string PolicyName, string TaxName, decimal? TaxAmount, int TaxId, string TaxCode)> taxData;
 
         if (isCapitalValue)
         {
@@ -80,12 +84,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
-                             select new ValueTuple<string, string, string, decimal?, int>(
+                             select new ValueTuple<string, string, string, decimal?, int, string>(
                                  pcm != null ? pcm.PolicyCode : string.Empty,
                                  pcm != null ? pcm.PolicyCode : string.Empty,
                                  tm.TaxName,
                                  td.TaxAmount,
-                                 td.TaxId
+                                 td.TaxId,
+                                 tm.TaxCode
                              ))
                             .ToListAsync(cancellationToken);
         }
@@ -104,12 +109,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                              where td.PropertyId == propertyId && td.IsActive && !td.MarkedForDeletion
                                 && tm.IsActive && (pcm == null || pcm.IsActive)
                              orderby tm.DisplayOrder
-                             select new ValueTuple<string, string, string, decimal?, int>(
+                             select new ValueTuple<string, string, string, decimal?, int, string>(
                                  pcm != null ? pcm.PolicyCode : string.Empty,
                                  pcm != null ? pcm.PolicyName : string.Empty,
                                  tm.TaxName,
                                  td.TaxAmount,
-                                 td.TaxId
+                                 td.TaxId,
+                                 tm.TaxCode
                              ))
                             .ToListAsync(cancellationToken);
         }
@@ -161,7 +167,12 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                 var policyName = g.First().Item2;
                 var isNetTax = string.Equals(policyCode, "NETTAX", StringComparison.OrdinalIgnoreCase);
 
+                // TaxTotal is now a precomputed row in TaxMaster (reserved TaxCode/TaxName "TaxTotal")
+                // rather than a value derived here, so it is excluded from the per-tax breakdown and
+                // read directly instead of being re-summed from the individual TaxAmounts.
                 var taxAmounts = g
+                    .Where(x => !(string.Equals(x.TaxCode, TaxTotalCode, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.TaxName, TaxTotalName, StringComparison.OrdinalIgnoreCase)))
                     .GroupBy(x => x.Item3)
                     .Select(tg => new TaxAmountDetail
                     {
@@ -178,7 +189,13 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
                     })
                     .ToList();
 
-                var taxTotal = taxAmounts.Sum(t => t.TaxAmount);
+                var taxTotal = g
+                    .Where(x => string.Equals(x.TaxCode, TaxTotalCode, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(x.TaxName, TaxTotalName, StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(x => x.Item5)
+                    .Sum(taxIdGroup => (!isNetTax || policyGroupCount == 1) && transMastOverridesByTaxId.TryGetValue(taxIdGroup.Key, out var overridden)
+                        ? overridden
+                        : taxIdGroup.Sum(x => x.Item4 ?? 0));
 
                 return new PolicyTaxDetail
                 {

@@ -95,6 +95,7 @@ public class TaxPendingDetailsSummaryTests
         {
             context.TaxMaster.Add(new TaxMasterEntity { Id = taxId, TaxName = $"Component{taxId}", TaxCode = $"C{taxId}", DisplayOrder = taxId, TaxCategoryId = 1, IsActive = true });
         }
+        context.TaxMaster.Add(new TaxMasterEntity { Id = 99, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 99, TaxCategoryId = 1, IsActive = true });
 
         // Exactly ONE active NETTAX row per (PropertyId, TaxId) -- the DBA-confirmed schema has no
         // PolicyYear column, so this single current rate is used uniformly for every finance year
@@ -165,6 +166,7 @@ public class TaxPendingDetailsSummaryTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
+        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -173,7 +175,7 @@ public class TaxPendingDetailsSummaryTests
 
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
-            taxPendingRepo, taxPendingRetroRepo,
+            taxPendingRepo, taxPendingRetroRepo, taxMasterRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance);
     }
@@ -250,7 +252,7 @@ public class TaxPendingDetailsSummaryTests
         // DBA-confirmed unique index (PropertyId, PolicyCodeId, TaxId) -- proves the certificate
         // family (OC) never produced a second active row per TaxId for 2024/2025's retro amounts. ----
         var policyRows = context.PolicyTaxDetails
-            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion && p.PolicyCodeId != NetTaxPolicyCodeId)
+            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion && p.PolicyCodeId != NetTaxPolicyCodeId && p.TaxId != 99)
             .ToList();
         Assert.Equal(11, policyRows.Count); // one row per TaxId, current year only
         Assert.Equal(11, policyRows.Select(p => p.TaxId).Distinct().Count()); // no duplicate TaxId

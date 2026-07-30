@@ -102,6 +102,7 @@ public class PtisTaxEnginePhaseRulesTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
+        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -152,6 +153,7 @@ public class PtisTaxEnginePhaseRulesTests
             yearRepo,
             taxPendingRepo,
             taxPendingRetroRepo,
+            taxMasterRepo,
             policyCodeLookup,
             financeYearProvider,
             guidelineReaderMock.Object,
