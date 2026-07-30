@@ -178,8 +178,8 @@ public class AssessmentStageService : IAssessmentStageService
         var classificationTypes = GetAssessedClassificationTypes();
 
         return BuildGridResponse(
-            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateAssessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone, classificationTypes,
+            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
+                .Select(zone => CreateAssessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, classificationTypes,
                     oldDemandByProperty, currentDemandByProperty, retroDemandByProperty)),
             zoneData => CalculateTotalRow(zoneData, classificationTypes),
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, AssessmentTypeAssessed));
@@ -205,8 +205,8 @@ public class AssessmentStageService : IAssessmentStageService
         var propertyTypes = GetUnassessedPropertyTypes();
 
         return BuildGridResponse(
-            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateUnassessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone, propertyTypes,
+            classifiedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
+                .Select(zone => CreateUnassessedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, propertyTypes,
                     currentDemandByProperty, retroDemandByProperty)),
             zoneData => CalculateUnassessedTotalRow(zoneData, propertyTypes),
             zoneData => CalculateUnassessedGrandTotalRow(zoneData, propertyTypes, AssessmentTypeUnassessed));
@@ -225,6 +225,7 @@ public class AssessmentStageService : IAssessmentStageService
                 PartitionNo = p.PartitionNo,
                 ZoneId = p.ZoneId,
                 ZoneName = p.ZoneName,
+                ZoneNo = p.ZoneNo,
                 ClassificationType = p.HasRenterTaxLiability ? RentedClassificationRenter : RentedClassificationOwner,
                 OldDemand = p.OldDemand,
                 CurrentDemand = p.CurrentDemand,
@@ -238,8 +239,8 @@ public class AssessmentStageService : IAssessmentStageService
         var classificationTypes = GetRentedClassificationTypes();
 
         return BuildGridResponse(
-            rentedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName }).OrderBy(g => g.Key.ZoneName)
-                .Select(zone => CreateRentedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone, classificationTypes)),
+            rentedProperties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo }).OrderBy(g => g.Key.ZoneName)
+                .Select(zone => CreateRentedZoneData(zone.Key.ZoneId, zone.Key.ZoneName, zone.Key.ZoneNo, zone, classificationTypes)),
             zoneData => CalculateTotalRow(zoneData, classificationTypes),
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, RentedGrandTotalClassificationType));
     }
@@ -299,6 +300,7 @@ public class AssessmentStageService : IAssessmentStageService
                 PartitionNo = property.PartitionNo,
                 ZoneId = property.ZoneId,
                 ZoneName = property.ZoneName,
+                ZoneNo = property.ZoneNo,
                 ClassificationType = hasAdditionalConstruction
                     ? AssessedClassificationAdditionalConstruction
                     : hasChangeOfUse
@@ -341,6 +343,7 @@ public class AssessmentStageService : IAssessmentStageService
                 PartitionNo = property.PartitionNo,
                 ZoneId = property.ZoneId,
                 ZoneName = property.ZoneName,
+                ZoneNo = property.ZoneNo,
                 PropertyType = propertyType
             };
         }).ToList();
@@ -364,11 +367,12 @@ public class AssessmentStageService : IAssessmentStageService
 
     // Counts structures and units per zone from filtered properties.
     private static List<AssessmentZoneCountProjection> GetZoneCounts(IEnumerable<AssessmentStagePropertyProjection> properties)
-        => properties.GroupBy(p => new { p.ZoneId, p.ZoneName })
+        => properties.GroupBy(p => new { p.ZoneId, p.ZoneName, p.ZoneNo })
             .Select(g => new AssessmentZoneCountProjection
             {
                 ZoneId = g.Key.ZoneId,
                 ZoneName = g.Key.ZoneName,
+                ZoneNo = g.Key.ZoneNo,
                 StructureCount = g.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo)),
                 UnitCount = g.Count()
             }).OrderBy(z => z.ZoneName).ToList();
@@ -551,6 +555,7 @@ public class AssessmentStageService : IAssessmentStageService
         {
             ZoneId = zone.ZoneId,
             ZoneName = zone.ZoneName,
+            ZoneNo = zone.ZoneNo,
             TotalStructure = zone.StructureCount,
             TotalUnit = zone.UnitCount,
             Classifications = classifications.ToList()
@@ -560,6 +565,7 @@ public class AssessmentStageService : IAssessmentStageService
     private static AssessmentZoneDataDto CreateAssessedZoneData(
         int zoneId,
         string zoneName,
+        string zoneNo,
         IEnumerable<AssessedClassifiedPropertyProjection> zone,
         List<string> classificationTypes,
         IReadOnlyDictionary<int, decimal> oldDemandByProperty,
@@ -571,6 +577,7 @@ public class AssessmentStageService : IAssessmentStageService
         {
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             TotalStructure = zoneRows.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo)),
             TotalUnit = zoneRows.Count,
             Classifications = classificationTypes.Select(type => CreateAssessedClassification(
@@ -584,7 +591,7 @@ public class AssessmentStageService : IAssessmentStageService
 
     // Creates an unassessed zone row by grouping properties into property-type rows.
     private static AssessmentZoneDataDto CreateUnassessedZoneData(
-        int zoneId, string zoneName, IEnumerable<UnassessedClassifiedPropertyProjection> zone,
+        int zoneId, string zoneName, string zoneNo, IEnumerable<UnassessedClassifiedPropertyProjection> zone,
         List<string> propertyTypes, IReadOnlyDictionary<int, decimal> currentDemandByProperty,
         IReadOnlyDictionary<int, decimal> retroDemandByProperty)
     {
@@ -593,6 +600,7 @@ public class AssessmentStageService : IAssessmentStageService
         {
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             TotalStructure = zoneRows.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo)),
             TotalUnit = zoneRows.Count,
             Classifications = propertyTypes.Select(type => CreateUnassessedClassification(
@@ -607,6 +615,7 @@ public class AssessmentStageService : IAssessmentStageService
     private static AssessmentZoneDataDto CreateRentedZoneData(
         int zoneId,
         string zoneName,
+        string zoneNo,
         IEnumerable<RentedClassifiedPropertyProjection> zone,
         List<string> classificationTypes)
     {
@@ -615,6 +624,7 @@ public class AssessmentStageService : IAssessmentStageService
         {
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             TotalStructure = zoneRows.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo)),
             TotalUnit = zoneRows.Count,
             Classifications = classificationTypes.Select(type => CreateRentedClassification(

@@ -45,7 +45,7 @@ public sealed class InternalSurveyGridSnapshotProjection
     public int AssessedStatusId { get; set; }
     public int UnassessedStatusId { get; set; }
     public int PropertyPhotoTypeId { get; set; }
-    public List<(int ZoneId, string ZoneName)> Zones { get; set; } = new();
+    public List<(int ZoneId, string ZoneName, string ZoneNo)> Zones { get; set; } = new();
     public List<InternalSurveyStagePropertyProjection> GeoSequencingProperties { get; set; } = new();
     public List<InternalSurveyStagePropertyProjection> InternalSurveyProperties { get; set; } = new();
     public List<InternalSurveyPropertyUseSourceProjection> InternalSurveyPropertyUses { get; set; } = new();
@@ -60,6 +60,7 @@ public sealed class InternalSurveyWardWiseSnapshotProjection
     public bool IsValid { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public int GeoSequencingStageId { get; set; }
     public int AssessedStatusId { get; set; }
     public int UnassessedStatusId { get; set; }

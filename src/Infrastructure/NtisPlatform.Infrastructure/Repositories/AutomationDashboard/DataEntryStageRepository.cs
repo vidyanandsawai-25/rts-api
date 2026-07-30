@@ -266,7 +266,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                 @PropertyPhotoTypeId AS PropertyPhotoTypeId,
                 @PlanPhotoTypeId AS PlanPhotoTypeId;
 
-            SELECT ZoneId, ZoneName
+            SELECT ZoneId, ZoneName, ZoneNo
             FROM #SelectedZones
             ORDER BY SequenceNo, ZoneNo;
 
@@ -392,11 +392,11 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
         command.Parameters.Add(parameter);
     }
 
-    private static async Task<List<(int ZoneId, string ZoneName)>> ReadZonesAsync(DbDataReader reader, CancellationToken cancellationToken)
+    private static async Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> ReadZonesAsync(DbDataReader reader, CancellationToken cancellationToken)
     {
-        var rows = new List<(int ZoneId, string ZoneName)>();
+        var rows = new List<(int ZoneId, string ZoneName, string ZoneNo)>();
         while (await reader.ReadAsync(cancellationToken))
-            rows.Add((reader.GetInt32(0), reader.GetString(1)));
+            rows.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
         return rows;
     }
 

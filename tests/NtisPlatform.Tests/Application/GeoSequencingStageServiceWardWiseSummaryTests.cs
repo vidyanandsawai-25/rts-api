@@ -20,7 +20,7 @@ public class GeoSequencingStageServiceWardWiseSummaryTests
             .ReturnsAsync(true);
         repository
             .Setup(x => x.ReadZoneAsync(14, It.IsAny<CancellationToken>()))
-            .ReturnsAsync((14, "Zone 14"));
+            .ReturnsAsync((14, "Zone 14", "Z14"));
         repository
             .Setup(x => x.ReadWardsInZoneAsync(14, It.IsAny<CancellationToken>()))
             .ReturnsAsync(wards);

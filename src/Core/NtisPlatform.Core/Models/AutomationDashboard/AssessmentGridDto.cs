@@ -19,6 +19,7 @@ public class AssessmentZoneDataDto
 {
     public int? ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
 
     // Total Structure and Unit
     public int TotalStructure { get; set; }

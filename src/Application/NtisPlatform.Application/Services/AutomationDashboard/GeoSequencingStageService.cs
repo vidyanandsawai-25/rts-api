@@ -58,13 +58,14 @@ public class GeoSequencingStageService : IGeoSequencingStageService
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var result = new GeoSequencingGridResponseDto();
-        foreach (var (zoneId, zoneName) in zones)
+        foreach (var (zoneId, zoneName, zoneNo) in zones)
         {
             propertiesByZone.TryGetValue(zoneId, out var zoneProperties);
             registeredCounts.TryGetValue(zoneId, out var registeredCount);
             result.Zones.Add(BuildZoneData(
                 zoneId,
                 zoneName,
+                zoneNo,
                 registeredCount,
                 zoneProperties ?? new List<GeoSequencingStagePropertyProjection>(),
                 propertyUseGroups,
@@ -190,13 +191,14 @@ public class GeoSequencingStageService : IGeoSequencingStageService
     }
 
     private static GeoSequencingZoneDataDto BuildZoneData(
-        int zoneId,string zoneName,int registeredCount,List<GeoSequencingStagePropertyProjection> properties,
+        int zoneId,string zoneName,string zoneNo,int registeredCount,List<GeoSequencingStagePropertyProjection> properties,
         Dictionary<int, PropertyUseGroup> propertyUseGroups,Dictionary<string, int> statusIdsByName)
     {
         return new GeoSequencingZoneDataDto
         {
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             RegisteredProperties = registeredCount,
             GeoSequencedProperties = new GeoSequencedPropertiesDto
             {

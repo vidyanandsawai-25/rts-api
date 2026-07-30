@@ -27,6 +27,7 @@ public class InternalSurveyDivisionDataDto
 {
     public int? DivisionId { get; set; }
     public string DivisionName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
 
     // Geo-Sequencing Properties
     public GeoSequencingPropertiesDto GeoSequencingProperties { get; set; } = new();

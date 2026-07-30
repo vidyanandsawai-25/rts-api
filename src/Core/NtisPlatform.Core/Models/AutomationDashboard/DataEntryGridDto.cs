@@ -27,6 +27,7 @@ public class DataEntryDivisionDataDto
 {
     public int? DivisionId { get; set; }
     public string DivisionName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
 
     // Total Structure and Unit
     public int Structure { get; set; }

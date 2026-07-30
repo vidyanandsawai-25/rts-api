@@ -72,7 +72,7 @@ public sealed class DataEntryGridSnapshotProjection
     public int AssessmentStageId { get; set; }
     public int PropertyPhotoTypeId { get; set; }
     public int PlanPhotoTypeId { get; set; }
-    public List<(int ZoneId, string ZoneName)> Zones { get; set; } = new();
+    public List<(int ZoneId, string ZoneName, string ZoneNo)> Zones { get; set; } = new();
     public List<DataEntryStagePropertyProjection> StageProperties { get; set; } = new();
     public List<DataEntryZoneCountProjection> ZoneTotals { get; set; } = new();
     public List<DataEntryCompletedPhotoProjection> CompletedPhotos { get; set; } = new();

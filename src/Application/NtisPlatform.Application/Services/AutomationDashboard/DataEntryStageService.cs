@@ -75,7 +75,7 @@ public class DataEntryStageService : IDataEntryStageService
 
     // Assembles zone rows from preloaded batch data.
     private static DataEntryGridResponseDto BuildGrid(
-        List<(int ZoneId, string ZoneName)> zones,
+        List<(int ZoneId, string ZoneName, string ZoneNo)> zones,
         List<DataEntryStagePropertyProjection> dataEntryProperties,
         List<DataEntryStagePropertyProjection> internalSurveyProperties,
         List<DataEntryStagePropertyProjection> assessmentProperties,
@@ -111,7 +111,7 @@ public class DataEntryStageService : IDataEntryStageService
                 .ToDictionary(g => g.Key, g => g.Count());
         var response = new DataEntryGridResponseDto();
 
-        foreach (var (zoneId, zoneName) in zones)
+        foreach (var (zoneId, zoneName, zoneNo) in zones)
         {
             var dataEntryCounts = dataEntryCountsByZone.GetValueOrDefault(zoneId);
             var internalCounts = internalCountsByZone.GetValueOrDefault(zoneId);
@@ -125,6 +125,7 @@ public class DataEntryStageService : IDataEntryStageService
             {
                 DivisionId = zoneId,
                 DivisionName = zoneName,
+                ZoneNo = zoneNo,
                 Structure = dataEntryCounts.StructureCount,
                 Unit = dataEntryCounts.UnitCount,
                 InternalSurvey = new InternalSurveyBreakdownDto

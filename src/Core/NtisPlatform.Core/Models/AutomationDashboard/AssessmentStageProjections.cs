@@ -9,6 +9,7 @@ public sealed class AssessmentStagePropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public int? AssessmentStatusId { get; set; }
     public bool IsRented { get; set; }
 }
@@ -23,6 +24,7 @@ public sealed class AssessedClassificationPropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public double? OldConstructionArea { get; set; }
     public string? OldUseType { get; set; }
     public double? OldRV { get; set; }
@@ -38,6 +40,7 @@ public sealed class AssessedClassifiedPropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public string ClassificationType { get; set; } = string.Empty;
 }
 
@@ -51,6 +54,7 @@ public sealed class UnassessedPropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public bool IsOpenPlot { get; set; }
 }
 
@@ -63,6 +67,7 @@ public sealed class UnassessedClassifiedPropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public string PropertyType { get; set; } = string.Empty;
 }
 
@@ -75,6 +80,7 @@ public sealed class RentedClassifiedPropertyProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public string ClassificationType { get; set; } = string.Empty;
     public decimal OldDemand { get; set; }
     public decimal CurrentDemand { get; set; }
@@ -90,6 +96,7 @@ public sealed class RentedPropertyDemandProjection
     public string? PartitionNo { get; set; }
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public bool HasRenterTaxLiability { get; set; }
     public decimal OldDemand { get; set; }
     public decimal CurrentDemand { get; set; }
@@ -116,6 +123,7 @@ public sealed class AssessmentZoneCountProjection
 {
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }

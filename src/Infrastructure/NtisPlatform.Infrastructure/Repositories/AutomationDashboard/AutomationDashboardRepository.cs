@@ -296,6 +296,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
     {
         var zoneId = query.ZoneId;
         var workflowStageId = query.WorkflowStageId;
+        var wardId = query.WardId;
         var (pageNumber, pageSize) = NormalizePaging(query.PageNumber, query.PageSize);
 
         var workflowStageName = "All Stages";
@@ -314,6 +315,43 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         }
 
         var zoneName = "All Zones";
+        int? resolvedWardId = null;
+        string? resolvedWardNo = null;
+
+        if (wardId is int selectedWardId && selectedWardId > 0)
+        {
+            var ward = await (
+                from w in _context.WardMaster.AsNoTracking()
+                join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+                where w.IsActive
+                      && z.IsActive
+                      && w.Id == selectedWardId
+                select new
+                {
+                    WardId = w.Id,
+                    WardNo = w.WardNo,
+                    ZoneId = z.Id,
+                    ZoneName = z.Description ?? z.ZoneNo
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (ward == null)
+                return new SubGridDataProjection
+                {
+                    WorkflowStageId = workflowStageId.GetValueOrDefault(),
+                    WorkflowStageName = workflowStageName
+                };
+
+            resolvedWardId = ward.WardId;
+            resolvedWardNo = ward.WardNo;
+
+            if (!zoneId.HasValue || zoneId.Value <= 0)
+            {
+                zoneId = ward.ZoneId;
+                zoneName = ward.ZoneName;
+            }
+        }
+
         if (zoneId is int selectedZoneId && selectedZoneId > 0)
         {
             var zone = await _context.ZoneMaster
@@ -357,8 +395,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         if (zoneId is int filterZoneId && filterZoneId > 0)
             propertyQuery = propertyQuery.Where(p => p.ZoneId == filterZoneId);
 
-        if (query.WardId is int wardId && wardId > 0)
-            propertyQuery = propertyQuery.Where(p => p.WardId == wardId);
+        if (wardId is int filterWardId && filterWardId > 0)
+            propertyQuery = propertyQuery.Where(p => p.WardId == filterWardId);
 
         if (query.PropertyTypeId is int propertyTypeId && propertyTypeId > 0)
             propertyQuery = propertyQuery.Where(p => p.PropertyTypeId == propertyTypeId);
@@ -380,6 +418,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 WorkflowStageName = workflowStageName,
                 ZoneId = zoneId.GetValueOrDefault(),
                 ZoneName = zoneName,
+                WardId = resolvedWardId,
+                WardNo = resolvedWardNo,
                 TotalCount = 0
             };
 
@@ -395,6 +435,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             workflowStageName,
             zoneId.GetValueOrDefault(),
             zoneName,
+            resolvedWardId,
+            resolvedWardNo,
             totalCount,
             pagePropertyIds,
             cancellationToken);
@@ -534,6 +576,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             workflowStage.StageName,
             0,
             "All Zones",
+            null,
+            null,
             totalCount,
             pagePropertyIds,
             cancellationToken);
@@ -544,6 +588,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         string workflowStageName,
         int zoneId,
         string zoneName,
+        int? wardId,
+        string? wardNo,
         int totalCount,
         List<int> pagePropertyIds,
         CancellationToken cancellationToken)
@@ -555,6 +601,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 WorkflowStageName = workflowStageName,
                 ZoneId = zoneId,
                 ZoneName = zoneName,
+                WardId = wardId,
+                WardNo = wardNo,
                 TotalCount = totalCount
             };
 
@@ -584,10 +632,34 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 t => new { Description = t.PropertyDescription, Type = t.Type ?? "" },
                 cancellationToken);
 
+        var wingNamesByPropertyId = await (
+            from society in _context.SocietyDetailsMast.AsNoTracking()
+            join wing in _context.WingEntity.AsNoTracking().Where(w => w.IsActive)
+                on society.WingId equals wing.Id into wingJoin
+            from wing in wingJoin.DefaultIfEmpty()
+            where society.PropertyId.HasValue
+                  && pagePropertyIds.Contains(society.PropertyId.Value)
+                  && society.IsActive
+                  && !society.MarkedForDeletion
+            select new
+            {
+                PropertyId = society.PropertyId.Value,
+                WingName = !string.IsNullOrWhiteSpace(society.WingName)
+                    ? society.WingName
+                    : wing != null ? wing.WingNo : null
+            })
+            .Where(x => !string.IsNullOrWhiteSpace(x.WingName))
+            .GroupBy(x => x.PropertyId)
+            .ToDictionaryAsync(
+                g => g.Key,
+                g => g.Select(x => x.WingName!).First(),
+                cancellationToken);
+
         var properties = propertyEntities.Select(pm =>
         {
             categoriesById.TryGetValue(pm.CategoryId ?? 0, out var categoryName);
             propertyTypesById.TryGetValue(pm.PropertyTypeId ?? 0, out var propertyType);
+            wingNamesByPropertyId.TryGetValue(pm.Id, out var wingName);
 
             return new SubGridPropertyProjection
             {
@@ -603,6 +675,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 MobileNo = pm.MobileNo ?? "",
                 Address = pm.Address ?? "",
                 FlatOrShopName = pm.FlatOrShopName ?? "",
+                WingName = wingName ?? "",
                 AssessmentStatusName = pm.PropertyAssessmentStatus?.StatusName ?? ""
             };
         }).ToList();
@@ -806,6 +879,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             WorkflowStageName = workflowStageName,
             ZoneId = zoneId,
             ZoneName = zoneName,
+            WardId = wardId,
+            WardNo = wardNo,
             TotalCount = totalCount,
             Properties = properties,
             DetailCounts = detailCounts,

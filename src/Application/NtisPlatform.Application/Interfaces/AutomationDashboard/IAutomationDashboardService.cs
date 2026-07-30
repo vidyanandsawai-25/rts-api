@@ -69,9 +69,16 @@ namespace NtisPlatform.Application.Interfaces.AutomationDashboard
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Gets property details for a specific ward and workflow stage.
+        /// </summary>
+        Task<SubGridPDDataDto> GetWardSubGridDataAsync(
+            WardSubGridQueryParameters queryParameters,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Gets Assessment stage properties that are still pending signature approval.
         /// </summary>
-        Task<SubGridPDDataDto> GetPendingAssessmentPropsAsync(
+        Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentPropsAsync(
             int? pageNumber,
             int? pageSize,
             CancellationToken cancellationToken = default);

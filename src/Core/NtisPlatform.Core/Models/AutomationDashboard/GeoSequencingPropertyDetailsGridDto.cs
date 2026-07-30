@@ -27,6 +27,16 @@ public class SubGridPDDataDto
     public string ZoneName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Ward ID when the sub-grid is scoped ward-wise.
+    /// </summary>
+    public int? WardId { get; set; }
+
+    /// <summary>
+    /// Ward number/name when the sub-grid is scoped ward-wise.
+    /// </summary>
+    public string? WardNo { get; set; }
+
+    /// <summary>
     /// List of property details
     /// </summary>
     public List<SubGridPropertyDetailsDto> Properties { get; set; } = new();
@@ -93,6 +103,11 @@ public class SubGridPropertyDetailsDto
     public string FlatOrShopName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Wing name linked with the property society details, when available.
+    /// </summary>
+    public string WingName { get; set; } = string.Empty;
+
+    /// <summary>
     /// Assessment status (Assessed/Unassessed/etc.)
     /// </summary>
     public string AssessmentStatus { get; set; } = string.Empty;
@@ -118,14 +133,39 @@ public class SubGridPropertyDetailsDto
     public decimal AdditionalRevenue { get; set; }
 
     /// <summary>
-    /// QC checklist state used by pending assessment approval screen.
-    /// </summary>
-    public AssessmentQcChecklistDto QcChecklist { get; set; } = new();
-
-    /// <summary>
     /// New vs Old property details comparison
     /// </summary>
     public PropertyDetailsComparisonDto PropertyDetailsComparison { get; set; } = new();
+}
+
+/// <summary>
+/// Response DTO for pending Assessment properties that need QC checklist flags.
+/// </summary>
+public class PendingAssessmentSubGridPDDataDto
+{
+    public int WorkflowStageId { get; set; }
+
+    public string WorkflowStageName { get; set; } = string.Empty;
+
+    public int ZoneId { get; set; }
+
+    public string ZoneName { get; set; } = string.Empty;
+
+    public int? WardId { get; set; }
+
+    public string? WardNo { get; set; }
+
+    public List<PendingAssessmentSubGridPropertyDetailsDto> Properties { get; set; } = new();
+
+    public int TotalCount { get; set; }
+}
+
+/// <summary>
+/// Pending Assessment property details including QC checklist state.
+/// </summary>
+public class PendingAssessmentSubGridPropertyDetailsDto : SubGridPropertyDetailsDto
+{
+    public AssessmentQcChecklistDto QcChecklist { get; set; } = new();
 }
 
 /// <summary>

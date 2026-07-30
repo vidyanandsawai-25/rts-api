@@ -36,6 +36,11 @@ public class GeoSequencingZoneDataDto
     public string ZoneName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Zone number from ZoneMaster.
+    /// </summary>
+    public string ZoneNo { get; set; } = string.Empty;
+
+    /// <summary>
     /// Total registered properties in this zone
     /// </summary>
     public int RegisteredProperties { get; set; }

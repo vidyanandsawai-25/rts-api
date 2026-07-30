@@ -31,7 +31,7 @@ public class GeoSequencingStageRepository : WorkflowStageBaseRepository, IGeoSeq
     /// <summary>
     /// Reads active zones, optionally filtered by zone id.
     /// </summary>
-    public Task<List<(int ZoneId, string ZoneName)>> ReadZonesAsync(
+    public Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> ReadZonesAsync(
         int? zoneId,
         CancellationToken cancellationToken = default)
     {
@@ -42,7 +42,7 @@ public class GeoSequencingStageRepository : WorkflowStageBaseRepository, IGeoSeq
     /// <summary>
     /// Reads one active zone by id.
     /// </summary>
-    public Task<(int ZoneId, string ZoneName)> ReadZoneAsync(int zoneId, CancellationToken cancellationToken = default)
+    public Task<(int ZoneId, string ZoneName, string ZoneNo)> ReadZoneAsync(int zoneId, CancellationToken cancellationToken = default)
         => GetZoneAsync(zoneId, cancellationToken);
 
     /// <summary>

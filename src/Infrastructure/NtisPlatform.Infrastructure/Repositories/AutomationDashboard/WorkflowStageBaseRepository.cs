@@ -200,7 +200,7 @@ public abstract class WorkflowStageBaseRepository
     /// <summary>
     /// Get all zones (optionally filtered)
     /// </summary>
-    protected async Task<List<(int ZoneId, string ZoneName)>> GetZonesAsync(PropertySearchRequestDto? searchRequest,CancellationToken cancellationToken)
+    protected async Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> GetZonesAsync(PropertySearchRequestDto? searchRequest,CancellationToken cancellationToken)
     {
         var zonesQuery = _context.ZoneMaster
             .AsNoTracking()
@@ -212,19 +212,19 @@ public abstract class WorkflowStageBaseRepository
         return await zonesQuery
             .OrderBy(z => z.SequenceNo ?? 0)
             .ThenBy(z => z.ZoneNo)
-            .Select(z => new ValueTuple<int, string>(z.Id, z.Description ?? z.ZoneNo))
+            .Select(z => new ValueTuple<int, string, string>(z.Id, z.Description ?? z.ZoneNo, z.ZoneNo))
             .ToListAsync(cancellationToken);
     }
 
-    protected async Task<(int ZoneId, string ZoneName)> GetZoneAsync(int zoneId, CancellationToken cancellationToken)
+    protected async Task<(int ZoneId, string ZoneName, string ZoneNo)> GetZoneAsync(int zoneId, CancellationToken cancellationToken)
     {
         var zone = await _context.ZoneMaster
             .AsNoTracking()
             .Where(z => z.IsActive && z.Id == zoneId)
-            .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo })
+            .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo, z.ZoneNo })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return zone == null ? (0, string.Empty) : (zone.Id, zone.ZoneName);
+        return zone == null ? (0, string.Empty, string.Empty) : (zone.Id, zone.ZoneName, zone.ZoneNo);
     }
 
     protected async Task<List<(int WardId, string WardNo)>> GetWardsInZoneAsync(

@@ -16,12 +16,12 @@ public interface IGeoSequencingStageRepository
     /// <summary>
     /// Gets active zones, optionally filtered by zone id.
     /// </summary>
-    Task<List<(int ZoneId, string ZoneName)>> ReadZonesAsync(int? zoneId, CancellationToken cancellationToken = default);
+    Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> ReadZonesAsync(int? zoneId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets one active zone by id.
     /// </summary>
-    Task<(int ZoneId, string ZoneName)> ReadZoneAsync(int zoneId, CancellationToken cancellationToken = default);
+    Task<(int ZoneId, string ZoneName, string ZoneNo)> ReadZoneAsync(int zoneId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets active wards for one zone.

@@ -51,7 +51,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
             .Where(p => p.ZoneId.HasValue)
             .ToDictionary(p => p.ZoneId!.Value, p => p.Count);
 
-        foreach (var (zoneId, zoneName) in snapshot.Zones)
+        foreach (var (zoneId, zoneName, zoneNo) in snapshot.Zones)
         {
             geoPropertiesByZone.TryGetValue(zoneId, out var geoProperties);
             internalPropertiesByZone.TryGetValue(zoneId, out var internalProperties);
@@ -60,6 +60,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
             response.DivisionData.Add(BuildDivisionData(
                 zoneId,
                 zoneName,
+                zoneNo,
                 geoProperties ?? new List<InternalSurveyStagePropertyProjection>(),
                 internalProperties ?? new List<InternalSurveyStagePropertyProjection>(),
                 propertyUseGroups,
@@ -201,6 +202,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
             IsValid = true,
             ZoneId = zone.ZoneId,
             ZoneName = zone.ZoneName,
+            ZoneNo = zone.ZoneNo,
             Wards = wards
         };
 
@@ -278,6 +280,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
     private static InternalSurveyDivisionDataDto BuildDivisionData(
         int divisionId,
         string divisionName,
+        string zoneNo,
         List<InternalSurveyStagePropertyProjection> geoSequencingProperties,
         List<InternalSurveyStagePropertyProjection> internalSurveyProperties,
         Dictionary<int, PropertyUseGroup> propertyUseGroups,
@@ -291,6 +294,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
             {
                 DivisionId = divisionId,
                 DivisionName = divisionName,
+                ZoneNo = zoneNo,
                 GeoSequencingProperties = new GeoSequencingPropertiesDto
                 {
                     Structure = CountStructures(geoSequencingProperties),
@@ -303,6 +307,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
         {
             DivisionId = divisionId,
             DivisionName = divisionName,
+            ZoneNo = zoneNo,
             GeoSequencingProperties = new GeoSequencingPropertiesDto
             {
                 Structure = CountStructures(geoSequencingProperties),

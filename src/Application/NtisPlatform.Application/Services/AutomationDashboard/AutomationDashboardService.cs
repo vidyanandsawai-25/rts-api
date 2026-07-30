@@ -101,11 +101,32 @@ namespace NtisPlatform.Application.Services
             return GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(query, cancellationToken));
         }
 
-        public Task<SubGridPDDataDto> GetPendingAssessmentPropsAsync(
+        public Task<SubGridPDDataDto> GetWardSubGridDataAsync(
+            WardSubGridQueryParameters queryParameters,
+            CancellationToken cancellationToken = default)
+        {
+            if (!queryParameters.WardId.HasValue || queryParameters.WardId.Value <= 0)
+                throw new ArgumentException("WardId parameter is required");
+
+            var query = new SubGridFilterRequestDto
+            {
+                WardId = queryParameters.WardId,
+                WorkflowStageId = queryParameters.WorkflowStageId,
+                PageNumber = queryParameters.PageNumber,
+                PageSize = queryParameters.PageSize,
+                PropertyTypeCategoryId = queryParameters.PropertyTypeCategoryId,
+                PropertyTypeId = queryParameters.PropertyTypeId,
+                AssessmentTypeId = queryParameters.AssessmentTypeId
+            };
+
+            return GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(query, cancellationToken));
+        }
+
+        public Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentPropsAsync(
             int? pageNumber,
             int? pageSize,
             CancellationToken cancellationToken = default)
-            => GetSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(
+            => GetPendingAssessmentSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(
                 pageNumber,
                 pageSize,
                 cancellationToken));
@@ -114,7 +135,83 @@ namespace NtisPlatform.Application.Services
             Func<Task<SubGridDataProjection>> fetchSnapshot)
             => BuildSubGridResponse(await fetchSnapshot());
 
+        private async Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentSubGridResponseAsync(
+            Func<Task<SubGridDataProjection>> fetchSnapshot)
+            => BuildPendingAssessmentSubGridResponse(await fetchSnapshot());
+
         private SubGridPDDataDto BuildSubGridResponse(SubGridDataProjection snapshot)
+        {
+            var propertyDtos = BuildSubGridPropertyDetails(snapshot)
+                .OrderBy(x => x.PropertyNo)
+                .ToList();
+
+            return new SubGridPDDataDto
+            {
+                WorkflowStageId = snapshot.WorkflowStageId,
+                WorkflowStageName = snapshot.WorkflowStageName,
+                ZoneId = snapshot.ZoneId,
+                ZoneName = snapshot.ZoneName,
+                WardId = snapshot.WardId,
+                WardNo = snapshot.WardNo,
+                Properties = propertyDtos,
+                TotalCount = snapshot.TotalCount
+            };
+        }
+
+        private PendingAssessmentSubGridPDDataDto BuildPendingAssessmentSubGridResponse(SubGridDataProjection snapshot)
+        {
+            var propertyDtos = BuildPendingAssessmentSubGridPropertyDetails(snapshot)
+                .OrderBy(x => x.PropertyNo)
+                .ToList();
+
+            return new PendingAssessmentSubGridPDDataDto
+            {
+                WorkflowStageId = snapshot.WorkflowStageId,
+                WorkflowStageName = snapshot.WorkflowStageName,
+                ZoneId = snapshot.ZoneId,
+                ZoneName = snapshot.ZoneName,
+                WardId = snapshot.WardId,
+                WardNo = snapshot.WardNo,
+                Properties = propertyDtos,
+                TotalCount = snapshot.TotalCount
+            };
+        }
+
+        private List<SubGridPropertyDetailsDto> BuildSubGridPropertyDetails(SubGridDataProjection snapshot)
+            => BuildSubGridPropertyRows(snapshot)
+                .Select(row => row.Property)
+                .ToList();
+
+        private List<PendingAssessmentSubGridPropertyDetailsDto> BuildPendingAssessmentSubGridPropertyDetails(SubGridDataProjection snapshot)
+            => BuildSubGridPropertyRows(snapshot)
+                .Select(row =>
+                {
+                    var property = row.Property;
+                    return new PendingAssessmentSubGridPropertyDetailsDto
+                    {
+                        PropertyId = property.PropertyId,
+                        PropertyNo = property.PropertyNo,
+                        Category = property.Category,
+                        PropertyDescription = property.PropertyDescription,
+                        PropertyType = property.PropertyType,
+                        OwnerName = property.OwnerName,
+                        OccupierName = property.OccupierName,
+                        MobileNo = property.MobileNo,
+                        Address = property.Address,
+                        FlatOrShopName = property.FlatOrShopName,
+                        WingName = property.WingName,
+                        AssessmentStatus = property.AssessmentStatus,
+                        FloorCount = property.FloorCount,
+                        DocumentGuid = property.DocumentGuid,
+                        PlanDocumentGuid = property.PlanDocumentGuid,
+                        AdditionalRevenue = property.AdditionalRevenue,
+                        PropertyDetailsComparison = property.PropertyDetailsComparison,
+                        QcChecklist = row.QcChecklist
+                    };
+                })
+                .ToList();
+
+        private List<SubGridPropertyRow> BuildSubGridPropertyRows(SubGridDataProjection snapshot)
         {
             var detailCountDict = snapshot.DetailCounts.ToDictionary(x => x.PropertyId, x => x.Count);
             var docDict = snapshot.Documents
@@ -147,7 +244,7 @@ namespace NtisPlatform.Application.Services
                 .GroupBy(x => x.PropertyId)
                 .ToDictionary(g => g.Key, g => g.First());
 
-            var propertyDtos = snapshot.Properties.Select(p =>
+            return snapshot.Properties.Select(p =>
             {
                 var propertyNo = (string.IsNullOrEmpty(p.WardNo) ? "" : p.WardNo) + "-" +
                                  (string.IsNullOrEmpty(p.PropertyNo) ? "" : p.PropertyNo) + "-" +
@@ -198,7 +295,7 @@ namespace NtisPlatform.Application.Services
                 var newTotalTaxValue = decimal.TryParse(newTotalTax, out var parsedNewTotalTax) ? parsedNewTotalTax : 0;
                 assessmentDetailsDict.TryGetValue(p.Id, out var assessmentDetail);
 
-                var dto = new SubGridPropertyDetailsDto
+                var property = new SubGridPropertyDetailsDto
                 {
                     PropertyId = p.Id,
                     PropertyNo = propertyNo,
@@ -210,14 +307,36 @@ namespace NtisPlatform.Application.Services
                     MobileNo = p.MobileNo,
                     Address = p.Address,
                     FlatOrShopName = p.FlatOrShopName,
+                    WingName = p.WingName,
                     AssessmentStatus = p.AssessmentStatusName,
                     FloorCount = detailCount,
                     DocumentGuid = docGuid,
                     PlanDocumentGuid = planDocGuid,
-                    AdditionalRevenue = newTotalTaxValue - oldTotalTaxValue
+                    AdditionalRevenue = newTotalTaxValue - oldTotalTaxValue,
+                    PropertyDetailsComparison = new PropertyDetailsComparisonDto
+                    {
+                        NewRecord = new PropertyDetailsValueDto
+                        {
+                            Area = newArea,
+                            Use = newUse,
+                            RV = newRv ?? "N/A",
+                            CTax = newCTax ?? "N/A",
+                            RTax = newRTax ?? "N/A",
+                            TotalTax = newTotalTax
+                        },
+                        OldRecord = new PropertyDetailsValueDto
+                        {
+                            Area = oldArea,
+                            Use = oldUse,
+                            RV = oldRV,
+                            CTax = oldCTax,
+                            RTax = oldRTax,
+                            TotalTax = oldTotalTax
+                        }
+                    }
                 };
 
-                dto.QcChecklist = new AssessmentQcChecklistDto
+                var qcChecklist = new AssessmentQcChecklistDto
                 {
                     SiteQc = true,
                     ApplyTaxes = applyTaxesPropertyIdSet.Contains(p.Id),
@@ -227,41 +346,14 @@ namespace NtisPlatform.Application.Services
                     OcCcBill = assessmentDetail?.PartOCDate.HasValue == true
                                || assessmentDetail?.ApplyTaxesFrom.HasValue == true
                 };
-                dto.PropertyDetailsComparison = new PropertyDetailsComparisonDto
-                {
-                    NewRecord = new PropertyDetailsValueDto
-                    {
-                        Area = newArea,
-                        Use = newUse,
-                        RV = newRv ?? "N/A",
-                        CTax = newCTax ?? "N/A",
-                        RTax = newRTax ?? "N/A",
-                        TotalTax = newTotalTax
-                    },
-                    OldRecord = new PropertyDetailsValueDto
-                    {
-                        Area = oldArea,
-                        Use = oldUse,
-                        RV = oldRV,
-                        CTax = oldCTax,
-                        RTax = oldRTax,
-                        TotalTax = oldTotalTax
-                    }
-                };
 
-                return dto;
-            }).OrderBy(x => x.PropertyNo).ToList();
-
-            return new SubGridPDDataDto
-            {
-                WorkflowStageId = snapshot.WorkflowStageId,
-                WorkflowStageName = snapshot.WorkflowStageName,
-                ZoneId = snapshot.ZoneId,
-                ZoneName = snapshot.ZoneName,
-                Properties = propertyDtos,
-                TotalCount = snapshot.TotalCount
-            };
+                return new SubGridPropertyRow(property, qcChecklist);
+            }).ToList();
         }
+
+        private sealed record SubGridPropertyRow(
+            SubGridPropertyDetailsDto Property,
+            AssessmentQcChecklistDto QcChecklist);
 
         private static Dictionary<int, string> SumTax(IEnumerable<SubGridTaxValueProjection> values)
             => values

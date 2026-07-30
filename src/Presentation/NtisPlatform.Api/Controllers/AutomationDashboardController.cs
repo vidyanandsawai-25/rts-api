@@ -437,8 +437,47 @@ namespace NtisPlatform.Api.Controllers
             }
         }
 
+        [HttpGet("GetWardSubGridPDData")]
+        public async Task<ActionResult<ApiResponse<SubGridPDDataDto>>> GetWardSubGridData(
+           [FromQuery] WardSubGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                var result = await _automationDashboardService.GetWardSubGridDataAsync(queryParameters, cancellationToken);
+                var stageName = string.IsNullOrWhiteSpace(result.WorkflowStageName) ? "Workflow stage" : result.WorkflowStageName;
+
+                return Ok(new ApiResponse<SubGridPDDataDto>
+                {
+                    Success = true,
+                    Message = $"{stageName} ward-wise property details fetched successfully",
+                    Items = result
+                });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error retrieving workflow stage property details for ward {WardId} and workflow stage {WorkflowStageId}",
+                    queryParameters.WardId,
+                    queryParameters.WorkflowStageId);
+                return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "An error occurred while retrieving ward-wise property details"
+                });
+            }
+        }
+
         [HttpGet("GetPendingAssessmentProps")]
-        public async Task<ActionResult<ApiResponse<SubGridPDDataDto>>> GetPendingAssessmentProps(int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<PendingAssessmentSubGridPDDataDto>>> GetPendingAssessmentProps(int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -447,7 +486,7 @@ namespace NtisPlatform.Api.Controllers
                     pageSize,
                     cancellationToken);
 
-                return Ok(new ApiResponse<SubGridPDDataDto>
+                return Ok(new ApiResponse<PendingAssessmentSubGridPDDataDto>
                 {
                     Success = true,
                     Message = "Pending Assessment properties fetched successfully",

@@ -67,6 +67,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 PartitionNo = p.PartitionNo,
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo,
                 AssessmentStatusId = p.PropertyAssessmentStatusId,
                 IsRented = (
                     from pd in _context.PropertyDetails.AsNoTracking()
@@ -107,6 +108,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 PartitionNo = p.PartitionNo,
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo,
                 OldConstructionArea = pmo != null ? pmo.OldConstructionArea : null,
                 OldUseType = pmo != null ? pmo.OldUseType : null,
                 OldRV = pmo != null ? pmo.OldRV : null
@@ -138,6 +140,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 PartitionNo = p.PartitionNo,
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo,
                 IsOpenPlot = p.OpenPlot == true
             }).Distinct().ToListAsync(cancellationToken);
     }
@@ -156,7 +159,8 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 PropertyId = p.Id,
                 PartitionNo = p.PartitionNo,
                 ZoneId = z.Id,
-                ZoneName = z.Description ?? z.ZoneNo
+                ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo
             }).Distinct().ToListAsync(cancellationToken);
 
         if (!stageProperties.Any())
@@ -193,9 +197,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
     // Reads Rented tab properties with renter flag and demand values using set-based grouped queries.
     public async Task<List<RentedPropertyDemandProjection>> GetRentedPropertyDemandDataAsync(
-        int workflowStageId,
-        CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null)
+        int workflowStageId, CancellationToken cancellationToken = default,PropertySearchRequestDto? searchRequest = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
@@ -224,7 +226,8 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 PropertyId = p.Id,
                 p.PartitionNo,
                 ZoneId = z.Id,
-                ZoneName = z.Description ?? z.ZoneNo
+                ZoneName = z.Description ?? z.ZoneNo,
+                ZoneNo = z.ZoneNo
             }).Distinct().ToListAsync(cancellationToken);
 
         if (!stageProperties.Any())
@@ -239,12 +242,8 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             from pd in _context.PropertyDetails.AsNoTracking()
             join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
             where stagePropertyIds.Contains(pd.PropertyId)
-                  && pd.IsActive
-                  && !pd.MarkedForDeletion
-                  && rm.IsActive
-                  && !rm.MarkedForDeletion
-                  && rm.TaxLiability != null
-                  && rm.TaxLiability.Trim().ToUpper() == "RENTER"
+                  && pd.IsActive&& !pd.MarkedForDeletion && rm.IsActive && !rm.MarkedForDeletion
+                  && rm.TaxLiability != null && rm.TaxLiability.Trim().ToUpper() == "RENTER"
             select pd.PropertyId).Distinct().ToListAsync(cancellationToken);
 
         var currentDemandByProperty = totalTaxIds.Any()
@@ -291,6 +290,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             PartitionNo = property.PartitionNo,
             ZoneId = property.ZoneId,
             ZoneName = property.ZoneName,
+            ZoneNo = property.ZoneNo,
             HasRenterTaxLiability = renterPropertyIdSet.Contains(property.PropertyId),
             OldDemand = oldDemandByProperty.GetValueOrDefault(property.PropertyId),
             CurrentDemand = currentDemandByProperty.GetValueOrDefault(property.PropertyId),

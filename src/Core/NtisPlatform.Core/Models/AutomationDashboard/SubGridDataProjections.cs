@@ -9,6 +9,8 @@ public sealed class SubGridDataProjection
     public string WorkflowStageName { get; set; } = string.Empty;
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public int? WardId { get; set; }
+    public string? WardNo { get; set; }
     public int TotalCount { get; set; }
 
     public List<SubGridPropertyProjection> Properties { get; set; } = new();
@@ -44,6 +46,7 @@ public sealed class SubGridPropertyProjection
     public string MobileNo { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
     public string FlatOrShopName { get; set; } = string.Empty;
+    public string WingName { get; set; } = string.Empty;
     public string AssessmentStatusName { get; set; } = string.Empty;
 }
 
