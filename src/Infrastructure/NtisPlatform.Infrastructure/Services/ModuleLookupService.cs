@@ -50,7 +50,7 @@ public class ModuleLookupService : IModuleLookupService
         if (string.IsNullOrWhiteSpace(module.ModuleCode))
             throw new InvalidOperationException($"Module {moduleId} has no module code defined.");
 
-        _cache.Set(cacheKey, module.ModuleCode, TimeSpan.FromMinutes(CacheDurationMinutes));
+        SetCacheWithLimit(cacheKey, module.ModuleCode);
         return module.ModuleCode;
     }
 
@@ -73,7 +73,7 @@ public class ModuleLookupService : IModuleLookupService
         if (string.IsNullOrWhiteSpace(module.ModuleName))
             throw new InvalidOperationException($"Module {moduleId} has no module name defined.");
 
-        _cache.Set(cacheKey, module.ModuleName, TimeSpan.FromMinutes(CacheDurationMinutes));
+        SetCacheWithLimit(cacheKey, module.ModuleName);
         return module.ModuleName;
     }
 
@@ -100,7 +100,7 @@ public class ModuleLookupService : IModuleLookupService
 
         if (exactMatch != null)
         {
-            _cache.Set(cacheKey, exactMatch.Id, TimeSpan.FromMinutes(CacheDurationMinutes));
+            SetCacheWithLimit(cacheKey, exactMatch.Id);
             return exactMatch.Id;
         }
 
@@ -113,7 +113,7 @@ public class ModuleLookupService : IModuleLookupService
 
         if (substringMatches.Count == 1)
         {
-            _cache.Set(cacheKey, substringMatches[0].Id, TimeSpan.FromMinutes(CacheDurationMinutes));
+            SetCacheWithLimit(cacheKey, substringMatches[0].Id);
             return substringMatches[0].Id;
         }
 
@@ -216,7 +216,7 @@ if (module == null)
         }
 
         var result = (department.Id, module.Id);
-        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(CacheDurationMinutes));
+        SetCacheWithLimit(cacheKey, result);
 
         _logger.LogDebug("Resolved department/module context: {DeptCode} (ID={DeptId}), {ModuleCode} (ID={ModuleId})",
             department.DepartmentCode, department.Id, module.ModuleCode, module.Id);
@@ -256,7 +256,7 @@ if (module == null)
         var module = await _moduleRepository.GetByIdAsync(moduleId, cancellationToken);
         var exists = module != null && module.IsActive;
 
-        _cache.Set(cacheKey, exists, TimeSpan.FromMinutes(CacheDurationMinutes));
+        SetCacheWithLimit(cacheKey, exists);
         return exists;
     }
 
@@ -274,8 +274,17 @@ if (module == null)
         var department = await _departmentRepository.GetByIdAsync(departmentId, cancellationToken);
         var exists = department != null && department.IsActive;
 
-        _cache.Set(cacheKey, exists, TimeSpan.FromMinutes(CacheDurationMinutes));
+        SetCacheWithLimit(cacheKey, exists);
         return exists;
+    }
+
+    private void SetCacheWithLimit<T>(string key, T value)
+    {
+        _cache.Set(key, value, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(CacheDurationMinutes),
+            Size = 1
+        });
     }
 
     public void ClearCache()

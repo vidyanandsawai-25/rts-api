@@ -206,6 +206,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
     public DbSet<RoomWiseMinusDataEntity> RoomWiseMinusData { get; set; } = null!;
     public DbSet<AssetDocumentDefinitionEntity> AssetDocumentDefinitions { get; set; } = null!;
+    public DbSet<AssetDocumentEntity> AssetDocuments { get; set; } = null!;
     public DbSet<AssetFieldDefinitionEntity> AssetFieldDefinitions { get; set; } = null!;
     public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
@@ -6108,6 +6109,37 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.PhotoType)
                 .WithMany()
                 .HasForeignKey(e => e.PhotoTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AssetDocument configuration (AMS schema)
+        modelBuilder.Entity<AssetDocumentEntity>(entity =>
+        {
+            entity.ToTable("AssetDocument", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.DocumentDefinitionId).IsRequired();
+            entity.Property(e => e.DocumentBindingId).IsRequired(false);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.DocumentDefinition)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentDefinitionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.DocumentBinding)

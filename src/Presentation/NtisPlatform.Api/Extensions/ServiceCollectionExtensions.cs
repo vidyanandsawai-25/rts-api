@@ -280,6 +280,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFieldRegistryService, FieldRegistryService>();
         services.AddScoped<IExcelUploadService, ExcelUploadService>();
         services.AddScoped<IAssetPhotoService, AssetPhotoService>();
+        services.AddScoped<IAssetDocumentService, AssetDocumentService>();
 
         // Translation Management
         services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
@@ -301,6 +302,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
+        services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
 
         // Global Document Binding Handlers (OCP extension points).
         // Each module registers its own handler — DocumentApplicationService dispatches to them
@@ -311,6 +313,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, PropertyCertificateDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, RenterMastDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, AssetPhotoDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
