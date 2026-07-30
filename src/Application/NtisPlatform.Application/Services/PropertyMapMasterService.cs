@@ -66,62 +66,71 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         PropertyMapDetailQueryParameters queryParams,
         CancellationToken cancellationToken = default)
     {
-        var pmQuery = _propertyRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive);
+        var pmdQuery = _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+            .Where(x => x.IsActive && x.PropertyIdNew.HasValue && x.PropertyIdOld.HasValue);
 
         if (queryParams.PropertyId.HasValue)
         {
-            pmQuery = pmQuery.Where(x => x.Id == queryParams.PropertyId.Value);
+            pmdQuery = pmdQuery.Where(x => x.PropertyIdNew == queryParams.PropertyId.Value);
         }
 
-        int totalCount = await pmQuery.CountAsync(cancellationToken);
+        int totalCount = await pmdQuery.CountAsync(cancellationToken);
 
-        if (totalCount == 0)
+        List<(int? PropertyMastOldId, PropertyMapDetailReturnDto Dto)> rawItems = new();
+
+        if (totalCount > 0)
         {
-            return new PagedResult<PropertyMapDetailReturnDto>(new List<PropertyMapDetailReturnDto>(), 0, queryParams.PageNumber, queryParams.PageSize);
-        }
-
-        IQueryable<PropertyEntity> pagedPmQuery = pmQuery.OrderBy(x => x.Id);
-        if (queryParams.PageSize != -1)
-        {
-            pagedPmQuery = pagedPmQuery.Skip((queryParams.PageNumber - 1) * queryParams.PageSize).Take(queryParams.PageSize);
-        }
-
-        var pagedPms = await pagedPmQuery.ToListAsync(cancellationToken);
-        var pmIds = pagedPms.Select(x => x.Id).ToList();
-
-        var pmds = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
-            .Where(x => x.PropertyIdNew.HasValue && pmIds.Contains(x.PropertyIdNew.Value) && x.IsActive)
-            .Select(x => new
+            IQueryable<PropertyMapDetailEntity> pagedPmdQuery = pmdQuery.OrderBy(x => x.Id);
+            if (queryParams.PageSize != -1)
             {
-                x.PropertyMapId,
-                x.PropertyIdNew,
-                x.PropertyIdOld
-            })
-            .ToListAsync(cancellationToken);
-        var pmdMap = pmds.GroupBy(x => x.PropertyIdNew!.Value).ToDictionary(g => g.Key, g => g.First());
+                pagedPmdQuery = pagedPmdQuery.Skip((queryParams.PageNumber - 1) * queryParams.PageSize).Take(queryParams.PageSize);
+            }
 
-        var pmmIds = pmds.Select(x => x.PropertyMapId).Distinct().ToList();
-        var pmmMap = pmmIds.Any()
-            ? (await _repository.GetQueryable().AsNoTracking().Where(x => pmmIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
-            : new Dictionary<int, PropertyMapMasterEntity>();
+            var pagedPmds = await pagedPmdQuery.ToListAsync(cancellationToken);
 
-        var pmoIds = pmds.Select(x => x.PropertyIdOld).Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
-        var pmoMap = pmoIds.Any()
-            ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
-            : new Dictionary<int, PropertyMastOldEntity>();
+            var pmmIds = pagedPmds.Select(x => x.PropertyMapId).Distinct().ToList();
+            var pmIds = pagedPmds.Select(x => x.PropertyIdNew!.Value).Distinct().ToList();
+            var pmoIds = pagedPmds.Select(x => x.PropertyIdOld!.Value).Distinct().ToList();
 
-        var rawItems = pagedPms.Select(pm =>
-        {
-            pmdMap.TryGetValue(pm.Id, out var pmd);
-            PropertyMapMasterEntity? pmm = (pmd != null && pmmMap.TryGetValue(pmd.PropertyMapId, out var m)) ? m : null;
-            PropertyMastOldEntity? pmo = (pmd != null && pmd.PropertyIdOld.HasValue && pmoMap.TryGetValue(pmd.PropertyIdOld.Value, out var o)) ? o : null;
+            var pmmMap = pmmIds.Any()
+                ? (await _repository.GetQueryable().AsNoTracking().Where(x => pmmIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+                : new Dictionary<int, PropertyMapMasterEntity>();
 
-            return new
+            var pmMap = pmIds.Any()
+                ? (await _propertyRepository.GetQueryable().AsNoTracking().Where(x => pmIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+                : new Dictionary<int, PropertyEntity>();
+
+            var pmoMap = pmoIds.Any()
+                ? (await _propertyMastOldRepository.GetQueryable().AsNoTracking().Where(x => pmoIds.Contains(x.Id) && x.IsActive).ToListAsync(cancellationToken)).ToDictionary(x => x.Id)
+                : new Dictionary<int, PropertyMastOldEntity>();
+
+            rawItems = pagedPmds.Select(pmd =>
             {
-                PropertyMastOldId = pmo != null ? (int?)pmo.Id : null,
-                Dto = MapToReturnDto(pm, pmm, pmo)
-            };
-        }).ToList();
+                pmMap.TryGetValue(pmd.PropertyIdNew!.Value, out var pm);
+                pmmMap.TryGetValue(pmd.PropertyMapId, out var pmm);
+                pmoMap.TryGetValue(pmd.PropertyIdOld!.Value, out var pmo);
+
+                if (pm == null) return ((int?)null, (PropertyMapDetailReturnDto)null!);
+
+                return ((int?)(pmo?.Id), MapToReturnDto(pm, pmm, pmo));
+            }).Where(x => x.Item2 != null).ToList();
+        }
+        else if (queryParams.PropertyId.HasValue)
+        {
+            // Fallback: If specific PropertyId was requested but has no old mapping in PropertyMapDetailEntity,
+            // fetch the New Property so NewPropertyInfo is still returned!
+            var unmappedPm = await _propertyRepository.GetQueryable().AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == queryParams.PropertyId.Value && x.IsActive, cancellationToken);
+
+            if (unmappedPm != null)
+            {
+                totalCount = 1;
+                rawItems = new List<(int? PropertyMastOldId, PropertyMapDetailReturnDto Dto)>
+                {
+                    ((int?)null, MapToReturnDto(unmappedPm, null, null))
+                };
+            }
+        }
 
         if (!rawItems.Any())
         {
