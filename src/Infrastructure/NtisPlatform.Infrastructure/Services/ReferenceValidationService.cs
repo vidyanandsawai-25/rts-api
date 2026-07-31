@@ -120,11 +120,11 @@ public class ReferenceValidationService : IReferenceValidationService
             ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetCategoryId == id && !u.MarkedForDeletion).Cast<object>()),
             ("Asset Photo Type Master", (ctx, id) => ctx.Set<AssetPhotoTypeEntity>().Where(p => p.AssetCategoryId == id && !p.MarkedForDeletion).Cast<object>())
         );
-        // Inventory Item Category - referenced by InventoryItemName and InventoryItemCondition
+        // Inventory Item Category - referenced by InventoryItemName and AssetConditionMaster (ConditionCategory == "Inventory")
         config.ForEntity<InventoryItemCategoryEntity>()
          .CheckReferences(
             ("Inventory Item Name Master", (ctx, id) => ctx.InventoryItemName.Where(i => i.InventoryItemCategoryId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>()),
-            ("Inventory Item Condition Master", (ctx, id) => ctx.InventoryItemCondition.Where(i => i.InventoryItemCategoryId == id && i.IsActive).Cast<object>())
+            ("Inventory Item Condition Master", (ctx, id) => ctx.AssetConditionMasters.Where(i => i.ConditionCategory == "Inventory" && i.CategoryId == id && i.IsActive).Cast<object>())
          );
         // Inventory Item Name - referenced by InventoryItemModel
         config.ForEntity<InventoryItemNameEntity>()

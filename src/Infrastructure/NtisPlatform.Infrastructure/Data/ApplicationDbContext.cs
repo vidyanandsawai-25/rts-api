@@ -150,18 +150,17 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
     public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
+
     //Asset Start
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
-    public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
-    public DbSet<InventoryItemConditionEntity> InventoryItemCondition { get; set; } = null!;
+    public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;    
     public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
     public DbSet<EducationTaxMasterEntity> EducationTaxMasters { get; set; } = null!;
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
     public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
-    public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;
-
+    public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;   
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
@@ -180,7 +179,15 @@ public class ApplicationDbContext : DbContext
     public DbSet<InventoryDocumentTypeEntity> InventoryDocumentTypes { get; set; } = null!;
     public DbSet<AssetPhotoEntity> AssetPhotos { get; set; } = null!;
     public DbSet<AssetMasterEntity> AssetMaster { get; set; } = null!;
-
+    public DbSet<AssetDetailsEntity> AssetDetails { get; set; } = null!;
+    public DbSet<AssetFieldValueEntity> AssetFieldValue { get; set; } = null!;
+    public DbSet<AssetLeaseRentDetailsEntity> AssetLeaseRentDetails { get; set; } = null!;
+    public DbSet<AssetRoomWiseSubmissionDetailsEntity> AssetRoomWiseSubmissionDetails { get; set; } = null!;
+    public DbSet<AssetRoomWiseMinusDataEntity> AssetRoomWiseMinusData { get; set; } = null!;    
+    public DbSet<MonthWiseDemandEntity> MonthWiseDemand { get; set; } = null!;
+    public DbSet<LeaseRentBillTransactionEntity> LeaseRentBillTransactions { get; set; } = null!;
+    public DbSet<LeaseRentBillTransactionDetailEntity> LeaseRentBillTransactionDetails { get; set; } = null!;
+    public DbSet<InventoryAssetDetailEntity> InventoryAssetDetails { get; set; } = null!;
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
@@ -4509,33 +4516,7 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.InventoryItemCategoryId)
                   .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<InventoryItemConditionEntity>(entity =>
-        {
-            entity.ToTable("InventoryItemConditionMaster", "AMS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
-            entity.Property(e => e.ConditionName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-
-            // Indexes for performance
-            entity.HasIndex(e => e.InventoryItemCategoryId);
-            entity.HasIndex(e => e.ConditionName);
-            entity.HasIndex(e => e.IsActive);
-
-            // Explicit foreign key relationship
-            entity.HasOne<InventoryItemCategoryEntity>()
-                  .WithMany()
-                  .HasForeignKey(e => e.InventoryItemCategoryId)
-                  .OnDelete(DeleteBehavior.Restrict); // or .Cascade, .SetNull as per your requirement
-        });
+        });        
 
         modelBuilder.Entity<InventoryItemModelEntity>(entity =>
         {
@@ -6079,15 +6060,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy).IsRequired(false);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
             entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_InventoryDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
-        });
-
-        // AssetMaster minimal placeholder configuration (AMS schema)
-        modelBuilder.Entity<AssetMasterEntity>(entity =>
-        {
-            entity.ToTable("AssetMaster", "AMS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-        });
+        });    
 
         // AssetPhoto configuration (AMS schema)
         modelBuilder.Entity<AssetPhotoEntity>(entity =>
@@ -6152,15 +6125,582 @@ public class ApplicationDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // InventoryBatch minimal placeholder configuration (AMS schema)
+        modelBuilder.Entity<AssetMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.AssetName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired();
+            entity.Property(e => e.ParentAssetId);
+            entity.Property(e => e.HierarchyLevel).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.HierarchyPath).HasMaxLength(500);
+            entity.Property(e => e.DepartmentId);
+            entity.Property(e => e.OwnershipType).HasMaxLength(50);
+            entity.Property(e => e.OccupancyStatus).HasMaxLength(50);
+            entity.Property(e => e.AssetConditionId);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Ignore(e => e.AssetLocationDetailsId);
+            entity.Ignore(e => e.PropertyNo);
+            entity.Ignore(e => e.PartitionNo);
+            entity.Ignore(e => e.UpicId);
+            entity.Ignore(e => e.PlotNo);
+            entity.Ignore(e => e.PurchaseValue);
+            entity.Ignore(e => e.PurchaseDate);
+            entity.Ignore(e => e.DepreciationId);
+            entity.Ignore(e => e.InventoryBatchId);
+            entity.Ignore(e => e.InventoryBatch);
+            entity.Ignore(e => e.SubUnitsDetails);
+            entity.HasOne(e => e.ParentAsset).WithMany().HasForeignKey(e => e.ParentAssetId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Parent");
+            entity.HasOne(e => e.AssetType).WithMany().HasForeignKey(e => e.AssetTypeId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Type");
+            entity.HasOne(e => e.AssetCategory).WithMany() .HasForeignKey(e => e.AssetCategoryId) .OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Category");
+            entity.HasIndex(e => e.AssetNo).IsUnique().HasDatabaseName("UQ_AssetMaster_AssetNo");
+            entity.HasIndex(e => e.AssetCategoryId);
+            entity.HasIndex(e => e.AssetTypeId);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.ParentAssetId);
+        });
+
+        modelBuilder.Entity<AssetDetailsEntity>(entity =>
+        {
+            entity.ToTable("AssetDetails", "AMS");
+            entity.HasKey(e => e.AssetId);
+            entity.Property(e => e.AssetId).ValueGeneratedNever();
+            entity.Property(e => e.Id).ValueGeneratedOnAdd()
+                .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+
+            entity.Ignore(e => e.CapitalValue);
+            entity.Ignore(e => e.HasLift);
+            entity.Ignore(e => e.Length);
+            entity.Ignore(e => e.Width);
+            entity.Ignore(e => e.BuiltupAreaSqMeter);
+            entity.Ignore(e => e.CarpetAreaSqMeter);
+            entity.Ignore(e => e.GstNo);
+            entity.Ignore(e => e.ShopActNo);
+            entity.Property(e => e.OrganizationId).IsRequired();
+            entity.Property(e => e.ZoneId);
+            entity.Property(e => e.WardId);
+            entity.Property(e => e.MoujaId);
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.AssetWardNo).HasMaxLength(50);
+            entity.Property(e => e.PropertyNo).HasMaxLength(100);
+            entity.Property(e => e.PartitionNo).HasMaxLength(100);
+            entity.Property(e => e.UpicId).HasMaxLength(100);
+            entity.Property(e => e.PlotNo).HasMaxLength(50);
+            entity.Property(e => e.CSN).HasMaxLength(30);
+            entity.Property(e => e.LandRate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthFt).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthFt).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LandAreaSqFeet).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.LandAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.NearestLandmark).HasMaxLength(255);
+            entity.Property(e => e.PinCode).HasMaxLength(10);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(10,8)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
+            entity.Property(e => e.BoundaryGeoJson).HasMaxLength(500);
+            entity.Property(e => e.InChargeName).HasColumnName("InchargeName").HasMaxLength(150);
+            entity.Property(e => e.InChargeDesignationId).HasColumnName("InchargeDesignationId");
+            entity.Property(e => e.InChargeMobile).HasColumnName("InchargeContact").HasMaxLength(30);
+            entity.Property(e => e.InChargeEmail).HasColumnName("InchargeEmail").HasMaxLength(150);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset)
+                .WithOne(a => a.Details)
+                .HasForeignKey<AssetDetailsEntity>(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_AssetDetails_AssetMaster");
+        });
+
+        modelBuilder.Entity<AssetFieldValueEntity>(entity =>
+        {
+            entity.ToTable("AssetFieldValue", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldValue).HasMaxLength(2000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset)
+                .WithMany(a => a.FieldValues)
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.AssetId);
+            entity.HasIndex(e => e.FieldDefinitionId);
+        });
+
+        modelBuilder.Entity<AssetLeaseRentDetailsEntity>(entity =>
+        {
+            entity.ToTable("AssetLeaseRentDetails", "AMS");
+            entity.Property(e => e.AssetId).IsRequired();
+            // Real schema column is SubUnitDetailsId (FK to AMS.SubUnitsDetails).
+            entity.Property(e => e.FloorDetailsId).HasColumnName("SubUnitDetailsId");
+            entity.Property(e => e.ShopNo).HasMaxLength(50);
+            entity.Property(e => e.ShopName).HasMaxLength(200);
+
+            entity.Property(e => e.TenantName).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.TenantMobile).IsRequired().IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantEmail).HasMaxLength(200);
+            entity.Property(e => e.TenantType).IsRequired().HasMaxLength(50).HasDefaultValue("Individual");
+            entity.Property(e => e.TenantAadhaarNo).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantPanCardNo).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantAddress).HasMaxLength(500);
+            entity.Property(e => e.GSTNo).HasMaxLength(50);
+
+            entity.Property(e => e.TotalAreaSqFt).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ApplicationTypeId);
+            entity.Property(e => e.LeaseType).IsRequired().HasMaxLength(20).HasDefaultValue("Rent");
+            entity.Property(e => e.LeaseStartDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.LeaseEndDate).HasColumnType("date");
+            entity.Property(e => e.Duration);
+            entity.Property(e => e.RentAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.SecurityDeposit).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.DepositType).HasMaxLength(50);
+            entity.Property(e => e.PaymentFrequency).IsRequired().HasMaxLength(20).HasDefaultValue("Monthly");
+            entity.Property(e => e.AgreementId).HasMaxLength(25);
+            entity.Property(e => e.IsIncrement).HasDefaultValue(false);
+            entity.Property(e => e.IncrementFrequency).HasMaxLength(35);
+            entity.Property(e => e.IncrementType).HasMaxLength(35);
+            entity.Property(e => e.IncrementValue);
+            entity.Property(e => e.IncrementMethod).HasMaxLength(35);
+            entity.Property(e => e.Reason).HasMaxLength(1000);
+
+            entity.Property(e => e.WorkflowStatus).IsRequired().HasMaxLength(30).HasDefaultValue("Pending");
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.Property(e => e.IsRejection).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RejectionBy);
+            entity.Property(e => e.RejectionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsVerified).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.VerifiedBy);
+            entity.Property(e => e.VerifiedDate).HasColumnType("datetime");
+            entity.Property(e => e.IsApproved).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ApprovedBy);
+            entity.Property(e => e.ApprovedDate).HasColumnType("datetime");
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasOne(e => e.Asset)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetLeaseRentDetails_Asset");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_AadhaarFormat", "([TenantAadhaarNo] IS NULL OR [TenantAadhaarNo] like '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND len([TenantAadhaarNo])=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_ApprovedDetails", "([IsApproved]=(0) OR [IsApproved]=(1) AND [ApprovedBy] IS NOT NULL AND [ApprovedDate] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_EmailFormat", "([TenantEmail] IS NULL OR [TenantEmail] like '%_@__%.__%')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_GSTFormat", "([GSTNo] IS NULL OR len([GSTNo])=(15) AND [GSTNo] like '[0-9][0-9][A-Z][A-Z][A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][A-Z][0-9][A-Z][0-9]')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_LeaseType", "([LeaseType]='Rent' OR [LeaseType]='Lease')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PanFormat", "([TenantPanCardNo] IS NULL OR [TenantPanCardNo] like '[A-Z][A-Z][A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][A-Z]')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PaymentFrequency", "([PaymentFrequency]='One-time' OR [PaymentFrequency]='Yearly' OR [PaymentFrequency]='Quarterly' OR [PaymentFrequency]='Monthly')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveDuration", "([Duration] IS NULL OR [Duration]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveIncrementValue", "([IncrementValue] IS NULL OR [IncrementValue]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveRentAmount", "([RentAmount] IS NULL OR [RentAmount]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveSecurityDeposit", "([SecurityDeposit]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveTotalArea", "([TotalAreaSqFt] IS NULL OR [TotalAreaSqFt]>(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_RejectionDetails", "([IsRejection]=(0) OR [IsRejection]=(1) AND [RejectionBy] IS NOT NULL AND [RejectionDate] IS NOT NULL AND [RejectionReason] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_TenantMobileFormat", "([TenantMobile] like '+91-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR [TenantMobile] like '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR len([TenantMobile])<=(15))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_TenantType", "([TenantType]='Organization' OR [TenantType]='Business' OR [TenantType]='Individual')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_ValidLeaseRange", "([LeaseEndDate] IS NULL OR [LeaseEndDate]>=[LeaseStartDate])"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_VerifiedDetails", "([IsVerified]=(0) OR [IsVerified]=(1) AND [VerifiedBy] IS NOT NULL AND [VerifiedDate] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_WorkflowStatus", "([WorkflowStatus]='Rejected' OR [WorkflowStatus]='Approved' OR [WorkflowStatus]='Verified' OR [WorkflowStatus]='Pending')"));
+
+            entity.HasOne(e => e.ApplicationType)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetLeaseRentDetails_ApplicationType");
+        });
+
+        // AssetRoomWiseSubmissionDetails configuration
+        modelBuilder.Entity<AssetRoomWiseSubmissionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseSubmissionDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId);
+            entity.Property(e => e.SubUnitsDetailsId).HasColumnName("SubUnitsDetailsId");
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.LengthFt);
+            entity.Property(e => e.WidthFt);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.AreaSqFeet);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.HeightFt);
+            entity.Property(e => e.TotalAreaSqMtr);
+            entity.Property(e => e.TotalAreaSqFeet);
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.RoomNo).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo).HasColumnName("IsOuter").IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.MinusYesNo).HasColumnName("IsMinus").IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Foreign key relationships
+            entity.HasOne(e => e.Asset)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubUnitsDetails)
+                .WithMany()
+                .HasForeignKey(e => e.SubUnitsDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_RoomWiseSubmissionDetails_AssetId");
+            entity.HasIndex(e => e.SubUnitsDetailsId).HasDatabaseName("IX_RoomWiseSubmissionDetails_SubUnitsDetailsId");
+            entity.HasIndex(e => e.IsActive);
+
+            // CHECK constraints for positive values
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveArea", "[AreaSqMtr] IS NULL OR [AreaSqMtr] > 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveTotalArea", "[TotalAreaSqMtr] IS NULL OR [TotalAreaSqMtr] > 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveDimensions",
+                "([LengthMtr] IS NULL OR [LengthMtr] > 0) AND ([WidthMtr] IS NULL OR [WidthMtr] > 0) AND ([HeightMtr] IS NULL OR [HeightMtr] > 0)"));
+
+            entity.HasMany(e => e.RoomMinusData)
+                .WithOne(m => m.RoomWiseSubmissionDetails)
+                .HasForeignKey(m => m.RoomWiseSubmissionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AssetRoomWiseMinusDataEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseMinusData", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomWiseSubmissionId);
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.LengthFt);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.WidthFt);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.AreaSqFeet);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.HeightFt);
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.RoomWiseSubmissionId)
+                .HasDatabaseName("IX_RoomWiseMinusData_RoomWiseSubmissionId");
+        });
+
+        modelBuilder.Entity<SubUnitsDetailsEntity>(entity =>
+        {
+            entity.ToTable("SubUnitsDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AssetId).HasColumnName("AssetId").IsRequired();
+            entity.Property(e => e.FloorId).IsRequired();
+            entity.Property(e => e.SubFloorId);
+            entity.Property(e => e.ConstructionYear).HasMaxLength(4).HasColumnType("varchar(4)");
+            entity.Property(e => e.AssessmentYear).HasMaxLength(4);
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.TypeOfUseId).IsRequired();
+            entity.Property(e => e.SubTypeOfUseId);
+            entity.Property(e => e.CarpetAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CarpetAreaSqFeet).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BuiltUpAreaSqMeter).HasColumnName("BuiltupAreaSqMeter").HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BuiltUpAreaSqFeet).HasColumnName("BuiltupAreaSqFeet").HasColumnType("decimal(18,4)");
+            entity.Property(e => e.NoOfRooms);
+
+            entity.Property(e => e.CVAgeFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVFloorFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVNatureFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVUseFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVBaseRate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.BaseValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CapitalValue).HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.IsRented).HasColumnName("IsRented");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset).WithMany().HasForeignKey(e => e.AssetId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_Asset");
+            entity.HasOne(e => e.Floor) .WithMany().HasForeignKey(e => e.FloorId).IsRequired(false).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_Floor");
+            entity.HasOne(e => e.SubFloor).WithMany().HasForeignKey(e => e.SubFloorId) .OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_SubFloor");
+            entity.HasOne(e => e.ConstructionType).WithMany().HasForeignKey(e => e.ConstructionTypeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_ConstructionType");
+            entity.HasOne(e => e.TypeOfUse).WithMany() .HasForeignKey(e => e.TypeOfUseId)  .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SubTypeOfUse).WithMany().HasForeignKey(e => e.SubTypeOfUseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_SubUnitsDetails_AssetId");
+            entity.HasIndex(e => e.FloorId);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => new { e.AssetId, e.FloorId, e.SubFloorId })
+                .HasDatabaseName("IX_SubUnitsDetails_AssetFloor");
+        });
+
+        modelBuilder.Entity<MonthWiseDemandEntity>(entity =>
+        {
+            entity.ToTable("MonthWiseDemand", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.DemandYear).IsRequired();
+            entity.Property(e => e.QuarterNo).IsRequired();
+            entity.Property(e => e.DemandMonth).IsRequired();
+            entity.Property(e => e.MonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PenaltyRuleMasterId);
+            entity.Property(e => e.PenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.GSTMasterId);
+            entity.Property(e => e.GSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])", stored: true);
+            entity.Property(e => e.PaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PendingAmount)
+                .HasComputedColumnSql("(([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])-[PaidAmount])", stored: true);
+            entity.Property(e => e.DemandStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.LastPaymentDate).HasColumnType("date");
+            entity.Property(e => e.DueDate).HasColumnType("date");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.AssetId, e.LeaseRegistrationId, e.FinanceYear, e.DemandYear, e.DemandMonth })
+                .IsUnique().HasDatabaseName("UQ_MonthWiseDemand_UniqueMonth");
+            entity.HasIndex(e => e.LeaseRegistrationId).HasDatabaseName("IX_MonthWiseDemand_LeaseRegistrationId");
+            entity.HasIndex(e => e.DemandStatus).HasDatabaseName("IX_MonthWiseDemand_DemandStatus");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Month", "([DemandMonth]>=(1) AND [DemandMonth]<=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Quarter", "([QuarterNo]>=(1) AND [QuarterNo]<=(4))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Status", "([DemandStatus]='Pending' OR [DemandStatus]='Partial' OR [DemandStatus]='Paid' OR [DemandStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Amounts", "([MonthlyRentAmount]>=(0) AND [PenaltyAmount]>=(0) AND [GSTAmount]>=(0) AND [PaidAmount]>=(0))"));
+
+            entity.HasOne(e => e.GSTMaster)
+                .WithMany()
+                .HasForeignKey(e => e.GSTMasterId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MonthWiseDemand_GSTMaster");
+
+            entity.HasOne(e => e.PenaltyRuleMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PenaltyRuleMasterId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MonthWiseDemand_PenaltyRuleMaster");
+        });
+
+        modelBuilder.Entity<LeaseRentBillTransactionEntity>(entity =>
+        {
+            entity.ToTable("LeaseRentBillTransactions", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TransactionNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ReceiptNo).HasMaxLength(50);
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.TotalMonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalPenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalGSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([TotalMonthlyRentAmount]+[TotalPenaltyAmount]+[TotalGSTAmount])", stored: true);
+            entity.Property(e => e.DiscountAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.AdjustmentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.NetPayableAmount)
+                .HasComputedColumnSql("((([TotalMonthlyRentAmount]+[TotalPenaltyAmount]+[TotalGSTAmount])-[DiscountAmount])+[AdjustmentAmount])", stored: true);
+            entity.Property(e => e.PaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PaymentMode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.PaymentDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.BankName).HasMaxLength(100);
+            entity.Property(e => e.BranchName).HasMaxLength(100);
+            entity.Property(e => e.ChequeOrTransactionNo).HasMaxLength(100);
+            entity.Property(e => e.ChequeDate).HasColumnType("date");
+            entity.Property(e => e.OnlineTransactionId).HasMaxLength(100);
+            entity.Property(e => e.PaymentGatewayName).HasMaxLength(100);
+            entity.Property(e => e.PayerMobile).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.PayerEmail).HasMaxLength(200);
+            entity.Property(e => e.PaymentStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Success");
+            entity.Property(e => e.CancelledBy);
+            entity.Property(e => e.CancelledDate).HasColumnType("datetime");
+            entity.Property(e => e.CancellationReason).HasMaxLength(500);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.TransactionNo).IsUnique().HasDatabaseName("UQ_LeaseRentBillTransactions_TransactionNo");
+            entity.HasIndex(e => e.ReceiptNo).IsUnique()
+                .HasFilter("[ReceiptNo] IS NOT NULL")
+                .HasDatabaseName("UQ_LeaseRentBillTransactions_ReceiptNo");
+            entity.HasIndex(e => e.LeaseRegistrationId).HasDatabaseName("IX_LeaseRentBillTransactions_LeaseRegistrationId");
+            entity.HasIndex(e => e.PaymentDate).HasDatabaseName("IX_LeaseRentBillTransactions_PaymentDate");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_PaymentMode", "([PaymentMode]='Cash' OR [PaymentMode]='Cheque' OR [PaymentMode]='DD' OR [PaymentMode]='UPI' OR [PaymentMode]='Online' OR [PaymentMode]='NEFT' OR [PaymentMode]='RTGS')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_Status", "([PaymentStatus]='Success' OR [PaymentStatus]='Pending' OR [PaymentStatus]='Failed' OR [PaymentStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_Amounts", "([TotalMonthlyRentAmount]>=(0) AND [TotalPenaltyAmount]>=(0) AND [TotalGSTAmount]>=(0) AND [DiscountAmount]>=(0) AND [PaidAmount]>=(0))"));
+        });
+
+        modelBuilder.Entity<LeaseRentBillTransactionDetailEntity>(entity =>
+        {
+            entity.ToTable("LeaseRentBillTransactionDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.LeaseRentBillTransactionId).IsRequired();
+            entity.Property(e => e.MonthWiseDemandId).IsRequired();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.DemandYear).IsRequired();
+            entity.Property(e => e.QuarterNo).IsRequired();
+            entity.Property(e => e.DemandMonth).IsRequired();
+            entity.Property(e => e.MonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.GSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])", stored: true);
+            entity.Property(e => e.PreviousPaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.CurrentPaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.BalanceAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PaymentStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Paid");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.LeaseRentBillTransactionId, e.MonthWiseDemandId })
+                .IsUnique().HasDatabaseName("UQ_LeaseRentBillTransactionDetails_MonthDemand");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Month", "([DemandMonth]>=(1) AND [DemandMonth]<=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Quarter", "([QuarterNo]>=(1) AND [QuarterNo]<=(4))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Status", "([PaymentStatus]='Partial' OR [PaymentStatus]='Paid' OR [PaymentStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Amounts", "([MonthlyRentAmount]>=(0) AND [PenaltyAmount]>=(0) AND [GSTAmount]>=(0) AND [PreviousPaidAmount]>=(0) AND [CurrentPaidAmount]>=(0) AND [BalanceAmount]>=(0))"));
+
+            entity.HasOne(e => e.Transaction)
+                .WithMany(t => t.Details)
+                .HasForeignKey(e => e.LeaseRentBillTransactionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_LeaseRentBillTransactionDetails_Transaction");
+
+            entity.HasOne(e => e.MonthWiseDemand)
+                .WithMany()
+                .HasForeignKey(e => e.MonthWiseDemandId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_LeaseRentBillTransactionDetails_MonthWiseDemand");
+        });     
+
+        // InventoryDocument configuration (AMS schema)
+        // InventoryBatch configuration (AMS schema)
         modelBuilder.Entity<InventoryBatchEntity>(entity =>
         {
             entity.ToTable("InventoryBatch", "AMS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ParentAssetId).IsRequired();
+            entity.Property(e => e.OwningDepartmentId).IsRequired();
+            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
+            entity.Property(e => e.InventoryItemNameId).IsRequired();
+            entity.Property(e => e.InventoryItemModelId).IsRequired();
+            entity.Property(e => e.Specifications).HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.PurchaseDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.ConditionId).IsRequired().HasColumnName("ConditionId");
+            entity.Property(e => e.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.UnitValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalBatchValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalBatchCV).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(100).HasColumnType("varchar(100)");
+            entity.Property(e => e.InvoiceDate).HasColumnType("date");
+            entity.Property(e => e.InvoiceFileName).HasColumnName("InvoiceDocumentId").HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.PhotoFileName).HasColumnName("PhotoDocumentId").HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.ParentAsset)
+                .WithMany()
+                .HasForeignKey(e => e.ParentAssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_ParentAsset");
+
+            entity.HasOne<OwningDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.OwningDepartmentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_OwningDepartment");
+
+            entity.HasOne<InventoryItemCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemCategory");
+
+            entity.HasOne<InventoryItemNameEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemNameId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemName");
+
+            entity.HasOne<InventoryItemModelEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemModelId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemModel");
+
+            entity.HasOne<AssetConditionMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConditionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemCondition");
+
+            entity.HasIndex(e => e.ParentAssetId);
+            entity.HasIndex(e => e.OwningDepartmentId);
+            entity.HasIndex(e => e.InventoryItemCategoryId);
+            entity.HasIndex(e => e.InventoryItemNameId);
+            entity.HasIndex(e => e.InventoryItemModelId);
+            entity.HasIndex(e => e.ConditionId);
         });
 
-        // InventoryDocument configuration (AMS schema)
         modelBuilder.Entity<InventoryDocumentEntity>(entity =>
         {
             entity.ToTable("InventoryDocument", "AMS");

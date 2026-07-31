@@ -504,8 +504,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOwningDepartmentService, OwningDepartmentService>();
         //Asset Start
         services.AddScoped<IInventoryItemCategoryService, InventoryItemCategoryService>();
-        services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();
-        services.AddScoped<IInventoryItemConditionService, InventoryItemConditionService>();
+        services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();       
         services.AddScoped<IInventoryItemModelService, InventoryItemModelService>();
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
