@@ -70,78 +70,27 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
             .Where(x => oldPropertyIds.Contains(x.PropertyMastOldId) && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
 
-        // Step 5: Load TransMastOld and TaxMaster records to calculate OldTotalTax and OldGeneralTax accurately
-        var transMastOldRecords = await _context.TransMastOld
-            .AsNoTracking()
-            .Where(t => oldPropertyIds.Contains(t.PropertyMastOldId) && t.IsActive && !t.MarkedForDeletion)
-            .ToListAsync(cancellationToken);
-
-        var oldTaxes = await _context.TaxMaster
-            .AsNoTracking()
-            .Where(t => t.IsActive && t.OldTaxStatus)
-            .Select(t => new { t.Id, t.TaxName, t.TaxNameAlias })
-            .ToListAsync(cancellationToken);
-
-        var interestTaxId = oldTaxes.FirstOrDefault(t =>
-            t.TaxName.Equals("Interest", StringComparison.OrdinalIgnoreCase) ||
-            (t.TaxNameAlias != null && t.TaxNameAlias.Equals("Interest", StringComparison.OrdinalIgnoreCase)))?.Id;
-
-        var generalTaxId = oldTaxes.FirstOrDefault(t =>
-            t.TaxName.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
-            t.TaxName.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase) ||
-            (t.TaxNameAlias != null && (t.TaxNameAlias.Equals("General Tax", StringComparison.OrdinalIgnoreCase) ||
-                                        t.TaxNameAlias.Equals("GeneralTax", StringComparison.OrdinalIgnoreCase))))?.Id;
-
-        // Step 6: Perform sums for OldRV, OldALV, OldTotalTax, OldGeneralTax, and OldConstructionArea
+        // Step 5: Perform sums for OldRV, OldALV, OldTotalTax, OldGeneralTax, and OldConstructionArea
         double totalOldRV = 0;
         double totalOldALV = 0;
         double totalOldTotalTax = 0;
+        double totalOldGeneralTax = 0;
         double totalOldConstructionArea = 0;
-        var generalTaxValues = new List<double>();
 
         foreach (var pmo in pmoList)
         {
             totalOldRV += pmo.OldRV ?? 0;
             totalOldALV += pmo.OldALV ?? 0;
             totalOldConstructionArea += pmo.OldConstructionArea ?? 0;
-
-            var hasTrans = transMastOldRecords.Any(t => t.PropertyMastOldId == pmo.Id);
-            if (hasTrans)
-            {
-                var sumTax = transMastOldRecords
-                    .Where(t => t.PropertyMastOldId == pmo.Id && (!interestTaxId.HasValue || t.TaxId != interestTaxId.Value))
-                    .Sum(t => (double?)t.TaxAmount) ?? 0;
-                totalOldTotalTax += sumTax;
-
-                if (generalTaxId.HasValue)
-                {
-                    var genTax = transMastOldRecords
-                        .Where(t => t.PropertyMastOldId == pmo.Id && t.TaxId == generalTaxId.Value)
-                        .Sum(t => (double?)t.TaxAmount) ?? 0;
-                    generalTaxValues.Add(genTax);
-                }
-                else if (pmo.OldGeneralTax.HasValue)
-                {
-                    generalTaxValues.Add(pmo.OldGeneralTax.Value);
-                }
-            }
-            else
-            {
-                totalOldTotalTax += pmo.OldTotalTax ?? 0;
-                if (pmo.OldGeneralTax.HasValue)
-                {
-                    generalTaxValues.Add(pmo.OldGeneralTax.Value);
-                }
-            }
+            totalOldTotalTax += pmo.OldTotalTax ?? 0;
+            totalOldGeneralTax += pmo.OldGeneralTax ?? 0;
         }
-
-        double totalOldGeneralTax = generalTaxValues.Sum();
 
         // Sum carpet area columns from PDO
         double totalOldCarpetAreaSqFeet = pdoList.Sum(x => x.OldCarpetAreaSqFeet ?? 0);
         double totalOldCarpetAreaSqMeter = pdoList.Sum(x => x.OldCarpetAreaSqMeter ?? 0);
 
-        // Step 7: Process distinct comma-separated values for PMO properties
+        // Step 6: Process distinct comma-separated values for PMO properties
         var oldWardNoList = pmoList.Select(x => x.OldWardNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
         var oldPropertyNoList = pmoList.Select(x => x.OldPropertyNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
         var oldPartitionNoList = pmoList.Select(x => x.OldPartitionNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
@@ -151,7 +100,7 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
         var oldZoneNoList = pmoList.Select(x => x.OldZoneNo?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
         var oldCSNList = pmoList.Select(x => x.OldCSN?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
 
-        // Step 8: Process distinct comma-separated values for PDO properties
+        // Step 7: Process distinct comma-separated values for PDO properties
         var oldConstructionYearList = pdoList.Select(x => x.OldConstructionYear?.Trim()).Where(x => !string.IsNullOrEmpty(x)).Distinct().ToList();
         var oldConstructionTypeIdList = pdoList.Select(x => x.OldConstructionTypeId.ToString()).Distinct().ToList();
         var oldTypeOfUseIdList = pdoList.Select(x => x.OldTypeOfUseId.ToString()).Distinct().ToList();
