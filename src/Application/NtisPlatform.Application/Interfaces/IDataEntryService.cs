@@ -12,4 +12,9 @@ public interface IDataEntryService : ICommonCrudService<PropertyDetailsEntity, P
     //Task<PropertyDto?> UpdatePropertyAsync(int id, UpdatePropertyMastDto updateDto, CancellationToken cancellationToken = default);
 
     //Task<PropertyDto?> GetByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Soft-deletes all PropertyDetails records (and their children) for a given PropertyId.
+    /// </summary>
+    Task<bool> DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 }

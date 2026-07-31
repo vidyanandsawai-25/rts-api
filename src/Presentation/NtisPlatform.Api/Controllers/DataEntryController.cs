@@ -39,7 +39,7 @@ public class DataEntryController : ControllerBase
     //}
 
     [HttpPost]
-    public Task<IActionResult> Create( [FromBody] CreatePropertyDetailsDto createDto, CancellationToken ct)
+    public Task<IActionResult> Create([FromBody] CreatePropertyDetailsDto createDto, CancellationToken ct)
     {
         if (!ModelState.IsValid)
         {
@@ -52,7 +52,7 @@ public class DataEntryController : ControllerBase
     [HttpPut("{id}")]
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertyDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
- 
+
     //[HttpPut("UpdateProperty/{propertyId}")]
     //public async Task<IActionResult> UpdateProperty(int propertyId, [FromBody] UpdatePropertyMastDto updateDto, CancellationToken ct)
     //{
@@ -63,5 +63,22 @@ public class DataEntryController : ControllerBase
     [HttpDelete("{id}")]
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
-  
+
+    [HttpDelete("ByPropertyId/{propertyId}")]
+    public async Task<IActionResult> DeleteByPropertyId(int propertyId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.DeleteByPropertyIdAsync(propertyId, ct);
+            return result
+                ? Ok(new { Success = true, Message = "All property details marked for deletion" })
+                : Ok(new { Success = false, Message = "No active property details found for the given PropertyId" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DeleteByPropertyId failed for PropertyId: {PropertyId}", propertyId);
+            return StatusCode(500, new { Success = false, Message = "An error occurred while deleting property details" });
+        }
+    }
+
 }
