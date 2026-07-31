@@ -387,4 +387,51 @@ public class PropertyTaxOperationsServiceTests
         var text = System.Text.Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
         text.Should().Contain("उथळसर");
     }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithSearchText_PerformsExactMatch()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyNo = "P1", MobileNo = "1234567890", UPICId = "UPIC1", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyNo = "P2", MobileNo = "12345", UPICId = "UPIC2", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyNo = "P3", MobileNo = "98765", UPICId = "UPIC123", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+
+        var service = CreateService();
+
+        // Act: Search for exact MobileNo "12345"
+        var result1 = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Property",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto { SearchText = "12345" }
+            },
+            actingUserId: 7);
+
+        // Assert: Only Property 2 matches (not Property 1)
+        result1.Eligible.Should().Be(1);
+
+        // Act: Search for exact UPICId "UPIC1"
+        var result2 = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Property",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto { SearchText = "UPIC1" }
+            },
+            actingUserId: 7);
+
+        // Assert: Only Property 1 matches (not Property 2 or 3)
+        result2.Eligible.Should().Be(1);
+    }
 }

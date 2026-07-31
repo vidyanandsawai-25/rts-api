@@ -869,8 +869,8 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 {
                     var s = scope.SearchText.Trim();
                     q = q.Where(p =>
-                        (p.MobileNo != null && p.MobileNo.Contains(s)) ||
-                        (p.UPICId != null && p.UPICId.Contains(s)));
+                        p.MobileNo == s ||
+                        p.UPICId == s);
                 }
                 break;
 
