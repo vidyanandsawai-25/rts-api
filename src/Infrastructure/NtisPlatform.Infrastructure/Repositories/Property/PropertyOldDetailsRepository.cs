@@ -73,7 +73,6 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
         // Step 5: Perform sums for OldRV, OldALV, OldTotalTax, OldGeneralTax, and OldConstructionArea
         double totalOldRV = 0;
         double totalOldALV = 0;
-        double totalOldTotalTax = 0;
         double totalOldGeneralTax = 0;
         double totalOldConstructionArea = 0;
 
@@ -82,9 +81,18 @@ public partial class PropertyOldDetailsRepository : PropertyRepositoryBase, IPro
             totalOldRV += pmo.OldRV ?? 0;
             totalOldALV += pmo.OldALV ?? 0;
             totalOldConstructionArea += pmo.OldConstructionArea ?? 0;
-            totalOldTotalTax += pmo.OldTotalTax ?? 0;
             totalOldGeneralTax += pmo.OldGeneralTax ?? 0;
         }
+
+        // Fetch the old total tax dynamically from TransMastOld by joining TaxMaster
+        double totalOldTotalTax = (double)await _context.TransMastOld
+            .AsNoTracking()
+            .Where(tmo => oldPropertyIds.Contains(tmo.PropertyMastOldId)
+                && tmo.IsActive
+                && !tmo.MarkedForDeletion
+                && tmo.TaxMaster != null
+                && tmo.TaxMaster.TaxCode.Trim().ToUpper() == "TAXTOTAL")
+            .SumAsync(tmo => tmo.TaxAmount, cancellationToken);
 
         // Sum carpet area columns from PDO
         double totalOldCarpetAreaSqFeet = pdoList.Sum(x => x.OldCarpetAreaSqFeet ?? 0);

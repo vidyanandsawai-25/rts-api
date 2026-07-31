@@ -171,6 +171,21 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         };
         _context.PropertyMastOld.Add(propertyMastOld);
 
+        _context.TaxMaster.Add(new TaxMasterEntity { Id = 5, TaxCode = "TAXTOTAL", TaxName = "TaxTotal", TaxNameAlias = "TAXTOTAL", TaxCategoryId = 1, OldTaxStatus = true, IsActive = true, DisplayOrder = 5 });
+
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 1,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            CalculationAnnualValue = 45000,
+            CalculationValue = 50000,
+            TaxId = 5,
+            TaxAmount = 5000,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
+
         var property = new PropertyEntity
         {
             Id = 2,
@@ -709,6 +724,19 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             MarkedForDeletion = false
         };
         _context.PropertyMastOld.Add(propertyMastOld);
+
+        _context.TaxMaster.Add(new TaxMasterEntity { Id = 5, TaxCode = "TAXTOTAL", TaxName = "TaxTotal", TaxNameAlias = "TAXTOTAL", TaxCategoryId = 1, OldTaxStatus = true, IsActive = true, DisplayOrder = 5 });
+
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 10,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            TaxId = 5,
+            TaxAmount = 8000,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
 
         var property = new PropertyEntity
         {
