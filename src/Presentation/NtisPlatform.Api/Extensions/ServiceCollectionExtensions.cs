@@ -68,9 +68,6 @@ using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
-using NtisPlatform.Application.Services.Asset_Management;
-using NtisPlatform.Application.Interfaces.Asset_Management;
-using NtisPlatform.Application.Services.ReportDataProviders;
 using NtisPlatform.Core.Interfaces.Asset_Management;
 using NtisPlatform.Infrastructure.Services.Asset_Management;
 
@@ -281,6 +278,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IExcelUploadService, ExcelUploadService>();
         services.AddScoped<IAssetPhotoService, AssetPhotoService>();
         services.AddScoped<IAssetDocumentService, AssetDocumentService>();
+        services.AddScoped<IInventoryDocumentService, InventoryDocumentService>();
 
         // Translation Management
         services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
@@ -303,6 +301,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
         services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
+        services.AddScoped<IInventoryDocumentApplicationService, InventoryDocumentApplicationService>();
 
         // Global Document Binding Handlers (OCP extension points).
         // Each module registers its own handler — DocumentApplicationService dispatches to them
@@ -314,6 +313,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, RenterMastDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, AssetPhotoDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, InventoryDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();

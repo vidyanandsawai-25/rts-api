@@ -229,6 +229,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetSubTypeOfUseEntity> AssetSubTypeOfUseMaster { get; set; } = null!;
     public DbSet<AssetFloorFactorCVEntity> AssetFloorFactorCVMaster { get; set; } = null!;
     public DbSet<AssetPhotoTypeEntity> AssetPhotoTypeMaster { get; set; } = null!;
+    public DbSet<InventoryBatchEntity> InventoryBatches { get; set; } = null!;
+    public DbSet<InventoryDocumentEntity> InventoryDocuments { get; set; } = null!;
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -6146,6 +6148,56 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.DocumentBindingId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // InventoryBatch minimal placeholder configuration (AMS schema)
+        modelBuilder.Entity<InventoryBatchEntity>(entity =>
+        {
+            entity.ToTable("InventoryBatch", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+        });
+
+        // InventoryDocument configuration (AMS schema)
+        modelBuilder.Entity<InventoryDocumentEntity>(entity =>
+        {
+            entity.ToTable("InventoryDocument", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.InventoryBatchId).IsRequired();
+            entity.Property(e => e.DocumentTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(p => p.DocumentType)
+                .WithMany()
+                .HasForeignKey(p => p.DocumentTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(p => p.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(p => p.DocumentBindingId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.InventoryBatchId).HasDatabaseName("IX_InventoryDocument_InventoryBatchId");
+            entity.HasIndex(e => e.DocumentTypeId).HasDatabaseName("IX_InventoryDocument_DocumentTypeId");
+            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_InventoryDocument_DocumentBindingId")
+                .HasFilter("[DocumentBindingId] IS NOT NULL");
+
+            entity.HasIndex(e => new { e.InventoryBatchId, e.DocumentTypeId })
+                .IsUnique()
+                .HasDatabaseName("IX_InventoryDocument_Item_Type_Latest")
+                .IncludeProperties(e => new { e.DocumentBindingId, e.DisplayOrder, e.IsLatest })
+                .HasFilter("[IsLatest] = 1 AND [IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
     }
 }
