@@ -133,7 +133,7 @@ public class AutoMapperValidationTest
              // RuleScope navigation property and derived display name
              "RuleScope", "RuleScopeName",
                 // Additional entity fields that are unmapped
-                "IsActive", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
+                "IsActive", "IsCurrent", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
                 "BuiltupAreaSqMeter", "BuiltupAreaSqFeet", "NoOfRooms", "IsRenter", "IsTaxable",
                 "Renters", "RenterDetails", "AreaSqMtr", "HeightMtr", "Base1Mtr", "Base2Mtr", "Shape",
                 "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
