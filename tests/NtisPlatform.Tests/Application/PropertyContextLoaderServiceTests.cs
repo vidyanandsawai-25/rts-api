@@ -38,6 +38,7 @@ namespace NtisPlatform.Tests.Application
         private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
         private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
         private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
+        private readonly Mock<IRepository<PropertyCertificateEntity, int>> _propertyCertificateRepo;
         private readonly Mock<ITaxMasterDataService> _masterDataService;
 
         private readonly Mock<IFinanceYearProvider> _financeYearProvider;
@@ -63,6 +64,7 @@ namespace NtisPlatform.Tests.Application
             _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
             _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
             _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
+            _propertyCertificateRepo = new Mock<IRepository<PropertyCertificateEntity, int>>();
 
             _financeYearProvider = new Mock<IFinanceYearProvider>();
             _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
@@ -92,6 +94,9 @@ namespace NtisPlatform.Tests.Application
 
             _occupancyRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
+
+            _propertyCertificateRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyCertificateEntity>().BuildMockDbSet().Object);
 
             _financeYearProvider.Setup(x => x.GetCurrentFinanceYear())
                 .Returns(2026);
@@ -479,6 +484,7 @@ namespace NtisPlatform.Tests.Application
                 _propertySocialDetailsRepo.Object,
                 _renterRepo.Object,
                 _occupancyRepo.Object,
+                _propertyCertificateRepo.Object,
                 _masterDataService.Object,
                 _financeYearProvider.Object,
                 _yearMasterRepo.Object,

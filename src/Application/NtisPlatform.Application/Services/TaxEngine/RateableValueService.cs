@@ -85,6 +85,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var propertyAssessment = propertyContext.PropertyAssessment;
                 var renters = propertyContext.Renters;
                 var occupancies = propertyContext.Occupancies;
+                var certificates = propertyContext.Certificates;
 
                 if (!details.Any())
                 {
@@ -615,7 +616,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     var response = RateableValueResponseMapper.Map(
                         propertyId, financeYear, details, newResultsRows, newTaxDetailRows, savedPolicyRecords,
                         floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
-                        renters ?? new List<RenterMastEntity>(), occupancies, taxMasterCache);
+                        renters ?? new List<RenterMastEntity>(), occupancies, certificates, taxMasterCache);
 
                     LogMetric("TaxCalculation.TotalRV", (double)response.TotalRateableValue, new Dictionary<string, string>
                         { { "PropertyId", propertyId.ToString() } });

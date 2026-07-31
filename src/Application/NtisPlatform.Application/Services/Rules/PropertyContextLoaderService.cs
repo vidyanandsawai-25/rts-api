@@ -7,6 +7,7 @@ using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Interfaces.Rules;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -53,6 +54,7 @@ namespace NtisPlatform.Application.Services.Rules
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
         private readonly IRepository<RenterMastEntity, int> _renterRepo;
         private readonly IRepository<PropertyOccupancyDetailsEntity, int> _occupancyRepo;
+        private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepo;
         private readonly ITaxMasterDataService _masterDataService;
         private readonly IFinanceYearProvider _financeYearProvider;
         private readonly IRepository<YearMasterEntity, int> _yearMasterRepo;
@@ -69,6 +71,7 @@ namespace NtisPlatform.Application.Services.Rules
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
             IRepository<RenterMastEntity, int> renterRepo,
             IRepository<PropertyOccupancyDetailsEntity, int> occupancyRepo,
+            IRepository<PropertyCertificateEntity, int> propertyCertificateRepo,
             ITaxMasterDataService masterDataService,
             IFinanceYearProvider financeYearProvider,
             IRepository<YearMasterEntity, int> yearMasterRepo,
@@ -83,6 +86,7 @@ namespace NtisPlatform.Application.Services.Rules
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
             _renterRepo = renterRepo;
             _occupancyRepo = occupancyRepo;
+            _propertyCertificateRepo = propertyCertificateRepo;
             _masterDataService = masterDataService;
             _financeYearProvider = financeYearProvider;
             _yearMasterRepo = yearMasterRepo;
@@ -282,6 +286,17 @@ namespace NtisPlatform.Application.Services.Rules
                 .Where(x => detailIds.Contains(x.PropertyDetailId) && x.IsActive && !x.MarkedForDeletion)
                 .ToListAsync(cancellationToken);
 
+            var certificates = (await _propertyCertificateRepo.GetQueryable()
+                .Include(pc => pc.CertificateType)
+                .AsNoTracking()
+                .Where(pc => pc.PropertyDetailsId.HasValue
+                          && detailIds.Contains(pc.PropertyDetailsId.Value)
+                          && pc.IsActive && !pc.MarkedForDeletion
+                          && pc.CertificateType != null)
+                .ToListAsync(cancellationToken))
+                .Where(pc => string.Equals(pc.CertificateType!.CertificateTypeCode, CertificateTypeCodes.OC, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
             // ── Phase 6: Assemble and return the context ───────────────────────────
 
             // Calculate building's max floor sequence number across all related properties in the same building (single optimized query)
@@ -336,6 +351,7 @@ namespace NtisPlatform.Application.Services.Rules
                 Details = details,
                 Renters = renters,
                 Occupancies = occupancies,
+                Certificates = certificates,
                 YearRanges = yearRanges,
                 DetailYearRangeRVIdMap = detailYearRangeRVIdMap,
 

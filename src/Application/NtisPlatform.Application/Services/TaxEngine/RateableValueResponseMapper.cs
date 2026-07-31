@@ -25,18 +25,19 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IReadOnlyList<SubFloorEntity> subFloors,
             IReadOnlyList<RenterMastEntity> renters,
             IReadOnlyList<PropertyOccupancyDetailsEntity> occupancies,
+            IReadOnlyList<PropertyCertificateEntity> certificates,
             TaxGetterCache<TaxMasterEntity> taxMasterCache)
         {
-            var floorMap = floors.ToDictionary(x => x.Id, x => x.Description ?? x.FloorCode ?? string.Empty);
+            var floorMap = floors.ToDictionary(x => x.Id, x => x.FloorCode ?? x.Description ?? string.Empty);
             var constructionTypeMap = constructionTypes.ToDictionary(
                 x => x.Id,
                 x => !string.IsNullOrWhiteSpace(x.ConstructionCode)
                     ? x.ConstructionCode!
                     : (x.Description ?? string.Empty));
 
-            var typeOfUseMap = typeOfUses.ToDictionary(x => x.Id, x => x.Description ?? string.Empty);
+            var typeOfUseMap = typeOfUses.ToDictionary(x => x.Id, x => x.TypeOfUseCode ?? x.Description ?? string.Empty);
             var subTypeOfUseMap = subTypeOfUses.ToDictionary(x => x.Id, x => x.Description ?? string.Empty);
-            var subFloorMap = subFloors.ToDictionary(x => x.Id, x => x.Description ?? x.SubFloorCode ?? string.Empty);
+            var subFloorMap = subFloors.ToDictionary(x => x.Id, x => x.SubFloorCode ?? x.Description ?? string.Empty);
             var detailMap = details.ToDictionary(x => x.Id, x => x);
 
             var renterMap = renters
@@ -49,6 +50,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 .Where(x => x.IsActive && !x.MarkedForDeletion)
                 .GroupBy(x => x.PropertyDetailId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedDate).FirstOrDefault());
+
+            var certificateMap = certificates
+                .Where(x => x.PropertyDetailsId.HasValue && x.IsActive && !x.MarkedForDeletion)
+                .GroupBy(x => x.PropertyDetailsId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.IssueDate ?? DateTime.MinValue).FirstOrDefault());
 
 
             // Include ALL details, even those with no tax rows (when detailYearRangeRVId == 0)
@@ -68,6 +74,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                     var renter = renterMap.TryGetValue(detail.Id, out var r) ? r : null;
                     var occupancy = occupancyMap.TryGetValue(detail.Id, out var o) ? o : null;
+                    var certificate = certificateMap.TryGetValue(detail.Id, out var cert) ? cert : null;
 
                     // Get all tax details for this detail's results rows
                     var allTaxDetails = resultsForDetail
@@ -107,7 +114,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         CarpetAreaSqMeter = detail.CarpetAreaSqMeter ?? 0d,
                         BuiltupAreaSqFeet = detail.BuiltupAreaSqFeet ?? 0d,
                         BuiltupAreaSqMeter = detail.BuiltupAreaSqMeter ?? 0d,
-                        OccupancyNumber = occupancy?.OccupancyNumber ?? string.Empty,
+                        OccupancyNumber = !string.IsNullOrWhiteSpace(certificate?.CertificateNo)
+                            ? certificate!.CertificateNo!
+                            : (occupancy?.OccupancyNumber ?? string.Empty),
                         OccupancyDate = occupancy?.OccupancyDate,
                         RenterName = !string.IsNullOrWhiteSpace(renter?.RenterNameEnglish)
                             ? renter.RenterNameEnglish!
