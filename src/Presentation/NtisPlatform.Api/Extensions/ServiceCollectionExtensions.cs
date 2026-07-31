@@ -55,7 +55,6 @@ using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Interfaces;
-using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Interfaces.Rules;
@@ -541,6 +540,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
         services.AddScoped<IAssetRentDocumentTypeService, AssetRentDocumentTypeService>();
         services.AddScoped<IInventoryDocumentTypeService, InventoryDocumentTypeService>();
+        services.AddScoped<IAssetGrievanceCategoryService, AssetGrievanceCategoryService>();
+        services.AddScoped<IAssetGrievanceRemarkService, AssetGrievanceRemarkService>();
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
         // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests
         // Effect applicators are stateless, safe as singleton for better performance

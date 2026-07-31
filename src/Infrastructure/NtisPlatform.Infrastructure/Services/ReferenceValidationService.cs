@@ -205,6 +205,16 @@ public class ReferenceValidationService : IReferenceValidationService
         config.ForEntity<AssetPhotoTypeEntity>()
             .CheckReferences();
 
+        config.ForEntity<AssetGrievanceCategoryEntity>()
+            .CheckReferences(
+                ("Asset Grievance Remark Master", (ctx, id) => ctx.AssetGrievanceRemarkMaster.Where(r => r.GrievanceCategoryId == id && !r.MarkedForDeletion).Cast<object>())
+            );
+
+        // AssetGrievanceRemarkMasterEntity is a leaf entity - no other entity currently has a FK to it.
+        // Registering explicitly so ValidateReferencesAsync<AssetGrievanceRemarkMasterEntity> is not a silent no-op.
+        config.ForEntity<AssetGrievanceRemarkMasterEntity>()
+            .CheckReferences();
+
         _referenceConfig = config.Build();
     }
 

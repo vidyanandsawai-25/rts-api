@@ -231,6 +231,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetPhotoTypeEntity> AssetPhotoTypeMaster { get; set; } = null!;
     public DbSet<InventoryBatchEntity> InventoryBatches { get; set; } = null!;
     public DbSet<InventoryDocumentEntity> InventoryDocuments { get; set; } = null!;
+    public DbSet<AssetGrievanceCategoryEntity> AssetGrievanceCategoryMaster { get; set; } = null!;
+    public DbSet<AssetGrievanceRemarkMasterEntity> AssetGrievanceRemarkMaster { get; set; } = null!;
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -6198,6 +6200,48 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_InventoryDocument_Item_Type_Latest")
                 .IncludeProperties(e => new { e.DocumentBindingId, e.DisplayOrder, e.IsLatest })
                 .HasFilter("[IsLatest] = 1 AND [IsActive] = 1 AND [MarkedForDeletion] = 0");
+        });
+
+        // AssetGrievanceCategory configuration (AMS schema)
+        modelBuilder.Entity<AssetGrievanceCategoryEntity>(entity =>
+        {
+            entity.ToTable("GrievanceCategoryMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.CategoryName).HasMaxLength(150).HasColumnType("nvarchar(150)").IsRequired();
+            entity.HasIndex(e => e.CategoryName).IsUnique();
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.ResolutionSlaDays).IsRequired().HasDefaultValue(7);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetGrievanceRemarkMaster configuration (AMS schema)
+        modelBuilder.Entity<AssetGrievanceRemarkMasterEntity>(entity =>
+        {
+            entity.ToTable("GrievanceRemarkMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.GrievanceCategoryId).IsRequired();
+            entity.Property(e => e.Remark).HasMaxLength(150).HasColumnType("nvarchar(150)").IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.GrievanceCategory)
+                .WithMany()
+                .HasForeignKey(e => e.GrievanceCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }
