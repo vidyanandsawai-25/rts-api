@@ -102,7 +102,6 @@ public class PtisTaxEnginePhaseRulesTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
-        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -153,7 +152,6 @@ public class PtisTaxEnginePhaseRulesTests
             yearRepo,
             taxPendingRepo,
             taxPendingRetroRepo,
-            taxMasterRepo,
             policyCodeLookup,
             financeYearProvider,
             guidelineReaderMock.Object,
@@ -199,9 +197,11 @@ public class PtisTaxEnginePhaseRulesTests
 
         Assert.NotEmpty(partialOcRows);
 
-        // General Tax baseline = 12000. Prorated (351/365 days) < 12000.
+        // 15-Apr falls within the engine's 30-day grace period after FY start (01-Apr), so the
+        // current year bills the FULL General Tax baseline (12,000) at OC's 1.0x rather than being
+        // prorated from the 14-day-old onset.
         var partialGeneralTax = partialOcRows.Single(r => r.TaxId == 1);
-        Assert.True(partialGeneralTax.TaxAmount < 12000m, $"Expected prorated tax < 12000, got {partialGeneralTax.TaxAmount}");
+        Assert.Equal(12_000m, partialGeneralTax.TaxAmount);
     }
 
     [Fact]

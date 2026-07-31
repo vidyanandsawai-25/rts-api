@@ -102,7 +102,8 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
         // undocumented business rule, not implemented here to avoid inventing one.
         if (onsetFinanceYear.StartYear == currentFinanceYear.StartYear &&
             (condition == OccupationCondition.OccupationCertificate || condition == OccupationCondition.CompletionCertificate) &&
-            onsetDate > currentFinanceYear.Start)
+            onsetDate > currentFinanceYear.Start &&
+            (onsetDate - currentFinanceYear.Start).TotalDays > 30)
         {
             currentYear = BuildProratedYear(options, currentFinanceYear, onsetDate);
         }

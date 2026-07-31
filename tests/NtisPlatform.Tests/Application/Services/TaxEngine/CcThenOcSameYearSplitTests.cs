@@ -165,7 +165,6 @@ public class CcThenOcSameYearSplitTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
-        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -174,7 +173,7 @@ public class CcThenOcSameYearSplitTests
 
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
-            taxPendingRepo, taxPendingRetroRepo, taxMasterRepo,
+            taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance);
     }
@@ -222,9 +221,10 @@ public class CcThenOcSameYearSplitTests
         Assert.Contains(rows, r => r.PolicyCode == "PARTIAL_CC");
         Assert.DoesNotContain(rows, r => r.PolicyCode is "ELECTRIC_BILL" or "PARTIAL_ELECTRIC_BILL");
 
-        // 359 chargeable days (07-Apr..31-Mar inclusive) at 1.5x.
-        var chargeableDays = new FinanceYear(CurrentFyYear, 4, 1).ChargeableDaysFrom(ccDate);
-        var expectedGeneral = Math.Round(GeneralTaxAmount * chargeableDays / 365m * 1.5m, 0, MidpointRounding.AwayFromZero);
+        // ccDate (07-Apr) falls within the engine's 30-day grace period after FY start (01-Apr), so
+        // the current year bills in FULL at 1.5x rather than being prorated from the 6-day-old onset.
+        // CurrentFyYear (2020) is itself a leap finance year (BR7 add-back applies to a full year).
+        var expectedGeneral = Math.Round(GeneralTaxAmount + GeneralTaxAmount / 365m, 0, MidpointRounding.AwayFromZero) * 1.5m;
         var generalRow = rows.Single(r => r.PolicyCode == "PARTIAL_CC" && r.TaxId == 1);
         Assert.Equal(expectedGeneral, generalRow.TaxAmount);
     }

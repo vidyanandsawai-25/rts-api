@@ -988,6 +988,123 @@ public class PropertyRepositoryTaxDetailsTests
     }
 
     [Fact]
+    public async Task GetTaxDetailsAsync_ReservedTaxTotalRowIsStaleZero_TaxTotalStillSumsRealComponents()
+    {
+        // Live-data regression: the "TaxTotal" reserved row is never kept in sync by
+        // OccupationTaxApplicationService's write path -- on a real property it can sit at 0 while
+        // the actual tax components (General Tax + cesses) are current and correct. TaxTotal must
+        // still reflect the real sum in that case, not the stale reserved value.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+        var generalTax = new TaxMasterEntity { Id = 1, TaxName = "General Tax", TaxCode = "GEN", DisplayOrder = 1, TaxCategoryId = 1, IsActive = true };
+        var cessTax = new TaxMasterEntity { Id = 2, TaxName = "Tree Cess", TaxCode = "TREE", DisplayOrder = 2, TaxCategoryId = 1, IsActive = true };
+        var taxTotalTax = new TaxMasterEntity { Id = 3, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 3, TaxCategoryId = 1, IsActive = true };
+
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
+
+        var generalTaxRow = new PolicyTaxDetailsEntity { Id = 1, PropertyId = 1, PolicyCodeId = 1, TaxId = 1, TaxAmount = 1_10_140m, IsActive = true, MarkedForDeletion = false };
+        var cessRow = new PolicyTaxDetailsEntity { Id = 2, PropertyId = 1, PolicyCodeId = 1, TaxId = 2, TaxAmount = 2_532m, IsActive = true, MarkedForDeletion = false };
+        // Reserved row present but never written by the occupation-tax write path -- stuck at 0.
+        var staleTaxTotalRow = new PolicyTaxDetailsEntity { Id = 3, PropertyId = 1, PolicyCodeId = 1, TaxId = 3, TaxAmount = 0m, IsActive = true, MarkedForDeletion = false };
+
+        context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
+        context.TaxMaster.AddRange(generalTax, cessTax, taxTotalTax);
+        context.PolicyCodeMaster.Add(nettaxPolicy);
+        context.PolicyTaxDetails.AddRange(generalTaxRow, cessRow, staleTaxTotalRow);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
+
+        var result = await repository.GetTaxDetailsAsync(1);
+
+        Assert.NotNull(result);
+        var policy = Assert.Single(result!.Policies);
+        Assert.Equal(2, policy.TaxAmounts.Count); // the reserved "TaxTotal" row is excluded, never shown as a component
+        Assert.DoesNotContain(policy.TaxAmounts, t => t.TaxName == "TaxTotal");
+        Assert.Equal(1_12_672m, policy.TaxTotal); // 1,10,140 + 2,532 -- NOT the stale reserved 0
+    }
+
+    [Fact]
+    public async Task GetTaxDetailsAsync_RealPropertyReservedTaxTotalWithTransMastOverride_TaxTotalSumsOverriddenComponents()
+    {
+        // Exact reproduction of a live-data report: TransMast holds a CORRECT (non-stale)
+        // override for the reserved "TaxTotal" TaxId, computed as the true sum of the other
+        // TransMast-overridden components -- yet the OC group's displayed TaxTotal still showed 0.
+        // This pins down whether that 0 comes from GetTaxDetailsPivotedAsync itself (it must not)
+        // by mirroring the property's real PolicyTaxDetails/TransMast shape: NETTAX + OC policies
+        // co-existing (so NETTAX's own amounts are intentionally left un-overridden), the reserved
+        // TaxId (21) present under OC, and TransMast overrides for every real TaxId plus TaxId 21.
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .Options;
+
+        using var context = new ApplicationDbContext(options);
+
+        var property = new PropertyEntity { Id = 1, WardId = 1, TaxZoneId = 1, IsActive = true, MarkedForDeletion = false };
+        var categoryTax = new TaxCategoryMasterEntity { Id = 1, CategoryCode = "TAX", CategoryName = "Property Tax", IsActive = true };
+
+        var taxDefs = new (int Id, string Name)[]
+        {
+            (1, "General Tax"), (2, "State Education Tax"), (3, "State Employment Tax"),
+            (4, "Tree Cess"), (5, "Special Water Cess"), (6, "Road Cess"), (7, "Fire Cess"),
+            (8, "Light Cess"), (9, "Water Benefit Cess"), (10, "Sewage Disposal Cess"),
+            (11, "Special Education Tax"), (21, "TaxTotal")
+        };
+        foreach (var (id, name) in taxDefs)
+        {
+            context.TaxMaster.Add(new TaxMasterEntity { Id = id, TaxName = name, TaxCode = name, DisplayOrder = id, TaxCategoryId = 1, IsActive = true });
+        }
+
+        var year2026 = new YearMasterEntity { Id = 10, Year = 2026, YearCode = "2026-27", IsActive = true };
+        var nettaxPolicy = new PolicyCodeMasterEntity { Id = 1, PolicyCode = "NETTAX", PolicyName = "Net Tax", PolicyType = "NORMAL", IsActive = true };
+        var ocPolicy = new PolicyCodeMasterEntity { Id = 2, PolicyCode = "OC", PolicyName = "Occupancy Certificate", PolicyType = "NORMAL", IsActive = true };
+
+        // TransMast overrides -- the real per-TaxId amounts plus the reserved TaxId's own (here
+        // correctly computed) total, exactly as reported.
+        var overrides = new (int TaxId, decimal Amount)[]
+        {
+            (1, 110_140m), (2, 35_585m), (3, 7_596m), (4, 2_532m), (5, 25_320m), (6, 22_788m),
+            (7, 2_532m), (8, 32_916m), (9, 55_704m), (10, 44_310m), (11, 10_128m), (21, 349_551m)
+        };
+
+        int policyTaxId = 1, transMastId = 1;
+        foreach (var (taxId, amount) in overrides)
+        {
+            // OC's raw PolicyTaxDetails baseline (arbitrary pre-certificate values) -- irrelevant,
+            // since TransMast overrides every one of these for the OC group.
+            context.PolicyTaxDetails.Add(new PolicyTaxDetailsEntity { Id = policyTaxId++, PropertyId = 1, PolicyCodeId = 2, TaxId = taxId, TaxAmount = 1m, IsActive = true, MarkedForDeletion = false });
+            context.TransMast.Add(new TransMastEntity { Id = transMastId++, PropertyId = 1, TaxId = taxId, FinanceYearId = 10, CalculationType = "RV", TaxAmount = amount, IsActive = true, MarkedForDeletion = false });
+        }
+
+        // NETTAX co-exists (baseline, intentionally un-overridden while OC certificate rows exist).
+        context.PolicyTaxDetails.Add(new PolicyTaxDetailsEntity { Id = policyTaxId++, PropertyId = 1, PolicyCodeId = 1, TaxId = 1, TaxAmount = 90_000m, IsActive = true, MarkedForDeletion = false });
+
+        context.PropertyMast.Add(property);
+        context.TaxCategoryMaster.Add(categoryTax);
+        context.YearMaster.Add(year2026);
+        context.PolicyCodeMaster.AddRange(nettaxPolicy, ocPolicy);
+        await context.SaveChangesAsync();
+
+        var repository = new PropertyRepository(context, Mock.Of<IFinanceYearProvider>(p => p.GetCurrentFinanceYear() == 2026));
+
+        var result = await repository.GetTaxDetailsAsync(1);
+
+        Assert.NotNull(result);
+        var ocGroup = result!.Policies.Single(p => p.PolicyCode == "OC");
+
+        Assert.DoesNotContain(ocGroup.TaxAmounts, t => t.TaxName == "TaxTotal");
+        Assert.Equal(11, ocGroup.TaxAmounts.Count);
+        Assert.Equal(349_551m, ocGroup.TaxTotal);
+    }
+
+    [Fact]
     public async Task GetTaxDetailsAsync_TaxPendingDetailsRetroExists_AttachesPendingYearsToOcGroupOnly()
     {
         // Year-wise retro/arrears breakdown from TaxPendingDetailsRetro should surface as
@@ -1021,10 +1138,17 @@ public class PropertyRepositoryTaxDetailsTests
         var retro2024 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 8, TaxId = 1, PendingAmount = 3_540m, IsActive = true, MarkedForDeletion = false };
         var retro2025 = new TaxPendingDetailsRetroEntity { PropertyId = 1, PendingYearId = 9, TaxId = 1, PendingAmount = 3_560m, IsActive = true, MarkedForDeletion = false };
 
+        // Real OC certificate covering both retro years -- required for ResolveYearPolicyCode to
+        // actually resolve "OC" for FY2024/FY2025 instead of falling into the RETROSPECTIVE catch-all.
+        var ocCertType = new PropertyCertificateTypeMasterEntity { Id = 1, CertificateTypeName = "Occupancy Certificate", CertificateTypeCode = "OC", IsTaxable = true, IsActive = true };
+        var ocCertificate = PropertyCertificateEntity.Create(propertyId: 1, certificateTypeId: 1, certificateNo: "OC-1", issueDate: new DateTime(2024, 4, 1), propertyDetailsId: null);
+
         context.PropertyMast.Add(property);
         context.TaxCategoryMaster.Add(categoryTax);
         context.TaxMaster.AddRange(tax, taxTotalTax);
         context.YearMaster.AddRange(year2024, year2025, year2026);
+        context.PropertyCertificateTypeMasters.Add(ocCertType);
+        context.PropertyCertificates.Add(ocCertificate);
         context.PolicyCodeMaster.AddRange(nettaxPolicy, ocPolicy);
         context.PolicyTaxDetails.AddRange(nettaxRow, ocRow, nettaxTotalRow, ocTotalRow);
         context.TaxPendingDetailsRetro.AddRange(retro2024, retro2025);

@@ -164,7 +164,6 @@ public class TaxAuditVerificationTests
         var yearRepo = new Repository<YearMasterEntity, int>(context);
         var taxPendingRepo = new Repository<TaxPendingDetailsEntity, int>(context);
         var taxPendingRetroRepo = new Repository<TaxPendingDetailsRetroEntity, int>(context);
-        var taxMasterRepo = new Repository<TaxMasterEntity, int>(context);
         var policyCodeRepo = new Repository<PolicyCodeMasterEntity, int>(context);
         var policyCodeLookup = new PolicyCodeLookupService(policyCodeRepo);
         var unitOfWork = new UnitOfWork(context);
@@ -173,7 +172,7 @@ public class TaxAuditVerificationTests
 
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
-            taxPendingRepo, taxPendingRetroRepo, taxMasterRepo,
+            taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance);
     }

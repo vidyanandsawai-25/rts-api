@@ -490,13 +490,6 @@ public class OccupationTaxEngineTests
         return mock.Object;
     }
 
-    private static IRepository<TaxMasterEntity, int> EmptyTaxMasterRepo()
-    {
-        var mock = new Mock<IRepository<TaxMasterEntity, int>>();
-        mock.Setup(r => r.GetQueryable()).Returns(new List<TaxMasterEntity>().BuildMock());
-        return mock.Object;
-    }
-
     private static PropertyCertificateEntity BuildCertificate(
         int propertyId, DateTime issueDate, string certificateTypeName, int? propertyDetailsId = null, string? certificateTypeCode = null)
     {
@@ -630,7 +623,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
@@ -734,7 +727,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -837,7 +830,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
@@ -903,7 +896,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -1026,7 +1019,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object,
@@ -1125,7 +1118,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(ocFirstGuideline).Object,
@@ -1204,7 +1197,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, // mode = NO_TAX (uncovered floor skipped)
@@ -1254,7 +1247,7 @@ public class OccupationTaxEngineTests
 
         var service = new OccupationTaxApplicationService(
             _engine, repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object,
-            mockYearRepo.Object, EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(), PolicyCodeLookup().Object,
+            mockYearRepo.Object, EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), PolicyCodeLookup().Object,
             mockFyProvider.Object, GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -1394,7 +1387,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
@@ -1474,7 +1467,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -1854,7 +1847,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -2187,7 +2180,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -2326,7 +2319,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
             mockLogger.Object);
 
@@ -2487,7 +2480,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
             mockLogger.Object);
 
@@ -2532,7 +2525,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
             mockLogger.Object);
 
@@ -2599,7 +2592,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
             mockLogger.Object);
 
@@ -3265,7 +3258,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -3327,7 +3320,7 @@ public class OccupationTaxEngineTests
             mockTransRepo.Object,
             mockYearRepo.Object,
             EmptyTaxPendingRepo(),
-            EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
@@ -3478,7 +3471,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3522,7 +3515,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3771,7 +3764,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3813,7 +3806,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3854,7 +3847,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3895,7 +3888,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -3971,7 +3964,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4038,7 +4031,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4114,7 +4107,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4191,7 +4184,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4249,7 +4242,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4303,7 +4296,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4352,7 +4345,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4402,7 +4395,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4455,7 +4448,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4502,7 +4495,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4558,7 +4551,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4613,7 +4606,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4685,7 +4678,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4738,7 +4731,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4788,7 +4781,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4869,7 +4862,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
@@ -4924,7 +4917,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
-            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), EmptyTaxMasterRepo(),
+            EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
 
