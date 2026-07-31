@@ -79,8 +79,7 @@ namespace NtisPlatform.Application.Interfaces.AutomationDashboard
         /// Gets Assessment stage properties that are still pending signature approval.
         /// </summary>
         Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentPropsAsync(
-            int? pageNumber,
-            int? pageSize,
+            PendingAssessmentQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         /// <summary>

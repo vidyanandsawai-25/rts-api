@@ -477,13 +477,14 @@ namespace NtisPlatform.Api.Controllers
         }
 
         [HttpGet("GetPendingAssessmentProps")]
-        public async Task<ActionResult<ApiResponse<PendingAssessmentSubGridPDDataDto>>> GetPendingAssessmentProps(int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
+        public async Task<ActionResult<ApiResponse<PendingAssessmentSubGridPDDataDto>>> GetPendingAssessmentProps(
+            [FromQuery] PendingAssessmentQueryParameters queryParameters,
+            CancellationToken cancellationToken = default)
         {
             try
             {
                 var result = await _automationDashboardService.GetPendingAssessmentPropsAsync(
-                    pageNumber,
-                    pageSize,
+                    queryParameters,
                     cancellationToken);
 
                 return Ok(new ApiResponse<PendingAssessmentSubGridPDDataDto>

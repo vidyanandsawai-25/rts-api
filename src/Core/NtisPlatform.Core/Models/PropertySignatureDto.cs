@@ -138,6 +138,7 @@ public class SignAuthorityZoneDataDto
 {
     public int? ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;
+    public string ZoneNo { get; set; } = string.Empty;
     public int? WardId { get; set; }
     public string? WardName { get; set; }
     public int TotalStructure { get; set; }

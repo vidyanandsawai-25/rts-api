@@ -36,8 +36,7 @@ public interface IAutomationDashboardRepository
     /// Gets Assessment stage properties that have not yet entered the signature approval table.
     /// </summary>
     Task<SubGridDataProjection> GetPendingAssessmentPropsAsync(
-        int? pageNumber,
-        int? pageSize,
+        SubGridFilterRequestDto query,
         CancellationToken cancellationToken = default);
 
     /// <summary>

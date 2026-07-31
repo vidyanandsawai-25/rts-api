@@ -406,7 +406,13 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         // 3. Populate per-zone data
         foreach (var zone in zones)
         {
-            var zoneData = await GetZoneSignAuthorityDataAsync(zone.Id, zone.Description ?? zone.ZoneNo, authorities, searchRequest, cancellationToken);
+            var zoneData = await GetZoneSignAuthorityDataAsync(
+                zone.Id,
+                zone.Description ?? zone.ZoneNo,
+                zone.ZoneNo,
+                authorities,
+                searchRequest,
+                cancellationToken);
             result.ZoneData.Add(zoneData);
         }
 
@@ -426,7 +432,13 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             var allZoneData = new List<SignAuthorityZoneDataDto>();
             foreach (var zone in allZones)
             {
-                var zoneData = await GetZoneSignAuthorityDataAsync(zone.Id, zone.Description ?? zone.ZoneNo, authorities, null, cancellationToken);
+                var zoneData = await GetZoneSignAuthorityDataAsync(
+                    zone.Id,
+                    zone.Description ?? zone.ZoneNo,
+                    zone.ZoneNo,
+                    authorities,
+                    null,
+                    cancellationToken);
                 allZoneData.Add(zoneData);
             }
             result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
@@ -463,6 +475,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         }
 
         var zoneName = zone.Description ?? zone.ZoneNo;
+        var zoneNo = zone.ZoneNo;
 
         // 3. Get active wards for this zone
         var wards = await _context.WardMaster
@@ -478,6 +491,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             var wardData = await GetWardSignAuthorityDataAsync(
                 zoneId,
                 zoneName,
+                zoneNo,
                 ward.Id,
                 ward.Description ?? ward.WardNo,
                 authorities,
@@ -499,7 +513,13 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         var allZoneData = new List<SignAuthorityZoneDataDto>();
         foreach (var z in allZones)
         {
-            var zData = await GetZoneSignAuthorityDataAsync(z.Id, z.Description ?? z.ZoneNo, authorities, null, cancellationToken);
+            var zData = await GetZoneSignAuthorityDataAsync(
+                z.Id,
+                z.Description ?? z.ZoneNo,
+                z.ZoneNo,
+                authorities,
+                null,
+                cancellationToken);
             allZoneData.Add(zData);
         }
         result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
@@ -510,6 +530,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
     private async Task<SignAuthorityZoneDataDto> GetWardSignAuthorityDataAsync(
         int zoneId,
         string zoneName,
+        string zoneNo,
         int wardId,
         string wardName,
         List<SignAuthorityMasterEntity> authorities,
@@ -519,6 +540,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         {
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             WardId = wardId,
             WardName = wardName
         };
@@ -628,6 +650,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
     private async Task<SignAuthorityZoneDataDto> GetZoneSignAuthorityDataAsync(
         int zoneId,
         string zoneName,
+        string zoneNo,
         List<SignAuthorityMasterEntity> authorities,
         PropertySearchRequestDto? searchRequest,
         CancellationToken cancellationToken)
@@ -641,7 +664,8 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         var zoneData = new SignAuthorityZoneDataDto
         {
             ZoneId = zoneId,
-            ZoneName = zoneName
+            ZoneName = zoneName,
+            ZoneNo = zoneNo
         };
 
         if (!wardIds.Any())

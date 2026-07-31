@@ -27,6 +27,11 @@ public class SubGridPDDataDto
     public string ZoneName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Zone number from ZoneMaster.
+    /// </summary>
+    public string ZoneNo { get; set; } = string.Empty;
+
+    /// <summary>
     /// Ward ID when the sub-grid is scoped ward-wise.
     /// </summary>
     public int? WardId { get; set; }
@@ -56,6 +61,16 @@ public class SubGridPropertyDetailsDto
     /// Property ID
     /// </summary>
     public int PropertyId { get; set; }
+
+    /// <summary>
+    /// Ward ID linked with the property.
+    /// </summary>
+    public int WardId { get; set; }
+
+    /// <summary>
+    /// Ward number linked with the property.
+    /// </summary>
+    public string WardNo { get; set; } = string.Empty;
 
     /// <summary>
     /// Formatted Property Number (WardNo-PropertyNo-PartitionNo)
@@ -150,6 +165,8 @@ public class PendingAssessmentSubGridPDDataDto
     public int ZoneId { get; set; }
 
     public string ZoneName { get; set; } = string.Empty;
+
+    public string ZoneNo { get; set; } = string.Empty;
 
     public int? WardId { get; set; }
 

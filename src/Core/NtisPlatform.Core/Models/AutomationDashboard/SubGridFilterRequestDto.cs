@@ -17,4 +17,12 @@ public sealed class SubGridFilterRequestDto
     public int? PropertyTypeId { get; set; }
 
     public int? AssessmentTypeId { get; set; }
+
+    public int? SurveyTypeId { get; set; }
+
+    public string? ZoneNo { get; set; }
+
+    public string? WardNo { get; set; }
+
+    public string? SearchTerm { get; set; }
 }

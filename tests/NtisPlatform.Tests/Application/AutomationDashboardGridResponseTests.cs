@@ -121,12 +121,14 @@ public class AutomationDashboardGridResponseTests
                 WorkflowStageName = "GeoSequencing",
                 ZoneId = 14,
                 ZoneName = "Zone 14",
+                ZoneNo = "Z14",
                 TotalCount = 1,
                 Properties = new List<SubGridPropertyProjection>
                 {
                     new()
                     {
                         Id = 100,
+                        WardId = 21,
                         WardNo = "D18",
                         PropertyNo = "3",
                         PartitionNo = "",
@@ -142,6 +144,9 @@ public class AutomationDashboardGridResponseTests
         var result = await service.GetSubGridDataAsync(new SubGridQueryParameters { ZoneId = 14, WorkflowStageId = 1 }, CancellationToken.None);
 
         var property = result.Properties.Single();
+        Assert.Equal("Z14", result.ZoneNo);
+        Assert.Equal(21, property.WardId);
+        Assert.Equal("D18", property.WardNo);
         Assert.Equal("A Wing", property.WingName);
         Assert.IsNotType<PendingAssessmentSubGridPropertyDetailsDto>(property);
     }
@@ -153,14 +158,49 @@ public class AutomationDashboardGridResponseTests
         var repository = new Mock<IAutomationDashboardRepository>();
         repository.Setup(x => x.GetSubGridDataAsync(It.IsAny<SubGridFilterRequestDto>(), It.IsAny<CancellationToken>()))
             .Callback<SubGridFilterRequestDto, CancellationToken>((query, _) => capturedQuery = query)
-            .ReturnsAsync(new SubGridDataProjection());
+            .ReturnsAsync(new SubGridDataProjection { ZoneNo = "Z14" });
         var service = CreateAutomationDashboardService(repository.Object);
 
-        await service.GetWardSubGridDataAsync(new WardSubGridQueryParameters { WardId = 21, WorkflowStageId = 1 }, CancellationToken.None);
+        var result = await service.GetWardSubGridDataAsync(new WardSubGridQueryParameters { WardId = 21, WorkflowStageId = 1 }, CancellationToken.None);
 
         Assert.NotNull(capturedQuery);
         Assert.Equal(21, capturedQuery!.WardId);
         Assert.Null(capturedQuery.ZoneId);
+        Assert.Equal("Z14", result.ZoneNo);
+    }
+
+    [Fact]
+    public async Task GetPendingAssessmentPropsAsync_PassesFilterParameters()
+    {
+        SubGridFilterRequestDto? capturedQuery = null;
+        var repository = new Mock<IAutomationDashboardRepository>();
+        repository.Setup(x => x.GetPendingAssessmentPropsAsync(It.IsAny<SubGridFilterRequestDto>(), It.IsAny<CancellationToken>()))
+            .Callback<SubGridFilterRequestDto, CancellationToken>((query, _) => capturedQuery = query)
+            .ReturnsAsync(new SubGridDataProjection { ZoneNo = "Z14" });
+        var service = CreateAutomationDashboardService(repository.Object);
+
+        var result = await service.GetPendingAssessmentPropsAsync(
+            new PendingAssessmentQueryParameters
+            {
+                PageNumber = 2,
+                PageSize = 25,
+                SearchTerm = "D11-115",
+                SurveyTypeId = 1,
+                ZoneNo = "Z14",
+                WardNo = "D11",
+                PropertyTypeId = 3
+            },
+            CancellationToken.None);
+
+        Assert.NotNull(capturedQuery);
+        Assert.Equal(2, capturedQuery!.PageNumber);
+        Assert.Equal(25, capturedQuery.PageSize);
+        Assert.Equal("D11-115", capturedQuery.SearchTerm);
+        Assert.Equal(1, capturedQuery.SurveyTypeId);
+        Assert.Equal("Z14", capturedQuery.ZoneNo);
+        Assert.Equal("D11", capturedQuery.WardNo);
+        Assert.Equal(3, capturedQuery.PropertyTypeId);
+        Assert.Equal("Z14", result.ZoneNo);
     }
 
     private static AutomationDashboardService CreateAutomationDashboardService(IAutomationDashboardRepository repository)

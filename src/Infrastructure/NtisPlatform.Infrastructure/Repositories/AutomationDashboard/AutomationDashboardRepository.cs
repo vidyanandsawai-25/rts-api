@@ -76,24 +76,25 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         var stageIds = stages.Select(s => s.Id).ToList();
         var propertiesBaseQuery = _context.PropertyMast
             .AsNoTracking()
-            .Where(p => p.IsActive && !p.MarkedForDeletion && p.PropertyNo != null && p.PropertyNo != "");
+            .Where(p => p.IsActive && !p.MarkedForDeletion);
 
-        propertiesBaseQuery = ApplyDashboardFilters(propertiesBaseQuery, searchRequest);
+        propertiesBaseQuery = ApplyMainGridPropertyTypeFilters(propertiesBaseQuery, searchRequest);
 
         var countsByStageId = await (
             from d in _context.PropertyWorkflowDetails.AsNoTracking()
             join p in propertiesBaseQuery on d.PropertyId equals p.Id
-            join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
-            from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            where d.IsActive && stageIds.Contains(d.WorkflowStageId)
+            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+            where stageIds.Contains(d.WorkflowStageId)
+                  && w.IsActive
+                  && z.IsActive
+                  && (searchRequest == null || !searchRequest.ZoneId.HasValue || w.ZoneId == searchRequest.ZoneId.Value)
+                  && (searchRequest == null || !searchRequest.WardId.HasValue || p.WardId == searchRequest.WardId.Value)
             select new
             {
                 d.WorkflowStageId,
                 PropertyId = p.Id,
-                IsUnitOnly = pc != null
-                             && pc.PropertyCategoryName == ApartmentCategoryName
-                             && p.PartitionNo != null
-                             && p.PartitionNo.Trim() != ""
+                p.PartitionNo
             }
         )
         .Distinct()
@@ -102,12 +103,12 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         {
             StageId = g.Key,
             PropertyCount = g.Count(),
-            UnitCount = g.Count(x => x.IsUnitOnly)
+            StructureCount = g.Count(x => x.PartitionNo == null || x.PartitionNo.Trim() == "")
         })
         .ToDictionaryAsync(x => x.StageId, x => new
         {
-            StructureCount = x.PropertyCount - x.UnitCount,
-            x.UnitCount
+            x.StructureCount,
+            UnitCount = x.PropertyCount
         }, cancellationToken);
 
         var cards = new List<WorkflowStageCardDto>(stages.Count);
@@ -315,6 +316,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         }
 
         var zoneName = "All Zones";
+        var zoneNo = string.Empty;
         int? resolvedWardId = null;
         string? resolvedWardNo = null;
 
@@ -331,7 +333,8 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                     WardId = w.Id,
                     WardNo = w.WardNo,
                     ZoneId = z.Id,
-                    ZoneName = z.Description ?? z.ZoneNo
+                    ZoneName = z.Description ?? z.ZoneNo,
+                    ZoneNo = z.ZoneNo
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -349,6 +352,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             {
                 zoneId = ward.ZoneId;
                 zoneName = ward.ZoneName;
+                zoneNo = ward.ZoneNo;
             }
         }
 
@@ -357,7 +361,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             var zone = await _context.ZoneMaster
                 .AsNoTracking()
                 .Where(z => z.IsActive && z.Id == selectedZoneId)
-                .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo })
+                .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo, z.ZoneNo })
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (zone == null)
@@ -368,6 +372,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 };
 
             zoneName = zone.ZoneName;
+            zoneNo = zone.ZoneNo;
         }
 
         var propertyQuery = from pm in _context.PropertyMast.AsNoTracking()
@@ -418,6 +423,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 WorkflowStageName = workflowStageName,
                 ZoneId = zoneId.GetValueOrDefault(),
                 ZoneName = zoneName,
+                ZoneNo = zoneNo,
                 WardId = resolvedWardId,
                 WardNo = resolvedWardNo,
                 TotalCount = 0
@@ -435,6 +441,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             workflowStageName,
             zoneId.GetValueOrDefault(),
             zoneName,
+            zoneNo,
             resolvedWardId,
             resolvedWardNo,
             totalCount,
@@ -539,9 +546,11 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         };
     }
 
-    public async Task<SubGridDataProjection> GetPendingAssessmentPropsAsync(int? pageNumber,int? pageSize, CancellationToken cancellationToken = default)
+    public async Task<SubGridDataProjection> GetPendingAssessmentPropsAsync(
+        SubGridFilterRequestDto query,
+        CancellationToken cancellationToken = default)
     {
-        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(pageNumber, pageSize);
+        var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
 
         var workflowStage = await _context.PropertyWorkflowStageMaster
             .AsNoTracking()
@@ -552,17 +561,155 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         if (workflowStage == null)
             return new SubGridDataProjection();
 
-        var propertyIdsQuery = (
+        var zoneName = "All Zones";
+        var zoneNo = string.Empty;
+        int? zoneId = query.ZoneId;
+        int? wardId = query.WardId;
+        string? wardNo = null;
+
+        if (!string.IsNullOrWhiteSpace(query.ZoneNo) && (!zoneId.HasValue || zoneId.Value <= 0))
+        {
+            var zoneByNo = await _context.ZoneMaster
+                .AsNoTracking()
+                .Where(z => z.IsActive && z.ZoneNo == query.ZoneNo.Trim())
+                .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo, z.ZoneNo })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (zoneByNo == null)
+                return CreateEmptyPendingAssessmentSnapshot(workflowStage.Id, workflowStage.StageName);
+
+            zoneId = zoneByNo.Id;
+            zoneName = zoneByNo.ZoneName;
+            zoneNo = zoneByNo.ZoneNo;
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.WardNo) && (!wardId.HasValue || wardId.Value <= 0))
+        {
+            var wardByNo = await _context.WardMaster
+                .AsNoTracking()
+                .Where(w => w.IsActive && w.WardNo == query.WardNo.Trim())
+                .Select(w => new { w.Id })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (wardByNo == null)
+                return CreateEmptyPendingAssessmentSnapshot(workflowStage.Id, workflowStage.StageName);
+
+            wardId = wardByNo.Id;
+        }
+
+        if (wardId is int selectedWardId && selectedWardId > 0)
+        {
+            var ward = await (
+                from w in _context.WardMaster.AsNoTracking()
+                join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+                where w.IsActive && z.IsActive && w.Id == selectedWardId
+                select new
+                {
+                    WardId = w.Id,
+                    WardNo = w.WardNo,
+                    ZoneId = z.Id,
+                    ZoneName = z.Description ?? z.ZoneNo,
+                    z.ZoneNo
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (ward == null)
+                return CreateEmptyPendingAssessmentSnapshot(workflowStage.Id, workflowStage.StageName);
+
+            wardId = ward.WardId;
+            wardNo = ward.WardNo;
+
+            if (!zoneId.HasValue || zoneId.Value <= 0)
+            {
+                zoneId = ward.ZoneId;
+                zoneName = ward.ZoneName;
+                zoneNo = ward.ZoneNo;
+            }
+        }
+
+        if (zoneId is int selectedZoneId && selectedZoneId > 0)
+        {
+            var zone = await _context.ZoneMaster
+                .AsNoTracking()
+                .Where(z => z.IsActive && z.Id == selectedZoneId)
+                .Select(z => new { z.Id, ZoneName = z.Description ?? z.ZoneNo, z.ZoneNo })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (zone == null)
+                return CreateEmptyPendingAssessmentSnapshot(workflowStage.Id, workflowStage.StageName);
+
+            zoneName = zone.ZoneName;
+            zoneNo = zone.ZoneNo;
+        }
+
+        var propertyQuery =
             from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
             join pm in _context.PropertyMast.AsNoTracking() on pwd.PropertyId equals pm.Id
+            join w in _context.WardMaster.AsNoTracking() on pm.WardId equals w.Id
+            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
             where pwd.WorkflowStageId == workflowStage.Id
                   && pwd.IsActive
                   && pm.IsActive
                   && !pm.MarkedForDeletion
+                  && w.IsActive
+                  && z.IsActive
                   && !_context.PropertySignatureDetails.AsNoTracking()
                       .Any(sig => sig.IsActive && sig.PropertyId == pm.Id)
-            select pm.Id
-        ).Distinct();
+            select new SubGridPropertyFilterProjection
+            {
+                PropertyId = pm.Id,
+                PropertyAssessmentStatusId = pm.PropertyAssessmentStatusId,
+                WardId = pm.WardId,
+                WardNo = w.WardNo,
+                PropertyTypeId = pm.PropertyTypeId,
+                ZoneId = w.ZoneId,
+                ZoneNo = z.ZoneNo,
+                IsPropertyOpenPlot = pm.OpenPlot == true,
+                PropertyNo = pm.PropertyNo,
+                OwnerName = pm.OwnerName,
+                OccupierName = pm.OccupierName,
+                MobileNo = pm.MobileNo,
+                Address = pm.Address,
+                UPICId = pm.UPICId
+            };
+
+        if (zoneId is int filterZoneId && filterZoneId > 0)
+            propertyQuery = propertyQuery.Where(p => p.ZoneId == filterZoneId);
+
+        if (!string.IsNullOrWhiteSpace(query.ZoneNo))
+        {
+            var filterZoneNo = query.ZoneNo.Trim();
+            propertyQuery = propertyQuery.Where(p => p.ZoneNo == filterZoneNo);
+        }
+
+        if (wardId is int filterWardId && filterWardId > 0)
+            propertyQuery = propertyQuery.Where(p => p.WardId == filterWardId);
+
+        if (!string.IsNullOrWhiteSpace(query.WardNo))
+        {
+            var filterWardNo = query.WardNo.Trim();
+            propertyQuery = propertyQuery.Where(p => p.WardNo == filterWardNo);
+        }
+
+        if (query.PropertyTypeId is int propertyTypeId && propertyTypeId > 0)
+            propertyQuery = propertyQuery.Where(p => p.PropertyTypeId == propertyTypeId);
+
+        if (query.SurveyTypeId is int surveyTypeId && surveyTypeId > 0)
+            propertyQuery = propertyQuery.Where(p => p.PropertyAssessmentStatusId == surveyTypeId);
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var searchTerm = query.SearchTerm.Trim();
+            propertyQuery = propertyQuery.Where(p =>
+                (p.PropertyNo != null && p.PropertyNo.Contains(searchTerm))
+                || (p.OwnerName != null && p.OwnerName.Contains(searchTerm))
+                || (p.OccupierName != null && p.OccupierName.Contains(searchTerm))
+                || (p.MobileNo != null && p.MobileNo.Contains(searchTerm))
+                || (p.Address != null && p.Address.Contains(searchTerm))
+                || (p.UPICId != null && p.UPICId.Contains(searchTerm)));
+        }
+
+        var propertyIdsQuery = propertyQuery.Select(p => p.PropertyId).Distinct();
 
         var totalCount = await propertyIdsQuery.CountAsync(cancellationToken);
         var pagePropertyIds = await propertyIdsQuery
@@ -574,20 +721,30 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return await FetchSubGridPropertyDetailsAsync(
             workflowStage.Id,
             workflowStage.StageName,
-            0,
-            "All Zones",
-            null,
-            null,
+            zoneId.GetValueOrDefault(),
+            zoneName,
+            zoneNo,
+            wardId,
+            wardNo,
             totalCount,
             pagePropertyIds,
             cancellationToken);
     }
+
+    private static SubGridDataProjection CreateEmptyPendingAssessmentSnapshot(int workflowStageId, string workflowStageName)
+        => new()
+        {
+            WorkflowStageId = workflowStageId,
+            WorkflowStageName = workflowStageName,
+            TotalCount = 0
+        };
 
     private async Task<SubGridDataProjection> FetchSubGridPropertyDetailsAsync(
         int workflowStageId,
         string workflowStageName,
         int zoneId,
         string zoneName,
+        string zoneNo,
         int? wardId,
         string? wardNo,
         int totalCount,
@@ -601,6 +758,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 WorkflowStageName = workflowStageName,
                 ZoneId = zoneId,
                 ZoneName = zoneName,
+                ZoneNo = zoneNo,
                 WardId = wardId,
                 WardNo = wardNo,
                 TotalCount = totalCount
@@ -632,7 +790,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 t => new { Description = t.PropertyDescription, Type = t.Type ?? "" },
                 cancellationToken);
 
-        var wingNamesByPropertyId = await (
+        var wingNameRows = await (
             from society in _context.SocietyDetailsMast.AsNoTracking()
             join wing in _context.WingEntity.AsNoTracking().Where(w => w.IsActive)
                 on society.WingId equals wing.Id into wingJoin
@@ -649,11 +807,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                     : wing != null ? wing.WingNo : null
             })
             .Where(x => !string.IsNullOrWhiteSpace(x.WingName))
+            .ToListAsync(cancellationToken);
+
+        var wingNamesByPropertyId = wingNameRows
             .GroupBy(x => x.PropertyId)
-            .ToDictionaryAsync(
+            .ToDictionary(
                 g => g.Key,
-                g => g.Select(x => x.WingName!).First(),
-                cancellationToken);
+                g => g.Select(x => x.WingName!).First());
 
         var properties = propertyEntities.Select(pm =>
         {
@@ -664,6 +824,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             return new SubGridPropertyProjection
             {
                 Id = pm.Id,
+                WardId = pm.WardId,
                 WardNo = pm.Ward?.WardNo ?? "",
                 PropertyNo = pm.PropertyNo,
                 PartitionNo = pm.PartitionNo,
@@ -687,6 +848,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
                 WorkflowStageName = workflowStageName,
                 ZoneId = zoneId,
                 ZoneName = zoneName,
+                ZoneNo = zoneNo,
                 TotalCount = totalCount
             };
 
@@ -879,6 +1041,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             WorkflowStageName = workflowStageName,
             ZoneId = zoneId,
             ZoneName = zoneName,
+            ZoneNo = zoneNo,
             WardId = wardId,
             WardNo = wardNo,
             TotalCount = totalCount,
@@ -911,8 +1074,16 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         public int PropertyId { get; set; }
         public int? PropertyAssessmentStatusId { get; set; }
         public int WardId { get; set; }
+        public string? WardNo { get; set; }
         public int? PropertyTypeId { get; set; }
         public int ZoneId { get; set; }
+        public string? ZoneNo { get; set; }
         public bool IsPropertyOpenPlot { get; set; }
+        public string? PropertyNo { get; set; }
+        public string? OwnerName { get; set; }
+        public string? OccupierName { get; set; }
+        public string? MobileNo { get; set; }
+        public string? Address { get; set; }
+        public string? UPICId { get; set; }
     }
 }

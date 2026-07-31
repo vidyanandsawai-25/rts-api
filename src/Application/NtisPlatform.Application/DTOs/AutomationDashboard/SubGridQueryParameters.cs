@@ -61,3 +61,36 @@ public sealed class WardSubGridQueryParameters
         set => _pageSize = value == -1 ? -1 : (value > MaxPageSize ? MaxPageSize : (value < 1 ? 10 : value));
     }
 }
+
+public sealed class PendingAssessmentQueryParameters
+{
+    public string? SearchTerm { get; set; }
+
+    public int? SurveyTypeId { get; set; }
+
+    public int? ZoneId { get; set; }
+
+    public string? ZoneNo { get; set; }
+
+    public int? WardId { get; set; }
+
+    public string? WardNo { get; set; }
+
+    public int? PropertyTypeId { get; set; }
+
+    private int _pageNumber = 1;
+    private int _pageSize = 10;
+    private const int MaxPageSize = 100;
+
+    public int PageNumber
+    {
+        get => _pageNumber;
+        set => _pageNumber = value < 1 ? 1 : value;
+    }
+
+    public int PageSize
+    {
+        get => _pageSize;
+        set => _pageSize = value == -1 ? -1 : (value > MaxPageSize ? MaxPageSize : (value < 1 ? 10 : value));
+    }
+}

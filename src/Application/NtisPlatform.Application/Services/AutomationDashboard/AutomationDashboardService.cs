@@ -123,13 +123,24 @@ namespace NtisPlatform.Application.Services
         }
 
         public Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentPropsAsync(
-            int? pageNumber,
-            int? pageSize,
+            PendingAssessmentQueryParameters queryParameters,
             CancellationToken cancellationToken = default)
-            => GetPendingAssessmentSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(
-                pageNumber,
-                pageSize,
-                cancellationToken));
+        {
+            var query = new SubGridFilterRequestDto
+            {
+                PageNumber = queryParameters.PageNumber,
+                PageSize = queryParameters.PageSize,
+                SearchTerm = queryParameters.SearchTerm,
+                SurveyTypeId = queryParameters.SurveyTypeId,
+                ZoneId = queryParameters.ZoneId,
+                ZoneNo = queryParameters.ZoneNo,
+                WardId = queryParameters.WardId,
+                WardNo = queryParameters.WardNo,
+                PropertyTypeId = queryParameters.PropertyTypeId
+            };
+
+            return GetPendingAssessmentSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(query, cancellationToken));
+        }
 
         private async Task<SubGridPDDataDto> GetSubGridResponseAsync(
             Func<Task<SubGridDataProjection>> fetchSnapshot)
@@ -151,6 +162,7 @@ namespace NtisPlatform.Application.Services
                 WorkflowStageName = snapshot.WorkflowStageName,
                 ZoneId = snapshot.ZoneId,
                 ZoneName = snapshot.ZoneName,
+                ZoneNo = snapshot.ZoneNo,
                 WardId = snapshot.WardId,
                 WardNo = snapshot.WardNo,
                 Properties = propertyDtos,
@@ -170,6 +182,7 @@ namespace NtisPlatform.Application.Services
                 WorkflowStageName = snapshot.WorkflowStageName,
                 ZoneId = snapshot.ZoneId,
                 ZoneName = snapshot.ZoneName,
+                ZoneNo = snapshot.ZoneNo,
                 WardId = snapshot.WardId,
                 WardNo = snapshot.WardNo,
                 Properties = propertyDtos,
@@ -190,6 +203,8 @@ namespace NtisPlatform.Application.Services
                     return new PendingAssessmentSubGridPropertyDetailsDto
                     {
                         PropertyId = property.PropertyId,
+                        WardId = property.WardId,
+                        WardNo = property.WardNo,
                         PropertyNo = property.PropertyNo,
                         Category = property.Category,
                         PropertyDescription = property.PropertyDescription,
@@ -298,6 +313,8 @@ namespace NtisPlatform.Application.Services
                 var property = new SubGridPropertyDetailsDto
                 {
                     PropertyId = p.Id,
+                    WardId = p.WardId,
+                    WardNo = p.WardNo,
                     PropertyNo = propertyNo,
                     Category = p.CategoryName,
                     PropertyDescription = p.TypeDescription,

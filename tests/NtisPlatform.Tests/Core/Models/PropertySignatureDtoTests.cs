@@ -40,4 +40,12 @@ public class PropertySignatureDtoTests
         Assert.NotNull(dto.SignedAuthorityIds);
         Assert.Empty(dto.SignedAuthorityIds);
     }
+
+    [Fact]
+    public void SignAuthorityZoneDataDto_DefaultsZoneNoToEmptyString()
+    {
+        var dto = new SignAuthorityZoneDataDto();
+
+        Assert.Equal(string.Empty, dto.ZoneNo);
+    }
 }
