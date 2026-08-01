@@ -49,8 +49,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
             .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
+            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore());
 
         // ── Update DTO → Entity ──────────────────────────────────────
         CreateMap<UpdatePropertyDetailsDto, PropertyDetailsEntity>()
@@ -72,8 +71,7 @@ public class DataEntryMappingProfile : Profile
             .ForMember(dest => dest.RoomWiseSubmissionDetails, opt => opt.Ignore())
             .ForMember(dest => dest.PropertyTaxCalculationCVResults, opt => opt.Ignore())
             .ForMember(dest => dest.RVCalculationResults, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore())
-            .ForMember(dest => dest.PropertyOccupancyDetails, opt => opt.Ignore());
+            .ForMember(dest => dest.PropertyTaxCalculationSection129Results, opt => opt.Ignore());
 
         // ── Entity → Update DTO ──────────────────────────────────────
         CreateMap<PropertyDetailsEntity, UpdatePropertyDetailsDto>()

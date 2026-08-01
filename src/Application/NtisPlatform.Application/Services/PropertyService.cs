@@ -437,13 +437,11 @@ public partial class PropertyService
         if (propertyDetailIds.Count > 0)
         {
             // PropertyDetailsId list queries: For entities with ONLY PropertyDetailsId column (no PropertyId)
-            var propertyOccupancy = await _propertyRepository.GetPropertyOccupancyByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
             var renters = await _propertyRepository.GetRentersByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
             var renterDetails = await _propertyRepository.GetRenterDetailsByPropertyDetailIdsAsync(propertyDetailIds, cancellationToken);
 
             // Call 3 of 4: Mark all PropertyDetailsId-related entities in a single call
-            var allPropertyDetailsIdEntities = propertyOccupancy.Cast<IHardDeletable>()
-                .Concat(renters)
+            var allPropertyDetailsIdEntities = renters.Cast<IHardDeletable>()
                 .Concat(renterDetails);
             _propertyRepository.MarkEntitiesForDeletion(allPropertyDetailsIdEntities);
         }

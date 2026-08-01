@@ -35,7 +35,6 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<RVCalculationTaxDetailsEntity, int>> _taxDetailsRepo;
     private readonly Mock<IRepository<PolicyTaxDetailsEntity, int>> _policyTaxRepo;
     private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
-    private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
     private readonly Mock<IRepository<TransMastEntity, int>> _transmastRVRepo;
@@ -56,7 +55,6 @@ public class RateableValueServiceTests
         _taxDetailsRepo = new Mock<IRepository<RVCalculationTaxDetailsEntity, int>>();
         _policyTaxRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
         _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
-        _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
         _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
         _transmastRVRepo = new Mock<IRepository<TransMastEntity, int>>();
@@ -161,7 +159,6 @@ public class RateableValueServiceTests
 
                 var assessment = _propertyAssessmentRepo.Object.GetQueryable().FirstOrDefault(x => x.PropertyId == propId);
                 var renters = _renterRepo.Object.GetQueryable().ToList();
-                var occupancies = _occupancyRepo.Object.GetQueryable().ToList();
 
                 var constructionYear = details.FirstOrDefault()?.ConstructionYear;
                 if (string.IsNullOrWhiteSpace(constructionYear))
@@ -185,7 +182,6 @@ public class RateableValueServiceTests
                     PropertyAssessment = assessment,
                     Details = details,
                     Renters = renters,
-                    Occupancies = occupancies,
                     Parameters = new PropertyCalculationParameters
                     {
                         FinanceYear = finYear,
@@ -1184,9 +1180,6 @@ public class RateableValueServiceTests
 
         _renterRepo.Setup(r => r.GetQueryable()).Returns(
             new List<RenterMastEntity>().BuildMockDbSet().Object);
-
-        _occupancyRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
 
         _taxResultsRepo.Setup(r => r.GetQueryable()).Returns(
             new List<RVCalculationResultsEntity>().BuildMockDbSet().Object);

@@ -34,7 +34,7 @@ namespace NtisPlatform.Application.Services.Rules
     /// 1. Parallel-fetch property, assessment, social details, and property details.<br/>
     /// 2. Validate required data (property exists, details present, construction year parseable).<br/>
     /// 3. Resolve the applicable assessment year range.<br/>
-    /// 4. Sequential-fetch renter and occupancy child collections.<br/>
+    /// 4. Sequential-fetch renter and certificate child collections.<br/>
     /// 5. Assemble and return a fully populated <see cref="PropertyCalculationContext"/>.
     /// </para>
     /// </summary>
@@ -53,7 +53,6 @@ namespace NtisPlatform.Application.Services.Rules
         private readonly IRepository<PropertyAssessmentEntity, int> _propertyAssessmentRepo;
         private readonly IRepository<PropertySocialDetailsEntity, int> _propertySocialDetailsRepo;
         private readonly IRepository<RenterMastEntity, int> _renterRepo;
-        private readonly IRepository<PropertyOccupancyDetailsEntity, int> _occupancyRepo;
         private readonly IRepository<PropertyCertificateEntity, int> _propertyCertificateRepo;
         private readonly ITaxMasterDataService _masterDataService;
         private readonly IFinanceYearProvider _financeYearProvider;
@@ -70,7 +69,6 @@ namespace NtisPlatform.Application.Services.Rules
             IRepository<PropertyAssessmentEntity, int> propertyAssessmentRepo,
             IRepository<PropertySocialDetailsEntity, int> propertySocialDetailsRepo,
             IRepository<RenterMastEntity, int> renterRepo,
-            IRepository<PropertyOccupancyDetailsEntity, int> occupancyRepo,
             IRepository<PropertyCertificateEntity, int> propertyCertificateRepo,
             ITaxMasterDataService masterDataService,
             IFinanceYearProvider financeYearProvider,
@@ -85,7 +83,6 @@ namespace NtisPlatform.Application.Services.Rules
             _propertyAssessmentRepo = propertyAssessmentRepo;
             _propertySocialDetailsRepo = propertySocialDetailsRepo;
             _renterRepo = renterRepo;
-            _occupancyRepo = occupancyRepo;
             _propertyCertificateRepo = propertyCertificateRepo;
             _masterDataService = masterDataService;
             _financeYearProvider = financeYearProvider;
@@ -281,11 +278,6 @@ namespace NtisPlatform.Application.Services.Rules
                 .Where(x => detailIds.Contains(x.PropertyDetailsId) && x.IsActive && !x.MarkedForDeletion)
                 .ToListAsync(cancellationToken);
 
-            var occupancies = await _occupancyRepo.GetQueryable()
-                .AsNoTracking()
-                .Where(x => detailIds.Contains(x.PropertyDetailId) && x.IsActive && !x.MarkedForDeletion)
-                .ToListAsync(cancellationToken);
-
             var certificates = (await _propertyCertificateRepo.GetQueryable()
                 .Include(pc => pc.CertificateType)
                 .AsNoTracking()
@@ -350,7 +342,6 @@ namespace NtisPlatform.Application.Services.Rules
                 PropertyAssessment = assessment,
                 Details = details,
                 Renters = renters,
-                Occupancies = occupancies,
                 Certificates = certificates,
                 YearRanges = yearRanges,
                 DetailYearRangeRVIdMap = detailYearRangeRVIdMap,

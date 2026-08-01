@@ -24,7 +24,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IReadOnlyList<SubTypeOfUseEntity> subTypeOfUses,
             IReadOnlyList<SubFloorEntity> subFloors,
             IReadOnlyList<RenterMastEntity> renters,
-            IReadOnlyList<PropertyOccupancyDetailsEntity> occupancies,
             IReadOnlyList<PropertyCertificateEntity> certificates,
             TaxGetterCache<TaxMasterEntity> taxMasterCache)
         {
@@ -45,11 +44,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 .GroupBy(x => x.PropertyDetailsId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedDate).FirstOrDefault());
 
-
-            var occupancyMap = occupancies
-                .Where(x => x.IsActive && !x.MarkedForDeletion)
-                .GroupBy(x => x.PropertyDetailId)
-                .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedDate).FirstOrDefault());
 
             var certificateMap = certificates
                 .Where(x => x.PropertyDetailsId.HasValue && x.IsActive && !x.MarkedForDeletion)
@@ -73,7 +67,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     var first = resultsForDetail.FirstOrDefault();
 
                     var renter = renterMap.TryGetValue(detail.Id, out var r) ? r : null;
-                    var occupancy = occupancyMap.TryGetValue(detail.Id, out var o) ? o : null;
                     var certificate = certificateMap.TryGetValue(detail.Id, out var cert) ? cert : null;
 
                     // Get all tax details for this detail's results rows
@@ -114,10 +107,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         CarpetAreaSqMeter = detail.CarpetAreaSqMeter ?? 0d,
                         BuiltupAreaSqFeet = detail.BuiltupAreaSqFeet ?? 0d,
                         BuiltupAreaSqMeter = detail.BuiltupAreaSqMeter ?? 0d,
-                        OccupancyNumber = !string.IsNullOrWhiteSpace(certificate?.CertificateNo)
-                            ? certificate!.CertificateNo!
-                            : (occupancy?.OccupancyNumber ?? string.Empty),
-                        OccupancyDate = occupancy?.OccupancyDate,
+                        OccupancyNumber = certificate?.CertificateNo ?? string.Empty,
+                        OccupancyDate = certificate?.IssueDate,
                         RenterName = !string.IsNullOrWhiteSpace(renter?.RenterNameEnglish)
                             ? renter.RenterNameEnglish!
                             : (renter?.RenterName ?? string.Empty),

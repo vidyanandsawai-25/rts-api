@@ -995,9 +995,6 @@ public class PropertyServiceTests
         _mockPropertyRepository.Setup(r => r.GetSection129ResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PropertyTaxCalculationSection129ResultsEntity>());
 
-        _mockPropertyRepository.Setup(r => r.GetPropertyOccupancyByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyOccupancyDetailsEntity>());
-
         _mockPropertyRepository.Setup(r => r.GetRentersByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<RenterMastEntity>());
 

@@ -98,11 +98,6 @@ public class PropertyDetailsEntity : BaseEntity, IHardDeletable
     /// Collection of room-wise submission details associated with this property detail
     /// </summary>
     public virtual ICollection<RoomWiseSubmissionDetailsEntity> RoomWiseSubmissionDetails { get; set; } = new List<RoomWiseSubmissionDetailsEntity>();
-    /// <summary>
-    /// Collection of Property Occupancy Details associated with this property detail
-    /// </summary>
-    public virtual ICollection<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = new List<PropertyOccupancyDetailsEntity>();
-
 
 
 }

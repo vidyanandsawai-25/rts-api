@@ -69,9 +69,6 @@ public class PropertyServiceDeletionTests
         _mockPropertyRepository.Setup(r => r.GetSection129ResultsByPropertyIdAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<PropertyTaxCalculationSection129ResultsEntity>());
 
-        _mockPropertyRepository.Setup(r => r.GetPropertyOccupancyByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<PropertyOccupancyDetailsEntity>());
-
         _mockPropertyRepository.Setup(r => r.GetRentersByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<RenterMastEntity>());
 
@@ -242,7 +239,6 @@ public class PropertyServiceDeletionTests
         _mockPropertyRepository.Verify(r => r.GetRoomWiseSubmissionByPropertyIdAsync(propertyId, It.IsAny<CancellationToken>()), Times.Once);
 
         // Verify PropertyDetailsId-based queries are NOT called (optimization - these entities require PropertyDetails to exist)
-        _mockPropertyRepository.Verify(r => r.GetPropertyOccupancyByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPropertyRepository.Verify(r => r.GetRentersByPropertyDetailIdsAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

@@ -1049,17 +1049,6 @@ public class PropertyRepository : Repository<PropertyEntity, int>, IPropertyRepo
     #region Entities with ONLY PropertyDetailsId (no PropertyId column)
 
     /// <summary>
-    /// Gets PropertyOccupancyDetails by PropertyDetailsId list.
-    /// This entity only has PropertyDetailId column (no PropertyId), so simple query is sufficient.
-    /// </summary>
-    public async Task<List<PropertyOccupancyDetailsEntity>> GetPropertyOccupancyByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default)
-    {
-        return await _context.PropertyOccupancyDetails
-            .Where(x => propertyDetailIds.Contains(x.PropertyDetailId))
-            .ToListAsync(cancellationToken);
-    }
-
-    /// <summary>
     /// Gets RenterMast by PropertyDetailsId list.
     /// This entity only has PropertyDetailsId column (no PropertyId), so simple query is sufficient.
     /// </summary>

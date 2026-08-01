@@ -192,7 +192,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
     public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
-    public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
     public DbSet<AssetRoomTypeMasterEntity> AssetRoomTypeMaster { get; set; } = null!;
     public DbSet<AssetAgeFactorCVMasterEntity> AssetAgeFactorCVMaster { get; set; } = null!;
     public DbSet<AssetNatureFactorCVMasterEntity> AssetNatureFactorCVMaster { get; set; } = null!;
@@ -4030,32 +4029,6 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.PropertyDetailsId);
             entity.HasIndex(e => e.PropertyId);
-        });
-
-        // PropertyOccupancyDetails configuration
-        modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
-        {
-            entity.ToTable("PropertyOccupancyDetails", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.PropertyDetailId).IsRequired();
-            entity.Property(e => e.OccupancyDate);
-            entity.Property(e => e.OccupancyNumber).HasColumnType("nvarchar(30)");
-            entity.Property(e => e.IssuedBy).HasColumnType("nvarchar(100)");
-            entity.Property(e => e.Remarks).HasColumnType("nvarchar(250)");
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-
-            entity.HasOne(e => e.PropertyDetails)
-                .WithMany(p => p.PropertyOccupancyDetails)
-                .HasForeignKey(e => e.PropertyDetailId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(e => e.PropertyDetailId);
         });
 
         // PropertyImagesMast configuration

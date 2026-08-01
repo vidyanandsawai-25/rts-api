@@ -33,9 +33,6 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>All active renter records linked to the detail IDs of this property.</summary>
         public IReadOnlyList<RenterMastEntity> Renters { get; set; } = [];
 
-        /// <summary>All active occupancy records linked to the detail IDs of this property.</summary>
-        public IReadOnlyList<PropertyOccupancyDetailsEntity> Occupancies { get; set; } = [];
-
         /// <summary>All active Occupancy Certificate (OC) records linked to the detail IDs of this property.</summary>
         public IReadOnlyList<PropertyCertificateEntity> Certificates { get; set; } = [];
 
@@ -82,7 +79,6 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
                 PropertyAssessment = this.PropertyAssessment,
                 Details = this.Details,
                 Renters = this.Renters,
-                Occupancies = this.Occupancies,
                 Certificates = this.Certificates,
                 YearRanges = this.YearRanges,
 

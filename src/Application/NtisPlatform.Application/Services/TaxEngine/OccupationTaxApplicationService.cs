@@ -22,8 +22,7 @@ namespace NtisPlatform.Application.Services.TaxEngine;
 /// </summary>
 /// <remarks>
 /// Floor-wise scope is driven by <see cref="PropertyCertificateEntity.PropertyDetailsId"/> (set by
-/// the Building Permission "Apply to Selected Floor" flow), NOT by <see cref="PropertyOccupancyDetailsEntity"/>
-/// (a separate, unrelated occupancy-tracking concept used elsewhere in the Rateable Value pipeline).
+/// the Building Permission "Apply to Selected Floor" flow).
 ///
 /// When one or more floors carry their own certificate, the engine is run once per floor (each
 /// floor's own certificate overrides the property-wise certificate for that floor; floors with no

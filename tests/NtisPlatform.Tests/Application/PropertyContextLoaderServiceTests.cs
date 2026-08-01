@@ -8,6 +8,7 @@ using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -37,7 +38,6 @@ namespace NtisPlatform.Tests.Application
         private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
         private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
         private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
-        private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
         private readonly Mock<IRepository<PropertyCertificateEntity, int>> _propertyCertificateRepo;
         private readonly Mock<ITaxMasterDataService> _masterDataService;
 
@@ -63,7 +63,6 @@ namespace NtisPlatform.Tests.Application
             _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
             _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
             _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
-            _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
             _propertyCertificateRepo = new Mock<IRepository<PropertyCertificateEntity, int>>();
 
             _financeYearProvider = new Mock<IFinanceYearProvider>();
@@ -91,9 +90,6 @@ namespace NtisPlatform.Tests.Application
 
             _renterRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<RenterMastEntity>().BuildMockDbSet().Object);
-
-            _occupancyRepo.Setup(r => r.GetQueryable())
-                .Returns(new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
 
             _propertyCertificateRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<PropertyCertificateEntity>().BuildMockDbSet().Object);
@@ -409,17 +405,21 @@ namespace NtisPlatform.Tests.Application
                     }
                 }.BuildMockDbSet().Object);
 
-            _occupancyRepo.Setup(r => r.GetQueryable())
-                .Returns(new List<PropertyOccupancyDetailsEntity>
+            var ocCertificate = PropertyCertificateEntity.Create(
+                propertyId: propertyId,
+                certificateTypeId: 1,
+                certificateNo: "OC-123",
+                issueDate: DateTime.UtcNow,
+                propertyDetailsId: detailId);
+            typeof(PropertyCertificateEntity)
+                .GetProperty(nameof(PropertyCertificateEntity.CertificateType))!
+                .SetValue(ocCertificate, new PropertyCertificateTypeMasterEntity
                 {
-                    new()
-                    {
-                        Id = 1,
-                        PropertyDetailId = detailId,
-                        IsActive = true,
-                        MarkedForDeletion = false
-                    }
-                }.BuildMockDbSet().Object);
+                    CertificateTypeCode = CertificateTypeCodes.OC
+                });
+
+            _propertyCertificateRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyCertificateEntity> { ocCertificate }.BuildMockDbSet().Object);
 
             var sut = CreateService();
 
@@ -428,7 +428,8 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.Single(ctx.Renters);
-            Assert.Single(ctx.Occupancies);
+            Assert.Single(ctx.Certificates);
+            Assert.Equal("OC-123", ctx.Certificates[0].CertificateNo);
         }
 
         [Fact]
@@ -483,7 +484,6 @@ namespace NtisPlatform.Tests.Application
                 _propertyAssessmentRepo.Object,
                 _propertySocialDetailsRepo.Object,
                 _renterRepo.Object,
-                _occupancyRepo.Object,
                 _propertyCertificateRepo.Object,
                 _masterDataService.Object,
                 _financeYearProvider.Object,
