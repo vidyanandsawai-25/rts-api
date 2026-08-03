@@ -22,6 +22,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     private readonly IRepository<PropertyMastOldEntity, int> _propertyMastOldRepository;
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeMasterRepository;
     private readonly IRepository<PropertyCategoryEntity, int> _categoryRepository;
+    private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
+    private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly ICombinePropertyValidator _validator;
     private readonly IPropertyDataCopier _dataCopier;
     private readonly IPropertyDeactivator _deactivator;
@@ -31,12 +33,14 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
     public CombinePropertyService(
          IRepository<PropertyEntity, int> repository,
         IRepository<WardEntity, int> wardRepository,
-         IRepository<TransMastEntity> transMastRepository,
+          IRepository<TransMastEntity> transMastRepository,
         IRepository<TaxPendingDetailsEntity> taxPendingRepository,
         IRepository<CombinePropertyHistoryEntity> combineHistoryRepository,
          IRepository<PropertyMastOldEntity, int> propertyMastOldRepository,
          IRepository<PropertyTypeMasterEntity, int> propertyTypeMasterRepository,
         IRepository<PropertyCategoryEntity, int> categoryRepository,
+        IRepository<PropertyMapMasterEntity, int> propertyMapMasterRepository,
+        IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         ICombinePropertyValidator validator,
         IPropertyDataCopier dataCopier,
         IPropertyDeactivator deactivator,
@@ -52,6 +56,8 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         _propertyMastOldRepository = propertyMastOldRepository;
         _propertyTypeMasterRepository = propertyTypeMasterRepository;
         _categoryRepository = categoryRepository;
+        _propertyMapMasterRepository = propertyMapMasterRepository;
+        _propertyMapDetailRepository = propertyMapDetailRepository;
         _validator = validator;
         _dataCopier = dataCopier;
         _deactivator = deactivator;
@@ -574,6 +580,71 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
             // Step 4: Insert history records
             await InsertCombineHistoryAsync(request.SourcePropertyId, combinePropertyIds, request.CombineReason, request.CreatedBy, cancellationToken);
 
+            // Step 4.5: Copy old property map details from combined properties to source property under MERGE category
+            var sourceWard = await _wardRepository.GetByIdAsync(sourceProperty.WardId, cancellationToken);
+            var sourceWardNo = sourceWard?.WardNo ?? string.Empty;
+            var fullNewPropertyNo = BuildPropertyNumber(sourceWardNo, sourceProperty.PropertyNo, sourceProperty.PartitionNo);
+
+            var mergeMapMaster = await _propertyMapMasterRepository.GetQueryable()
+                .FirstOrDefaultAsync(m => m.MappingCategory == "MERGE" && m.IsActive, cancellationToken);
+            int propertyMapId = mergeMapMaster?.Id ?? 3;
+
+            // Fetch any existing mappings already associated with the source property to prevent duplication
+            var mainPropertyMappings = await _propertyMapDetailRepository.GetQueryable()
+                .Where(pmd => pmd.PropertyIdNew == sourceProperty.Id && pmd.IsActive)
+                .ToListAsync(cancellationToken);
+
+            var existingOldKeys = new HashSet<(int? PropertyIdOld, string? PropertyNoOld)>();
+            foreach (var m in mainPropertyMappings)
+            {
+                existingOldKeys.Add((m.PropertyIdOld, m.PropertyNoOld));
+            }
+
+            // Retrieve all active mappings for the combined properties
+            var existingCombinedMappings = await _propertyMapDetailRepository.GetQueryable()
+                .Where(pmd => pmd.PropertyIdNew.HasValue && combinePropertyIds.Contains(pmd.PropertyIdNew.Value) && pmd.IsActive)
+                .ToListAsync(cancellationToken);
+
+            var newMapDetails = new List<PropertyMapDetailEntity>();
+            foreach (var existingMapping in existingCombinedMappings)
+            {
+                var key = (existingMapping.PropertyIdOld, existingMapping.PropertyNoOld);
+                if (existingOldKeys.Contains(key))
+                {
+                    continue;
+                }
+                existingOldKeys.Add(key);
+
+                var newMapping = new PropertyMapDetailEntity
+                {
+                    PropertyMapId = propertyMapId,
+                    PropertySide = existingMapping.PropertySide ?? "old",
+                    PropertyIdNew = sourceProperty.Id,
+                    PropertyIdOld = existingMapping.PropertyIdOld,
+                    PropertyNoOld = existingMapping.PropertyNoOld,
+                    PropertyNoNew = fullNewPropertyNo,
+                    PropertyNo = fullNewPropertyNo,
+                    TaxSharePercent = existingMapping.TaxSharePercent,
+                    AreaSharePercent = existingMapping.AreaSharePercent,
+                    Status = "ACTIVE",
+                    IsCurrent = true,
+                    ChangeReason = "Combine Property-Old Details combined in main property",
+                    Remark = "Combine Property-Old Details combined in main property",
+                    Latitude = existingMapping.Latitude,
+                    Longitude = existingMapping.Longitude,
+                    Location = existingMapping.Location,
+                    IsActive = true,
+                    CreatedBy = request.CreatedBy,
+                    CreatedDate = DateTime.Now
+                };
+                newMapDetails.Add(newMapping);
+            }
+
+            if (newMapDetails.Count > 0)
+            {
+                await _propertyMapDetailRepository.AddRangeAsync(newMapDetails, cancellationToken);
+            }
+
             // Single consolidated SaveChanges - persists all pending changes before commit
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -937,6 +1008,11 @@ public class CombinePropertyService : BaseCommonCrudService<PropertyEntity, Comb
         }
 
         return query;
+    }
+
+    private static string BuildPropertyNumber(params string?[] propertyNumberParts)
+    {
+        return string.Join("-", propertyNumberParts.Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part!.Trim()));
     }
 }
 

@@ -724,6 +724,8 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
             q = q.Where(j => j.FinanceYearId == query.FinanceYearId.Value);
         if (!string.IsNullOrWhiteSpace(query.Status))
             q = q.Where(j => j.Status == query.Status);
+        if (!string.IsNullOrWhiteSpace(query.JobCode))
+            q = q.Where(j => j.JobCode == query.JobCode);
 
         if (query.StartTime.HasValue)
         {
@@ -875,26 +877,42 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 break;
 
             case JobScopeType.Range:
-                // PropertyNo and PartitionNo are combined and compared lexically against range bounds.
-                if (!string.IsNullOrWhiteSpace(scope.FromPropertyNo))
+                var rangeQ = ActiveProperties();
+                if (year?.StartDate.HasValue == true && year?.EndDate.HasValue == true)
                 {
-                    q = q.Where(p => string.Compare(
-                        p.PartitionNo != null && p.PartitionNo != "" 
-                            ? p.PropertyNo + "-" + p.PartitionNo 
-                            : p.PropertyNo, 
-                        scope.FromPropertyNo) >= 0);
+                    rangeQ = rangeQ.Where(p => p.CreatedDate >= year.StartDate.Value && p.CreatedDate <= year.EndDate.Value);
                 }
-                if (!string.IsNullOrWhiteSpace(scope.ToPropertyNo))
+
+                if (scope.ZoneIds is { Count: > 0 } zids4) rangeQ = rangeQ.Where(p => zids4.Contains(p.Ward!.ZoneId));
+                if (scope.WardIds is { Count: > 0 } wIds4) rangeQ = rangeQ.Where(p => wIds4.Contains(p.WardId));
+                if (scope.PartitionNos is { Count: > 0 } partNos4) rangeQ = rangeQ.Where(p => partNos4.Contains(p.PartitionNo ?? string.Empty));
+                if (scope.PropertyTypeIds is { Count: > 0 } ptids4) rangeQ = rangeQ.Where(p => p.PropertyTypeId.HasValue && ptids4.Contains(p.PropertyTypeId.Value));
+                if (scope.AssessmentStatusIds is { Count: > 0 } asids4) rangeQ = rangeQ.Where(p => asids4.Contains(p.PropertyAssessmentStatusId ?? 2));
+
+                var propertiesInWard = rangeQ
+                    .Select(p => new { p.Id, p.PropertyNo, p.PartitionNo })
+                    .ToList();
+
+                var matchedIds = new List<int>();
+                foreach (var p in propertiesInWard)
                 {
-                    q = q.Where(p => string.Compare(
-                        p.PartitionNo != null && p.PartitionNo != "" 
-                            ? p.PropertyNo + "-" + p.PartitionNo 
-                            : p.PropertyNo, 
-                        scope.ToPropertyNo) <= 0);
+                    var computed = string.IsNullOrEmpty(p.PartitionNo) 
+                        ? p.PropertyNo 
+                        : p.PropertyNo + "-" + p.PartitionNo;
+
+                    bool matchesFrom = string.IsNullOrWhiteSpace(scope.FromPropertyNo) || 
+                        NtisPlatform.Application.Utilities.NaturalStringComparer.Instance.Compare(computed, scope.FromPropertyNo) >= 0;
+
+                    bool matchesTo = string.IsNullOrWhiteSpace(scope.ToPropertyNo) || 
+                        NtisPlatform.Application.Utilities.NaturalStringComparer.Instance.Compare(computed, scope.ToPropertyNo) <= 0;
+
+                    if (matchesFrom && matchesTo)
+                    {
+                        matchedIds.Add(p.Id);
+                    }
                 }
-                if (scope.ZoneIds is { Count: > 0 } zids4) q = q.Where(p => zids4.Contains(p.Ward!.ZoneId));
-                if (scope.WardIds is { Count: > 0 } wIds4) q = q.Where(p => wIds4.Contains(p.WardId));
-                if (scope.PartitionNos is { Count: > 0 } partNos4) q = q.Where(p => partNos4.Contains(p.PartitionNo ?? string.Empty));
+
+                q = q.Where(p => matchedIds.Contains(p.Id));
                 break;
         }
 

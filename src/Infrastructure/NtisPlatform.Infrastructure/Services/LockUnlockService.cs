@@ -88,6 +88,7 @@ public class LockUnlockService : ILockUnlockService
                 ModuleCode = x.Module != null ? x.Module.ModuleCode : null,
                 ModuleName = x.Module != null ? x.Module.ModuleName : null,
                 ModuleNameLocal = x.Module != null ? x.Module.ModuleNameLocal : null,
+                ModuleLabel = x.Module != null ? x.Module.ModuleLabel : null,
             })
             .ToListAsync(ct);
     }
