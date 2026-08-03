@@ -436,24 +436,28 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         {
             return new PropertyMapSearchResultDto
             {
-                OldPropertySuggestions = new List<OldPropertySuggestionDto>()
+                OldPropertySuggestions = new List<OldPropertySuggestionDto>(),
+                TotalCount = 0,
+                PageNumber = q.PageNumber,
+                PageSize = q.PageSize
             };
         }
 
         List<(int id, OldPropertyInfoDto dto)> oldRaw;
+        int totalCount;
 
         if (_serviceProvider != null)
         {
             using var scope = _serviceProvider.CreateScope();
             var pmoRepo = scope.ServiceProvider.GetRequiredService<IRepository<PropertyMastOldEntity, int>>();
 
-            oldRaw = await FetchOldSuggestionsAsync(
+            (oldRaw, totalCount) = await FetchOldSuggestionsAsync(
                 pmoRepo.GetQueryable().AsNoTracking(),
                 q, cancellationToken);
         }
         else
         {
-            oldRaw = await FetchOldSuggestionsAsync(
+            (oldRaw, totalCount) = await FetchOldSuggestionsAsync(
                 _propertyMastOldRepository.GetQueryable().AsNoTracking(),
                 q, cancellationToken);
         }
@@ -607,7 +611,10 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
 
         return new PropertyMapSearchResultDto
         {
-            OldPropertySuggestions = oldSuggestions
+            OldPropertySuggestions = oldSuggestions,
+            TotalCount = totalCount,
+            PageNumber = q.PageNumber,
+            PageSize = q.PageSize
         };
     }
 
@@ -615,7 +622,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
     // Task B — old property suggestions (PropertyMastOld)
     // -------------------------------------------------------------------------
 
-    private async Task<List<(int id, OldPropertyInfoDto dto)>>
+    private async Task<(List<(int id, OldPropertyInfoDto dto)> items, int totalCount)>
         FetchOldSuggestionsAsync(
             IQueryable<PropertyMastOldEntity> oldQuery,
             PropertyMapDetailQueryParameters q,
@@ -644,7 +651,7 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         if (!hasSearchTerm && !hasOwnerName && !hasOwnerNameEng && !hasMobileNo &&
             !hasAddress && !hasSocietyName && !hasOccupierName && !hasBuilderName && !hasConstrYear)
         {
-            return new List<(int id, OldPropertyInfoDto dto)>();
+            return (new List<(int id, OldPropertyInfoDto dto)>(), 0);
         }
 
         List<int> detailConstrYearMastIds = new();
@@ -780,43 +787,62 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         }
 
         if (combinedOr == null)
-            return new List<(int id, OldPropertyInfoDto dto)>();
+            return (new List<(int id, OldPropertyInfoDto dto)>(), 0);
 
         var lambda = Expression.Lambda<Func<PropertyMastOldEntity, bool>>(combinedOr, param);
 
         var query = oldQuery.Where(x => x.IsActive).Where(lambda);
 
-        int targetLimit = q.PageSize > 0 ? q.PageSize : 20;
-        int sqlFetchLimit = Math.Max(targetLimit * 2, targetLimit + 30);
+        int totalCount = await query.CountAsync(ct);
 
-        var entities = await query
-            .OrderBy(x => x.Id)
-            .Take(sqlFetchLimit)
+        if (totalCount == 0)
+            return (new List<(int id, OldPropertyInfoDto dto)>(), 0);
+
+        int pageNumber = q.PageNumber < 1 ? 1 : q.PageNumber;
+        int pageSize = q.PageSize < 1 ? 10 : q.PageSize;
+        int skip = (pageNumber - 1) * pageSize;
+
+        List<PropertyMastOldEntity> entities;
+        query = query.OrderByDescending(x =>
+            // Tier 1: Exact Property No / Ward / Composite Code Match (Highest Priority: 1000 pts)
+            (hasSearchTerm && (
+                ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
+                ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
+                x.OldPropertyNo == st ||
+                x.OldPartitionNo == st ||
+                x.OldEgovNo == st
+            ) ? 1000 : 0)
+
+            // Tier 2: Exact Parameter Matches (500 pts each)
+            + (hasOwnerName && x.OldOwnerName == ownerName ? 500 : 0)
+            + (hasOwnerNameEng && x.OldOwnerNameEnglish == ownerNameEng ? 500 : 0)
+            + (hasMobileNo && x.OldMobileNo == mobileNo ? 500 : 0)
+
+            // Tier 3: Unified Search Term Partial Matches (200 pts each)
+            + (hasSearchTerm && x.OldOwnerName != null && x.OldOwnerName.Contains(st!) ? 200 : 0)
+            + (hasSearchTerm && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(st!) ? 200 : 0)
+            + (hasSearchTerm && x.OldMobileNo != null && x.OldMobileNo.Contains(st!) ? 200 : 0)
+
+            // Tier 4: Specific Parameter Partial Matches (100 pts each)
+            + (hasOwnerName && x.OldOwnerName != null && x.OldOwnerName.Contains(ownerName!) ? 100 : 0)
+            + (hasOwnerNameEng && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(ownerNameEng!) ? 100 : 0)
+            + (hasMobileNo && x.OldMobileNo != null && x.OldMobileNo.Contains(mobileNo!) ? 100 : 0)
+            + (hasAddress && x.OldAddress != null && x.OldAddress.Contains(address!) ? 50 : 0)
+            + (hasSocietyName && x.OldSocietyName != null && x.OldSocietyName.Contains(societyName!) ? 50 : 0)
+            + (hasOccupierName && x.OldOccupierName != null && x.OldOccupierName.Contains(occupierName!) ? 50 : 0)
+        ).ThenBy(x => x.Id);
+
+        entities = await query
+            .Skip(skip)
+            .Take(pageSize)
             .ToListAsync(ct);
 
-        if (!entities.Any())
-            return new List<(int id, OldPropertyInfoDto dto)>();
-
-        if (hasSearchTerm)
-        {
-            entities = entities
-                .OrderByDescending(x =>
-                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
-                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
-                    x.OldPartitionNo == st)
-                .ThenBy(x => x.Id)
-                .Take(targetLimit)
-                .ToList();
-        }
-        else
-        {
-            entities = entities.Take(targetLimit).ToList();
-        }
-
-        return entities.Select(e => (
+        var items = entities.Select(e => (
             e.Id,
             dto: _mapper.Map<OldPropertyInfoDto>(e)
         )).ToList();
+
+        return (items, totalCount);
     }
 
     private static (string? ward, string? prop, string? part) ParseSearchTokens(string st)

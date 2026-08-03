@@ -1457,6 +1457,194 @@ public class PropertyMapMasterServiceTests
     }
 
     [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldSupportPaginationMetadataAndOffset()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+        var pmList = new List<PropertyEntity>().BuildMock();
+
+        // Create 25 matching old properties
+        var pmoList = Enumerable.Range(1, 25).Select(i => new PropertyMastOldEntity
+        {
+            Id = i,
+            OldPropertyNo = $"PROP-OLD-{i}",
+            OldOwnerName = "John Doe",
+            IsActive = true
+        }).ToList().BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object
+        );
+
+        // Act - Request Page 2 with PageSize = 10
+        var qPage2 = new PropertyMapDetailQueryParameters
+        {
+            SearchTerm = "John Doe",
+            PageNumber = 2,
+            PageSize = 10
+        };
+
+        var resultPage2 = await service.SearchPropertyMappingsAsync(qPage2, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(resultPage2);
+        Assert.Equal(25, resultPage2.TotalCount);
+        Assert.Equal(2, resultPage2.PageNumber);
+        Assert.Equal(10, resultPage2.PageSize);
+        Assert.Equal(3, resultPage2.TotalPages);
+        Assert.True(resultPage2.HasPrevious);
+        Assert.True(resultPage2.HasNext);
+        Assert.Equal(10, resultPage2.OldPropertySuggestions.Count);
+        // Page 2 items should be ID 11 to 20
+        Assert.Equal(11, resultPage2.OldPropertySuggestions.First().Id);
+        Assert.Equal(20, resultPage2.OldPropertySuggestions.Last().Id);
+    }
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_ShouldRankExactMatchesTop()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+        var pmList = new List<PropertyEntity>().BuildMock();
+
+        var pmoList = new List<PropertyMastOldEntity>
+        {
+            new() { Id = 1, OldOwnerName = "John Doe Senior", IsActive = true },
+            new() { Id = 2, OldOwnerName = "John Doe", IsActive = true }, // Exact match
+            new() { Id = 3, OldOwnerName = "John Doe Junior", IsActive = true }
+        }.BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters
+        {
+            OldOwnerName = "John Doe"
+        };
+
+        // Act
+        var result = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.OldPropertySuggestions.Count);
+        // Exact match (ID = 2) should be ranked FIRST
+        Assert.Equal(2, result.OldPropertySuggestions.First().Id);
+        Assert.Equal("John Doe", result.OldPropertySuggestions.First().OldOwnerName);
+    }
+
+    [Fact]
+    public async Task SearchPropertyMappingsAsync_PerformanceTest_WithLargeDataset()
+    {
+        // Arrange
+        var mockPmmRepo = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        var mockPmdRepo = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
+        var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
+        var mockUow = new Mock<IUnitOfWork>();
+        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
+        var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
+        var pmList = new List<PropertyEntity>().BuildMock();
+
+        // Create 10,000 matching old property records
+        var pmoList = Enumerable.Range(1, 10000).Select(i => new PropertyMastOldEntity
+        {
+            Id = i,
+            OldPropertyNo = $"PROP-OLD-{i}",
+            OldWardNo = $"Ward-{i % 10}",
+            OldOwnerName = i % 2 == 0 ? "Jane Smith" : "John Doe",
+            OldMobileNo = $"98765{i:D5}",
+            IsActive = true
+        }).ToList().BuildMock();
+
+        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
+        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
+        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
+        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+
+        var service = new PropertyMapMasterService(
+            mockPmmRepo.Object,
+            mockUow.Object,
+            mapper,
+            mockPmdRepo.Object,
+            mockPmRepo.Object,
+            mockPmoRepo.Object
+        );
+
+        var q = new PropertyMapDetailQueryParameters
+        {
+            SearchTerm = "Jane Smith",
+            PageNumber = 50, // Page 50 out of 250 pages
+            PageSize = 20
+        };
+
+        // Warm up
+        await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+        // Act - Measure performance across 10 consecutive searches over 10,000 records
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        int iterations = 10;
+        PropertyMapSearchResultDto lastResult = null!;
+        for (int i = 0; i < iterations; i++)
+        {
+            lastResult = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+        }
+        stopwatch.Stop();
+
+        double averageMs = stopwatch.Elapsed.TotalMilliseconds / iterations;
+
+        // Assert
+        Assert.NotNull(lastResult);
+        Assert.Equal(5000, lastResult.TotalCount); // 5,000 Jane Smith records
+        Assert.Equal(50, lastResult.PageNumber);
+        Assert.Equal(20, lastResult.PageSize);
+        Assert.Equal(250, lastResult.TotalPages);
+        Assert.Equal(20, lastResult.OldPropertySuggestions.Count);
+
+        // Assert average execution time is under 100ms per page request
+        Assert.True(averageMs < 100, $"Performance test failed: Average search time was {averageMs:F2}ms, expected < 100ms");
+    }
+
+    [Fact]
     public async Task GetMappedPropertiesAsync_ShouldFilterBySearchParameters_AndReturnPropertyDetailsOld()
     {
         // Arrange
