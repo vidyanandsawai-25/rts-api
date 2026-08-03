@@ -15,4 +15,8 @@ public interface IInventoryDocumentApplicationService
     Task<List<InventoryDocumentDto>> GetDocumentsByInventoryBatchAsync(
         int inventoryBatchId,
         CancellationToken cancellationToken = default);
+
+    Task<Dictionary<int, List<InventoryDocumentDto>>> GetDocumentsByInventoryBatchesAsync(
+        IReadOnlyCollection<int> inventoryBatchIds,
+        CancellationToken cancellationToken = default);
 }

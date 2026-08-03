@@ -118,6 +118,30 @@ public class InventoryDocumentService : IInventoryDocumentService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<InventoryDocumentEntity>> GetLatestByInventoryBatchIdsAsync(
+        IReadOnlyCollection<int> inventoryBatchIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (inventoryBatchIds == null || inventoryBatchIds.Count == 0)
+        {
+            return new List<InventoryDocumentEntity>();
+        }
+
+        return await _context.InventoryDocuments
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Include(x => x.DocumentType)
+            .Include(x => x.DocumentBinding)
+                .ThenInclude(db => db!.Document)
+            .Where(x => inventoryBatchIds.Contains(x.InventoryBatchId)
+                        && x.IsLatest
+                        && x.IsActive
+                        && !x.MarkedForDeletion)
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.DocumentTypeId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task MarkAsSupersededAsync(
         int id,
         int updatedBy,

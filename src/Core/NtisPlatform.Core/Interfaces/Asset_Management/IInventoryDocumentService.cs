@@ -43,6 +43,10 @@ public interface IInventoryDocumentService
         int inventoryBatchId,
         CancellationToken cancellationToken = default);
 
+    Task<List<InventoryDocumentEntity>> GetLatestByInventoryBatchIdsAsync(
+    IReadOnlyCollection<int> inventoryBatchIds,
+    CancellationToken cancellationToken = default);
+
     Task MarkAsSupersededAsync(
         int id,
         int updatedBy,

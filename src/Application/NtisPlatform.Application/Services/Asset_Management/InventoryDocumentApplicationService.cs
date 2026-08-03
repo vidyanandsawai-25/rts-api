@@ -1,15 +1,16 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NtisPlatform.Application.Common;
 using NtisPlatform.Application.DTOs.Asset_Management;
 using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Asset_Management;
+using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.Asset_Management;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 
 namespace NtisPlatform.Application.Services.Asset_Management;
@@ -37,6 +38,21 @@ public class InventoryDocumentApplicationService : IInventoryDocumentApplication
         Guard.AgainstNegativeOrZero(inventoryBatchId, nameof(inventoryBatchId));
         var records = await _inventoryDocumentService.GetLatestByInventoryBatchIdAsync(inventoryBatchId, cancellationToken);
         return records.Select(MapToDto).ToList();
+    }
+
+    public async Task<Dictionary<int, List<InventoryDocumentDto>>> GetDocumentsByInventoryBatchesAsync(
+    IReadOnlyCollection<int> inventoryBatchIds,
+    CancellationToken cancellationToken = default)
+    {
+        if (inventoryBatchIds == null || inventoryBatchIds.Count == 0)
+        {
+            return new Dictionary<int, List<InventoryDocumentDto>>();
+        }
+
+        var records = await _inventoryDocumentService.GetLatestByInventoryBatchIdsAsync(inventoryBatchIds, cancellationToken);
+        return records
+            .GroupBy(r => r.InventoryBatchId)
+            .ToDictionary(g => g.Key, g => g.Select(MapToDto).ToList());
     }
 
     private static InventoryDocumentDto MapToDto(InventoryDocumentEntity p) => new()

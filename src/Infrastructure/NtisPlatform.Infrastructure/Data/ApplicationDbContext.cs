@@ -6715,6 +6715,47 @@ public class ApplicationDbContext : DbContext
                 .HasFilter("[IsLatest] = 1 AND [IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
+        modelBuilder.Entity<InventoryAssetDetailEntity>(entity =>
+        {
+            entity.ToTable("InventoryAssetDetail", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.BatchId).IsRequired();
+            entity.Property(e => e.UnitNumber).IsRequired();
+            entity.Property(e => e.InventoryItemCategoryId);
+            entity.Property(e => e.InventoryItemNameId);
+            entity.Property(e => e.InventoryItemModelId);
+            entity.Property(e => e.InventoryItemConditionId).HasColumnName("ConditionId");
+            entity.Property(e => e.OwningDepartmentId);
+            entity.Property(e => e.Specifications).HasMaxLength(500);
+            entity.Property(e => e.PhotoFileId).HasMaxLength(300);
+            entity.Property(e => e.UnitPurchaseValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.UnitCapitalValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            
+            // Foreign keys
+            entity.HasOne(e => e.AssetMaster)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Batch)
+                .WithMany(b => b.Units)
+                .HasForeignKey(e => e.BatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+            
+            // Indexes
+            entity.HasIndex(e => e.AssetId);
+            entity.HasIndex(e => e.BatchId);
+            entity.HasIndex(e => e.IsActive);
+        });
+
         // AssetGrievanceCategory configuration (AMS schema)
         modelBuilder.Entity<AssetGrievanceCategoryEntity>(entity =>
         {
