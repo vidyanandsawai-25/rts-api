@@ -120,16 +120,34 @@ public class ReferenceValidationService : IReferenceValidationService
             ("Asset Type Of Use Master", (ctx, id) => ctx.AssetTypeOfUseMaster.Where(u => u.AssetCategoryId == id && !u.MarkedForDeletion).Cast<object>()),
             ("Asset Photo Type Master", (ctx, id) => ctx.Set<AssetPhotoTypeEntity>().Where(p => p.AssetCategoryId == id && !p.MarkedForDeletion).Cast<object>())
         );
-        // Inventory Item Category - referenced by InventoryItemName and AssetConditionMaster (ConditionCategory == "Inventory")
+        // Inventory Item Category - referenced by InventoryItemName, AssetConditionMaster
+        // (ConditionCategory == "Inventory"), and the InventoryBatch/InventoryAssetDetail rows
+        // that carry an InventoryItemCategoryId FK. The latter two were previously missing here,
+        // which meant deactivating/deleting a category still in use by recorded inventory batches
+        // or unit-level asset details was never blocked at the service layer.
         config.ForEntity<InventoryItemCategoryEntity>()
          .CheckReferences(
             ("Inventory Item Name Master", (ctx, id) => ctx.InventoryItemName.Where(i => i.InventoryItemCategoryId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>()),
-            ("Inventory Item Condition Master", (ctx, id) => ctx.AssetConditionMasters.Where(i => i.ConditionCategory == "Inventory" && i.CategoryId == id && i.IsActive).Cast<object>())
+            ("Inventory Item Condition Master", (ctx, id) => ctx.AssetConditionMasters.Where(i => i.ConditionCategory == "Inventory" && i.CategoryId == id && i.IsActive).Cast<object>()),
+            ("Inventory Batch", (ctx, id) => ctx.InventoryBatches.Where(b => b.InventoryItemCategoryId == id && !b.MarkedForDeletion).Cast<object>()),
+            ("Inventory Asset Detail", (ctx, id) => ctx.InventoryAssetDetails.Where(d => d.InventoryItemCategoryId == id && !d.MarkedForDeletion).Cast<object>())
          );
-        // Inventory Item Name - referenced by InventoryItemModel
+        // Inventory Item Name - referenced by InventoryItemModel and the InventoryBatch/InventoryAssetDetail
+        // rows that carry an InventoryItemNameId FK. The latter two were previously missing here,
+        // which meant deactivating/deleting an item name still in use by recorded inventory batches
+        // or unit-level asset details was never blocked at the service layer.
         config.ForEntity<InventoryItemNameEntity>()
           .CheckReferences(
-              ("Inventory Item Model Master", (ctx, id) => ctx.InventoryItemModelMaster.Where(i => i.InventoryItemNameId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>())
+              ("Inventory Item Model Master", (ctx, id) => ctx.InventoryItemModelMaster.Where(i => i.InventoryItemNameId == id && i.IsActive && !i.MarkedForDeletion).Cast<object>()),
+              ("Inventory Batch", (ctx, id) => ctx.InventoryBatches.Where(b => b.InventoryItemNameId == id && !b.MarkedForDeletion).Cast<object>()),
+              ("Inventory Asset Detail", (ctx, id) => ctx.InventoryAssetDetails.Where(d => d.InventoryItemNameId == id && !d.MarkedForDeletion).Cast<object>())
+          );
+        // Inventory Item Model - referenced by the InventoryBatch/InventoryAssetDetail rows that
+        // carry an InventoryItemModelId FK.
+        config.ForEntity<InventoryItemModelEntity>()
+          .CheckReferences(
+              ("Inventory Batch", (ctx, id) => ctx.InventoryBatches.Where(b => b.InventoryItemModelId == id && !b.MarkedForDeletion).Cast<object>()),
+              ("Inventory Asset Detail", (ctx, id) => ctx.InventoryAssetDetails.Where(d => d.InventoryItemModelId == id && !d.MarkedForDeletion).Cast<object>())
           );
 
         config.ForEntity<ScreenEntity>()
@@ -202,7 +220,26 @@ public class ReferenceValidationService : IReferenceValidationService
         config.ForEntity<AssetFloorFactorCVEntity>()
             .CheckReferences();
 
+        // AssessmentYearRangeMaster (AMS) - referenced by AgeFactorCVMaster, NatureFactorCVMaster,
+        // UseFactorCVMaster and FloorFactorCVMaster via YearRangeCVId. This was previously
+        // unregistered, so deactivating/deleting a year range still in use by any CV factor master
+        // was never blocked at the service layer.
+        config.ForEntity<AssetAssessmentYearRangeMasterCVEntity>()
+            .CheckReferences(
+                ("Asset Age Factor CV Master", (ctx, id) => ctx.AssetAgeFactorCVMaster.Where(a => a.YearRangeCVId == id && !a.MarkedForDeletion).Cast<object>()),
+                ("Asset Nature Factor CV Master", (ctx, id) => ctx.AssetNatureFactorCVMaster.Where(n => n.YearRangeCVId == id && !n.MarkedForDeletion).Cast<object>()),
+                ("Asset Use Factor CV Master", (ctx, id) => ctx.AssetUseFactorCVMaster.Where(u => u.YearRangeCVId == id && !u.MarkedForDeletion).Cast<object>()),
+                ("Asset Floor Factor CV Master", (ctx, id) => ctx.AssetFloorFactorCVMaster.Where(f => f.YearRangeCVId == id && !f.MarkedForDeletion).Cast<object>())
+            );
+
         config.ForEntity<AssetPhotoTypeEntity>()
+            .CheckReferences();
+
+        // OwnershipTypeMaster - nothing currently holds an FK to it (AssetMasterEntity.OwnershipType
+        // is a denormalized string, not an Id reference). Registered explicitly, empty, so
+        // ValidateReferencesAsync<OwnershipTypeEntity> is not a silent no-op if a future FK is added
+        // without updating this file.
+        config.ForEntity<OwnershipTypeEntity>()
             .CheckReferences();
 
         config.ForEntity<AssetGrievanceCategoryEntity>()

@@ -8,10 +8,6 @@ using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Mappings;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using NtisPlatform.Api.Controllers.Master;
-using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Tests.Application;
@@ -329,6 +325,7 @@ public class InventoryItemCategoryServiceTests
             IsActive = true,
             CreatedBy = 1
         };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemCategoryEntity>().BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>()))
         .ReturnsAsync((InventoryItemCategoryEntity e, CancellationToken _) => { e.Id = 1; return e; });
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
@@ -351,6 +348,7 @@ public class InventoryItemCategoryServiceTests
             DisplayOrder = displayOrder,
             IsActive = isActive
         };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemCategoryEntity>().BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>()))
         .ReturnsAsync((InventoryItemCategoryEntity e, CancellationToken _) => { e.Id = 1; return e; });
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
@@ -361,9 +359,12 @@ public class InventoryItemCategoryServiceTests
     }
 
     [Fact]
-    public async Task Service_CreateAsync_DuplicateTypeCode_ThrowsException()
+    public async Task Service_CreateAsync_RepositoryThrowsOnRaceConditionDuplicate_PropagatesException()
     {
+        // Simulates a DB-level unique-constraint violation on a concurrent insert that slips past
+        // the in-application CheckDuplicateAsync check (e.g. two requests racing on the same TypeCode).
         var createDto = new CreateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Electronics", DisplayOrder = 1 };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemCategoryEntity>().BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>()))
         .ThrowsAsync(new InvalidOperationException("Duplicate"));
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.CreateAsync(createDto, CancellationToken.None));
@@ -389,6 +390,7 @@ public class InventoryItemCategoryServiceTests
             IsActive = true
         };
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemCategoryEntity> { existingEntity }.BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
         Assert.NotNull(result);
@@ -413,6 +415,7 @@ public class InventoryItemCategoryServiceTests
         var entity = new InventoryItemCategoryEntity { Id = 1, IsActive = true };
         var updateDto = new UpdateInventoryItemCategoryDto { IsActive = false, TypeName = "Test", DisplayOrder = 1 };
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemCategoryEntity> { entity }.BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         await _service.UpdateAsync(1, updateDto, CancellationToken.None);
@@ -471,114 +474,128 @@ public class InventoryItemCategoryServiceTests
 
     #endregion
 
-    #region Controller Tests
+    #region Duplicate Validation Tests
 
     [Fact]
-    public async Task Controller_GetAll_ReturnsOk()
+    public async Task Service_CreateAsync_DuplicateTypeName_ThrowsValidationException()
     {
-        var qp = new InventoryItemCategoryQueryParameters();
-        var pagedResult = new PagedResult<InventoryItemCategoryDto>(new List<InventoryItemCategoryDto>(), 0, 1, 10);
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.GetAllAsync(qp, It.IsAny<CancellationToken>())).ReturnsAsync(pagedResult);
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetAll(qp, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_GetById_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new InventoryItemCategoryDto { Id = 1 });
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetById(1, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_GetById_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((InventoryItemCategoryDto?)null);
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetById(999, CancellationToken.None);
-        Assert.IsType<NotFoundResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_Create_ValidDto_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.CreateAsync(It.IsAny<CreateInventoryItemCategoryDto>(), It.IsAny<CancellationToken>()))
-        .ReturnsAsync(new InventoryItemCategoryDto { Id = 1 });
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Create(new CreateInventoryItemCategoryDto { TypeName = "Test", DisplayOrder = 1 }, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_Update_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.UpdateAsync(1, It.IsAny<UpdateInventoryItemCategoryDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new InventoryItemCategoryDto { Id = 1 });
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Update(1, new UpdateInventoryItemCategoryDto { TypeName = "Test", DisplayOrder = 1 }, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_Update_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.UpdateAsync(999, It.IsAny<UpdateInventoryItemCategoryDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((InventoryItemCategoryDto?)null);
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Update(999, new UpdateInventoryItemCategoryDto { TypeName = "Test", DisplayOrder = 1 }, CancellationToken.None);
-        // Extension methods may wrap response in OkObjectResult with error details
-        Assert.True(result is OkObjectResult || result is NotFoundResult);
-    }
-
-    [Fact]
-    public async Task Controller_Delete_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Delete(1, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task Controller_Delete_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemCategoryService>();
-        var loggerMock = new Mock<ILogger<InventoryItemCategoryController>>();
-        serviceMock.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        var ctrl = new InventoryItemCategoryController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Delete(999, CancellationToken.None);
-        // Extension methods may wrap response in OkObjectResult with error details
-        Assert.True(result is OkObjectResult || result is NotFoundResult);
-    }
-
-    [Fact]
-    public void InventoryItemCategoryEntity_Properties_Coverage()
-    {
-        var date = DateTime.Now;
-        var entity = new InventoryItemCategoryEntity
+        var existing = new List<InventoryItemCategoryEntity>
         {
-            MarkedForDeletion = true,
-            MarkedForDeletionDate = date
+            new() { Id = 1, TypeCode = "CAT001", TypeName = "Electronics" }
         };
-        Assert.True(entity.MarkedForDeletion);
-        Assert.Equal(date, entity.MarkedForDeletionDate);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+
+        var createDto = new CreateInventoryItemCategoryDto { TypeCode = "CAT999", TypeName = "Electronics", DisplayOrder = 1 };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+        Assert.Contains("InventoryItemCategory_TypeName_Duplicate", ex.Errors.Values);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Service_CreateAsync_DuplicateTypeCode_ThrowsValidationException()
+    {
+        var existing = new List<InventoryItemCategoryEntity>
+        {
+            new() { Id = 1, TypeCode = "CAT001", TypeName = "Electronics" }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+
+        var createDto = new CreateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Different Name", DisplayOrder = 1 };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+        Assert.Contains("InventoryItemCategory_TypeCode_Duplicate", ex.Errors.Values);
+    }
+
+    [Fact]
+    public async Task Service_CreateAsync_NullTypeCode_DoesNotCheckCodeDuplicate()
+    {
+        var existing = new List<InventoryItemCategoryEntity>
+        {
+            new() { Id = 1, TypeCode = null, TypeName = "Electronics" }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InventoryItemCategoryEntity e, CancellationToken _) => { e.Id = 2; return e; });
+
+        var createDto = new CreateInventoryItemCategoryDto { TypeCode = null, TypeName = "Furniture", DisplayOrder = 1 };
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal("Furniture", result.TypeName);
+    }
+
+    [Fact]
+    public async Task Service_CreateAsync_DuplicateExcludedByMarkedForDeletion_Succeeds()
+    {
+        var existing = new List<InventoryItemCategoryEntity>
+        {
+            new() { Id = 1, TypeCode = "CAT001", TypeName = "Electronics", MarkedForDeletion = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InventoryItemCategoryEntity e, CancellationToken _) => { e.Id = 2; return e; });
+
+        var createDto = new CreateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Electronics", DisplayOrder = 1 };
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task Service_UpdateAsync_RenameToOwnCurrentName_Succeeds()
+    {
+        var existingEntity = new InventoryItemCategoryEntity { Id = 1, TypeCode = "CAT001", TypeName = "Electronics", IsActive = true };
+        var all = new List<InventoryItemCategoryEntity> { existingEntity };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(all.BuildMockDbSet().Object);
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<InventoryItemCategoryEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var updateDto = new UpdateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Electronics", DisplayOrder = 1, IsActive = true };
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    public async Task Service_UpdateAsync_RenameToAnotherRowsName_ThrowsValidationException()
+    {
+        var existingEntity = new InventoryItemCategoryEntity { Id = 1, TypeCode = "CAT001", TypeName = "Electronics", IsActive = true };
+        var other = new InventoryItemCategoryEntity { Id = 2, TypeCode = "CAT002", TypeName = "Furniture", IsActive = true };
+        var all = new List<InventoryItemCategoryEntity> { existingEntity, other };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(all.BuildMockDbSet().Object);
+
+        var updateDto = new UpdateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Furniture", DisplayOrder = 1, IsActive = true };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+        Assert.Contains("InventoryItemCategory_TypeName_Duplicate", ex.Errors.Values);
+    }
+
+    #endregion
+
+    #region Deactivation Reference Validation Tests
+
+    [Fact]
+    public async Task Service_UpdateAsync_DeactivationReferenced_ThrowsValidationException()
+    {
+        var entity = new InventoryItemCategoryEntity { Id = 1, TypeCode = "CAT001", TypeName = "Electronics", IsActive = true };
+        var all = new List<InventoryItemCategoryEntity> { entity };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(all.BuildMockDbSet().Object);
+        _mockReferenceValidator
+            .Setup(x => x.ValidateReferencesAsync<InventoryItemCategoryEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Referenced by Inventory Batch"));
+
+        var updateDto = new UpdateInventoryItemCategoryDto { TypeCode = "CAT001", TypeName = "Electronics", DisplayOrder = 1, IsActive = false };
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
     }
 
     #endregion

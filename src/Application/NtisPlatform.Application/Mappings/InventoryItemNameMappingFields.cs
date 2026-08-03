@@ -10,14 +10,21 @@ public class InventoryItemNameMappingFields : Profile
         CreateMap<InventoryItemNameEntity, InventoryItemNameDto>();
 
         CreateMap<CreateInventoryItemNameDto, InventoryItemNameEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
+            .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdateInventoryItemNameDto, InventoryItemNameEntity>()
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.MarkedForDeletion, opt => opt.Ignore())
+            .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }
 }

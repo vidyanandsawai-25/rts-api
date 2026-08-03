@@ -1,5 +1,8 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Master;
+using NtisPlatform.Application.Enums;
+using NtisPlatform.Application.Exceptions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
@@ -15,31 +18,62 @@ namespace NtisPlatform.Application.Services;
 public class InventoryItemNameService : BaseCommonCrudService<InventoryItemNameEntity, InventoryItemNameDto, CreateInventoryItemNameDto, UpdateInventoryItemNameDto, InventoryItemNameQueryParameters, int>,
     IInventoryItemNameService
 {
+    private readonly IRepository<InventoryItemCategoryEntity, int> _inventoryItemCategoryRepository;
     private readonly IReferenceValidationService _referenceValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="InventoryItemNameService"/> class.
     /// </summary>
     /// <param name="repository">The repository for inventory item name entities.</param>
+    /// <param name="inventoryItemCategoryRepository">The repository for the parent inventory item category, used to validate <see cref="InventoryItemNameEntity.InventoryItemCategoryId"/> on create/update.</param>
     /// <param name="unitOfWork">The unit of work for transaction management.</param>
     /// <param name="mapper">The AutoMapper instance for object mapping.</param>
     /// <param name="referenceValidator">The reference validation service for checking entity references.</param>
     public InventoryItemNameService(
       IRepository<InventoryItemNameEntity, int> repository,
+        IRepository<InventoryItemCategoryEntity, int> inventoryItemCategoryRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
         IReferenceValidationService referenceValidator)
         : base(repository, unitOfWork, mapper)
     {
+        _inventoryItemCategoryRepository = inventoryItemCategoryRepository;
         _referenceValidator = referenceValidator;
     }
 
+    public override async Task<InventoryItemNameDto> CreateAsync(
+        CreateInventoryItemNameDto createDto, CancellationToken cancellationToken = default)
+    {
+        await EnsureInventoryItemCategoryExistsAsync(createDto.InventoryItemCategoryId, OperationType.Create, cancellationToken);
+        return await base.CreateAsync(createDto, cancellationToken);
+    }
+
+    public override async Task<InventoryItemNameDto?> UpdateAsync(
+        int id, UpdateInventoryItemNameDto updateDto, CancellationToken cancellationToken = default)
+    {
+        await EnsureInventoryItemCategoryExistsAsync(updateDto.InventoryItemCategoryId, OperationType.Update, cancellationToken);
+        return await base.UpdateAsync(id, updateDto, cancellationToken);
+    }
+
+    protected override async Task<ValidationResult> ValidateForCreateAsync(
+        InventoryItemNameEntity entity, CancellationToken cancellationToken = default)
+    {
+        return await CheckDuplicateAsync(entity, excludeId: null, cancellationToken);
+    }
+
+    // Note: mirrors ValidateForCreateAsync's duplicate check because the base service only invokes
+    // this hook (not ValidateForCreateAsync) on Update/BulkUpdate — the duplicate check excludes the
+    // row being updated so renaming an item name to its own current name/code is not flagged.
     protected override async Task<ValidationResult> ValidateForDeactivationAsync(
      int id,
         InventoryItemNameEntity currentEntity,
      InventoryItemNameEntity updatedEntity,
         CancellationToken cancellationToken = default)
     {
+        var duplicateResult = await CheckDuplicateAsync(updatedEntity, excludeId: id, cancellationToken);
+        if (!duplicateResult.IsValid)
+            return duplicateResult;
+
         if (currentEntity.IsActive && !updatedEntity.IsActive)
         {
             return await _referenceValidator.ValidateReferencesAsync<InventoryItemNameEntity>(id, cancellationToken);
@@ -53,5 +87,43 @@ public class InventoryItemNameService : BaseCommonCrudService<InventoryItemNameE
         CancellationToken cancellationToken = default)
     {
         return await _referenceValidator.ValidateReferencesAsync<InventoryItemNameEntity>(id, cancellationToken);
+    }
+
+    /// <summary>
+    /// SubTypeName and SubTypeCode only need to be unique within their parent category (e.g. two
+    /// different categories can both have a "Standard" item name), so the duplicate check is scoped
+    /// to <see cref="InventoryItemNameEntity.InventoryItemCategoryId"/>, excluding
+    /// <paramref name="excludeId"/> on update.
+    /// </summary>
+    private async Task<ValidationResult> CheckDuplicateAsync(
+        InventoryItemNameEntity entity, int? excludeId, CancellationToken cancellationToken)
+    {
+        var duplicateName = await _repository.GetQueryable().AsNoTracking()
+            .AnyAsync(x => x.Id != (excludeId ?? 0)
+                        && x.InventoryItemCategoryId == entity.InventoryItemCategoryId
+                        && x.SubTypeName == entity.SubTypeName
+                        && !x.MarkedForDeletion, cancellationToken);
+
+        if (duplicateName)
+            return ValidationResult.Failure(nameof(entity.SubTypeName), "InventoryItemName_SubTypeName_Duplicate");
+
+        var duplicateCode = await _repository.GetQueryable().AsNoTracking()
+            .AnyAsync(x => x.Id != (excludeId ?? 0)
+                        && x.InventoryItemCategoryId == entity.InventoryItemCategoryId
+                        && x.SubTypeCode == entity.SubTypeCode
+                        && !x.MarkedForDeletion, cancellationToken);
+
+        return duplicateCode
+            ? ValidationResult.Failure(nameof(entity.SubTypeCode), "InventoryItemName_SubTypeCode_Duplicate")
+            : ValidationResult.Success();
+    }
+
+    private async Task EnsureInventoryItemCategoryExistsAsync(int inventoryItemCategoryId, OperationType operationType, CancellationToken cancellationToken)
+    {
+        var exists = await _inventoryItemCategoryRepository.GetQueryable().AsNoTracking()
+            .AnyAsync(x => x.Id == inventoryItemCategoryId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+
+        if (!exists)
+            throw new ValidationException(nameof(CreateInventoryItemNameDto.InventoryItemCategoryId), $"Inventory item category with ID {inventoryItemCategoryId} not found.", operationType);
     }
 }
