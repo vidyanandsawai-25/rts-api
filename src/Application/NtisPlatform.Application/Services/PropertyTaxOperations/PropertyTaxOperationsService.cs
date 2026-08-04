@@ -345,10 +345,10 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
                 foreach (var pendingJob in pendingJobs)
                 {
                     var activeScopeType = ParseScopeType(pendingJob.ScopeType);
-                    var activeScope = JsonSerializer.Deserialize<OperationScopeDto>(pendingJob.ScopeParamsJson ?? "{}");
+                    var activeScope = JsonSerializer.Deserialize<OperationScopeDto>(pendingJob.ScopeParamsJson ?? "{}", new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                     if (activeScope != null)
                     {
-                        var activeCandidates = BuildCandidateQuery(activeScopeType, activeScope);
+                        var activeCandidates = BuildCandidateQuery(activeScopeType, activeScope, pendingJob.FinanceYear);
                         var activeEligible = ApplyEligibility(activeCandidates, pendingJob.FinanceYear.Year);
                         
                         var overlapExists = await activeEligible
@@ -471,9 +471,9 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
 
         _ = ParseOperation(job.Operation);
         var scopeType = ParseScopeType(job.ScopeType);
-        var scope = JsonSerializer.Deserialize<OperationScopeDto>(job.ScopeParamsJson ?? "{}") ?? new();
+        var scope = JsonSerializer.Deserialize<OperationScopeDto>(job.ScopeParamsJson ?? "{}", new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
 
-        var candidates = BuildCandidateQuery(scopeType, scope);
+        var candidates = BuildCandidateQuery(scopeType, scope, job.FinanceYear);
         var eligibleQuery = ApplyEligibility(candidates, job.FinanceYear.Year);
 
         var targets = await eligibleQuery
@@ -850,8 +850,52 @@ public class PropertyTaxOperationsService : IPropertyTaxOperationsService
             case JobScopeType.Building:
                 if (scope.ZoneIds is { Count: > 0 } zids3) q = q.Where(p => zids3.Contains(p.Ward!.ZoneId));
                 if (scope.WardIds is { Count: > 0 } wIds3) q = q.Where(p => wIds3.Contains(p.WardId));
-                if (scope.Building is { Count: > 0 } buildings) q = q.Where(p => buildings.Contains(p.PropertyNo ?? string.Empty));
-                if (scope.PartitionNos is { Count: > 0 } partNos3) q = q.Where(p => partNos3.Contains(p.PartitionNo ?? string.Empty));
+                if (scope.Building is { Count: > 0 } buildings)
+                {
+                    if (buildings.Any(b => b.Contains('-')))
+                    {
+                        var pairs = buildings
+                            .Select(b =>
+                            {
+                                var parts = b.Split('-');
+                                return (PropNo: parts[0]?.Trim(), PartNo: parts.Length > 1 ? parts[1]?.Trim() : string.Empty);
+                            })
+                            .Where(pair => !string.IsNullOrEmpty(pair.PropNo))
+                            .ToList();
+
+                        var parameter = System.Linq.Expressions.Expression.Parameter(typeof(PropertyEntity), "p");
+                        System.Linq.Expressions.Expression? body = null;
+
+                        foreach (var pair in pairs)
+                        {
+                            var propEqual = System.Linq.Expressions.Expression.Equal(
+                                System.Linq.Expressions.Expression.Property(parameter, nameof(PropertyEntity.PropertyNo)),
+                                System.Linq.Expressions.Expression.Constant(pair.PropNo)
+                            );
+                            var partEqual = System.Linq.Expressions.Expression.Equal(
+                                System.Linq.Expressions.Expression.Property(parameter, nameof(PropertyEntity.PartitionNo)),
+                                System.Linq.Expressions.Expression.Constant(pair.PartNo)
+                            );
+                            var andExpr = System.Linq.Expressions.Expression.AndAlso(propEqual, partEqual);
+
+                            body = body == null ? andExpr : System.Linq.Expressions.Expression.OrElse(body, andExpr);
+                        }
+
+                        if (body != null)
+                        {
+                            var lambda = System.Linq.Expressions.Expression.Lambda<Func<PropertyEntity, bool>>(body, parameter);
+                            q = q.Where(lambda);
+                        }
+                    }
+                    else
+                    {
+                        q = q.Where(p => buildings.Contains(p.PropertyNo ?? string.Empty));
+                        if (scope.PartitionNos is { Count: > 0 } partNos3)
+                        {
+                            q = q.Where(p => partNos3.Contains(p.PartitionNo ?? string.Empty));
+                        }
+                    }
+                }
                 break;
 
             case JobScopeType.Property:

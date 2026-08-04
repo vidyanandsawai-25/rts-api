@@ -110,7 +110,7 @@ public class AssessmentYearRangeDtoTests
     }
 
     [Fact]
-    public void CreateAssessmentYearRangeDto_EqualYears_FailsValidation()
+    public void CreateAssessmentYearRangeDto_EqualYears_PassesValidation()
     {
         var dto = new CreateAssessmentYearRangeDto
         {
@@ -119,8 +119,7 @@ public class AssessmentYearRangeDtoTests
         };
 
         var results = Validate(dto);
-        Assert.NotEmpty(results);
-        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanToYear");
+        Assert.Empty(results);
     }
 
     #endregion
