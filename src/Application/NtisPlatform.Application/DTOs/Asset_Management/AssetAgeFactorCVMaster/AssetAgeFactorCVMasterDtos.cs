@@ -9,6 +9,7 @@ namespace NtisPlatform.Application.DTOs.Asset_Management.AssetAgeFactorCVMaster;
 public class AssetAgeFactorCVMasterDto : BaseDtos
 {
     public int ConstructionTypeId { get; set; }
+    public string ConstructionTypeDescription { get; set; } = string.Empty;
     public int AgeFrom { get; set; }
     public int AgeTo { get; set; }
     public decimal Factor { get; set; }
@@ -59,17 +60,4 @@ public class UpdateAssetAgeFactorCVMasterDto : UpdateBaseDtos
     [Required(ErrorMessage = "AgeFactorCV_YearRangeCVId_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "AgeFactorCV_YearRangeCVId_Invalid")]
     public int? YearRangeCVId { get; set; }
-}
-
-/// <summary>Query parameters for the AMS age factor CV master listing.</summary>
-public class AssetAgeFactorCVMasterQueryParameters : BaseQueryParameters
-{
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public int? ConstructionTypeId { get; set; }
-
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public int? YearRangeCVId { get; set; }
-
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public bool? IsActive { get; set; }
 }

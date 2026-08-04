@@ -58,8 +58,8 @@ public class AssetUseFactorCVControllerTests
         var query = new AssetUseFactorCVMasterQueryParameters { PageNumber = 1, PageSize = 10 };
         var data = new List<AssetUseFactorCVMasterDto>
         {
-            new() { Id = 1, TypeOfUseId = 1, SubTypeOfUseId = 1, YearRangeCVId = 1, Factor = 1.0m, IsActive = true },
-            new() { Id = 2, TypeOfUseId = 1, SubTypeOfUseId = 2, YearRangeCVId = 1, Factor = 0.9m, IsActive = true }
+            new() { Id = 1, TypeOfUseId = 1, TypeOfUseDescription = "Residential", SubTypeOfUseId = 1, SubTypeOfUseDescription = "Sub A", YearRangeCVId = 1, Factor = 1.0m, IsActive = true },
+            new() { Id = 2, TypeOfUseId = 1, TypeOfUseDescription = "Residential", SubTypeOfUseId = 2, SubTypeOfUseDescription = "Sub B", YearRangeCVId = 1, Factor = 0.9m, IsActive = true }
         };
         var pagedResult = new PagedResult<AssetUseFactorCVMasterDto>(data, 2, 1, 10);
 
@@ -72,6 +72,8 @@ public class AssetUseFactorCVControllerTests
         var returnedData = Assert.IsType<PagedResult<AssetUseFactorCVMasterDto>>(okResult.Value);
         Assert.Equal(2, returnedData.TotalCount);
         Assert.Equal(2, returnedData.Items.Count());
+        Assert.Contains(returnedData.Items, x => x.Id == 1 && x.SubTypeOfUseDescription == "Sub A");
+        Assert.Contains(returnedData.Items, x => x.Id == 2 && x.SubTypeOfUseDescription == "Sub B");
     }
 
     [Fact]

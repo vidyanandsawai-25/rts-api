@@ -33,16 +33,3 @@ public class UpdateAssetAssessmentYearRangeMasterCVDto : UpdateBaseDtos
     [Range(1900, 9999, ErrorMessage = "AssessmentYearRangeCV_ToYear_Invalid")]
     public int? ToYear { get; set; }
 }
-
-/// <summary>Query parameters for the AMS assessment year range CV master listing.</summary>
-public class AssetAssessmentYearRangeMasterCVQueryParameters : BaseQueryParameters
-{
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public int? FromYear { get; set; }
-
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public int? ToYear { get; set; }
-
-    [Filterable(FilterOperator.Equals)] [Sortable]
-    public bool? IsActive { get; set; }
-}

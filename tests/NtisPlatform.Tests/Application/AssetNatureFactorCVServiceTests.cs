@@ -71,6 +71,107 @@ public class AssetNatureFactorCVServiceTests
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
     }
 
+    #region GetAllAsync - ConstructionTypeDescription Enrichment
+
+    [Fact]
+    public async Task GetAllAsync_WithMatchingConstructionType_PopulatesConstructionTypeDescription()
+    {
+        // ConstructionType Id=1/"Type A" is already wired up in the constructor's default setup.
+        SetupExistingRows(new AssetNatureFactorCVMasterEntity
+        {
+            Id = 1,
+            ConstructionTypeId = 1,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetNatureFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Type A", item.ConstructionTypeDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithNoMatchingConstructionType_ConstructionTypeDescriptionIsEmpty()
+    {
+        // ConstructionTypeId 999 doesn't exist in the construction-type repository - the LEFT JOIN
+        // must not throw and must leave ConstructionTypeDescription empty.
+        SetupExistingRows(new AssetNatureFactorCVMasterEntity
+        {
+            Id = 1,
+            ConstructionTypeId = 999,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetNatureFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.ConstructionTypeDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithPagination_ReturnsCorrectPageAndTotalCount()
+    {
+        var rows = Enumerable.Range(1, 15)
+            .Select(i => new AssetNatureFactorCVMasterEntity { Id = i, ConstructionTypeId = 1, Factor = 1.0m, YearRangeCVId = 1, IsActive = true })
+            .ToArray();
+        SetupExistingRows(rows);
+
+        var result = await _service.GetAllAsync(
+            new AssetNatureFactorCVMasterQueryParameters { PageNumber = 2, PageSize = 10 }, CancellationToken.None);
+
+        Assert.Equal(15, result.TotalCount);
+        Assert.Equal(5, result.Items.Count());
+        Assert.Equal(2, result.PageNumber);
+        Assert.All(result.Items, item => Assert.Equal("Type A", item.ConstructionTypeDescription));
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithConstructionTypeDescriptionNull_ReturnsEmptyStringNotNull()
+    {
+        // ConstructionTypeEntity.Description is a nullable string - a matched row whose Description
+        // is null must still coalesce to string.Empty rather than leaking null into the DTO.
+        var constructionTypes = new List<ConstructionTypeEntity>
+        {
+            new() { Id = 1, ConstructionCode = "A", Description = null, IsActive = true }
+        }.BuildMockDbSet();
+        _mockConstructionTypeRepository.Setup(r => r.GetQueryable()).Returns(constructionTypes.Object);
+
+        SetupExistingRows(new AssetNatureFactorCVMasterEntity
+        {
+            Id = 1,
+            ConstructionTypeId = 1,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetNatureFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.ConstructionTypeDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithConstructionTypeIdFilter_ReturnsFilteredResults()
+    {
+        SetupExistingRows(
+            new AssetNatureFactorCVMasterEntity { Id = 1, ConstructionTypeId = 1, Factor = 1.0m, YearRangeCVId = 1, IsActive = true },
+            new AssetNatureFactorCVMasterEntity { Id = 2, ConstructionTypeId = 2, Factor = 1.0m, YearRangeCVId = 1, IsActive = true });
+
+        var result = await _service.GetAllAsync(
+            new AssetNatureFactorCVMasterQueryParameters { ConstructionTypeId = 1 }, CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(1, item.Id);
+    }
+
+    #endregion
+
     #region Create - Duplicate Combination Validation
 
     [Fact]

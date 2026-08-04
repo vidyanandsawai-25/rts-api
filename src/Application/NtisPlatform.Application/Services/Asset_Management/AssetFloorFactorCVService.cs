@@ -32,6 +32,10 @@ public class AssetFloorFactorCVService :
         _referenceValidator = referenceValidator;
     }
 
+    /// <summary>Eager-loads Floor so GetAll can project FloorDescription.</summary>
+    protected override IQueryable<AssetFloorFactorCVEntity> ApplyIncludes(IQueryable<AssetFloorFactorCVEntity> query)
+        => query.Include(x => x.Floor);
+
     protected override async Task<ValidationResult> ValidateForCreateAsync(
         AssetFloorFactorCVEntity entity, CancellationToken ct = default)
     {

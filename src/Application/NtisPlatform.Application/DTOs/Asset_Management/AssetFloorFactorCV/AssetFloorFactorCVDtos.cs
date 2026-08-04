@@ -5,6 +5,7 @@ namespace NtisPlatform.Application.DTOs.Asset_Management;
 public class AssetFloorFactorCVDto : BaseDtos
 {
     public int FloorId { get; set; }
+    public string FloorDescription { get; set; } = string.Empty;
     public decimal FactorWithLift { get; set; }
     public decimal FactorWithoutLift { get; set; }
     public int YearRangeCVId { get; set; }

@@ -8,7 +8,14 @@ public class AssetUseFactorCVMappingProfile : Profile
 {
     public AssetUseFactorCVMappingProfile()
     {
-        CreateMap<AssetUseFactorCVMasterEntity, AssetUseFactorCVMasterDto>();
+        // TypeOfUseDescription/SubTypeOfUseDescription have no source members on the entity (a
+        // deliberately clean POCO with only the FK ids - no navigation properties). They're populated
+        // via the SQL JOINs in AssetUseFactorCVService.GetAllAsync, which builds the DTO directly and
+        // never calls _mapper.Map for that path; Ignore() here only satisfies AutoMapper's config
+        // validation for the GetById/Create/Update codepaths, where they stay empty.
+        CreateMap<AssetUseFactorCVMasterEntity, AssetUseFactorCVMasterDto>()
+            .ForMember(d => d.TypeOfUseDescription, o => o.Ignore())
+            .ForMember(d => d.SubTypeOfUseDescription, o => o.Ignore());
 
         CreateMap<CreateAssetUseFactorCVMasterDto, AssetUseFactorCVMasterEntity>()
             .ForMember(d => d.CreatedDate, o => o.Ignore())
