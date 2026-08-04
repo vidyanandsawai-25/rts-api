@@ -607,6 +607,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
         services.AddScoped<IPropertyMappingService, PropertyMappingService>();
+        services.AddScoped<IPropertyMergeService, PropertyMergeService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();

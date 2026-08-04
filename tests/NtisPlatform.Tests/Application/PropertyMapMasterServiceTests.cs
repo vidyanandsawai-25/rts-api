@@ -1650,11 +1650,8 @@ public class PropertyMapMasterServiceTests
         Assert.Equal(250, lastResult.TotalPages);
         Assert.Equal(20, lastResult.OldPropertySuggestions.Count);
 
-        // Loose bound with real headroom for a shared/loaded CI runner (observed ~105ms average under
-        // full-suite parallel load, against the previous 100ms threshold). This is meant to catch a
-        // genuine algorithmic regression -- e.g. an accidental N+1 or O(n^2) change -- not to enforce a
-        // specific millisecond figure on hardware this test has no control over.
-        Assert.True(medianMs < 500, $"Performance test failed: median search time was {medianMs:F2}ms, expected < 500ms");
+        // Assert median execution time is under threshold
+        Assert.True(medianMs < 500, $"Performance test failed: Median search time was {medianMs:F2}ms, expected < 500ms");
     }
 
     [Fact]

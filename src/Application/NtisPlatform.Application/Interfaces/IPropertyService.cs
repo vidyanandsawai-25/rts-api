@@ -66,11 +66,5 @@ public interface IPropertyService
 		 Task<PagedResult<PropertyBuildingInformationDto>>
     SearchBuildingInformationAsync(
         BuildingInformationQueryParameters queryParameters,CancellationToken cancellationToken = default);
-    Task<PropertyResponse> MergePropertyAsync(PropertyMergeDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyMergeDetailResponse> GetPropertyMergeDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
-    Task<PropertyResponse> DemergePropertyAsync(PropertyDemergeDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyResponse> MergeMultiplePropertyAsync(PropertyMergeMultipleDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyResponse> DemergeMultiplePropertyAsync(PropertyDemergeMultipleDto dto, CancellationToken cancellationToken = default);
-    Task<PagedResults<PropertyUnMergeResponseDto>> GetUnMergePropertyDetailsAsync(UnMergePropertydetailDto request, CancellationToken cancellationToken = default);
-    Task<PagedResults<OldPropertyUnMergeResponseDto>> GetUnMergeOldPropertyDetailsAsync(UnMergePropertydetailDto request, CancellationToken cancellationToken = default);
+
 }
