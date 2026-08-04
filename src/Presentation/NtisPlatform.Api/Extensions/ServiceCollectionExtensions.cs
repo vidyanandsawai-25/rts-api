@@ -241,7 +241,8 @@ public static class ServiceCollectionExtensions
 
         // Property Sign-off Module
         services.AddScoped<IPropertySignatureRepository, PropertySignatureRepository>();
-
+		services.AddScoped<IWardAllocationService, WardAllocationService>();
+ 
         // Infrastructure Layer - Services
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
