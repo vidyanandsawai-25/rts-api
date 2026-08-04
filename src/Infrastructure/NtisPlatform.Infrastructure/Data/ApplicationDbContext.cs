@@ -4448,19 +4448,38 @@ public class ApplicationDbContext : DbContext
             entity.ToTable("InventoryItemCategoryMaster", "AMS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.TypeCode).HasMaxLength(100);
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.TypeCode).IsRequired().HasMaxLength(20).IsUnicode(false).HasColumnType("varchar(20)");
             entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DepreciationRate).HasPrecision(5, 4).HasDefaultValue(0.10m);
+            entity.Property(e => e.DisplayOrder);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
-            // Indexes for performance
-            entity.HasIndex(e => e.TypeCode);
-            entity.HasIndex(e => e.TypeName);
+            // UQ_InventoryItemCategoryMaster_TypeCode / _TypeName in the live DB are plain UNIQUE
+            // CONSTRAINTs, NOT filtered on MarkedForDeletion -- a row that's only marked-for-deletion
+            // (pending the nightly HardDeleteCleanupService purge) still physically occupies its
+            // TypeCode/TypeName. Same reasoning as TransMastEntity's UQ_TransMast_Property_Year_CalculationType_Tax
+            // above. InventoryItemCategoryService.CheckDuplicateAsync must NOT exclude MarkedForDeletion
+            // rows from the duplicate check, or app-level validation would pass while the DB rejects the insert.
+            entity.HasIndex(e => e.TypeCode).IsUnique().HasDatabaseName("UQ_InventoryItemCategoryMaster_TypeCode");
+            entity.HasIndex(e => e.TypeName).IsUnique().HasDatabaseName("UQ_InventoryItemCategoryMaster_TypeName");
             entity.HasIndex(e => e.IsActive);
+
+            // Live DB has AssetCategoryId int NOT NULL with FK_InventoryItemCategoryMaster_AssetCategory --
+            // this column was missing from the entity/DTOs entirely, which is why every Create request
+            // failed with a raw NOT NULL violation swallowed into a generic 500.
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryItemCategoryMaster_AssetCategory");
         });
 
         modelBuilder.Entity<InventoryItemNameEntity>(entity =>

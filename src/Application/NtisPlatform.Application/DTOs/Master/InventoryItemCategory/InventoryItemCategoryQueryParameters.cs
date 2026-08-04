@@ -6,6 +6,10 @@ namespace NtisPlatform.Application.DTOs.Master;
 
 public class InventoryItemCategoryQueryParameters : BaseQueryParameters
 {
+    [Filterable]
+    [Sortable]
+    public int? AssetCategoryId { get; set; }
+
     [Filterable(FilterOperator.Equals)]
     [Sortable]
     public int? DisplayOrder { get; set; }

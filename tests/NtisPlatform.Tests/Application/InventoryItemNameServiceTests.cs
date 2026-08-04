@@ -331,6 +331,29 @@ public class InventoryItemNameServiceTests
         Assert.Null(result);
     }
 
+    // InventoryItemCategoryId is a required FK (AMS.InventoryItemNameMaster.InventoryItemCategoryId ->
+    // AMS.InventoryItemCategoryMaster.Id) -- GetAll must resolve and expose the referenced category's
+    // display name (InventoryItemCategoryName, sourced from InventoryItemCategoryEntity.TypeName) via
+    // a join, not just the raw FK id.
+    [Fact]
+    public async Task Service_GetAllAsync_PopulatesInventoryItemCategoryName_FromReferencedCategory()
+    {
+        var entities = new List<InventoryItemNameEntity>
+        {
+            new() { Id = 1, InventoryItemCategoryId = 1, SubTypeName = "Laptop", SubTypeCode = "LAP", IsActive = true },
+            new() { Id = 2, InventoryItemCategoryId = 999, SubTypeName = "Chair", SubTypeCode = "CHR", IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMockDbSet().Object);
+        // _mockInventoryItemCategoryRepository is already stubbed in the constructor with Id=1 -> "Electronics".
+
+        var qp = new InventoryItemNameQueryParameters { PageNumber = 1, PageSize = 10 };
+        var result = await _service.GetAllAsync(qp, CancellationToken.None);
+
+        var mapped = result.Items.ToDictionary(x => x.Id);
+        Assert.Equal("Electronics", mapped[1].InventoryItemCategoryName);
+        Assert.Null(mapped[2].InventoryItemCategoryName); // InventoryItemCategoryId 999 doesn't resolve to any InventoryItemCategoryEntity
+    }
+
     [Fact]
     public async Task Service_CreateAsync_ValidDto_ReturnsCreatedDto()
     {

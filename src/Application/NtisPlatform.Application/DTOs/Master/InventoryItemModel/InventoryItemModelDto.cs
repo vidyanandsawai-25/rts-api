@@ -4,6 +4,7 @@ namespace NtisPlatform.Application.DTOs.Master;
 public class InventoryItemModelDto : BaseDtos
 {
     public int InventoryItemNameId { get; set; }
+    public string? InventoryItemName { get; set; }
     public string ModelName { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int? DisplayOrder { get; set; }

@@ -263,6 +263,29 @@ public class InventoryItemModelServiceTests
         Assert.Equal(expectedCount, result.Items.Count());
     }
 
+    // InventoryItemNameId is a required FK (AMS.InventoryItemModelMaster.InventoryItemNameId ->
+    // AMS.InventoryItemNameMaster.Id) -- GetAll must resolve and expose the referenced item name's
+    // display name (InventoryItemName, sourced from InventoryItemNameEntity.SubTypeName) via a join,
+    // not just the raw FK id.
+    [Fact]
+    public async Task Service_GetAllAsync_PopulatesInventoryItemName_FromReferencedInventoryItemName()
+    {
+        var entities = new List<InventoryItemModelEntity>
+        {
+            new() { Id = 1, InventoryItemNameId = 1, ModelName = "Model A", DisplayOrder = 1, IsActive = true },
+            new() { Id = 2, InventoryItemNameId = 999, ModelName = "Model B", DisplayOrder = 2, IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMockDbSet().Object);
+        // _mockInventoryItemNameRepository is already stubbed in the constructor with Id=1 -> "Laptop".
+
+        var qp = new InventoryItemModelQueryParameters { PageNumber = 1, PageSize = 10 };
+        var result = await _service.GetAllAsync(qp, CancellationToken.None);
+
+        var mapped = result.Items.ToDictionary(x => x.Id);
+        Assert.Equal("Laptop", mapped[1].InventoryItemName);
+        Assert.Null(mapped[2].InventoryItemName); // InventoryItemNameId 999 doesn't resolve to any InventoryItemNameEntity
+    }
+
     [Fact]
     public async Task Service_CreateAsync_ValidDto_ReturnsCreatedDto()
     {

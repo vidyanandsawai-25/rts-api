@@ -173,7 +173,19 @@ public class AutoMapperValidationTest
                 // InventoryUnitResponseDto - computed/display fields with no entity source yet
                 "ConditionFactor", "CVFormula",
                 // SubUnitsDetailsDto - stubbed display fields, never populated
-                "CVCalculationFormula", "RoomDetails"
+                "CVCalculationFormula", "RoomDetails",
+                // InventoryItemCategoryDto.AssetCategoryName - resolved via a GetAllAsync-only SQL join
+                // against AssetCategoryEntity (CategoryName), not part of the base entity<->dto map.
+                // Listed explicitly even though it also happens to contain the "CategoryName" pattern
+                // above, so this mapping's intent doesn't rely on incidental substring overlap.
+                "AssetCategoryName",
+                // InventoryItemNameDto.InventoryItemCategoryName - resolved via a GetAllAsync-only SQL
+                // join against InventoryItemCategoryEntity (TypeName), not part of the base entity<->dto
+                // map. Listed explicitly for the same reason as AssetCategoryName above.
+                "InventoryItemCategoryName",
+                // InventoryItemModelDto.InventoryItemName - resolved via a GetAllAsync-only SQL join
+                // against InventoryItemNameEntity (SubTypeName), not part of the base entity<->dto map
+                "InventoryItemName"
              };
 
             // Check if all unmapped properties are in the expected list

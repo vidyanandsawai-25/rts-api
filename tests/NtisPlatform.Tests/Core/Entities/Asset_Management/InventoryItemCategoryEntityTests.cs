@@ -19,6 +19,7 @@ public class InventoryItemCategoryEntityTests
         var entity = new InventoryItemCategoryEntity
         {
             Id = 1,
+            AssetCategoryId = 3,
             TypeCode = "FURN",
             TypeName = "Furniture",
             DisplayOrder = 2,
@@ -29,6 +30,7 @@ public class InventoryItemCategoryEntityTests
         };
 
         Assert.Equal(1, entity.Id);
+        Assert.Equal(3, entity.AssetCategoryId);
         Assert.Equal("FURN", entity.TypeCode);
         Assert.Equal("Furniture", entity.TypeName);
         Assert.Equal(2, entity.DisplayOrder);
@@ -43,9 +45,10 @@ public class InventoryItemCategoryEntityTests
     {
         var entity = new InventoryItemCategoryEntity();
 
-        Assert.Null(entity.TypeCode);
+        Assert.Equal(0, entity.AssetCategoryId);
+        Assert.Equal(string.Empty, entity.TypeCode);
         Assert.Equal(string.Empty, entity.TypeName);
-        Assert.Equal(0, entity.DisplayOrder);
+        Assert.Null(entity.DisplayOrder);
         Assert.Equal(0.10m, entity.DepreciationRate);
         Assert.Null(entity.Description);
         Assert.False(entity.MarkedForDeletion);
