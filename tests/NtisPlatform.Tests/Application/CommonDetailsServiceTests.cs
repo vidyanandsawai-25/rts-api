@@ -63,6 +63,9 @@ public class CommonDetailsServiceTests : IDisposable
         var wardRepo = new Repository<WardEntity>(_context);
         var societyRepo = new Repository<SocietyDetailsEntity>(_context);
         var userRepo = new Repository<UserEntity>(_context);
+        var sourceTableRepo = new Repository<SourceTableEntity>(_context);
+        var sourceTableDetailsRepo = new Repository<SourceTableDetailsEntity>(_context);
+        var moduleRepo = new Repository<ModuleMasterEntity>(_context);
         var unitOfWork = new UnitOfWork(_context);
         var entityLoader = new DynamicEntityLoader(_context);
         _mockPropertySearchService = new Mock<IPropertySearchService>();
@@ -70,6 +73,7 @@ public class CommonDetailsServiceTests : IDisposable
 
         _service = new CommonDetailsService(
             masterRepo, fieldConfigRepo, historyRepo, propertyRepo, wardRepo, societyRepo, userRepo,
+            sourceTableRepo, sourceTableDetailsRepo, moduleRepo,
             unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object);
 
         SeedTestData();
@@ -100,23 +104,37 @@ public class CommonDetailsServiceTests : IDisposable
             new UserEntity { Id = 100, UserName = "alice.user" },
             new UserEntity { Id = 101, UserName = "bob.user" });
 
+        _context.ModuleMasters.Add(
+            new ModuleMasterEntity { Id = 1, ModuleCode = "PROP", ModuleName = "Property", DepartmentId = 1, IsActive = true });
+
+        _context.SourceTables.AddRange(
+            new SourceTableEntity { Id = 1, ModuleId = 1, TableName = "PTIS.PropertyMast", TableAliasName = "Property Master", IsActive = true },
+            new SourceTableEntity { Id = 2, ModuleId = 1, TableName = "PTIS.InactiveTable", TableAliasName = "Inactive Table", IsActive = false },
+            new SourceTableEntity { Id = 3, ModuleId = 999, TableName = "PTIS.OrphanModuleTable", TableAliasName = "Orphan Module Table", IsActive = true });
+
+        _context.SourceTableDetails.AddRange(
+            new SourceTableDetailsEntity { Id = 21, SourceTableId = 1, FieldName = "OwnerName", DisplayName = "Owner Name", ControlType = "text", DataType = "string", IsRequired = true, SequenceNo = 1, IsActive = true },
+            new SourceTableDetailsEntity { Id = 22, SourceTableId = 1, FieldName = "MobileNo", DisplayName = "Mobile No", ControlType = "text", DataType = "string", IsRequired = false, SequenceNo = 2, IsActive = true },
+            new SourceTableDetailsEntity { Id = 23, SourceTableId = 1, FieldName = "PlotArea", DisplayName = null, ControlType = null, DataType = null, IsRequired = false, SequenceNo = 3, IsActive = true },
+            new SourceTableDetailsEntity { Id = 24, SourceTableId = 1, FieldName = "RetiredField", DisplayName = "Retired Field", ControlType = "text", DataType = "string", IsRequired = false, SequenceNo = 4, IsActive = false });
+
         _context.BulkUpdateMasters.AddRange(
             new BulkUpdateMasterEntity
             {
                 Id = 1, UpdateCode = "OWNER_UPDATE", UpdateName = "Owner Update",
-                ReferenceTableName = "PTIS.PropertyMast", IsActive = true, DisplaySequence = 2,
+                ReferenceTableName = "PTIS.PropertyMast", IsActive = true,
                 CreatedBy = 100, UpdatedBy = null, UpdatedDate = new DateTime(2099, 1, 1),
             },
             new BulkUpdateMasterEntity
             {
                 Id = 2, UpdateCode = "ASSESSMENT_UPDATE", UpdateName = "Assessment Update",
-                ReferenceTableName = "PTIS.PropertyMastDetails", IsActive = true, DisplaySequence = 1,
+                ReferenceTableName = "PTIS.PropertyMastDetails", IsActive = true,
                 CreatedBy = null, UpdatedBy = 101,
             },
             new BulkUpdateMasterEntity
             {
                 Id = 3, UpdateCode = "INACTIVE_UPDATE", UpdateName = "Inactive Update",
-                ReferenceTableName = "PTIS.PropertyMast", IsActive = false, DisplaySequence = 3,
+                ReferenceTableName = "PTIS.PropertyMast", IsActive = false,
             });
 
         _context.BulkUpdateFieldConfigs.AddRange(
@@ -191,7 +209,7 @@ public class CommonDetailsServiceTests : IDisposable
     #region GetMenuAsync Tests
 
     [Fact]
-    public async Task GetMenuAsync_ReturnsOnlyActiveMasters_OrderedByDisplaySequence()
+    public async Task GetMenuAsync_ReturnsOnlyActiveMasters_OrderedByUpdateName()
     {
         var result = await _service.GetMenuAsync(CancellationToken.None);
 
@@ -208,7 +226,6 @@ public class CommonDetailsServiceTests : IDisposable
         var owner = result.Single(m => m.UpdateCode == "OWNER_UPDATE");
         Assert.Equal("Owner Update", owner.UpdateName);
         Assert.Equal("PTIS.PropertyMast", owner.ReferenceTableName);
-        Assert.Equal(2, owner.DisplaySequence);
         Assert.True(owner.IsActive);
     }
 
@@ -264,12 +281,213 @@ public class CommonDetailsServiceTests : IDisposable
 
     #endregion
 
+    #region GetSourceTablesAsync Tests
+
+    [Fact]
+    public async Task GetSourceTablesAsync_ExcludesInactiveSourceTables()
+    {
+        var result = await _service.GetSourceTablesAsync(CancellationToken.None);
+
+        Assert.DoesNotContain(result, t => t.Id == 2);
+    }
+
+    [Fact]
+    public async Task GetSourceTablesAsync_CombinesModuleNameAndTableAliasName_WhenModuleExists()
+    {
+        var result = await _service.GetSourceTablesAsync(CancellationToken.None);
+
+        var item = result.Single(t => t.Id == 1);
+        Assert.Equal("Property Property Master", item.TableName);
+    }
+
+    [Fact]
+    public async Task GetSourceTablesAsync_FallsBackToTableAliasName_WhenModuleIsMissing()
+    {
+        // SourceTable 3 references ModuleId=999, which doesn't exist - the left join's `mm` is null.
+        var result = await _service.GetSourceTablesAsync(CancellationToken.None);
+
+        var item = result.Single(t => t.Id == 3);
+        Assert.Equal("Orphan Module Table", item.TableName);
+    }
+
+    #endregion
+
+    #region GetSourceTableFieldsAsync Tests
+
+    [Fact]
+    public async Task GetSourceTableFieldsAsync_ExcludesInactiveFields()
+    {
+        var result = await _service.GetSourceTableFieldsAsync(1, CancellationToken.None);
+
+        Assert.DoesNotContain(result, f => f.Id == 24);
+    }
+
+    [Fact]
+    public async Task GetSourceTableFieldsAsync_FallsBackToFieldName_WhenDisplayNameIsNullOrEmpty()
+    {
+        // Field 23 (PlotArea) has a null DisplayName.
+        var result = await _service.GetSourceTableFieldsAsync(1, CancellationToken.None);
+
+        var item = result.Single(f => f.Id == 23);
+        Assert.Equal("PlotArea", item.TableFieldName);
+    }
+
+    [Fact]
+    public async Task GetSourceTableFieldsAsync_UsesDisplayName_WhenPresent()
+    {
+        var result = await _service.GetSourceTableFieldsAsync(1, CancellationToken.None);
+
+        var item = result.Single(f => f.Id == 21);
+        Assert.Equal("Owner Name", item.TableFieldName);
+    }
+
+    #endregion
+
+    #region CreateFromSourceTableAsync Tests
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_CreatesMasterAndFieldConfigs_OnHappyPath()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "FlatOrShop No Name",
+            TableId = 1,
+            TableFieldIds = [21, 22],
+            IsApprovalRequired = false
+        };
+
+        var result = await _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None);
+
+        Assert.Equal("FLATORSHOP_NO_NAME", result.Master.UpdateCode);
+        Assert.Equal("FlatOrShop No Name", result.Master.UpdateName);
+        Assert.Equal("PTIS.PropertyMast", result.Master.ReferenceTableName);
+        Assert.Equal(2, result.FieldConfigs.Count);
+        Assert.Equal(new[] { "OwnerName", "MobileNo" }, result.FieldConfigs.Select(f => f.FieldName));
+        Assert.True(await _context.BulkUpdateMasters.AnyAsync(m => m.UpdateCode == "FLATORSHOP_NO_NAME"));
+        Assert.Equal(2, await _context.BulkUpdateFieldConfigs.CountAsync(f => f.BulkUpdateMasterId == result.Master.Id));
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_CollapsesNonAlphanumericRuns_IntoSingleUnderscore()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "Flat/Shop  No.Name!!",
+            TableId = 1,
+            TableFieldIds = [21]
+        };
+
+        var result = await _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None);
+
+        Assert.Equal("FLAT_SHOP_NO_NAME", result.Master.UpdateCode);
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_ThrowsArgumentException_WhenUpdateNameHasNoAlphanumericCharacters()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "@@@ !!!",
+            TableId = 1,
+            TableFieldIds = [21]
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_ThrowsArgumentException_WhenDerivedUpdateCodeExceeds100Characters()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = new string('A', 101),
+            TableId = 1,
+            TableFieldIds = [21]
+        };
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None));
+        Assert.Contains("exceeds 100 characters", ex.Message);
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_FillsDefaults_WhenSourceFieldMetadataIsMissing()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "Plot Area Update",
+            TableId = 1,
+            TableFieldIds = [23]
+        };
+
+        var result = await _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None);
+
+        var field = result.FieldConfigs.Single();
+        Assert.Equal("PlotArea", field.DisplayName);
+        Assert.Equal("text", field.ControlType);
+        Assert.Equal("string", field.DataType);
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_ThrowsArgumentException_WhenUpdateCodeAlreadyExists()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "Owner Update", // derives to OWNER_UPDATE, which already exists (Id=1)
+            TableId = 1,
+            TableFieldIds = [21]
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None));
+
+        Assert.Equal(3, await _context.BulkUpdateMasters.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_ThrowsArgumentException_WhenFieldIdNotFound()
+    {
+        var request = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "New Definition",
+            TableId = 1,
+            TableFieldIds = [21, 9999]
+        };
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None));
+
+        Assert.Contains("9999", ex.Message);
+        Assert.False(await _context.BulkUpdateMasters.AnyAsync(m => m.UpdateName == "New Definition"));
+    }
+
+    [Fact]
+    public async Task CreateFromSourceTableAsync_ThrowsArgumentException_WhenSourceTableMissingOrInactive()
+    {
+        var missingTableRequest = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "New Definition", TableId = 999, TableFieldIds = [21]
+        };
+        var inactiveTableRequest = new CreateBulkUpdateDefinitionFromSourceDto
+        {
+            UpdateName = "Another Definition", TableId = 2, TableFieldIds = [21]
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(missingTableRequest, createdBy: 100, CancellationToken.None));
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.CreateFromSourceTableAsync(inactiveTableRequest, createdBy: 100, CancellationToken.None));
+    }
+
+    #endregion
+
     #region FilterPropertiesAsync Tests
 
     [Fact]
     public async Task FilterPropertiesAsync_ThrowsArgumentException_WhenUpdateCodeUnknown()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "NO_SUCH_CODE", WardId = 1 };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["NO_SUCH_CODE"], WardId = 1 };
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => _service.FilterPropertiesAsync(request, CancellationToken.None));
@@ -278,7 +496,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_FiltersByWardId()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PageSize = -1 };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, PageSize = -1 };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -290,7 +508,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_FiltersByExactPropertyNo()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PropertyNo = "P002" };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, PropertyNo = "P002" };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -303,7 +521,7 @@ public class CommonDetailsServiceTests : IDisposable
     {
         var request = new FilterPropertiesRequestDto
         {
-            UpdateCode = "OWNER_UPDATE", WardId = 1, FromPropertyNo = "P002", ToPropertyNo = "P004", PageSize = -1
+            UpdateCode = ["OWNER_UPDATE"], WardId = 1, FromPropertyNo = "P002", ToPropertyNo = "P004", PageSize = -1
         };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
@@ -314,7 +532,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_FiltersByWing()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, Wing = "WingA" };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, Wing = "WingA" };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -325,7 +543,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_ReturnsAllResults_WhenPageSizeIsMinusOne()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PageSize = -1 };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, PageSize = -1 };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -336,7 +554,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_ReturnsCorrectPage()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PageNumber = 2, PageSize = 2 };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, PageNumber = 2, PageSize = 2 };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -347,7 +565,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_PopulatesCurrentValuesFromPropertyItself_WhenTargetIsPropertyMast()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PropertyNo = "P001" };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["OWNER_UPDATE"], WardId = 1, PropertyNo = "P001" };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -359,7 +577,7 @@ public class CommonDetailsServiceTests : IDisposable
     [Fact]
     public async Task FilterPropertiesAsync_PopulatesCurrentValuesFromRelatedEntity_WhenTargetIsNotPropertyMast()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "ASSESSMENT_UPDATE", WardId = 1, PageSize = -1 };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["ASSESSMENT_UPDATE"], WardId = 1, PageSize = -1 };
 
         var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
 
@@ -370,6 +588,35 @@ public class CommonDetailsServiceTests : IDisposable
         // Property 3 has no PropertyMastDetails row -> source is null -> CurrentValues stays empty.
         var withoutAssessment = result.Items.Single(p => p.PropertyNo == "P003");
         Assert.Empty(withoutAssessment.CurrentValues);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesAsync_MergesCurrentValues_FromMultipleUpdateCodes()
+    {
+        var request = new FilterPropertiesRequestDto
+        {
+            UpdateCode = ["OWNER_UPDATE", "ASSESSMENT_UPDATE"], WardId = 1, PropertyNo = "P001"
+        };
+
+        var result = await _service.FilterPropertiesAsync(request, CancellationToken.None);
+
+        var item = result.Items.Single();
+        Assert.Equal("Alice", item.CurrentValues["OwnerName"]);
+        Assert.Equal("9000000001", item.CurrentValues["MobileNo"]);
+        Assert.Equal("2BHK", item.CurrentValues["BHK"]);
+        Assert.Equal("Good", item.CurrentValues["AssessmentRemark"]);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesAsync_ThrowsArgumentException_WhenAnyUpdateCodeInListIsUnknown()
+    {
+        var request = new FilterPropertiesRequestDto
+        {
+            UpdateCode = ["OWNER_UPDATE", "NO_SUCH_CODE"], WardId = 1
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.FilterPropertiesAsync(request, CancellationToken.None));
     }
 
     #endregion
@@ -542,12 +789,111 @@ public class CommonDetailsServiceTests : IDisposable
 
     #endregion
 
+    #region BulkUpdateBatchAsync Tests
+
+    [Fact]
+    public async Task BulkUpdateBatchAsync_HappyPath_ProcessesEachItemIndependently()
+    {
+        var requests = new List<BulkUpdateRequestDto>
+        {
+            new() { UpdateCode = "OWNER_UPDATE", PropertyIds = [3], UpdateData = new() { ["OwnerName"] = "CharlieUpdated" } },
+            new() { UpdateCode = "ASSESSMENT_UPDATE", PropertyIds = [1], UpdateData = new() { ["BHK"] = "4BHK" } },
+        };
+
+        var results = await _service.BulkUpdateBatchAsync(requests, 1, "1.1.1.1", CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+
+        var r0 = results[0];
+        Assert.Equal("OWNER_UPDATE", r0.UpdateCode);
+        Assert.Equal(1, r0.SuccessCount);
+        Assert.Equal(0, r0.FailedCount);
+
+        var r1 = results[1];
+        Assert.Equal("ASSESSMENT_UPDATE", r1.UpdateCode);
+        Assert.Equal(1, r1.SuccessCount);
+        Assert.Equal(0, r1.FailedCount);
+
+        var p3 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 3);
+        Assert.Equal("CharlieUpdated", p3.OwnerName);
+        var assessment1 = await _context.PropertyMastDetails.AsNoTracking().SingleAsync(a => a.PropertyId == 1);
+        Assert.Equal("4BHK", assessment1.BHK);
+    }
+
+    [Fact]
+    public async Task BulkUpdateBatchAsync_MixedBatch_BadItemFailsWithoutAffectingGoodItem()
+    {
+        var requests = new List<BulkUpdateRequestDto>
+        {
+            new() { UpdateCode = "NO_SUCH_CODE", PropertyIds = [4], UpdateData = new() { ["OwnerName"] = "X" } },
+            new() { UpdateCode = "OWNER_UPDATE", PropertyIds = [4], UpdateData = new() { ["OwnerName"] = "DaveUpdated" } },
+        };
+
+        var results = await _service.BulkUpdateBatchAsync(requests, 1, null, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+
+        var bad = results[0];
+        Assert.Equal("NO_SUCH_CODE", bad.UpdateCode);
+        Assert.Equal(0, bad.SuccessCount);
+        Assert.Equal(1, bad.FailedCount);
+        Assert.Single(bad.Errors);
+
+        var good = results[1];
+        Assert.Equal("OWNER_UPDATE", good.UpdateCode);
+        Assert.Equal(1, good.SuccessCount);
+        Assert.Equal(0, good.FailedCount);
+
+        var p4 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 4);
+        Assert.Equal("DaveUpdated", p4.OwnerName);
+    }
+
+    [Fact]
+    public async Task BulkUpdateBatchAsync_ItemThatThrowsOverflow_RollsBackOnlyThatItem()
+    {
+        var requests = new List<BulkUpdateRequestDto>
+        {
+            new()
+            {
+                UpdateCode = "OWNER_UPDATE",
+                PropertyIds = [1, 2, long.MaxValue],
+                UpdateData = new() { ["OwnerName"] = "ShouldRollback" },
+            },
+            new() { UpdateCode = "OWNER_UPDATE", PropertyIds = [5], UpdateData = new() { ["OwnerName"] = "EveUpdated" } },
+        };
+
+        var results = await _service.BulkUpdateBatchAsync(requests, 1, null, CancellationToken.None);
+
+        Assert.Equal(2, results.Count);
+
+        var bad = results[0];
+        Assert.Equal(0, bad.SuccessCount);
+        Assert.Equal(3, bad.FailedCount);
+        Assert.Single(bad.Errors);
+
+        var good = results[1];
+        Assert.Equal(1, good.SuccessCount);
+        Assert.Equal(0, good.FailedCount);
+
+        // Bad item rolled back - properties 1/2 unchanged.
+        var p1 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 1);
+        var p2 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 2);
+        Assert.Equal("Alice", p1.OwnerName);
+        Assert.Equal("Bob", p2.OwnerName);
+
+        // Good item committed independently.
+        var p5 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 5);
+        Assert.Equal("EveUpdated", p5.OwnerName);
+    }
+
+    #endregion
+
     #region ExportPropertiesToExcelAsync Tests
 
     [Fact]
     public async Task ExportPropertiesToExcelAsync_ProducesValidWorkbook_IgnoringPaging()
     {
-        var request = new FilterPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1, PageNumber = 1, PageSize = 2 };
+        var request = new ExportPropertiesRequestDto { UpdateCode = "OWNER_UPDATE", WardId = 1 };
 
         var bytes = await _service.ExportPropertiesToExcelAsync(request, CancellationToken.None);
 
@@ -562,10 +908,40 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal("MobileNo", headerRow.Cell(5).GetString());
 
         var usedRange = ws.RangeUsed()!;
-        Assert.Equal(6, usedRange.RowCount()); // header + 5 properties, paging ignored
+        Assert.Equal(6, usedRange.RowCount()); // header + 5 properties
         Assert.Equal("P001", ws.Cell(2, 2).GetString());
         Assert.Equal("Alice", ws.Cell(2, 4).GetString());
         Assert.Equal("P005", ws.Cell(6, 2).GetString());
+    }
+
+    [Fact]
+    public async Task ExportPropertiesToExcelAsync_HeaderOnly_WhenWardIdOmitted()
+    {
+        var request = new ExportPropertiesRequestDto { UpdateCode = "OWNER_UPDATE" };
+
+        var bytes = await _service.ExportPropertiesToExcelAsync(request, CancellationToken.None);
+
+        Assert.NotEmpty(bytes);
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+        var headerRow = ws.Row(1);
+        Assert.Equal("wardNo", headerRow.Cell(1).GetString());
+        Assert.Equal("propertyNo", headerRow.Cell(2).GetString());
+        Assert.Equal("partitionNo", headerRow.Cell(3).GetString());
+        Assert.Equal("OwnerName", headerRow.Cell(4).GetString());
+        Assert.Equal("MobileNo", headerRow.Cell(5).GetString());
+
+        var usedRange = ws.RangeUsed()!;
+        Assert.Equal(1, usedRange.RowCount()); // header only, no data rows
+    }
+
+    [Fact]
+    public async Task ExportPropertiesToExcelAsync_ThrowsArgumentException_WhenUpdateCodeUnknown_EvenWithoutWardId()
+    {
+        var request = new ExportPropertiesRequestDto { UpdateCode = "NO_SUCH_CODE" };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.ExportPropertiesToExcelAsync(request, CancellationToken.None));
     }
 
     #endregion
@@ -769,6 +1145,55 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal(new[] { 2, 1 }, result.Items.Select(i => i.Id)); // page 2 of [3,5,2,1,4]
     }
 
+    [Fact]
+    public async Task GetUpdateHistoryAsync_ComputesPropertyField_AsWardPropertyPartitionCombination()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal("001-P001-A", result.Items.Single(i => i.Id == 1).Property);
+
+        // History row 4 has no matching property (left join) - all three parts are null, so
+        // Property drops every empty segment rather than rendering "--".
+        Assert.Equal(string.Empty, result.Items.Single(i => i.Id == 4).Property);
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingCombinedPropertyField()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { SearchTerm = "P001", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingUsername_AcrossMultipleRows()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { SearchTerm = "alice", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal(new[] { 5, 1, 4 }, result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingUpdatedColumns()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { SearchTerm = "PlotArea", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([5], result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingUpdateName()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { SearchTerm = "Owner Update", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal(new[] { 5, 1, 4 }, result.Items.Select(i => i.Id));
+    }
+
     #endregion
 
     #region ExportUpdateHistoryToExcelAsync Tests
@@ -785,7 +1210,7 @@ public class CommonDetailsServiceTests : IDisposable
         var ws = workbook.Worksheet(1);
         var expectedHeaders = new[]
         {
-            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo",
+            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo", "Property",
             "OldValue", "NewValue", "UpdatedColumns", "Remarks", "IPAddress", "Username", "UpdatedDate"
         };
         for (var c = 0; c < expectedHeaders.Length; c++)

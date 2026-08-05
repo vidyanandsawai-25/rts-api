@@ -58,6 +58,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
+    public DbSet<SourceTableEntity> SourceTables { get; set; } = null!;
+    public DbSet<SourceTableDetailsEntity> SourceTableDetails { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<UlbImageMasterEntity> UlbImageMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
@@ -1293,6 +1295,49 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Department)
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SourceTableEntity>(entity =>
+        {
+            entity.ToTable("SourceTable", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TableName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.TableAliasName).HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => new { e.ModuleId, e.TableName })
+                .IsUnique()
+                .HasDatabaseName("UQ_SourceTable_ModuleId_TableName");
+
+            entity.HasOne(e => e.Module)
+                .WithMany()
+                .HasForeignKey(e => e.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SourceTableDetailsEntity>(entity =>
+        {
+            entity.ToTable("SourceTableDetails", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.DisplayName).HasMaxLength(200);
+            entity.Property(e => e.ControlType).HasMaxLength(50);
+            entity.Property(e => e.DataType).HasMaxLength(50);
+            entity.Property(e => e.Placeholder).HasMaxLength(500);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.BindApi).HasMaxLength(500);
+            entity.Property(e => e.ApiResponse).HasMaxLength(500);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.SequenceNo).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => new { e.SourceTableId, e.FieldName })
+                .IsUnique()
+                .HasDatabaseName("UQ_SourceTableDetails_SourceTableId_FieldName");
+
+            entity.HasOne(e => e.SourceTable)
+                .WithMany()
+                .HasForeignKey(e => e.SourceTableId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -3697,10 +3742,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.UpdateCode).IsUnique().HasDatabaseName("UQ_BulkUpdateMaster_UpdateCode");
@@ -3717,17 +3759,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.DisplayName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayNameMarathi).HasMaxLength(200);
             entity.Property(e => e.ControlType).HasMaxLength(50).IsUnicode(false);
             entity.Property(e => e.DataType).HasMaxLength(50).IsUnicode(false);
             entity.Property(e => e.Placeholder).HasMaxLength(500);
-            entity.Property(e => e.SequenceNo).HasDefaultValue(0);
+            entity.Property(e => e.SequenceNo).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.ValidationRegex).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.DefaultValue).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.BindApi).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.ApiResponse).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
@@ -3868,50 +3909,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.JobId).HasDatabaseName("IX_PropertyTaxJobDetail_JobId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyTaxJobDetail_PropertyId");
             entity.HasIndex(e => new { e.JobId, e.Status }).HasDatabaseName("IX_PropertyTaxJobDetail_JobId_Status");
-        });
-
-        modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.UpdateCode).IsUnique().HasDatabaseName("UQ_BulkUpdateMaster_UpdateCode");
-            entity.HasMany(e => e.FieldConfigs)
-                .WithOne(fc => fc.Master)
-                .HasForeignKey(fc => fc.BulkUpdateMasterId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<BulkUpdateFieldConfigEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateFieldConfig", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.ControlType).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.DataType).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.Placeholder).HasMaxLength(500);
-            entity.Property(e => e.SequenceNo).HasDefaultValue(0);
-            entity.Property(e => e.ValidationRegex).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.DefaultValue).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.BindApi).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
         });
 
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>

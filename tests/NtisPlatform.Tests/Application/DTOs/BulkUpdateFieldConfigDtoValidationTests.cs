@@ -26,7 +26,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type",
-            DisplayNameMarathi = "मालमत्ता प्रकार",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Select Property Type",
@@ -35,7 +34,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 1,
-            IsReadonly = false,
             BindApi = "/api/PropertyType",
             CreatedBy = 1
         };
@@ -316,7 +314,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type (Updated)",
-            DisplayNameMarathi = "मालमत्ता प्रकार (अद्ययावत)",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Please Select Property Type",
@@ -325,7 +322,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 1,
-            IsReadonly = false,
             BindApi = "/api/PropertyType/GetAll",
             UpdatedBy = 1
         };
@@ -369,7 +365,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             BulkUpdateMasterId = 1,
             FieldName = "Status",
             DisplayName = "Status",
-            DisplayNameMarathi = string.Empty,
             ControlType = "Checkbox",
             DataType = "Boolean",
             Placeholder = null,
@@ -378,7 +373,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 1,
-            IsReadonly = false,
             BindApi = null,
             UpdatedBy = 1
         };
@@ -427,7 +421,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             BulkUpdateMasterId = 2,
             FieldName = "TestField",
             DisplayName = "Test Field",
-            DisplayNameMarathi = "चाचणी फील्ड",
             ControlType = "TextBox",
             DataType = "String",
             Placeholder = "Enter value",
@@ -437,7 +430,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
             DefaultValue = "Default",
             SequenceNo = 5,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/test"
         };
 
@@ -446,7 +438,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
         dto.BulkUpdateMasterId.Should().Be(2);
         dto.FieldName.Should().Be("TestField");
         dto.DisplayName.Should().Be("Test Field");
-        dto.DisplayNameMarathi.Should().Be("चाचणी फील्ड");
         dto.ControlType.Should().Be("TextBox");
         dto.DataType.Should().Be("String");
         dto.Placeholder.Should().Be("Enter value");
@@ -456,7 +447,6 @@ public class BulkUpdateFieldConfigDtoValidationTests
         dto.DefaultValue.Should().Be("Default");
         dto.SequenceNo.Should().Be(5);
         dto.IsActive.Should().BeTrue();
-        dto.IsReadonly.Should().BeFalse();
         dto.BindApi.Should().Be("/api/test");
     }
 

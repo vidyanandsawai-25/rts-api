@@ -37,7 +37,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type",
-            DisplayNameMarathi = "मालमत्ता प्रकार",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Select Property Type",
@@ -47,7 +46,6 @@ public class BulkUpdateFieldConfigServiceTests
             DefaultValue = null,
             SequenceNo = 1,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/PropertyType",
             CreatedDate = DateTime.Now
         };
@@ -57,7 +55,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type",
-            DisplayNameMarathi = "मालमत्ता प्रकार",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Select Property Type",
@@ -67,7 +64,6 @@ public class BulkUpdateFieldConfigServiceTests
             DefaultValue = null,
             SequenceNo = 1,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/PropertyType"
         };
 
@@ -114,7 +110,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Ward",
             DisplayName = "Ward",
-            DisplayNameMarathi = "प्रभाग",
             ControlType = "Dropdown",
             DataType = "Integer",
             Placeholder = "Select Ward",
@@ -123,7 +118,6 @@ public class BulkUpdateFieldConfigServiceTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 2,
-            IsReadonly = false,
             BindApi = "/api/Ward",
             CreatedBy = 1
         };
@@ -133,7 +127,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Ward",
             DisplayName = "Ward",
-            DisplayNameMarathi = "प्रभाग",
             ControlType = "Dropdown",
             DataType = "Integer",
             Placeholder = "Select Ward",
@@ -142,7 +135,6 @@ public class BulkUpdateFieldConfigServiceTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 2,
-            IsReadonly = false,
             BindApi = "/api/Ward",
             CreatedBy = 1
         };
@@ -152,7 +144,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Ward",
             DisplayName = "Ward",
-            DisplayNameMarathi = "प्रभाग",
             ControlType = "Dropdown",
             DataType = "Integer",
             Placeholder = "Select Ward",
@@ -162,7 +153,6 @@ public class BulkUpdateFieldConfigServiceTests
             DefaultValue = null,
             SequenceNo = 2,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/Ward",
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -173,7 +163,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Ward",
             DisplayName = "Ward",
-            DisplayNameMarathi = "प्रभाग",
             ControlType = "Dropdown",
             DataType = "Integer",
             Placeholder = "Select Ward",
@@ -183,7 +172,6 @@ public class BulkUpdateFieldConfigServiceTests
             DefaultValue = null,
             SequenceNo = 2,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/Ward"
         };
 
@@ -244,7 +232,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Status",
             DisplayName = "Status",
-            DisplayNameMarathi = string.Empty,
             ControlType = "Checkbox",
             DataType = "Boolean",
             SequenceNo = 3,
@@ -318,7 +305,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type (Updated)",
-            DisplayNameMarathi = "मालमत्ता प्रकार (अद्ययावत)",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Please Select Property Type",
@@ -327,7 +313,6 @@ public class BulkUpdateFieldConfigServiceTests
             ValidationRegex = null,
             DefaultValue = null,
             SequenceNo = 1,
-            IsReadonly = false,
             BindApi = "/api/PropertyType/GetAll",
             UpdatedBy = 1
         };
@@ -348,7 +333,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type (Updated)",
-            DisplayNameMarathi = "मालमत्ता प्रकार (अद्ययावत)",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Please Select Property Type",
@@ -356,7 +340,6 @@ public class BulkUpdateFieldConfigServiceTests
             MaxLength = 150,
             SequenceNo = 1,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/PropertyType/GetAll",
             UpdatedBy = 1,
             UpdatedDate = DateTime.Now
@@ -367,7 +350,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyType",
             DisplayName = "Property Type (Updated)",
-            DisplayNameMarathi = "मालमत्ता प्रकार (अद्ययावत)",
             ControlType = "Dropdown",
             DataType = "String",
             Placeholder = "Please Select Property Type",
@@ -375,7 +357,6 @@ public class BulkUpdateFieldConfigServiceTests
             MaxLength = 150,
             SequenceNo = 1,
             IsActive = true,
-            IsReadonly = false,
             BindApi = "/api/PropertyType/GetAll"
         };
 
@@ -440,7 +421,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Description",
             DisplayName = "Description",
-            DisplayNameMarathi = "वर्णन",
             ControlType = "TextArea", // Changed from TextBox
             DataType = "String",
             MaxLength = 500,
@@ -565,7 +545,6 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "Email",
             DisplayName = "Email Address",
-            DisplayNameMarathi = "ईमेल पत्ता",
             ControlType = "TextBox",
             DataType = "String",
             Placeholder = "Enter email",
@@ -635,7 +614,7 @@ public class BulkUpdateFieldConfigServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_WithReadonlyField_CreatesSuccessfully()
+    public async Task CreateAsync_WithApiResponse_CreatesSuccessfully()
     {
         // Arrange
         var createDto = new CreateBulkUpdateFieldConfigDto
@@ -643,12 +622,11 @@ public class BulkUpdateFieldConfigServiceTests
             BulkUpdateMasterId = 1,
             FieldName = "PropertyId",
             DisplayName = "Property ID",
-            DisplayNameMarathi = "मालमत्ता आयडी",
             ControlType = "TextBox",
             DataType = "String",
             IsRequired = false,
-            IsReadonly = true, // Readonly field
             SequenceNo = 6,
+            ApiResponse = "{\"id\":\"Id\",\"label\":\"Name\"}",
             CreatedBy = 1
         };
         var entity = new BulkUpdateFieldConfigEntity
@@ -658,8 +636,8 @@ public class BulkUpdateFieldConfigServiceTests
             DisplayName = "Property ID",
             ControlType = "TextBox",
             DataType = "String",
-            IsReadonly = true,
             SequenceNo = 6,
+            ApiResponse = "{\"id\":\"Id\",\"label\":\"Name\"}",
             CreatedBy = 1
         };
         var savedEntity = new BulkUpdateFieldConfigEntity
@@ -670,8 +648,8 @@ public class BulkUpdateFieldConfigServiceTests
             DisplayName = "Property ID",
             ControlType = "TextBox",
             DataType = "String",
-            IsReadonly = true,
             SequenceNo = 6,
+            ApiResponse = "{\"id\":\"Id\",\"label\":\"Name\"}",
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -684,8 +662,8 @@ public class BulkUpdateFieldConfigServiceTests
             DisplayName = "Property ID",
             ControlType = "TextBox",
             DataType = "String",
-            IsReadonly = true,
             SequenceNo = 6,
+            ApiResponse = "{\"id\":\"Id\",\"label\":\"Name\"}",
             IsActive = true
         };
 
@@ -703,7 +681,7 @@ public class BulkUpdateFieldConfigServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.IsReadonly.Should().BeTrue();
+        result.ApiResponse.Should().Be("{\"id\":\"Id\",\"label\":\"Name\"}");
     }
 
     [Fact]

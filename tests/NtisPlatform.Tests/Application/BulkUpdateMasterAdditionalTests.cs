@@ -40,7 +40,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (v2)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             UpdatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
@@ -78,10 +77,7 @@ public class BulkUpdateMasterAdditionalTests
         {
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
-            UpdateNameMarathi = "अद्यतनित नाव",
             ReferenceTableName = "UpdatedTable",
-            DisplaySequence = 99,
-            Description = "Updated description",
             UpdatedBy = 1
         };
         var existingEntity = new BulkUpdateMasterEntity
@@ -96,10 +92,7 @@ public class BulkUpdateMasterAdditionalTests
             Id = id,
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
-            UpdateNameMarathi = "अद्यतनित नाव",
             ReferenceTableName = "UpdatedTable",
-            DisplaySequence = 99,
-            Description = "Updated description",
             IsActive = true,
             UpdatedBy = 1,
             UpdatedDate = DateTime.Now
@@ -109,10 +102,7 @@ public class BulkUpdateMasterAdditionalTests
             Id = id,
             UpdateCode = "UPDATED_CODE",
             UpdateName = "Updated Name",
-            UpdateNameMarathi = "अद्यतनित नाव",
             ReferenceTableName = "UpdatedTable",
-            DisplaySequence = 99,
-            Description = "Updated description",
             IsActive = true
         };
 
@@ -123,10 +113,7 @@ public class BulkUpdateMasterAdditionalTests
             {
                 entity.UpdateCode = dto.UpdateCode;
                 entity.UpdateName = dto.UpdateName;
-                entity.UpdateNameMarathi = dto.UpdateNameMarathi;
                 entity.ReferenceTableName = dto.ReferenceTableName;
-                entity.DisplaySequence = dto.DisplaySequence;
-                entity.Description = dto.Description;
                 entity.UpdatedBy = dto.UpdatedBy;
                 entity.UpdatedDate = DateTime.Now;
             })
@@ -145,74 +132,7 @@ public class BulkUpdateMasterAdditionalTests
         result.Should().NotBeNull();
         result!.UpdateCode.Should().Be("UPDATED_CODE");
         result.UpdateName.Should().Be("Updated Name");
-        result.UpdateNameMarathi.Should().Be("अद्यतनित नाव");
         result.ReferenceTableName.Should().Be("UpdatedTable");
-        result.DisplaySequence.Should().Be(99);
-        result.Description.Should().Be("Updated description");
-    }
-
-    #endregion
-
-    #region Boundary Value Tests
-
-    [Fact]
-    public async Task CreateAsync_WithMinimumDisplaySequence_CreatesSuccessfully()
-    {
-        // Arrange
-        var createDto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "MIN_SEQ",
-            UpdateName = "Minimum Sequence",
-            ReferenceTableName = "TestTable",
-            DisplaySequence = 1, // Minimum valid value
-            CreatedBy = 1
-        };
-        var entity = new BulkUpdateMasterEntity { UpdateCode = "MIN_SEQ", DisplaySequence = 1 };
-        var expectedDto = new BulkUpdateMasterDto { Id = 1, UpdateCode = "MIN_SEQ", DisplaySequence = 1, IsActive = true };
-
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterEntity>(createDto)).Returns(entity);
-        _repositoryMock.Setup(r => r.AddAsync(entity, It.IsAny<CancellationToken>()))
-            .Callback<BulkUpdateMasterEntity, CancellationToken>((e, ct) => e.Id = 1)
-            .ReturnsAsync(entity);
-        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterDto>(entity)).Returns(expectedDto);
-
-        // Act
-        var result = await _service.CreateAsync(createDto, CancellationToken.None);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.DisplaySequence.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task CreateAsync_WithMaximumDisplaySequence_CreatesSuccessfully()
-    {
-        // Arrange
-        var createDto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "MAX_SEQ",
-            UpdateName = "Maximum Sequence",
-            ReferenceTableName = "TestTable",
-            DisplaySequence = 9999, // Maximum valid value
-            CreatedBy = 1
-        };
-        var entity = new BulkUpdateMasterEntity { UpdateCode = "MAX_SEQ", DisplaySequence = 9999 };
-        var expectedDto = new BulkUpdateMasterDto { Id = 1, UpdateCode = "MAX_SEQ", DisplaySequence = 9999, IsActive = true };
-
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterEntity>(createDto)).Returns(entity);
-        _repositoryMock.Setup(r => r.AddAsync(entity, It.IsAny<CancellationToken>()))
-            .Callback<BulkUpdateMasterEntity, CancellationToken>((e, ct) => e.Id = 1)
-            .ReturnsAsync(entity);
-        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        _mapperMock.Setup(m => m.Map<BulkUpdateMasterDto>(entity)).Returns(expectedDto);
-
-        // Act
-        var result = await _service.CreateAsync(createDto, CancellationToken.None);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.DisplaySequence.Should().Be(9999);
     }
 
     #endregion
@@ -226,33 +146,20 @@ public class BulkUpdateMasterAdditionalTests
         var createDto = new CreateBulkUpdateMasterDto
         {
             UpdateCode = "MARATHI_TEST",
-            UpdateName = "Marathi Test",
-            UpdateNameMarathi = "मराठी चाचणी मजकूर संपूर्ण",
+            UpdateName = "मराठी चाचणी मजकूर संपूर्ण",
             ReferenceTableName = "TestTable",
-            DisplaySequence = 1,
-            Description = "विवरण: मराठी भाषेत",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
         {
             UpdateCode = "MARATHI_TEST",
-            UpdateNameMarathi = "मराठी चाचणी मजकूर संपूर्ण",
-            Description = "विवरण: मराठी भाषेत"
-        };
-        var savedEntity = new BulkUpdateMasterEntity
-        {
-            Id = 1,
-            UpdateCode = "MARATHI_TEST",
-            UpdateNameMarathi = "मराठी चाचणी मजकूर संपूर्ण",
-            Description = "विवरण: मराठी भाषेत",
-            IsActive = true
+            UpdateName = "मराठी चाचणी मजकूर संपूर्ण"
         };
         var expectedDto = new BulkUpdateMasterDto
         {
             Id = 1,
             UpdateCode = "MARATHI_TEST",
-            UpdateNameMarathi = "मराठी चाचणी मजकूर संपूर्ण",
-            Description = "विवरण: मराठी भाषेत",
+            UpdateName = "मराठी चाचणी मजकूर संपूर्ण",
             IsActive = true
         };
 
@@ -268,8 +175,7 @@ public class BulkUpdateMasterAdditionalTests
 
         // Assert
         result.Should().NotBeNull();
-        result.UpdateNameMarathi.Should().Be("मराठी चाचणी मजकूर संपूर्ण");
-        result.Description.Should().Be("विवरण: मराठी भाषेत");
+        result.UpdateName.Should().Be("मराठी चाचणी मजकूर संपूर्ण");
     }
 
     #endregion
@@ -284,32 +190,21 @@ public class BulkUpdateMasterAdditionalTests
         {
             UpdateCode = "NULL_FIELDS",
             UpdateName = "Null Fields Test",
-            UpdateNameMarathi = string.Empty,
             ReferenceTableName = "TestTable",
-            DisplaySequence = 1,
-            Description = null,
+            IsApprovalRequired = null,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
         {
             UpdateCode = "NULL_FIELDS",
-            UpdateName = "Null Fields Test",
-            Description = null
-        };
-        var savedEntity = new BulkUpdateMasterEntity
-        {
-            Id = 1,
-            UpdateCode = "NULL_FIELDS",
-            UpdateName = "Null Fields Test",
-            Description = null,
-            IsActive = true
+            UpdateName = "Null Fields Test"
         };
         var expectedDto = new BulkUpdateMasterDto
         {
             Id = 1,
             UpdateCode = "NULL_FIELDS",
             UpdateName = "Null Fields Test",
-            Description = null,
+            IsApprovalRequired = null,
             IsActive = true
         };
 
@@ -325,7 +220,7 @@ public class BulkUpdateMasterAdditionalTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Description.Should().BeNull();
+        result.IsApprovalRequired.Should().BeNull();
     }
 
     #endregion
@@ -398,7 +293,6 @@ public class BulkUpdateMasterAdditionalTests
             UpdateCode = "TEST",
             UpdateName = "Test",
             ReferenceTableName = "TestTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "TEST" };

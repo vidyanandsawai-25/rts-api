@@ -33,6 +33,9 @@ public class CommonDetailsService : ICommonDetailsService
     private readonly IRepository<WardEntity> _wardRepo;
     private readonly IRepository<SocietyDetailsEntity> _societyRepo;
     private readonly IRepository<UserEntity> _userRepo;
+    private readonly IRepository<SourceTableEntity> _sourceTableRepo;
+    private readonly IRepository<SourceTableDetailsEntity> _sourceTableDetailsRepo;
+    private readonly IRepository<ModuleMasterEntity> _moduleRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDynamicEntityLoader _entityLoader;
     private readonly IPropertySearchService _propertySearchService;
@@ -46,6 +49,9 @@ public class CommonDetailsService : ICommonDetailsService
         IRepository<WardEntity> wardRepo,
         IRepository<SocietyDetailsEntity> societyRepo,
         IRepository<UserEntity> userRepo,
+        IRepository<SourceTableEntity> sourceTableRepo,
+        IRepository<SourceTableDetailsEntity> sourceTableDetailsRepo,
+        IRepository<ModuleMasterEntity> moduleRepo,
         IUnitOfWork unitOfWork,
         IDynamicEntityLoader entityLoader,
         IPropertySearchService propertySearchService,
@@ -58,6 +64,9 @@ public class CommonDetailsService : ICommonDetailsService
         _wardRepo = wardRepo;
         _societyRepo = societyRepo;
         _userRepo = userRepo;
+        _sourceTableRepo = sourceTableRepo;
+        _sourceTableDetailsRepo = sourceTableDetailsRepo;
+        _moduleRepo = moduleRepo;
         _unitOfWork = unitOfWork;
         _entityLoader = entityLoader;
         _propertySearchService = propertySearchService;
@@ -68,21 +77,164 @@ public class CommonDetailsService : ICommonDetailsService
     {
         return await _masterRepo.GetQueryable()
             .Where(m => m.IsActive)
-            .OrderBy(m => m.DisplaySequence)
+            .OrderBy(m => m.UpdateName)
             .Select(m => new BulkUpdateMasterDto
             {
                 Id = m.Id,
                 UpdateCode = m.UpdateCode,
                 UpdateName = m.UpdateName,
-                UpdateNameMarathi = m.UpdateNameMarathi,
                 ReferenceTableName = m.ReferenceTableName,
                 IsActive = m.IsActive,
-                DisplaySequence = m.DisplaySequence,
-                Description = m.Description,
-                Category = m.Category,
                 IsApprovalRequired = m.IsApprovalRequired
             })
             .ToListAsync(ct);
+    }
+
+    public async Task<List<SourceTableLookupDto>> GetSourceTablesAsync(CancellationToken ct)
+    {
+        var query = from st in _sourceTableRepo.GetQueryable()
+                    where st.IsActive
+                    join mm in _moduleRepo.GetQueryable() on st.ModuleId equals mm.Id into mmJoined
+                    from mm in mmJoined.DefaultIfEmpty()
+                    select new SourceTableLookupDto
+                    {
+                        Id = st.Id,
+                        TableName = mm != null && !string.IsNullOrEmpty(mm.ModuleName)
+                            ? mm.ModuleName + " " + st.TableAliasName
+                            : st.TableAliasName
+                    };
+
+        return await query.ToListAsync(ct);
+    }
+
+    public async Task<List<SourceTableFieldLookupDto>> GetSourceTableFieldsAsync(int sourceTableId, CancellationToken ct)
+    {
+        return await _sourceTableDetailsRepo.GetQueryable()
+            .Where(std => std.SourceTableId == sourceTableId && std.IsActive)
+            .Select(std => new SourceTableFieldLookupDto
+            {
+                Id = std.Id,
+                TableFieldName = string.IsNullOrWhiteSpace(std.DisplayName) ? std.FieldName : std.DisplayName
+            })
+            .ToListAsync(ct);
+    }
+
+    public async Task<BulkUpdateDefinitionResultDto> CreateFromSourceTableAsync(
+        CreateBulkUpdateDefinitionFromSourceDto request, int createdBy, CancellationToken ct)
+    {
+        var sourceTable = await _sourceTableRepo.GetQueryable()
+            .FirstOrDefaultAsync(st => st.Id == request.TableId && st.IsActive, ct)
+            ?? throw new ArgumentException($"Source table '{request.TableId}' not found or inactive.");
+
+        var updateCode = Regex.Replace(request.UpdateName.Trim().ToUpperInvariant(), "[^A-Z0-9]+", "_").Trim('_');
+        if (updateCode.Length == 0)
+            throw new ArgumentException("UpdateName must contain at least one alphanumeric character.");
+        if (updateCode.Length > 100)
+            throw new ArgumentException($"Derived UpdateCode '{updateCode}' exceeds 100 characters.");
+
+        if (await _masterRepo.GetQueryable().AnyAsync(m => m.UpdateCode == updateCode, ct))
+            throw new ArgumentException($"A bulk update definition with code '{updateCode}' already exists.");
+
+        var distinctIds = request.TableFieldIds.Distinct().ToList();
+        var detailRows = await _sourceTableDetailsRepo.GetQueryable()
+            .Where(d => distinctIds.Contains(d.Id) && d.SourceTableId == request.TableId)
+            .ToListAsync(ct);
+
+        var detailsById = detailRows.ToDictionary(d => d.Id);
+        var missingIds = distinctIds.Where(id => !detailsById.ContainsKey(id)).ToList();
+        if (missingIds.Count > 0)
+            throw new ArgumentException(
+                $"Source table field id(s) not found for table {request.TableId}: {string.Join(", ", missingIds)}.");
+
+        await _unitOfWork.BeginTransactionAsync(ct);
+        try
+        {
+            var master = new BulkUpdateMasterEntity
+            {
+                UpdateCode = updateCode,
+                UpdateName = request.UpdateName.Trim(),
+                ReferenceTableName = sourceTable.TableName,
+                IsActive = true,
+                IsApprovalRequired = request.IsApprovalRequired,
+                CreatedBy = createdBy,
+                CreatedDate = DateTime.Now
+            };
+            await _masterRepo.AddAsync(master, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            var fieldConfigs = request.TableFieldIds.Distinct()
+                .Select(id => detailsById[id])
+                .Select(d =>
+                {
+                    var displayName = string.IsNullOrWhiteSpace(d.DisplayName) ? d.FieldName : d.DisplayName;
+                    return new BulkUpdateFieldConfigEntity
+                    {
+                        BulkUpdateMasterId = master.Id,
+                        FieldName = d.FieldName,
+                        DisplayName = displayName,
+                        // ControlType/DataType have no guaranteed value on SourceTableDetails; "text"/"string"
+                        // are placeholder defaults — tune per field via BulkUpdateFieldConfig afterwards if needed.
+                        ControlType = string.IsNullOrWhiteSpace(d.ControlType) ? "text" : d.ControlType,
+                        DataType = string.IsNullOrWhiteSpace(d.DataType) ? "string" : d.DataType,
+                        Placeholder = d.Placeholder,
+                        IsRequired = d.IsRequired,
+                        MaxLength = d.MaxLength,
+                        ValidationRegex = d.ValidationRegex,
+                        DefaultValue = d.DefaultValue,
+                        SequenceNo = d.SequenceNo,
+                        BindApi = d.BindApi,
+                        ApiResponse = d.ApiResponse,
+                        IsActive = true,
+                        CreatedBy = createdBy,
+                        CreatedDate = DateTime.Now
+                    };
+                })
+                .ToList();
+
+            await _fieldConfigRepo.AddRangeAsync(fieldConfigs, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            await _unitOfWork.CommitTransactionAsync(ct);
+
+            return new BulkUpdateDefinitionResultDto
+            {
+                Master = new BulkUpdateMasterDto
+                {
+                    Id = master.Id,
+                    UpdateCode = master.UpdateCode,
+                    UpdateName = master.UpdateName,
+                    ReferenceTableName = master.ReferenceTableName,
+                    IsApprovalRequired = master.IsApprovalRequired,
+                    IsActive = master.IsActive,
+                    CreatedDate = master.CreatedDate,
+                    UpdatedDate = master.UpdatedDate
+                },
+                FieldConfigs = fieldConfigs.Select(fc => new BulkUpdateFieldConfigDto
+                {
+                    Id = fc.Id,
+                    BulkUpdateMasterId = fc.BulkUpdateMasterId,
+                    FieldName = fc.FieldName,
+                    DisplayName = fc.DisplayName,
+                    ControlType = fc.ControlType,
+                    DataType = fc.DataType,
+                    Placeholder = fc.Placeholder,
+                    IsRequired = fc.IsRequired,
+                    MaxLength = fc.MaxLength,
+                    ValidationRegex = fc.ValidationRegex,
+                    DefaultValue = fc.DefaultValue,
+                    SequenceNo = fc.SequenceNo,
+                    BindApi = fc.BindApi,
+                    ApiResponse = fc.ApiResponse,
+                    IsActive = fc.IsActive,
+                    CreatedDate = fc.CreatedDate,
+                    UpdatedDate = fc.UpdatedDate
+                }).ToList()
+            };
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(ct);
+            throw;
+        }
     }
 
     public async Task<List<BulkUpdateFieldConfigDto>> GetFormFieldsAsync(string updateCode, CancellationToken ct)
@@ -99,7 +251,6 @@ public class CommonDetailsService : ICommonDetailsService
                 BulkUpdateMasterId = fc.BulkUpdateMasterId,
                 FieldName = fc.FieldName,
                 DisplayName = fc.DisplayName,
-                DisplayNameMarathi = fc.DisplayNameMarathi,
                 ControlType = fc.ControlType,
                 DataType = fc.DataType,
                 Placeholder = fc.Placeholder,
@@ -109,8 +260,8 @@ public class CommonDetailsService : ICommonDetailsService
                 DefaultValue = fc.DefaultValue,
                 SequenceNo = fc.SequenceNo,
                 IsActive = fc.IsActive,
-                IsReadonly = fc.IsReadonly,
-                BindApi = fc.BindApi
+                BindApi = fc.BindApi,
+                ApiResponse = fc.ApiResponse
             })
             .ToListAsync(ct);
     }
@@ -129,8 +280,8 @@ public class CommonDetailsService : ICommonDetailsService
             columns.Add(new PreviewGridColumnDto
             {
                 Key = config.FieldName,
-                Label = config.DisplayName,
-                LabelMarathi = config.DisplayNameMarathi,
+                Label = config.DisplayName ?? config.FieldName,
+                LabelMarathi = string.Empty,
             });
         }
         return columns;
@@ -152,13 +303,23 @@ public class CommonDetailsService : ICommonDetailsService
         var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
         var safeColumns = fieldConfigs.Select(f => f.FieldName).ToList();
 
-        return (master.ReferenceTableName, safeColumns);
+        return (master.ReferenceTableName ?? string.Empty, safeColumns);
     }
 
     public async Task<PagedResult<PropertyPreviewDto>> FilterPropertiesAsync(
         FilterPropertiesRequestDto request, CancellationToken ct)
     {
-        var (targetTable, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
+        var updateCodes = request.UpdateCode
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (updateCodes.Count == 0)
+            throw new ArgumentException("At least one UpdateCode is required.");
+
+        var contexts = new List<(string TargetTable, List<string> SafeColumns)>();
+        foreach (var code in updateCodes)
+            contexts.Add(await ResolveUpdateCodeContextAsync(code, ct));
 
         var query = _propertyRepo.GetQueryable()
             .Where(pm => pm.WardId == request.WardId);
@@ -194,9 +355,12 @@ public class CommonDetailsService : ICommonDetailsService
             .ToListAsync(ct);
 
         var propertyIds = pagedProperties.Select(x => x.pm.Id).ToList();
-        var relatedEntities = await LoadTargetEntitiesAsync(targetTable, propertyIds, ct);
-        var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
-            && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+
+        // Preload each distinct target table once, even if several UpdateCodes share one.
+        var relatedEntitiesByTable = new Dictionary<string, Dictionary<int, object>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (targetTable, _) in contexts)
+            if (!relatedEntitiesByTable.ContainsKey(targetTable))
+                relatedEntitiesByTable[targetTable] = await LoadTargetEntitiesAsync(targetTable, propertyIds, ct);
 
         var items = pagedProperties.Select(x =>
         {
@@ -207,9 +371,14 @@ public class CommonDetailsService : ICommonDetailsService
                 PropertyNo = x.pm.PropertyNo ?? string.Empty,
                 PartitionNo = x.pm.PartitionNo ?? string.Empty,
             };
-            var source = isPropertyMast ? (object?)x.pm : relatedEntities.GetValueOrDefault(x.pm.Id);
-            if (source != null)
-                PopulateCurrentValues(dto, source, safeColumns);
+            foreach (var (targetTable, safeColumns) in contexts)
+            {
+                var isPropertyMast = BulkUpdateTargetRegistry.TryResolve(targetTable, out var previewTarget)
+                    && BulkUpdateTargetRegistry.IsPropertyKeyedById(previewTarget);
+                var source = isPropertyMast ? (object?)x.pm : relatedEntitiesByTable[targetTable].GetValueOrDefault(x.pm.Id);
+                if (source != null)
+                    PopulateCurrentValues(dto, source, safeColumns); // later UpdateCodes overwrite earlier ones on a shared field name
+            }
             return dto;
         }).ToList();
 
@@ -344,7 +513,7 @@ public class CommonDetailsService : ICommonDetailsService
 
         // Resolve which entity this update targets via the central registry. An unknown reference
         // table is rejected here (the registry's keys are the supported-table allow-list).
-        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName, out var target))
+        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName ?? string.Empty, out var target))
             throw new InvalidOperationException(
                 $"Update type '{request.UpdateCode}' references an unrecognized table '{master.ReferenceTableName}'. " +
                 "Add it to BulkUpdateTargetRegistry if this table is intentionally supported.");
@@ -361,7 +530,7 @@ public class CommonDetailsService : ICommonDetailsService
                 string.Join(", ", unmappedFields));
 
         var propertyIds = request.PropertyIds;
-        var result = new BulkUpdateResultDto { TotalRequested = propertyIds.Count };
+        var result = new BulkUpdateResultDto { UpdateCode = request.UpdateCode, TotalRequested = propertyIds.Count };
 
         await _unitOfWork.BeginTransactionAsync(ct);
         try
@@ -456,32 +625,42 @@ public class CommonDetailsService : ICommonDetailsService
         return result;
     }
 
-    public async Task<byte[]> ExportPropertiesToExcelAsync(FilterPropertiesRequestDto request, CancellationToken ct)
+    public async Task<List<BulkUpdateResultDto>> BulkUpdateBatchAsync(
+        List<BulkUpdateRequestDto> requests, int updatedBy, string? ipAddress, CancellationToken ct)
     {
-        // Export the full filtered set (ignore paging), pre-filled with current values.
-        var unpagedRequest = new FilterPropertiesRequestDto
+        var results = new List<BulkUpdateResultDto>(requests.Count);
+        foreach (var request in requests)
         {
-            WardId = request.WardId,
-            FromPropertyNo = request.FromPropertyNo,
-            ToPropertyNo = request.ToPropertyNo,
-            PropertyNo = request.PropertyNo,
-            Wing = request.Wing,
-            UpdateCode = request.UpdateCode,
-            SearchTerm = request.SearchTerm,
-            SortBy = request.SortBy,
-            SortOrder = request.SortOrder,
-            FilterLogic = request.FilterLogic,
-            PageNumber = 1,
-            PageSize = -1
-        };
-        var paged = await FilterPropertiesAsync(unpagedRequest, ct);
+            try
+            {
+                results.Add(await BulkUpdateAsync(request, updatedBy, ipAddress, ct));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Bulk update batch item failed for UpdateCode {UpdateCode}", request.UpdateCode);
+                results.Add(new BulkUpdateResultDto
+                {
+                    UpdateCode = request.UpdateCode,
+                    TotalRequested = request.PropertyIds.Count,
+                    SuccessCount = 0,
+                    FailedCount = request.PropertyIds.Count,
+                    Errors = [ex.Message]
+                });
+            }
+        }
+        return results;
+    }
 
-        var fieldNames = (await GetFormFieldsAsync(request.UpdateCode, ct))
-            .Select(f => f.FieldName)
-            .ToList();
+    public async Task<byte[]> ExportPropertiesToExcelAsync(ExportPropertiesRequestDto request, CancellationToken ct)
+    {
+        var (_, safeColumns) = await ResolveUpdateCodeContextAsync(request.UpdateCode, ct);
 
         var headers = new List<string> { "wardNo", "propertyNo", "partitionNo" };
-        headers.AddRange(fieldNames);
+        headers.AddRange(safeColumns);
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Properties");
@@ -493,15 +672,32 @@ public class CommonDetailsService : ICommonDetailsService
             cell.Style.Font.Bold = true;
         }
 
-        var rows = paged.Items.ToList();
-        for (var r = 0; r < rows.Count; r++)
+        // No WardId supplied -> deliberate header-only export; skip the property query entirely.
+        if (request.WardId.HasValue)
         {
-            var item = rows[r];
-            worksheet.Cell(r + 2, 1).Value = item.WardNo;
-            worksheet.Cell(r + 2, 2).Value = item.PropertyNo;
-            worksheet.Cell(r + 2, 3).Value = item.PartitionNo;
-            for (var f = 0; f < fieldNames.Count; f++)
-                SetCellValue(worksheet.Cell(r + 2, 4 + f), item.CurrentValues.GetValueOrDefault(fieldNames[f]));
+            var filterRequest = new FilterPropertiesRequestDto
+            {
+                WardId = request.WardId.Value,
+                FromPropertyNo = request.FromPropertyNo,
+                ToPropertyNo = request.ToPropertyNo,
+                PropertyNo = request.PropertyNo,
+                Wing = request.Wing,
+                UpdateCode = [request.UpdateCode],
+                PageNumber = 1,
+                PageSize = -1
+            };
+            var paged = await FilterPropertiesAsync(filterRequest, ct);
+
+            var rows = paged.Items.ToList();
+            for (var r = 0; r < rows.Count; r++)
+            {
+                var item = rows[r];
+                worksheet.Cell(r + 2, 1).Value = item.WardNo;
+                worksheet.Cell(r + 2, 2).Value = item.PropertyNo;
+                worksheet.Cell(r + 2, 3).Value = item.PartitionNo;
+                for (var f = 0; f < safeColumns.Count; f++)
+                    SetCellValue(worksheet.Cell(r + 2, 4 + f), item.CurrentValues.GetValueOrDefault(safeColumns[f]));
+            }
         }
 
         worksheet.Columns().AdjustToContents();
@@ -519,7 +715,7 @@ public class CommonDetailsService : ICommonDetailsService
 
         var fieldConfigs = await GetFormFieldsAsync(updateCode, ct);
 
-        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName, out var target))
+        if (!BulkUpdateTargetRegistry.TryResolve(master.ReferenceTableName ?? string.Empty, out var target))
             throw new InvalidOperationException(
                 $"Update type '{updateCode}' references an unrecognized table '{master.ReferenceTableName}'. " +
                 "Add it to BulkUpdateTargetRegistry if this table is intentionally supported.");
@@ -550,7 +746,7 @@ public class CommonDetailsService : ICommonDetailsService
                 $"Configured field name(s) are not mapped to a property on entity '{target.EntityType.Name}': " +
                 string.Join(", ", unmappedFields));
 
-        var result = new BulkUpdateResultDto { TotalRequested = excelRows.Count };
+        var result = new BulkUpdateResultDto { UpdateCode = updateCode, TotalRequested = excelRows.Count };
         if (excelRows.Count == 0)
             throw new ArgumentException("The uploaded file has no data rows.");
 
@@ -768,6 +964,19 @@ public class CommonDetailsService : ICommonDetailsService
         if (!string.IsNullOrWhiteSpace(request.Username))
             query = query.Where(x => x.u != null && x.u.UserName == request.Username);
 
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var term = request.SearchTerm.Trim();
+            query = query.Where(x =>
+                (((x.w != null ? x.w.WardNo : null) ?? "") + "-" +
+                 ((x.pm != null ? x.pm.PropertyNo : null) ?? "") + "-" +
+                 ((x.pm != null ? x.pm.PartitionNo : null) ?? "")).Contains(term)
+                || (x.m != null && x.m.UpdateName != null && x.m.UpdateName.Contains(term))
+                || (x.h.UpdatedColumns != null && x.h.UpdatedColumns.Contains(term))
+                || (x.h.Remarks != null && x.h.Remarks.Contains(term))
+                || (x.u != null && x.u.UserName != null && x.u.UserName.Contains(term)));
+        }
+
         query = query.OrderByDescending(x => x.h.UpdatedDate ?? x.h.CreatedDate).ThenByDescending(x => x.h.Id);
 
         var totalCount = await query.CountAsync(ct);
@@ -804,6 +1013,10 @@ public class CommonDetailsService : ICommonDetailsService
             })
             .ToListAsync(ct);
 
+        foreach (var item in items)
+            item.Property = string.Join("-", new[] { item.WardNo, item.PropertyNo, item.PartitionNo }
+                .Where(s => !string.IsNullOrWhiteSpace(s)));
+
         return new PagedResult<UpdateHistoryDto>(items, totalCount, pageNumber, pageSize);
     }
 
@@ -819,6 +1032,7 @@ public class CommonDetailsService : ICommonDetailsService
             PartitionNo = request.PartitionNo,
             UpdatedColumns = request.UpdatedColumns,
             Username = request.Username,
+            SearchTerm = request.SearchTerm,
             PageNumber = 1,
             PageSize = -1
         };
@@ -826,7 +1040,7 @@ public class CommonDetailsService : ICommonDetailsService
 
         var headers = new[]
         {
-            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo",
+            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo", "Property",
             "OldValue", "NewValue", "UpdatedColumns", "Remarks", "IPAddress", "Username", "UpdatedDate"
         };
 
@@ -846,7 +1060,7 @@ public class CommonDetailsService : ICommonDetailsService
             var item = rows[r];
             object?[] values =
             {
-                item.Id, item.UpdateName, item.WardNo, item.PropertyNo, item.PartitionNo,
+                item.Id, item.UpdateName, item.WardNo, item.PropertyNo, item.PartitionNo, item.Property,
                 item.OldValue, item.NewValue, item.UpdatedColumns, item.Remarks,
                 item.IPAddress, item.Username, item.UpdatedDate
             };

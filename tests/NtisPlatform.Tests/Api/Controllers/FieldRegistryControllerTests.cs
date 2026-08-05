@@ -367,7 +367,6 @@ public class FieldRegistryControllerTests
         UpdateCode = "Update_Test",
         UpdateName = "Test Update",
         ReferenceTableName = "TestTable",
-        DisplaySequence = 1,
         FieldConfigs = new List<FieldRegistryFieldConfigDto>
         {
             new()
@@ -437,7 +436,6 @@ public class FieldRegistryControllerTests
     {
         UpdateName = "Test Update",
         ReferenceTableName = "TestTable",
-        DisplaySequence = 1,
         FieldConfigs = new List<UpdateFieldRegistryFieldConfigDto>
         {
             new()

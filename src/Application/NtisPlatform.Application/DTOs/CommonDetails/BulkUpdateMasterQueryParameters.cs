@@ -19,8 +19,4 @@ public class BulkUpdateMasterQueryParameters : BaseQueryParameters
     [Sortable]
     [Searchable]
     public string? ReferenceTableName { get; set; }
-
-    [Filterable]
-    [Sortable]
-    public int? DisplaySequence { get; set; }
 }

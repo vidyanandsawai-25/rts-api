@@ -30,7 +30,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = new string('A', 50), // Max length
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -50,7 +49,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = new string('A', 51), // Exceeds max length
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -71,7 +69,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = new string('B', 200), // Max length
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -91,7 +88,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = new string('B', 201), // Exceeds max length
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -104,49 +100,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
     }
 
     [Fact]
-    public void CreateBulkUpdateMasterDto_WithMaxLengthUpdateNameMarathi_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            UpdateNameMarathi = new string('म', 200), // Max length
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithExceedingUpdateNameMarathiLength_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            UpdateNameMarathi = new string('म', 201), // Exceeds max length
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_UpdateNameMarathi_MaxLen_200"));
-    }
-
-    [Fact]
     public void CreateBulkUpdateMasterDto_WithMaxLengthReferenceTableName_PassesValidation()
     {
         // Arrange
@@ -155,7 +108,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
             ReferenceTableName = new string('T', 200), // Max length
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -175,7 +127,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
             ReferenceTableName = new string('T', 201), // Exceeds max length
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -187,55 +138,12 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
         validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_ReferenceTableName_MaxLen_200"));
     }
 
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithMaxLengthDescription_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = new string('D', 1000), // Max length
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithExceedingDescriptionLength_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = new string('D', 1001), // Exceeds max length
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_Description_MaxLen_1000"));
-    }
-
     #endregion
 
-    #region CreateBulkUpdateMasterDto - DisplaySequence Range Tests
+    #region CreateBulkUpdateMasterDto - IsApprovalRequired Tests
 
     [Fact]
-    public void CreateBulkUpdateMasterDto_WithDisplaySequenceZero_FailsValidation()
+    public void CreateBulkUpdateMasterDto_WithNullIsApprovalRequired_PassesValidation()
     {
         // Arrange
         var dto = new CreateBulkUpdateMasterDto
@@ -243,90 +151,7 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 0, // Below minimum
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_DisplaySequence_Range"));
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithDisplaySequenceNegative_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = -1, // Negative
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_DisplaySequence_Range"));
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithDisplaySequence10000_FailsValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 10000, // Exceeds maximum
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("BulkUpdateMaster_DisplaySequence_Range"));
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithDisplaySequence1_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1, // Minimum valid
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithDisplaySequence9999_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 9999, // Maximum valid
+            IsApprovalRequired = null,
             CreatedBy = 1
         };
 
@@ -349,10 +174,7 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
         {
             UpdateCode = "VALID_CODE",
             UpdateName = "Valid Name",
-            UpdateNameMarathi = "वैध नाव",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 5,
-            Description = "Valid description",
             UpdatedBy = 1
         };
 
@@ -372,7 +194,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = string.Empty,
             UpdateName = string.Empty,
             ReferenceTableName = string.Empty,
-            DisplaySequence = 0,
             UpdatedBy = 1
         };
 
@@ -381,7 +202,7 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
 
         // Assert
         validationResults.Should().NotBeEmpty();
-        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("Required") || vr.ErrorMessage!.Contains("Range"));
+        validationResults.Should().Contain(vr => vr.ErrorMessage!.Contains("Required"));
     }
 
     #endregion
@@ -397,7 +218,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "CODE_WITH-DASH_AND.DOT",
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -409,38 +229,14 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
     }
 
     [Fact]
-    public void CreateBulkUpdateMasterDto_WithSpecialCharactersInDescription_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = "Description with special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`",
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithMixedLanguages_PassesValidation()
+    public void CreateBulkUpdateMasterDto_WithMixedLanguageUpdateName_PassesValidation()
     {
         // Arrange
         var dto = new CreateBulkUpdateMasterDto
         {
             UpdateCode = "MIXED_LANG",
-            UpdateName = "English Name",
-            UpdateNameMarathi = "मराठी नाव with English मिश्रित",
+            UpdateName = "मराठी नाव with English मिश्रित",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = "Mixed: English and मराठी together",
             CreatedBy = 1
         };
 
@@ -464,7 +260,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "   ", // Whitespace only
             UpdateName = "Valid Name",
             ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -485,7 +280,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = "  VALID_CODE  ",
             UpdateName = "  Valid Name  ",
             ReferenceTableName = "  ValidTable  ",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
 
@@ -509,7 +303,6 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
             UpdateCode = new string('A', 51), // Too long
             UpdateName = string.Empty, // Required
             ReferenceTableName = new string('T', 201), // Too long
-            DisplaySequence = 0, // Out of range
             CreatedBy = 1
         };
 
@@ -518,79 +311,7 @@ public class BulkUpdateMasterDtoComprehensiveValidationTests
 
         // Assert
         validationResults.Should().NotBeEmpty();
-        validationResults.Should().HaveCountGreaterThan(2);
-    }
-
-    #endregion
-
-    #region Null Description Tests
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithNullDescription_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = null, // Optional field
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void UpdateBulkUpdateMasterDto_WithNullDescription_PassesValidation()
-    {
-        // Arrange
-        var dto = new UpdateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = null, // Optional field
-            UpdatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
-    }
-
-    #endregion
-
-    #region Empty Optional String Tests
-
-    [Fact]
-    public void CreateBulkUpdateMasterDto_WithEmptyOptionalStrings_PassesValidation()
-    {
-        // Arrange
-        var dto = new CreateBulkUpdateMasterDto
-        {
-            UpdateCode = "VALID_CODE",
-            UpdateName = "Valid Name",
-            UpdateNameMarathi = string.Empty, // Optional
-            ReferenceTableName = "ValidTable",
-            DisplaySequence = 1,
-            Description = string.Empty, // Optional
-            CreatedBy = 1
-        };
-
-        // Act
-        var validationResults = ValidateDto(dto);
-
-        // Assert
-        validationResults.Should().BeEmpty();
+        validationResults.Should().HaveCountGreaterThan(1);
     }
 
     #endregion

@@ -33,7 +33,6 @@ public class BulkUpdateMasterControllerTests
                     UpdateCode = "PROP_TYPE",
                     UpdateName = "Property Type Update",
                     ReferenceTableName = "PropertyTypeMaster",
-                    DisplaySequence = 1,
                     IsActive = true
                 }
             }, 1, 1, 10);
@@ -60,7 +59,6 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             IsActive = true
         };
         service.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>()))
@@ -100,10 +98,7 @@ public class BulkUpdateMasterControllerTests
         {
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             CreatedBy = 1
         };
         var resultDto = new BulkUpdateMasterDto
@@ -111,10 +106,7 @@ public class BulkUpdateMasterControllerTests
             Id = 2,
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             IsActive = true
         };
         service.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()))
@@ -138,10 +130,7 @@ public class BulkUpdateMasterControllerTests
         {
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Updated bulk update",
             UpdatedBy = 1
         };
         var resultDto = new BulkUpdateMasterDto
@@ -150,7 +139,6 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             IsActive = true
         };
         service.Setup(s => s.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
@@ -175,7 +163,6 @@ public class BulkUpdateMasterControllerTests
             UpdateCode = "NON_EXISTENT",
             UpdateName = "Non Existent",
             ReferenceTableName = "NonExistentTable",
-            DisplaySequence = 1,
             UpdatedBy = 1
         };
         service.Setup(s => s.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
@@ -264,31 +251,6 @@ public class BulkUpdateMasterControllerTests
             {
                 new BulkUpdateMasterDto { Id = 1, UpdateName = "Property Type Update" },
                 new BulkUpdateMasterDto { Id = 2, UpdateName = "Property Category Update" }
-            }, 2, 1, 10);
-        service.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(pagedResult);
-
-        // Act
-        var result = await controller.GetAll(query, CancellationToken.None);
-
-        // Assert
-        Assert.IsType<OkObjectResult>(result);
-    }
-
-    [Fact]
-    public async Task GetAll_WithSortByDisplaySequence_ReturnsOk()
-    {
-        // Arrange
-        var controller = Create(out var service);
-        var query = new BulkUpdateMasterQueryParameters
-        {
-            DisplaySequence = 1
-        };
-        var pagedResult = new PagedResult<BulkUpdateMasterDto>(
-            new List<BulkUpdateMasterDto>
-            {
-                new BulkUpdateMasterDto { Id = 1, DisplaySequence = 1 },
-                new BulkUpdateMasterDto { Id = 5, DisplaySequence = 1 }
             }, 2, 1, 10);
         service.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
             .ReturnsAsync(pagedResult);
