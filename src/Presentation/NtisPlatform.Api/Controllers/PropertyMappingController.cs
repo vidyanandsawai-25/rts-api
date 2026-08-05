@@ -13,17 +13,23 @@ public class PropertyMappingController : ControllerBase
     private readonly IPropertyMappingService _propertyService;
     private readonly ILogger<PropertyMappingController> _logger;
 
-    public PropertyMappingController(IPropertyMappingService propertyService,ILogger<PropertyMappingController> logger)
+    public PropertyMappingController(IPropertyMappingService propertyService, ILogger<PropertyMappingController> logger)
     {
         _propertyService = propertyService;
         _logger = logger;
     }
 
-    [HttpPost("map-details")]
+    [HttpPost]
     public Task<IActionResult> AddPropertyMapDetails([FromBody] CreatePropertyMapDetailsDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_propertyService, createDto, _logger, ct);
 
-    [HttpPut("map-details")]
+    [HttpPut]
     public Task<IActionResult> UpdatePropertyMapDetails([FromBody] UpdatePropertyMapDetailsDto dto, CancellationToken ct)
         => this.ExecuteUpdate(_propertyService, dto.PropertyId, dto, _logger, ct);
+
+    [HttpGet]
+    public async Task<IActionResult> GetPropertyMappingDetails([FromQuery] PropertyMapDetailsQueryParameters request, CancellationToken ct)
+    {
+        return Ok(await _propertyService.GetPropertyMatchingDetailsAsync(request, ct));
+    }
 }

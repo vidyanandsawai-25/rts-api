@@ -1,6 +1,7 @@
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NtisPlatform.Application.Constants;
 using NtisPlatform.Application.DTOs.PropertyMapDetails;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
@@ -10,13 +11,23 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Application.Services;
 
-public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEntity, PropertyMapDetailDto, CreatePropertyMapDetailsDto, UpdatePropertyMapDetailsDto, PropertyMapDetailsQueryParameters, int>, IPropertyMappingService
+public partial class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEntity, PropertyMapDetailDto, CreatePropertyMapDetailsDto, UpdatePropertyMapDetailsDto, PropertyMapDetailsQueryParameters, int>, IPropertyMappingService
 {
     private readonly IRepository<PropertyMapMasterEntity, int> _propertyMapMasterRepository;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
     private readonly IRepository<PropertyMapDetailEntity, int> _propertyMapDetailRepository;
     private readonly new IRepository<PropertyEntity, int> _repository;
     private readonly IRepository<WardEntity, int> _wardRepository;
+    private readonly IRepository<SocietyDetailsEntity, int> _societyRepository;
+    private readonly IRepository<PropertyAssessmentEntity, int> _assessmentRepository;
+    private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
+    private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
+    private readonly IRepository<SubTypeOfUseEntity, int> _subTypeOfUseRepository;
+    private readonly IRepository<ConstructionTypeEntity, int> _constructionTypeRepository;
+    private readonly IRepository<UserEntity, int> _userRepository;
+    private readonly IRepository<WingEntity, int> _wingMasterRepository;
+    private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
+    private readonly IRepository<FloorEntity, int> _floorRepository;
     private readonly new IUnitOfWork _unitOfWork;
     private readonly ILogger<PropertyMappingService> _logger;
 
@@ -26,6 +37,16 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
         IRepository<PropertyMapDetailEntity, int> propertyMapDetailRepository,
         IRepository<PropertyEntity, int> repository,
         IRepository<WardEntity, int> wardRepository,
+        IRepository<SocietyDetailsEntity, int> societyRepository,
+        IRepository<PropertyAssessmentEntity, int> assessmentRepository,
+        IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
+        IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
+        IRepository<SubTypeOfUseEntity, int> subTypeOfUseRepository,
+        IRepository<ConstructionTypeEntity, int> constructionTypeRepository,
+        IRepository<UserEntity, int> userRepository,
+        IRepository<WingEntity, int> wingMasterRepository,
+        IRepository<TypeOfUseEntity, int> typeOfUseRepository,
+        IRepository<FloorEntity, int> floorRepository,
         IUnitOfWork unitOfWork,
         ILogger<PropertyMappingService> logger,
         IMapper mapper) : base(propertyMapDetailRepository, unitOfWork, mapper)
@@ -35,6 +56,16 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
         _propertyMapDetailRepository = propertyMapDetailRepository;
         _repository = repository;
         _wardRepository = wardRepository;
+        _societyRepository = societyRepository;
+        _assessmentRepository = assessmentRepository;
+        _propertyDetailsRepository = propertyDetailsRepository;
+        _propertyTypeRepository = propertyTypeRepository;
+        _subTypeOfUseRepository = subTypeOfUseRepository;
+        _constructionTypeRepository = constructionTypeRepository;
+        _userRepository = userRepository;
+        _wingMasterRepository = wingMasterRepository;
+        _typeOfUseRepository = typeOfUseRepository;
+        _floorRepository = floorRepository;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -62,7 +93,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
             }
             // get property map id and validate exists
             var propertyMapId = await _propertyMapMasterRepository.GetQueryable().AsNoTracking()
-                        .Where(pm => pm.MappingCategory == "MAP" && pm.IsActive)
+                        .Where(pm => pm.MappingCategory == PropertyMappingCategory.MapMappingCategory && pm.IsActive)
                         .Select(pm => pm.Id).FirstOrDefaultAsync(cancellationToken);
 
             if (propertyMapId <= 0)
@@ -70,14 +101,14 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
                 throw new ValidationException("Property Map Category", "Property mapping type was not found.", OperationType.Create);
             }
 
-            var upperFlag = dto.Flag.ToUpperInvariant();
+            var flag = dto.Flag.ToUpperInvariant();
             var propertyOldIds = dto.PropertyOldId.Distinct().ToList();
 
-            if (upperFlag == "MAP")
+            if (flag == "MAP")
             {
                 return await HandleMapOperationAsync(dto, propertyOldIds, latitude, longitude, propertyMapId, cancellationToken);
             }
-            else if (upperFlag == "UNMAP")
+            else if (flag == "UNMAP")
             {
                 return await HandleUnmapOperationAsync(dto, propertyOldIds, propertyMapId, cancellationToken);
             }
@@ -112,7 +143,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
         var existingPropertyNumbers = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
                     .Where(pmd =>
                         pmd.PropertyMapId == propertyMapId &&
-                        pmd.Status == "DRAFT" &&
+                        pmd.Status == PropertyMapStatus.Draft &&
                         pmd.PropertyIdOld.HasValue &&
                         propertyOldIds.Contains(pmd.PropertyIdOld.Value) &&
                         pmd.IsActive)
@@ -132,7 +163,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
             .Where(p => p.PropertyMapId == propertyMapId
                      && propertyOldIds.Contains(p.PropertyIdOld)
                      && p.PropertyIdNew == dto.PropertyId
-                     && p.Status == "DRAFT"
+                     && p.Status == PropertyMapStatus.Draft
                      && !p.IsActive)
             .Select(p => p.PropertyIdOld!.Value)
             .ToListAsync(cancellationToken);
@@ -154,7 +185,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
                     PropertyIdOld = propertyOld.Id,
                     PropertyNoOld = oldPropertyNo,
                     PropertyNoNew = "",
-                    Status = "DRAFT",
+                    Status = PropertyMapStatus.Draft,
                     Remark = dto.Remark,
                     Latitude = latitude,
                     Longitude = longitude,
@@ -177,7 +208,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
                     .Where(p => p.PropertyMapId == propertyMapId
                              && existingDraftIds.Contains(p.PropertyIdOld!.Value)
                              && p.PropertyIdNew == dto.PropertyId
-                             && p.Status == "DRAFT"
+                             && p.Status == PropertyMapStatus.Draft
                              && !p.IsActive)
                     .ExecuteUpdateAsync(setters => setters
                         .SetProperty(p => p.Remark, dto.Remark)
@@ -198,8 +229,9 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
 
             _logger.LogInformation("Saved {AddCount} new and updated {UpdateCount} property map details", entitiesToAdd.Count, entitiesToUpdate.Count);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error handling map operation for PropertyId {PropertyId} and PropertyMapId {PropertyMapId}", dto.PropertyId, propertyMapId);
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
@@ -218,7 +250,7 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
             var deletedRows = await _propertyMapDetailRepository.GetQueryable()
                 .Where(p => p.PropertyMapId == propertyMapId
                          && propertyOldIds.Contains(p.PropertyIdOld)
-                         && p.Status == "CANCELLED")
+                         && p.Status == PropertyMapStatus.Cancelled)
                 .ExecuteDeleteAsync(cancellationToken);
 
             if (deletedRows > 0)
@@ -229,9 +261,9 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
             var affectedRows = await _propertyMapDetailRepository.GetQueryable()
                 .Where(p => p.PropertyMapId == propertyMapId
                          && propertyOldIds.Contains(p.PropertyIdOld)
-                         && (p.Status == "DRAFT" || p.Status == "ACTIVE"))
+                         && (p.Status == PropertyMapStatus.Draft || p.Status == PropertyMapStatus.Active))
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(p => p.Status, "CANCELLED")
+                    .SetProperty(p => p.Status, PropertyMapStatus.Cancelled)
                     .SetProperty(p => p.IsActive, false)
                     .SetProperty(p => p.UpdatedBy, dto.CreatedBy)
                     .SetProperty(p => p.UpdatedDate, now), cancellationToken);
@@ -246,8 +278,9 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
             }
             return null!;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error handling unmap operation for PropertyId {PropertyId} and PropertyMapId {PropertyMapId}", dto.PropertyId, propertyMapId);
             await _unitOfWork.RollbackTransactionAsync(cancellationToken);
             throw;
         }
@@ -255,125 +288,133 @@ public class PropertyMappingService : BaseCommonCrudService<PropertyMapDetailEnt
 
     public override async Task<PropertyMapDetailDto?> UpdateAsync(int id, UpdatePropertyMapDetailsDto dto, CancellationToken cancellationToken = default)
     {
-        // Validate property exists
-        var propertyMast = await (
-                   from pm in _repository.GetQueryable().AsNoTracking()
-                   join wd in _wardRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive) on pm.WardId equals wd.Id
-                   where pm.Id == dto.PropertyId && pm.IsActive && !pm.MarkedForDeletion
-                   select new { pm.Id, wd.WardNo, pm.PropertyNo, pm.PartitionNo })
-                   .FirstOrDefaultAsync(cancellationToken);
-
-        if (propertyMast == null)
-        {
-            throw new ValidationException("Property No", "New Property not found", OperationType.Update);
-        }
-
-        // get property map id and validate exists
-        var propertyMapId = await _propertyMapMasterRepository.GetQueryable().AsNoTracking()
-                    .Where(pm => pm.MappingCategory == "MAP" && pm.IsActive)
-                    .Select(pm => pm.Id).FirstOrDefaultAsync(cancellationToken);
-
-        if (propertyMapId <= 0)
-        {
-            throw new ValidationException("Property Map Category", "Property mapping type was not found.", OperationType.Update);
-        }
-
-        // Extract filter criteria
-        var societyNames = dto.SocietyDetails
-            .Where(s => !string.IsNullOrWhiteSpace(s.OldSocietyName)).Select(s => s.OldSocietyName.Trim())
-            .Distinct().ToHashSet();
-
-        var wardNumbers = dto.SocietyDetails
-            .Where(s => !string.IsNullOrWhiteSpace(s.OldWardNo)).Select(s => s.OldWardNo.Trim())
-            .Distinct().ToHashSet();
-
-        // Get matching PropertyOld IDs
-        var hasSocietyFilter = societyNames.Count > 0;
-        var hasWardFilter = wardNumbers.Count > 0;
-
-        var matchingMappings = await (
-            from pmo in _propertyOldRepository.GetQueryable()
-            join pmd in _propertyMapDetailRepository.GetQueryable() on pmo.Id equals pmd.PropertyIdOld
-            where pmd.Status == "DRAFT"
-                  && pmd.PropertyMapId == propertyMapId
-                  && (!hasSocietyFilter || (pmo.OldSocietyName != null && societyNames.Contains(pmo.OldSocietyName.Trim())))
-                  && (!hasWardFilter || (pmo.OldWardNo != null && wardNumbers.Contains(pmo.OldWardNo.Trim())))
-                  //&& !pmd.IsActive
-                  && pmo.IsActive
-                  && !pmo.MarkedForDeletion
-            select new
-            {
-                PropertyOldId = pmo.Id,
-                pmd.PropertyIdNew,
-                pmd.PropertyNoOld,
-                pmd.PropertyNoNew,
-                pmd.IsActive
-            })
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        var matchingPropertyOldIds = matchingMappings.Where(x => !x.IsActive).Select(x => x.PropertyOldId).Distinct().ToList();
-
-        if (!matchingPropertyOldIds.Any())
-        {
-            throw new ValidationException("SocietyName", "Property attach details were not found.", OperationType.Update);
-        }
-
-        // Check if any of the matching records are already ACTIVE
-        var activeMappings = matchingMappings.Where(x => x.IsActive && x.PropertyIdNew != dto.PropertyId).ToList();
-
-        if (activeMappings.Count > 0)
-        {
-            var oldPropertyNumbers = string.Join(", ", activeMappings.Select(x => x.PropertyNoOld).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct());
-            var newPropertyNumber = activeMappings.Select(x => x.PropertyNoNew).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
-            throw new ValidationException("Old Properties", $"{oldPropertyNumbers} This Properties already attached to property no : {newPropertyNumber}", OperationType.Update);
-        }
-
-        // Update mapping details
-        await _unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
-            var updateTime = DateTime.UtcNow;
-            var newPropertyNo = BuildPropertyNumber(propertyMast.WardNo, propertyMast.PropertyNo, propertyMast.PartitionNo);
-            var updateCount = await _propertyMapDetailRepository.GetQueryable()
-                .Where(pmd => pmd.Status == "DRAFT"
-                           && pmd.PropertyMapId == propertyMapId
-                           && matchingPropertyOldIds.Contains(pmd.PropertyIdOld!.Value)
-                           && !pmd.IsActive)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(p => p.PropertyIdNew, dto.PropertyId)
-                    .SetProperty(p => p.PropertyNoNew, newPropertyNo)
-                    .SetProperty(p => p.IsActive, true)
-                    .SetProperty(p => p.UpdatedBy, dto.UpdatedBy)
-                    .SetProperty(p => p.UpdatedDate, updateTime),
-                    cancellationToken);
+            // Validate property exists
+            var propertyMast = await (
+                       from pm in _repository.GetQueryable().AsNoTracking()
+                       join wd in _wardRepository.GetQueryable().AsNoTracking().Where(x => x.IsActive) on pm.WardId equals wd.Id
+                       where pm.Id == dto.PropertyId && pm.IsActive && !pm.MarkedForDeletion
+                       select new { pm.Id, wd.WardNo, pm.PropertyNo, pm.PartitionNo })
+                       .FirstOrDefaultAsync(cancellationToken);
 
-            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            if (propertyMast == null)
+            {
+                throw new ValidationException("Property No", "New Property not found", OperationType.Update);
+            }
 
-            _logger.LogInformation("Updated {Count} attach details to active for PropertyMapId: {PropertyMapId}", updateCount, propertyMapId);
+            // get property map id and validate exists
+            var propertyMapId = await _propertyMapMasterRepository.GetQueryable().AsNoTracking()
+                        .Where(pm => pm.MappingCategory == PropertyMappingCategory.MapMappingCategory && pm.IsActive)
+                        .Select(pm => pm.Id).FirstOrDefaultAsync(cancellationToken);
 
-            if (updateCount == 0)
+            if (propertyMapId <= 0)
+            {
+                throw new ValidationException("Property Map Category", "Property mapping type was not found.", OperationType.Update);
+            }
+
+            // Extract filter criteria
+            var societyNames = dto.SocietyDetails
+                .Where(s => !string.IsNullOrWhiteSpace(s.OldSocietyName)).Select(s => s.OldSocietyName.Trim())
+                .Distinct().ToHashSet();
+
+            var wardNumbers = dto.SocietyDetails
+                .Where(s => !string.IsNullOrWhiteSpace(s.OldWardNo)).Select(s => s.OldWardNo.Trim())
+                .Distinct().ToHashSet();
+
+            // Get matching PropertyOld IDs
+            var hasSocietyFilter = societyNames.Count > 0;
+            var hasWardFilter = wardNumbers.Count > 0;
+
+            var matchingMappings = await (
+                from pmo in _propertyOldRepository.GetQueryable()
+                join pmd in _propertyMapDetailRepository.GetQueryable() on pmo.Id equals pmd.PropertyIdOld
+                where pmd.Status == PropertyMapStatus.Draft
+                      && pmd.PropertyMapId == propertyMapId
+                      && (!hasSocietyFilter || (pmo.OldSocietyName != null && societyNames.Contains(pmo.OldSocietyName.Trim())))
+                      && (!hasWardFilter || (pmo.OldWardNo != null && wardNumbers.Contains(pmo.OldWardNo.Trim())))
+                      && pmo.IsActive
+                      && !pmo.MarkedForDeletion
+                select new
+                {
+                    PropertyOldId = pmo.Id,
+                    pmd.PropertyIdNew,
+                    pmd.PropertyNoOld,
+                    pmd.PropertyNoNew,
+                    pmd.IsActive
+                })
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var matchingPropertyOldIds = matchingMappings.Where(x => !x.IsActive).Select(x => x.PropertyOldId).Distinct().ToList();
+
+            if (!matchingPropertyOldIds.Any())
             {
                 throw new ValidationException("SocietyName", "Property attach details were not found.", OperationType.Update);
             }
 
-            var updatedEntity = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
-                    .Where(pmd =>
-                        pmd.Status == "DRAFT" &&
-                        pmd.PropertyMapId == propertyMapId &&
-                        pmd.PropertyIdNew == dto.PropertyId &&
-                        pmd.IsActive &&
-                        pmd.PropertyIdOld.HasValue &&
-                        matchingPropertyOldIds.Contains(pmd.PropertyIdOld.Value))
-                    .OrderByDescending(pmd => pmd.UpdatedDate)
-                    .FirstOrDefaultAsync(cancellationToken);
+            // Check if any of the matching records are already ACTIVE
+            var activeMappings = matchingMappings.Where(x => x.IsActive && x.PropertyIdNew != dto.PropertyId).ToList();
 
-            _logger.LogInformation("Property attach details updated successfully for PropertyId: {PropertyId}", dto.PropertyId);
-            return _mapper.Map<PropertyMapDetailDto>(updatedEntity);
+            if (activeMappings.Count > 0)
+            {
+                var oldPropertyNumbers = string.Join(", ", activeMappings.Select(x => x.PropertyNoOld).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct());
+                var newPropertyNumber = activeMappings.Select(x => x.PropertyNoNew).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+                throw new ValidationException("Old Properties", $"{oldPropertyNumbers} This Properties already attached to property no : {newPropertyNumber}", OperationType.Update);
+            }
+
+            // Update mapping details
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var updateTime = DateTime.UtcNow;
+                var newPropertyNo = BuildPropertyNumber(propertyMast.WardNo, propertyMast.PropertyNo, propertyMast.PartitionNo);
+                var updateCount = await _propertyMapDetailRepository.GetQueryable()
+                    .Where(pmd => pmd.Status == PropertyMapStatus.Draft
+                               && pmd.PropertyMapId == propertyMapId
+                               && matchingPropertyOldIds.Contains(pmd.PropertyIdOld!.Value)
+                               && !pmd.IsActive)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(p => p.PropertyIdNew, dto.PropertyId)
+                        .SetProperty(p => p.PropertyNoNew, newPropertyNo)
+                        .SetProperty(p => p.IsActive, true)
+                        .SetProperty(p => p.UpdatedBy, dto.UpdatedBy)
+                        .SetProperty(p => p.UpdatedDate, updateTime),
+                        cancellationToken);
+
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                _logger.LogInformation("Updated {Count} attach details to active for PropertyMapId: {PropertyMapId}", updateCount, propertyMapId);
+
+                if (updateCount == 0)
+                {
+                    throw new ValidationException("SocietyName", "Property attach details were not found.", OperationType.Update);
+                }
+
+                var updatedEntity = await _propertyMapDetailRepository.GetQueryable().AsNoTracking()
+                        .Where(pmd =>
+                            pmd.Status == PropertyMapStatus.Draft &&
+                            pmd.PropertyMapId == propertyMapId &&
+                            pmd.PropertyIdNew == dto.PropertyId &&
+                            pmd.IsActive &&
+                            pmd.PropertyIdOld.HasValue &&
+                            matchingPropertyOldIds.Contains(pmd.PropertyIdOld.Value))
+                        .OrderByDescending(pmd => pmd.UpdatedDate)
+                        .FirstOrDefaultAsync(cancellationToken);
+
+                _logger.LogInformation("Property attach details updated successfully for PropertyId: {PropertyId}", dto.PropertyId);
+                return _mapper.Map<PropertyMapDetailDto>(updatedEntity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error executing update transaction for PropertyId {PropertyId} and PropertyMapId {PropertyMapId}", dto.PropertyId, propertyMapId);
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            _logger.LogError(ex, "Error updating property mapping details for PropertyId {PropertyId}", dto.PropertyId);
             throw;
         }
     }

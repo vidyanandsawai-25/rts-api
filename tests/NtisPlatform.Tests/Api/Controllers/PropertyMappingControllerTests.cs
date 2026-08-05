@@ -102,4 +102,30 @@ public class PropertyMappingControllerTests
         Assert.False(response.Success);
         Assert.Contains("not found", response.Message);
     }
+
+    [Fact]
+    public async Task GetPropertyMappingDetails_Success_ReturnsOk()
+    {
+        // Arrange
+        var request = new PropertyMapDetailsQueryParameters { PropertyId = 10, SocietyId = 1, CreatedBy = 100 };
+        var matchingDetails = new List<PropertyMatchingResponseDto>
+        {
+            new() { PropertyId = 10, RowSource = "MATCHED", IsMatchProperty = true, OwnerName = "John Doe" }
+        };
+
+        _mockPropertyMappingService
+            .Setup(s => s.GetPropertyMatchingDetailsAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(matchingDetails);
+
+        // Act
+        var result = await _controller.GetPropertyMappingDetails(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<List<PropertyMatchingResponseDto>>(okResult.Value);
+        Assert.NotNull(response);
+        Assert.Single(response);
+        Assert.Equal("MATCHED", response[0].RowSource);
+    }
 }
+

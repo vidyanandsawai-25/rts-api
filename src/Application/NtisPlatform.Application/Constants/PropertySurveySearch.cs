@@ -24,4 +24,5 @@ public static class PropertyMappingCategory
     public const string OneToOneMappingCategory = "ONE_TO_ONE";
     public const string SplitMappingCategory = "SPLIT";
     public const string MergeMappingCategory = "MERGE";
+    public const string MapMappingCategory = "MAP";
 }
