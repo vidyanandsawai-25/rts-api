@@ -519,6 +519,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetApplicationTypeService, AssetApplicationTypeService>();
         services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
         services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
+        services.AddScoped<IManageSubUnitsService, ManageSubUnitsService>();
+
+
+
         // Rules namespace registrations
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();

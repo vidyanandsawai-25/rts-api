@@ -31,6 +31,7 @@ public class AssetPhotoService : IAssetPhotoService
     public async Task<int> CreateAsync(
         int assetId,
         int photoTypeId,
+        int? subUnitDetailsId,
         int? displayOrder,
         string? remarks,
         int createdBy,
@@ -54,10 +55,22 @@ public class AssetPhotoService : IAssetPhotoService
             throw new ArgumentException($"Photo type with ID {photoTypeId} not found", nameof(photoTypeId));
         }
 
+        if (subUnitDetailsId.HasValue)
+        {
+            var subUnitDetailsExists = await _context.Set<SubUnitsDetailsEntity>()
+                .AsNoTracking()
+                .AnyAsync(x => x.Id == subUnitDetailsId.Value && x.AssetId == assetId && !x.MarkedForDeletion, cancellationToken);
+
+            if (!subUnitDetailsExists)
+            {
+                throw new ArgumentException($"Sub-unit details with ID {subUnitDetailsId} not found for asset {assetId}", nameof(subUnitDetailsId));
+            }
+        }
+
         var entity = AssetPhotoEntity.Create(
             assetId,
             photoTypeId,
-            null,
+            subUnitDetailsId,
             displayOrder,
             remarks);
 

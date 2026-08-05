@@ -203,6 +203,7 @@ public class AssetPhotoApplicationService : IAssetPhotoApplicationService
                             var newPhotoId = await _photoService.CreateAsync(
                                 bulkDto.AssetId,
                                 photoDto.PhotoTypeId,
+                                null,
                                 photoDto.DisplayOrder,
                                 photoDto.Remarks,
                                 userId,
