@@ -4245,11 +4245,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(x => x.MarkedForDeletionDate).HasColumnType("datetime");
 
-            entity.Property(x => x.IsMovable).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasFloorDetails).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasInventory).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.IsInventoryMandatory).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasLegalCompliance).IsRequired().HasDefaultValue(false);
+            // ValueGeneratedNever prevents EF from treating an explicit "false" the same as "unset" and
+            // omitting the column from the INSERT -- the live AssetCategoryMaster table has no DB-level
+            // default constraint on these columns (unlike IsActive/MarkedForDeletion above), so a false
+            // sent by the client was being dropped from the INSERT and hitting the NOT NULL constraint.
+            entity.Property(x => x.IsMovable).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasFloorDetails).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasInventory).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.IsInventoryMandatory).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasLegalCompliance).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
             entity.Property(x => x.ValuationType).IsRequired().HasMaxLength(20).HasDefaultValue("GENERIC");
 
             entity.HasIndex(e => e.CategoryName).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryName");
