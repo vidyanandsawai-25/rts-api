@@ -1098,8 +1098,6 @@ public class ManageSubUnitsService : IManageSubUnitsService
                     resolvedFloorDetail.Id, existingAsset.Id);
             }
 
-            // CV is calculated as a separate, explicit step by the caller — see
-            // SubUnitsDetailsController.CalculateCapitalValue — once this row's Id is known.
             response.SubUnitsDetailsId = resolvedFloorDetail.Id;
 
             int subunitsDetailsId = resolvedFloorDetail.Id;

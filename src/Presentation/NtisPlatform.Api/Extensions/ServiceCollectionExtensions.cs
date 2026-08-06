@@ -520,6 +520,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
         services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
         services.AddScoped<IManageSubUnitsService, ManageSubUnitsService>();
+        services.AddScoped<ISubUnitsDetailsService, SubUnitsDetailsService>();
 
 
 

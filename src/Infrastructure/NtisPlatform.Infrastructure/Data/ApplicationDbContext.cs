@@ -169,6 +169,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
     public DbSet<AssetDesignationEntity> AssetDesignations { get; set; } = null!;
+    public DbSet<SubUnitsDetailsEntity> SubUnitsDetails { get; set; } = null!;
     public DbSet<AssetApplicationTypeEntity> AssetApplicationTypes { get; set; } = null!;
     public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
     public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;

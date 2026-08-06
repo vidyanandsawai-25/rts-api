@@ -22,7 +22,6 @@ public class SubUnitsDetailsMappingProfile : Profile
             .ForMember(dest => dest.Asset, opt => opt.Ignore())
             .ForMember(dest => dest.MarkedForDeletion, opt => opt.MapFrom(src => false))
             .ForMember(dest => dest.MarkedForDeletionDate, opt => opt.Ignore())
-            // IsRented is set by CalculateAndUpdateCapitalValueAsync, not user input.
             .ForMember(dest => dest.IsRented, opt => opt.Ignore());
 
         // UpdateDto to Entity

@@ -231,9 +231,7 @@ public class CreateChildAssetResponseDto
     public int? RenterDetailsId { get; set; }
 
     /// <summary>
-    /// This unit's own AMS.SubUnitsDetails row Id — pass to
-    /// POST /api/AssetFloorDetails/{id}/calculate-capital-value to calculate and persist
-    /// this specific unit's Capital Value as a separate step.
+    /// This unit's own AMS.SubUnitsDetails row Id.
     /// </summary>
     public int? SubUnitsDetailsId { get; set; }
 
