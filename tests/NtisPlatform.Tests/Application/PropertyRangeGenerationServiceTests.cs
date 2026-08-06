@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -290,7 +290,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -315,7 +315,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             // Act & Assert
             await Assert.ThrowsAsync<ArgumentNullException>(async () =>
@@ -330,7 +330,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -352,7 +352,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -374,7 +374,7 @@ namespace NtisPlatform.Tests.Application
             // Arrange
             var (repoMock, uowMock, mapperMock, propRepoMock, featureFlagsMock, wardRepoMock, categoryRepoMock, societyRepoMock, propertyDetailsRepoMock, roomWiseRepoMock, assessmentRepoMock, wardAllocationRepoMock, propertyMapMasterRepoMock, propertyMapDetailRepoMock, wingRepoMock, userRepoMock, propertyOldRepoMock, propertyTypeRepoMock, ruleLogServiceMock) = CreateMocks();
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -403,7 +403,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             // Note: Prefix/Suffix must be null because the code uses Convert.ToInt32(rangeValues[i])
             // which only works with pure numeric values
@@ -437,7 +437,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -464,7 +464,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -490,7 +490,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             // Note: Using prefix/suffix with numeric range causes Convert.ToInt32 to fail
             // because rangeValues will contain "WARD-1-PROP" which cannot be converted to int.
@@ -525,7 +525,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             // Note: Alphabetic ranges like "A" to "C" generate values "A", "B", "C" (or with prefix "BLK-A", etc.)
             // These cannot be converted to int by Convert.ToInt32(rangeValues[i]).
@@ -555,7 +555,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             // Note: Alphabetic value "X" cannot be converted to int by Convert.ToInt32(rangeValues[i]).
             // The method handles this gracefully by catching the exception and returning errors.
@@ -591,7 +591,7 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(false);
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -625,7 +625,7 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(true);
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -657,7 +657,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -687,7 +687,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -720,7 +720,7 @@ namespace NtisPlatform.Tests.Application
 
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object,userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -752,7 +752,7 @@ namespace NtisPlatform.Tests.Application
                 .ReturnsAsync(false);
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var request = new RangeCreateRequest<CreateNewPropertyDto>
             {
@@ -784,7 +784,7 @@ namespace NtisPlatform.Tests.Application
             
 
             var mockLogger = new Mock<ILogger<PropertyService>>();
-            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, ruleLogServiceMock.Object);
+            var service = new PropertyService(repoMock.Object, uowMock.Object, mapperMock.Object, propRepoMock.Object, mockLogger.Object, featureFlagsMock.Object, wardRepoMock.Object, categoryRepoMock.Object, societyRepoMock.Object, propertyDetailsRepoMock.Object, roomWiseRepoMock.Object, assessmentRepoMock.Object, wardAllocationRepoMock.Object, propertyMapMasterRepoMock.Object, propertyMapDetailRepoMock.Object, wingRepoMock.Object, userRepoMock.Object, propertyOldRepoMock.Object, propertyTypeRepoMock.Object, new Mock<IRepository<CommunicationDetailsEntity, int>>().Object, new Mock<IRepository<PropertyPhotoEntity, int>>().Object, new Mock<IRepository<DocumentBindingEntity, int>>().Object, new Mock<IRepository<DocumentEntity, int>>().Object, new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object, new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, ruleLogServiceMock.Object);
 
             var template = new CreateNewPropertyDto
             {

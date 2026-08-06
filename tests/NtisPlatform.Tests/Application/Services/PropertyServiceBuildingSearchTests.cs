@@ -663,6 +663,13 @@ public class PropertyServiceBuildingSearchTests
             userRepository.Object,
             _propertyOldRepository.Object,
             propertyTypeRepository.Object,
+            new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
+            new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+            new Mock<IRepository<DocumentEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+            new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+            new Mock<IRepository<WingEntity, int>>().Object,
             ruleLogService.Object);
     }
 }

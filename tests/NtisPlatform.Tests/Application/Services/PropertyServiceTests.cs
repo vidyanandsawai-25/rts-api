@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.DTOs.Property;
+using NtisPlatform.Application.DTOs.Property;
 using NtisPlatform.Application.DTOs.PropertyDetails;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
@@ -75,7 +75,15 @@ public class PropertyServiceTests
             new Mock<IRepository<PropertyMapMasterEntity, int>>().Object,
             new Mock<IRepository<PropertyMapDetailEntity, int>>().Object,
             new Mock<IRepository<WingEntity, int>>().Object,
-            new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
+            new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object,
+            new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
+            new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+            new Mock<IRepository<DocumentEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+            new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+            new Mock<IRepository<WingEntity, int>>().Object,
+            new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
     // Basic Details was split into the per-tab PropertyBasicDetailsService (data access in

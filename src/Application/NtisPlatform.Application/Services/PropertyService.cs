@@ -50,6 +50,13 @@ public partial class PropertyService
     private readonly IPropertyRuleApplicationLogService? _ruleLogService;
     private readonly IRepository<PropertyMastOldEntity, int> _propertyOldRepository;
     private readonly IRepository<PropertyTypeMasterEntity, int> _propertyTypeRepository;
+    private readonly IRepository<CommunicationDetailsEntity, int> _communicationRepository;
+    private readonly IRepository<PropertyPhotoEntity, int> _propertyPhotoRepository;
+    private readonly IRepository<DocumentBindingEntity, int> _documentBindingRepository;
+    private readonly IRepository<DocumentEntity, int> _documentRepository;
+    private readonly IRepository<PropertyPhotoTypeEntity, int> _propertyPhotoTypeRepository;
+    private readonly IRepository<OwnerTypeMasterEntity, int> _ownerTypeRepository;
+    private readonly IRepository<WingEntity, int> _wingRepository;
 
 
     public PropertyService(
@@ -72,6 +79,13 @@ public partial class PropertyService
         IRepository<UserEntity, int> userRepository,
         IRepository<PropertyMastOldEntity, int> propertyOldRepository,
         IRepository<PropertyTypeMasterEntity, int> propertyTypeRepository,
+        IRepository<CommunicationDetailsEntity, int> communicationRepository,
+        IRepository<PropertyPhotoEntity, int> propertyPhotoRepository,
+        IRepository<DocumentBindingEntity, int> documentBindingRepository,
+        IRepository<DocumentEntity, int> documentRepository,
+        IRepository<PropertyPhotoTypeEntity, int> propertyPhotoTypeRepository,
+        IRepository<OwnerTypeMasterEntity, int> ownerTypeRepository,
+        IRepository<WingEntity, int> wingRepository,
         IPropertyRuleApplicationLogService? ruleLogService = null)
         : base(repository, unitOfWork, mapper)
     {
@@ -91,6 +105,13 @@ public partial class PropertyService
         _propertyMapDetailRepository = propertyMapDetailRepository;
         _propertyOldRepository = propertyOldRepository;
         _propertyTypeRepository = propertyTypeRepository;
+        _propertyPhotoRepository = propertyPhotoRepository;
+        _documentBindingRepository = documentBindingRepository;
+        _documentRepository = documentRepository;
+        _propertyPhotoTypeRepository = propertyPhotoTypeRepository;
+        _ownerTypeRepository = ownerTypeRepository;
+        _communicationRepository = communicationRepository;
+        _wingRepository = wingRepository;
         _wingMasterRepository = wingMasterRepository;
     }
 

@@ -93,6 +93,13 @@ public class PropertyServiceSplitTests
     _mockUserRepository.Object,
     _mockPropertyOldRepository.Object,
     _mockPropertyTypeRepository.Object,
+    new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+    new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
+    new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+    new Mock<IRepository<DocumentEntity, int>>().Object,
+    new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+    new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+    new Mock<IRepository<WingEntity, int>>().Object,
     _mockRuleLogService.Object
 );
     }

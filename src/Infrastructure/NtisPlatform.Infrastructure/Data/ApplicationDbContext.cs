@@ -243,6 +243,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetGrievanceCategoryEntity> AssetGrievanceCategoryMaster { get; set; } = null!;
     public DbSet<AssetGrievanceRemarkMasterEntity> AssetGrievanceRemarkMaster { get; set; } = null!;
 
+    public DbSet<CommunicationDetailsEntity> CommunicationDetails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
