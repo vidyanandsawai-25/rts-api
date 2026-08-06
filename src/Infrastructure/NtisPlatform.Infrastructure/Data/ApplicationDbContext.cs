@@ -154,6 +154,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
 
     //Asset Start
+    public DbSet<CVRateMasterEntity> CVRateMaster { get; set; } = null!;
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
     public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;    
     public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
@@ -170,6 +171,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
     public DbSet<AssetDesignationEntity> AssetDesignations { get; set; } = null!;
     public DbSet<SubUnitsDetailsEntity> SubUnitsDetails { get; set; } = null!;
+    public DbSet<AssetCVCalculationHistoryEntity> AssetCVCalculationHistories { get; set; } = null!;
     public DbSet<AssetApplicationTypeEntity> AssetApplicationTypes { get; set; } = null!;
     public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
     public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;
@@ -6466,6 +6468,52 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_SubUnitsDetails_AssetFloor");
         });
 
+        // AssetCVCalculationHistory configuration — audit trail of every CV calculation run,
+        // written by AssetCapitalValueService.SaveCalculationHistoryAsync.
+        modelBuilder.Entity<AssetCVCalculationHistoryEntity>(entity =>
+        {
+            entity.ToTable("AssetCVCalculationHistory", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.CalculationDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.FinancialYear).IsRequired().HasMaxLength(9);
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.FloorId);
+            entity.Property(e => e.ConstructionTypeId);
+            entity.Property(e => e.TypeOfUseId);
+            entity.Property(e => e.SubTypeOfUseId);
+            entity.Property(e => e.ConstructionYear);
+            entity.Property(e => e.BuildingAge);
+            entity.Property(e => e.BuiltUpAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BaseRate).HasColumnType("decimal(18,2)");
+            // Source master tables (AgeFactorCVMaster, NatureFactorCVMaster, etc.) declare Factor as
+            // decimal(5,2) -- max 999.99. decimal(5,4) here (max 9.9999) caused a numeric-overflow
+            // SaveChangesAsync failure whenever a master row's factor was >= 10, which rolled back
+            // the entire (correctly computed) CV calculation for that floor. Widened to match.
+            entity.Property(e => e.AgeFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.FloorFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.NatureFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.UseFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.CapitalValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculatedBy);
+            entity.Property(e => e.Remarks).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.AssetMaster).WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_CVHistory_Asset");
+
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_AssetCVCalculationHistory_AssetId");
+        });
+
         modelBuilder.Entity<MonthWiseDemandEntity>(entity =>
         {
             entity.ToTable("MonthWiseDemand", "AMS");
@@ -6818,6 +6866,23 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.GrievanceCategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CVRateMasterEntity>(entity =>
+        {
+            entity.ToTable("CVRateMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.TypeOfUseGroupCVId);
+            entity.Property(e => e.FloorGroupId);
+            entity.Property(e => e.AssessmentYearRangeId);
+            entity.Property(e => e.RateAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
         });
     }
 }

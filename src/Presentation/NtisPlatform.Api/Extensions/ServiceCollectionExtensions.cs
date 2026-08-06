@@ -502,9 +502,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetCategoryService, AssetCategoryService>();
         services.AddScoped<IAssetTypeService, AssetTypeService>();
         services.AddScoped<IOwnershipTypeService, OwnershipTypeService>();
-        services.AddScoped<IOwningDepartmentService, OwningDepartmentService>();        
+        services.AddScoped<IOwningDepartmentService, OwningDepartmentService>();
         //Asset Start
         services.AddScoped<IAssetMasterService, AssetMasterService>();
+        services.AddScoped<IAssetCapitalValueService, AssetCapitalValueService>();
         services.AddScoped<IInventoryItemCategoryService, InventoryItemCategoryService>();
         services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();       
         services.AddScoped<IInventoryItemModelService, InventoryItemModelService>();
