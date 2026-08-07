@@ -1,4 +1,7 @@
 
+using NtisPlatform.Application.DTOs.Queries;
+using System.ComponentModel.DataAnnotations;
+
 namespace NtisPlatform.Application.DTOs.PropertySurveySearch;
 
 
@@ -138,5 +141,135 @@ public class PropertySocietyGroupedPaginatedResponseDto
 {
     public List<PropertySocietyGroupedResponseDto> Data { get; set; } = new();
     public int Count { get; set; }
+    public bool HasNext { get; set; }
+}
+
+public class CreatedByUserPropertySearchRequestDto : BaseQueryParameters
+{
+    [Range(
+        1,
+        int.MaxValue,
+        ErrorMessage = "UserId is required and must be greater than zero.")]
+    public int UserId { get; set; }
+
+    [Range(
+        1,
+        int.MaxValue,
+        ErrorMessage = "ModuleId is required and must be greater than zero.")]
+    public int ModuleId { get; set; }
+
+    [Range(
+        1,
+        int.MaxValue,
+        ErrorMessage = "WardId is required and must be greater than zero.")]
+    public int WardId { get; set; }
+
+    [StringLength(
+        200,
+        ErrorMessage = "SearchText cannot exceed 200 characters.")]
+    public string? SearchText { get; set; }
+}
+
+
+public class CreatedByUserPropertyResponseDto : BaseDtos
+{
+    public int WardId { get; set; }
+
+    public string? WardNo { get; set; }
+
+    public string? PropertyNo { get; set; }
+
+    public string? PartitionNo { get; set; }
+
+    public int? CategoryId { get; set; }
+
+    public string? CategoryName { get; set; }
+
+    public string? PropertyDescription { get; set; }
+
+    public string? OwnerName { get; set; }
+
+    public string? OccupierName { get; set; }
+
+    public string? Address { get; set; }
+
+    public string? UpicId { get; set; }
+
+    public bool CanDelete { get; set; }
+
+    // Society details
+    public string? SocietyName { get; set; }
+
+    public string? BuilderName { get; set; }
+
+    public string? SocietyAddress { get; set; }
+
+    public int FlatCount { get; set; }
+
+    public int ShopCount { get; set; }
+
+    public int WingCount { get; set; }
+
+    public double TotalArea { get; set; }
+
+    public double? OldAlv { get; set; }
+
+    public double? OldRv { get; set; }
+
+    public double? OldGeneralTax { get; set; }
+
+    public double? OldTotalTax { get; set; }
+
+    public double? OldConstructionArea { get; set; }
+
+    public List<PropertySearchDocumentDto> Documents { get; set; } = new();
+
+}
+
+public class PropertySearchDocumentDto
+{
+    public int PropertyPhotoId { get; set; }
+
+    public int PropertyId { get; set; }
+
+    public int PhotoTypeId { get; set; }
+
+    public int DocumentId { get; set; }
+
+    public Guid DocumentGuid { get; set; }
+
+    public string? OriginalFileName { get; set; }
+
+    public string? FileName { get; set; }
+
+    public string? MimeType { get; set; }
+
+    public string? FileExtension { get; set; }
+
+    public long? FileSizeBytes { get; set; }
+
+    public int? DocumentBindingId { get; set; }
+
+    public bool IsLatest { get; set; }
+
+    public int? DisplayOrder { get; set; }
+
+    public string? Remarks { get; set; }
+}
+
+public class UserPropertyPageDto
+{
+    public List<CreatedByUserPropertyResponseDto> Items { get; set; } = new();
+
+    public int PageItemCount { get; set; }
+
+    public int TotalCount { get; set; }
+
+    public int PageNumber { get; set; }
+
+    public int PageSize { get; set; }
+
+    public int TotalPages { get; set; }
+
     public bool HasNext { get; set; }
 }
