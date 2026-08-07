@@ -198,6 +198,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 {
                     decimal? ruleAdjustedRate = null;
                     decimal? ruleAdjustedRent = null;
+                    decimal? ruleAdjustedMaintenancePercent = null;
                     var detailAppliedRules = new List<RuleApplicationTraceEntry>();
 
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
@@ -218,7 +219,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             x.IsActive);
 
                         decimal masterRatePerUnit = RateableValueCalculator.GetRatePerUnit(masterRate, policyOptions);
-
+                        var clonedContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                         if (masterRate != null && masterRatePerUnit >= 0)
                         {
                             _logger.LogDebug(
@@ -227,7 +228,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm", detailYearRangeRVId);
 
                             // Execute Rate parameter rules
-                            var clonedContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
+
                             var applierContext = new RuleApplierContext
                             {
                                 PropertyContext = clonedContext,
@@ -271,10 +272,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                                 if (yearlyRentValue > 0)
                                 {
-                                    var clonedRentContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                                     var rentApplierContext = new RuleApplierContext
                                     {
-                                        PropertyContext = clonedRentContext,
+                                        PropertyContext = clonedContext,
                                         InitialValue = (decimal)yearlyRentValue,
                                         Category = "RV",
                                         ValueKey = "Rent"
@@ -291,6 +291,35 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             }
                         }
 
+                        // Execute Maintenance parameter rules on Maintenance Rate Percentage
+                        var maintApplierContext = new RuleApplierContext
+                        {
+                            PropertyContext = clonedContext,
+                            InitialValue = policyOptions.MaintenanceRatePercent,
+                            Category = "RV",
+                            ValueKey = "Maintenance"
+                        };
+
+                        var maintRuleResult = await _ruleApplierService.ApplyRulesAsync(maintApplierContext);
+                        if (maintRuleResult.AppliedRules != null && maintRuleResult.AppliedRules.Any())
+                        {
+                            detailAppliedRules.AddRange(maintRuleResult.AppliedRules);
+                        }
+
+                        if (maintRuleResult.FinalValue != policyOptions.MaintenanceRatePercent)
+                        {
+                            if (maintRuleResult.FinalValue < 0m || maintRuleResult.FinalValue > 100m)
+                            {
+                                _logger.LogWarning(
+                                    "[RuleEngine-RV] Ignoring invalid Maintenance%={MaintenancePercent} for PropertyDetailsId={DetailId}. Expected 0..100.",
+                                    maintRuleResult.FinalValue, detail.Id);
+                            }
+                            else
+                            {
+                                ruleAdjustedMaintenancePercent = maintRuleResult.FinalValue;
+                            }
+                        }
+
                         if (detailAppliedRules.Any())
                         {
                             ruleTracesCache[detail.Id] = detailAppliedRules;
@@ -301,7 +330,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     baseResultsCache[detail.Id] = _rateableValueCalculatorService.CalculateBaseValues(
                         detail, financeYear, property.TaxZoneId, property.WardId,
                         typeOfUses, rates, depreciations, yearRanges, renters ?? new List<RenterMastEntity>(),
-                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId, ruleAdjustedRent);
+                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId, ruleAdjustedRent,
+                        ruleAdjustedMaintenancePercent);
                 }
 
                 _logger.LogInformation(

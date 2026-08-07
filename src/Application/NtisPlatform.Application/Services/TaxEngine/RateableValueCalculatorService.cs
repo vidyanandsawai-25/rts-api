@@ -31,7 +31,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null,
             int? detailYearRangeRVId = null,
-            decimal? overrideRent = null)
+            decimal? overrideRent = null,
+            decimal? overrideMaintenancePercent = null)
         {
             if (detail == null)
                 throw new ArgumentNullException(nameof(detail));
@@ -148,9 +149,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
             depreciationAmount = Math.Round(depreciationAmount, 0, MidpointRounding.AwayFromZero);
 
             // Maintenance deduction is policy-driven. Default is 10% (see RateableValuePolicyConstants.DefaultMaintenanceRateValue).
-            // Override via policy key RateableValuePolicyConstants.MaintenanceRateKey.
+            // Override via policy key RateableValuePolicyConstants.MaintenanceRateKey or explicit overrideMaintenancePercent argument.
+            decimal maintenancePercent = overrideMaintenancePercent ?? options.MaintenanceRatePercent;
             decimal maintenance = Math.Round(
-                annualRentalValue * options.MaintenanceRatePercent / 100m, 0,
+                annualRentalValue * maintenancePercent / 100m, 0,
                 MidpointRounding.AwayFromZero);
             decimal rateableValue = Math.Round(annualRentalValue - maintenance, 0, MidpointRounding.AwayFromZero);
 

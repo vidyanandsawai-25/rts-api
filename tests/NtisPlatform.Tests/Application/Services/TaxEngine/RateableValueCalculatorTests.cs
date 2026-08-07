@@ -371,5 +371,36 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.Equal(20000.0, result.YearlyRent);
             Assert.Equal(0m, result.Depreciation);
         }
+
+        [Fact]
+        public void CalculateBaseValues_WithOverrideMaintenancePercent_UsesOverrideMaintenancePercent()
+        {
+            var detail = new PropertyDetailsEntity
+            {
+                Id = 100, PropertyId = 1, IsTaxable = true, IsRenter = false,
+                TypeOfUseId = 1, ConstructionTypeId = 1, FloorId = 1,
+                CarpetAreaSqMeter = 10d, ConstructionYear = "2020"
+            };
+
+            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
+            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true } };
+            var yearRanges = new List<AssessmentYearRangeEntity>
+            {
+                new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
+            };
+
+            // Yearly rate period default: Area rent = 10 * 100 = 1,000. Depreciation = 0. ARV = 1,000.
+            // Override maintenance percentage = 15% (instead of default 10%). Maintenance = 150.
+            var service = new RateableValueCalculatorService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RateableValueCalculatorService>.Instance);
+            var result = service.CalculateBaseValues(
+                detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
+                10m, RateableValuePolicyOptions.Default, null, 1, null, 15m);
+
+            Assert.NotNull(result);
+            Assert.Equal(1000.0, result.AnnualRentalValue);
+            Assert.Equal(150m, result.Maintenance);
+            Assert.Equal(850m, result.RateableValue);
+        }
     }
 }
