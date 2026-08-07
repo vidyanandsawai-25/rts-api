@@ -1,5 +1,6 @@
 using NtisPlatform.Application.DTOs.TaxApplicability;
 using NtisPlatform.Core.Entities;
+using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.Interfaces;
 
@@ -16,6 +17,16 @@ public interface ITaxApplicabilityService : ICommonCrudService<ApplyTaxesMasterE
     /// <returns>Tax applicability response with applicable and exempted taxes</returns>
     Task<TaxApplicabilityResponseDto> GetTaxApplicabilityAsync(
         TaxApplicabilityRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets property details mapped with unique finance years and type of use
+    /// </summary>
+    /// <param name="propertyId">Property ID</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>List of property finance year and type of use details</returns>
+    Task<IEnumerable<PropertyFinanceYearTypeOfUseDto>> GetPropertyFinanceYearTypeOfUseAsync(
+        int propertyId,
         CancellationToken cancellationToken = default);
 
     /// <summary>

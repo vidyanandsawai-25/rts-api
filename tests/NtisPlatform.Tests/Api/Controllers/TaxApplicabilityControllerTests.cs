@@ -35,7 +35,7 @@ public class TaxApplicabilityControllerTests
         {
             PropertyId = 1,
             FinancialYearId = 2,
-            TypeOfUseGroupId = 3,
+            TypeOfUseId = 3,
             CalculationType = "RV",
             PageNumber = 1,
             PageSize = 10
@@ -45,7 +45,7 @@ public class TaxApplicabilityControllerTests
         {
             PropertyId = 1,
             FinancialYearId = 2,
-            TypeOfUseGroupId = 3,
+            TypeOfUseId = 3,
             ApplicableCount = 1,
             ExemptedCount = 0,
             ApplicableTaxes = new List<TaxApplicabilityDetailDto>
@@ -84,7 +84,7 @@ public class TaxApplicabilityControllerTests
         {
             PropertyId = 1,
             FinancialYearId = 2,
-            TypeOfUseGroupId = 3,
+            TypeOfUseId = 3,
             CalculationType = "RV"
         };
 
@@ -124,7 +124,7 @@ public class TaxApplicabilityControllerTests
         {
             PropertyId = 1,
             FinancialYearId = 0,
-            TypeOfUseGroupId = 0,
+            TypeOfUseId = 0,
             ApplicableCount = 1,
             ExemptedCount = 0
         };
@@ -302,7 +302,7 @@ public class TaxApplicabilityControllerTests
         {
             PropertyId = 1,
             FinancialYearId = 0,
-            TypeOfUseGroupId = 0,
+            TypeOfUseId = 0,
             ApplicableCount = 0,
             ExemptedCount = 1
         };

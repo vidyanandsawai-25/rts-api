@@ -18,9 +18,9 @@ public class TaxApplicabilityRequestDto : BaseQueryParameters
     public int FinancialYearId { get; set; }
 
     /// <summary>
-    /// Type of Use Group identifier
+    /// Type of Use identifier (from PTIS.TypeOfUseMaster)
     /// </summary>
-    public int TypeOfUseGroupId { get; set; }
+    public int TypeOfUseId { get; set; }
 
     /// <summary>
     /// Rateable Value or Capital Value indicator / Calculation Type (e.g. RV or CV)
