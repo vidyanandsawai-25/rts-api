@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Master.NatureFactorCVMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -11,11 +14,19 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class NatureFactorCVMasterController : ControllerBase
 {
     private readonly INatureFactorCVMasterService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<NatureFactorCVMasterController> _logger;
 
-    public NatureFactorCVMasterController(INatureFactorCVMasterService service, ILogger<NatureFactorCVMasterController> logger)
+    public NatureFactorCVMasterController(
+        INatureFactorCVMasterService service,
+        IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
+        ILogger<NatureFactorCVMasterController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -50,4 +61,17 @@ public class NatureFactorCVMasterController : ControllerBase
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<NatureFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
+
+    /// <summary>
+    /// Permanently deletes multiple records by IDs. This is an irreversible operation.
+    /// </summary>
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<NatureFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }
