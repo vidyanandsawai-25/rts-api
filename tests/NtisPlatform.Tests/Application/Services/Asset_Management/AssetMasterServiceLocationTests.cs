@@ -289,6 +289,9 @@ public class AssetMasterServiceLocationTests
                 b.HasKey(x => x.Id);
                 b.Property(x => x.Id).ValueGeneratedNever();
             });
+
+            modelBuilder.Ignore<DynamicTaxRuleEntity>();
+            modelBuilder.Ignore<TaxConditionRuleEntity>();
         }
     }
 

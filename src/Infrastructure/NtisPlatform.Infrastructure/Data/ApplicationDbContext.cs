@@ -102,6 +102,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
     public DbSet<TaxPercentageMasterCVEntity> TaxPercentageMasterCVs { get; set; } = null!;
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
+    public DbSet<DynamicTaxRuleEntity> DynamicTaxRuleMaster { get; set; } = null!;
+    public DbSet<TaxCalculationModeMasterEntity> TaxCalculationModeMaster { get; set; } = null!;
+    public DbSet<TaxMasterMappingEntity> TaxMasterMappings { get; set; } = null!;
+    public DbSet<TaxConditionRuleEntity> TaxConditionRules { get; set; } = null!;
+    public DbSet<TaxHybridConfigEntity> TaxHybridConfigs { get; set; } = null!;
     public DbSet<TaxCategoryMasterEntity> TaxCategoryMaster { get; set; } = null!;
     public DbSet<FlagMasterEntity> FlagMaster { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
@@ -931,9 +936,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.YearRangeRVId).IsRequired();
             entity.Property(e => e.TypeOfUseId).IsRequired();
-            // Add other property configurations as needed
+            entity.Property(e => e.BaseType).IsRequired().HasMaxLength(10).HasDefaultValue("RV");
             entity.HasIndex(e => e.YearRangeRVId);
             entity.HasIndex(e => e.TypeOfUseId);
+            // Matches an index that already exists on long-lived databases (verified via
+            // sys.indexes) but was never declared here — TaxId as the leading column also
+            // serves plain WHERE TaxId = @t reads (ValueBasedTaxService, the register's config
+            // overview) via an index seek, not just the (TaxId, TypeOfUseId, YearRangeRVId)
+            // uniqueness this was originally added to enforce.
+            entity.HasIndex(e => new { e.TaxId, e.TypeOfUseId, e.YearRangeRVId })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_TaxPercentageMasterRV_TaxId_TypeOfUseId_YearRangeRVId");
 
             entity.HasOne(e => e.TypeOfUse)
              .WithMany(c => c.TaxPercentageMasterRV)
@@ -3037,7 +3050,12 @@ public class ApplicationDbContext : DbContext
         // TaxMaster configuration
         modelBuilder.Entity<TaxMasterEntity>(entity =>
         {
-            entity.ToTable("TaxMaster", "PTIS");
+            // UseSqlOutputClause(false): PTIS.TaxMaster carries database triggers (audit triggers in
+            // restored environments). EF Core 7+ saves via an OUTPUT clause by default, and SQL
+            // Server rejects OUTPUT-without-INTO on a trigger-bearing table — every settings save
+            // would fail with "the target table has database triggers". This opts that one table
+            // back onto the pre-EF7 write path.
+            entity.ToTable("TaxMaster", "PTIS", tb => tb.UseSqlOutputClause(false));
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(20);
@@ -3049,6 +3067,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TaxOnUnit).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.AssessmentStatus).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.OldTaxStatus).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CalculationModeId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -3060,6 +3080,163 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.TaxCategoryMaster)
                   .WithMany(c => c.TaxMasters)
                   .HasForeignKey(e => e.TaxCategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            // FK â†’ DynamicTaxRuleMaster (selected Rule Name), optional
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany(r => r.Taxes)
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            // FK → TaxCalculationModeMaster (DB-driven calculation mode + its capability flags)
+            entity.HasOne(e => e.CalculationModeMaster)
+                  .WithMany(m => m.TaxMasters)
+                  .HasForeignKey(e => e.CalculationModeId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.CalculationModeId).HasDatabaseName("IX_TaxMaster_CalculationModeId");
+        });
+
+        // TaxCalculationModeMaster configuration (DB-driven calculation modes — replaces the
+        // hardcoded (VALUE_BASED/CONDITION_BASED/MASTER_BASED/HYBRID list). The Uses*Config flags
+        // let code branch on CAPABILITIES rather than on a mode's code.
+        modelBuilder.Entity<TaxCalculationModeMasterEntity>(entity =>
+        {
+            entity.ToTable("TaxCalculationModeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ModeCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.ModeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.UsesValueConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesConditionConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesMasterConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesHybridConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.ModeCode).IsUnique().HasDatabaseName("UQ_TaxCalculationModeMaster_ModeCode");
+        });
+
+        // DynamicTaxRuleMaster configuration (Rule Master registry)
+        modelBuilder.Entity<DynamicTaxRuleEntity>(entity =>
+        {
+            entity.ToTable("DynamicTaxRuleMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RuleType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AttachedReference).HasMaxLength(200);
+            entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.Description);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.DisplayName).IsUnique().HasDatabaseName("UQ_DynamicTaxRuleMaster_DisplayName");
+        });
+
+        // TaxMasterMapping configuration (master-based lookup rows)
+        modelBuilder.Entity<TaxMasterMappingEntity>(entity =>
+        {
+            entity.ToTable("TaxMasterMapping", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
+            entity.Property(e => e.MasterKey).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DisplayValue).HasMaxLength(200);
+            entity.Property(e => e.AssessmentYearRangeId).IsRequired();
+            entity.Property(e => e.ResultMode).IsRequired().HasMaxLength(10).HasDefaultValue("FIXED");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.ResultValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            // Scoped by RuleDefinitionId (not just Tax+Year+Key): a tax â€” especially a HYBRID
+            // one â€” can have more than one "Choose from List" rule attached to it over time,
+            // and each rule's master-key vocabulary (e.g. OwnerType categories vs PropertyType
+            // ids) is its own independent namespace. Without RuleDefinitionId in the key, two
+            // unrelated rules attached to the same tax that happen to reuse a key string (e.g.
+            // both have an "Ex. Militry Soldier"/"Self" entry) at the same Assessment Year could
+            // never coexist, blocking Save/Seed with an opaque unique-constraint violation.
+            entity.HasIndex(e => new { e.TaxId, e.RuleDefinitionId, e.AssessmentYearRangeId, e.MasterKey })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Rule_Year_Key");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany()
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxConditionRule configuration (condition-based rows — flat left-to-right AND/OR chain, priority-matched, FIXED/PERCENT result)
+        modelBuilder.Entity<TaxConditionRuleEntity>(entity =>
+        {
+            entity.ToTable("TaxConditionRule", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
+            entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ConditionsJson).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.AssessmentYearRangeId);
+            entity.Property(e => e.ResultMode).IsRequired().HasMaxLength(10).HasDefaultValue("FIXED");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.ResultValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.ReferenceTaxId);
+            // Not a FK: RulesField is keyed by Id, but rules reference fields by their string
+            // FieldName/DatabaseColumnName (the same key conditions use), so this stays a plain
+            // column validated on save rather than a database relationship.
+            entity.Property(e => e.UnitFieldId).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            // Non-unique — unlike TaxMasterMapping there is no natural key (ConditionsJson is
+            // arbitrary JSON); this index only serves the Tax+SortOrder read pattern the
+            // evaluator and admin grid always use.
+            entity.HasIndex(e => new { e.TaxId, e.SortOrder })
+                  .HasDatabaseName("IX_TaxConditionRule_Tax_SortOrder");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ReferenceTax)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReferenceTaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany()
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxHybridConfig configuration (HYBRID strategy, one per tax)
+        modelBuilder.Entity<TaxHybridConfigEntity>(entity =>
+        {
+            entity.ToTable("TaxHybridConfig", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.EvaluationPriority).IsRequired().HasMaxLength(30).HasDefaultValue("MASTER_THEN_CONDITION");
+            entity.Property(e => e.FallbackStrategy).IsRequired().HasMaxLength(20).HasDefaultValue("DEFAULT_ZERO");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.TaxId).IsUnique().HasDatabaseName("UQ_TaxHybridConfig_TaxId");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 

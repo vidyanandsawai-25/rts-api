@@ -36,7 +36,30 @@ public class TaxMasterEntity : BaseEntity
 
     public bool OldTaxStatus { get; set; } = true;
 
+    /// <summary>
+    /// FK → <see cref="TaxCalculationModeMasterEntity"/>. How this tax's amount is derived —
+    /// the modes are DB-driven rows, so read <see cref="CalculationModeMaster"/>'s capability
+    /// flags rather than comparing its ModeCode to a literal.
+    /// </summary>
+    [Required]
+    public int CalculationModeId { get; set; }
+
+    /// <summary>
+    /// Optional FK → <see cref="DynamicTaxRuleEntity"/> — the Rule Master entry (Rule Name)
+    /// selected for this tax. Null until a rule is chosen.
+    /// </summary>
+    public int? RuleDefinitionId { get; set; }
+
     // ── Navigation ──────────────────────────────────────────────────────────────
+
+    /// <summary>The Rule Master definition selected for this tax (optional).</summary>
+    public DynamicTaxRuleEntity? RuleDefinition { get; set; }
+
+    /// <summary>
+    /// The calculation mode row backing <see cref="CalculationModeId"/>. Load with
+    /// <c>.Include(t =&gt; t.CalculationModeMaster)</c> to read its capability flags.
+    /// </summary>
+    public TaxCalculationModeMasterEntity? CalculationModeMaster { get; set; }
 
     /// <summary>
     /// Category this tax belongs to.

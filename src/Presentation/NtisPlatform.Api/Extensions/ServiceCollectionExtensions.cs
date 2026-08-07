@@ -532,6 +532,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyRuleApplicationLogService, PropertyRuleApplicationLogService>();
         services.AddScoped<IFieldConfigurationService, FieldConfigurationService>();
         services.AddScoped<IRuleApplierService, RuleApplierService>();
+        services.AddScoped<IPropertyFieldFlattenerService, PropertyFieldFlattenerService>();
         services.AddScoped<IPropertyContextLoaderService, PropertyContextLoaderService>();
         services.AddScoped<IAssetDocumentDefinitionService, AssetDocumentDefinitionService>();
         services.AddScoped<IAssetFieldDefinitionService, AssetFieldDefinitionService>();
@@ -561,7 +562,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRuleEffectApplicator, ExemptionApplicator>();
         // RateLookupApplicator is Scoped because it depends on IRepository (DbContext-bound)
         services.AddScoped<IRuleEffectApplicator, RateLookupApplicator>();
+        // Stateless, dependency-free — safe as singleton, matching the effect applicators above.
+        services.AddSingleton<IConditionRuleEvaluator, ConditionRuleEvaluator>();
         services.AddScoped<ITaxMasterService, TaxMasterService>();
+        services.AddScoped<IDynamicTaxRuleService, DynamicTaxRuleService>();
+        services.AddScoped<IMasterBasedTaxService, MasterBasedTaxService>();
+        services.AddScoped<ITaxConditionRuleService, TaxConditionRuleService>();
+        services.AddScoped<IDynamicTaxRegisterService, DynamicTaxRegisterService>();
+        services.AddScoped<ITaxCalculationModeService, TaxCalculationModeService>();
+        services.AddScoped<IValueBasedTaxService, ValueBasedTaxService>();
+        services.AddScoped<IHybridTaxService, HybridTaxService>();
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();

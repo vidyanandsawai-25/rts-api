@@ -185,7 +185,9 @@ public class AutoMapperValidationTest
                 "InventoryItemCategoryName",
                 // InventoryItemModelDto.InventoryItemName - resolved via a GetAllAsync-only SQL join
                 // against InventoryItemNameEntity (SubTypeName), not part of the base entity<->dto map
-                "InventoryItemName"
+                "InventoryItemName",
+                // Dynamic Tax Register / Tax Master navigation & computed properties
+                "CalculationMode", "RuleDefinition"
              };
 
             // Check if all unmapped properties are in the expected list
