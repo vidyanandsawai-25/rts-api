@@ -85,35 +85,12 @@ public class PropertySearchRepository : IPropertySearchRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        // Handle dashboard card filters
-        if (searchRequest.DashboardFilter.HasValue)
+        // Handle workflow stage filtering (via WorkflowStageId or DashboardFilter)
+        int? targetWorkflowStageId = searchRequest.WorkflowStageId;
+        if (!targetWorkflowStageId.HasValue && searchRequest.DashboardFilter.HasValue)
         {
-            switch (searchRequest.DashboardFilter.Value)
-            {
-                case DashboardFilterType.RegisteredProperty:
-                case DashboardFilterType.GeoSequencing:
-                    break;
-
-                case DashboardFilterType.Survey:
-                case DashboardFilterType.DataProcessing:
-                case DashboardFilterType.QualityAnalysis:
-                case DashboardFilterType.AssessmentCompleted:
-                    return (0, new List<PropertySearchResponseDto>());
-            }
+            targetWorkflowStageId = (int)searchRequest.DashboardFilter.Value;
         }
-
-        if (searchRequest.PropertyProcessFilter.HasValue)
-        {
-            switch (searchRequest.PropertyProcessFilter.Value)
-            {
-                case PropertyProcessFilterType.SurveyCompleted:
-                case PropertyProcessFilterType.DataEntryCompleted:
-                case PropertyProcessFilterType.QCCompleted:
-                case PropertyProcessFilterType.NoticeDistributed:
-                    return (0, new List<PropertySearchResponseDto>());
-            }
-        }
-
 
         var query = from p in _context.PropertyMast.AsNoTracking()
                     where p.IsActive && !p.MarkedForDeletion
@@ -147,14 +124,24 @@ public class PropertySearchRepository : IPropertySearchRepository
                         Society = sd
                     };
 
+        // Filter by workflow stage when specified via WorkflowStageId or DashboardFilter
+        if (targetWorkflowStageId.HasValue && targetWorkflowStageId.Value > 0)
+        {
+            var stageId = targetWorkflowStageId.Value;
+            var propertyIdsInStage = _context.PropertyWorkflowDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive && d.WorkflowStageId == stageId)
+                .Select(d => d.PropertyId)
+                .Distinct();
+
+            query = query.Where(x => propertyIdsInStage.Contains(x.Property.Id));
+        }
+
         // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo
         query = query.Where(x =>
             (x.Ward != null || x.Zone != null) &&
             (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
         );
-
-        if (searchRequest.DashboardFilter == DashboardFilterType.GeoSequencing)
-            query = query.Where(x => !string.IsNullOrEmpty(x.Property.PropertyNo));
 
         // ── Common top-row filters ───────────────────────────────────────────
         if (searchRequest.PropertyAssessmentStatusId.HasValue)
@@ -653,13 +640,21 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         foreach (var stage in stages)
         {
-            var propertiesQuery = _context.PropertyWorkflowDetails
-                .AsNoTracking()
-                .Where(d => d.IsActive && d.WorkflowStageId == stage.Id &&
-                            d.Property.IsActive && !d.Property.MarkedForDeletion &&
-                            d.Property.PropertyNo != null && d.Property.PropertyNo != "")
-                .Select(d => d.Property)
-                .Distinct();
+            var propertiesQuery = (
+                from d in _context.PropertyWorkflowDetails.AsNoTracking()
+                join p in _context.PropertyMast.AsNoTracking() on d.PropertyId equals p.Id
+                join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+                where d.IsActive
+                   && d.WorkflowStageId == stage.Id
+                   && p.IsActive
+                   && !p.MarkedForDeletion
+                   && w.IsActive
+                   && z.IsActive
+                   && p.PropertyNo != null
+                   && p.PropertyNo != ""
+                select p
+            ).Distinct();
 
             propertiesQuery = ApplyDashboardFilters(propertiesQuery, searchRequest);
 
