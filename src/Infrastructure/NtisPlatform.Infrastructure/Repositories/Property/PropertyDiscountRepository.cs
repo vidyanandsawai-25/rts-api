@@ -34,7 +34,7 @@ public class PropertyDiscountRepository : PropertyRepositoryBase, IPropertyDisco
         // Step 3: Get existing PropertySocialDetails with document information — read-only join.
         var existingDetailsWithDocs = await (
             from psd in _context.Set<PropertySocialDetailsEntity>().AsNoTracking()
-            where psd.PropertyId == propertyId && psd.IsActive
+            where psd.PropertyId == propertyId && psd.IsActive && !psd.MarkedForDeletion
             join db in _context.Set<DocumentBindingEntity>() on psd.DocumentBindingId equals db.Id into dbJoin
             from db in dbJoin.DefaultIfEmpty()
             join doc in _context.Set<DocumentEntity>() on db.DocumentId equals doc.Id into docJoin
@@ -125,7 +125,7 @@ public class PropertyDiscountRepository : PropertyRepositoryBase, IPropertyDisco
     public async Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<PropertySocialDetailsEntity>()
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
     }
 

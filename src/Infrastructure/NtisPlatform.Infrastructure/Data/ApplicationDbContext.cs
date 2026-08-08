@@ -4885,6 +4885,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DocumentBindingId);
             entity.Property(e => e.Remark).HasMaxLength(500);
 
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
+
 
 
             // Configure relationships

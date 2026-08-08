@@ -21,6 +21,9 @@ public class PropertySocialDetailsDto : BaseDtos
     public int? PhotoBindingId { get; set; }
     public Guid? PhotoGuid { get; set; }
     public Guid? DocumentGuid { get; set; }
+
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
 public class CreatePropertySocialDetailsDto : CreateBaseDtos
