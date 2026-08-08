@@ -628,7 +628,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService().Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Act
         await service.ApplyAsync(propertyId, userId: 1);
@@ -732,7 +733,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -835,7 +837,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService().Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Should complete without throwing, and compute at property scope (no per-floor split
         // since no floor-wise certificates exist at all).
@@ -901,7 +904,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -1024,7 +1028,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Must NOT throw / reject overall -- Floors B and C are skipped, Floor A still taxed.
         await service.ApplyAsync(propertyId, userId: 1);
@@ -1123,7 +1128,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(ocFirstGuideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -1202,7 +1208,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, // mode = NO_TAX (uncovered floor skipped)
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var result = await service.PreviewAsync(propertyId);
 
@@ -1249,7 +1256,8 @@ public class OccupationTaxEngineTests
             _engine, repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object,
             mockYearRepo.Object, EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), PolicyCodeLookup().Object,
             mockFyProvider.Object, GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var act = async () => await service.PreviewAsync(propertyId);
 
@@ -1392,7 +1400,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService().Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Act
         await service.ApplyAsync(propertyId, userId);
@@ -1472,7 +1481,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     [Fact]
@@ -1852,7 +1862,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            mockLogger.Object);
+            mockLogger.Object,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -2185,7 +2196,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -2321,7 +2333,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
-            mockLogger.Object);
+            mockLogger.Object,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var mismatchedResult = await service.PreviewAsync(propertyId);
 
@@ -2482,7 +2495,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
-            mockLogger.Object);
+            mockLogger.Object,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -2527,7 +2541,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
-            mockLogger.Object);
+            mockLogger.Object,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -2594,7 +2609,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
-            mockLogger.Object);
+            mockLogger.Object,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3263,7 +3279,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // The floor-wise certificate is ignored entirely and there is no property-wise fallback,
         // so with the no-certificate retrospective fallback also disabled, nothing is left to tax.
@@ -3325,7 +3342,8 @@ public class OccupationTaxEngineTests
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
             mockUow.Object,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3473,7 +3491,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3517,7 +3536,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3766,7 +3786,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3808,7 +3829,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3849,7 +3871,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -3890,7 +3913,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Add.
         await service.ApplyAsync(propertyId, userId: 1);
@@ -3966,7 +3990,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
         backingPolicyStore.Should().Contain(p => p.PolicyCodeId == PolicyCodeIds["PARTIAL_CC"] && p.IsActive);
@@ -4033,7 +4058,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Run 1: only floor A has a certificate (mirrors the event fired right after floor A's
         // certDto is saved, before floor B's certDto is processed).
@@ -4109,7 +4135,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Bulk save: both floors carry the same CC certificate.
         await service.ApplyAsync(propertyId, userId: 1);
@@ -4186,7 +4213,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync("3 floors saved in one bulk request must never collide on the unique keys");
@@ -4244,7 +4272,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Bulk save once (e.g. certificate number/date entered), then the exact same bulk save is
         // repeated again (e.g. the user re-confirms the popup, or replaces the uploaded file, which
@@ -4298,7 +4327,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
         var rowAfterFirst = backingPolicyStore.Single(p => p.PolicyCodeId == PolicyCodeIds["PARTIAL_OC"] && p.IsActive && p.TaxId == 1);
@@ -4347,7 +4377,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -4397,7 +4428,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -4450,7 +4482,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -4497,7 +4530,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
         backingPolicyStore.Should().Contain(p => p.PolicyCodeId == PolicyCodeIds["PARTIAL_CC"] && p.IsActive);
@@ -4553,7 +4587,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync();
@@ -4608,7 +4643,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync();
@@ -4680,7 +4716,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync("an inactive row occupying the unique key must be reactivated, never collide with a new insert");
@@ -4733,7 +4770,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync("an inactive PolicyTaxDetails row occupying the unique key must be reactivated, never collide with a new insert");
@@ -4783,7 +4821,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // Add.
         await service.ApplyAsync(propertyId, userId: 1);
@@ -4864,7 +4903,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync("old inactive TransMast rows must be reactivated, never block the bulk multi-floor save");
@@ -4919,7 +4959,8 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
-            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance);
+            mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var apply = async () => await service.ApplyAsync(propertyId, userId: 1);
         await apply.Should().NotThrowAsync("an inactive OC TransMast row occupying the unique key must be reactivated, never collide with a new insert");

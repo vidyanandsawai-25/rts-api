@@ -175,7 +175,8 @@ public class CcThenOcSameYearSplitTests
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     private static List<(string PolicyCode, int TaxId, decimal? TaxAmount)> GetActivePolicyRows(ApplicationDbContext context, int propertyId)

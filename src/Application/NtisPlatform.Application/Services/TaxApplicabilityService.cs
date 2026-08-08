@@ -266,6 +266,18 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         return "No changes detected. All taxes already have the requested status.";
     }
 
+    public async Task<HashSet<int>> GetExemptedTaxIdsAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var exemptedTaxIds = await _repository.GetQueryable()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Select(x => x.TaxId)
+            .ToListAsync(cancellationToken);
+
+        return new HashSet<int>(exemptedTaxIds);
+    }
+
     public async Task<string> UpdateTaxApplicabilityAsync(
         int id,
         UpdateTaxApplicabilityRequestDto request,

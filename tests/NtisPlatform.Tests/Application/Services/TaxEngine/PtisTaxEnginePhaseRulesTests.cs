@@ -156,7 +156,8 @@ public class PtisTaxEnginePhaseRulesTests
             financeYearProvider,
             guidelineReaderMock.Object,
             unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     [Fact]

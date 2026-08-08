@@ -68,35 +68,29 @@ public class PropertyComparisonService : IPropertyComparisonService
                 .Where(x => x.PropertyIdNew == newPropertyId && x.Status == "ACTIVE" && x.IsCurrent && x.IsActive)
                 .ToListAsync();
 
-            if (mapDetails == null || mapDetails.Count == 0)
+            mapDetails ??= new List<PropertyMapDetailEntity>();
+
+            if (mapDetails.Count == 0)
             {
-                _logger.LogWarning("No property mapping found for NewPropertyId={NewPropertyId}",
+                _logger.LogWarning(
+                    "No property mapping found for NewPropertyId={NewPropertyId}; returning new property data only",
                     newPropertyId);
-                return new PropertyComparisonDto
-                {
-                    OldPropertyIds = string.Empty,
-                    NewPropertyId = newPropertyId
-                };
             }
 
-            var oldPropertyIds = mapDetails.Where(x => x.PropertyIdOld.HasValue)
+            var oldPropertyIds = mapDetails
+                .Where(x => x.PropertyIdOld.HasValue)
                 .Select(x => x.PropertyIdOld.Value)
                 .Distinct()
                 .ToList();
 
-            if (oldPropertyIds.Count == 0)
+            if (mapDetails.Count > 0 && oldPropertyIds.Count == 0)
             {
-                _logger.LogWarning("No old property IDs found for NewPropertyId={NewPropertyId}",
+                _logger.LogWarning(
+                    "No old property IDs found for NewPropertyId={NewPropertyId}; returning new property data only",
                     newPropertyId);
-                return new PropertyComparisonDto
-                {
-                    OldPropertyIds = string.Empty,
-                    NewPropertyId = newPropertyId
-                };
             }
 
             var isMerge = oldPropertyIds.Count > 1;
-            var primaryOldPropertyId = oldPropertyIds.First();
 
             var comparison = new PropertyComparisonDto
             {
@@ -240,6 +234,23 @@ public class PropertyComparisonService : IPropertyComparisonService
     {
         try
         {
+            // Get new property and its use category (populated regardless of whether an old mapping exists)
+            var newProperty = await _propertyMastRepo.GetQueryable()
+                .FirstOrDefaultAsync(x => x.Id == newPropertyId);
+
+            string newUse = string.Empty;
+            if (newProperty?.PropertyTypeId.HasValue == true)
+            {
+                var newPropertyType = await _propertyTypeMasterRepo.GetQueryable()
+                    .Where(x => x.Id == newProperty.PropertyTypeId)
+                    .Select(x => x.Type)
+                    .FirstOrDefaultAsync();
+
+                newUse = PropertyTypeToUseMapper.GetUseCategory(newPropertyType);
+            }
+
+            comparison.ChangeOfUse.NewUse = newUse;
+
             if (oldPropertyIds == null || oldPropertyIds.Count == 0)
             {
                 comparison.ChangeOfUse.HasChanged = false;
@@ -251,11 +262,7 @@ public class PropertyComparisonService : IPropertyComparisonService
                 .Where(x => oldPropertyIds.Contains(x.Id))
                 .ToListAsync();
 
-            // Get new property
-            var newProperty = await _propertyMastRepo.GetQueryable()
-                .FirstOrDefaultAsync(x => x.Id == newPropertyId);
-
-            if (oldProperties.Count == 0 || newProperty?.PropertyTypeId.HasValue != true)
+            if (oldProperties.Count == 0 || string.IsNullOrEmpty(newUse))
             {
                 comparison.ChangeOfUse.HasChanged = false;
                 return;
@@ -290,16 +297,7 @@ public class PropertyComparisonService : IPropertyComparisonService
                 ? oldUseCategories.First()
                 : "Mixed";
 
-            // Get new property type and use
-            var newPropertyType = await _propertyTypeMasterRepo.GetQueryable()
-                .Where(x => x.Id == newProperty.PropertyTypeId)
-                .Select(x => x.Type)
-                .FirstOrDefaultAsync();
-
-            var newUse = PropertyTypeToUseMapper.GetUseCategory(newPropertyType);
-
             comparison.ChangeOfUse.OldUse = oldUse;
-            comparison.ChangeOfUse.NewUse = newUse;
             comparison.ChangeOfUse.HasChanged = !string.Equals(oldUse, newUse, StringComparison.OrdinalIgnoreCase);
 
             _logger.LogInformation(

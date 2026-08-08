@@ -50,4 +50,15 @@ public interface ITaxApplicabilityService : ICommonCrudService<ApplyTaxesMasterE
         int id,
         UpdateTaxApplicabilityRequestDto request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the set of TaxIds a property has been explicitly exempted from via ApplyTaxesMaster
+    /// (an active, non-deleted entry means the tax must not be charged for this property).
+    /// </summary>
+    /// <param name="propertyId">Property to check exemptions for</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Set of exempted TaxIds; empty if none</returns>
+    Task<HashSet<int>> GetExemptedTaxIdsAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default);
 }

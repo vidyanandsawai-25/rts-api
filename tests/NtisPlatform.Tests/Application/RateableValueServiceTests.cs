@@ -220,7 +220,8 @@ public class RateableValueServiceTests
             persistenceService,
             actualContextLoader,
             actualRuleApplier,
-            TimeProvider.System
+            TimeProvider.System,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance
         };
 
         var matchingConstructor = typeof(RateableValueService)

@@ -169,7 +169,8 @@ public class PolicyTaxDetailsDuplicateFamilyCleanupTests
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, BuildGuidelineReaderMock().Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     [Fact]

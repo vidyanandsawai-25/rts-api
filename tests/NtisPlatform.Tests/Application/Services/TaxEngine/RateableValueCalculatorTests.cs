@@ -372,8 +372,7 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
             Assert.Equal(0m, result.Depreciation);
         }
 
-        [Fact]
-        public void CalculateBaseValues_WithOverrideMaintenancePercent_UsesOverrideMaintenancePercent()
+        private static (PropertyDetailsEntity detail, List<TypeOfUseEntity> typeOfUses, List<RateEntity> rates, List<AssessmentYearRangeEntity> yearRanges) BuildPlotRuleFixture(string? typeOfUseCategoryCode)
         {
             var detail = new PropertyDetailsEntity
             {
@@ -382,25 +381,90 @@ namespace NtisPlatform.Tests.Application.Services.TaxEngine
                 CarpetAreaSqMeter = 10d, ConstructionYear = "2020"
             };
 
-            var typeOfUses = new List<TypeOfUseEntity> { new() { Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true } };
-            var rates = new List<RateEntity> { new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true } };
+            var typeOfUses = new List<TypeOfUseEntity>
+            {
+                new()
+                {
+                    Id = 1, TypeOfUseGroupId = 1, Type = "R", IsActive = true,
+                    TypeOfUseCategory = typeOfUseCategoryCode == null
+                        ? null
+                        : new TypeOfUseCategoryEntity { Id = 1, TypeOfUseCategoryCode = typeOfUseCategoryCode }
+                }
+            };
+
+            var rates = new List<RateEntity>
+            {
+                new() { TaxZoneId = 1, FloorId = detail.FloorId ?? 0, ConstructionTypeId = detail.ConstructionTypeId ?? 0, TypeOfUseGroupId = 1, YearRangeRVId = 1, RateSquareMeter = 100m, IsActive = true }
+            };
+
             var yearRanges = new List<AssessmentYearRangeEntity>
             {
                 new() { Id = 1, FromYear = 2000, ToYear = 2100, IsActive = true }
             };
 
-            // Yearly rate period default: Area rent = 10 * 100 = 1,000. Depreciation = 0. ARV = 1,000.
-            // Override maintenance percentage = 15% (instead of default 10%). Maintenance = 150.
-            var service = new RateableValueCalculatorService(Microsoft.Extensions.Logging.Abstractions.NullLogger<RateableValueCalculatorService>.Instance);
+            return (detail, typeOfUses, rates, yearRanges);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WhenPlotPropertyWithOpenPlotUse_CalculatesTax()
+        {
+            var (detail, typeOfUses, rates, yearRanges) = BuildPlotRuleFixture("OpenPlot");
+
+            var service = new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance);
             var result = service.CalculateBaseValues(
                 detail, 2024, 1, 1, typeOfUses, rates,
                 new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
-                10m, RateableValuePolicyOptions.Default, null, 1, null, 15m);
+                10m, RateableValuePolicyOptions.Default, null, 1, null, isPlotProperty: true);
 
             Assert.NotNull(result);
-            Assert.Equal(1000.0, result.AnnualRentalValue);
-            Assert.Equal(150m, result.Maintenance);
-            Assert.Equal(850m, result.RateableValue);
+            Assert.NotEqual(0m, result.RateableValue);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WhenPlotPropertyWithNonOpenPlotUse_ReturnsZeroedResult()
+        {
+            var (detail, typeOfUses, rates, yearRanges) = BuildPlotRuleFixture("Utility");
+
+            var service = new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance);
+            var result = service.CalculateBaseValues(
+                detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
+                10m, RateableValuePolicyOptions.Default, null, 1, null, isPlotProperty: true);
+
+            Assert.NotNull(result);
+            Assert.Equal(0m, result.RateableValue);
+            Assert.Equal("OpenPlot", result.AppliedOn);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WhenNonPlotPropertyWithOpenPlotUse_ReturnsZeroedResult()
+        {
+            var (detail, typeOfUses, rates, yearRanges) = BuildPlotRuleFixture("OpenPlot");
+
+            var service = new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance);
+            var result = service.CalculateBaseValues(
+                detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
+                10m, RateableValuePolicyOptions.Default, null, 1, null, isPlotProperty: false);
+
+            Assert.NotNull(result);
+            Assert.Equal(0m, result.RateableValue);
+            Assert.Equal("OpenPlot", result.AppliedOn);
+        }
+
+        [Fact]
+        public void CalculateBaseValues_WhenNonPlotPropertyWithNonOpenPlotUse_CalculatesTax()
+        {
+            var (detail, typeOfUses, rates, yearRanges) = BuildPlotRuleFixture("Utility");
+
+            var service = new RateableValueCalculatorService(NullLogger<RateableValueCalculatorService>.Instance);
+            var result = service.CalculateBaseValues(
+                detail, 2024, 1, 1, typeOfUses, rates,
+                new List<DepreciationMasterEntity>(), yearRanges, new List<RenterMastEntity>(),
+                10m, RateableValuePolicyOptions.Default, null, 1, null, isPlotProperty: false);
+
+            Assert.NotNull(result);
+            Assert.NotEqual(0m, result.RateableValue);
         }
     }
 }

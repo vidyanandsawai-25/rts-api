@@ -212,9 +212,12 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task LoadPropertyContextAsync_NoMatchingYearRange_ThrowsInvalidOperationException()
+        public async Task LoadPropertyContextAsync_NoMatchingYearRange_ReturnsZeroYearRangeRVId()
         {
-            // Arrange — construction year 1850 is outside DefaultYearRange (2000-2030)
+            // Arrange — construction year 1850 is outside DefaultYearRange (2000-2030).
+            // No range covering the construction year must not fail the whole request;
+            // it should fall back to YearRangeRVId=0, which downstream tax calculation
+            // already treats as "apply zero tax" instead of throwing.
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "1850");
 
@@ -223,12 +226,11 @@ namespace NtisPlatform.Tests.Application
 
             var sut = CreateService();
 
-            // Act & Assert
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => sut.LoadPropertyContextAsync(1, 2026));
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(1, 2026);
 
-            Assert.Contains("Assessment year range not found", ex.Message);
-            Assert.Contains("1850", ex.Message);
+            // Assert
+            Assert.Equal(0, ctx.Parameters.YearRangeRVId);
         }
 
         // ─── Happy Path Tests ────────────────────────────────────────────────────
@@ -242,7 +244,10 @@ namespace NtisPlatform.Tests.Application
             const int constructionYearValue = 2015;
 
             SetupValidProperty(propertyId);
-            SetupPropertyDetails(propertyId, constructionYear: constructionYearValue.ToString());
+            SetupPropertyDetails(
+                propertyId,
+                constructionYear: constructionYearValue.ToString(),
+                assessmentYear: constructionYearValue.ToString());
 
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });

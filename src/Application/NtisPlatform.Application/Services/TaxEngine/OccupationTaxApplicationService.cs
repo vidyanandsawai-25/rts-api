@@ -63,6 +63,7 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
     private readonly ICertificateTaxGuidelineReaderService _guidelineReader;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<OccupationTaxApplicationService> _logger;
+    private readonly ITaxApplicabilityService _taxApplicabilityService;
 
     public OccupationTaxApplicationService(
         IOccupationTaxEngine engine,
@@ -77,7 +78,8 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         IFinanceYearProvider financeYearProvider,
         ICertificateTaxGuidelineReaderService guidelineReader,
         IUnitOfWork unitOfWork,
-        ILogger<OccupationTaxApplicationService> logger)
+        ILogger<OccupationTaxApplicationService> logger,
+        ITaxApplicabilityService taxApplicabilityService)
     {
         _engine = engine ?? throw new ArgumentNullException(nameof(engine));
         _propertyRepository = propertyRepository ?? throw new ArgumentNullException(nameof(propertyRepository));
@@ -92,6 +94,7 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
         _guidelineReader = guidelineReader ?? throw new ArgumentNullException(nameof(guidelineReader));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _taxApplicabilityService = taxApplicabilityService ?? throw new ArgumentNullException(nameof(taxApplicabilityService));
     }
 
     public async Task ApplyAsync(int propertyId, int userId, CancellationToken cancellationToken = default)
@@ -1853,6 +1856,15 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             .Distinct()
             .ToList();
 
+        // Taxes explicitly disabled for this property via ApplyTaxesMaster -- same source and
+        // meaning as the RV pipeline's exemption check (RateableValueService): an active,
+        // non-deleted entry means the tax must not be charged here either, so certificate-driven
+        // amounts for an exempted TaxId are zeroed out in UpsertTransMast/UpsertPolicyTaxDetail
+        // below. Deliberately NOT applied to TaxPendingDetailsRetro/TaxPendingDetails (retro-year
+        // pending amounts, via UpsertTaxPendingRetro/AccumulatePendingTotal) -- confirmed out of
+        // scope; pending/arrears tracking is intentionally left to reflect the un-exempted amount.
+        var exemptedTaxIds = await _taxApplicabilityService.GetExemptedTaxIdsAsync(propertyId, cancellationToken);
+
         var now = DateTime.Now;
 
         // 1a. Load ALL existing TransMast rows for this property/these years/these taxes --
@@ -2016,6 +2028,11 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
                 return;
             }
 
+            if (exemptedTaxIds.Contains(taxId))
+            {
+                taxAmount = 0m;
+            }
+
             var slot = (yearId, taxId);
             if (existingTransMastsBySlot.TryGetValue(slot, out var existing))
             {
@@ -2071,6 +2088,11 @@ public sealed class OccupationTaxApplicationService : IOccupationTaxService
             if (!guideline.SaveInPolicyTaxDetails)
             {
                 return;
+            }
+
+            if (exemptedTaxIds.Contains(taxId))
+            {
+                taxAmount = 0m;
             }
 
             if (existingPolicyTaxDetailsByTaxId.TryGetValue(taxId, out var candidates) && candidates.Count > 0)

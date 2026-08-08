@@ -244,6 +244,9 @@ namespace NtisPlatform.Application.Services.Rules
             }
 
             // ── Phase 3: Parse construction year ───────────────────────────────────
+            // (ConstructionYear is still required/validated here — it's used elsewhere, e.g.
+            // depreciation calculation — even though year-range resolution below now prefers
+            // AssessmentYear first, same priority as the per-detail resolution.)
 
             var constructionYear = details[0].ConstructionYear;
 
@@ -256,18 +259,31 @@ namespace NtisPlatform.Application.Services.Rules
                 $"Invalid ConstructionYear value '{constructionYear}' for PropertyId={propertyId}");
 
             // ── Phase 4: Resolve assessment year ranges ────────────────────────────
-            // Note: Assessment year is now resolved per-detail during CloneForDetail().
-            // This loads all active year ranges for later use when calculating YearRangeRVIdForDetail.
+            // Note: Assessment year is resolved per-detail during CloneForDetail() using
+            // ResolveYearRangeRVIdForDetail (AssessmentYear only — no ConstructionYear fallback).
+            // This loads all active year ranges for later use there.
 
             var yearRanges = await _masterDataService.GetActiveYearRangesAsync();
 
-            // Fallback to construction year range if no details have assessment years.
-            // This maintains backward compatibility.
-            var yearRange = yearRanges.FirstOrDefault(
-                                x => x.FromYear <= constructionYearValue
-                                  && x.ToYear >= constructionYearValue)
-                            ?? throw new InvalidOperationException(
-                                $"Assessment year range not found for constructionYear={constructionYearValue}");
+            // Property-level fallback (used only as a last resort if a detail's own AssessmentYear
+            // can't resolve a range): resolved from details[0].AssessmentYear only, no ConstructionYear
+            // fallback. If missing or no range covers it, don't fail the whole request —
+            // ResolveYearRangeRVIdForDetail already treats a missing/zero YearRangeRVId as
+            // "apply zero tax" per detail, so fall back to 0 here too.
+            int? propertyLevelYear = int.TryParse(details[0].AssessmentYear, out int firstDetailAssessmentYear)
+                ? firstDetailAssessmentYear
+                : null;
+
+            var yearRangeId = propertyLevelYear.HasValue
+                ? yearRanges.FirstOrDefault(
+                    x => x.FromYear <= propertyLevelYear.Value && x.ToYear >= propertyLevelYear.Value)?.Id ?? 0
+                : 0;
+
+            if (yearRangeId == 0)
+                _logger.LogWarning(
+                    "Assessment year range not found for AssessmentYear={AssessmentYear} (PropertyId={PropertyId}). " +
+                    "Zero tax will be applied where no per-detail range is found.",
+                    details[0].AssessmentYear, propertyId);
 
             // ── Phase 5: Child collections (sequential — depend on detail IDs) ─────
 
@@ -332,7 +348,7 @@ namespace NtisPlatform.Application.Services.Rules
             var detailYearRangeRVIdMap = new Dictionary<int, int>();
             foreach (var detail in details)
             {
-                var detailYearRangeRVId = ResolveYearRangeRVIdForDetail(detail, yearRanges, yearRange.Id);
+                var detailYearRangeRVId = ResolveYearRangeRVIdForDetail(detail, yearRanges, yearRangeId);
                 detailYearRangeRVIdMap[detail.Id] = detailYearRangeRVId;
             }
 
@@ -350,7 +366,7 @@ namespace NtisPlatform.Application.Services.Rules
                 {
                     FinanceYear = financeYear,
                     ConstructionYearValue = constructionYearValue,
-                    YearRangeRVId = yearRange.Id,
+                    YearRangeRVId = yearRangeId,
                     SocialAttributeId = socialAttributeIds,
                     SocialAttributes = socialAttributeDict,
                     BuildingMaxFloorSequence = maxFloorSequence
@@ -361,18 +377,15 @@ namespace NtisPlatform.Application.Services.Rules
         }
 
         /// <summary>
-        /// Resolves the YearRangeRVId for a specific detail based on its AssessmentYear.
-        /// 1. If detail has AssessmentYear: finds matching year range where FromYear ≤ AssessmentYear ≤ ToYear
-        ///    If not found: returns 0 (NO FALLBACK - will apply 0 tax)
-        /// 2. If no AssessmentYear: falls back to detail's ConstructionYear
-        ///    If still not found: uses property-level year range
+        /// Resolves the YearRangeRVId for a specific detail based on its AssessmentYear only.
+        /// ConstructionYear is no longer used as a fallback here — if AssessmentYear is missing
+        /// or doesn't match any range, this returns 0 (NO FALLBACK - will apply 0 tax).
         /// </summary>
         private int ResolveYearRangeRVIdForDetail(
             PropertyDetailsEntity detail,
             List<AssessmentYearRangeEntity> yearRanges,
             int propertyLevelYearRangeRVId)
         {
-            // Primary: Try to resolve from detail's assessment year
             if (!string.IsNullOrWhiteSpace(detail.AssessmentYear) &&
                 int.TryParse(detail.AssessmentYear, out int assessmentYear))
             {
@@ -391,19 +404,11 @@ namespace NtisPlatform.Application.Services.Rules
                 return 0;  // Signal: 0 tax
             }
 
-            // Fallback: AssessmentYear is NULL/empty - try detail's ConstructionYear
-            if (!string.IsNullOrWhiteSpace(detail.ConstructionYear) &&
-                int.TryParse(detail.ConstructionYear, out int constructionYear))
-            {
-                var matchingYearRange = yearRanges.FirstOrDefault(y =>
-                    y.FromYear <= constructionYear && y.ToYear >= constructionYear && y.IsActive);
-
-                if (matchingYearRange != null)
-                    return matchingYearRange.Id;
-            }
-
-            // Final fallback: Use property-level year range (last resort)
-            return propertyLevelYearRangeRVId;
+            // No AssessmentYear on this detail — no fallback to ConstructionYear.
+            _logger.LogWarning(
+                "AssessmentYear not found for DetailId={DetailId}. Zero tax will be applied.",
+                detail.Id);
+            return 0;  // Signal: 0 tax
         }
     }
 }

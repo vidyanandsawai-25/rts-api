@@ -174,7 +174,8 @@ public class TaxAuditVerificationTests
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     private static List<(int FinanceYearId, decimal TaxAmount)> GetActiveTransMast(ApplicationDbContext context, int propertyId) =>
