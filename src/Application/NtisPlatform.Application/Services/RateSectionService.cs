@@ -16,11 +16,8 @@ public class RateSectionService : BaseCommonCrudService<RateSectionEntity, RateS
         IRepository<RateSectionEntity, int> repository,
         IUnitOfWork unitOfWork,
         IMapper mapper,
-        IReferenceValidationService referenceValidator,
-        LocalizationProcessor localizationProcessor,
-        ILocalizedQueryService localizedQueryService,
-        IHttpContextAccessor httpContextAccessor)
-        : base(repository, unitOfWork, mapper, localizationProcessor, localizedQueryService, httpContextAccessor)
+        IReferenceValidationService referenceValidator)
+        : base(repository, unitOfWork, mapper)
     {
         _referenceValidator = referenceValidator;
     }
