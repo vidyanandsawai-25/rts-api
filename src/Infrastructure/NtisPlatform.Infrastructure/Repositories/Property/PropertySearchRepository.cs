@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Extensions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
@@ -28,17 +29,44 @@ public class PropertySearchRepository : IPropertySearchRepository
 
     private readonly ApplicationDbContext _context;
     private readonly IMemoryCache _cache;
+    private readonly IFinanceYearProvider _financeYearProvider;
     private string[]? _cachedValuationMethods;
+    private int? _cachedCurrentFinanceYearId;
 
-    public PropertySearchRepository(ApplicationDbContext context, IMemoryCache cache)
+    public PropertySearchRepository(ApplicationDbContext context, IMemoryCache cache, IFinanceYearProvider financeYearProvider)
     {
         _context = context;
         _cache = cache;
+        _financeYearProvider = financeYearProvider;
     }
 
     /// <summary>
-    /// Gets valid valuation methods from PolicyConfiguration (RV and CV only).
-    /// Falls back to RV,CV if not configured in database.
+    /// Resolves the YearMaster.Id for the current fiscal year (e.g. FinanceYearId 3002 for FY 2026-27).
+    /// RV/CV/Total Tax must be scoped to this specific year -- a property can have TransMast rows
+    /// for several past years, and picking Max(CalculationValue)/Sum(TaxAmount) across all of them
+    /// (the old behavior) silently returns a stale or inflated figure whenever a value decreased
+    /// year-over-year or a property carries multiple years of tax history.
+    /// Returns -1 (matches nothing) if no YearMaster row exists for the current year.
+    /// </summary>
+    private async Task<int> GetCurrentFinanceYearIdAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cachedCurrentFinanceYearId.HasValue)
+            return _cachedCurrentFinanceYearId.Value;
+
+        var currentYear = _financeYearProvider.GetCurrentFinanceYear();
+        var yearId = await _context.YearMaster
+            .AsNoTracking()
+            .Where(y => y.Year == currentYear)
+            .Select(y => (int?)y.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        _cachedCurrentFinanceYearId = yearId ?? -1;
+        return _cachedCurrentFinanceYearId.Value;
+    }
+
+    /// <summary>
+    /// Gets valid valuation methods from PolicyConfiguration (RV, CV, and Total Tax).
+    /// Falls back to RV,CV,TOTAL TAX if not configured in database.
     /// </summary>
     private async Task<string[]> GetValidValuationMethodsAsync(CancellationToken cancellationToken = default)
     {
@@ -62,14 +90,14 @@ public class PropertySearchRepository : IPropertySearchRepository
             }
             else
             {
-                // Fallback to RV and CV only
-                _cachedValuationMethods = new[] { "RV", "CV" };
+                // Fallback to RV, CV, and Total Tax
+                _cachedValuationMethods = new[] { "RV", "CV", "TOTAL TAX" };
             }
         }
         catch
         {
-            // If error reading from database, use default values (RV and CV only)
-            _cachedValuationMethods = new[] { "RV", "CV" };
+            // If error reading from database, use default values (RV, CV, and Total Tax)
+            _cachedValuationMethods = new[] { "RV", "CV", "TOTAL TAX" };
         }
 
         return _cachedValuationMethods;
@@ -85,6 +113,9 @@ public class PropertySearchRepository : IPropertySearchRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
+        // RV/CV/Total Tax must be scoped to the current fiscal year (see GetCurrentFinanceYearIdAsync).
+        var currentFinanceYearId = await GetCurrentFinanceYearIdAsync(cancellationToken);
+
         // Handle workflow stage filtering (via WorkflowStageId or DashboardFilter)
         int? targetWorkflowStageId = searchRequest.WorkflowStageId;
         if (!targetWorkflowStageId.HasValue && searchRequest.DashboardFilter.HasValue)
@@ -301,7 +332,9 @@ public class PropertySearchRepository : IPropertySearchRepository
             var filterType = searchRequest.FilterType.Trim();
             var validMethods = await GetValidValuationMethodsAsync(cancellationToken);
 
-            if (validMethods.Contains(valuationMethod) && searchRequest.AmountValue.HasValue)
+            // Total Tax is always filterable regardless of the PolicyConfiguration-driven
+            // RV/CV list, since that policy only governs which valuation method computes tax.
+            if ((valuationMethod == "TOTAL TAX" || validMethods.Contains(valuationMethod)) && searchRequest.AmountValue.HasValue)
             {
                 var amount = searchRequest.AmountValue.Value;
 
@@ -310,14 +343,33 @@ public class PropertySearchRepository : IPropertySearchRepository
                 {
                     var rvOrCv = valuationMethod;
 
-                    // Get matching property IDs from TransMast
+                    // Get matching property IDs from TransMast, scoped to the current fiscal year
                     var matchingPropertyIds = _context.TransMast
                         .AsNoTracking()
-                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv)
+                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv && t.FinanceYearId == currentFinanceYearId)
                         .GroupBy(t => t.PropertyId)
                         .Select(g => new { PropertyId = g.Key, Value = g.Max(x => x.CalculationValue) })
                         .Where(x =>
-                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value >= amount * 0.99m && x.Value <= amount * 1.01m) ||
+                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
+                            (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
+                            (filterType.Equals("Less Than", StringComparison.OrdinalIgnoreCase) && x.Value < amount) ||
+                            (filterType.Equals("Between", StringComparison.OrdinalIgnoreCase) && searchRequest.AmountTo.HasValue && x.Value >= amount && x.Value <= searchRequest.AmountTo.Value))
+                        .Select(x => x.PropertyId);
+
+                    query = query.Where(x => matchingPropertyIds.Contains(x.Property.Id));
+                }
+                // Handle Total Tax filtering (from TransMast joined with TaxMaster, TaxCode='TaxTotal', TaxName='TaxTotal')
+                else if (valuationMethod == "TOTAL TAX")
+                {
+                    var matchingPropertyIds = (
+                        from t in _context.TransMast.AsNoTracking()
+                        join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+                        where t.IsActive && !t.MarkedForDeletion && t.FinanceYearId == currentFinanceYearId
+                              && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+                        group t by t.PropertyId into g
+                        select new { PropertyId = g.Key, Value = g.Sum(x => x.TaxAmount) })
+                        .Where(x =>
+                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
                             (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
                             (filterType.Equals("Less Than", StringComparison.OrdinalIgnoreCase) && x.Value < amount) ||
                             (filterType.Equals("Between", StringComparison.OrdinalIgnoreCase) && searchRequest.AmountTo.HasValue && x.Value >= amount && x.Value <= searchRequest.AmountTo.Value))
@@ -330,6 +382,9 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         // Exclude apartment units from grid results: show only structures/main properties,
         // UNLESS the user is explicitly searching by specific text search criteria (UPICId, Address, Owner, etc.)
+        // or by a Values & Dues filter (RV/CV/Total Tax) -- an exact/range amount search is asking for
+        // whichever specific unit holds that value, so hiding apartment sub-units would silently drop
+        // legitimate matches (an amount that only exists on a flat's own TransMast row would never surface).
         bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.Address) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
@@ -342,7 +397,8 @@ public class PropertySearchRepository : IPropertySearchRepository
                                 !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
                                 !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo);
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo) ||
+                                (!string.IsNullOrWhiteSpace(searchRequest.ValuationMethod) && !string.IsNullOrWhiteSpace(searchRequest.FilterType));
 
         if (!isSpecificSearch)
         {
@@ -366,14 +422,15 @@ public class PropertySearchRepository : IPropertySearchRepository
         {
             var allPropertyIds = await query.Select(x => x.Property.Id).ToListAsync(cancellationToken);
 
-            // Get RV values
+            // Get RV values (current fiscal year only)
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV")
+                    && t.CalculationType == "RV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -382,14 +439,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get CV values
+            // Get CV values (current fiscal year only)
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV")
+                    && t.CalculationType == "CV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -398,13 +456,14 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get TaxTotal values
+            // Get TaxTotal values (current fiscal year only)
             var totalTaxAmounts = await (
                 from t in _context.TransMast.AsNoTracking()
                 join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
                 where allPropertyIds.Contains(t.PropertyId)
                       && t.IsActive
                       && !t.MarkedForDeletion
+                      && t.FinanceYearId == currentFinanceYearId
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
@@ -448,14 +507,15 @@ public class PropertySearchRepository : IPropertySearchRepository
         // Load valuation values if not already loaded for Top N filter
         if (!isTopNFilter)
         {
-            // RV (Rateable Value) from TransMast where CalculationType = 'RV'
+            // RV (Rateable Value) from TransMast where CalculationType = 'RV', current fiscal year only
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV")
+                    && t.CalculationType == "RV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -464,14 +524,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // CV (Capital Value) from TransMast where CalculationType = 'CV'
+            // CV (Capital Value) from TransMast where CalculationType = 'CV', current fiscal year only
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV")
+                    && t.CalculationType == "CV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -480,14 +541,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // TaxTotal from TransMast joined with TaxMaster (TaxCode='TaxTotal', TaxName='TaxTotal')
-            // Sum all TaxAmounts across all finance years for the property
+            // TaxTotal from TransMast joined with TaxMaster (TaxCode='TaxTotal', TaxName='TaxTotal'),
+            // summed across TaxId components within the current fiscal year only
             var totalTaxAmounts = await (
                 from t in _context.TransMast.AsNoTracking()
                 join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
                 where propertyIds.Contains(t.PropertyId)
                       && t.IsActive
                       && !t.MarkedForDeletion
+                      && t.FinanceYearId == currentFinanceYearId
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
