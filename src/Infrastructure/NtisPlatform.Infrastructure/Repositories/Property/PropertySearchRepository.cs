@@ -168,11 +168,37 @@ public class PropertySearchRepository : IPropertySearchRepository
             query = query.Where(x => propertyIdsInStage.Contains(x.Property.Id));
         }
 
-        // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo
-        query = query.Where(x =>
-            (x.Ward != null || x.Zone != null) &&
-            (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
-        );
+        // A specific search (UPICId, PropertyNo, Address, Owner, Values & Dues, etc.) is asking for one
+        // known record, not browsing -- so it must never be defeated by the "hide incomplete rows"
+        // cleanup below. That cleanup is meant for the generic/browse grid only.
+        bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.Address) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OwnerName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OccupierName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.FlatOrShopName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SocietyName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo) ||
+                                (!string.IsNullOrWhiteSpace(searchRequest.ValuationMethod) && !string.IsNullOrWhiteSpace(searchRequest.FilterType));
+
+        // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo.
+        // NOTE: "no Zone/Ward" here means the WardMaster/ZoneMaster join failed to resolve -- this
+        // catches both properties that were never assigned a ward AND properties whose WardId points
+        // to a ward that is missing/inactive in WardMaster (a master-data sync gap, not an incomplete
+        // property). Only apply this cleanup to generic/browse searches; an exact search must still
+        // find a real property even if its ward reference is orphaned.
+        if (!isSpecificSearch)
+        {
+            query = query.Where(x =>
+                (x.Ward != null || x.Zone != null) &&
+                (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
+            );
+        }
 
         // ── Common top-row filters ───────────────────────────────────────────
         if (searchRequest.PropertyAssessmentStatusId.HasValue)
@@ -385,21 +411,6 @@ public class PropertySearchRepository : IPropertySearchRepository
         // or by a Values & Dues filter (RV/CV/Total Tax) -- an exact/range amount search is asking for
         // whichever specific unit holds that value, so hiding apartment sub-units would silently drop
         // legitimate matches (an amount that only exists on a flat's own TransMast row would never surface).
-        bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.Address) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OwnerName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OccupierName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.FlatOrShopName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.SocietyName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo) ||
-                                (!string.IsNullOrWhiteSpace(searchRequest.ValuationMethod) && !string.IsNullOrWhiteSpace(searchRequest.FilterType));
-
         if (!isSpecificSearch)
         {
             query = query.Where(x => x.Category == null ||
