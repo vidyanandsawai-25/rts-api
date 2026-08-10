@@ -1666,26 +1666,21 @@ public class PropertySearchRepository : IPropertySearchRepository
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var propertyCount = await query.CountAsync(cancellationToken);
-
-        // Count Units = Apartment with non-empty PartitionNo only
-        // IMPORTANT: Trim PartitionNo to handle whitespace
-        var unitsOnlyCount = await (
+        var stats = await (
             from p in query
-            join pc in _context.PropertyCategoryMaster on p.CategoryId equals pc.Id into categoryJoin
+            join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
             from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            where pc != null
-                  && pc.PropertyCategoryName == ApartmentCategoryName
-                  && p.PartitionNo != null
-                  && p.PartitionNo.Trim() != ""
-            select p.Id
-        ).CountAsync(cancellationToken);
+            group new { p, pc } by 1 into g
+            select new
+            {
+                Total = g.Count(),
+                UnitsOnly = g.Count(x => x.pc != null && x.pc.PropertyCategoryName == ApartmentCategoryName && x.p.PartitionNo != null && x.p.PartitionNo != "")
+            }
+        ).FirstOrDefaultAsync(cancellationToken);
 
-        // Structure = All properties EXCEPT Units (Apartment + empty/null PartitionNo + Individual/Industry/Plot)
+        var propertyCount = stats?.Total ?? 0;
+        var unitsOnlyCount = stats?.UnitsOnly ?? 0;
         var structureCount = propertyCount - unitsOnlyCount;
-
-        // Unit = All properties (Structures + Units both included)
-        // Since all properties are units, UnitCount = PropertyCount
         var unitCount = propertyCount;
 
         return (propertyCount, structureCount, unitCount);
@@ -1705,8 +1700,8 @@ public class PropertySearchRepository : IPropertySearchRepository
     {
         var sum = await (
             from pid in propertyIdQuery
-            join t in _context.TransMast on pid equals t.PropertyId
-            join tax in _context.TaxMaster on t.TaxId equals tax.Id
+            join t in _context.TransMast.AsNoTracking() on pid equals t.PropertyId
+            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
             where t.IsActive && !t.MarkedForDeletion
                   && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
             select (decimal?)t.TaxAmount
@@ -1739,7 +1734,7 @@ public class PropertySearchRepository : IPropertySearchRepository
             join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
             where oldPropertyIdsQuery.Contains(tmo.PropertyMastOldId)
                   && tmo.IsActive && !tmo.MarkedForDeletion
-                  && tax.IsActive && (tax.TaxCode.Trim().ToUpper() == "TAXTOTAL" || tax.TaxName.Trim().ToUpper() == "TAXTOTAL" || tax.TaxCode.Trim().ToUpper() == "TOTAL")
+                  && tax.IsActive && (tax.TaxCode == "TaxTotal" || tax.TaxCode == "TAXTOTAL" || tax.TaxName == "TaxTotal" || tax.TaxCode == "TOTAL" || tax.TaxCode == "totaltax")
             select (decimal?)tmo.TaxAmount
         ).SumAsync(cancellationToken);
 
