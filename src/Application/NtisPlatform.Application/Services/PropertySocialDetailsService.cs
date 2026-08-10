@@ -393,7 +393,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             }
         }
 
-        var existingRecords = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
+        var existingRecords = await _socialDetailsRepository.GetSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
 
         // Step 1: Soft delete (mark as inactive) the social attributes to remove
         if (dto.SocialAttributeIdsToRemove != null && dto.SocialAttributeIdsToRemove.Any())
@@ -437,6 +437,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingRecord.DocumentBindingId = item.DocumentBindingId;
                         existingRecord.Remark = item.Remark;
                         existingRecord.IsActive = true;
+                        existingRecord.MarkedForDeletion = false;
+                        existingRecord.MarkedForDeletionDate = null;
                         existingRecord.UpdatedBy = dto.UpdatedBy;
                         existingRecord.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingRecord, cancellationToken);
@@ -465,6 +467,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingByAttribute.DocumentBindingId = item.DocumentBindingId;
                         existingByAttribute.Remark = item.Remark;
                         existingByAttribute.IsActive = true;
+                        existingByAttribute.MarkedForDeletion = false;
+                        existingByAttribute.MarkedForDeletionDate = null;
                         existingByAttribute.UpdatedBy = dto.UpdatedBy;
                         existingByAttribute.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingByAttribute, cancellationToken);

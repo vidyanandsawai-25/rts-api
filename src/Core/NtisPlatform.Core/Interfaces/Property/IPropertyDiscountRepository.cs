@@ -20,6 +20,9 @@ public interface IPropertyDiscountRepository : IPropertyAggregateRepository
     /// <summary>Loads the property's active social-detail rows as tracked entities.</summary>
     Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsAsync(int propertyId, CancellationToken cancellationToken = default);
 
+    /// <summary>Loads all social-detail rows for the property, including soft-deleted ones, as tracked entities.</summary>
+    Task<List<PropertySocialDetailsEntity>> GetSocialDetailsIncludingDeletedAsync(int propertyId, CancellationToken cancellationToken = default);
+
     /// <summary>Returns the set of social-attribute ids that are active and discount-applicable (used to authorize updates).</summary>
     Task<HashSet<int>> GetDiscountApplicableAttributeIdsAsync(CancellationToken cancellationToken = default);
 

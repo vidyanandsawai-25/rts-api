@@ -129,6 +129,13 @@ public class PropertyDiscountRepository : PropertyRepositoryBase, IPropertyDisco
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<List<PropertySocialDetailsEntity>> GetSocialDetailsIncludingDeletedAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        return await _context.Set<PropertySocialDetailsEntity>()
+            .Where(x => x.PropertyId == propertyId)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<HashSet<int>> GetDiscountApplicableAttributeIdsAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Set<SocialAttributeEntity>()
