@@ -109,10 +109,10 @@ namespace NtisPlatform.Application.Services.Rules
                 join c in _categoryRepo.GetQueryable().AsNoTracking() on p.CategoryId equals c.Id into categoryJoin
                 from c in categoryJoin.DefaultIfEmpty()
                 where p.Id == propertyId && p.IsActive && !p.MarkedForDeletion
-                select new 
-                { 
-                    Property = p, 
-                    CategoryName = c != null ? c.PropertyCategoryName : null 
+                select new
+                {
+                    Property = p,
+                    CategoryName = c != null ? c.PropertyCategoryName : null
                 }
             ).FirstOrDefaultAsync(cancellationToken);
 
@@ -142,10 +142,10 @@ namespace NtisPlatform.Application.Services.Rules
             {
                 var mainPropertyId = await _propertyRepo.GetQueryable()
                     .AsNoTracking()
-                    .Where(p => p.WardId == property.WardId 
-                             && p.PropertyNo == property.PropertyNo 
+                    .Where(p => p.WardId == property.WardId
+                             && p.PropertyNo == property.PropertyNo
                              && (p.PartitionNo == null || p.PartitionNo == "")
-                             && p.IsActive 
+                             && p.IsActive
                              && !p.MarkedForDeletion)
                     .Select(p => (int?)p.Id)
                     .FirstOrDefaultAsync(cancellationToken);
@@ -220,11 +220,11 @@ namespace NtisPlatform.Application.Services.Rules
             // Build a flat attribute dictionary: SocialAttributeCode → typed CLR value
             // Rule expressions can reference these directly: input.HAS_LIFT, input.NO_OF_WELL, etc.
             var socialAttributeDict = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-            
+
             // Sort by PropertyId such that main property comes first, and current property comes last.
             // This ensures current property's attributes override main property's in case of duplicates.
             var orderedSocialDetails = socialDetails.OrderBy(s => s.PropertyId == propertyId ? 1 : 0);
-            
+
             foreach (var attr in orderedSocialDetails)
             {
                 if (string.IsNullOrWhiteSpace(attr.Code)) continue;
@@ -315,9 +315,9 @@ namespace NtisPlatform.Application.Services.Rules
             {
                 propertyIdsQuery = _propertyRepo.GetQueryable()
                     .AsNoTracking()
-                    .Where(p => p.WardId == property.WardId 
-                             && p.PropertyNo == property.PropertyNo 
-                             && p.IsActive 
+                    .Where(p => p.WardId == property.WardId
+                             && p.PropertyNo == property.PropertyNo
+                             && p.IsActive
                              && !p.MarkedForDeletion)
                     .Select(p => p.Id);
             }
@@ -334,10 +334,10 @@ namespace NtisPlatform.Application.Services.Rules
             var maxFloorSequenceNullable = await _propertyDetailsRepo.GetQueryable()
                 .AsNoTracking()
                 .Where(d => propertyIds.Contains(d.PropertyId)
-                          && d.IsActive 
+                          && d.IsActive
                           && !d.MarkedForDeletion
-                          && d.Floor != null 
-                          && d.Floor.IsActive 
+                          && d.Floor != null
+                          && d.Floor.IsActive
                           && d.Floor.SequenceNo >= FirstFloorSequenceThreshold)
                 .Select(d => (int?)d.Floor!.SequenceNo)
                 .MaxAsync(cancellationToken);

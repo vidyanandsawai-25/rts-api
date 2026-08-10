@@ -107,6 +107,18 @@ namespace NtisPlatform.Application.Services.Rules
 
                     foreach (var rule in ruleResults)
                     {
+                        // Ensure rule target parameter matches context.ValueKey (e.g. "Rate", "Maintenance", "Rent") if specified
+                        if (rule.Context != null &&
+                            rule.Context.TryGetValue("ParameterCode", out var rawParamCode) &&
+                            !string.IsNullOrWhiteSpace(rawParamCode))
+                        {
+                            var targetParameter = rawParamCode.Replace("input.", "").Trim();
+                            if (!string.Equals(targetParameter, context.ValueKey, StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+                        }
+
                         var applicator = _effectApplicators.FirstOrDefault(a => a.CanHandle(rule.EffectType ?? string.Empty));
                         if (applicator == null)
                             continue;
