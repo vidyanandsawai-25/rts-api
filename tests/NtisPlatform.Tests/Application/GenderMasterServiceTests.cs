@@ -54,7 +54,7 @@ public class GenderMasterServiceTests
             Id = 1,
             GenderName = "Male",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))

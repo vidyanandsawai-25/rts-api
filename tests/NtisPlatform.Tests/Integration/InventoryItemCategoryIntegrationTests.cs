@@ -129,7 +129,7 @@ public class InventoryItemCategoryIntegrationTests : IAsyncLifetime
         var trackedEntity = await _context!.Set<InventoryItemCategoryEntity>().FindAsync(original.Id);
         trackedEntity!.IsActive = false;
         trackedEntity.MarkedForDeletion = true;
-        trackedEntity.MarkedForDeletionDate = DateTime.UtcNow;
+        trackedEntity.MarkedForDeletionDate = DateTime.Now;
         await _context.SaveChangesAsync();
 
         var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
@@ -195,7 +195,7 @@ public class InventoryItemCategoryIntegrationTests : IAsyncLifetime
             Id = 5,
             CategoryCode = "ELEC",
             CategoryName = "Electronics Category",
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         });
         await _context.SaveChangesAsync();
 

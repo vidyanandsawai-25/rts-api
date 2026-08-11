@@ -51,7 +51,7 @@ public class LoginResponseDto
     /// <summary>
     /// UTC expiry of the MFA challenge. Only present when <see cref="RequiresTwoFactor"/> is true.
     /// </summary>
-    public DateTime? ChallengeExpiresAtUtc { get; set; }
+    public DateTime? ChallengeExpiresAt { get; set; }
 
     /// <summary>
     /// True when an administrator has required this account to set up 2FA but the user hasn't

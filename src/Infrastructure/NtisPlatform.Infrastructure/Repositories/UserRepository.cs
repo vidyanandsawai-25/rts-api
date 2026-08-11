@@ -106,7 +106,7 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
         if (user == null) return false;
 
         user.TwoFactorEnabled = true;
-        user.TwoFactorEnabledAt = DateTime.UtcNow;
+        user.TwoFactorEnabledAt = DateTime.Now;
         user.SecurityStamp = newSecurityStamp;
         await _context.SaveChangesAsync(cancellationToken);
         return true;

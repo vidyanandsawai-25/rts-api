@@ -27,7 +27,7 @@ public class UserRoleAllocationDtoTests
     [Fact]
     public void Create_Dto_Properties_RoundTrip()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var dto = new UserRoleAllocationCreateDto { DepartmentId = 4, UserRoleId = 5, CreatedDate = now };
 
         Assert.Equal(4, dto.DepartmentId);
@@ -38,7 +38,7 @@ public class UserRoleAllocationDtoTests
     [Fact]
     public void Update_Dto_Properties_RoundTrip()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var dto = new UserRoleAllocationUpdateDto { DepartmentId = 6, UserRoleId = 7, UpdatedDate = now };
 
         Assert.Equal(6, dto.DepartmentId);

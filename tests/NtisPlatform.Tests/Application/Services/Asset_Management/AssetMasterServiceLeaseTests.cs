@@ -292,7 +292,7 @@ public class AssetMasterServiceLeaseTests
             Id = 10,
             AssetId = 1,
             TenantName = "Acme Corp",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             IsActive = true,
             MarkedForDeletion = false
         };

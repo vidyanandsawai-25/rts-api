@@ -87,9 +87,9 @@ public class AssetLeaseRentDetailsEntityTests
     [Fact]
     public void Properties_RoundTrip_WorkflowFields()
     {
-        var rejectionDate = DateTime.UtcNow.AddDays(-3);
-        var verifiedDate = DateTime.UtcNow.AddDays(-2);
-        var approvedDate = DateTime.UtcNow.AddDays(-1);
+        var rejectionDate = DateTime.Now.AddDays(-3);
+        var verifiedDate = DateTime.Now.AddDays(-2);
+        var approvedDate = DateTime.Now.AddDays(-1);
         var entity = new AssetLeaseRentDetailsEntity
         {
             WorkflowStatus = "Approved",
@@ -191,7 +191,7 @@ public class AssetLeaseRentDetailsEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = new AssetLeaseRentDetailsEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

@@ -21,8 +21,8 @@ public class PropertyAssessmentStatusDtoTests
             Id = 1,
             StatusName = "Test Status",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
-            UpdatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Assert

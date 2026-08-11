@@ -358,7 +358,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
             tax.CalculationModeId = newModeRow.Id;
             tax.RuleDefinitionId = request.RuleDefinitionId;
             tax.UpdatedBy = request.UpdatedBy;
-            tax.UpdatedDate = DateTime.UtcNow;
+            tax.UpdatedDate = DateTime.Now;
 
             // One SaveChanges covers the TaxMaster update AND every staged delete. Do NOT convert
             // the deletes to ExecuteDeleteAsync: that runs as its own auto-committed statement,
@@ -507,7 +507,7 @@ public class DynamicTaxRegisterService : IDynamicTaxRegisterService
             AssessmentStatus = request.AssessmentStatus,
             OldTaxStatus = request.OldTaxStatus,
             CreatedBy = request.CreatedBy,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _context.TaxMaster.Add(tax);

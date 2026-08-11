@@ -26,8 +26,8 @@ public class AssetMasterDtoTests
     [Fact]
     public void AssetMasterDto_PropertiesGetAndSetCorrectly()
     {
-        var createdDate = DateTime.UtcNow.AddDays(-10);
-        var updatedDate = DateTime.UtcNow;
+        var createdDate = DateTime.Now.AddDays(-10);
+        var updatedDate = DateTime.Now;
         var details = new AssetDetailsDto { AssetId = 1 };
         var names = new AssetMasterNamesDto { OrganizationName = "Org" };
         var photos = new List<AssetPhotoDto> { new() { PhotoId = 1 } };
@@ -596,7 +596,7 @@ public class AssetMasterDtoTests
     [Fact]
     public void ParentAssetDetailDto_PropertiesGetAndSetCorrectly()
     {
-        var createdDate = DateTime.UtcNow.AddDays(-5);
+        var createdDate = DateTime.Now.AddDays(-5);
         var details = new AssetDetailsDto { AssetId = 1 };
         var names = new AssetMasterNamesDto { OrganizationName = "Org" };
         var fieldValues = new List<AssetFieldValueDto> { new() { AssetId = 1 } };

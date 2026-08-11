@@ -64,7 +64,7 @@ public class MfaChallengeService : IMfaChallengeService
         string? userAgent,
         CancellationToken cancellationToken = default)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         var expiresAt = now.AddMinutes(_options.ChallengeLifetimeMinutes);
 
         var rawToken = GenerateChallengeToken();
@@ -102,7 +102,7 @@ public class MfaChallengeService : IMfaChallengeService
             return MfaVerificationResult.Failed(MfaVerificationFailureReason.InvalidChallenge);
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
 
         if (challenge.RevokedAt != null)
         {
@@ -181,7 +181,7 @@ public class MfaChallengeService : IMfaChallengeService
         }
 
         var secret = _secretProtector.Unprotect(user.TwoFactorSecretEncrypted);
-        return _totpService.ValidateCode(secret, normalized, _timeProvider.GetUtcNow());
+        return _totpService.ValidateCode(secret, normalized, _timeProvider.GetLocalNow());
     }
 
     private async Task<bool> TryRedeemRecoveryCodeAsync(int userId, string rawCode, CancellationToken cancellationToken)

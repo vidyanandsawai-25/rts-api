@@ -61,7 +61,7 @@ public class PropertyMapMasterServiceTests
             ChangeReason = "Initial mapping",
             Remark = "Test remark",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))

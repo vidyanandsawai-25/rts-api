@@ -125,7 +125,7 @@ public class AuthService : IAuthService
                 RequiresTwoFactor = true,
                 TwoFactorMethod = "totp",
                 ChallengeId = challenge.ChallengeId,
-                ChallengeExpiresAtUtc = challenge.ExpiresAtUtc,
+                ChallengeExpiresAt = challenge.ExpiresAt,
                 UserId = user.Id,
                 Username = user.UserName,
                 Message = "Two-factor authentication code required"
@@ -151,7 +151,7 @@ public class AuthService : IAuthService
                 RequiresTwoFactor = true,
                 TwoFactorMethod = "otp",
                 ChallengeId = otpChallenge.ChallengeId,
-                ChallengeExpiresAtUtc = otpChallenge.ExpiresAtUtc,
+                ChallengeExpiresAt = otpChallenge.ExpiresAt,
                 UserId = user.Id,
                 Username = user.UserName,
                 Message = "One-time verification code sent"

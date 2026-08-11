@@ -370,7 +370,7 @@ public class TaxConditionRuleService : ITaxConditionRuleService
                     entity.StopFurtherProcessing = row.StopFurtherProcessing;
                     entity.IsBuildingBased = ValidateAndParseAssessmentBasis(row.AssessmentBasis);
                     entity.UpdatedBy = request.UpdatedBy;
-                    entity.UpdatedDate = DateTime.UtcNow;
+                    entity.UpdatedDate = DateTime.Now;
                 }
                 else
                 {
@@ -390,7 +390,7 @@ public class TaxConditionRuleService : ITaxConditionRuleService
                         StopFurtherProcessing = row.StopFurtherProcessing,
                         IsBuildingBased = ValidateAndParseAssessmentBasis(row.AssessmentBasis),
                         CreatedBy = request.UpdatedBy,
-                        CreatedDate = DateTime.UtcNow,
+                        CreatedDate = DateTime.Now,
                     };
                     _context.TaxConditionRules.Add(entity);
                 }

@@ -86,7 +86,7 @@ public partial class PropertyService
 
                         society = _mapper.Map(dto, society);
                         society.UpdatedBy = dto.UpdatedBy;
-                        society.UpdatedDate = DateTime.UtcNow;
+                        society.UpdatedDate = DateTime.Now;
 
                         await _societyRepository.UpdateAsync(society, ct);
                     }
@@ -101,7 +101,7 @@ public partial class PropertyService
                     newSociety.IsActive = true;
                     newSociety.MarkedForDeletion = false;
                     newSociety.CreatedBy = dto.UpdatedBy;
-                    newSociety.CreatedDate = DateTime.UtcNow;
+                    newSociety.CreatedDate = DateTime.Now;
 
                     await _societyRepository.AddAsync(newSociety, ct);
                     // link (property.SocietyDetailId = newSociety.Id) will be set after the first SaveChangesAsync
@@ -118,7 +118,7 @@ public partial class PropertyService
 
                 assessment = _mapper.Map(dto, assessment);
                 assessment.UpdatedBy = dto.UpdatedBy;
-                assessment.UpdatedDate = DateTime.UtcNow;
+                assessment.UpdatedDate = DateTime.Now;
 
                 await _assessmentRepository.UpdateAsync(assessment, ct);
             }
@@ -131,7 +131,7 @@ public partial class PropertyService
                 newAssessment.IsActive = true;
                 newAssessment.MarkedForDeletion = false;
                 newAssessment.CreatedBy = dto.UpdatedBy;
-                newAssessment.CreatedDate = DateTime.UtcNow;
+                newAssessment.CreatedDate = DateTime.Now;
 
                 await _assessmentRepository.AddAsync(newAssessment, ct);
             }
@@ -148,7 +148,7 @@ public partial class PropertyService
 
                 existingDetails = _mapper.Map(dto, existingDetails);
                 existingDetails.UpdatedBy = dto.UpdatedBy;
-                existingDetails.UpdatedDate = DateTime.UtcNow;
+                existingDetails.UpdatedDate = DateTime.Now;
 
                 await _propertyDetailsRepository.UpdateAsync(existingDetails, ct);
 
@@ -163,7 +163,7 @@ public partial class PropertyService
 
                     existingRoomWise = _mapper.Map(dto, existingRoomWise);
                     existingRoomWise.UpdatedBy = dto.UpdatedBy;
-                    existingRoomWise.UpdatedDate = DateTime.UtcNow;
+                    existingRoomWise.UpdatedDate = DateTime.Now;
 
                     await _roomWiseRepository.UpdateAsync(existingRoomWise, ct);
                 }
@@ -179,7 +179,7 @@ public partial class PropertyService
                     newRoomWise.IsActive = dto.IsActive;
                     newRoomWise.MarkedForDeletion = false;
                     newRoomWise.CreatedBy = dto.UpdatedBy;
-                    newRoomWise.CreatedDate = DateTime.UtcNow;
+                    newRoomWise.CreatedDate = DateTime.Now;
 
                     await _roomWiseRepository.AddAsync(newRoomWise, ct);
                 }
@@ -193,7 +193,7 @@ public partial class PropertyService
                 newPropertyDetails.IsActive = dto.IsActive;
                 newPropertyDetails.MarkedForDeletion = false;
                 newPropertyDetails.CreatedBy = dto.UpdatedBy;
-                newPropertyDetails.CreatedDate = DateTime.UtcNow;
+                newPropertyDetails.CreatedDate = DateTime.Now;
 
                 await _propertyDetailsRepository.AddAsync(newPropertyDetails, ct);
 
@@ -206,7 +206,7 @@ public partial class PropertyService
                 newRoomWise.IsActive = dto.IsActive;
                 newRoomWise.MarkedForDeletion = false;
                 newRoomWise.CreatedBy = dto.UpdatedBy;
-                newRoomWise.CreatedDate = DateTime.UtcNow;
+                newRoomWise.CreatedDate = DateTime.Now;
 
                 await _roomWiseRepository.AddAsync(newRoomWise, ct);
             }

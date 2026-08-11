@@ -119,7 +119,7 @@ public class ValueBasedTaxService : IValueBasedTaxService
                     entity.BaseType = request.BaseType;
                     entity.TaxPercentage = row.TaxPercentage;
                     entity.UpdatedBy = request.UpdatedBy;
-                    entity.UpdatedDate = DateTime.UtcNow;
+                    entity.UpdatedDate = DateTime.Now;
                 }
                 else
                 {
@@ -132,7 +132,7 @@ public class ValueBasedTaxService : IValueBasedTaxService
                         TaxPercentage = row.TaxPercentage,
                         IsActive = true,
                         CreatedBy = request.UpdatedBy,
-                        CreatedDate = DateTime.UtcNow
+                        CreatedDate = DateTime.Now
                     });
                 }
                 affected++;
@@ -149,7 +149,7 @@ public class ValueBasedTaxService : IValueBasedTaxService
             {
                 p.BaseType = request.BaseType;
                 p.UpdatedBy = request.UpdatedBy;
-                p.UpdatedDate = DateTime.UtcNow;
+                p.UpdatedDate = DateTime.Now;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -185,7 +185,7 @@ public class ValueBasedTaxService : IValueBasedTaxService
         {
             p.TaxPercentage = request.TaxPercentage;
             p.UpdatedBy = request.UpdatedBy;
-            p.UpdatedDate = DateTime.UtcNow;
+            p.UpdatedDate = DateTime.Now;
         }
 
         if (rows.Count > 0)

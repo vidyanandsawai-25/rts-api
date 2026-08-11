@@ -117,7 +117,7 @@ public class ConfigValueMasterEntityTests
     {
         // Arrange
         var configValue = new ConfigValueMasterEntity();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         // Act
         configValue.Id = 1;

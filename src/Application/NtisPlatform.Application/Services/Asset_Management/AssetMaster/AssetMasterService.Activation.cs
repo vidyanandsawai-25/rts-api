@@ -30,7 +30,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                     return false;
                 }
 
-                var now = DateTime.UtcNow;
+                var now = DateTime.Now;
                 asset.IsActive = true;
                 asset.UpdatedDate = now;
 

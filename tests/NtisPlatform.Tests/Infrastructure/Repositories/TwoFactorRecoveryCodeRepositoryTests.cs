@@ -31,8 +31,8 @@ public class TwoFactorRecoveryCodeRepositoryTests
 
         context.TwoFactorRecoveryCodes.AddRange(
             new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "active-1" },
-            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "used", UsedAt = DateTime.UtcNow },
-            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "revoked", RevokedAt = DateTime.UtcNow },
+            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "used", UsedAt = DateTime.Now },
+            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "revoked", RevokedAt = DateTime.Now },
             new TwoFactorRecoveryCodeEntity { UserId = 2, CodeHash = "other-user" });
         await context.SaveChangesAsync();
 
@@ -51,7 +51,7 @@ public class TwoFactorRecoveryCodeRepositoryTests
         context.TwoFactorRecoveryCodes.AddRange(
             new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "a" },
             new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "b" },
-            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "c", UsedAt = DateTime.UtcNow });
+            new TwoFactorRecoveryCodeEntity { UserId = 1, CodeHash = "c", UsedAt = DateTime.Now });
         await context.SaveChangesAsync();
 
         var count = await repository.CountActiveByUserIdAsync(1);

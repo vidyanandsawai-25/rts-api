@@ -37,7 +37,7 @@ public class ReportDbRepository<T, TKey> : IRepository<T, TKey> where T : class
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
         if (entity is BaseEntity commonEntity)
-            commonEntity.CreatedDate = DateTime.UtcNow;
+            commonEntity.CreatedDate = DateTime.Now;
 
         await _dbSet.AddAsync(entity, cancellationToken);
         return entity;
@@ -46,7 +46,7 @@ public class ReportDbRepository<T, TKey> : IRepository<T, TKey> where T : class
     public virtual async Task AddRangeAsync(IEnumerable<T> entities, CancellationToken cancellationToken = default)
     {
         var entityList = entities as IList<T> ?? entities.ToList();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         foreach (var entity in entityList)
         {
@@ -60,7 +60,7 @@ public class ReportDbRepository<T, TKey> : IRepository<T, TKey> where T : class
     public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
         if (entity is BaseEntity commonEntity)
-            commonEntity.UpdatedDate = DateTime.UtcNow;
+            commonEntity.UpdatedDate = DateTime.Now;
 
         _dbSet.Update(entity);
         await Task.CompletedTask;
@@ -81,7 +81,7 @@ public class ReportDbRepository<T, TKey> : IRepository<T, TKey> where T : class
             baseEntityForHardDelete.IsActive = false;
             hardDeletable.MarkedForDeletion = true;
             if (!hardDeletable.MarkedForDeletionDate.HasValue)
-                hardDeletable.MarkedForDeletionDate = DateTime.UtcNow;
+                hardDeletable.MarkedForDeletionDate = DateTime.Now;
             await UpdateAsync(entity, cancellationToken);
         }
         else if (entity is BaseEntity baseEntity)

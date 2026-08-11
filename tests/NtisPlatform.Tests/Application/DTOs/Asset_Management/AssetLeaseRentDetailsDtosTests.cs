@@ -56,13 +56,13 @@ public class AssetLeaseRentDetailsDtosTests
     [Fact]
     public void AssetLeaseRentDetailsDto_PropertiesGetAndSetCorrectly()
     {
-        var createdDate = DateTime.UtcNow.AddDays(-30);
-        var updatedDate = DateTime.UtcNow;
-        var leaseStart = DateTime.UtcNow.AddDays(-10);
-        var leaseEnd = DateTime.UtcNow.AddYears(1);
-        var rejectionDate = DateTime.UtcNow.AddDays(-5);
-        var verifiedDate = DateTime.UtcNow.AddDays(-3);
-        var approvedDate = DateTime.UtcNow.AddDays(-1);
+        var createdDate = DateTime.Now.AddDays(-30);
+        var updatedDate = DateTime.Now;
+        var leaseStart = DateTime.Now.AddDays(-10);
+        var leaseEnd = DateTime.Now.AddYears(1);
+        var rejectionDate = DateTime.Now.AddDays(-5);
+        var verifiedDate = DateTime.Now.AddDays(-3);
+        var approvedDate = DateTime.Now.AddDays(-1);
         var names = new AssetLeaseRentDetailsNamesDto { AssetNo = "AST-001" };
 
         var dto = new AssetLeaseRentDetailsDto
@@ -220,7 +220,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -244,7 +244,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -285,7 +285,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -307,7 +307,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -329,7 +329,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = string.Empty,
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -351,7 +351,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = new string('9', 21),
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -374,7 +374,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantEmail = "not-an-email",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -397,7 +397,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantEmail = "john@example.com",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -419,7 +419,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = string.Empty,
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -444,7 +444,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -467,7 +467,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -490,7 +490,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = string.Empty,
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -512,7 +512,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 0m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -534,7 +534,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = -100m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -557,7 +557,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 0m,
             PaymentFrequency = "Monthly"
@@ -576,7 +576,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = -1m,
             PaymentFrequency = "Monthly"
@@ -598,7 +598,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = string.Empty
@@ -622,7 +622,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -645,7 +645,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -663,7 +663,7 @@ public class AssetLeaseRentDetailsDtosTests
             AssetId = 1,
             TenantName = "John Doe",
             TenantMobile = "9999999999",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m
         };
 
@@ -704,7 +704,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = string.Empty,
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 0m,
             SecurityDeposit = -1m,
             PaymentFrequency = "Monthly"
@@ -733,7 +733,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -757,7 +757,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -795,7 +795,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -817,7 +817,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -840,7 +840,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantEmail = "not-an-email",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -862,7 +862,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 0m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly"
@@ -884,7 +884,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = -1m,
             PaymentFrequency = "Monthly"
@@ -906,7 +906,7 @@ public class AssetLeaseRentDetailsDtosTests
             TenantMobile = "9999999999",
             TenantType = "Individual",
             LeaseType = "Rent",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m,
             SecurityDeposit = 10000m,
             PaymentFrequency = "Monthly",
@@ -924,7 +924,7 @@ public class AssetLeaseRentDetailsDtosTests
             AssetId = 1,
             TenantName = "John Doe",
             TenantMobile = "9999999999",
-            LeaseStartDate = DateTime.UtcNow,
+            LeaseStartDate = DateTime.Now,
             MonthlyRent = 5000m
         };
 
@@ -1096,12 +1096,12 @@ public class AssetLeaseRentDetailsDtosTests
     [Fact]
     public void AssetLeaseRentPreviousTenantHistoryDto_PropertiesGetAndSetCorrectly()
     {
-        var performedDate = DateTime.UtcNow.AddDays(-2);
-        var oldLeaseStart = DateTime.UtcNow.AddYears(-2);
-        var oldLeaseEnd = DateTime.UtcNow.AddYears(-1);
-        var leaseStart = DateTime.UtcNow.AddDays(-30);
-        var leaseEnd = DateTime.UtcNow.AddYears(1);
-        var terminationDate = DateTime.UtcNow.AddDays(-1);
+        var performedDate = DateTime.Now.AddDays(-2);
+        var oldLeaseStart = DateTime.Now.AddYears(-2);
+        var oldLeaseEnd = DateTime.Now.AddYears(-1);
+        var leaseStart = DateTime.Now.AddDays(-30);
+        var leaseEnd = DateTime.Now.AddYears(1);
+        var terminationDate = DateTime.Now.AddDays(-1);
 
         var dto = new AssetLeaseRentPreviousTenantHistoryDto
         {
@@ -1377,8 +1377,8 @@ public class AssetLeaseRentDetailsDtosTests
     public void DocumentDto_PropertiesGetAndSetCorrectly()
     {
         var guid = Guid.NewGuid();
-        var documentDate = DateTime.UtcNow.AddDays(-10);
-        var createdDate = DateTime.UtcNow;
+        var documentDate = DateTime.Now.AddDays(-10);
+        var createdDate = DateTime.Now;
 
         var dto = new AssetLeaseRentDetailsDocumentDto
         {

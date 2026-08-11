@@ -166,7 +166,7 @@ public class ManageSubUnitsServiceTests
             MarkedForDeletion = markedForDeletion,
             OccupancyStatus = occupancyStatus,
             HierarchyLevel = parentAssetId.HasValue ? 1 : 0,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
     private static SubUnitsDetailsEntity NewFloorDetails(
@@ -183,7 +183,7 @@ public class ManageSubUnitsServiceTests
             SubTypeOfUseId = subTypeOfUseId,
             MarkedForDeletion = markedForDeletion,
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
     private static Mock<IFormFile> NewFormFile(string fileName, string contentType, byte[]? content = null)

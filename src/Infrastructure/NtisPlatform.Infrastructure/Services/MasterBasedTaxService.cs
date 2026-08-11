@@ -169,7 +169,7 @@ public class MasterBasedTaxService : IMasterBasedTaxService
                     entity.ResultValue = row.ResultValue;
                     entity.RuleDefinitionId = request.RuleDefinitionId;
                     entity.UpdatedBy = request.UpdatedBy;
-                    entity.UpdatedDate = DateTime.UtcNow;
+                    entity.UpdatedDate = DateTime.Now;
                 }
                 else
                 {
@@ -185,7 +185,7 @@ public class MasterBasedTaxService : IMasterBasedTaxService
                         ResultValue = row.ResultValue,
                         IsActive = true,
                         CreatedBy = request.UpdatedBy,
-                        CreatedDate = DateTime.UtcNow
+                        CreatedDate = DateTime.Now
                     };
                     _context.TaxMasterMappings.Add(entity);
                 }
@@ -234,7 +234,7 @@ public class MasterBasedTaxService : IMasterBasedTaxService
             row.ResultBase = request.ResultBase;
             row.ResultValue = request.ResultValue;
             row.UpdatedBy = request.UpdatedBy;
-            row.UpdatedDate = DateTime.UtcNow;
+            row.UpdatedDate = DateTime.Now;
         }
 
         if (rows.Count > 0)

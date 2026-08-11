@@ -49,7 +49,7 @@ public class InventoryBatchMappingProfileTests
             InventoryItemModelId = 4,
             InventoryItemConditionId = 99,
             OwningDepartmentId = 5,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -70,7 +70,7 @@ public class InventoryBatchMappingProfileTests
             InventoryItemModelId = 4,
             InventoryItemConditionId = 5,
             OwningDepartmentId = 6,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -94,7 +94,7 @@ public class InventoryBatchMappingProfileTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 5,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 4,
             UnitValue = 250.50m
         };
@@ -113,7 +113,7 @@ public class InventoryBatchMappingProfileTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 5,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -131,14 +131,14 @@ public class InventoryBatchMappingProfileTests
     [Fact]
     public void Map_CreateDtoToEntity_MapsOptionalFields()
     {
-        var invoiceDate = DateTime.UtcNow.AddDays(-2);
+        var invoiceDate = DateTime.Now.AddDays(-2);
         var dto = new CreateInventoryBatchDto
         {
             ParentAssetId = 1,
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 5,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m,
             Specifications = "16GB RAM",
@@ -173,7 +173,7 @@ public class InventoryBatchMappingProfileTests
             InventoryItemNameId = 3,
             InventoryItemConditionId = 5,
             OwningDepartmentId = null,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -224,7 +224,7 @@ public class InventoryBatchMappingProfileTests
     [Fact]
     public void Map_UpdateDtoToEntity_IgnoresAuditFields()
     {
-        var createdDate = DateTime.UtcNow.AddDays(-10);
+        var createdDate = DateTime.Now.AddDays(-10);
         var existingEntity = new InventoryBatchEntity { Id = 1, ParentAssetId = 1, CreatedDate = createdDate };
         var updateDto = new UpdateInventoryBatchDto { BatchId = 1, Specifications = "Updated" };
 
@@ -303,7 +303,7 @@ public class InventoryBatchMappingProfileTests
         {
             Id = 9,
             ParentAssetId = 1,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m,
             TotalBatchValue = 10m

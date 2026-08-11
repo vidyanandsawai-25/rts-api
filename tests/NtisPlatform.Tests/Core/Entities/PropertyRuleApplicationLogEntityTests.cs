@@ -9,10 +9,10 @@ namespace NtisPlatform.Tests.Core.Entities
         [Fact]
         public void Properties_RoundTrip()
         {
-            var appliedAt = DateTime.UtcNow;
-            var createdDate = DateTime.UtcNow.AddMinutes(-10);
-            var updatedDate = DateTime.UtcNow;
-            var markedForDeletionDate = DateTime.UtcNow.AddMinutes(5);
+            var appliedAt = DateTime.Now;
+            var createdDate = DateTime.Now.AddMinutes(-10);
+            var updatedDate = DateTime.Now;
+            var markedForDeletionDate = DateTime.Now.AddMinutes(5);
 
             var entity = new PropertyRuleApplicationLogEntity
             {

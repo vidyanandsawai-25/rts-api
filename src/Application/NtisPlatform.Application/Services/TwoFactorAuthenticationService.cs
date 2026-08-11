@@ -157,7 +157,7 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
 
         // TOTP proven — the caller can operate *some* authenticator app, but that doesn't prove
         // it's bound to this account. Challenge the registered email before finalizing enable.
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         var rawEmailCode = GenerateNumericEmailCode();
         var challenge = new MfaChallengeEntity
         {
@@ -339,7 +339,7 @@ public class TwoFactorAuthenticationService : ITwoFactorAuthenticationService
     private bool ValidateTotp(string encryptedSecret, string normalizedCode)
     {
         var secret = _secretProtector.Unprotect(encryptedSecret);
-        return _totpService.ValidateCode(secret, normalizedCode, _timeProvider.GetUtcNow());
+        return _totpService.ValidateCode(secret, normalizedCode, _timeProvider.GetLocalNow());
     }
 
     private async Task<bool> VerifyTotpOrRecoveryCodeAsync(UserEntity user, string rawCode, CancellationToken cancellationToken)

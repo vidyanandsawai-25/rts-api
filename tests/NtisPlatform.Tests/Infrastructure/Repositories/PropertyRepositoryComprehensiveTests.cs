@@ -126,7 +126,7 @@ public class PropertyRepositoryComprehensiveTests
             IsActive = true,
             IsCurrent = true,
             Status = "ACTIVE",
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var mapDetail2 = new PropertyMapDetailEntity
@@ -140,7 +140,7 @@ public class PropertyRepositoryComprehensiveTests
             IsActive = true,
             IsCurrent = true,
             Status = "ACTIVE",
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         var oldDetails1 = new PropertyDetailsOldEntity

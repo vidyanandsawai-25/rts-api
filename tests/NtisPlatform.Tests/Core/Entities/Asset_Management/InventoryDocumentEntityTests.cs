@@ -124,7 +124,7 @@ public class InventoryDocumentEntityTests
     [Fact]
     public void InternalConstructor_SetsAllProperties()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var entity = new InventoryDocumentEntity(
             inventoryBatchId: 7,
             documentTypeId: 2,
@@ -153,7 +153,7 @@ public class InventoryDocumentEntityTests
     public void ExplicitIHardDeletable_GetAndSetWork()
     {
         IHardDeletable entity = InventoryDocumentEntity.Create(5, 3);
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         entity.MarkedForDeletion = true;
         entity.MarkedForDeletionDate = now;

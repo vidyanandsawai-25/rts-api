@@ -29,7 +29,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                 {
                     existingField.FieldName = dto.FieldName;
                     existingField.FieldValue = dto.FieldValue;
-                    existingField.UpdatedDate = DateTime.UtcNow;
+                    existingField.UpdatedDate = DateTime.Now;
                     existingField.UpdatedBy = dto.CreatedBy;
 
                     entitiesToUpdate.Add(existingField);
@@ -44,7 +44,7 @@ namespace NtisPlatform.Application.Services.Asset_Management
                         FieldName = dto.FieldName,
                         FieldValue = dto.FieldValue,
                         CreatedBy = dto.CreatedBy,
-                        CreatedDate = DateTime.UtcNow,
+                        CreatedDate = DateTime.Now,
                         IsActive = true
                     };
                     newEntities.Add(newEntity);

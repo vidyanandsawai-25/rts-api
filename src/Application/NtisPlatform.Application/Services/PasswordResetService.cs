@@ -131,7 +131,7 @@ public class PasswordResetService : IPasswordResetService
             Success = true,
             Message = GenericSentMessage,
             ChallengeId = challenge.ChallengeId,
-            ChallengeExpiresAtUtc = challenge.ExpiresAtUtc
+            ChallengeExpiresAt = challenge.ExpiresAt
         };
     }
 
@@ -175,7 +175,7 @@ public class PasswordResetService : IPasswordResetService
     /// </summary>
     private async Task<OtpChallengeResult> CreateAuthenticatorChallengeAsync(UserEntity user, CancellationToken cancellationToken)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         var expiresAt = now.AddMinutes(_options.LifetimeMinutes);
         var rawChallengeId = ChallengeTokenHasher.GenerateToken();
 
@@ -233,7 +233,7 @@ public class PasswordResetService : IPasswordResetService
             userId = result.UserId;
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         var expiresAt = now.AddMinutes(_options.PasswordResetTokenLifetimeMinutes);
         var rawResetToken = ChallengeTokenHasher.GenerateToken();
 
@@ -258,7 +258,7 @@ public class PasswordResetService : IPasswordResetService
         {
             Success = true,
             ResetToken = rawResetToken,
-            ResetTokenExpiresAtUtc = expiresAt
+            ResetTokenExpiresAt = expiresAt
         };
     }
 
@@ -269,7 +269,7 @@ public class PasswordResetService : IPasswordResetService
     /// </summary>
     private async Task<bool> VerifyAuthenticatorChallengeAsync(MfaChallengeEntity challenge, string code, CancellationToken cancellationToken)
     {
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         if (challenge.RevokedAt != null || challenge.ConsumedAt != null || challenge.ExpiresAt <= now)
         {
             return false;
@@ -283,7 +283,7 @@ public class PasswordResetService : IPasswordResetService
 
         var normalized = TwoFactorCodeNormalizer.NormalizeTotpCode(code);
         var codeIsValid = TwoFactorCodeNormalizer.IsSixDigits(normalized) &&
-            _totpService.ValidateCode(_secretProtector.Unprotect(user.TwoFactorSecretEncrypted), normalized, _timeProvider.GetUtcNow());
+            _totpService.ValidateCode(_secretProtector.Unprotect(user.TwoFactorSecretEncrypted), normalized, _timeProvider.GetLocalNow());
 
         if (!codeIsValid)
         {
@@ -309,7 +309,7 @@ public class PasswordResetService : IPasswordResetService
             return new ResetPasswordResponseDto { Success = false, Message = InvalidOrExpiredMessage };
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         if (challenge.RevokedAt != null || challenge.ConsumedAt != null || challenge.ExpiresAt <= now)
         {
             return new ResetPasswordResponseDto { Success = false, Message = InvalidOrExpiredMessage };

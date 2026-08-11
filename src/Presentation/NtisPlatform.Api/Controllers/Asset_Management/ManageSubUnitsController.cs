@@ -126,7 +126,7 @@ public class ManageSubUnitsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(dto.AssessmentYear))
         {
-            dto.AssessmentYear = DateTime.UtcNow.Year.ToString();
+            dto.AssessmentYear = DateTime.Now.Year.ToString();
         }
 
         _logger.LogInformation("Creating child asset for parent {ParentAssetId}", dto.ParentAssetId);

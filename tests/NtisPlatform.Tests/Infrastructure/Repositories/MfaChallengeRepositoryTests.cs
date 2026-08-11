@@ -28,8 +28,8 @@ public class MfaChallengeRepositoryTests
         ChallengeHash = hash,
         UserId = userId,
         Purpose = "mfa-login",
-        CreatedAt = DateTime.UtcNow,
-        ExpiresAt = DateTime.UtcNow.AddMinutes(5)
+        CreatedAt = DateTime.Now,
+        ExpiresAt = DateTime.Now.AddMinutes(5)
     };
 
     [Fact]

@@ -452,7 +452,7 @@ public class RuleEngineServiceTests
                 RuleJson = "{}",
                 ChangeType = "CREATED",
                 ChangedBy = 1,
-                ChangedDate = DateTime.UtcNow,
+                ChangedDate = DateTime.Now,
                 Priority = 100,
                 IsEnabled = true
             },
@@ -466,7 +466,7 @@ public class RuleEngineServiceTests
                 RuleJson = "{}",
                 ChangeType = "UPDATED",
                 ChangedBy = 1,
-                ChangedDate = DateTime.UtcNow,
+                ChangedDate = DateTime.Now,
                 Priority = 100,
                 IsEnabled = true
             }

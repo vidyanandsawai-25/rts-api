@@ -62,7 +62,7 @@ public class AuthControllerTests
             UserId = 1,
             Username = "testuser",
             Message = "Login successful",
-            ExpiresAt = DateTime.UtcNow.AddMinutes(60)
+            ExpiresAt = DateTime.Now.AddMinutes(60)
         };
 
         _authServiceMock.Setup(x => x.LoginAsync(request, It.IsAny<CancellationToken>()))

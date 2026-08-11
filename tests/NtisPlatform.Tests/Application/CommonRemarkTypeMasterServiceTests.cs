@@ -54,7 +54,7 @@ public class CommonRemarkTypeMasterServiceTests
             Id = 1,
             RemarkTypeName = "General Remark",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))

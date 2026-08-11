@@ -17,7 +17,7 @@ public class AssetDetailsDtoTests
     [Fact]
     public void AssetDetailsDto_PropertiesGetAndSetCorrectly()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var dto = new AssetDetailsDto
         {
             Id = 1,

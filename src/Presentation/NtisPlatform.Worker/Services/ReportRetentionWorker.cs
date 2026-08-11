@@ -61,7 +61,7 @@ public class ReportRetentionWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<ReportingDbContext>();
         var documentService = scope.ServiceProvider.GetRequiredService<IDocumentService>();
 
-        var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
+        var cutoff = DateTime.Now.AddDays(-retentionDays);
 
         var expired = await db.ReportRequests
             .Where(r => (r.Status == ReportRequestStatus.Completed

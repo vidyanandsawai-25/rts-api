@@ -51,7 +51,7 @@ public class AssetPhotoTypeServiceTests
     [Fact]
     public void EntityAndDtos_Properties_GetSet_WorksCorrectly()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var entity = new AssetPhotoTypeEntity
         {
             Id = 1,

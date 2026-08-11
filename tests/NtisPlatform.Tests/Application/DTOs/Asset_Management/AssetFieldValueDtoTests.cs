@@ -17,7 +17,7 @@ public class AssetFieldValueDtoTests
     [Fact]
     public void AssetFieldValueDto_PropertiesGetAndSetCorrectly()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var dto = new AssetFieldValueDto
         {
             Id = 1,

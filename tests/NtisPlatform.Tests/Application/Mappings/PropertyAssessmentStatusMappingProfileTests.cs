@@ -47,8 +47,8 @@ public class PropertyAssessmentStatusMappingProfileTests
             Id = 1,
             StatusName = "Pending Assessment",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
-            UpdatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now,
             CreatedBy = 1,
             UpdatedBy = 2
         };
@@ -97,7 +97,7 @@ public class PropertyAssessmentStatusMappingProfileTests
             Id = 3,
             StatusName = "Rejected",
             IsActive = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         // Act
@@ -122,8 +122,8 @@ public class PropertyAssessmentStatusMappingProfileTests
             Id = 1,
             StatusName = "Under Review",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
-            UpdatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now,
+            UpdatedDate = DateTime.Now
         };
 
         // Act
@@ -372,7 +372,7 @@ public class PropertyAssessmentStatusMappingProfileTests
             Id = 1,
             StatusName = "Round Trip",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         // Act

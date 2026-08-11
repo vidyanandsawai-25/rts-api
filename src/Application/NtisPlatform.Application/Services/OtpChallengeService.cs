@@ -64,7 +64,7 @@ public class OtpChallengeService : IOtpChallengeService
                 $"Cannot create an OTP challenge for purpose '{purpose}': no delivery channel is enabled. Check the corresponding SECURITY_AUTH config flags.");
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
         var expiresAt = now.AddMinutes(_options.LifetimeMinutes);
 
         var rawChallengeId = ChallengeTokenHasher.GenerateToken();
@@ -118,7 +118,7 @@ public class OtpChallengeService : IOtpChallengeService
             return OtpVerificationResult.Failed(OtpVerificationFailureReason.InvalidChallenge);
         }
 
-        var now = _timeProvider.GetUtcNow().UtcDateTime;
+        var now = _timeProvider.GetLocalNow().DateTime;
 
         if (challenge.RevokedAt != null)
         {

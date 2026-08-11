@@ -23,7 +23,7 @@ public class MfaChallengeRepository : Repository<MfaChallengeEntity, Guid>, IMfa
 
     public async Task<MfaChallengeEntity?> GetActiveByUserIdAndPurposeAsync(int userId, string purpose, CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         return await _context.Set<MfaChallengeEntity>()
             .AsNoTracking()
             .Where(c => c.UserId == userId
@@ -37,7 +37,7 @@ public class MfaChallengeRepository : Repository<MfaChallengeEntity, Guid>, IMfa
 
     public async Task<bool> TryConsumeAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var rowsAffected = await _context.Set<MfaChallengeEntity>()
             .Where(c => c.Id == id
                 && c.ConsumedAt == null
@@ -52,7 +52,7 @@ public class MfaChallengeRepository : Repository<MfaChallengeEntity, Guid>, IMfa
 
     public async Task<MfaChallengeFailureOutcome> RecordFailedAttemptAsync(Guid id, int maximumAttempts, CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var rowsAffected = await _context.Set<MfaChallengeEntity>()
             .Where(c => c.Id == id
                 && c.ConsumedAt == null
@@ -79,7 +79,7 @@ public class MfaChallengeRepository : Repository<MfaChallengeEntity, Guid>, IMfa
 
     public async Task DeleteStaleAsync(TimeSpan retention, CancellationToken cancellationToken = default)
     {
-        var cutoff = DateTime.UtcNow.Subtract(retention);
+        var cutoff = DateTime.Now.Subtract(retention);
 
         await _context.Set<MfaChallengeEntity>()
             .Where(c => c.ExpiresAt < cutoff

@@ -61,7 +61,7 @@ public class AssetOrganizationMasterServiceTests
             OrganizationName = organizationName,
             IsActive = isActive,
             CreatedBy = 1,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             MarkedForDeletion = false,
             MarkedForDeletionDate = null
         };
@@ -79,7 +79,7 @@ public class AssetOrganizationMasterServiceTests
             OrganizationName = "B",
             IsActive = true,
             MarkedForDeletion = true,
-            MarkedForDeletionDate = DateTime.UtcNow
+            MarkedForDeletionDate = DateTime.Now
         };
         Assert.Equal(1, entity.Id);
         Assert.Equal(2, entity.AuthorityId);

@@ -37,7 +37,7 @@ public class AuthControllerComprehensiveTests
             Success = true,
             Token = "new_access_token",
             RefreshToken = "new_refresh_token",
-            ExpiresAt = DateTime.UtcNow.AddHours(1)
+            ExpiresAt = DateTime.Now.AddHours(1)
         };
 
         mockService.Setup(s => s.RefreshTokenAsync(request, It.IsAny<CancellationToken>()))

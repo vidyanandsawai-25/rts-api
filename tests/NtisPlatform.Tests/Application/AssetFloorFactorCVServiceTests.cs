@@ -51,7 +51,7 @@ public class AssetFloorFactorCVServiceTests
     [Fact]
     public void EntityAndDtos_Properties_GetSet_WorksCorrectly()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var floorObj = new FloorEntity { Id = 10 };
         var yearRangeObj = new AssetAssessmentYearRangeMasterCVEntity { Id = 5 };
 

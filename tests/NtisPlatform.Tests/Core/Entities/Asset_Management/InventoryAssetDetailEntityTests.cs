@@ -14,7 +14,7 @@ public class InventoryAssetDetailEntityTests
     [Fact]
     public void Properties_RoundTrip()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var entity = new InventoryAssetDetailEntity
         {
             Id = 1,

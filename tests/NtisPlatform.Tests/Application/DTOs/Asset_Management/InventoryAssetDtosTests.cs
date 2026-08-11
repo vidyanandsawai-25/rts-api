@@ -25,7 +25,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -42,7 +42,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -62,7 +62,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 0,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -82,7 +82,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 0,
             UnitValue = 10m
         };
@@ -102,7 +102,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 10001,
             UnitValue = 10m
         };
@@ -122,7 +122,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 0m
         };
@@ -175,7 +175,7 @@ public class InventoryAssetDtosTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m,
             Specifications = new string('S', 501)
@@ -542,8 +542,8 @@ public class InventoryAssetDtosTests
     [Fact]
     public void InventoryBatchDetailDto_PropertiesGetAndSetCorrectly()
     {
-        var purchaseDate = DateTime.UtcNow;
-        var createdDate = DateTime.UtcNow.AddDays(-5);
+        var purchaseDate = DateTime.Now;
+        var createdDate = DateTime.Now.AddDays(-5);
         var dto = new InventoryBatchDetailDto
         {
             BatchId = 1,

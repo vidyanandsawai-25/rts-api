@@ -232,7 +232,7 @@ public class DocumentApplicationService : IDocumentApplicationService
                                 {
                                     oldBinding.MarkForDeletion();
                                     oldBinding.UpdatedBy = uploadedBy;
-                                    oldBinding.UpdatedDate = DateTime.UtcNow;
+                                    oldBinding.UpdatedDate = DateTime.Now;
                                     await _bindingRepository.UpdateAsync(oldBinding, cancellationToken);
                                 }
                             }

@@ -20,7 +20,7 @@ public class AssetRoomWiseMinusDataDtoTests
     [Fact]
     public void AssetRoomWiseMinusDataDto_PropertiesGetAndSetCorrectly()
     {
-        var deletionDate = DateTime.UtcNow;
+        var deletionDate = DateTime.Now;
         var dto = new AssetRoomWiseMinusDataDto
         {
             Id = 1,

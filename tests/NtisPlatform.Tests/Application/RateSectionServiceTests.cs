@@ -109,9 +109,9 @@ public class RateSectionServiceTests : IDisposable
             Id = 1,
             Description = "Wakad",
             IsActive = true,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             CreatedBy = 31,
-            UpdatedDate = DateTime.UtcNow,
+            UpdatedDate = DateTime.Now,
             UpdatedBy = 31
         };
 
@@ -187,9 +187,9 @@ public class RateSectionServiceTests : IDisposable
         // Arrange
         var entities = new List<RateSectionEntity>
         {
-            new() { Id = 1, Description = "Wakad", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
-            new() { Id = 2, Description = "Moshi", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow },
-            new() { Id = 3, Description = "Thergav", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.UtcNow }
+            new() { Id = 1, Description = "Wakad", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id = 2, Description = "Moshi", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now },
+            new() { Id = 3, Description = "Thergav", IsActive = true, CreatedBy = 31, CreatedDate = DateTime.Now }
         };
 
         var mockQuery = entities.BuildMock();
@@ -241,7 +241,7 @@ public class RateSectionServiceTests : IDisposable
             Description = $"Rate Section {i}",
             IsActive = true,
             CreatedBy = 31,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         }).ToList();
 
         var mockQuery = entities.BuildMock();
@@ -338,7 +338,7 @@ public class RateSectionServiceTests : IDisposable
             Description = createDto.Description,
             IsActive = createDto.IsActive,
             CreatedBy = createDto.CreatedBy,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockMapper
@@ -389,7 +389,7 @@ public class RateSectionServiceTests : IDisposable
             Description = createDto.Description,
             IsActive = false,
             CreatedBy = createDto.CreatedBy,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockMapper
@@ -438,9 +438,9 @@ public class RateSectionServiceTests : IDisposable
             Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
-            CreatedDate = DateTime.UtcNow.AddDays(-1),
+            CreatedDate = DateTime.Now.AddDays(-1),
             UpdatedBy = 31,
-            UpdatedDate = DateTime.UtcNow.AddDays(-1)
+            UpdatedDate = DateTime.Now.AddDays(-1)
         };
 
         _mockRepository
@@ -458,7 +458,7 @@ public class RateSectionServiceTests : IDisposable
                 dest.Description = src.Description;
                 dest.IsActive = src.IsActive;
                 dest.UpdatedBy = src.UpdatedBy;
-                dest.UpdatedDate = DateTime.UtcNow;
+                dest.UpdatedDate = DateTime.Now;
             });
 
         // Act
@@ -514,7 +514,7 @@ public class RateSectionServiceTests : IDisposable
             Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
-            CreatedDate = DateTime.UtcNow.AddDays(-1)
+            CreatedDate = DateTime.Now.AddDays(-1)
         };
 
         _mockRepository
@@ -532,7 +532,7 @@ public class RateSectionServiceTests : IDisposable
                 dest.Description = src.Description;
                 dest.IsActive = src.IsActive;
                 dest.UpdatedBy = src.UpdatedBy;
-                dest.UpdatedDate = DateTime.UtcNow;
+                dest.UpdatedDate = DateTime.Now;
             });
 
         // ✅ Fixed: Setup reference validation to succeed
@@ -646,7 +646,7 @@ public class RateSectionServiceTests : IDisposable
             Description = "Wakad",
             IsActive = true,
             CreatedBy = 31,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTime.Now
         };
 
         _mockRepository

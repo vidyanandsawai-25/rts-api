@@ -733,7 +733,7 @@ public class CommonDetailsControllerTests
                 NewValue = "600",
                 UpdatedColumns = "PlotArea",
                 Username = "admin",
-                UpdatedDate = DateTime.UtcNow
+                UpdatedDate = DateTime.Now
             },
             new()
             {
@@ -746,7 +746,7 @@ public class CommonDetailsControllerTests
                 NewValue = "450",
                 UpdatedColumns = "PlotArea",
                 Username = "admin",
-                UpdatedDate = DateTime.UtcNow
+                UpdatedDate = DateTime.Now
             }
         };
 

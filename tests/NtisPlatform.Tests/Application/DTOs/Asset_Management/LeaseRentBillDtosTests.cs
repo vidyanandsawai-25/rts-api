@@ -39,7 +39,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -54,7 +54,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Partial",
             PaymentMode = "UPI",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             CustomAmount = 500m
@@ -70,7 +70,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Monthwise",
             PaymentMode = "NEFT",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             Allocations = new List<BillPaymentAllocationDto>
@@ -89,7 +89,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = string.Empty,
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -107,7 +107,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Half",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -125,7 +125,7 @@ public class LeaseRentBillDtosTests
         var dto = new CreateBillPaymentDto
         {
             PaymentType = "Full",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -143,7 +143,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Bitcoin",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -179,7 +179,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerEmail = "tenant@example.com"
         };
 
@@ -196,7 +196,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "12345",
             PayerEmail = "tenant@example.com"
         };
@@ -214,7 +214,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210"
         };
 
@@ -231,7 +231,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "not-an-email"
         };
@@ -249,7 +249,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = new string('a', 195) + "@test.com"
         };
@@ -269,7 +269,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             BankName = new string('B', 101)
@@ -288,7 +288,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             Remark = new string('R', 501)
@@ -307,7 +307,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             DiscountAmount = -1m
@@ -328,7 +328,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             CustomAmount = -1m
@@ -349,7 +349,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Monthwise",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             Allocations = new List<BillPaymentAllocationDto>()
@@ -370,7 +370,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Monthwise",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             Allocations = new List<BillPaymentAllocationDto>
@@ -394,7 +394,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Partial",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com",
             CustomAmount = 0m
@@ -415,7 +415,7 @@ public class LeaseRentBillDtosTests
         {
             PaymentType = "Full",
             PaymentMode = "Cash",
-            PaymentDate = DateTime.UtcNow,
+            PaymentDate = DateTime.Now,
             PayerMobile = "9876543210",
             PayerEmail = "tenant@example.com"
         };
@@ -487,7 +487,7 @@ public class LeaseRentBillDtosTests
     [Fact]
     public void BillReceiptDto_PropertiesGetAndSetCorrectly()
     {
-        var paymentDate = DateTime.UtcNow;
+        var paymentDate = DateTime.Now;
         var lines = new List<BillReceiptLineDto> { new() { MonthWiseDemandId = 1 } };
         var dto = new BillReceiptDto
         {
@@ -539,7 +539,7 @@ public class LeaseRentBillDtosTests
     [Fact]
     public void BillTransactionDto_PropertiesGetAndSetCorrectly()
     {
-        var paymentDate = DateTime.UtcNow;
+        var paymentDate = DateTime.Now;
         var dto = new BillTransactionDto
         {
             Id = 1,

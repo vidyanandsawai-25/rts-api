@@ -24,8 +24,8 @@ public class LeaseRentDemandDtosTests
     [Fact]
     public void MonthWiseDemandDto_PropertiesGetAndSetCorrectly()
     {
-        var lastPaymentDate = DateTime.UtcNow.AddDays(-5);
-        var dueDate = DateTime.UtcNow.AddDays(10);
+        var lastPaymentDate = DateTime.Now.AddDays(-5);
+        var dueDate = DateTime.Now.AddDays(10);
         var dto = new MonthWiseDemandDto
         {
             Id = 1,

@@ -90,7 +90,7 @@ public class PenaltyRuleServiceTests
     [Fact]
     public void Entity_Properties_WorkCorrectly()
     {
-        var d = DateTime.UtcNow;
+        var d = DateTime.Now;
         var e = new PenaltyRuleMasterEntity
         {
             Id = 1, PenaltyCode = "PEN001", PenaltyName = "Late Payment Penalty",
@@ -134,7 +134,7 @@ public class PenaltyRuleServiceTests
     [Fact]
     public void PenaltyRuleDto_Properties_WorkCorrectly()
     {
-        var d = DateTime.UtcNow;
+        var d = DateTime.Now;
         var dto = new PenaltyRuleDto
         {
             Id = 1, PenaltyCode = "PEN001", PenaltyName = "Late Payment Penalty",
@@ -248,7 +248,7 @@ public class PenaltyRuleServiceTests
     [Fact]
     public void Mappings_AllDirections_WorkCorrectly()
     {
-        var d = DateTime.UtcNow;
+        var d = DateTime.Now;
         var entity = new PenaltyRuleMasterEntity
             { Id = 1, PenaltyCode = "PEN001", PenaltyName = "Late", CalculationType = "Percentage",
               PenaltyValue = 10.5m, GracePeriodDays = 5, IsActive = true, CreatedDate = d, UpdatedDate = d };

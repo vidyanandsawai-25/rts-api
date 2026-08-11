@@ -88,7 +88,7 @@ public class PropertyAssessmentStatusEntityTests
     public void PropertyAssessmentStatusEntity_HasCreatedDateProperty()
     {
         // Arrange
-        var date = DateTime.UtcNow;
+        var date = DateTime.Now;
         var entity = new PropertyAssessmentStatusEntity();
 
         // Act
@@ -112,7 +112,7 @@ public class PropertyAssessmentStatusEntityTests
     public void PropertyAssessmentStatusEntity_HasUpdatedDateProperty()
     {
         // Arrange
-        var date = DateTime.UtcNow;
+        var date = DateTime.Now;
         var entity = new PropertyAssessmentStatusEntity();
 
         // Act
@@ -236,9 +236,9 @@ public class PropertyAssessmentStatusEntityTests
             StatusName = "Approved",
             IsActive = true,
             CreatedBy = 100,
-            CreatedDate = DateTime.UtcNow,
+            CreatedDate = DateTime.Now,
             UpdatedBy = 200,
-            UpdatedDate = DateTime.UtcNow
+            UpdatedDate = DateTime.Now
         };
 
         // Assert
@@ -289,8 +289,8 @@ public class PropertyAssessmentStatusEntityTests
     public void PropertyAssessmentStatusEntity_AuditFields_CanBeSet()
     {
         // Arrange
-        var createdDate = DateTime.UtcNow.AddDays(-1);
-        var updatedDate = DateTime.UtcNow;
+        var createdDate = DateTime.Now.AddDays(-1);
+        var updatedDate = DateTime.Now;
 
         // Act
         var entity = new PropertyAssessmentStatusEntity
@@ -312,8 +312,8 @@ public class PropertyAssessmentStatusEntityTests
     public void PropertyAssessmentStatusEntity_CreatedDate_CanBeBeforeUpdatedDate()
     {
         // Arrange
-        var createdDate = DateTime.UtcNow.AddDays(-5);
-        var updatedDate = DateTime.UtcNow;
+        var createdDate = DateTime.Now.AddDays(-5);
+        var updatedDate = DateTime.Now;
 
         // Act
         var entity = new PropertyAssessmentStatusEntity

@@ -16,9 +16,9 @@ public class LeaseRentBillTransactionEntityTests
     [Fact]
     public void Properties_RoundTrip()
     {
-        var paymentDate = DateTime.UtcNow;
-        var chequeDate = DateTime.UtcNow.AddDays(-1);
-        var cancelledDate = DateTime.UtcNow.AddDays(1);
+        var paymentDate = DateTime.Now;
+        var chequeDate = DateTime.Now.AddDays(-1);
+        var cancelledDate = DateTime.Now.AddDays(1);
         var entity = new LeaseRentBillTransactionEntity
         {
             Id = 1,

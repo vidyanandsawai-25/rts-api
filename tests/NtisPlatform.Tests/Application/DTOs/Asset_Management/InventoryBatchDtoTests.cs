@@ -27,8 +27,8 @@ public class InventoryBatchDtoTests
     [Fact]
     public void InventoryBatchDto_PropertiesGetAndSetCorrectly()
     {
-        var purchaseDate = DateTime.UtcNow;
-        var invoiceDate = DateTime.UtcNow.AddDays(-3);
+        var purchaseDate = DateTime.Now;
+        var invoiceDate = DateTime.Now.AddDays(-3);
         var dto = new InventoryBatchDto
         {
             Id = 1,
@@ -112,7 +112,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -129,7 +129,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 0,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -149,7 +149,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 0,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -169,7 +169,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 0,
             UnitValue = 10m
         };
@@ -189,7 +189,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 0m
         };
@@ -209,7 +209,7 @@ public class InventoryBatchDtoTests
             InventoryItemCategoryId = 2,
             InventoryItemNameId = 3,
             InventoryItemConditionId = 4,
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m,
             TotalBatchCV = -1m
@@ -280,7 +280,7 @@ public class InventoryBatchDtoTests
             InventoryItemConditionId = 4,
             Quantity = 1,
             UnitValue = 10m,
-            PurchaseDate = DateTime.UtcNow
+            PurchaseDate = DateTime.Now
         };
 
         Assert.Empty(ValidateModel(dto));
@@ -306,7 +306,7 @@ public class InventoryBatchDtoTests
     {
         var dto = new UpdateInventoryBatchDto
         {
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 10m
         };
@@ -336,7 +336,7 @@ public class InventoryBatchDtoTests
     {
         var dto = new UpdateInventoryBatchDto
         {
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 1,
             UnitValue = 0m
         };
@@ -352,7 +352,7 @@ public class InventoryBatchDtoTests
     {
         var dto = new UpdateInventoryBatchDto
         {
-            PurchaseDate = DateTime.UtcNow,
+            PurchaseDate = DateTime.Now,
             Quantity = 0,
             UnitValue = 10m
         };
@@ -375,7 +375,7 @@ public class InventoryBatchDtoTests
     [Fact]
     public void Update_Defaults_OptionalForeignKeysAndSpecificationsAreNull()
     {
-        var dto = new UpdateInventoryBatchDto { PurchaseDate = DateTime.UtcNow, Quantity = 1, UnitValue = 10m };
+        var dto = new UpdateInventoryBatchDto { PurchaseDate = DateTime.Now, Quantity = 1, UnitValue = 10m };
 
         Assert.Null(dto.InventoryItemCategoryId);
         Assert.Null(dto.InventoryItemNameId);
