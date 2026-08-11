@@ -10,7 +10,6 @@ public class RTSCitizenSessionEntity : BaseEntity
     /// Unique Property Identification Code. Renamed from UPIC to Upic (camelCase convention).
     /// </summary>
     public string? Upic { get; set; }
-
     public string? PropertyNo { get; set; }
     public int? OwnerId { get; set; }
     public DateTime LoginTime { get; set; }

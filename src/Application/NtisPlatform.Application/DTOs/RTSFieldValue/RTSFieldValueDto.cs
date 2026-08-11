@@ -27,10 +27,7 @@ public class CreateRTSFieldValueDto : CreateBaseDtos
 
 public class UpdateRTSFieldValueDto : UpdateBaseDtos
 {
-    [Required(ErrorMessage = "RTSFieldValue_ApplicationId_Required")]
-    [Range(1, int.MaxValue, ErrorMessage = "RTSFieldValue_ApplicationId_InvalidRange")]
-    public int ApplicationId { get; set; }
-
+   
     [Required(ErrorMessage = "RTSFieldValue_FieldDefinitionId_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "RTSFieldValue_FieldDefinitionId_InvalidRange")]
     public int FieldDefinitionId { get; set; }

@@ -1,4 +1,5 @@
 using AutoMapper;
+using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Core.Entities;
 

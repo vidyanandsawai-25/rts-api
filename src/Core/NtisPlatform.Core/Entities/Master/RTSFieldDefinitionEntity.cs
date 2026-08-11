@@ -27,4 +27,5 @@ public class RTSFieldDefinitionEntity : BaseEntity, IHardDeletable
     public int? MaxLength { get; set; }
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
+    public virtual List<RTSFieldValueEntity> FieldValues { get; set; } = new List<RTSFieldValueEntity>();
 }

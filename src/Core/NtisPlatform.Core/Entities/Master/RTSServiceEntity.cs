@@ -17,4 +17,5 @@ public class RTSServiceEntity : BaseEntity
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }
     public bool FeesRequired { get; set; }
+    public virtual List<RTSApprovalFlowMasterEntity> ApprovalFlows { get; set; } = new List<RTSApprovalFlowMasterEntity>();
 }
