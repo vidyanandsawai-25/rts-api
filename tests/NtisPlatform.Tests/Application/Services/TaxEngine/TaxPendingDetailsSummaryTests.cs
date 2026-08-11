@@ -143,7 +143,6 @@ public class TaxPendingDetailsSummaryTests
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
                 NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                MinimumBackdateFinancialYear: 0,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",
                 SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
@@ -153,7 +152,8 @@ public class TaxPendingDetailsSummaryTests
                 ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
                 CertificateTaxScopeMode: "PROPERTY_WISE", AllowFloorWiseCertificateMetadata: false, EnableCcToOcSplit: true,
                 ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY"));
+                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
+                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
         return mock;
     }
 
@@ -175,7 +175,7 @@ public class TaxPendingDetailsSummaryTests
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
-            policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
+            policyCodeLookup, financeYearProvider, guidelineReader.Object, Mock.Of<IHistoricalNetTaxBaselineService>(), unitOfWork,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }

@@ -57,7 +57,6 @@ public sealed class CertificateTaxGuidelineReaderService : ICertificateTaxGuidel
             NoDateRule: RequireString(rows, "NO_DATE_RULE"),
             LookbackYears: RequireInt(rows, "NO_DATE_LOOKBACK_YEARS"),
             DefaultRetrospectiveMultiplier: RequireDecimal(rows, "NO_DATE_RETROSPECTIVE_MULTIPLIER", 1m),
-            MinimumBackdateFinancialYear: RequireInt(rows, "MINIMUM_BACKDATE_FINANCIAL_YEAR"),
             EnableCurrentYearProration: RequireBool(rows, "ENABLE_CURRENT_YEAR_PRORATION"),
             ProrationMethod: RequireString(rows, "PRORATION_METHOD"),
             CurrentYearProrationStartRule: RequireString(rows, "CURRENT_YEAR_PRORATION_START_RULE"),
@@ -80,7 +79,15 @@ public sealed class CertificateTaxGuidelineReaderService : ICertificateTaxGuidel
             ElectricBillCertificateCodes: RequireString(rows, "ELECTRIC_BILL_CERTIFICATE_CODES"),
             RetrospectiveCurrentYearCount: RequireInt(rows, "RETROSPECTIVE_CURRENT_YEAR_COUNT"),
             RetrospectivePendingYearCountMode: RequireString(rows, "RETROSPECTIVE_PENDING_YEAR_COUNT_MODE"),
-            FloorPolicyDisplayRule: RequireString(rows, "FLOOR_POLICY_DISPLAY_RULE"));
+            FloorPolicyDisplayRule: RequireString(rows, "FLOOR_POLICY_DISPLAY_RULE"),
+            // "HISTORICAL_YEAR_WISE" | "CURRENT_YEAR_FOR_ALL" (default) -- defaulting to
+            // CURRENT_YEAR_FOR_ALL preserves today's behavior (one snapshot reused for every year)
+            // for any deployment that hasn't configured this key yet.
+            TaxationRateMode: RequireString(rows, "TAXATION_RATE_MODE", "CURRENT_YEAR_FOR_ALL"),
+            // "HISTORICAL_YEAR_WISE" | "CURRENT_YEAR_FOR_ALL" (default) | "FIXED_FOR_ALL"
+            TaxPercentageMode: RequireString(rows, "TAX_PERCENTAGE_MODE", "CURRENT_YEAR_FOR_ALL"),
+            // Only consulted when TaxPercentageMode is FIXED_FOR_ALL.
+            FixedTaxPercentage: RequireDecimal(rows, "FIXED_TAX_PERCENTAGE", 0m));
     }
 
     private static string RequireString(IReadOnlyDictionary<string, string> rows, string guidelineCode, string defaultValue = "") =>

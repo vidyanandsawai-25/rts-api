@@ -607,6 +607,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IHistoricalNetTaxBaselineService, NtisPlatform.Application.Services.TaxEngine.HistoricalNetTaxBaselineService>();
 
         // Report Services
         // Singleton cache + hosted warmup (same instance used for both DI injection and startup warmup)

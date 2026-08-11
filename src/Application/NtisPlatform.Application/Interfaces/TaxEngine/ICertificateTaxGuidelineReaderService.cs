@@ -33,7 +33,6 @@ public sealed record CertificateTaxGuidelineSettings(
     string NoDateRule,
     int LookbackYears,
     decimal DefaultRetrospectiveMultiplier,
-    int MinimumBackdateFinancialYear,
     bool EnableCurrentYearProration,
     string ProrationMethod,
     string CurrentYearProrationStartRule,
@@ -56,7 +55,10 @@ public sealed record CertificateTaxGuidelineSettings(
     string ElectricBillCertificateCodes,
     int RetrospectiveCurrentYearCount,
     string RetrospectivePendingYearCountMode,
-    string FloorPolicyDisplayRule);
+    string FloorPolicyDisplayRule,
+    string TaxationRateMode,
+    string TaxPercentageMode,
+    decimal FixedTaxPercentage);
 
 public interface ICertificateTaxGuidelineReaderService
 {
