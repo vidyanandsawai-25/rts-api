@@ -42,7 +42,8 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             .Select(g => new
             {
                 TotalApplications = g.Count(),
-                Pending = g.Count(x => x.ApplicationStatus == ApplicationStatus.Submitted),
+                Pending = g.Count(x => x.ApplicationStatus != ApplicationStatus.Approved &&
+                    x.ApplicationStatus != ApplicationStatus.Rejected) ,
                 Approved = g.Count(x => x.ApplicationStatus == ApplicationStatus.Approved),
                 Rejected = g.Count(x => x.ApplicationStatus == ApplicationStatus.Rejected),
                 Reverted = g.Count(x => x.IsReverted),
