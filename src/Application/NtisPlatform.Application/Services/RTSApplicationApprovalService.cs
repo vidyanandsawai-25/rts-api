@@ -212,23 +212,29 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                     FirstName = stage.User.FirstName,
                     LastName= stage.User.LastName,
 
-                    Status = stage.TrackApplicationHistory
-                       .Where(h => h.IsActive)
-                       .OrderByDescending(h => h.Id)
-                       .Select(h => h.Status)
-                       .FirstOrDefault() ?? ApplicationStatus.Pending,
+                Status = stage.TrackApplicationHistory
+                    .Where(h =>
+                        h.IsActive &&
+                        h.ApplicationId == applicationId)
+                    .OrderByDescending(h => h.Id)
+                    .Select(h => h.Status)
+                    .FirstOrDefault() ?? ApplicationStatus.Pending,
 
-                    Remark = stage.TrackApplicationHistory
-                       .Where(h => h.IsActive)
-                       .OrderByDescending(h => h.Id)
-                       .Select(h => h.Remark)
-                       .FirstOrDefault(),
+                 Remark = stage.TrackApplicationHistory
+                    .Where(h =>
+                        h.IsActive &&
+                        h.ApplicationId == applicationId)
+                    .OrderByDescending(h => h.Id)
+                    .Select(h => h.Remark)
+                    .FirstOrDefault(),
 
-                    CreatedDate = stage.TrackApplicationHistory
-                       .Where(h => h.IsActive)
-                       .OrderByDescending(h => h.Id)
-                       .Select(h => h.CreatedDate)
-                       .FirstOrDefault()
+                CreatedDate = stage.TrackApplicationHistory
+                    .Where(h =>
+                        h.IsActive &&
+                        h.ApplicationId == applicationId)
+                    .OrderByDescending(h => h.Id)
+                    .Select(h => h.CreatedDate)
+                    .FirstOrDefault()
                 }).ToList()
           }).SingleOrDefaultAsync(cancellationToken);
 
