@@ -6135,10 +6135,6 @@ public class ApplicationDbContext : DbContext
 
        
 
-
-
-
-=======
         // Fluent mappings for Sign-off Module
         modelBuilder.Entity<SignAuthorityMasterEntity>(entity =>
         {
@@ -6189,8 +6185,6 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.SignAuthorityId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-
->>>>>>> 875d744d53c1fc94927b13bcecbfe1465a9eff47
         modelBuilder.Entity<AssetRoomTypeMasterEntity>(entity =>
         {
             entity.ToTable("AssetRoomTypeMaster", "AMS");
