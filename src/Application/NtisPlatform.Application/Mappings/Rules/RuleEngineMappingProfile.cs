@@ -15,11 +15,19 @@ namespace NtisPlatform.Application.Mappings.Rules
             CreateMap<RuleEngineEntity, RuleEngineDto>()
                 .ForMember(dest => dest.RuleScopeName,
                     opt => opt.MapFrom(src => src.RuleScope != null ? src.RuleScope.RuleScope : null))
+                .ForMember(dest => dest.PropertyRuleEvaluationMasterName,
+                    opt => opt.MapFrom(src => src.PropertyRuleEvaluationMaster != null ? src.PropertyRuleEvaluationMaster.ParameterName : null))
+                .ForMember(dest => dest.ParameterCode,
+                    opt => opt.MapFrom(src => src.PropertyRuleEvaluationMaster != null ? src.PropertyRuleEvaluationMaster.ParameterCode : null))
                 .ForMember(dest => dest.SubRules, opt => opt.Ignore());
 
             CreateMap<RuleEngineEntity, RuleEngineSummaryDto>()
                 .ForMember(dest => dest.RuleScopeName,
                     opt => opt.MapFrom(src => src.RuleScope != null ? src.RuleScope.RuleScope : null))
+                .ForMember(dest => dest.PropertyRuleEvaluationMasterName,
+                    opt => opt.MapFrom(src => src.PropertyRuleEvaluationMaster != null ? src.PropertyRuleEvaluationMaster.ParameterName : null))
+                .ForMember(dest => dest.ParameterCode,
+                    opt => opt.MapFrom(src => src.PropertyRuleEvaluationMaster != null ? src.PropertyRuleEvaluationMaster.ParameterCode : null))
                 .ForMember(dest => dest.SubRules, opt => opt.Ignore());
 
             // Create DTO to Entity mapping
@@ -41,6 +49,7 @@ namespace NtisPlatform.Application.Mappings.Rules
                 .ForMember(dest => dest.IsEnabled, opt => opt.MapFrom(src => src.IsEnabled))
                 .ForMember(dest => dest.StopProcessing, opt => opt.MapFrom(src => src.StopProcessing))
                 .ForMember(dest => dest.RuleScopeId, opt => opt.MapFrom(src => src.RuleScopeId))
+                .ForMember(dest => dest.PropertyRuleEvaluationMasterId, opt => opt.MapFrom(src => src.PropertyRuleEvaluationMasterId))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive));
 
             // Update DTO to Entity mapping
@@ -61,6 +70,7 @@ namespace NtisPlatform.Application.Mappings.Rules
                 .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority))
                 .ForMember(dest => dest.IsEnabled, opt => opt.MapFrom(src => src.IsEnabled))
                 .ForMember(dest => dest.RuleScopeId, opt => opt.MapFrom(src => src.RuleScopeId))
+                .ForMember(dest => dest.PropertyRuleEvaluationMasterId, opt => opt.MapFrom(src => src.PropertyRuleEvaluationMasterId))
                 .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive));
         }
     }

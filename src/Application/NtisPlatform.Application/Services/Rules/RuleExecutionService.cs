@@ -85,9 +85,17 @@ namespace NtisPlatform.Application.Services.Rules
             // All rules are Property-Level rules. Priority on RuleEngineEntity controls
             // which DB row (and its contained RuleJson sub-rules) executes first.
             // RuleScopeId is retained on the entity for future use but is not used here.
-            var ruleEntities = await _ruleRepository.GetQueryable()
+            var ruleQuery = _ruleRepository.GetQueryable()
                 .Include(r => r.RuleScope)
-                .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive)
+                .Include(r => r.PropertyRuleEvaluationMaster)
+                .Where(r => r.RuleCategory == input.Category && r.IsEnabled && r.IsActive);
+
+            if (input.PropertyRuleEvaluationMasterId.HasValue && input.PropertyRuleEvaluationMasterId.Value > 0)
+            {
+                ruleQuery = ruleQuery.Where(r => r.PropertyRuleEvaluationMasterId == input.PropertyRuleEvaluationMasterId.Value || r.PropertyRuleEvaluationMasterId == null);
+            }
+
+            var ruleEntities = await ruleQuery
                 .OrderBy(r => r.Priority)
                 .ThenBy(r => r.Id)
                 .AsNoTracking()
@@ -154,6 +162,8 @@ namespace NtisPlatform.Application.Services.Rules
                             result.StopProcessing = stopOnMatch || ruleStop;
                             result.RuleScopeId = entity.RuleScopeId;
                             result.RuleScopeName = entity.RuleScope != null ? entity.RuleScope.RuleScope : null;
+                            result.PropertyRuleEvaluationMasterId = entity.PropertyRuleEvaluationMasterId;
+                            result.ParameterCode = entity.PropertyRuleEvaluationMaster?.ParameterCode;
                             results.Add(result);
                         }
 

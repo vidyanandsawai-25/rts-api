@@ -5269,12 +5269,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate);
 
+            entity.Property(e => e.RuleScopeId);
+            entity.Property(e => e.PropertyRuleEvaluationMasterId);
+
+            // Foreign key relationship
+            entity.HasOne(e => e.PropertyRuleEvaluationMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyRuleEvaluationMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Unique constraint on RuleCode
             entity.HasIndex(e => e.RuleCode).IsUnique().HasDatabaseName("UQ_RuleEngineMaster_RuleCode");
 
             // Indexes for performance
             entity.HasIndex(e => e.IsEnabled);
             entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.PropertyRuleEvaluationMasterId);
         });
 
         // RuleCategoryMaster configuration

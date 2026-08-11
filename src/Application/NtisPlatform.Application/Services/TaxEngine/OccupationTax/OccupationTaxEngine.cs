@@ -99,7 +99,10 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
         // the current year is prorated exactly like an OC would be. Electricity Bill is excluded:
         // its onset is always normalized to the finance-year start (see ResolveCondition), so it
         // can never land mid-year here -- day-accurate Electric Bill billing is a separate,
-        // undocumented business rule, not implemented here to avoid inventing one.
+        // undocumented business rule, not implemented here to avoid inventing one. A 30-day grace
+        // period is also excluded from proration: a certificate landing within the first month of
+        // the finance year bills the FULL year instead, rather than a near-full prorated amount that
+        // differs from it by only a few rupees.
         if (onsetFinanceYear.StartYear == currentFinanceYear.StartYear &&
             (condition == OccupationCondition.OccupationCertificate || condition == OccupationCondition.CompletionCertificate) &&
             onsetDate > currentFinanceYear.Start &&
@@ -160,13 +163,11 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
     /// (exclusive of the current FY, which is handled separately). This method is only ever
     /// called when a real certificate/electricity-bill date exists (<see cref="Compute"/> rejects
     /// before reaching here when none is present), so the window floor is simply the onset FY --
-    /// tax is owed for every year from the actual certificate date to today, with no arbitrary
-    /// "lookback years" truncation. The only legitimate floor above the onset FY is an explicit,
-    /// deliberately-configured cut-off (<see cref="OccupationTaxOptions.RetroCutoffDate"/>, from
-    /// MINIMUM_BACKDATE_FINANCIAL_YEAR) -- a genuine "don't back-date past year X" business rule,
-    /// not a generic cap. <see cref="OccupationTaxOptions.DefaultRetroLookbackYears"/> is NOT
-    /// consulted here; it exists only for the (currently disabled) no-certificate-date fallback.
-    /// The onset year itself is prorated from the onset date (BR5); all later retro years are full.
+    /// tax is owed for every year from the actual certificate date to today, with no truncation.
+    /// <see cref="OccupationTaxOptions.DefaultRetroLookbackYears"/> is NOT consulted here; it
+    /// exists only for the no-certificate-date fallback (ComputeNoCertificateFallback in the
+    /// Application layer). The onset year itself is prorated from the onset date (BR5); all later
+    /// retro years are full.
     /// </summary>
     private List<OccupationTaxYearResult> BuildRetroYears(
         OccupationTaxOptions options,
@@ -182,15 +183,9 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
             return results;
         }
 
-        // Determine the earliest retro finance year (the window floor). Default: the onset FY
-        // itself -- no lookback truncation, since we have a real certificate date. An explicit
-        // RetroCutoffDate (MINIMUM_BACKDATE_FINANCIAL_YEAR) can still floor it above the onset FY.
+        // The retro window floor is always the onset FY itself -- tax is owed for every year
+        // since the actual certificate date, full stop.
         int floorStartYear = onsetFinanceYear.StartYear;
-        if (options.RetroCutoffDate.HasValue)
-        {
-            var cutoffFy = FinanceYear.ForDate(options.RetroCutoffDate.Value, currentFinanceYear.StartMonth, currentFinanceYear.StartDay);
-            floorStartYear = Math.Max(onsetFinanceYear.StartYear, cutoffFy.StartYear);
-        }
 
         for (var year = floorStartYear; year < currentFinanceYear.StartYear; year++)
         {

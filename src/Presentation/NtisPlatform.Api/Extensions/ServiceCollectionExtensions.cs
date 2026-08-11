@@ -610,6 +610,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
+        services.AddScoped<NtisPlatform.Application.Interfaces.TaxEngine.IHistoricalNetTaxBaselineService, NtisPlatform.Application.Services.TaxEngine.HistoricalNetTaxBaselineService>();
 
         //RTS SERVICES DepenedencyInjection
         services.AddScoped<IRTSDepartmentService, RTSDepartmentService>();  //rts service di

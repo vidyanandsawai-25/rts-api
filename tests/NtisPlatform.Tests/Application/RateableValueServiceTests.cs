@@ -221,7 +221,8 @@ public class RateableValueServiceTests
             actualContextLoader,
             actualRuleApplier,
             TimeProvider.System,
-            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance,
+            new Mock<IRepository<PropertyRuleEvaluationMasterEntity, int>>().Object
         };
 
         var matchingConstructor = typeof(RateableValueService)

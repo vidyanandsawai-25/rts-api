@@ -2109,4 +2109,81 @@ public class RuleExecutionServiceTests
     }
 
     #endregion
+
+    #region PropertyRuleEvaluationMasterId Filtering Tests
+
+    [Fact]
+    public async Task ExecuteAsync_WithPropertyRuleEvaluationMasterId_FiltersRulesCorrectly()
+    {
+        // Arrange: Create rules with specific PropertyRuleEvaluationMasterId values and one legacy rule (null)
+        var rule1 = CreateRuleWithEffect("RULE-RATE-1", "RV", 1, "input.Rate > 0", "Decrease %", 10);
+        rule1.PropertyRuleEvaluationMasterId = 1; // Rate
+
+        var rule2 = CreateRuleWithEffect("RULE-RENT-1", "RV", 2, "input.Rent > 0", "Increase %", 5);
+        rule2.PropertyRuleEvaluationMasterId = 2; // Rent
+
+        var ruleLegacy = CreateRuleWithEffect("RULE-LEGACY", "RV", 3, "input.Rate > 0", "Decrease %", 2);
+        ruleLegacy.PropertyRuleEvaluationMasterId = null; // Legacy / unset
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(
+                new List<RuleEngineEntity> { rule1, rule2, ruleLegacy }));
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            PropertyRuleEvaluationMasterId = 1, // Filtering for Rate (ID = 1)
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000.0 },
+                { "Rent", 5000.0 }
+            }
+        };
+
+        // Act
+        var results = await _service.ExecuteAsync(input);
+
+        // Assert: Should execute rule1 (matching ID=1) and ruleLegacy (null ID), but NOT rule2 (ID=2)
+        Assert.NotNull(results);
+        Assert.Contains(results, r => r.RuleCode == "RULE-RATE-1");
+        Assert.Contains(results, r => r.RuleCode == "RULE-LEGACY");
+        Assert.DoesNotContain(results, r => r.RuleCode == "RULE-RENT-1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithNullPropertyRuleEvaluationMasterId_ExecutesAllCategoryRules()
+    {
+        // Arrange
+        var rule1 = CreateRuleWithEffect("RULE-RATE-1", "RV", 1, "input.Rate > 0", "Decrease %", 10);
+        rule1.PropertyRuleEvaluationMasterId = 1;
+
+        var rule2 = CreateRuleWithEffect("RULE-RENT-1", "RV", 2, "input.Rent > 0", "Increase %", 5);
+        rule2.PropertyRuleEvaluationMasterId = 2;
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(
+                new List<RuleEngineEntity> { rule1, rule2 }));
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            PropertyRuleEvaluationMasterId = null, // No filter (legacy mode)
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000.0 },
+                { "Rent", 5000.0 }
+            }
+        };
+
+        // Act
+        var results = await _service.ExecuteAsync(input);
+
+        // Assert: Should return results for both rules
+        Assert.NotNull(results);
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, r => r.RuleCode == "RULE-RATE-1");
+        Assert.Contains(results, r => r.RuleCode == "RULE-RENT-1");
+    }
+
+    #endregion
 }

@@ -36,21 +36,22 @@ namespace NtisPlatform.Application.Services.Rules
         }
 
         /// <summary>
-        /// Override to include RuleScope navigation property
+        /// Override to include RuleScope and PropertyRuleEvaluationMaster navigation properties
         /// </summary>
         protected override IQueryable<RuleEngineEntity> ApplyIncludes(IQueryable<RuleEngineEntity> query)
         {
-            return query.Include(r => r.RuleScope);
+            return query.Include(r => r.RuleScope).Include(r => r.PropertyRuleEvaluationMaster);
         }
 
         /// <summary>
-        /// Override GetByIdAsync to include RuleScope navigation property and enrich sub-rule metadata.
+        /// Override GetByIdAsync to include RuleScope and PropertyRuleEvaluationMaster navigation properties and enrich sub-rule metadata.
         /// </summary>
         public override async Task<RuleEngineDto?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
         {
-            // ✅ Include RuleScope so RuleScopeName is populated in the DTO
+            // ✅ Include RuleScope and PropertyRuleEvaluationMaster so DTO names are populated
             var entity = await _repository.GetQueryable()
                 .Include(r => r.RuleScope)
+                .Include(r => r.PropertyRuleEvaluationMaster)
                 .FirstOrDefaultAsync(x => x.Id == id && !x.MarkedForDeletion, cancellationToken);
 
             if (entity == null)
@@ -180,6 +181,7 @@ namespace NtisPlatform.Application.Services.Rules
                 entity.IsEnabled,
                 entity.StopProcessing,
                 entity.RuleScopeId,      // ✅ Track RuleScopeId changes
+                entity.PropertyRuleEvaluationMasterId, // ✅ Track PropertyRuleEvaluationMasterId changes
                 entity.RuleCategory
             };
 
@@ -192,9 +194,10 @@ namespace NtisPlatform.Application.Services.Rules
 
                 _mapper.Map(updateDto, entity);
 
-                // ✅ Ensure StopProcessing and RuleScopeId are explicitly set
+                // ✅ Ensure StopProcessing, RuleScopeId, and PropertyRuleEvaluationMasterId are explicitly set
                 entity.StopProcessing = updateDto.StopProcessing;
                 entity.RuleScopeId = updateDto.RuleScopeId;
+                entity.PropertyRuleEvaluationMasterId = updateDto.PropertyRuleEvaluationMasterId;
 
                 // ── Backend re-generates ruleJson whenever rule is updated ──────────────
                 entity.RuleJson = RuleJsonBuilder.Build(
@@ -324,7 +327,8 @@ namespace NtisPlatform.Application.Services.Rules
             var pagedQuery = query
                 .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
                 .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize)
-                .Include(r => r.RuleScope);
+                .Include(r => r.RuleScope)
+                .Include(r => r.PropertyRuleEvaluationMaster);
 
             var entities = await pagedQuery.ToListAsync(cancellationToken);
 

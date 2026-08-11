@@ -47,7 +47,7 @@ public class OccupationTaxEngineTests
     private readonly OccupationTaxEngine _engine =
         new(NullLogger<OccupationTaxEngine>.Instance);
 
-    private static OccupationTaxOptions Options(DateTime? retroCutoff = null) => new()
+    private static OccupationTaxOptions Options() => new()
     {
         AnnualNetTax = AnnualNetTax,
         GeneralTaxPortion = GeneralTaxPortion,
@@ -55,7 +55,6 @@ public class OccupationTaxEngineTests
         CompletionCertificateMultiplier = 1.5m,
         FloorDivisor = 2,
         DefaultRetroLookbackYears = 6,
-        RetroCutoffDate = retroCutoff,
     };
 
     // =========================================================================================
@@ -210,62 +209,44 @@ public class OccupationTaxEngineTests
     }
 
     // =========================================================================================
-    // 6. BR4 - Config-driven cut-off.
-    //    EleBillDt 10-Feb-2015 (normalizes to FY2014 start), RetroCutoffDate ABSENT -> retro spans
-    //    the FULL gap from the onset FY through FY2025 (FY2014..FY2025, 12 years) -- there is no
-    //    "lookback years" truncation once a real certificate/bill date is known; tax applies from
-    //    that date forward, full stop. Total 4,38,300 (incl. FY2016/FY2020/FY2024 leap add-backs).
-    //    With an EXPLICIT RetroCutoffDate = 2016-04-01 (MINIMUM_BACKDATE_FINANCIAL_YEAR) -> retro
-    //    FY2016..FY2025 -- a deliberate configured floor is still honored.
+    // 6. BR4 - Retro spans the full gap from onset, no cutoff concept.
+    //    EleBillDt 10-Feb-2015 (normalizes to FY2014 start) -> retro spans the FULL gap from the
+    //    onset FY through FY2025 (FY2014..FY2025, 12 years) -- there is no "lookback years"
+    //    truncation once a real certificate/bill date is known; tax applies from that date forward,
+    //    full stop, with no configurable floor above the onset year. Total 4,38,300 (incl.
+    //    FY2016/FY2020/FY2024 leap add-backs).
     // =========================================================================================
     [Fact]
-    public void BR4_CutoffDate_ConfigDriven()
+    public void BR4_RetroSpansFullGapFromOnset_NoCutoffConcept()
     {
-        // --- Case A: no configured cut-off -> retro spans all the way back to the bill date. ---
-        var noCutoff = new OccupationTaxInput
+        var input = new OccupationTaxInput
         {
             PropertyId = 106,
             ElectricityBillDate = new DateTime(2015, 2, 10), // 11+ years before "today" (FY2026)
-            Options = Options(retroCutoff: null),
+            Options = Options(),
         };
 
-        var resultA = _engine.Compute(noCutoff, CurrentFy);
+        var result = _engine.Compute(input, CurrentFy);
 
-        resultA.IsValid.Should().BeTrue();
-        resultA.Condition.Should().Be(OccupationCondition.ElectricityBill);
+        result.IsValid.Should().BeTrue();
+        result.Condition.Should().Be(OccupationCondition.ElectricityBill);
 
-        // NO cut-off configured -> retro spans the ENTIRE gap from the onset FY (2014, since the
-        // bill date 10-Feb-2015 normalizes to FY2014's start per Electricity Bill rules) through
-        // FY2025 (12 retro years). "Lookback years" is NOT a truncation cap once a real
-        // certificate/bill date is known -- tax is owed for every year since that date, full stop;
-        // the only legitimate floor above the onset FY is an explicit RetroCutoffDate (Case B).
-        resultA.RetroYears.Select(y => y.FinanceYear)
+        // Retro spans the ENTIRE gap from the onset FY (2014, since the bill date 10-Feb-2015
+        // normalizes to FY2014's start per Electricity Bill rules) through FY2025 (12 retro years).
+        // "Lookback years" is NOT a truncation cap once a real certificate/bill date is known --
+        // tax is owed for every year since that date, full stop.
+        result.RetroYears.Select(y => y.FinanceYear)
             .Should().Equal(2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025);
 
         // FY2016, FY2020, FY2024 are leap finance years (start year divisible by 4) -> +100 each.
-        resultA.RetroYears.Where(y => y.FinanceYear is 2016 or 2020 or 2024)
+        result.RetroYears.Where(y => y.FinanceYear is 2016 or 2020 or 2024)
             .Should().OnlyContain(y => y.LeapAddbackApplied);
-        resultA.RetroYears.Where(y => y.FinanceYear is not (2016 or 2020 or 2024))
+        result.RetroYears.Where(y => y.FinanceYear is not (2016 or 2020 or 2024))
             .Should().OnlyContain(y => !y.LeapAddbackApplied);
 
         // Total across the 12-year retro window = 9 non-leap years @ 36,500 + 3 leap years @
         // 36,600 = 3,28,500 + 1,09,800 = 4,38,300.
-        resultA.RetroRollUp.Should().Be(438_300m);
-
-        // --- Case B: explicit RetroCutoffDate = 2016-04-01 overrides the default cap. ---
-        var withCutoff = new OccupationTaxInput
-        {
-            PropertyId = 106,
-            ElectricityBillDate = new DateTime(2015, 2, 10),
-            Options = Options(retroCutoff: new DateTime(2016, 4, 1)),
-        };
-
-        var resultB = _engine.Compute(withCutoff, CurrentFy);
-
-        resultB.IsValid.Should().BeTrue();
-        // Retro now spans FY2016..FY2025 -- the explicit cut-off floors it above the onset FY2014.
-        resultB.RetroYears.Select(y => y.FinanceYear)
-            .Should().Equal(2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025);
+        result.RetroRollUp.Should().Be(438_300m);
     }
 
     // =========================================================================================
@@ -405,7 +386,6 @@ public class OccupationTaxEngineTests
         NoDateRule: noDateRule,
         LookbackYears: 6,
         DefaultRetrospectiveMultiplier: 1.0m,
-        MinimumBackdateFinancialYear: 0,
         EnableCurrentYearProration: true,
         ProrationMethod: "DAILY",
         CurrentYearProrationStartRule: "EXACT_DATE",
@@ -431,7 +411,10 @@ public class OccupationTaxEngineTests
         ElectricBillCertificateCodes: "ELECTRIC_BILL",
         RetrospectiveCurrentYearCount: 1,
         RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT",
-        FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY");
+        FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
+        TaxationRateMode: "CURRENT_YEAR_FOR_ALL",
+        TaxPercentageMode: "CURRENT_YEAR_FOR_ALL",
+        FixedTaxPercentage: 0m);
 
     private static Mock<ICertificateTaxGuidelineReaderService> GuidelineService(CertificateTaxGuidelineSettings? guideline = null)
     {
@@ -627,6 +610,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -732,6 +716,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -836,6 +821,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -903,6 +889,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1027,6 +1014,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1127,6 +1115,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(ocFirstGuideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1207,6 +1196,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, // mode = NO_TAX (uncovered floor skipped)
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1255,7 +1245,7 @@ public class OccupationTaxEngineTests
         var service = new OccupationTaxApplicationService(
             _engine, repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object,
             mockYearRepo.Object, EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(), PolicyCodeLookup().Object,
-            mockFyProvider.Object, GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, mockUow.Object,
+            mockFyProvider.Object, GuidelineService(DefaultGuideline(noDateRule: "NO_TAX")).Object, Mock.Of<IHistoricalNetTaxBaselineService>(), mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -1293,7 +1283,6 @@ public class OccupationTaxEngineTests
                 ComponentCount = 4,
                 CompletionCertificateMultiplier = 1.5m,
                 DefaultRetroLookbackYears = 6,
-                RetroCutoffDate = null,
             }
         };
 
@@ -1399,6 +1388,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService().Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1480,6 +1470,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -1861,6 +1852,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             mockLogger.Object,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -2015,42 +2007,6 @@ public class OccupationTaxEngineTests
     }
 
     [Fact]
-    public async Task RulesEngine_ThaneElectricBillBefore2016_FloorsAtMinimumBackdateYear()
-    {
-        // Business example: Electric Bill date = 2014 -> minimum start date = 01/04/2016.
-        const int propertyId = 324;
-        var repo = new Mock<IPropertyRepository>();
-        var mockPolicyRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
-        var savedPolicy = new List<PolicyTaxDetailsEntity>();
-        mockPolicyRepo.Setup(r => r.GetQueryable()).Returns(StandardNetTaxDetails(propertyId).BuildMock());
-        mockPolicyRepo.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<PolicyTaxDetailsEntity>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<PolicyTaxDetailsEntity>, CancellationToken>((entities, _) => savedPolicy.AddRange(entities))
-            .Returns(Task.CompletedTask);
-        var mockTransRepo = new Mock<IRepository<TransMastEntity, int>>();
-        mockTransRepo.Setup(r => r.GetQueryable()).Returns(new List<TransMastEntity>().BuildMock());
-        var mockYearRepo = new Mock<IRepository<YearMasterEntity, int>>();
-        mockYearRepo.Setup(r => r.GetQueryable()).Returns(
-            Enumerable.Range(2016, 11).Select(y => new YearMasterEntity { Year = y, Id = y }).ToList().BuildMock());
-        var mockFyProvider = new Mock<IFinanceYearProvider>();
-        mockFyProvider.Setup(p => p.GetCurrentFinanceYear()).Returns(2026);
-        var mockUow = new Mock<IUnitOfWork>();
-
-        // A generous LookbackYears (20) isolates MINIMUM_BACKDATE_FINANCIAL_YEAR as the actual
-        // binding floor here, rather than the lookback-years cap.
-        var certs = new List<PropertyCertificateEntity> { BuildCertificate(propertyId, new DateTime(2014, 6, 1), "Electric Bill") };
-
-        var guideline = DefaultGuideline() with { LookbackYears = 20, MinimumBackdateFinancialYear = 2016 };
-        var service = BuildRulesEngineService(propertyId, certs, guideline, repo, mockPolicyRepo, mockTransRepo, mockYearRepo, mockFyProvider, mockUow);
-
-        // Verify the floor via the computed result directly (RetroYears), not via a persisted
-        // PolicyTaxDetails row -- PolicyTaxDetails no longer stores retro years at all under the
-        // DBA-confirmed schema (no PolicyYear column); retro years live in TaxPendingDetailsRetro.
-        var result = await service.PreviewAsync(propertyId);
-        result.IsValid.Should().BeTrue();
-        result.RetroYears.Select(y => y.FinanceYear).Min().Should().Be(2016); // never goes back before FY2016-17
-    }
-
-    [Fact]
     public async Task RulesEngine_NoDateCase_RetrospectiveDisabled_CleansUpStaleCertificateTaxRows()
     {
         // Thane does not have retrospective enabled (NoDateRule = NO_TAX): no certificate at all
@@ -2195,6 +2151,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -2332,7 +2289,7 @@ public class OccupationTaxEngineTests
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
-            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
+            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, Mock.Of<IHistoricalNetTaxBaselineService>(), mockUow.Object,
             mockLogger.Object,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -2407,9 +2364,8 @@ public class OccupationTaxEngineTests
     public async Task RulesEngine_ElectricBillBeforeMinimumFinancialYear_FloorsAtConfiguredYear()
     {
         // Business example: Electric Bill date = 2014, ELECTRIC_BILL_MINIMUM_FINANCIAL_YEAR = 2016
-        // -> effective start date = 01/04/2016. Isolated from MINIMUM_BACKDATE_FINANCIAL_YEAR (left
-        // at 0/disabled) and a generous LookbackYears, so the Electric-Bill-only floor is the only
-        // thing that can be binding here.
+        // -> effective start date = 01/04/2016. A generous LookbackYears isolates the
+        // Electric-Bill-only floor as the only thing that can be binding here.
         const int propertyId = 344;
         var repo = new Mock<IPropertyRepository>();
         var mockPolicyRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
@@ -2425,7 +2381,7 @@ public class OccupationTaxEngineTests
 
         var certs = new List<PropertyCertificateEntity> { BuildCertificate(propertyId, new DateTime(2014, 6, 1), "Electric Bill") };
 
-        var guideline = DefaultGuideline() with { LookbackYears = 20, MinimumBackdateFinancialYear = 0, ElectricBillMinimumFinancialYear = 2016 };
+        var guideline = DefaultGuideline() with { LookbackYears = 20, ElectricBillMinimumFinancialYear = 2016 };
         var service = BuildRulesEngineService(propertyId, certs, guideline, repo, mockPolicyRepo, mockTransRepo, mockYearRepo, mockFyProvider, mockUow);
 
         var result = await service.PreviewAsync(propertyId);
@@ -2457,7 +2413,7 @@ public class OccupationTaxEngineTests
 
         var certs = new List<PropertyCertificateEntity> { BuildCertificate(propertyId, new DateTime(2010, 6, 1), "Completion Certificate") };
 
-        var guideline = DefaultGuideline() with { LookbackYears = 20, MinimumBackdateFinancialYear = 0, ElectricBillMinimumFinancialYear = 2016 };
+        var guideline = DefaultGuideline() with { LookbackYears = 20, ElectricBillMinimumFinancialYear = 2016 };
         var service = BuildRulesEngineService(propertyId, certs, guideline, repo, mockPolicyRepo, mockTransRepo, mockYearRepo, mockFyProvider, mockUow);
 
         var result = await service.PreviewAsync(propertyId);
@@ -2494,7 +2450,7 @@ public class OccupationTaxEngineTests
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
-            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
+            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, Mock.Of<IHistoricalNetTaxBaselineService>(), mockUow.Object,
             mockLogger.Object,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -2540,7 +2496,7 @@ public class OccupationTaxEngineTests
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
-            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
+            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, Mock.Of<IHistoricalNetTaxBaselineService>(), mockUow.Object,
             mockLogger.Object,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -2608,7 +2564,7 @@ public class OccupationTaxEngineTests
             new OccupationTaxEngine(NullLogger<OccupationTaxEngine>.Instance),
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
-            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, mockUow.Object,
+            PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object, Mock.Of<IHistoricalNetTaxBaselineService>(), mockUow.Object,
             mockLogger.Object,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3278,6 +3234,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -3341,6 +3298,7 @@ public class OccupationTaxEngineTests
             PolicyCodeLookup().Object,
             mockFyProvider.Object,
             GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object,
             NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
@@ -3491,6 +3449,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3536,6 +3495,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3786,6 +3746,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3829,6 +3790,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3871,6 +3833,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3913,6 +3876,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -3990,6 +3954,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4058,6 +4023,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4135,6 +4101,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4213,6 +4180,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4272,6 +4240,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4327,6 +4296,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4377,6 +4347,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4428,6 +4399,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4482,6 +4454,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4530,6 +4503,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4587,6 +4561,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4643,6 +4618,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4716,6 +4692,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4770,6 +4747,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4821,6 +4799,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4903,6 +4882,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
@@ -4959,6 +4939,7 @@ public class OccupationTaxEngineTests
             repo.Object, mockCertRepo.Object, mockPolicyRepo.Object, mockTransRepo.Object, mockYearRepo.Object,
             EmptyTaxPendingRepo(), EmptyTaxPendingRetroRepo(),
             PolicyCodeLookup().Object, mockFyProvider.Object, GuidelineService(guideline).Object,
+            Mock.Of<IHistoricalNetTaxBaselineService>(),
             mockUow.Object, NullLogger<OccupationTaxApplicationService>.Instance,
             NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 

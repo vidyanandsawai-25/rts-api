@@ -11,6 +11,9 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
         /// <summary>Rule category to filter rules (e.g. "ARV", "ALV", "UAV").</summary>
         public string Category { get; set; } = string.Empty;
 
+        /// <summary>Optional PropertyRuleEvaluationMasterId to filter rules by evaluation parameter (e.g. Rate, Rent, Maintenance).</summary>
+        public int? PropertyRuleEvaluationMasterId { get; set; }
+
         /// <summary>
         /// Flat or nested property bag passed as the lambda input.
         /// Example: { "Floor": 65, "TypeOfUseGroup": 1, "Rate": 1000.0 }
