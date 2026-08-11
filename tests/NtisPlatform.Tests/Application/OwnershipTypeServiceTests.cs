@@ -2,6 +2,7 @@ using AutoMapper;
 using Moq;
 using MockQueryable;
 using NtisPlatform.Application.DTOs.Master;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -17,6 +18,7 @@ public class OwnershipTypeServiceTests
     private readonly Mock<IRepository<OwnershipTypeEntity, int>> _mockRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
+    private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly OwnershipTypeService _service;
 
     public OwnershipTypeServiceTests()
@@ -24,6 +26,7 @@ public class OwnershipTypeServiceTests
         _mockRepository = new Mock<IRepository<OwnershipTypeEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
+        _mockReferenceValidator = new Mock<IReferenceValidationService>();
 
         _mockUnitOfWork
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -37,7 +40,16 @@ public class OwnershipTypeServiceTests
             .Setup(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _service = new OwnershipTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<OwnershipTypeEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
+
+        // Default: no existing rows, so the duplicate-name check in ValidateForCreateAsync /
+        // ValidateForDeactivationAsync passes for every test that doesn't care about it.
+        // Tests that DO care override this with their own GetQueryable() setup.
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<OwnershipTypeEntity>().BuildMock());
+
+        _service = new OwnershipTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
     }
 
     #region Constructor Tests
@@ -46,7 +58,7 @@ public class OwnershipTypeServiceTests
     public void Constructor_WithValidParameters_CreatesInstance()
     {
         // Arrange & Act
-        var service = new OwnershipTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        var service = new OwnershipTypeService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object, _mockReferenceValidator.Object);
 
         // Assert
         Assert.NotNull(service);
@@ -210,7 +222,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -252,7 +265,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -299,7 +313,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -342,7 +357,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -384,7 +400,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -422,7 +439,8 @@ public class OwnershipTypeServiceTests
         var service = new OwnershipTypeService(
             _mockRepository.Object,
             _mockUnitOfWork.Object,
-            mapper);
+            mapper,
+            _mockReferenceValidator.Object);
 
         var queryParams = new OwnershipTypeQueryParameters
         {
@@ -674,6 +692,60 @@ public class OwnershipTypeServiceTests
         Assert.NotNull(result);
         Assert.Equal("State/Central Government", result.OwnershipTypeName);
         Assert.Equal("Assets owned by State & Central Government", result.Description);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DuplicateOwnershipTypeName_ThrowsValidationException()
+    {
+        // Arrange
+        var existing = new List<OwnershipTypeEntity>
+        {
+            new() { Id = 1, OwnershipTypeName = "Government", MarkedForDeletion = false }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMock());
+
+        var createDto = new CreateOwnershipTypeDto { OwnershipTypeName = "Government" };
+
+        _mockMapper
+            .Setup(m => m.Map<OwnershipTypeEntity>(It.IsAny<CreateOwnershipTypeDto>()))
+            .Returns(new OwnershipTypeEntity { OwnershipTypeName = "Government" });
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+        Assert.Contains("OwnershipType_OwnershipTypeName_Duplicate", ex.Errors.Values);
+        _mockRepository.Verify(r => r.AddAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DuplicateExcludedByMarkedForDeletion_Succeeds()
+    {
+        // Arrange
+        var existing = new List<OwnershipTypeEntity>
+        {
+            new() { Id = 1, OwnershipTypeName = "Government", MarkedForDeletion = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMock());
+
+        var createDto = new CreateOwnershipTypeDto { OwnershipTypeName = "Government" };
+
+        _mockMapper
+            .Setup(m => m.Map<OwnershipTypeEntity>(It.IsAny<CreateOwnershipTypeDto>()))
+            .Returns(new OwnershipTypeEntity { OwnershipTypeName = "Government" });
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OwnershipTypeEntity e, CancellationToken _) => { e.Id = 2; return e; });
+
+        _mockMapper
+            .Setup(m => m.Map<OwnershipTypeDto>(It.IsAny<OwnershipTypeEntity>()))
+            .Returns(new OwnershipTypeDto { Id = 2, OwnershipTypeName = "Government" });
+
+        // Act
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
     }
 
     #endregion
@@ -1022,6 +1094,91 @@ public class OwnershipTypeServiceTests
         Assert.Equal("Second Description", result.Description);
     }
 
+    [Fact]
+    public async Task UpdateAsync_RenameToAnotherRowsName_ThrowsValidationException()
+    {
+        // Arrange
+        var existingEntity = new OwnershipTypeEntity { Id = 1, OwnershipTypeName = "Government", IsActive = true };
+        var other = new OwnershipTypeEntity { Id = 2, OwnershipTypeName = "Private", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<OwnershipTypeEntity> { existingEntity, other }.BuildMock());
+
+        var updateDto = new UpdateOwnershipTypeDto { OwnershipTypeName = "Private", IsActive = true };
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateOwnershipTypeDto>(), It.IsAny<OwnershipTypeEntity>()))
+            .Callback((UpdateOwnershipTypeDto src, OwnershipTypeEntity dest) =>
+            {
+                dest.OwnershipTypeName = src.OwnershipTypeName;
+            });
+
+        // Act & Assert
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+        Assert.Contains("OwnershipType_OwnershipTypeName_Duplicate", ex.Errors.Values);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingReferencedRecord_ThrowsValidationException()
+    {
+        // Arrange
+        var existingEntity = new OwnershipTypeEntity { Id = 1, OwnershipTypeName = "Government", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<OwnershipTypeEntity> { existingEntity }.BuildMock());
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<OwnershipTypeEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Referenced elsewhere"));
+
+        var updateDto = new UpdateOwnershipTypeDto { OwnershipTypeName = "Government", IsActive = false };
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateOwnershipTypeDto>(), It.IsAny<OwnershipTypeEntity>()))
+            .Callback((UpdateOwnershipTypeDto src, OwnershipTypeEntity dest) =>
+            {
+                dest.OwnershipTypeName = src.OwnershipTypeName;
+                dest.IsActive = src.IsActive;
+            });
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeactivatingUnreferencedRecord_CallsReferenceValidation()
+    {
+        // Arrange
+        var existingEntity = new OwnershipTypeEntity { Id = 1, OwnershipTypeName = "Government", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<OwnershipTypeEntity> { existingEntity }.BuildMock());
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        var updateDto = new UpdateOwnershipTypeDto { OwnershipTypeName = "Government", IsActive = false };
+
+        _mockMapper
+            .Setup(m => m.Map(It.IsAny<UpdateOwnershipTypeDto>(), It.IsAny<OwnershipTypeEntity>()))
+            .Callback((UpdateOwnershipTypeDto src, OwnershipTypeEntity dest) =>
+            {
+                dest.OwnershipTypeName = src.OwnershipTypeName;
+                dest.IsActive = src.IsActive;
+            });
+
+        _mockMapper
+            .Setup(m => m.Map<OwnershipTypeDto>(It.IsAny<OwnershipTypeEntity>()))
+            .Returns((OwnershipTypeEntity e) => new OwnershipTypeDto { Id = e.Id, OwnershipTypeName = e.OwnershipTypeName, IsActive = e.IsActive });
+
+        // Act
+        var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(result.IsActive);
+        _mockReferenceValidator.Verify(
+            v => v.ValidateReferencesAsync<OwnershipTypeEntity>(1, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     #endregion
 
     #region DeleteAsync Tests
@@ -1185,6 +1342,39 @@ public class OwnershipTypeServiceTests
         // Assert
         Assert.True(result);
         _mockRepository.Verify(r => r.DeleteAsync(activeEntity, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_CallsReferenceValidation()
+    {
+        // Arrange
+        var entity = new OwnershipTypeEntity { Id = 1, OwnershipTypeName = "Government" };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        // Act
+        await _service.DeleteAsync(1, CancellationToken.None);
+
+        // Assert
+        _mockReferenceValidator.Verify(
+            v => v.ValidateReferencesAsync<OwnershipTypeEntity>(1, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReferencedRecord_ThrowsValidationException()
+    {
+        // Arrange
+        var entity = new OwnershipTypeEntity { Id = 1, OwnershipTypeName = "Government" };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockReferenceValidator
+            .Setup(v => v.ValidateReferencesAsync<OwnershipTypeEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Referenced elsewhere"));
+
+        // Act & Assert
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.DeleteAsync(1, CancellationToken.None));
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<OwnershipTypeEntity>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion

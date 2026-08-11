@@ -39,6 +39,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly IRVPersistenceService _persistenceService;
         private readonly TimeProvider _timeProvider;
         private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
+        private readonly ITaxApplicabilityService _taxApplicabilityService;
 
         public RateableValueService(
             ITaxMasterDataService masterDataService,
@@ -52,7 +53,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRuleApplierService ruleApplierService,
             IRVPersistenceService persistenceService,
             TimeProvider timeProvider,
-            IRVCalculationCleanupService rvCalculationCleanupService)
+            IRVCalculationCleanupService rvCalculationCleanupService,
+            ITaxApplicabilityService taxApplicabilityService)
         {
             _masterDataService = masterDataService;
             _unitOfWork = unitOfWork;
@@ -66,6 +68,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _persistenceService = persistenceService;
             _timeProvider = timeProvider;
             _rvCalculationCleanupService = rvCalculationCleanupService;
+            _taxApplicabilityService = taxApplicabilityService;
         }
 
         public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
@@ -84,7 +87,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var details = propertyContext.Details;
                 var propertyAssessment = propertyContext.PropertyAssessment;
                 var renters = propertyContext.Renters;
-                var occupancies = propertyContext.Occupancies;
+                var certificates = propertyContext.Certificates;
 
                 if (!details.Any())
                 {
@@ -92,8 +95,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     {
                         PropertyId = propertyId,
                         FinanceYear = propertyContext.Parameters.FinanceYear,
-                        TotalRateableValue = 0,
-                        TotalTax = 0
+                        TotalRateableValue = 0
                     };
                 }
 
@@ -119,6 +121,18 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var depreciations = await _masterDataService.GetActiveDepreciationsAsync();
                 var yearRanges = await _masterDataService.GetActiveYearRangesAsync();
                 var activeTaxes = await _masterDataService.GetActiveTaxesAsync();
+                var propertyCategories = await _masterDataService.GetActivePropertyCategoriesAsync() ?? new List<PropertyCategoryEntity>();
+
+                // Taxes explicitly disabled for this property via ApplyTaxesMaster (UI: "which tax should
+                // not apply to this property"). An active, non-deleted entry means the tax is exempted —
+                // its amount must be zeroed out in the calculation result below.
+                var exemptedTaxIdSet = await _taxApplicabilityService.GetExemptedTaxIdsAsync(propertyId);
+
+                // Plot / OpenPlot rule: only Plot-category properties whose selected type of use is
+                // OpenPlot (and non-Plot properties whose type of use is NOT OpenPlot) get taxed.
+                bool isPlotProperty = propertyCategories.Any(c =>
+                    c.Id == property.CategoryId &&
+                    string.Equals(c.PropertyCategoryName, "Plot", StringComparison.OrdinalIgnoreCase));
 
                 _logger.LogInformation(
                     "Master data loaded for PropertyId={PropertyId}: " +
@@ -156,16 +170,23 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var financeYearRange = yearRanges.FirstOrDefault(x =>
                     x.FromYear <= financeYear && x.ToYear >= financeYear && x.IsActive);
 
-                CalculationValidator.CheckCondition(financeYearRange != null,
-                    $"Finance year range not found for FinanceYear={financeYear}. " +
-                    $"Tax calculation cannot proceed for PropertyId={propertyId}.");
+                if (financeYearRange == null)
+                    _logger.LogWarning(
+                        "AssessmentYearRangeMasterRV has no range covering FinanceYear={FinanceYear} for PropertyId={PropertyId}. " +
+                        "Property details will be returned with zero tax instead of failing the request.",
+                        financeYear, propertyId);
 
                 var yearMaster = await _yearMasterRepo.GetQueryable()
-                    .FirstOrDefaultAsync(y => y.Year == financeYear && y.IsActive)
-                    ?? throw new InvalidOperationException(
-                        $"Year {financeYear} not found in YearMaster table");
+                    .FirstOrDefaultAsync(y => y.Year == financeYear && y.IsActive);
 
-                int yearMasterId = yearMaster.Id;
+                if (yearMaster == null)
+                    _logger.LogWarning(
+                        "Year {FinanceYear} not found in YearMaster table for PropertyId={PropertyId}. " +
+                        "TransMast rows cannot be saved without a valid FinanceYearId, but PolicyTaxDetails " +
+                        "and the calculated response will still be produced with zero/no tax as applicable.",
+                        financeYear, propertyId);
+
+                int yearMasterId = yearMaster?.Id ?? 0;
 
                 // 6. Load policy configuration
                 var policyDefaults = new Dictionary<string, string>
@@ -199,6 +220,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 {
                     decimal? ruleAdjustedRate = null;
                     decimal? ruleAdjustedRent = null;
+                    decimal? ruleAdjustedMaintenancePercent = null;
                     var detailAppliedRules = new List<RuleApplicationTraceEntry>();
 
                     var detailTypeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
@@ -211,6 +233,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                     if (detailTypeOfUse != null)
                     {
+
+
                         var masterRate = rates.FirstOrDefault(x =>
                             x.TaxZoneId == property.TaxZoneId &&
                             x.ConstructionTypeId == detail.ConstructionTypeId &&
@@ -219,7 +243,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             x.IsActive);
 
                         decimal masterRatePerUnit = RateableValueCalculator.GetRatePerUnit(masterRate, policyOptions);
-
+                        var clonedContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                         if (masterRate != null && masterRatePerUnit >= 0)
                         {
                             _logger.LogDebug(
@@ -228,7 +252,6 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 detail.Id, masterRatePerUnit, policyOptions.IsSqFeetUnit ? "sqft" : "sqm", detailYearRangeRVId);
 
                             // Execute Rate parameter rules
-                            var clonedContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                             var applierContext = new RuleApplierContext
                             {
                                 PropertyContext = clonedContext,
@@ -272,10 +295,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
                                 if (yearlyRentValue > 0)
                                 {
-                                    var clonedRentContext = propertyContext.CloneForDetail(detail, detailTypeOfUse);
                                     var rentApplierContext = new RuleApplierContext
                                     {
-                                        PropertyContext = clonedRentContext,
+                                        PropertyContext = clonedContext,
                                         InitialValue = (decimal)yearlyRentValue,
                                         Category = "RV",
                                         ValueKey = "Rent"
@@ -292,6 +314,35 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             }
                         }
 
+                        // Execute Maintenance parameter rules on Maintenance Rate Percentage
+                        var maintApplierContext = new RuleApplierContext
+                        {
+                            PropertyContext = clonedContext,
+                            InitialValue = policyOptions.MaintenanceRatePercent,
+                            Category = "RV",
+                            ValueKey = "Maintenance"
+                        };
+
+                        var maintRuleResult = await _ruleApplierService.ApplyRulesAsync(maintApplierContext);
+                        if (maintRuleResult.AppliedRules != null && maintRuleResult.AppliedRules.Any())
+                        {
+                            detailAppliedRules.AddRange(maintRuleResult.AppliedRules);
+                        }
+
+                        if (maintRuleResult.FinalValue != policyOptions.MaintenanceRatePercent)
+                        {
+                            if (maintRuleResult.FinalValue < 0m || maintRuleResult.FinalValue > 100m)
+                            {
+                                _logger.LogWarning(
+                                    "[RuleEngine-RV] Ignoring invalid Maintenance%={MaintenancePercent} for PropertyDetailsId={DetailId}. Expected 0..100.",
+                                    maintRuleResult.FinalValue, detail.Id);
+                            }
+                            else
+                            {
+                                ruleAdjustedMaintenancePercent = maintRuleResult.FinalValue;
+                            }
+                        }
+
                         if (detailAppliedRules.Any())
                         {
                             ruleTracesCache[detail.Id] = detailAppliedRules;
@@ -302,17 +353,19 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     baseResultsCache[detail.Id] = _rateableValueCalculatorService.CalculateBaseValues(
                         detail, financeYear, property.TaxZoneId, property.WardId,
                         typeOfUses, rates, depreciations, yearRanges, renters ?? new List<RenterMastEntity>(),
-                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId, ruleAdjustedRent);
+                        selectedArea, policyOptions, ruleAdjustedRate, detailYearRangeRVId, ruleAdjustedRent,
+                       isPlotProperty, ruleAdjustedMaintenancePercent);
                 }
 
                 _logger.LogInformation(
                     "Base values calculated for PropertyId={PropertyId}: {CachedCount} detail(s). " +
                     "FinanceYear={FinanceYear}, FinanceYearRangeId={FinanceYearRangeId}",
-                    propertyId, baseResultsCache.Count, financeYear, financeYearRange!.Id);
+                    propertyId, baseResultsCache.Count, financeYear, (object?)financeYearRange?.Id ?? "NULL");
 
                 // 9. Build standard tax rows (excluding education and employment)
                 var regularTaxes = activeTaxes
-                    .Where(t => !IsEducationTax(t) && !IsEmploymentTax(t))
+                    .Where(t => !IsEducationTax(t) && !IsEmploymentTax(t) &&
+                                !string.Equals(t.TaxCode, "TaxTotal", StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 var eduTaxCount = activeTaxes.Count(IsEducationTax);
                 var empTaxCount = activeTaxes.Count(IsEmploymentTax);
@@ -342,17 +395,17 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         ? yearRangeId
                         : propertyContext.Parameters.YearRangeRVId;
 
-                    // Validate tax calculation prerequisites (same pattern as RateableValueCalculatorService)
                     if (detailYearRangeRVId == 0)
-                    {
                         _logger.LogWarning(
-                            "YearRangeRVId not found for PropertyDetailsId={PropertyDetailsId}, AssessmentYear={AssessmentYear}. Returning zero taxes.",
+                            "YearRangeRVId not found for PropertyDetailsId={PropertyDetailsId}, AssessmentYear={AssessmentYear}. " +
+                            "baseResult is already a zero CreateZeroResult; persisting zero tax rows for all regular taxes.",
                             detail.Id, detail.AssessmentYear);
-                        // Skip tax rows for this detail - it will show with zero values from CreateZeroResult in base calculation
-                    }
-                    else
+
+                    // Always process tax rows, even when detailYearRangeRVId == 0 (year range not found) —
+                    // baseResult is already CreateZeroResult in that case, so ApplyTax naturally computes
+                    // zero amounts. Skipping here would leave this detail with no persisted rows at all
+                    // instead of zero rows in RVCalculationResults/TaxDetails, TransMast, and PolicyTaxDetails.
                     {
-                        // Only process tax rows if year range ID is valid
                         foreach (var tax in regularTaxes)
                         {
                             // Filter tax percentages by the detail's assessment year range (or property-level fallback)
@@ -361,16 +414,25 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 x.TaxId == tax.Id &&
                                 x.TypeOfUseId == detail.TypeOfUseId);
 
+                            // regularTaxes already excludes Education/Employment/TaxTotal (handled separately
+                            // downstream), so it's safe to always persist a row here even with no configured
+                            // percentage — it just computes to a zero amount — instead of omitting the tax
+                            // entirely from the response.
                             if (taxPct == null)
                             {
                                 _logger.LogWarning(
                                     "TaxPercentage not found for TaxId={TaxId} ({TaxCode}), " +
-                                    "TypeOfUseId={TypeOfUseId}, YearRangeRVId={YearRangeId}. Returning zero tax.",
+                                    "TypeOfUseId={TypeOfUseId}, YearRangeRVId={YearRangeId}. Persisting zero tax.",
                                     tax.Id, tax.TaxCode, detail.TypeOfUseId, detailYearRangeRVId);
-                                continue;  // Skip if no tax percentage found
                             }
 
                             var calculationResult = RateableValueTaxCalculator.ApplyTax(baseResult, tax, taxPct);
+
+                            // Property-level exemption via ApplyTaxesMaster overrides any configured percentage.
+                            if (exemptedTaxIdSet.Contains(tax.Id))
+                            {
+                                calculationResult.TaxDetail.TaxAmount = 0m;
+                            }
 
                             // Create results row ONCE per detail using shared cache
                             if (!detailResultsRowCache.ContainsKey(detail.Id))
@@ -428,9 +490,25 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 var educationTaxMaster = activeTaxes.FirstOrDefault(IsEducationTax);
                 var employmentTaxMaster = activeTaxes.FirstOrDefault(IsEmploymentTax);
 
+                // A TypeOfUse with no TaxPercentageMasterRV rows for any regular tax is not configured
+                // for taxation at all — Education/Employment (which are slab-based, not percentage-based)
+                // must still respect that and be excluded, even if a matching slab exists.
+                bool IsTypeOfUseConfiguredForTax(PropertyDetailsEntity d)
+                {
+                    var yearRangeRVIdForDetail = propertyContext.DetailYearRangeRVIdMap.TryGetValue(d.Id, out var yr)
+                        ? yr
+                        : propertyContext.Parameters.YearRangeRVId;
+
+                    return regularTaxes.Any(t => allTaxPercentages.Any(x =>
+                        x.TaxId == t.Id &&
+                        x.TypeOfUseId == d.TypeOfUseId &&
+                        x.YearRangeRVId == yearRangeRVIdForDetail));
+                }
+
                 foreach (var propType in propertyTypesForTax)
                 {
-                    // Include details that match the property type OR (if type is C, include both C and I)
+                    // Include details that match the property type OR (if type is C, include both C and I),
+                    // and that have at least one configured regular tax rate for their TypeOfUse.
                     var detailsOfType = validDetailsForSpecialTax
                         .Where(d =>
                         {
@@ -447,6 +525,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 return string.Equals(detailType, propType, StringComparison.OrdinalIgnoreCase);
                             }
                         })
+                        .Where(IsTypeOfUseConfiguredForTax)
                         .ToList();
 
                     // Calculate education/employment tax base based on policy: RV or ALV (default)
@@ -475,6 +554,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         {
                             var pct = slab.Rate ?? 0m;
                             var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
+                            if (exemptedTaxIdSet.Contains(educationTaxMaster.Id))
+                                amt = 0m;
                             foreach (var d in detailsOfType)
                             {
                                 var calculationResult = BuildSpecialTaxRow(
@@ -518,6 +599,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                         {
                             var pct = slab.Rate ?? 0m;
                             var amt = Math.Round(taxBase * pct / 100m, 0, MidpointRounding.AwayFromZero);
+                            if (exemptedTaxIdSet.Contains(employmentTaxMaster.Id))
+                                amt = 0m;
                             foreach (var d in detailsOfType)
                             {
                                 var calculationResult = BuildSpecialTaxRow(
@@ -552,7 +635,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
                 }
 
                 // 11. Total RV across all details
-                decimal totalRv = baseResultsCache.Values.Sum(r => r.RateableValue ?? 0m);
+                // Calculate total RV from unique details (first result per detail) to match response mapper
+                // Group by PropertyDetailsId once to avoid O(n²) complexity from repeated Where scans
+                decimal totalRv = newResultsRows
+                    .GroupBy(r => r.PropertyDetailsId)
+                    .Sum(g => g.FirstOrDefault()?.RateableValue ?? 0m);
 
                 _logger.LogInformation(
                     "Row summary for PropertyId={PropertyId}: ResultsRows={Results}, TaxDetailRows={TaxDetails}, TotalRV={TotalRv}",
@@ -612,17 +699,14 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     var response = RateableValueResponseMapper.Map(
                         propertyId, financeYear, details, newResultsRows, newTaxDetailRows, savedPolicyRecords,
                         floors, constructionTypes, typeOfUses, subTypeOfUses, subFloors,
-                        renters ?? new List<RenterMastEntity>(), occupancies, taxMasterCache);
+                        renters ?? new List<RenterMastEntity>(), certificates, taxMasterCache);
 
-                    LogMetric("TaxCalculation.TotalTax", (double)response.TotalTax, new Dictionary<string, string>
-                        { { "PropertyId", propertyId.ToString() } });
                     LogMetric("TaxCalculation.TotalRV", (double)response.TotalRateableValue, new Dictionary<string, string>
                         { { "PropertyId", propertyId.ToString() } });
 
                     _logger.LogInformation(
-                        "RV calculation completed for PropertyId={PropertyId}, TotalTax={TotalTax}, " +
-                        "TotalRV={TotalRV}, Duration={DurationMs}ms",
-                        propertyId, response.TotalTax, response.TotalRateableValue,
+                        "RV calculation completed for PropertyId={PropertyId}, TotalRV={TotalRV}, Duration={DurationMs}ms",
+                        propertyId, response.TotalRateableValue,
                         operationStopwatch.ElapsedMilliseconds);
 
                     return response;

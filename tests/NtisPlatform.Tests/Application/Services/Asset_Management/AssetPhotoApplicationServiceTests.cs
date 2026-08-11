@@ -196,7 +196,7 @@ public class AssetPhotoApplicationServiceTests
         photoService.Setup(s => s.GetLatestByAssetIdIncludingInactiveAsync(10, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<AssetPhotoEntity>());
 
-        photoService.Setup(s => s.CreateAsync(10, 1, It.IsAny<int?>(), It.IsAny<string?>(), 42, It.IsAny<CancellationToken>()))
+        photoService.Setup(s => s.CreateAsync(10, 1, It.IsAny<int?>(), It.IsAny<int?>(), It.IsAny<string?>(), 42, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("DB error"));
 
         var bulkDto = new AssetPhotoBulkSaveDto

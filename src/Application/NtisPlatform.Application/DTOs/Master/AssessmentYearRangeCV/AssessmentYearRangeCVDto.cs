@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs;
 
@@ -21,7 +21,7 @@ namespace NtisPlatform.Application.DTOs;
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (FromYear >= ToYear)
+            if (FromYear > ToYear)
             {
                 yield return new ValidationResult(
                     "FromYear_MustBeLessThanToYear",
@@ -44,7 +44,7 @@ namespace NtisPlatform.Application.DTOs;
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (FromYear >= ToYear)
+            if (FromYear > ToYear)
             {
                 yield return new ValidationResult(
                     "FromYear_MustBeLessThanToYear",

@@ -40,7 +40,7 @@ public class CreateAssetTypeDto : CreateBaseDtos
     public string? TypeNameLocal { get; set; }
 
     [StringLength(500, ErrorMessage = "AssetType_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetType_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "AssetType_Description_Invalid")]
     public string? Description { get; set; }
 
     [StringLength(100, ErrorMessage = "AssetType_Icon_MaxLengthExceeded_100")]
@@ -80,7 +80,7 @@ public class UpdateAssetTypeDto : UpdateBaseDtos
     public string? TypeNameLocal { get; set; }
 
     [StringLength(500, ErrorMessage = "AssetType_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetType_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "AssetType_Description_Invalid")]
     public string? Description { get; set; }
 
     [StringLength(100, ErrorMessage = "AssetType_Icon_MaxLengthExceeded_100")]

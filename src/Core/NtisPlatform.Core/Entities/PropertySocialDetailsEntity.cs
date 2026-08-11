@@ -3,7 +3,7 @@ using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Core.Entities;
 
-public class PropertySocialDetailsEntity : BaseEntity
+public class PropertySocialDetailsEntity : BaseEntity, IHardDeletable
 {
     public int PropertyId { get; set; }
     public int SocialAttributeId { get; set; }
@@ -19,4 +19,8 @@ public class PropertySocialDetailsEntity : BaseEntity
     public virtual PropertyEntity? PropertyMast { get; set; }
     public SocialAttributeEntity? SocialAttribute { get; set; }
     public DocumentBindingEntity? DocumentBinding { get; set; }
+
+    // IHardDeletable implementation
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }

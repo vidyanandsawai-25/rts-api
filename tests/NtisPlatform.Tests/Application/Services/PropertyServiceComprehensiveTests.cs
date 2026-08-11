@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -47,7 +47,15 @@ public class PropertyServiceComprehensiveTests
             _mockMapper.Object,
             _mockPropertyRepository.Object,
             _mockLogger.Object,
-            _mockFeatureFlags.Object, new Mock<IRepository<NtisPlatform.Core.Entities.WardEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyCategoryEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.SocietyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object, new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
+            _mockFeatureFlags.Object, new Mock<IRepository<NtisPlatform.Core.Entities.WardEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyCategoryEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.SocietyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.RoomWiseSubmissionDetailsEntity, int>>().Object, new Mock<IRepository<NtisPlatform.Core.Entities.PropertyAssessmentEntity, int>>().Object, new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>().Object, new Mock<IRepository<PropertyMapMasterEntity, int>>().Object, new Mock<IRepository<PropertyMapDetailEntity, int>>().Object, new Mock<IRepository<WingEntity, int>>().Object, new Mock<IRepository<UserEntity, int>>().Object, new Mock<IRepository<PropertyMastOldEntity, int>>().Object, new Mock<IRepository<PropertyTypeMasterEntity, int>>().Object,
+            new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
+            new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+            new Mock<IRepository<DocumentEntity, int>>().Object,
+            new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+            new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+            new Mock<IRepository<WingEntity, int>>().Object,
+            new Mock<NtisPlatform.Application.Interfaces.Rules.IPropertyRuleApplicationLogService>().Object);
     }
 
 

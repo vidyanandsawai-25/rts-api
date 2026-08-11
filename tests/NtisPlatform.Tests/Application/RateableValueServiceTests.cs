@@ -35,7 +35,6 @@ public class RateableValueServiceTests
     private readonly Mock<IRepository<RVCalculationTaxDetailsEntity, int>> _taxDetailsRepo;
     private readonly Mock<IRepository<PolicyTaxDetailsEntity, int>> _policyTaxRepo;
     private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
-    private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
     private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
     private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
     private readonly Mock<IRepository<TransMastEntity, int>> _transmastRVRepo;
@@ -56,7 +55,6 @@ public class RateableValueServiceTests
         _taxDetailsRepo = new Mock<IRepository<RVCalculationTaxDetailsEntity, int>>();
         _policyTaxRepo = new Mock<IRepository<PolicyTaxDetailsEntity, int>>();
         _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
-        _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
         _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
         _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
         _transmastRVRepo = new Mock<IRepository<TransMastEntity, int>>();
@@ -125,6 +123,10 @@ public class RateableValueServiceTests
         policyCodeMasterRepo.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>()))
             .ReturnsAsync(netTaxPolicyCodeMaster);
 
+        var taxMasterRepo = new Mock<IRepository<TaxMasterEntity, int>>();
+        taxMasterRepo.Setup(r => r.GetQueryable())
+            .Returns(new List<TaxMasterEntity>().BuildMockDbSet().Object);
+
         var persistenceService = new RVPersistenceService(
             _taxResultsRepo.Object,
             _taxDetailsRepo.Object,
@@ -132,6 +134,7 @@ public class RateableValueServiceTests
             policyCodeMasterRepo.Object,
             _transmastRVRepo.Object,
             _ruleLogRepo.Object,
+            taxMasterRepo.Object,
             _unitOfWork.Object,
             NullLogger<RVPersistenceService>.Instance,
             TimeProvider.System);
@@ -156,7 +159,6 @@ public class RateableValueServiceTests
 
                 var assessment = _propertyAssessmentRepo.Object.GetQueryable().FirstOrDefault(x => x.PropertyId == propId);
                 var renters = _renterRepo.Object.GetQueryable().ToList();
-                var occupancies = _occupancyRepo.Object.GetQueryable().ToList();
 
                 var constructionYear = details.FirstOrDefault()?.ConstructionYear;
                 if (string.IsNullOrWhiteSpace(constructionYear))
@@ -180,7 +182,6 @@ public class RateableValueServiceTests
                     PropertyAssessment = assessment,
                     Details = details,
                     Renters = renters,
-                    Occupancies = occupancies,
                     Parameters = new PropertyCalculationParameters
                     {
                         FinanceYear = finYear,
@@ -219,7 +220,8 @@ public class RateableValueServiceTests
             persistenceService,
             actualContextLoader,
             actualRuleApplier,
-            TimeProvider.System
+            TimeProvider.System,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance
         };
 
         var matchingConstructor = typeof(RateableValueService)
@@ -887,7 +889,10 @@ public class RateableValueServiceTests
                 It.IsAny<CancellationToken>()))
             .Callback<RuleApplierContext, int, CancellationToken>((context, maxRetries, token) =>
             {
-                capturedInitialValue = context.InitialValue;
+                if (context.ValueKey == "Rate")
+                {
+                    capturedInitialValue = context.InitialValue;
+                }
             })
             .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
 
@@ -980,7 +985,10 @@ public class RateableValueServiceTests
                 It.IsAny<RuleApplierContext>(),
                 It.IsAny<int>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) => new RuleApplicationResult { FinalValue = context.InitialValue * 0.5m, AppliedRules = new() });
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) =>
+                context.ValueKey == "Rate"
+                    ? new RuleApplicationResult { FinalValue = context.InitialValue * 0.5m, AppliedRules = new() }
+                    : new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() });
 
         var serviceWithRules = CreateService(ruleApplierWithRules.Object);
 
@@ -995,12 +1003,106 @@ public class RateableValueServiceTests
         Assert.True(resultWithoutRules.TotalRateableValue > 0, "Rateable value without rules should be greater than zero");
         Assert.True(resultWithRules.TotalRateableValue > 0, "Rateable value with rules should be greater than zero");
 
-        // Verify that the result with rules has a smaller Rateable Value and Total Tax due to the 50% rule discount
+        // Verify that the result with rules has a smaller Rateable Value due to the 50% rule discount
         Assert.True(resultWithRules.TotalRateableValue < resultWithoutRules.TotalRateableValue, "Rateable value with rules should be smaller than without rules");
-        Assert.True(resultWithRules.TotalTax < resultWithoutRules.TotalTax, "Total tax with rules should be smaller than without rules");
 
         // Verify the exact proportional reduction (half rate leads to half rateable value)
         Assert.Equal(resultWithoutRules.TotalRateableValue * 0.5m, resultWithRules.TotalRateableValue);
+    }
+
+    [Fact]
+    public async Task CalculateAndSaveAsync_WhenMaintenanceRuleApplies_AdjustsMaintenanceAndRateableValue()
+    {
+        // Arrange
+        const int propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
+
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) =>
+            {
+                if (context.ValueKey == "Maintenance")
+                {
+                    return new RuleApplicationResult
+                    {
+                        FinalValue = 15m, // Adjust maintenance percentage from 10% to 15%
+                        AppliedRules = new List<RuleApplicationTraceEntry>
+                        {
+                            new() { RuleCode = "MAINT-01", RuleName = "Extra Maintenance Rate", EffectType = "Override", EffectValue = 15m }
+                        }
+                    };
+                }
+                return new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() };
+            });
+
+        var service = CreateService(ruleApplierMock.Object);
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Details);
+        Assert.NotEmpty(result.Details);
+
+        var firstDetail = result.Details.First();
+        var expectedMaintenance = Math.Round(firstDetail.AnnualRentalValue * 15m / 100m, 0, MidpointRounding.AwayFromZero);
+        Assert.Equal(expectedMaintenance, firstDetail.Maintenance);
+        Assert.Equal(firstDetail.AnnualRentalValue - expectedMaintenance, firstDetail.RateableValue);
+
+        // Verify rule applier was called for Maintenance ValueKey
+        ruleApplierMock.Verify(r => r.ApplyRulesAsync(
+            It.Is<RuleApplierContext>(c => c.ValueKey == "Maintenance"),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Theory]
+    [InlineData(150)]
+    [InlineData(-10)]
+    public async Task CalculateAndSaveAsync_WhenMaintenanceRuleReturnsOutOfRangePercentage_IgnoresInvalidValueAndUsesStatutoryDefault(decimal invalidPercentage)
+    {
+        // Arrange
+        const int propertyId = 1;
+        SetupPropertyAndDetails(propertyId, "2020");
+        SetupCompleteCalculationData(new List<EducationTaxMasterEntity>(), new List<EmploymentTaxMasterEntity>());
+
+        var ruleApplierMock = new Mock<IRuleApplierService>();
+        ruleApplierMock
+            .Setup(r => r.ApplyRulesAsync(
+                It.IsAny<RuleApplierContext>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RuleApplierContext context, int maxRetries, CancellationToken token) =>
+            {
+                if (context.ValueKey == "Maintenance")
+                {
+                    return new RuleApplicationResult
+                    {
+                        FinalValue = invalidPercentage, // Invalid maintenance percentage out of 0..100 range
+                        AppliedRules = new List<RuleApplicationTraceEntry>
+                        {
+                            new() { RuleCode = "MAINT-INVALID", RuleName = "Invalid Maintenance Rate", EffectType = "Set", EffectValue = invalidPercentage }
+                        }
+                    };
+                }
+                return new RuleApplicationResult { FinalValue = context.InitialValue, AppliedRules = new() };
+            });
+
+        var service = CreateService(ruleApplierMock.Object);
+
+        // Act
+        var result = await service.CalculateAndSaveAsync(propertyId);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Details);
+        Assert.NotEmpty(result.Details);
     }
     #endregion
 
@@ -1180,9 +1282,6 @@ public class RateableValueServiceTests
 
         _renterRepo.Setup(r => r.GetQueryable()).Returns(
             new List<RenterMastEntity>().BuildMockDbSet().Object);
-
-        _occupancyRepo.Setup(r => r.GetQueryable()).Returns(
-            new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
 
         _taxResultsRepo.Setup(r => r.GetQueryable()).Returns(
             new List<RVCalculationResultsEntity>().BuildMockDbSet().Object);

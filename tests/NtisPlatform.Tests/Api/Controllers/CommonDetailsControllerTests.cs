@@ -165,7 +165,7 @@ public class CommonDetailsControllerTests
 
         var request = new FilterPropertiesRequestDto
         {
-            UpdateCode = "PROPERTY_BASIC",
+            UpdateCode = ["PROPERTY_BASIC"],
             WardId = 1,
             PageNumber = 1,
             PageSize = 10
@@ -200,7 +200,7 @@ public class CommonDetailsControllerTests
 
         var request = new FilterPropertiesRequestDto
         {
-            UpdateCode = "PROPERTY_BASIC",
+            UpdateCode = ["PROPERTY_BASIC"],
             WardId = 1,
             PageNumber = 2,
             PageSize = 20
@@ -228,7 +228,7 @@ public class CommonDetailsControllerTests
         var controller = Create(out var service);
         SetupAuthenticatedUser(controller);
 
-        var request = new FilterPropertiesRequestDto { UpdateCode = "INVALID" };
+        var request = new FilterPropertiesRequestDto { UpdateCode = ["INVALID"] };
 
         service.Setup(s => s.FilterPropertiesAsync(request, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ArgumentException("Update type not found"));
@@ -338,32 +338,37 @@ public class CommonDetailsControllerTests
         var controller = Create(out var service);
         SetupAuthenticatedUserWithId(controller, 42);
 
-        var request = new BulkUpdateRequestDto
+        var requests = new List<BulkUpdateRequestDto>
         {
-            UpdateCode = "PROPERTY_BASIC",
-            PropertyIds = new List<long> { 100, 101 },
-            UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            new()
+            {
+                UpdateCode = "PROPERTY_BASIC",
+                PropertyIds = new List<long> { 100, 101 },
+                UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            }
         };
 
         var result = new BulkUpdateResultDto
         {
+            UpdateCode = "PROPERTY_BASIC",
             TotalRequested = 2,
             SuccessCount = 2,
             FailedCount = 0,
             Errors = new List<string>()
         };
 
-        service.Setup(s => s.BulkUpdateAsync(request, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+        service.Setup(s => s.BulkUpdateBatchAsync(requests, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<BulkUpdateResultDto> { result });
 
-        var response = await controller.Update(request, CancellationToken.None);
+        var response = await controller.Update(requests, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(response);
-        var apiResponse = okResult.Value as ApiResponse<BulkUpdateResultDto>;
+        var apiResponse = okResult.Value as ApiResponse<List<BulkUpdateResultDto>>;
         Assert.NotNull(apiResponse);
         Assert.True(apiResponse.Success);
-        Assert.Equal(2, apiResponse.Items?.SuccessCount);
-        Assert.Equal(0, apiResponse.Items?.FailedCount);
+        Assert.Single(apiResponse.Items!);
+        Assert.Equal(2, apiResponse.Items![0].SuccessCount);
+        Assert.Equal(0, apiResponse.Items![0].FailedCount);
     }
 
     [Fact]
@@ -372,33 +377,70 @@ public class CommonDetailsControllerTests
         var controller = Create(out var service);
         SetupAuthenticatedUserWithId(controller, 42);
 
-        var request = new BulkUpdateRequestDto
+        var requests = new List<BulkUpdateRequestDto>
         {
-            UpdateCode = "PROPERTY_BASIC",
-            PropertyIds = new List<long> { 100, 101 },
-            UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            new()
+            {
+                UpdateCode = "PROPERTY_BASIC",
+                PropertyIds = new List<long> { 100, 101 },
+                UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            }
         };
 
         var result = new BulkUpdateResultDto
         {
+            UpdateCode = "PROPERTY_BASIC",
             TotalRequested = 2,
             SuccessCount = 1,
             FailedCount = 1,
             Errors = new List<string> { "Property 101: Validation failed" }
         };
 
-        service.Setup(s => s.BulkUpdateAsync(request, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(result);
+        service.Setup(s => s.BulkUpdateBatchAsync(requests, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<BulkUpdateResultDto> { result });
 
-        var response = await controller.Update(request, CancellationToken.None);
+        var response = await controller.Update(requests, CancellationToken.None);
 
         var okResult = Assert.IsType<OkObjectResult>(response);
-        var apiResponse = okResult.Value as ApiResponse<BulkUpdateResultDto>;
+        var apiResponse = okResult.Value as ApiResponse<List<BulkUpdateResultDto>>;
         Assert.NotNull(apiResponse);
         Assert.False(apiResponse.Success);
-        Assert.Equal(1, apiResponse.Items?.SuccessCount);
-        Assert.Equal(1, apiResponse.Items?.FailedCount);
-        Assert.Single(apiResponse.Items?.Errors!);
+        Assert.Equal(1, apiResponse.Items![0].SuccessCount);
+        Assert.Equal(1, apiResponse.Items![0].FailedCount);
+        Assert.NotNull(apiResponse.Errors);
+        Assert.Single(apiResponse.Errors!);
+    }
+
+    [Fact]
+    public async Task Update_ReturnsOk_WithMixedBatchResults()
+    {
+        var controller = Create(out var service);
+        SetupAuthenticatedUserWithId(controller, 42);
+
+        var requests = new List<BulkUpdateRequestDto>
+        {
+            new() { UpdateCode = "GOOD_CODE", PropertyIds = new List<long> { 1 }, UpdateData = new() { { "OwnerName", "X" } } },
+            new() { UpdateCode = "BAD_CODE", PropertyIds = new List<long> { 2 }, UpdateData = new() { { "OwnerName", "Y" } } },
+        };
+
+        var results = new List<BulkUpdateResultDto>
+        {
+            new() { UpdateCode = "GOOD_CODE", TotalRequested = 1, SuccessCount = 1, FailedCount = 0, Errors = new List<string>() },
+            new() { UpdateCode = "BAD_CODE", TotalRequested = 1, SuccessCount = 0, FailedCount = 1, Errors = new List<string> { "Update type not found" } },
+        };
+
+        service.Setup(s => s.BulkUpdateBatchAsync(requests, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(results);
+
+        var response = await controller.Update(requests, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(response);
+        var apiResponse = okResult.Value as ApiResponse<List<BulkUpdateResultDto>>;
+        Assert.NotNull(apiResponse);
+        Assert.False(apiResponse.Success);
+        Assert.Equal(2, apiResponse.Items!.Count);
+        Assert.NotNull(apiResponse.Errors);
+        Assert.NotEmpty(apiResponse.Errors!);
     }
 
     // Note: Request validation (null, empty UpdateCode, empty PropertyIds, empty UpdateData)
@@ -416,17 +458,20 @@ public class CommonDetailsControllerTests
             HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
         };
 
-        var request = new BulkUpdateRequestDto
+        var requests = new List<BulkUpdateRequestDto>
         {
-            UpdateCode = "PROPERTY_BASIC",
-            PropertyIds = new List<long> { 100 },
-            UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            new()
+            {
+                UpdateCode = "PROPERTY_BASIC",
+                PropertyIds = new List<long> { 100 },
+                UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            }
         };
 
-        var result = await controller.Update(request, CancellationToken.None);
+        var result = await controller.Update(requests, CancellationToken.None);
 
         var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(unauthorized.Value);
+        var response = Assert.IsType<ApiResponse<List<BulkUpdateResultDto>>>(unauthorized.Value);
         Assert.False(response.Success);
     }
 
@@ -436,42 +481,35 @@ public class CommonDetailsControllerTests
         var controller = Create(out _);
         SetupAuthenticatedUserWithId(controller, -1);
 
-        var request = new BulkUpdateRequestDto
+        var requests = new List<BulkUpdateRequestDto>
         {
-            UpdateCode = "PROPERTY_BASIC",
-            PropertyIds = new List<long> { 100 },
-            UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            new()
+            {
+                UpdateCode = "PROPERTY_BASIC",
+                PropertyIds = new List<long> { 100 },
+                UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
+            }
         };
 
-        var result = await controller.Update(request, CancellationToken.None);
+        var result = await controller.Update(requests, CancellationToken.None);
 
         var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(unauthorized.Value);
+        var response = Assert.IsType<ApiResponse<List<BulkUpdateResultDto>>>(unauthorized.Value);
         Assert.False(response.Success);
     }
 
     [Fact]
-    public async Task Update_Returns400_WhenServiceThrowsArgumentException()
+    public async Task Update_Returns400_WhenRequestListIsEmpty()
     {
-        var controller = Create(out var service);
+        var controller = Create(out _);
         SetupAuthenticatedUserWithId(controller, 42);
 
-        var request = new BulkUpdateRequestDto
-        {
-            UpdateCode = "INVALID_CODE",
-            PropertyIds = new List<long> { 100 },
-            UpdateData = new Dictionary<string, object?> { { "PlotArea", 500 } }
-        };
-
-        service.Setup(s => s.BulkUpdateAsync(request, 42, It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new ArgumentException("Update type not found"));
-
-        var result = await controller.Update(request, CancellationToken.None);
+        var result = await controller.Update(new List<BulkUpdateRequestDto>(), CancellationToken.None);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        var response = Assert.IsType<ApiResponse<BulkUpdateResultDto>>(badRequest.Value);
+        var response = Assert.IsType<ApiResponse<List<BulkUpdateResultDto>>>(badRequest.Value);
         Assert.False(response.Success);
-        Assert.Equal("Update type not found", response.Message);
+        Assert.Equal("At least one update item is required.", response.Message);
     }
 
     // ============== ExportExcel Tests ==============
@@ -482,7 +520,7 @@ public class CommonDetailsControllerTests
         var controller = Create(out var service);
         SetupAuthenticatedUser(controller);
 
-        var request = new FilterPropertiesRequestDto { UpdateCode = "UPDATE_ADDRESS", WardId = 1 };
+        var request = new ExportPropertiesRequestDto { UpdateCode = "UPDATE_ADDRESS", WardId = 1 };
         var bytes = new byte[] { 1, 2, 3, 4 };
 
         service.Setup(s => s.ExportPropertiesToExcelAsync(request, It.IsAny<CancellationToken>()))
@@ -503,7 +541,7 @@ public class CommonDetailsControllerTests
         var controller = Create(out var service);
         SetupAuthenticatedUser(controller);
 
-        var request = new FilterPropertiesRequestDto { UpdateCode = "INVALID", WardId = 1 };
+        var request = new ExportPropertiesRequestDto { UpdateCode = "INVALID", WardId = 1 };
 
         service.Setup(s => s.ExportPropertiesToExcelAsync(request, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new ArgumentException("Update type not found"));

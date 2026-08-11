@@ -130,7 +130,7 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
     /// This includes entities that reference PropertyDetailsId.
     /// </summary>
     [Fact]
-    public async Task DeleteProperty_WithPropertyDetailsChildren_CascadesOccupancyAndRenters()
+    public async Task DeleteProperty_WithPropertyDetailsChildren_CascadesRenters()
     {
         // Arrange
         var propertyId = 2;
@@ -151,13 +151,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         };
         _context.PropertyDetails.AddRange(propertyDetails);
 
-        var occupancyDetails = new List<PropertyOccupancyDetailsEntity>
-        {
-            new() { Id = 1, PropertyDetailId = 1, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.UtcNow },
-            new() { Id = 2, PropertyDetailId = 2, IsActive = true, MarkedForDeletion = false, CreatedDate = DateTime.UtcNow }
-        };
-        _context.PropertyOccupancyDetails.AddRange(occupancyDetails);
-
         var renters = new List<RenterMastEntity>
         {
             new() { Id = 1, PropertyDetailsId = 1, IsActive = true, MarkedForDeletion = false },
@@ -173,9 +166,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         // Assert: Verify PropertyDetails and their children are marked
         var deletedPropertyDetails = await _context.PropertyDetails.Where(pd => pd.PropertyId == propertyId).ToListAsync();
         Assert.All(deletedPropertyDetails, pd => Assert.True(pd.MarkedForDeletion));
-
-        var deletedOccupancy = await _context.PropertyOccupancyDetails.Where(o => deletedPropertyDetails.Select(pd => pd.Id).Contains(o.PropertyDetailId)).ToListAsync();
-        Assert.All(deletedOccupancy, o => Assert.True(o.MarkedForDeletion));
 
         var deletedRenters = await _context.RenterMast.Where(r => deletedPropertyDetails.Select(pd => pd.Id).Contains(r.PropertyDetailsId)).ToListAsync();
         Assert.All(deletedRenters, r => Assert.True(r.MarkedForDeletion));
@@ -264,11 +254,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
             .Where(r => r.PropertyId == propertyId && !r.MarkedForDeletion)
             .ToListAsync();
         Assert.Empty(orphanedRoomWise);
-
-        var orphanedOccupancy = await _context.PropertyOccupancyDetails
-            .Where(o => propertyDetailIds.Contains(o.PropertyDetailId) && !o.MarkedForDeletion)
-            .ToListAsync();
-        Assert.Empty(orphanedOccupancy);
 
         var orphanedRenters = await _context.RenterMast
             .Where(r => propertyDetailIds.Contains(r.PropertyDetailsId) && !r.MarkedForDeletion)
@@ -507,20 +492,11 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
                 MarkedForDeletion = false
             });
 
-            // Add 1 occupancy detail per property detail
-            _context.PropertyOccupancyDetails.Add(new PropertyOccupancyDetailsEntity
-            {
-                Id = i,
-                PropertyDetailId = i,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.UtcNow
-            });
         }
 
         await _context.SaveChangesAsync();
 
-        // Total entities: 1 property + 100 property details + 200 RV results + 100 occupancy = 401 entities
+        // Total entities: 1 property + 100 property details + 200 RV results = 301 entities
 
         // Act: Execute cascade deletion and measure time
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -536,9 +512,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
 
         var markedRvResults = await _context.RVCalculationResults.CountAsync(r => r.PropertyId == propertyId && r.MarkedForDeletion);
         Assert.Equal(200, markedRvResults);
-
-        var markedOccupancy = await _context.PropertyOccupancyDetails.CountAsync(o => o.MarkedForDeletion);
-        Assert.Equal(100, markedOccupancy);
     }
 
     #endregion
@@ -592,19 +565,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
                 PropertyDetailsId = pd.Id,
                 IsActive = true,
                 MarkedForDeletion = false
-            });
-        }
-
-        // Add Property Occupancy Details
-        foreach (var pd in propertyDetails)
-        {
-            _context.PropertyOccupancyDetails.Add(new PropertyOccupancyDetailsEntity
-            {
-                Id = pd.Id,
-                PropertyDetailId = pd.Id,
-                IsActive = true,
-                MarkedForDeletion = false,
-                CreatedDate = DateTime.UtcNow
             });
         }
 
@@ -723,9 +683,6 @@ public class PropertyDeletionIntegrationTests : IAsyncLifetime
         // Step 3: Conditionally query PropertyDetailsId-based entities (only if PropertyDetails exist)
         if (propertyDetailIds.Count > 0)
         {
-            var propertyOccupancy = await _repository.GetPropertyOccupancyByPropertyDetailIdsAsync(propertyDetailIds);
-            _repository.MarkEntitiesForDeletion(propertyOccupancy);
-
             var renters = await _repository.GetRentersByPropertyDetailIdsAsync(propertyDetailIds);
             _repository.MarkEntitiesForDeletion(renters);
         }

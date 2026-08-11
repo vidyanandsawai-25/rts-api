@@ -10,7 +10,7 @@ namespace NtisPlatform.Core.Models;
 public static class UnifiedQueryClassifier
 {
     private static readonly Regex MobileRegex = new(@"^\d{10}$", RegexOptions.Compiled);
-    private static readonly Regex UpicRegex = new(@"^[A-Z0-9]{15}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex UpicRegex = new(@"^[A-Z0-9\-\/]{6,20}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex NumericPropRegex = new(@"^\d{4,8}$", RegexOptions.Compiled);
     private static readonly Regex ValuationRangeRegex = new(@"^(RV|CV)\s*(>|<|=|between|more than|less than|exact)\s*(\d+)(?:\s*and\s*(\d+))?$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 

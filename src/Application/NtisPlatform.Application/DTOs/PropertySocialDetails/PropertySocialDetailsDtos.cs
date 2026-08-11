@@ -21,6 +21,9 @@ public class PropertySocialDetailsDto : BaseDtos
     public int? PhotoBindingId { get; set; }
     public Guid? PhotoGuid { get; set; }
     public Guid? DocumentGuid { get; set; }
+
+    public bool MarkedForDeletion { get; set; }
+    public DateTime? MarkedForDeletionDate { get; set; }
 }
 
 public class CreatePropertySocialDetailsDto : CreateBaseDtos
@@ -108,7 +111,7 @@ public class PropertySocialInfoItemDto
     public int? DocumentBindingId { get; set; }
 
     [MaxLength(500, ErrorMessage = "PropertySocialDetails_Remark_MaxLen_500")]
-    [RegularExpression(@"^[a-zA-Z0-9\s\-\(\)&'\.\/,]*$", ErrorMessage = "PropertySocialDetails_Remark_InvalidCharacters")]
+    [RegularExpression(@"^[^<>]*$", ErrorMessage = "PropertySocialDetails_Remark_InvalidCharacters")]
     public string? Remark { get; set; }
 
     public bool IsActive { get; set; } = true;

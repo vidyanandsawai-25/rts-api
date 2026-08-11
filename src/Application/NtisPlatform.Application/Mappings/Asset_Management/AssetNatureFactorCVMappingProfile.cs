@@ -8,7 +8,13 @@ public class AssetNatureFactorCVMappingProfile : Profile
 {
     public AssetNatureFactorCVMappingProfile()
     {
-        CreateMap<AssetNatureFactorCVMasterEntity, AssetNatureFactorCVMasterDto>();
+        // ConstructionTypeDescription has no source member on the entity (a deliberately clean POCO
+        // with only ConstructionTypeId - no navigation property). It's populated via the SQL JOIN in
+        // AssetNatureFactorCVService.GetAllAsync, which builds the DTO directly and never calls
+        // _mapper.Map for that path; Ignore() here only satisfies AutoMapper's config validation for
+        // the GetById/Create/Update codepaths, where it stays empty.
+        CreateMap<AssetNatureFactorCVMasterEntity, AssetNatureFactorCVMasterDto>()
+            .ForMember(d => d.ConstructionTypeDescription, o => o.Ignore());
 
         CreateMap<CreateAssetNatureFactorCVMasterDto, AssetNatureFactorCVMasterEntity>()
             .ForMember(d => d.CreatedDate, o => o.Ignore())

@@ -56,5 +56,18 @@ namespace NtisPlatform.Api.Controllers
         [HttpPut("{id}")]
         public Task<IActionResult> Update(int id, [FromBody] UpdateTaxApplicabilityRequestDto updateDto, CancellationToken ct)
             => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
+
+        /// <summary>
+        /// Gets property details mapped with unique finance years and type of use
+        /// </summary>
+        /// <param name="propertyId">Property ID</param>
+        /// <param name="ct">Cancellation token</param>
+        /// <returns>List of property finance year and type of use details</returns>
+        [HttpGet("{propertyId}")]
+        public async Task<IActionResult> GetPropertyFinanceYearTypeOfUse(int propertyId, CancellationToken ct)
+        {
+            var result = await _service.GetPropertyFinanceYearTypeOfUseAsync(propertyId, ct);
+            return Ok(result);
+        }
     }
 }

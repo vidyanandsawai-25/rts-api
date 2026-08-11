@@ -32,7 +32,7 @@ public class CreateAssetCategoryDto : CreateBaseDtos
     public string CategoryCode { get; set; } = string.Empty;
 
     [StringLength(500, ErrorMessage = "AssetCategory_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetCategory_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "AssetCategory_Description_Invalid")]
     public string? Description { get; set; }
 
     [StringLength(20, ErrorMessage = "AssetCategory_ValuationType_MaxLengthExceeded_20")]
@@ -58,7 +58,7 @@ public class UpdateAssetCategoryDto : UpdateBaseDtos
     public string CategoryCode { get; set; } = string.Empty;
 
     [StringLength(500, ErrorMessage = "AssetCategory_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "AssetCategory_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "AssetCategory_Description_Invalid")]
     public string? Description { get; set; }
 
     [StringLength(20, ErrorMessage = "AssetCategory_ValuationType_MaxLengthExceeded_20")]

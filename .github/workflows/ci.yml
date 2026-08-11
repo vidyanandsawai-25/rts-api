@@ -55,33 +55,74 @@ jobs:
         run: dotnet test NtisPlatform.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory "./coverage/${{ github.run_id }}"
 
       - name: Install ReportGenerator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+        continue-on-error: true
+        run: |
+          # Self-hosted runner: re-pinning the version alone did not fix a prior
+          # FileNotFoundException for ReportGenerator.Core, which means the corruption is in
+          # the cached package/tool files themselves, not just which version is selected.
+          # Wipe every on-disk trace (NuGet package cache + tool shim store) before
+          # reinstalling, so the reinstall is forced to re-extract clean files from scratch.
+          $ErrorActionPreference = 'Continue'
+
+          dotnet tool uninstall --global dotnet-reportgenerator-globaltool 2>$null
+
+          $nugetCache = Join-Path $env:USERPROFILE ".nuget\packages\dotnet-reportgenerator-globaltool"
+          if (Test-Path $nugetCache) { Remove-Item -Recurse -Force $nugetCache -ErrorAction SilentlyContinue }
+
+          $toolStore = Join-Path $env:USERPROFILE ".dotnet\tools\.store\dotnet-reportgenerator-globaltool"
+          if (Test-Path $toolStore) { Remove-Item -Recurse -Force $toolStore -ErrorAction SilentlyContinue }
+
+          dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.11
+          echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Generate Coverage Report
+        continue-on-error: true
         run: |
-          Write-Host "Searching for coverage files under ./coverage/${{ github.run_id }} ..."
-          $coverageFiles = Get-ChildItem -Path "./coverage/${{ github.run_id }}" -Recurse -Filter "coverage.cobertura.xml" |
-            Sort-Object LastWriteTime -Descending
+          # This step is diagnostic/reporting only — it must never fail the job.
+          # Build and test results (the actual correctness gates) already ran and passed
+          # in the prior steps; a broken coverage-report tool on the runner should not
+          # block CI. Any failure here is caught and degrades to a warning + placeholder
+          # summary instead of a hard failure.
+          try {
+            reportgenerator -version
 
-          $coverageFiles | Select-Object FullName, LastWriteTime | Format-Table -AutoSize
+            Write-Host "Searching for coverage files under ./coverage/${{ github.run_id }} ..."
+            $coverageFiles = Get-ChildItem -Path "./coverage/${{ github.run_id }}" -Recurse -Filter "coverage.cobertura.xml" |
+              Sort-Object LastWriteTime -Descending
 
-          if (-not $coverageFiles -or $coverageFiles.Count -eq 0) {
-            throw "No coverage.cobertura.xml found under ./coverage/${{ github.run_id }}. Coverage collection failed."
+            $coverageFiles | Select-Object FullName, LastWriteTime | Format-Table -AutoSize
+
+            if (-not $coverageFiles -or $coverageFiles.Count -eq 0) {
+              throw "No coverage.cobertura.xml found under ./coverage/${{ github.run_id }}. Coverage collection failed."
+            }
+
+            $coverageFile = $coverageFiles[0].FullName
+            Write-Host "Using coverage file: $coverageFile"
+
+            reportgenerator "-reports:$coverageFile" "-targetdir:./coveragereport" "-reporttypes:HtmlInline_AzurePipelines;Cobertura;MarkdownSummaryGithub"
+
+            if (-not (Test-Path ./coveragereport/SummaryGithub.md)) {
+              throw "Coverage summary was not generated (SummaryGithub.md missing)."
+            }
+
+            Copy-Item ./coveragereport/SummaryGithub.md ./code-coverage-results.md -Force
+          } catch {
+            Write-Warning "Coverage report generation failed, continuing without it: $_"
+            "> **Warning:** Coverage report could not be generated this run (tooling issue on the runner). Build and tests passed - see job logs for details." |
+              Out-File -FilePath ./code-coverage-results.md -Encoding utf8
           }
-
-          $coverageFile = $coverageFiles[0].FullName
-          Write-Host "Using coverage file: $coverageFile"
-
-          reportgenerator "-reports:$coverageFile" "-targetdir:./coveragereport" "-reporttypes:MarkdownSummaryGithub;Cobertura"
-
-          Copy-Item ./coveragereport/SummaryGithub.md ./code-coverage-results.md -Force
 
       - name: Add Coverage PR Comment
         uses: marocchino/sticky-pull-request-comment@v2
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         with:
           recreate: true
           path: code-coverage-results.md
 
       - name: Write to Job Summary
-        run: Get-Content code-coverage-results.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+        continue-on-error: true
+        run: |
+          if (Test-Path code-coverage-results.md) {
+            Get-Content code-coverage-results.md | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }

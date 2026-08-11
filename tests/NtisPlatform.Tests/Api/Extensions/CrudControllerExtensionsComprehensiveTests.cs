@@ -846,6 +846,267 @@ public class CrudControllerExtensionsComprehensiveTests
 
     #endregion
 
+    #region ExecuteGetAllPaged Tests
+
+    [Fact]
+    public async Task ExecuteGetAllPaged_ReturnsOkWithPagedResult()
+    {
+        // Arrange
+        var queryParams = new TestQueryParams();
+        var pagedResult = new PagedResult<TestDto>(
+            new List<TestDto> { new TestDto { Id = 1, Name = "Item1" } },
+            1,
+            1,
+            10);
+
+        _mockService.Setup(x => x.GetAllAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        // Act
+        var result = await _controller.ExecuteGetAllPaged(_mockService.Object, queryParams, _mockLogger.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PagedResult<TestDto>>(okResult.Value);
+        Assert.Equal(1, response.TotalCount);
+        Assert.Single(response.Items);
+    }
+
+    [Fact]
+    public async Task ExecuteGetAllPaged_OnFilterValidationException_Returns400()
+    {
+        // Arrange
+        var queryParams = new TestQueryParams();
+        _mockService.Setup(x => x.GetAllAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new FilterValidationException("SortBy", "Field is not sortable"));
+
+        // Act
+        var result = await _controller.ExecuteGetAllPaged(_mockService.Object, queryParams, _mockLogger.Object);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(result);
+        Assert.NotNull(badRequestResult.Value);
+    }
+
+    [Fact]
+    public async Task ExecuteGetAllPaged_OnGenericException_Returns500()
+    {
+        // Arrange
+        var queryParams = new TestQueryParams();
+        _mockService.Setup(x => x.GetAllAsync(queryParams, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.ExecuteGetAllPaged(_mockService.Object, queryParams, _mockLogger.Object);
+
+        // Assert
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusCodeResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(statusCodeResult.Value);
+        Assert.False(response.Success);
+    }
+
+    #endregion
+
+    #region ExecuteGetById Tests
+
+    [Fact]
+    public async Task ExecuteGetById_ReturnsOkWhenFound()
+    {
+        // Arrange
+        var id = 1;
+        var dto = new TestDto { Id = id, Name = "Item1" };
+        _mockService.Setup(x => x.GetByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        // Act
+        var result = await _controller.ExecuteGetById(_mockService.Object, id, _mockLogger.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<TestDto>(okResult.Value);
+        Assert.Equal(id, response.Id);
+    }
+
+    [Fact]
+    public async Task ExecuteGetById_Returns404WhenNull()
+    {
+        // Arrange
+        var id = 999;
+        _mockService.Setup(x => x.GetByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TestDto?)null);
+
+        // Act
+        var result = await _controller.ExecuteGetById(_mockService.Object, id, _mockLogger.Object);
+
+        // Assert
+        Assert.IsType<NotFoundResult>(result);
+    }
+
+    [Fact]
+    public async Task ExecuteGetById_OnGenericException_Returns500()
+    {
+        // Arrange
+        var id = 1;
+        _mockService.Setup(x => x.GetByIdAsync(id, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.ExecuteGetById(_mockService.Object, id, _mockLogger.Object);
+
+        // Assert
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusCodeResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(statusCodeResult.Value);
+        Assert.False(response.Success);
+    }
+
+    #endregion
+
+    #region ExecuteCreate Tests
+
+    [Fact]
+    public async Task ExecuteCreate_ReturnsOkWithApiResponse()
+    {
+        // Arrange
+        var createDto = new TestCreateDto { Name = "NewItem" };
+        var dto = new TestDto { Id = 1, Name = "NewItem" };
+        _mockService.Setup(x => x.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        // Act
+        var result = await _controller.ExecuteCreate(_mockService.Object, createDto, _mockLogger.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<TestDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(dto, response.Items);
+    }
+
+    [Fact]
+    public async Task ExecuteCreate_OnDuplicateMessage_Returns409()
+    {
+        // Arrange
+        var createDto = new TestCreateDto { Name = "NewItem" };
+        _mockService.Setup(x => x.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("duplicate key value violates unique constraint"));
+
+        // Act
+        var result = await _controller.ExecuteCreate(_mockService.Object, createDto, _mockLogger.Object);
+
+        // Assert
+        var conflictResult = Assert.IsType<ConflictObjectResult>(result);
+        var response = Assert.IsType<ApiResponse<TestDto>>(conflictResult.Value);
+        Assert.False(response.Success);
+    }
+
+    [Fact]
+    public async Task ExecuteCreate_OnGenericException_Returns500()
+    {
+        // Arrange
+        var createDto = new TestCreateDto { Name = "NewItem" };
+        _mockService.Setup(x => x.CreateAsync(createDto, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new Exception("Database error"));
+
+        // Act
+        var result = await _controller.ExecuteCreate(_mockService.Object, createDto, _mockLogger.Object);
+
+        // Assert
+        var statusCodeResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(500, statusCodeResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(statusCodeResult.Value);
+        Assert.False(response.Success);
+    }
+
+    #endregion
+
+    #region ExecuteUpdate Tests
+
+    [Fact]
+    public async Task ExecuteUpdate_ReturnsOkTrue_WhenUpdated()
+    {
+        // Arrange
+        var id = 1;
+        var updateDto = new TestUpdateDto { Name = "Updated" };
+        var dto = new TestDto { Id = id, Name = "Updated" };
+        _mockService.Setup(x => x.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dto);
+
+        // Act
+        var result = await _controller.ExecuteUpdate(_mockService.Object, id, updateDto, _mockLogger.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(okResult.Value);
+        Assert.True(response.Success);
+        Assert.Equal(dto, response.Items);
+    }
+
+    [Fact]
+    public async Task ExecuteUpdate_ReturnsOkFalse_WhenNotFound_NOT404()
+    {
+        // Arrange
+        var id = 999;
+        var updateDto = new TestUpdateDto { Name = "Updated" };
+        _mockService.Setup(x => x.UpdateAsync(id, updateDto, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TestDto?)null);
+
+        // Act
+        var result = await _controller.ExecuteUpdate(_mockService.Object, id, updateDto, _mockLogger.Object);
+
+        // Assert - this must be 200 OK with Success = false, NOT a 404
+        Assert.IsNotType<NotFoundResult>(result);
+        Assert.IsNotType<NotFoundObjectResult>(result);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(okResult.Value);
+        Assert.False(response.Success);
+    }
+
+    #endregion
+
+    #region ExecuteDelete Tests
+
+    [Fact]
+    public async Task ExecuteDelete_ReturnsOkTrue_WhenMarkedForDeletion()
+    {
+        // Arrange
+        var id = 1;
+        _mockService.Setup(x => x.DeleteAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.ExecuteDelete(_mockService.Object, id, _mockLogger.Object);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(okResult.Value);
+        Assert.True(response.Success);
+    }
+
+    [Fact]
+    public async Task ExecuteDelete_ReturnsOkFalse_WhenNotFound()
+    {
+        // Arrange
+        var id = 999;
+        _mockService.Setup(x => x.DeleteAsync(id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.ExecuteDelete(_mockService.Object, id, _mockLogger.Object);
+
+        // Assert - still a 200, not a 404
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Equal(200, okResult.StatusCode);
+        var response = Assert.IsType<ApiResponse<TestDto>>(okResult.Value);
+        Assert.False(response.Success);
+    }
+
+    #endregion
+
     #region Test Helper Classes
 
     public class TestEntity { public int Id { get; set; } public string Name { get; set; } = string.Empty; }

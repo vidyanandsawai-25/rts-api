@@ -1,8 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Master.AgeFactorCVMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -11,11 +14,19 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class AgeFactorCVMasterController : ControllerBase
 {
     private readonly IAgeFactorCVMasterService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<AgeFactorCVMasterController> _logger;
 
-    public AgeFactorCVMasterController(IAgeFactorCVMasterService service, ILogger<AgeFactorCVMasterController> logger)
+    public AgeFactorCVMasterController(
+        IAgeFactorCVMasterService service,
+        IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
+        ILogger<AgeFactorCVMasterController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -50,4 +61,17 @@ public class AgeFactorCVMasterController : ControllerBase
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<AgeFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
+
+    /// <summary>
+    /// Permanently deletes multiple records by IDs. This is an irreversible operation.
+    /// </summary>
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<AgeFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

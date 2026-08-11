@@ -17,9 +17,15 @@ public sealed class CertificateTaxGuidelineReaderService : ICertificateTaxGuidel
 
     public async Task<CertificateTaxGuidelineSettings> GetActiveSettingsAsync(CancellationToken cancellationToken = default)
     {
-        var rows = await _repository.GetQueryable()
+        var rawRows = await _repository.GetQueryable()
             .Where(g => g.IsActive)
-            .ToDictionaryAsync(g => g.GuidelineCode, g => g.GuidelineValue, cancellationToken);
+            .Select(g => new { Code = g.GuidelineCode ?? "", Value = g.GuidelineValue ?? "" })
+            .ToListAsync(cancellationToken);
+
+        var rows = rawRows
+            .Where(g => !string.IsNullOrWhiteSpace(g.Code))
+            .GroupBy(g => g.Code)
+            .ToDictionary(g => g.Key, g => g.First().Value);
 
         return new CertificateTaxGuidelineSettings(
             EnableCertificateBasedTax: RequireBool(rows, "ENABLE_CERTIFICATE_BASED_TAX"),
@@ -39,18 +45,18 @@ public sealed class CertificateTaxGuidelineReaderService : ICertificateTaxGuidel
             InvalidCcOcDateOrderAction: RequireString(rows, "INVALID_CC_OC_DATE_ORDER_ACTION"),
             CcOnlyAction: RequireString(rows, "CC_ONLY_ACTION"),
             OcOnlyAction: RequireString(rows, "OC_ONLY_ACTION"),
-            FinancialYearStartMonth: RequireByte(rows, "FINANCIAL_YEAR_START_MONTH"),
-            FinancialYearStartDay: RequireByte(rows, "FINANCIAL_YEAR_START_DAY"),
-            CCPeriodMultiplier: RequireDecimal(rows, "CC_PERIOD_MULTIPLIER"),
-            OCPeriodMultiplier: RequireDecimal(rows, "OC_PERIOD_MULTIPLIER"),
+            FinancialYearStartMonth: RequireByte(rows, "FINANCIAL_YEAR_START_MONTH", 4),
+            FinancialYearStartDay: RequireByte(rows, "FINANCIAL_YEAR_START_DAY", 1),
+            CCPeriodMultiplier: RequireDecimal(rows, "CC_PERIOD_MULTIPLIER", 1m),
+            OCPeriodMultiplier: RequireDecimal(rows, "OC_PERIOD_MULTIPLIER", 1m),
             ElectricBillDateRule: RequireString(rows, "ELECTRIC_BILL_DATE_RULE"),
             ElectricBillAddMonths: RequireInt(rows, "ELECTRIC_BILL_ADD_MONTHS"),
-            ElectricBillMultiplier: RequireDecimal(rows, "ELECTRIC_BILL_MULTIPLIER"),
+            ElectricBillMultiplier: RequireDecimal(rows, "ELECTRIC_BILL_MULTIPLIER", 1m),
             ElectricBillMinimumFinancialYear: RequireInt(rows, "ELECTRIC_BILL_MINIMUM_FINANCIAL_YEAR"),
             EnableRetrospectiveTax: RequireBool(rows, "ENABLE_RETROSPECTIVE_TAX"),
             NoDateRule: RequireString(rows, "NO_DATE_RULE"),
             LookbackYears: RequireInt(rows, "NO_DATE_LOOKBACK_YEARS"),
-            DefaultRetrospectiveMultiplier: RequireDecimal(rows, "NO_DATE_RETROSPECTIVE_MULTIPLIER"),
+            DefaultRetrospectiveMultiplier: RequireDecimal(rows, "NO_DATE_RETROSPECTIVE_MULTIPLIER", 1m),
             MinimumBackdateFinancialYear: RequireInt(rows, "MINIMUM_BACKDATE_FINANCIAL_YEAR"),
             EnableCurrentYearProration: RequireBool(rows, "ENABLE_CURRENT_YEAR_PRORATION"),
             ProrationMethod: RequireString(rows, "PRORATION_METHOD"),
@@ -77,27 +83,18 @@ public sealed class CertificateTaxGuidelineReaderService : ICertificateTaxGuidel
             FloorPolicyDisplayRule: RequireString(rows, "FLOOR_POLICY_DISPLAY_RULE"));
     }
 
-    private static string RequireString(IReadOnlyDictionary<string, string> rows, string guidelineCode) =>
-        rows.TryGetValue(guidelineCode, out var value) ? value : throw Missing(guidelineCode);
+    private static string RequireString(IReadOnlyDictionary<string, string> rows, string guidelineCode, string defaultValue = "") =>
+        rows.TryGetValue(guidelineCode, out var value) && !string.IsNullOrWhiteSpace(value) ? value : defaultValue;
 
-    private static int RequireInt(IReadOnlyDictionary<string, string> rows, string guidelineCode) =>
-        int.Parse(RequireString(rows, guidelineCode), CultureInfo.InvariantCulture);
+    private static int RequireInt(IReadOnlyDictionary<string, string> rows, string guidelineCode, int defaultValue = 0) =>
+        rows.TryGetValue(guidelineCode, out var val) && int.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : defaultValue;
 
-    private static byte RequireByte(IReadOnlyDictionary<string, string> rows, string guidelineCode) =>
-        byte.Parse(RequireString(rows, guidelineCode), CultureInfo.InvariantCulture);
+    private static byte RequireByte(IReadOnlyDictionary<string, string> rows, string guidelineCode, byte defaultValue = 0) =>
+        rows.TryGetValue(guidelineCode, out var val) && byte.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : defaultValue;
 
-    private static decimal RequireDecimal(IReadOnlyDictionary<string, string> rows, string guidelineCode) =>
-        decimal.Parse(RequireString(rows, guidelineCode), CultureInfo.InvariantCulture);
+    private static decimal RequireDecimal(IReadOnlyDictionary<string, string> rows, string guidelineCode, decimal defaultValue = 0m) =>
+        rows.TryGetValue(guidelineCode, out var val) && decimal.TryParse(val, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) ? parsed : defaultValue;
 
-    private static bool RequireBool(IReadOnlyDictionary<string, string> rows, string guidelineCode) =>
-        RequireString(rows, guidelineCode) switch
-        {
-            "1" => true,
-            "0" => false,
-            var other => throw new InvalidOperationException(
-                $"PTIS.CertificateTaxGuideline row '{guidelineCode}' has GuidelineValue '{other}'; expected '0' or '1' for a BIT guideline."),
-        };
-
-    private static InvalidOperationException Missing(string guidelineCode) =>
-        new($"No active PTIS.CertificateTaxGuideline row found for GuidelineCode '{guidelineCode}'. Seed this guideline before applying Occupation Tax.");
+    private static bool RequireBool(IReadOnlyDictionary<string, string> rows, string guidelineCode, bool defaultValue = false) =>
+        rows.TryGetValue(guidelineCode, out var val) && (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase)) ? true : defaultValue;
 }

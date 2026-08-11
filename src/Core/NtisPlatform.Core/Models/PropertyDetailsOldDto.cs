@@ -1,4 +1,5 @@
 namespace NtisPlatform.Core.Models;
+
 using System.ComponentModel.DataAnnotations;
 
 /// <summary>
@@ -102,6 +103,10 @@ public class PropertyDetailsOldDto
 
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
+
+    public string? OldWardNo { get; set; }
+    public string? OldPropertyNo { get; set; }
+    public string? OldPartitionNo { get; set; }
 }
 
 /// <summary>

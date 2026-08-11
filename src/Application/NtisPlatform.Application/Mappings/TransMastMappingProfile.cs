@@ -26,7 +26,8 @@ public class TransMastMappingProfile : Profile
             .ForMember(dest => dest.Tax, opt => opt.Ignore())
             .ForMember(dest => dest.FinanceYear, opt => opt.Ignore())
             .ForMember(dest => dest.CalculationType, opt => opt.MapFrom(src => src.CalculationType))
-            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue));
+            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue))
+            .ForMember(dest => dest.CalculationAnnualValue, opt => opt.Ignore());
 
         // UpdateDto to Entity mapping
         CreateMap<UpdateTransMastDto, TransMastEntity>()
@@ -42,6 +43,7 @@ public class TransMastMappingProfile : Profile
             .ForMember(dest => dest.Tax, opt => opt.Ignore())
             .ForMember(dest => dest.FinanceYear, opt => opt.Ignore())
             .ForMember(dest => dest.CalculationType, opt => opt.MapFrom(src => src.CalculationType))
-            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue));
+            .ForMember(dest => dest.CalculationValue, opt => opt.MapFrom(src => src.CalculationValue))
+            .ForMember(dest => dest.CalculationAnnualValue, opt => opt.Ignore());
     }
 }

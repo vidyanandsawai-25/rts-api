@@ -30,6 +30,12 @@ public class TransMastEntity : BaseEntity, IHardDeletable
 
     public decimal CalculationValue { get; set; }
 
+    /// <summary>
+    /// The sum of Annual Rental Value for this property
+    /// </summary>
+
+    public decimal? CalculationAnnualValue { get; set; }
+
     [NotMapped]
     public string RVorCV
     {

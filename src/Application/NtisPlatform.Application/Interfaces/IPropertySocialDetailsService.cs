@@ -7,4 +7,5 @@ public interface IPropertySocialDetailsService : ICommonCrudService<PropertySoci
 {
     Task<PropertySocialInfoResponseDto> GetPropertySocialInfoAsync(int propertyId, CancellationToken cancellationToken = default);
     Task<List<PropertySocialDetailsDto>> UpsertPropertySocialInfoAsync(UpsertPropertySocialInfoDto dto, CancellationToken cancellationToken = default);
+    Task<bool> DeleteByPropertyAndAttributeAsync(int propertyId, int socialAttributeId, CancellationToken cancellationToken = default);
 }

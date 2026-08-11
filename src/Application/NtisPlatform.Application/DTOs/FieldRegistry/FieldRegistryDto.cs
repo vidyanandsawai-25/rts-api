@@ -46,7 +46,6 @@ public class FieldRegistryQueryParameters : BaseQueryParameters
     public string? UpdateCode { get; set; }
     public string? UpdateName { get; set; }
     public string? ReferenceTableName { get; set; }
-    public string? Category { get; set; }
     public string? FieldName { get; set; }
 }
 
@@ -60,23 +59,11 @@ public class CreateFieldRegistryDto
     [StringLength(200, ErrorMessage = "UpdateName cannot exceed 200 characters")]
     public string UpdateName { get; set; } = string.Empty;
 
-    [StringLength(200, ErrorMessage = "UpdateNameMarathi cannot exceed 200 characters")]
-    public string UpdateNameMarathi { get; set; } = string.Empty;
-
     [Required(ErrorMessage = "ReferenceTableName is required")]
     [StringLength(200, ErrorMessage = "ReferenceTableName cannot exceed 200 characters")]
     public string ReferenceTableName { get; set; } = string.Empty;
 
-    [Range(1, 9999, ErrorMessage = "DisplaySequence must be between 1 and 9999")]
-    public int DisplaySequence { get; set; }
-
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    public string? Description { get; set; }
-
-    [StringLength(100, ErrorMessage = "Category cannot exceed 100 characters")]
-    public string? Category { get; set; }
-
-    public bool IsApprovalRequired { get; set; }
+    public bool? IsApprovalRequired { get; set; }
 
     public bool IsActive { get; set; } = true;
 
@@ -96,9 +83,6 @@ public class FieldRegistryFieldConfigDto
     [Required(ErrorMessage = "DisplayName is required")]
     [StringLength(200, ErrorMessage = "DisplayName cannot exceed 200 characters")]
     public string DisplayName { get; set; } = string.Empty;
-
-    [StringLength(200, ErrorMessage = "DisplayNameMarathi cannot exceed 200 characters")]
-    public string DisplayNameMarathi { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "ControlType is required")]
     [StringLength(50, ErrorMessage = "ControlType cannot exceed 50 characters")]
@@ -123,6 +107,9 @@ public class FieldRegistryFieldConfigDto
 
     [StringLength(500, ErrorMessage = "BindApi cannot exceed 500 characters")]
     public string? BindApi { get; set; }
+
+    [StringLength(500, ErrorMessage = "ApiResponse cannot exceed 500 characters")]
+    public string? ApiResponse { get; set; }
 }
 
 public class FieldRegistryResponseDto
@@ -130,12 +117,8 @@ public class FieldRegistryResponseDto
     public int MasterId { get; set; }
     public string UpdateCode { get; set; } = string.Empty;
     public string UpdateName { get; set; } = string.Empty;
-    public string UpdateNameMarathi { get; set; } = string.Empty;
-    public string ReferenceTableName { get; set; } = string.Empty;
-    public int DisplaySequence { get; set; }
-    public string? Description { get; set; }
-    public string? Category { get; set; }
-    public bool IsApprovalRequired { get; set; }
+    public string? ReferenceTableName { get; set; }
+    public bool? IsApprovalRequired { get; set; }
     public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public int? CreatedBy { get; set; }
@@ -147,18 +130,17 @@ public class FieldRegistryFieldConfigResponseDto
     public int Id { get; set; }
     public int BulkUpdateMasterId { get; set; }
     public string FieldName { get; set; } = string.Empty;
-    public string DisplayName { get; set; } = string.Empty;
-    public string DisplayNameMarathi { get; set; } = string.Empty;
-    public string ControlType { get; set; } = string.Empty;
-    public string DataType { get; set; } = string.Empty;
+    public string? DisplayName { get; set; }
+    public string? ControlType { get; set; }
+    public string? DataType { get; set; }
     public string? Placeholder { get; set; }
     public bool IsRequired { get; set; }
     public int? MaxLength { get; set; }
     public string? ValidationRegex { get; set; }
     public string? DefaultValue { get; set; }
     public int SequenceNo { get; set; }
-    public bool IsReadonly { get; set; }
     public string? BindApi { get; set; }
+    public string? ApiResponse { get; set; }
     public bool IsActive { get; set; }
     public DateTime? CreatedDate { get; set; }
     public int? CreatedBy { get; set; }
@@ -170,23 +152,11 @@ public class UpdateFieldRegistryDto
     [StringLength(200, ErrorMessage = "UpdateName cannot exceed 200 characters")]
     public string UpdateName { get; set; } = string.Empty;
 
-    [StringLength(200, ErrorMessage = "UpdateNameMarathi cannot exceed 200 characters")]
-    public string UpdateNameMarathi { get; set; } = string.Empty;
-
     [Required(ErrorMessage = "ReferenceTableName is required")]
     [StringLength(200, ErrorMessage = "ReferenceTableName cannot exceed 200 characters")]
     public string ReferenceTableName { get; set; } = string.Empty;
 
-    [Range(1, 9999, ErrorMessage = "DisplaySequence must be between 1 and 9999")]
-    public int DisplaySequence { get; set; }
-
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    public string? Description { get; set; }
-
-    [StringLength(100, ErrorMessage = "Category cannot exceed 100 characters")]
-    public string? Category { get; set; }
-
-    public bool IsApprovalRequired { get; set; }
+    public bool? IsApprovalRequired { get; set; }
 
     public bool IsActive { get; set; } = true;
 
@@ -209,9 +179,6 @@ public class UpdateFieldRegistryFieldConfigDto
     [StringLength(200, ErrorMessage = "DisplayName cannot exceed 200 characters")]
     public string DisplayName { get; set; } = string.Empty;
 
-    [StringLength(200, ErrorMessage = "DisplayNameMarathi cannot exceed 200 characters")]
-    public string DisplayNameMarathi { get; set; } = string.Empty;
-
     [Required(ErrorMessage = "ControlType is required")]
     [StringLength(50, ErrorMessage = "ControlType cannot exceed 50 characters")]
     public string ControlType { get; set; } = string.Empty;
@@ -235,4 +202,7 @@ public class UpdateFieldRegistryFieldConfigDto
 
     [StringLength(500, ErrorMessage = "BindApi cannot exceed 500 characters")]
     public string? BindApi { get; set; }
+
+    [StringLength(500, ErrorMessage = "ApiResponse cannot exceed 500 characters")]
+    public string? ApiResponse { get; set; }
 }

@@ -58,8 +58,8 @@ public class AssetAgeFactorCVControllerTests
 
         var expectedData = new List<AssetAgeFactorCVMasterDto>
         {
-            new() { Id = 1, ConstructionTypeId = 1, AgeFrom = 0, AgeTo = 5, Factor = 1.0m, YearRangeCVId = 1, IsActive = true },
-            new() { Id = 2, ConstructionTypeId = 2, AgeFrom = 6, AgeTo = 10, Factor = 0.9m, YearRangeCVId = 1, IsActive = true }
+            new() { Id = 1, ConstructionTypeId = 1, ConstructionTypeDescription = "Type A", AgeFrom = 0, AgeTo = 5, Factor = 1.0m, YearRangeCVId = 1, IsActive = true },
+            new() { Id = 2, ConstructionTypeId = 2, ConstructionTypeDescription = "Type B", AgeFrom = 6, AgeTo = 10, Factor = 0.9m, YearRangeCVId = 1, IsActive = true }
         };
 
         var pagedResult = new PagedResult<AssetAgeFactorCVMasterDto>(expectedData, 2, 1, 10);
@@ -75,6 +75,8 @@ public class AssetAgeFactorCVControllerTests
         var returnedData = Assert.IsType<PagedResult<AssetAgeFactorCVMasterDto>>(okResult.Value);
         Assert.Equal(2, returnedData.TotalCount);
         Assert.Equal(2, returnedData.Items.Count());
+        Assert.Contains(returnedData.Items, x => x.Id == 1 && x.ConstructionTypeDescription == "Type A");
+        Assert.Contains(returnedData.Items, x => x.Id == 2 && x.ConstructionTypeDescription == "Type B");
         _mockService.Verify(s => s.GetAllAsync(queryParams, It.IsAny<CancellationToken>()), Times.Once);
     }
 

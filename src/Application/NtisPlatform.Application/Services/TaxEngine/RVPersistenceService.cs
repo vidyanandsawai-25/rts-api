@@ -16,6 +16,7 @@ namespace NtisPlatform.Application.Services.TaxEngine;
 public sealed class RVPersistenceService : IRVPersistenceService
 {
     private const string NetTaxPolicyCode = "NETTAX";
+    private const string TaxTotalCode = "TaxTotal";
 
     private readonly IRepository<RVCalculationResultsEntity, int> _taxResultsRepo;
     private readonly IRepository<RVCalculationTaxDetailsEntity, int> _taxDetailsRepo;
@@ -23,6 +24,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
     private readonly IRepository<PolicyCodeMasterEntity, int> _policyCodeMasterRepo;
     private readonly IRepository<TransMastEntity, int> _transmastRVRepo;
     private readonly IRepository<PropertyRuleApplicationLogEntity, int> _ruleLogRepo;
+    private readonly IRepository<TaxMasterEntity, int> _taxMasterRepo;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<RVPersistenceService> _logger;
     private readonly TimeProvider _timeProvider;
@@ -34,6 +36,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         IRepository<PolicyCodeMasterEntity, int> policyCodeMasterRepo,
         IRepository<TransMastEntity, int> transmastRVRepo,
         IRepository<PropertyRuleApplicationLogEntity, int> ruleLogRepo,
+        IRepository<TaxMasterEntity, int> taxMasterRepo,
         IUnitOfWork unitOfWork,
         ILogger<RVPersistenceService> logger,
         TimeProvider timeProvider)
@@ -44,6 +47,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
         _policyCodeMasterRepo = policyCodeMasterRepo;
         _transmastRVRepo = transmastRVRepo;
         _ruleLogRepo = ruleLogRepo;
+        _taxMasterRepo = taxMasterRepo;
         _unitOfWork = unitOfWork;
         _logger = logger;
         _timeProvider = timeProvider;
@@ -175,21 +179,29 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 .SetProperty(x => x.MarkedForDeletionDate, now)
                 .SetProperty(x => x.UpdatedDate,           now));
 
-        // Deactivate stale TransMast (RV) rows — bulk SQL UPDATE
-        int oldTransmastCount = await _transmastRVRepo.GetQueryable()
-            .Where(x => x.PropertyId == propertyId &&
-                        x.FinanceYearId == yearMasterId &&
-                        x.CalculationType == "RV" &&
-                        x.IsActive &&
-                        !x.MarkedForDeletion)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(x => x.IsActive,              false)
-                .SetProperty(x => x.MarkedForDeletion,     true)
-                .SetProperty(x => x.MarkedForDeletionDate, now)
-                .SetProperty(x => x.UpdatedDate,           now));
+        // Deactivate stale TransMast (RV) rows — bulk SQL UPDATE. Skip when yearMasterId is 0
+        // (no YearMaster row for this financeYear) since no TransMast row could exist for it anyway.
+        int oldTransmastCount = yearMasterId <= 0
+            ? 0
+            : await _transmastRVRepo.GetQueryable()
+                .Where(x => x.PropertyId == propertyId &&
+                            x.FinanceYearId == yearMasterId &&
+                            x.CalculationType == "RV" &&
+                            x.IsActive &&
+                            !x.MarkedForDeletion)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.IsActive,              false)
+                    .SetProperty(x => x.MarkedForDeletion,     true)
+                    .SetProperty(x => x.MarkedForDeletionDate, now)
+                    .SetProperty(x => x.UpdatedDate,           now));
 
         _logger.LogDebug("Deactivated {PolicyCount} policy and {TransCount} transmast records",
             oldPolicyCount, oldTransmastCount);
+
+        // Calculate total ALV (Annual Rental Value)
+        decimal totalALV = resultsRows
+            .Where(x => x.IsActive && !x.MarkedForDeletion)
+            .Sum(x => Convert.ToDecimal(x.AnnualRentalValue ?? 0d));
 
         // Aggregate by tax
         var taxGroups = taxDetailRows
@@ -236,6 +248,7 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 TaxAmount         = taxAmount,
                 CalculationType   = "RV",
                 CalculationValue  = totalRv,
+                CalculationAnnualValue    = totalALV,
                 IsActive          = true,
                 MarkedForDeletion = false,
                 CreatedDate       = now,
@@ -257,37 +270,35 @@ public sealed class RVPersistenceService : IRVPersistenceService
 
             decimal educationTaxAmount = rEducationTax + cEducationTax;
 
-            if (educationTaxAmount > 0)
+            newPolicyRecords.Add(new PolicyTaxDetailsEntity
             {
-                newPolicyRecords.Add(new PolicyTaxDetailsEntity
-                {
-                    PropertyId           = propertyId,
-                    PolicyCodeId         = netTaxPolicyCodeId,
-                    PolicyCodeMaster     = policyCodeMaster,
-                    CalculationValue     = totalRv,
-                    TaxId                = educationTaxId.Value,
-                    TaxAmount            = educationTaxAmount,
-                    IsActive             = true,
-                    MarkedForDeletion    = false,
-                    MarkedForDeletionDate = null,
-                    CreatedDate          = now,
-                    UpdatedDate          = now
-                });
+                PropertyId           = propertyId,
+                PolicyCodeId         = netTaxPolicyCodeId,
+                PolicyCodeMaster     = policyCodeMaster,
+                CalculationValue     = totalRv,
+                TaxId                = educationTaxId.Value,
+                TaxAmount            = educationTaxAmount,
+                IsActive             = true,
+                MarkedForDeletion    = false,
+                MarkedForDeletionDate = null,
+                CreatedDate          = now,
+                UpdatedDate          = now
+            });
 
-                newTransmastRecords.Add(new TransMastEntity
-                {
-                    PropertyId        = propertyId,
-                    FinanceYearId     = yearMasterId,
-                    TaxId             = educationTaxId.Value,
-                    TaxAmount         = educationTaxAmount,
-                    CalculationType   = "RV",
-                    CalculationValue  = totalRv,
-                    IsActive          = true,
-                    MarkedForDeletion = false,
-                    CreatedDate       = now,
-                    UpdatedDate       = now
-                });
-            }
+            newTransmastRecords.Add(new TransMastEntity
+            {
+                PropertyId        = propertyId,
+                FinanceYearId     = yearMasterId,
+                TaxId             = educationTaxId.Value,
+                TaxAmount         = educationTaxAmount,
+                CalculationType   = "RV",
+                CalculationValue  = totalRv,
+                CalculationAnnualValue    = totalALV,
+                IsActive          = true,
+                MarkedForDeletion = false,
+                CreatedDate       = now,
+                UpdatedDate       = now
+            });
         }
 
         // Handle employment tax: MAX(CEmploymentTax)
@@ -298,7 +309,49 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 .Where(x => x.IsActive && !x.MarkedForDeletion && x.CEmploymentTax.HasValue)
                 .Max(x => x.CEmploymentTax) ?? 0m;
 
-            if (employmentTaxAmount > 0)
+            newPolicyRecords.Add(new PolicyTaxDetailsEntity
+            {
+                PropertyId           = propertyId,
+                PolicyCodeId         = netTaxPolicyCodeId,
+                PolicyCodeMaster     = policyCodeMaster,
+                CalculationValue     = totalRv,
+                TaxId                = employmentTaxId.Value,
+                TaxAmount            = employmentTaxAmount,
+                IsActive             = true,
+                MarkedForDeletion    = false,
+                MarkedForDeletionDate = null,
+                CreatedDate          = now,
+                UpdatedDate          = now
+            });
+
+            newTransmastRecords.Add(new TransMastEntity
+            {
+                PropertyId        = propertyId,
+                FinanceYearId     = yearMasterId,
+                TaxId             = employmentTaxId.Value,
+                TaxAmount         = employmentTaxAmount,
+                CalculationType   = "RV",
+                CalculationValue  = totalRv,
+                CalculationAnnualValue    = totalALV,
+                IsActive          = true,
+                MarkedForDeletion = false,
+                CreatedDate       = now,
+                UpdatedDate       = now
+            });
+        }
+
+        // Save TaxTotal record: sum of all policy records created (excluding special taxes already added separately)
+        var taxTotalId = await _taxMasterRepo.GetQueryable()
+            .Where(x => x.IsActive && x.TaxCode == TaxTotalCode)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync();
+
+        if (taxTotalId > 0)
+        {
+            // Calculate the actual sum of individual tax records saved (excludes education/employment already added separately)
+            decimal actualTotalTaxAmount = newPolicyRecords.Sum(x => x.TaxAmount ?? 0m);
+
+            if (actualTotalTaxAmount > 0)
             {
                 newPolicyRecords.Add(new PolicyTaxDetailsEntity
                 {
@@ -306,8 +359,8 @@ public sealed class RVPersistenceService : IRVPersistenceService
                     PolicyCodeId         = netTaxPolicyCodeId,
                     PolicyCodeMaster     = policyCodeMaster,
                     CalculationValue     = totalRv,
-                    TaxId                = employmentTaxId.Value,
-                    TaxAmount            = employmentTaxAmount,
+                    TaxId                = taxTotalId,
+                    TaxAmount            = actualTotalTaxAmount,
                     IsActive             = true,
                     MarkedForDeletion    = false,
                     MarkedForDeletionDate = null,
@@ -319,27 +372,43 @@ public sealed class RVPersistenceService : IRVPersistenceService
                 {
                     PropertyId        = propertyId,
                     FinanceYearId     = yearMasterId,
-                    TaxId             = employmentTaxId.Value,
-                    TaxAmount         = employmentTaxAmount,
+                    TaxId             = taxTotalId,
+                    TaxAmount         = actualTotalTaxAmount,
                     CalculationType   = "RV",
                     CalculationValue  = totalRv,
+                    CalculationAnnualValue    = totalALV,
                     IsActive          = true,
                     MarkedForDeletion = false,
                     CreatedDate       = now,
                     UpdatedDate       = now
                 });
+
+                _logger.LogDebug("Saved TaxTotal record with amount={TaxAmount} for PropertyId={PropertyId}", actualTotalTaxAmount, propertyId);
             }
         }
 
         if (newPolicyRecords.Any())
             await _policyTaxRepo.AddRangeAsync(newPolicyRecords);
 
-        if (newTransmastRecords.Any())
+        // PolicyTaxDetails has no FinanceYear FK, but TransMast.FinanceYearId does — if YearMaster has
+        // no row for this financeYear, yearMasterId is 0 and inserting would violate the FK constraint.
+        // Skip the TransMast rows in that case rather than failing the whole request; PolicyTaxDetails
+        // (and the API response, computed from resultsRows/taxDetailRows) is unaffected.
+        if (yearMasterId > 0 && newTransmastRecords.Any())
+        {
             await _transmastRVRepo.AddRangeAsync(newTransmastRecords);
+        }
+        else if (newTransmastRecords.Count > 0)
+        {
+            _logger.LogWarning(
+                "Skipped inserting {TransCount} TransMast records for PropertyId={PropertyId}, Year={Year}: " +
+                "no YearMaster row found for FinanceYear (yearMasterId=0).",
+                newTransmastRecords.Count, propertyId, financeYear);
+        }
 
         _logger.LogInformation(
             "Saved {PolicyCount} policy and {TransCount} transmast records for PropertyId={PropertyId}, Year={Year}",
-            newPolicyRecords.Count, newTransmastRecords.Count, propertyId, financeYear);
+            newPolicyRecords.Count, yearMasterId > 0 ? newTransmastRecords.Count : 0, propertyId, financeYear);
 
         return newPolicyRecords;
     }

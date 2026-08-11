@@ -183,11 +183,7 @@ public class FieldRegistryService : IFieldRegistryService
             {
                 UpdateCode = createDto.UpdateCode,
                 UpdateName = createDto.UpdateName,
-                UpdateNameMarathi = createDto.UpdateNameMarathi,
                 ReferenceTableName = createDto.ReferenceTableName,
-                DisplaySequence = createDto.DisplaySequence,
-                Description = createDto.Description,
-                Category = createDto.Category,
                 IsApprovalRequired = createDto.IsApprovalRequired,
                 IsActive = createDto.IsActive,
                 CreatedBy = createDto.CreatedBy,
@@ -207,7 +203,6 @@ public class FieldRegistryService : IFieldRegistryService
                     BulkUpdateMasterId = masterEntity.Id,
                     FieldName = fieldConfig.FieldName,
                     DisplayName = fieldConfig.DisplayName,
-                    DisplayNameMarathi = fieldConfig.DisplayNameMarathi,
                     ControlType = fieldConfig.ControlType,
                     DataType = fieldConfig.DataType,
                     Placeholder = fieldConfig.Placeholder,
@@ -216,8 +211,8 @@ public class FieldRegistryService : IFieldRegistryService
                     ValidationRegex = fieldConfig.ValidationRegex,
                     DefaultValue = fieldConfig.DefaultValue,
                     SequenceNo = sequenceNo++,
-                    IsReadonly = false,
                     BindApi = fieldConfig.BindApi,
+                    ApiResponse = fieldConfig.ApiResponse,
                     IsActive = createDto.IsActive,
                     CreatedBy = createDto.CreatedBy,
                     CreatedDate = DateTime.Now
@@ -267,17 +262,12 @@ public class FieldRegistryService : IFieldRegistryService
                 query = query.Where(m => m.ReferenceTableName == queryParameters.ReferenceTableName);
             }
 
-            if (!string.IsNullOrWhiteSpace(queryParameters.Category))
-            {
-                query = query.Where(m => m.Category == queryParameters.Category);
-            }
-
             if (!string.IsNullOrWhiteSpace(queryParameters.FieldName))
             {
                 query = query.Where(m => m.FieldConfigs != null && m.FieldConfigs.Any(fc => fc.FieldName == queryParameters.FieldName));
             }
 
-            query = query.OrderBy(m => m.DisplaySequence).ThenBy(m => m.Id);
+            query = query.OrderBy(m => m.UpdateName).ThenBy(m => m.Id);
 
             var totalCount = await query.CountAsync(cancellationToken);
 
@@ -380,11 +370,7 @@ public class FieldRegistryService : IFieldRegistryService
             var now = DateTime.Now;
 
             masterEntity.UpdateName = updateDto.UpdateName;
-            masterEntity.UpdateNameMarathi = updateDto.UpdateNameMarathi;
             masterEntity.ReferenceTableName = updateDto.ReferenceTableName;
-            masterEntity.DisplaySequence = updateDto.DisplaySequence;
-            masterEntity.Description = updateDto.Description;
-            masterEntity.Category = updateDto.Category;
             masterEntity.IsApprovalRequired = updateDto.IsApprovalRequired;
             masterEntity.IsActive = updateDto.IsActive;
             masterEntity.UpdatedDate = now;
@@ -413,7 +399,6 @@ public class FieldRegistryService : IFieldRegistryService
                     {
                         existingConfig.FieldName = fieldConfig.FieldName;
                         existingConfig.DisplayName = fieldConfig.DisplayName;
-                        existingConfig.DisplayNameMarathi = fieldConfig.DisplayNameMarathi;
                         existingConfig.ControlType = fieldConfig.ControlType;
                         existingConfig.DataType = fieldConfig.DataType;
                         existingConfig.Placeholder = fieldConfig.Placeholder;
@@ -422,6 +407,7 @@ public class FieldRegistryService : IFieldRegistryService
                         existingConfig.ValidationRegex = fieldConfig.ValidationRegex;
                         existingConfig.DefaultValue = fieldConfig.DefaultValue;
                         existingConfig.BindApi = fieldConfig.BindApi;
+                        existingConfig.ApiResponse = fieldConfig.ApiResponse;
                         existingConfig.IsActive = updateDto.IsActive;
                         existingConfig.SequenceNo = sequenceNo;
                         existingConfig.UpdatedDate = now;
@@ -438,7 +424,6 @@ public class FieldRegistryService : IFieldRegistryService
                         BulkUpdateMasterId = masterEntity.Id,
                         FieldName = fieldConfig.FieldName,
                         DisplayName = fieldConfig.DisplayName,
-                        DisplayNameMarathi = fieldConfig.DisplayNameMarathi,
                         ControlType = fieldConfig.ControlType,
                         DataType = fieldConfig.DataType,
                         Placeholder = fieldConfig.Placeholder,
@@ -447,8 +432,8 @@ public class FieldRegistryService : IFieldRegistryService
                         ValidationRegex = fieldConfig.ValidationRegex,
                         DefaultValue = fieldConfig.DefaultValue,
                         SequenceNo = sequenceNo,
-                        IsReadonly = false,
                         BindApi = fieldConfig.BindApi,
+                        ApiResponse = fieldConfig.ApiResponse,
                         IsActive = updateDto.IsActive,
                         CreatedBy = updateDto.UpdatedBy,
                         CreatedDate = now
@@ -550,11 +535,7 @@ public class FieldRegistryService : IFieldRegistryService
             MasterId = master.Id,
             UpdateCode = master.UpdateCode,
             UpdateName = master.UpdateName,
-            UpdateNameMarathi = master.UpdateNameMarathi,
             ReferenceTableName = master.ReferenceTableName,
-            DisplaySequence = master.DisplaySequence,
-            Description = master.Description,
-            Category = master.Category,
             IsApprovalRequired = master.IsApprovalRequired,
             IsActive = master.IsActive,
             CreatedDate = master.CreatedDate,
@@ -565,7 +546,6 @@ public class FieldRegistryService : IFieldRegistryService
                 BulkUpdateMasterId = fc.BulkUpdateMasterId,
                 FieldName = fc.FieldName,
                 DisplayName = fc.DisplayName,
-                DisplayNameMarathi = fc.DisplayNameMarathi,
                 ControlType = fc.ControlType,
                 DataType = fc.DataType,
                 Placeholder = fc.Placeholder,
@@ -574,8 +554,8 @@ public class FieldRegistryService : IFieldRegistryService
                 ValidationRegex = fc.ValidationRegex,
                 DefaultValue = fc.DefaultValue,
                 SequenceNo = fc.SequenceNo,
-                IsReadonly = fc.IsReadonly,
                 BindApi = fc.BindApi,
+                ApiResponse = fc.ApiResponse,
                 IsActive = fc.IsActive,
                 CreatedDate = fc.CreatedDate,
                 CreatedBy = fc.CreatedBy

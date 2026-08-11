@@ -86,6 +86,7 @@ public class AssetFloorFactorCVServiceTests
         {
             Id = 1,
             FloorId = 10,
+            FloorDescription = "Ground Floor",
             YearRangeCVId = 5,
             FactorWithLift = 1.5m,
             FactorWithoutLift = 1.2m,
@@ -96,6 +97,7 @@ public class AssetFloorFactorCVServiceTests
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(10, dto.FloorId);
+        Assert.Equal("Ground Floor", dto.FloorDescription);
         Assert.Equal(5, dto.YearRangeCVId);
 
         var updateDto = new UpdateAssetFloorFactorCVDto
@@ -161,6 +163,69 @@ public class AssetFloorFactorCVServiceTests
 
         Assert.NotNull(result);
         Assert.Equal(1, result.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithFloorNavigationSet_PopulatesFloorDescription()
+    {
+        // ApplyIncludes eager-loads Floor so GetAll can enrich the response with FloorDescription.
+        var floor = new FloorEntity { Id = 10, Description = "Ground Floor" };
+        var list = new List<AssetFloorFactorCVEntity>
+        {
+            new() { Id = 1, FloorId = 10, Floor = floor, YearRangeCVId = 5, FactorWithLift = 1.2m, FactorWithoutLift = 1.0m, IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetQueryable()).Returns(list.BuildMockDbSet().Object);
+
+        var service = CreateService();
+        var qp = new AssetFloorFactorCVQueryParameters();
+
+        var result = await service.GetAllAsync(qp, CancellationToken.None);
+
+        Assert.NotNull(result);
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Ground Floor", item.FloorDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithFloorDescriptionNull_ReturnsEmptyStringNotNull()
+    {
+        // FloorEntity.Description is a nullable string - a loaded Floor whose Description is null
+        // must still coalesce to string.Empty rather than leaking null into the DTO.
+        var floor = new FloorEntity { Id = 10, Description = null };
+        var list = new List<AssetFloorFactorCVEntity>
+        {
+            new() { Id = 1, FloorId = 10, Floor = floor, YearRangeCVId = 5, FactorWithLift = 1.2m, FactorWithoutLift = 1.0m, IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetQueryable()).Returns(list.BuildMockDbSet().Object);
+
+        var service = CreateService();
+        var qp = new AssetFloorFactorCVQueryParameters();
+
+        var result = await service.GetAllAsync(qp, CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.FloorDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithoutFloorNavigationSet_FloorDescriptionIsEmpty()
+    {
+        // Guards the null-conditional in AssetFloorFactorCVMappingProfile - a missing/unloaded
+        // Floor navigation must not throw a NullReferenceException during mapping.
+        var list = new List<AssetFloorFactorCVEntity>
+        {
+            new() { Id = 1, FloorId = 10, Floor = null, YearRangeCVId = 5, FactorWithLift = 1.2m, FactorWithoutLift = 1.0m, IsActive = true }
+        };
+        _repositoryMock.Setup(r => r.GetQueryable()).Returns(list.BuildMockDbSet().Object);
+
+        var service = CreateService();
+        var qp = new AssetFloorFactorCVQueryParameters();
+
+        var result = await service.GetAllAsync(qp, CancellationToken.None);
+
+        Assert.NotNull(result);
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.FloorDescription);
     }
 
     [Fact]

@@ -36,10 +36,7 @@ public class BulkUpdateMasterServiceTests
             Id = id,
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Bulk update for property types",
             IsActive = true,
             CreatedDate = DateTime.Now
         };
@@ -48,10 +45,7 @@ public class BulkUpdateMasterServiceTests
             Id = id,
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Bulk update for property types",
             IsActive = true
         };
 
@@ -97,10 +91,7 @@ public class BulkUpdateMasterServiceTests
         {
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
@@ -108,10 +99,7 @@ public class BulkUpdateMasterServiceTests
             Id = 0,
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             CreatedBy = 1
         };
         var savedEntity = new BulkUpdateMasterEntity
@@ -119,10 +107,7 @@ public class BulkUpdateMasterServiceTests
             Id = 2,
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -132,10 +117,7 @@ public class BulkUpdateMasterServiceTests
             Id = 2,
             UpdateCode = "WARD_UPDATE",
             UpdateName = "Ward Bulk Update",
-            UpdateNameMarathi = "प्रभाग थोक अद्यतन",
             ReferenceTableName = "WardMaster",
-            DisplaySequence = 2,
-            Description = "Bulk update for wards",
             IsActive = true
         };
 
@@ -170,7 +152,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE", // Already exists
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity { UpdateCode = "PROP_TYPE" };
@@ -193,10 +174,8 @@ public class BulkUpdateMasterServiceTests
         {
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
-            UpdateNameMarathi = string.Empty,
             ReferenceTableName = "ZoneMaster",
-            DisplaySequence = 3,
-            Description = null,
+            IsApprovalRequired = null,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
@@ -204,7 +183,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
-            DisplaySequence = 3,
             CreatedBy = 1
         };
         var savedEntity = new BulkUpdateMasterEntity
@@ -213,7 +191,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
-            DisplaySequence = 3,
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -224,7 +201,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
-            DisplaySequence = 3,
             IsActive = true
         };
 
@@ -259,10 +235,7 @@ public class BulkUpdateMasterServiceTests
         {
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Updated bulk update for property types",
             UpdatedBy = 1
         };
         var existingEntity = new BulkUpdateMasterEntity
@@ -271,7 +244,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             IsActive = true
         };
         var updatedEntity = new BulkUpdateMasterEntity
@@ -279,10 +251,7 @@ public class BulkUpdateMasterServiceTests
             Id = id,
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Updated bulk update for property types",
             IsActive = true,
             UpdatedBy = 1,
             UpdatedDate = DateTime.Now
@@ -292,10 +261,7 @@ public class BulkUpdateMasterServiceTests
             Id = id,
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update (Modified)",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन (सुधारित)",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
-            Description = "Updated bulk update for property types",
             IsActive = true
         };
 
@@ -316,7 +282,6 @@ public class BulkUpdateMasterServiceTests
         // Assert
         result.Should().NotBeNull();
         result!.UpdateName.Should().Be("Property Type Update (Modified)");
-        result.Description.Should().Be("Updated bulk update for property types");
         _repositoryMock.Verify(r => r.UpdateAsync(It.IsAny<BulkUpdateMasterEntity>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -331,7 +296,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "NON_EXISTENT",
             UpdateName = "Non Existent",
             ReferenceTableName = "NonExistentTable",
-            DisplaySequence = 1,
             UpdatedBy = 1
         };
 
@@ -347,7 +311,7 @@ public class BulkUpdateMasterServiceTests
     }
 
     [Fact]
-    public async Task UpdateAsync_ChangeDisplaySequence_UpdatesSuccessfully()
+    public async Task UpdateAsync_ChangeReferenceTableName_UpdatesSuccessfully()
     {
         // Arrange
         var id = 1;
@@ -355,24 +319,21 @@ public class BulkUpdateMasterServiceTests
         {
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
-            UpdateNameMarathi = "मालमत्ता प्रकार अद्यतन",
-            ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 10, // Changed from 1 to 10
-            Description = "Bulk update for property types",
+            ReferenceTableName = "PropertyTypeMasterV2", // Changed
             UpdatedBy = 1
         };
         var existingEntity = new BulkUpdateMasterEntity
         {
             Id = id,
             UpdateCode = "PROP_TYPE",
-            DisplaySequence = 1,
+            ReferenceTableName = "PropertyTypeMaster",
             IsActive = true
         };
         var updatedEntity = new BulkUpdateMasterEntity
         {
             Id = id,
             UpdateCode = "PROP_TYPE",
-            DisplaySequence = 10,
+            ReferenceTableName = "PropertyTypeMasterV2",
             IsActive = true,
             UpdatedBy = 1
         };
@@ -380,7 +341,7 @@ public class BulkUpdateMasterServiceTests
         {
             Id = id,
             UpdateCode = "PROP_TYPE",
-            DisplaySequence = 10,
+            ReferenceTableName = "PropertyTypeMasterV2",
             IsActive = true
         };
 
@@ -400,7 +361,7 @@ public class BulkUpdateMasterServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result!.DisplaySequence.Should().Be(10);
+        result!.ReferenceTableName.Should().Be("PropertyTypeMasterV2");
     }
 
     #endregion
@@ -418,7 +379,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "PROP_TYPE",
             UpdateName = "Property Type Update",
             ReferenceTableName = "PropertyTypeMaster",
-            DisplaySequence = 1,
             IsActive = true
         };
 
@@ -460,36 +420,29 @@ public class BulkUpdateMasterServiceTests
     #region Edge Cases and Business Logic Tests
 
     [Fact]
-    public async Task CreateAsync_WithLongDescription_CreatesSuccessfully()
+    public async Task CreateAsync_WithLongUpdateName_CreatesSuccessfully()
     {
         // Arrange
         var createDto = new CreateBulkUpdateMasterDto
         {
             UpdateCode = "COMPLEX_UPDATE",
-            UpdateName = "Complex Bulk Update",
-            UpdateNameMarathi = "जटिल थोक अद्यतन",
+            UpdateName = new string('A', 200), // Long update name
             ReferenceTableName = "ComplexTable",
-            DisplaySequence = 4,
-            Description = new string('A', 500), // Long description
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity
         {
             UpdateCode = "COMPLEX_UPDATE",
-            UpdateName = "Complex Bulk Update",
+            UpdateName = new string('A', 200),
             ReferenceTableName = "ComplexTable",
-            DisplaySequence = 4,
-            Description = new string('A', 500),
             CreatedBy = 1
         };
         var savedEntity = new BulkUpdateMasterEntity
         {
             Id = 4,
             UpdateCode = "COMPLEX_UPDATE",
-            UpdateName = "Complex Bulk Update",
+            UpdateName = new string('A', 200),
             ReferenceTableName = "ComplexTable",
-            DisplaySequence = 4,
-            Description = new string('A', 500),
             IsActive = true,
             CreatedDate = DateTime.Now,
             CreatedBy = 1
@@ -498,10 +451,8 @@ public class BulkUpdateMasterServiceTests
         {
             Id = 4,
             UpdateCode = "COMPLEX_UPDATE",
-            UpdateName = "Complex Bulk Update",
+            UpdateName = new string('A', 200),
             ReferenceTableName = "ComplexTable",
-            DisplaySequence = 4,
-            Description = new string('A', 500),
             IsActive = true
         };
 
@@ -519,7 +470,7 @@ public class BulkUpdateMasterServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Description.Should().HaveLength(500);
+        result.UpdateName.Should().HaveLength(200);
     }
 
     #endregion

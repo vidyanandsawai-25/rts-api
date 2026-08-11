@@ -198,7 +198,8 @@ public class ReplaceCertificateEndToEndTests
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
             policyCodeLookup, financeYearProvider, guidelineReaderMock.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         var bridgingPublisher = new BridgingPublisher(
             (propId, userId, ct) => occupationTaxService.ApplyAsync(propId, userId, ct));

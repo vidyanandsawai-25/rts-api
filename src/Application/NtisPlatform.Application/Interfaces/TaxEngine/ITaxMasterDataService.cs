@@ -12,6 +12,7 @@ public interface ITaxMasterDataService
 {
     Task<List<TypeOfUseEntity>> GetActiveTypeOfUsesAsync();
     Task<List<SubTypeOfUseEntity>> GetActiveSubTypeOfUsesAsync();
+    Task<List<PropertyCategoryEntity>> GetActivePropertyCategoriesAsync();
     Task<List<FloorEntity>> GetActiveFloorsAsync();
     Task<List<SubFloorEntity>> GetActiveSubFloorsAsync();
     Task<List<ConstructionTypeEntity>> GetActiveConstructionTypesAsync();

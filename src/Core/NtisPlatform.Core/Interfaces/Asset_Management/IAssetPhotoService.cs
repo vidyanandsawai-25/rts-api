@@ -10,6 +10,7 @@ public interface IAssetPhotoService
     Task<int> CreateAsync(
         int assetId,
         int photoTypeId,
+        int? subUnitDetailsId,
         int? displayOrder,
         string? remarks,
         int createdBy,

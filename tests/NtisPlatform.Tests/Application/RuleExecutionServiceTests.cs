@@ -2020,5 +2020,93 @@ public class RuleExecutionServiceTests
         Assert.Contains("Exception while parsing expression", subRule.MatchStatus);
     }
 
+    [Fact]
+    public async Task DryRunAsync_WithUserDemoMaintenanceSetZeroRuleJson_EvaluatesMaintenanceToZero()
+    {
+        // Arrange - User's exact Rule JSON
+        string userRuleJson = """
+        {
+            "RuleName": "demo",
+            "isActive": true,
+            "RuleCategory": "RV",
+            "rules": [
+                {
+                    "RuleCode": "19dfd872-fc2b-4886-9053-5dcb0864d303",
+                    "errorMessage": "demo    ",
+                    "enabled": true,
+                    "ruleExpressionType": "LambdaExpression",
+                    "expression": "input.TypeOfUseGroupId == 5",
+                    "Actions": {
+                        "OnSuccess": {
+                            "Name": "MultiEffect",
+                            "Context": {
+                                "effects": [
+                                    {
+                                        "Expression": "input.Maintenance * (1 - 0 / 100)",
+                                        "effectType": "Set",
+                                        "value": "0",
+                                        "ParameterCode": "Maintenance",
+                                        "overrideRate": "6",
+                                        "overrideRateLabel": "Maintenance - Maintenance"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "stopProcessing": false
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = userRuleJson,
+            Input = new Dictionary<string, object>
+            {
+                { "TypeOfUseGroupId", 5 },
+                { "Maintenance", 10.0 }
+            }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Workflows);
+        var workflow = result.Workflows[0];
+        Assert.Equal("demo", workflow.WorkflowName);
+        Assert.Single(workflow.SubRules);
+
+        var subRule = workflow.SubRules[0];
+        Assert.True(subRule.IsMatch, "SubRule should match TypeOfUseGroupId == 5");
+        Assert.Single(subRule.Effects);
+
+        var effect = subRule.Effects[0];
+        Assert.Equal("Set", effect.EffectType);
+        Assert.Equal(0m, effect.EffectValue);
+        Assert.Equal(0m, effect.ComputedValue); // Evaluated Maintenance percentage becomes 0
+    }
+
+    [Theory]
+    [InlineData("Override", true)]
+    [InlineData("equal", true)]
+    [InlineData("Equals", true)]
+    [InlineData("Equal To", true)]
+    [InlineData("Set", true)]
+    [InlineData("Fixed", true)]
+    [InlineData("=", true)]
+    [InlineData("Reset", false)]
+    [InlineData("NotEqual", false)]
+    [InlineData("GreaterThanOrEqual", false)]
+    [InlineData("Dataset", false)]
+    public void OverrideApplicator_CanHandle_ValidatesExactAliasesOnly(string effectType, bool expectedResult)
+    {
+        var applicator = new NtisPlatform.Application.Services.Rules.Effects.OverrideApplicator();
+        var result = applicator.CanHandle(effectType);
+        Assert.Equal(expectedResult, result);
+    }
+
     #endregion
 }

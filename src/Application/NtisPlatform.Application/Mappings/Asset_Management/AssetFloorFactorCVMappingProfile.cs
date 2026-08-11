@@ -8,7 +8,8 @@ public class AssetFloorFactorCVMappingProfile : Profile
 {
     public AssetFloorFactorCVMappingProfile()
     {
-        CreateMap<AssetFloorFactorCVEntity, AssetFloorFactorCVDto>();
+        CreateMap<AssetFloorFactorCVEntity, AssetFloorFactorCVDto>()
+            .ForMember(d => d.FloorDescription, o => o.MapFrom(s => s.Floor != null ? s.Floor.Description ?? string.Empty : string.Empty));
 
         CreateMap<CreateAssetFloorFactorCVDto, AssetFloorFactorCVEntity>()
             .ForMember(d => d.Id, o => o.Ignore())

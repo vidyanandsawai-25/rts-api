@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities;
 
 /// <summary>
 /// Entity representing the PropertyMapDetail table.
@@ -10,6 +10,8 @@ public class PropertyMapDetailEntity : BaseEntity
     public string PropertySide { get; set; } = string.Empty; // OLD or NEW
     public int? PropertyIdNew { get; set; }
     public int? PropertyIdOld { get; set; }
+    public string PropertyNoOld { get; set; } = string.Empty;
+    public string PropertyNoNew { get; set; } = string.Empty;
     public string PropertyNo { get; set; } = string.Empty;
     public decimal? TaxSharePercent { get; set; }
     public decimal? AreaSharePercent { get; set; }

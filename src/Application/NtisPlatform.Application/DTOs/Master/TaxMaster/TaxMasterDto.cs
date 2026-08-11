@@ -12,6 +12,8 @@ public class TaxMasterDto : BaseDtos
     public bool TaxOnUnit { get; set; }
     public bool AssessmentStatus { get; set; }
     public bool OldTaxStatus { get; set; }
+    public string? CalculationMode { get; set; }
+    public int? RuleDefinitionId { get; set; }
 }
 
 public class CreateTaxMasterDto : CreateBaseDtos
@@ -41,6 +43,12 @@ public class CreateTaxMasterDto : CreateBaseDtos
     public bool AssessmentStatus { get; set; } = true;
 
     public bool OldTaxStatus { get; set; } = true;
+
+    [Required(ErrorMessage = "TaxMaster_CalculationMode_Required")]
+    [StringLength(20, ErrorMessage = "TaxMaster_CalculationMode_MaxLengthExceeded_20")]
+    public string? CalculationMode { get; set; } = "VALUE_BASED";
+
+    public int? RuleDefinitionId { get; set; }
 }
 
 public class UpdateTaxMasterDto : UpdateBaseDtos
@@ -70,4 +78,10 @@ public class UpdateTaxMasterDto : UpdateBaseDtos
     public bool AssessmentStatus { get; set; } = true;
 
     public bool OldTaxStatus { get; set; } = true;
+
+    [Required(ErrorMessage = "TaxMaster_CalculationMode_Required")]
+    [StringLength(20, ErrorMessage = "TaxMaster_CalculationMode_MaxLengthExceeded_20")]
+    public string? CalculationMode { get; set; } = "VALUE_BASED";
+
+    public int? RuleDefinitionId { get; set; }
 }

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
@@ -15,19 +16,22 @@ using NtisPlatform.Application.Configuration;
 using NtisPlatform.Application.Events;
 using NtisPlatform.Application.EventHandlers;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Interfaces.Property;
+using NtisPlatform.Application.Interfaces.Asset_Management;
+using NtisPlatform.Application.Interfaces.AutomationDashboard;
+using NtisPlatform.Application.Interfaces.FieldConfiguration;
 using NtisPlatform.Application.Interfaces.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Calculation;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Data;
 using NtisPlatform.Application.Interfaces.ICapitalValueService.ICapitalValueService.Persistence;
 using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Application.Interfaces.TaxEngine;
+using NtisPlatform.Application.Interfaces.Property;
 using NtisPlatform.Application.Interfaces.Rules;
-using NtisPlatform.Application.Interfaces.FieldConfiguration;
+using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
+using NtisPlatform.Application.Services.Asset_Management;
 using NtisPlatform.Application.Services.Property;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Services.Master;
@@ -43,20 +47,27 @@ using NtisPlatform.Application.Services.CapitalValue.CVPersistenceService;
 using NtisPlatform.Application.Services.CapitalValue.DataLoader;
 using NtisPlatform.Application.Services.CapitalValue.MasterDataProviders;
 using NtisPlatform.Application.Services.CapitalValueService;
+using NtisPlatform.Application.Services.FieldConfiguration;
+using NtisPlatform.Application.Services.Master;
+using NtisPlatform.Application.Services.Property;
+using NtisPlatform.Application.Services.PropertyTaxOperations;
+using NtisPlatform.Application.Services.ReportDataProviders;
+using NtisPlatform.Application.Services.Rules;
+using NtisPlatform.Application.Services.Rules.Effects;
+using NtisPlatform.Application.Services.TaxEngine;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Interfaces.Property;
 using NtisPlatform.Core.Interfaces.Rules;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories;
+using NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
 using NtisPlatform.Infrastructure.Repositories.Property;
 using NtisPlatform.Infrastructure.Repositories.Rules;
 using NtisPlatform.Infrastructure.Services;
 using NtisPlatform.Infrastructure.Services.Handlers;
 using NtisPlatform.Infrastructure.Services.Localization;
 using System.Text;
-using NtisPlatform.Application.Services.Asset_Management;
-using NtisPlatform.Application.Interfaces.Asset_Management;
-using NtisPlatform.Application.Services.ReportDataProviders;
 using NtisPlatform.Core.Interfaces.Asset_Management;
 using NtisPlatform.Infrastructure.Services.Asset_Management;
 
@@ -206,9 +217,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ITwoFactorRecoveryCodeRepository, TwoFactorRecoveryCodeRepository>();
+        services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();
+        services.AddScoped<ISecurityAuditLogRepository, SecurityAuditLogRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<ITypeOfUseByPropertyTypeRepository, TypeOfUseByPropertyTypeRepository>();
-       
+
 
         // Per-tab Clean Architecture split (Basic Details): shared master checks + feature repository
         services.AddScoped<IMasterRepository, MasterRepository>();
@@ -223,10 +237,34 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRuleFieldsRepository, RuleFieldsRepository>();
         services.AddScoped<IApartmentQCRepository, ApartmentQCRepository>();
 
+        // Automation Dashboard Repositories (separate per stage)
+        services.AddScoped<IAutomationDashboardRepository, AutomationDashboardRepository>();
+        services.AddScoped<IGeoSequencingStageRepository, GeoSequencingStageRepository>();
+        services.AddScoped<IInternalSurveyStageRepository, InternalSurveyStageRepository>();
+        services.AddScoped<IDataEntryStageRepository, DataEntryStageRepository>();
+        services.AddScoped<IAssessmentStageRepository, AssessmentStageRepository>();
+
+        // Property Sign-off Module
+        services.AddScoped<IPropertySignatureRepository, PropertySignatureRepository>();
+		services.AddScoped<IWardAllocationService, WardAllocationService>();
+ 
         // Infrastructure Layer - Services
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
+
+        // Two-factor authentication (authenticator app / TOTP)
+        services.AddScoped<ITotpService, TotpService>();
+        services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+        services.AddScoped<ITwoFactorAuthenticationService, TwoFactorAuthenticationService>();
+        services.AddScoped<IMfaChallengeService, MfaChallengeService>();
+
+        // Config-driven OTP (email/SMS) challenges for login and forgot password
+        services.AddScoped<IOtpChallengeService, OtpChallengeService>();
+        services.AddScoped<ISmsService, SmsService>();
+
+        services.AddScoped<IAuthTokenIssuerService, AuthTokenIssuerService>();
+        services.AddScoped<ISecurityAuditService, SecurityAuditService>();
         services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
@@ -255,7 +293,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailTemplateService, EmailTemplateService>();
         services.AddScoped<IEmailSettingsProvider, EmailSettingsProvider>();
         services.AddScoped<IFieldRegistryService, FieldRegistryService>();
+        services.AddScoped<IExcelUploadService, ExcelUploadService>();
         services.AddScoped<IAssetPhotoService, AssetPhotoService>();
+        services.AddScoped<IAssetDocumentService, AssetDocumentService>();
+        services.AddScoped<IInventoryDocumentService, InventoryDocumentService>();
 
         // Translation Management
         services.AddScoped<IMultilingualTranslation, MultilingualTranslationService>();
@@ -266,17 +307,34 @@ public static class ServiceCollectionExtensions
         services.Configure<NtisPlatform.Application.Options.ApartmentQCOptions>(configuration.GetSection(NtisPlatform.Application.Options.ApartmentQCOptions.Section));
         services.Configure<NtisPlatform.Application.Options.FileStorageOptions>(configuration.GetSection(NtisPlatform.Application.Options.FileStorageOptions.Section));
 
+        // Two-factor authentication options — validated eagerly so a misconfigured Issuer/lifetime fails fast at startup
+        services
+            .AddOptions<NtisPlatform.Application.Options.TwoFactorAuthenticationOptions>()
+            .BindConfiguration(NtisPlatform.Application.Options.TwoFactorAuthenticationOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // OTP (email/SMS) challenge options — login OTP and forgot-password OTP
+        services
+            .AddOptions<NtisPlatform.Application.Options.OtpChallengeOptions>()
+            .BindConfiguration(NtisPlatform.Application.Options.OtpChallengeOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         // Application Layer - Helpers
         services.AddSingleton<NtisPlatform.Application.Helpers.FileValidationHelper>();
 
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
         services.AddScoped<IPropertyPhotoApplicationService, PropertyPhotoApplicationService>();
         services.AddScoped<ICommonDetailsService, CommonDetailsService>();
         services.AddScoped<IAssetPhotoApplicationService, AssetPhotoApplicationService>();
+        services.AddScoped<IAssetDocumentApplicationService, AssetDocumentApplicationService>();
+        services.AddScoped<IInventoryDocumentApplicationService, InventoryDocumentApplicationService>();
 
         // Global Document Binding Handlers (OCP extension points).
         // Each module registers its own handler — DocumentApplicationService dispatches to them
@@ -287,6 +345,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDocumentBindingHandler, PropertyCertificateDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, RenterMastDocumentBindingHandler>();
         services.AddScoped<IDocumentBindingHandler, AssetPhotoDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
+        services.AddScoped<IDocumentBindingHandler, InventoryDocumentBindingHandler>();
         // Future modules: Add handlers following this pattern:
         // services.AddScoped<IDocumentBindingHandler, WaterConnectionDocumentBindingHandler>();
         // services.AddScoped<IDocumentBindingHandler, AssetDocumentBindingHandler>();
@@ -341,6 +401,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyDataCopier, PropertyDataCopier>();
         services.AddScoped<IPropertyDeactivator, PropertyDeactivator>();
         services.AddScoped<ICombinePropertyTaxService, CombinePropertyTaxService>();
+        services.AddScoped<IPropertyComparisonService, PropertyComparisonService>();
         services.AddScoped<ILockUnlockService, LockUnlockService>();
         services.AddScoped<IFloorService, FloorService>();
         services.AddScoped<IConstructionTypeService, ConstructionTypeService>();
@@ -384,6 +445,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPropertyMutationInvariantPolicy, PropertyMutationInvariantPolicy>();
         services.AddScoped<PropertyApiExceptionFilter>();
         services.AddScoped<IPropertyService, PropertyService>();
+        services.AddScoped<IPropertySurveyService, PropertySurveyService>();
         services.AddScoped<IPropertyBasicDetailsService, PropertyBasicDetailsService>();
         services.AddScoped<IPropertyKycService, PropertyKycService>();
         services.AddScoped<IPropertySocietyService, PropertySocietyService>();
@@ -396,6 +458,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOwnerTitleService, OwnerTitleService>();
         services.AddScoped<ISocialAttributeService, SocialAttributeService>();
         services.AddScoped<IPropertySocialDetailsService, PropertySocialDetailsService>();
+        services.AddScoped<IAutomationDashboardService, AutomationDashboardService>();
+        services.AddScoped<IGeoSequencingStageService, GeoSequencingStageService>();
+        services.AddScoped<IInternalSurveyStageService, InternalSurveyStageService>();
+        services.AddScoped<IDataEntryStageService, DataEntryStageService>();
+        services.AddScoped<IAssessmentStageService, AssessmentStageService>();
+
+        // Property Sign-off Module
+        services.AddScoped<IPropertySignatureService, PropertySignatureService>();
+
 
         // Localization (DB-backed)
         services.AddScoped<IModuleMasterService, ModuleMasterService>();
@@ -469,9 +540,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOwnershipTypeService, OwnershipTypeService>();
         services.AddScoped<IOwningDepartmentService, OwningDepartmentService>();
         //Asset Start
+        services.AddScoped<IAssetMasterService, AssetMasterService>();
+        services.AddScoped<IAssetCapitalValueService, AssetCapitalValueService>();
         services.AddScoped<IInventoryItemCategoryService, InventoryItemCategoryService>();
-        services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();
-        services.AddScoped<IInventoryItemConditionService, InventoryItemConditionService>();
+        services.AddScoped<IInventoryItemNameService, InventoryItemNameService>();       
         services.AddScoped<IInventoryItemModelService, InventoryItemModelService>();
         services.AddScoped<IScreenService, ScreenService>();
         services.AddScoped<IScreenFormSectionMasterService, ScreenFormSectionMasterService>();
@@ -484,12 +556,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetApplicationTypeService, AssetApplicationTypeService>();
         services.AddScoped<IAssetConditionMasterService, AssetConditionMasterService>();
         services.AddScoped<IAssetRoomTypeMasterService, AssetRoomTypeService>();
+        services.AddScoped<IManageSubUnitsService, ManageSubUnitsService>();
+        services.AddScoped<ISubUnitsDetailsService, SubUnitsDetailsService>();
+
+
+
         // Rules namespace registrations
         services.AddScoped<IRuleFieldsService, RuleFieldsService>();
         services.AddScoped<IRuleEngineService, RuleEngineService>();
         services.AddScoped<IPropertyRuleApplicationLogService, PropertyRuleApplicationLogService>();
         services.AddScoped<IFieldConfigurationService, FieldConfigurationService>();
         services.AddScoped<IRuleApplierService, RuleApplierService>();
+        services.AddScoped<IPropertyFieldFlattenerService, PropertyFieldFlattenerService>();
         services.AddScoped<IPropertyContextLoaderService, PropertyContextLoaderService>();
         services.AddScoped<IAssetDocumentDefinitionService, AssetDocumentDefinitionService>();
         services.AddScoped<IAssetFieldDefinitionService, AssetFieldDefinitionService>();
@@ -506,6 +584,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAssetPhotoTypeService, AssetPhotoTypeService>();
         services.AddScoped<IAssetRentDocumentTypeService, AssetRentDocumentTypeService>();
         services.AddScoped<IInventoryDocumentTypeService, InventoryDocumentTypeService>();
+        services.AddScoped<IAssetGrievanceCategoryService, AssetGrievanceCategoryService>();
+        services.AddScoped<IAssetGrievanceRemarkService, AssetGrievanceRemarkService>();
         // Rule Execution Service - Scoped to match IRepository lifetime (DbContext safety)
         // IMemoryCache is singleton and thread-safe, so cache is still shared across all requests
         // Effect applicators are stateless, safe as singleton for better performance
@@ -517,7 +597,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRuleEffectApplicator, ExemptionApplicator>();
         // RateLookupApplicator is Scoped because it depends on IRepository (DbContext-bound)
         services.AddScoped<IRuleEffectApplicator, RateLookupApplicator>();
+        // Stateless, dependency-free — safe as singleton, matching the effect applicators above.
+        services.AddSingleton<IConditionRuleEvaluator, ConditionRuleEvaluator>();
         services.AddScoped<ITaxMasterService, TaxMasterService>();
+        services.AddScoped<IDynamicTaxRuleService, DynamicTaxRuleService>();
+        services.AddScoped<IMasterBasedTaxService, MasterBasedTaxService>();
+        services.AddScoped<ITaxConditionRuleService, TaxConditionRuleService>();
+        services.AddScoped<IDynamicTaxRegisterService, DynamicTaxRegisterService>();
+        services.AddScoped<ITaxCalculationModeService, TaxCalculationModeService>();
+        services.AddScoped<IValueBasedTaxService, ValueBasedTaxService>();
+        services.AddScoped<IHybridTaxService, HybridTaxService>();
         services.AddScoped<IRateableValueCalculatorService, RateableValueCalculatorService>();
         services.AddScoped<IRVCalculationCleanupService, RVCalculationCleanupService>();
         services.AddScoped<ITaxApplicabilityService, TaxApplicabilityService>();
@@ -578,6 +667,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportDataProvider, BlankHearingFormatDataProvider>();
         services.AddScoped<IReportDataProvider, DocumentNoticeDataProvider>();
         services.AddScoped<IReportDataProvider, PermissionNoticeDataProvider>();
+        services.AddScoped<IPropertyMappingService, PropertyMappingService>();
+        services.AddScoped<IPropertyMergeService, PropertyMergeService>();
         // AutoMapper
         services.AddSingleton<IMapper>(mapperConfig.CreateMapper());
         services.AddEndpointsApiExplorer();
@@ -649,6 +740,10 @@ public static class ServiceCollectionExtensions
         });
 
         services.AddSignalR();
+
+        // Data Protection - used to encrypt TOTP shared secrets at rest (never hashed, since they
+        // must remain decryptable to validate future authenticator codes).
+        services.AddDataProtection();
 
         // JWT Authentication - Validate JWT Key
         var jwtKey = configuration.GetValue<string>("Jwt:Key");
@@ -727,6 +822,48 @@ public static class ServiceCollectionExtensions
                         ctx.Token = token;
                     }
                     return Task.CompletedTask;
+                },
+                // Immediately invalidates access tokens issued before a sensitive security change
+                // (2FA disable/reset rotates the user's SecurityStamp) instead of waiting for the
+                // token's natural expiry. Tokens with no "sst" claim (issued before this feature
+                // existed) skip the check. The current stamp is cached briefly per user to avoid
+                // a database round trip on every authenticated request.
+                OnTokenValidated = async ctx =>
+                {
+                    var stampClaim = ctx.Principal?.FindFirst("sst")?.Value;
+                    if (string.IsNullOrEmpty(stampClaim))
+                    {
+                        return;
+                    }
+
+                    var userIdClaim = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    if (!int.TryParse(userIdClaim, out var userId))
+                    {
+                        ctx.Fail("Token is missing a valid user identifier.");
+                        return;
+                    }
+
+                    var cache = ctx.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+                    var cacheKey = $"sst:{userId}";
+
+                    if (!cache.TryGetValue(cacheKey, out string? currentStamp))
+                    {
+                        var userRepository = ctx.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                        currentStamp = await userRepository.GetSecurityStampAsync(userId, ctx.HttpContext.RequestAborted);
+                        // This IMemoryCache is configured with a SizeLimit (see AddMemoryCache below),
+                        // which requires every entry to declare a Size — the plain Set(key, value, TimeSpan)
+                        // overload omits it and throws "Cache entry must specify a value for Size...".
+                        cache.Set(cacheKey, currentStamp ?? string.Empty, new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
+                            Size = 1
+                        });
+                    }
+
+                    if (string.IsNullOrEmpty(currentStamp) || !string.Equals(currentStamp, stampClaim, StringComparison.Ordinal))
+                    {
+                        ctx.Fail("Session has been invalidated by a security change. Please sign in again.");
+                    }
                 }
             };
         });
@@ -768,6 +905,12 @@ public static class ServiceCollectionExtensions
                 var uploadPermitLimit = configuration.GetValue<int>("RateLimiting:FileUpload:PermitLimit", 10);
                 var uploadWindowMinutes = configuration.GetValue<int>("RateLimiting:FileUpload:WindowMinutes", 5);
                 var uploadQueueLimit = configuration.GetValue<int>("RateLimiting:FileUpload:QueueLimit", 2);
+                var mfaVerifyPermitLimit = configuration.GetValue<int>("RateLimiting:MfaVerify:PermitLimit", 10);
+                var mfaVerifyWindowMinutes = configuration.GetValue<int>("RateLimiting:MfaVerify:WindowMinutes", 15);
+                var mfaEnablePermitLimit = configuration.GetValue<int>("RateLimiting:MfaEnable:PermitLimit", 10);
+                var mfaEnableWindowMinutes = configuration.GetValue<int>("RateLimiting:MfaEnable:WindowMinutes", 15);
+                var forgotPasswordPermitLimit = configuration.GetValue<int>("RateLimiting:ForgotPassword:PermitLimit", 5);
+                var forgotPasswordWindowMinutes = configuration.GetValue<int>("RateLimiting:ForgotPassword:WindowMinutes", 15);
 
                 // Global default policy for all endpoints (unless overridden)
                 options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -790,6 +933,48 @@ public static class ServiceCollectionExtensions
                         {
                             PermitLimit = loginPermitLimit,
                             Window = TimeSpan.FromMinutes(loginWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // Forgot-password request/reset — same shape as "login": prevents both OTP-request
+                // spam (which would also spam the user's inbox/phone) and reset-token brute forcing.
+                options.AddPolicy("forgot-password", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = forgotPasswordPermitLimit,
+                            Window = TimeSpan.FromMinutes(forgotPasswordWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // MFA login-verification: brute forcing a 6-digit TOTP is 1-in-1,000,000 per
+                // guess, so this must be tight in addition to the per-challenge attempt-count
+                // lockout enforced in IMfaChallengeService itself. Partitioned by IP, same as
+                // "login" — the challenge id lives in the request body, which is not available
+                // to the rate limiter's partition-key resolver without buffering the request.
+                options.AddPolicy("mfa-verify", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = mfaVerifyPermitLimit,
+                            Window = TimeSpan.FromMinutes(mfaVerifyWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // Authenticator enable/disable/reset/regenerate — all accept a verification code,
+                // so they need the same brute-force protection as login verification.
+                options.AddPolicy("mfa-enable", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = mfaEnablePermitLimit,
+                            Window = TimeSpan.FromMinutes(mfaEnableWindowMinutes),
                             QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                             QueueLimit = 0
                         }));

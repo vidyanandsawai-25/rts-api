@@ -678,13 +678,18 @@ public sealed class ApartmentQCRepository : IApartmentQCRepository
 
         var propertyDetailIds = detailsList.Select(d => d.Id).Distinct().ToList();
 
-        var occupancyList = await _context.PropertyOccupancyDetails
+        var occupancyList = await _context.PropertyCertificates
             .AsNoTracking()
-            .Where(po => propertyDetailIds.Contains(po.PropertyDetailId) && po.IsActive && !po.MarkedForDeletion)
-            .GroupBy(po => po.PropertyDetailId)
+            .Where(pc => pc.PropertyDetailsId.HasValue
+                      && propertyDetailIds.Contains(pc.PropertyDetailsId.Value)
+                      && pc.IsActive && !pc.MarkedForDeletion
+                      && pc.CertificateType != null
+                      && pc.CertificateType.CertificateTypeCode != null
+                      && pc.CertificateType.CertificateTypeCode.ToUpper() == CertificateTypeCodes.OC)
+            .GroupBy(pc => pc.PropertyDetailsId!.Value)
             .Select(g => new OccupancyRow(
                 g.Key,
-                g.OrderByDescending(po => po.OccupancyDate).Select(po => po.OccupancyDate).FirstOrDefault()))
+                g.OrderByDescending(pc => pc.IssueDate).Select(pc => pc.IssueDate).FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
         var renterList = await _context.RenterMast

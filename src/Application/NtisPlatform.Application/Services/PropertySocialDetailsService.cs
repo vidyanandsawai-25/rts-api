@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
 using NtisPlatform.Application.Exceptions;
@@ -8,6 +9,7 @@ using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.Property;
+using System.Security.Claims;
 
 namespace NtisPlatform.Application.Services;
 
@@ -25,16 +27,19 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
 {
     private readonly IPropertySocialDetailsRepository _socialDetailsRepository;
     private readonly IDocumentApplicationService _documentApplicationService;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     public PropertySocialDetailsService(
         IRepository<PropertySocialDetailsEntity, int> repository,
         IPropertySocialDetailsRepository socialDetailsRepository,
         IDocumentApplicationService documentApplicationService,
         IUnitOfWork unitOfWork,
-        IMapper mapper) : base(repository, unitOfWork, mapper)
+        IMapper mapper,
+        IHttpContextAccessor? httpContextAccessor = null) : base(repository, unitOfWork, mapper, null, null, httpContextAccessor)
     {
         _socialDetailsRepository = socialDetailsRepository;
         _documentApplicationService = documentApplicationService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     private sealed class PropertySocialDetailBindingInfo
@@ -96,6 +101,90 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
         if (result != null)
             await EnrichDtosAsync(new List<PropertySocialDetailsDto> { result }, cancellationToken);
         return result;
+    }
+
+    public override async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        if (entity == null)
+            return false;
+
+        var updatedBy = GetCurrentUserId();
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Deactivate all associated document bindings to avoid orphans
+            await DeactivateAllSocialDetailBindingsAsync(entity.Id, updatedBy, cancellationToken);
+
+            // Mark the record for deletion
+            entity.MarkedForDeletion = true;
+            entity.MarkedForDeletionDate = DateTime.Now;
+            entity.UpdatedBy = updatedBy;
+            entity.UpdatedDate = DateTime.Now;
+
+            // Keep IsActive as-is (do not change to false/0)
+            await _repository.UpdateAsync(entity, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteByPropertyAndAttributeAsync(int propertyId, int socialAttributeId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetQueryable()
+            .FirstOrDefaultAsync(x => x.PropertyId == propertyId && x.SocialAttributeId == socialAttributeId, cancellationToken);
+            
+        if (entity == null)
+            return false;
+
+        var updatedBy = GetCurrentUserId();
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            // Deactivate all associated document bindings to avoid orphans
+            await DeactivateAllSocialDetailBindingsAsync(entity.Id, updatedBy, cancellationToken);
+
+            // Mark the record for deletion
+            entity.MarkedForDeletion = true;
+            entity.MarkedForDeletionDate = DateTime.Now;
+            entity.UpdatedBy = updatedBy;
+            entity.UpdatedDate = DateTime.Now;
+
+            // Keep IsActive as-is (do not change to false/0)
+            await _repository.UpdateAsync(entity, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    private int GetCurrentUserId()
+    {
+        var user = _httpContextAccessor?.HttpContext?.User;
+        var claim = user?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? user?.FindFirst("sub")?.Value
+            ?? user?.FindFirst("userId")?.Value;
+
+        if (!string.IsNullOrEmpty(claim) && int.TryParse(claim, out var id) && id > 0)
+        {
+            return id;
+        }
+        return 1; // Default fallback for system/audit processes if context is not available
     }
 
     /// <summary>
@@ -304,7 +393,7 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
             }
         }
 
-        var existingRecords = await _socialDetailsRepository.GetActiveSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
+        var existingRecords = await _socialDetailsRepository.GetSocialDetailsByPropertyAsync(dto.PropertyId, cancellationToken);
 
         // Step 1: Soft delete (mark as inactive) the social attributes to remove
         if (dto.SocialAttributeIdsToRemove != null && dto.SocialAttributeIdsToRemove.Any())
@@ -348,6 +437,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingRecord.DocumentBindingId = item.DocumentBindingId;
                         existingRecord.Remark = item.Remark;
                         existingRecord.IsActive = true;
+                        existingRecord.MarkedForDeletion = false;
+                        existingRecord.MarkedForDeletionDate = null;
                         existingRecord.UpdatedBy = dto.UpdatedBy;
                         existingRecord.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingRecord, cancellationToken);
@@ -376,6 +467,8 @@ public class PropertySocialDetailsService : BaseCommonCrudService<PropertySocial
                         existingByAttribute.DocumentBindingId = item.DocumentBindingId;
                         existingByAttribute.Remark = item.Remark;
                         existingByAttribute.IsActive = true;
+                        existingByAttribute.MarkedForDeletion = false;
+                        existingByAttribute.MarkedForDeletionDate = null;
                         existingByAttribute.UpdatedBy = dto.UpdatedBy;
                         existingByAttribute.UpdatedDate = DateTime.Now;
                         await _repository.UpdateAsync(existingByAttribute, cancellationToken);

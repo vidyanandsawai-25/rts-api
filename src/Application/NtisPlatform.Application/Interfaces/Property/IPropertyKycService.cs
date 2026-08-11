@@ -1,3 +1,4 @@
+using NtisPlatform.Application.DTOs.PropertyKyc;
 using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.Interfaces.Property;
@@ -31,4 +32,8 @@ public interface IPropertyKycService
     /// Returns the refreshed projection, or <see langword="null"/> when the property is not found.
     /// </summary>
     Task<PropertyKycDetailsDto?> UpdateKycDetailsAsync(int propertyId, UpdatePropertyKycDetailsDto dto, CancellationToken cancellationToken = default);
+
+    Task<PropertyKycDetailsCommonDto?> GetKycDetailsCommon(
+        PropertyKycDetailsQueryParameters queryParameters,
+        CancellationToken cancellationToken = default);
 }

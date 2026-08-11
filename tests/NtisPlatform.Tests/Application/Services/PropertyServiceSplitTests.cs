@@ -35,6 +35,7 @@ public class PropertyServiceSplitTests
     private readonly Mock<IRepository<GlobalSurveyWardAllocationEntity, int>> _mockWardAllocationRepository;
     private readonly Mock<IRepository<PropertyMapMasterEntity, int>> _mockPropertyMapMasterRepository;
     private readonly Mock<IRepository<PropertyMapDetailEntity, int>> _mockPropertyMapDetailRepository;
+    private readonly Mock<IRepository<WingEntity, int>> _mockWingRepository;
     private readonly Mock<IRepository<UserEntity, int>> _mockUserRepository;
     private readonly Mock<IPropertyRuleApplicationLogService> _mockRuleLogService;
     private readonly Mock<IRepository<PropertyMastOldEntity, int>>
@@ -62,6 +63,7 @@ public class PropertyServiceSplitTests
         _mockWardAllocationRepository = new Mock<IRepository<GlobalSurveyWardAllocationEntity, int>>();
         _mockPropertyMapMasterRepository = new Mock<IRepository<PropertyMapMasterEntity, int>>();
         _mockPropertyMapDetailRepository = new Mock<IRepository<PropertyMapDetailEntity, int>>();
+        _mockWingRepository = new Mock<IRepository<WingEntity, int>>();
         _mockUserRepository = new Mock<IRepository<UserEntity, int>>();
         _mockRuleLogService = new Mock<IPropertyRuleApplicationLogService>();
         _mockPropertyOldRepository =
@@ -87,9 +89,17 @@ public class PropertyServiceSplitTests
     _mockWardAllocationRepository.Object,
     _mockPropertyMapMasterRepository.Object,
     _mockPropertyMapDetailRepository.Object,
+    _mockWingRepository.Object,
     _mockUserRepository.Object,
     _mockPropertyOldRepository.Object,
     _mockPropertyTypeRepository.Object,
+    new Mock<IRepository<CommunicationDetailsEntity, int>>().Object,
+    new Mock<IRepository<PropertyPhotoEntity, int>>().Object,
+    new Mock<IRepository<DocumentBindingEntity, int>>().Object,
+    new Mock<IRepository<DocumentEntity, int>>().Object,
+    new Mock<IRepository<PropertyPhotoTypeEntity, int>>().Object,
+    new Mock<IRepository<OwnerTypeMasterEntity, int>>().Object,
+    new Mock<IRepository<WingEntity, int>>().Object,
     _mockRuleLogService.Object
 );
     }

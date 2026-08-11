@@ -1,5 +1,6 @@
 using AutoMapper;
 using Moq;
+using MockQueryable;
 using MockQueryable.Moq;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.DTOs.PropertySocialDetails;
@@ -348,12 +349,28 @@ public class PropertySocialDetailsServiceTests
             Id = entityId,
             PropertyId = 100,
             SocialAttributeId = 5,
+            DocumentBindingId = 42,
             IsActive = true
+        };
+
+        var dummyBindings = new List<DocumentBindingInfoDto>
+        {
+            new() { BindingId = 42, ReferenceTableId = entityId, DocumentGuid = Guid.NewGuid(), BindingPurpose = "Document" }
         };
 
         _mockRepository.Setup(r => r.GetByIdAsync(entityId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(entity);
-        _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()))
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockDocumentApplicationService.Setup(d => d.GetDocumentsByReferenceTableAsync(
+                "PropertySocialDetails",
+                It.IsAny<IReadOnlyList<int>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dummyBindings);
+        _mockDocumentApplicationService.Setup(d => d.DeactivateDocumentBindingAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -361,7 +378,15 @@ public class PropertySocialDetailsServiceTests
 
         // Assert
         Assert.True(result);
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Once);
+        Assert.Equal(42, entity.DocumentBindingId); // DocumentBindingId should NOT be nullified
+        Assert.Null(entity.BitValue); // Remains default (null)
+        Assert.True(entity.MarkedForDeletion);
+        Assert.NotNull(entity.MarkedForDeletionDate);
+        Assert.True(entity.IsActive); // Make sure IsActive remains true
+
+        _mockRepository.Verify(r => r.UpdateAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockDocumentApplicationService.Verify(d => d.DeactivateDocumentBindingAsync(42, It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -379,7 +404,90 @@ public class PropertySocialDetailsServiceTests
 
         // Assert
         Assert.False(result);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteByPropertyAndAttributeAsync_WithExistingEntity_ReturnsTrueAndDoesNotClearDetailValues()
+    {
+        // Arrange
+        var propertyId = 100;
+        var socialAttributeId = 5;
+        var entity = new PropertySocialDetailsEntity
+        {
+            Id = 1,
+            PropertyId = propertyId,
+            SocialAttributeId = socialAttributeId,
+            DocumentBindingId = 42,
+            BitValue = true,
+            Remark = "Test remark",
+            IntValue = 10,
+            DecimalValue = 10.5m,
+            TextValue = "some text",
+            DateValue = DateTime.Now,
+            IsActive = true
+        };
+
+        var dummyBindings = new List<DocumentBindingInfoDto>
+        {
+            new() { BindingId = 42, ReferenceTableId = 1, DocumentGuid = Guid.NewGuid(), BindingPurpose = "Document" }
+        };
+
+        var entities = new List<PropertySocialDetailsEntity> { entity }.BuildMock();
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities);
+        _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockDocumentApplicationService.Setup(d => d.GetDocumentsByReferenceTableAsync(
+                "PropertySocialDetails",
+                It.IsAny<IReadOnlyList<int>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dummyBindings);
+        _mockDocumentApplicationService.Setup(d => d.DeactivateDocumentBindingAsync(
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, CancellationToken.None);
+
+        // Assert
+        Assert.True(result);
+        Assert.Equal(42, entity.DocumentBindingId); // DocumentBindingId should NOT be nullified
+        Assert.True(entity.BitValue); // BitValue should not be cleared/set to false
+        Assert.Equal("Test remark", entity.Remark);
+        Assert.Equal(10, entity.IntValue);
+        Assert.Equal(10.5m, entity.DecimalValue);
+        Assert.Equal("some text", entity.TextValue);
+        Assert.NotNull(entity.DateValue);
+        Assert.True(entity.MarkedForDeletion);
+        Assert.NotNull(entity.MarkedForDeletionDate);
+        Assert.True(entity.IsActive); // Make sure IsActive remains true
+
+        _mockRepository.Verify(r => r.UpdateAsync(entity, It.IsAny<CancellationToken>()), Times.Once);
+        _mockDocumentApplicationService.Verify(d => d.DeactivateDocumentBindingAsync(42, It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteByPropertyAndAttributeAsync_WithNonExistentEntity_ReturnsFalse()
+    {
+        // Arrange
+        var propertyId = 999;
+        var socialAttributeId = 999;
+        var entities = new List<PropertySocialDetailsEntity>().BuildMock();
+
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities);
+
+        // Act
+        var result = await _service.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, CancellationToken.None);
+
+        // Assert
+        Assert.False(result);
+        _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<PropertySocialDetailsEntity>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

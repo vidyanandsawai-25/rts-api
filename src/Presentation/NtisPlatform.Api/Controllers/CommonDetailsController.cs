@@ -62,6 +62,68 @@ public class CommonDetailsController : ControllerBase
         });
     }
 
+    [HttpGet("source-tables")]
+    public async Task<IActionResult> GetSourceTables(CancellationToken ct)
+    {
+        var result = await _service.GetSourceTablesAsync(ct);
+        return Ok(new ApiResponse<List<SourceTableLookupDto>>
+        {
+            Success = true,
+            Items = result
+        });
+    }
+
+    [HttpGet("source-table-fields/{sourceTableId}")]
+    public async Task<IActionResult> GetSourceTableFields([FromRoute] int sourceTableId, CancellationToken ct)
+    {
+        var result = await _service.GetSourceTableFieldsAsync(sourceTableId, ct);
+        return Ok(new ApiResponse<List<SourceTableFieldLookupDto>>
+        {
+            Success = true,
+            Items = result
+        });
+    }
+
+    [HttpPost("bulk-update-definitions")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateBulkUpdateDefinition(
+        [FromBody] CreateBulkUpdateDefinitionFromSourceDto request, CancellationToken ct)
+    {
+        int userId;
+        try
+        {
+            userId = GetValidatedUserId();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new ApiResponse<BulkUpdateDefinitionResultDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+
+        try
+        {
+            var result = await _service.CreateFromSourceTableAsync(request, userId, ct);
+            return Ok(new ApiResponse<BulkUpdateDefinitionResultDto>
+            {
+                Success = true,
+                Items = result,
+                Message = $"Bulk update definition '{result.Master.UpdateCode}' created with {result.FieldConfigs.Count} field(s)."
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<BulkUpdateDefinitionResultDto>
+            {
+                Success = false,
+                Message = ex.Message
+            });
+        }
+    }
+
     [HttpGet("filter-properties")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> FilterProperties([FromQuery] FilterPropertiesRequestDto request,CancellationToken ct)
@@ -121,7 +183,7 @@ public class CommonDetailsController : ControllerBase
     [HttpPut("update")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Update([FromBody] BulkUpdateRequestDto request,CancellationToken ct)
+    public async Task<IActionResult> Update([FromBody] List<BulkUpdateRequestDto> requests, CancellationToken ct)
     {
         int userId;
         try
@@ -130,31 +192,44 @@ public class CommonDetailsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Unauthorized(new ApiResponse<BulkUpdateResultDto>
+            return Unauthorized(new ApiResponse<List<BulkUpdateResultDto>>
             {
                 Success = false,
                 Message = ex.Message
             });
         }
 
+        if (requests is null || requests.Count == 0)
+        {
+            return BadRequest(new ApiResponse<List<BulkUpdateResultDto>>
+            {
+                Success = false,
+                Message = "At least one update item is required."
+            });
+        }
+
         try
         {
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-            var result = await _service.BulkUpdateAsync(request, userId, ipAddress, ct);
+            var results = await _service.BulkUpdateBatchAsync(requests, userId, ipAddress, ct);
 
-            return Ok(new ApiResponse<BulkUpdateResultDto>
+            var totalSuccess = results.Sum(r => r.SuccessCount);
+            var totalFailed = results.Sum(r => r.FailedCount);
+            var allErrors = results.SelectMany(r => r.Errors.Select(e => $"[{r.UpdateCode}] {e}")).ToList();
+
+            return Ok(new ApiResponse<List<BulkUpdateResultDto>>
             {
-                Success = result.FailedCount == 0,
-                Message = result.FailedCount == 0
-                    ? $"Updated {result.SuccessCount} properties successfully"
-                    : $"Updated {result.SuccessCount}, failed {result.FailedCount}",
-                Items = result,
-                Errors = result.Errors.Count > 0 ? result.Errors : null
+                Success = totalFailed == 0,
+                Message = totalFailed == 0
+                    ? $"Processed {results.Count} update item(s): {totalSuccess} properties updated successfully"
+                    : $"Processed {results.Count} update item(s): {totalSuccess} succeeded, {totalFailed} failed",
+                Items = results,
+                Errors = allErrors.Count > 0 ? allErrors : null
             });
         }
         catch (ArgumentException ex)
         {
-            return BadRequest(new ApiResponse<BulkUpdateResultDto>
+            return BadRequest(new ApiResponse<List<BulkUpdateResultDto>>
             {
                 Success = false,
                 Message = ex.Message
@@ -165,7 +240,7 @@ public class CommonDetailsController : ControllerBase
     [HttpGet("export-excel")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ExportExcel([FromQuery] FilterPropertiesRequestDto request, CancellationToken ct)
+    public async Task<IActionResult> ExportExcel([FromQuery] ExportPropertiesRequestDto request, CancellationToken ct)
     {
         try
         {

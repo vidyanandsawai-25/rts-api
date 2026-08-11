@@ -21,6 +21,8 @@ namespace NtisPlatform.Application.Interfaces.TaxEngine
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null,
             int? detailYearRangeRVId = null,
-            decimal? overrideRent = null);
+            decimal? overrideRent = null,
+			bool isPlotProperty = false,
+            decimal? overrideMaintenancePercent = null);
     }
 }

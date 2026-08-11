@@ -7,7 +7,7 @@ public class TaxApplicabilityResponseDto
 {
     public int PropertyId { get; set; }
     public int FinancialYearId { get; set; }
-    public int TypeOfUseGroupId { get; set; }
+    public int TypeOfUseId { get; set; }
     public int ApplicableCount { get; set; }
     public int ExemptedCount { get; set; }
     public List<TaxApplicabilityDetailDto> ApplicableTaxes { get; set; } = new();

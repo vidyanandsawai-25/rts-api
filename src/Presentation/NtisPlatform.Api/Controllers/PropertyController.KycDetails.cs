@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using NtisPlatform.Application.DTOs.PropertyKyc;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models;
 
@@ -69,6 +70,45 @@ public partial class PropertyController
         {
             Success = true,
             Message = "Record updated successfully",
+            Items = result
+        });
+    }
+
+    /// <summary>
+    /// Retrieves common KYC details using property search criteria.
+    /// </summary>
+    /// <response code="200">Returns the property KYC details</response>
+    /// <response code="400">Invalid query parameters</response>
+    /// <response code="404">Property not found</response>
+    [HttpGet("kyc-details-common")]
+    [ProducesResponseType(
+        typeof(ApiResponse<PropertyKycDetailsCommonDto>),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(
+        typeof(ApiResponse<PropertyKycDetailsCommonDto>),
+        StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(
+        typeof(ApiResponse<PropertyKycDetailsCommonDto>),
+        StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetKycDetailsCommon(
+        [FromQuery] PropertyKycDetailsQueryParameters queryParameters,
+        CancellationToken ct)
+    {
+        var result = await _propertyKycService.GetKycDetailsCommon(queryParameters, ct);
+
+        if (result == null)
+        {
+            return NotFound(new ApiResponse<PropertyKycDetailsCommonDto>
+            {
+                Success = false,
+                Message = "Property not found for the given criteria"
+            });
+        }
+
+        return Ok(new ApiResponse<PropertyKycDetailsCommonDto>
+        {
+            Success = true,
+            Message = "Record fetched successfully",
             Items = result
         });
     }

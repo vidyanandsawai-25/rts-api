@@ -9,7 +9,9 @@ namespace NtisPlatform.Application.DTOs.Asset_Management.AssetUseFactorCVMaster;
 public class AssetUseFactorCVMasterDto : BaseDtos
 {
     public int TypeOfUseId { get; set; }
+    public string TypeOfUseDescription { get; set; } = string.Empty;
     public int SubTypeOfUseId { get; set; }
+    public string SubTypeOfUseDescription { get; set; } = string.Empty;
     public decimal Factor { get; set; }
     public int YearRangeCVId { get; set; }
 }

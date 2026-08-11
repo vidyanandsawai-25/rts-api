@@ -34,11 +34,7 @@ public class FieldRegistryServiceTests : IDisposable
                 Id = 1,
                 UpdateCode = "UPD001",
                 UpdateName = "Update Owner Name",
-                UpdateNameMarathi = "मालकाचे नाव अद्यतनित करा",
                 ReferenceTableName = "PropertyMast",
-                DisplaySequence = 1,
-                Description = "Updates owner name",
-                Category = "Owner",
                 IsApprovalRequired = true,
                 IsActive = true,
                 CreatedBy = 1,
@@ -49,11 +45,7 @@ public class FieldRegistryServiceTests : IDisposable
                 Id = 2,
                 UpdateCode = "UPD002",
                 UpdateName = "Update Tax Rate",
-                UpdateNameMarathi = "कर दर अद्यतनित करा",
                 ReferenceTableName = "TaxMast",
-                DisplaySequence = 2,
-                Description = "Updates tax rate",
-                Category = "Tax",
                 IsApprovalRequired = false,
                 IsActive = true,
                 CreatedBy = 1,
@@ -64,11 +56,7 @@ public class FieldRegistryServiceTests : IDisposable
                 Id = 3,
                 UpdateCode = "UPD003",
                 UpdateName = "Update Address",
-                UpdateNameMarathi = "पत्ता अद्यतनित करा",
                 ReferenceTableName = "PropertyMast",
-                DisplaySequence = 3,
-                Description = "Updates address",
-                Category = "Address",
                 IsApprovalRequired = false,
                 IsActive = false,
                 CreatedBy = 2,
@@ -85,7 +73,6 @@ public class FieldRegistryServiceTests : IDisposable
                 BulkUpdateMasterId = 1,
                 FieldName = "OwnerName",
                 DisplayName = "Owner Name",
-                DisplayNameMarathi = "मालकाचे नाव",
                 ControlType = "text",
                 DataType = "string",
                 IsRequired = true,
@@ -100,7 +87,6 @@ public class FieldRegistryServiceTests : IDisposable
                 BulkUpdateMasterId = 1,
                 FieldName = "OwnerMobile",
                 DisplayName = "Owner Mobile",
-                DisplayNameMarathi = "मालकाचा मोबाईल",
                 ControlType = "text",
                 DataType = "string",
                 IsRequired = false,
@@ -115,7 +101,6 @@ public class FieldRegistryServiceTests : IDisposable
                 BulkUpdateMasterId = 2,
                 FieldName = "TaxRate",
                 DisplayName = "Tax Rate",
-                DisplayNameMarathi = "कर दर",
                 ControlType = "number",
                 DataType = "decimal",
                 IsRequired = true,
@@ -330,8 +315,6 @@ public class FieldRegistryServiceTests : IDisposable
             UpdateCode = "NEWCODE",
             UpdateName = "New Update",
             ReferenceTableName = "SomeTable",
-            DisplaySequence = 5,
-            Category = "General",
             IsApprovalRequired = false,
             IsActive = true,
             CreatedBy = 10,
@@ -350,7 +333,6 @@ public class FieldRegistryServiceTests : IDisposable
         Assert.Equal("NEWCODE", result.UpdateCode);
         Assert.Equal("New Update", result.UpdateName);
         Assert.Equal("SomeTable", result.ReferenceTableName);
-        Assert.Equal(5, result.DisplaySequence);
         Assert.Equal(2, result.FieldConfigs.Count);
         Assert.Equal(1, result.FieldConfigs[0].SequenceNo);
         Assert.Equal("Field1", result.FieldConfigs[0].FieldName);
@@ -374,14 +356,14 @@ public class FieldRegistryServiceTests : IDisposable
     #region GetFieldRegistriesAsync Tests
 
     [Fact]
-    public async Task GetFieldRegistriesAsync_NoFilters_ReturnsFirstPageOrderedByDisplaySequenceThenId()
+    public async Task GetFieldRegistriesAsync_NoFilters_ReturnsFirstPageOrderedByUpdateNameThenId()
     {
         // Act
         var result = await _service.GetFieldRegistriesAsync(new FieldRegistryQueryParameters { PageNumber = 1, PageSize = 10 }, CancellationToken.None);
 
-        // Assert
+        // Assert - alphabetically: "Update Address" (UPD003), "Update Owner Name" (UPD001), "Update Tax Rate" (UPD002).
         Assert.Equal(3, result.TotalCount);
-        Assert.Equal(new[] { "UPD001", "UPD002", "UPD003" }, result.Items.Select(i => i.UpdateCode));
+        Assert.Equal(new[] { "UPD003", "UPD001", "UPD002" }, result.Items.Select(i => i.UpdateCode));
     }
 
     [Fact]
@@ -453,17 +435,6 @@ public class FieldRegistryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetFieldRegistriesAsync_FiltersByCategory()
-    {
-        // Act
-        var result = await _service.GetFieldRegistriesAsync(new FieldRegistryQueryParameters { Category = "Tax" }, CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.Items);
-        Assert.Equal("UPD002", result.Items.First().UpdateCode);
-    }
-
-    [Fact]
     public async Task GetFieldRegistriesAsync_FiltersByFieldName_MatchesOnlyMastersContainingThatField()
     {
         // Act - "OwnerMobile" only exists on master 1's field configs.
@@ -475,24 +446,11 @@ public class FieldRegistryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetFieldRegistriesAsync_CombinesMultipleFilters_AndSemantics()
-    {
-        // Act - both filters individually match different sets; combined with AND should match only overlap.
-        var result = await _service.GetFieldRegistriesAsync(
-            new FieldRegistryQueryParameters { ReferenceTableName = "PropertyMast", Category = "Owner" },
-            CancellationToken.None);
-
-        // Assert
-        Assert.Single(result.Items);
-        Assert.Equal("UPD001", result.Items.First().UpdateCode);
-    }
-
-    [Fact]
     public async Task GetFieldRegistriesAsync_CombinesFilters_ReturnsEmpty_WhenNoOverlap()
     {
-        // Act - ReferenceTableName=PropertyMast matches UPD001/UPD003, Category=Tax matches UPD002 only - no overlap.
+        // Act - ReferenceTableName=PropertyMast matches UPD001/UPD003, UpdateCode=UPD002 does not overlap.
         var result = await _service.GetFieldRegistriesAsync(
-            new FieldRegistryQueryParameters { ReferenceTableName = "PropertyMast", Category = "Tax" },
+            new FieldRegistryQueryParameters { ReferenceTableName = "PropertyMast", UpdateCode = "UPD002" },
             CancellationToken.None);
 
         // Assert
@@ -511,7 +469,7 @@ public class FieldRegistryServiceTests : IDisposable
         Assert.Single(result.Items);
         Assert.Equal(2, result.PageNumber);
         Assert.Equal(1, result.PageSize);
-        Assert.Equal("UPD002", result.Items.First().UpdateCode); // second by DisplaySequence order
+        Assert.Equal("UPD001", result.Items.First().UpdateCode); // second by UpdateName order (Address, Owner Name, Tax Rate)
     }
 
     [Fact]
@@ -614,11 +572,7 @@ public class FieldRegistryServiceTests : IDisposable
         var updateDto = new UpdateFieldRegistryDto
         {
             UpdateName = "Renamed Update",
-            UpdateNameMarathi = "पुनर्नामित",
             ReferenceTableName = "NewTable",
-            DisplaySequence = 20,
-            Description = "New description",
-            Category = "NewCategory",
             IsApprovalRequired = true,
             IsActive = false,
             UpdatedBy = 5,
@@ -636,8 +590,6 @@ public class FieldRegistryServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal("Renamed Update", result.UpdateName);
         Assert.Equal("NewTable", result.ReferenceTableName);
-        Assert.Equal(20, result.DisplaySequence);
-        Assert.Equal("NewCategory", result.Category);
         Assert.True(result.IsApprovalRequired);
         Assert.False(result.IsActive);
     }
@@ -651,7 +603,6 @@ public class FieldRegistryServiceTests : IDisposable
         {
             UpdateName = "Update Owner Name",
             ReferenceTableName = "PropertyMast",
-            DisplaySequence = 1,
             IsActive = true,
             UpdatedBy = 3,
             FieldConfigs = new List<UpdateFieldRegistryFieldConfigDto>

@@ -47,8 +47,8 @@ public class LockUnlockServiceTests : IDisposable
         // Seed ModuleMaster data
         var modules = new List<ModuleMasterEntity>
         {
-            new() { Id = 1, ModuleCode = "MOD001", ModuleName = "Property", ModuleNameLocal = "संपत्ति", DepartmentId = 1, IsActive = true },
-            new() { Id = 2, ModuleCode = "MOD002", ModuleName = "Tax", ModuleNameLocal = "कर", DepartmentId = 1, IsActive = true },
+             new() { Id = 1, ModuleCode = "MOD001", ModuleName = "Property", ModuleNameLocal = "संपत्ति", ModuleLabel = "Property Module", DepartmentId = 1, IsActive = true },
+            new() { Id = 2, ModuleCode = "MOD002", ModuleName = "Tax", ModuleNameLocal = "कर", ModuleLabel = "Tax Module", DepartmentId = 1, IsActive = true },
         };
         _context.ModuleMasters.AddRange(modules);
 
@@ -196,6 +196,7 @@ public class LockUnlockServiceTests : IDisposable
         Assert.Equal("MOD001", basicDetailsScreen.ModuleCode);
         Assert.Equal("Property", basicDetailsScreen.ModuleName);
         Assert.Equal("संपत्ति", basicDetailsScreen.ModuleNameLocal);
+        Assert.Equal("Property Module", basicDetailsScreen.ModuleLabel);
     }
 
     [Fact]

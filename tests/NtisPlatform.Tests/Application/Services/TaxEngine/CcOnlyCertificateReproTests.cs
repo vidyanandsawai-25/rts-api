@@ -160,7 +160,8 @@ public class CcOnlyCertificateReproTests
             financeYearProvider,
             BuildGuidelineReaderMock().Object,
             unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await service.ApplyAsync(propertyId, userId: 1);
 
@@ -211,7 +212,8 @@ public class CcOnlyCertificateReproTests
             financeYearProvider,
             BuildGuidelineReaderMock().Object,
             unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         // A CC-only certificate does not need PARTIAL_OC to exist -- it must not throw, and the
         // CC/PARTIAL_CC row must still be persisted.
@@ -263,7 +265,8 @@ public class CcOnlyCertificateReproTests
             financeYearProvider,
             BuildGuidelineReaderMock().Object,
             unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.ApplyAsync(propertyId, userId: 1));
 

@@ -29,7 +29,7 @@ public class PropertySocialDetailsRepository : IPropertySocialDetailsRepository
     public async Task<List<PropertySocialDetailsEntity>> GetActiveSocialDetailsByPropertyAsync(int propertyId, CancellationToken cancellationToken = default)
     {
         return await _context.Set<PropertySocialDetailsEntity>()
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
     }
 
@@ -44,7 +44,7 @@ public class PropertySocialDetailsRepository : IPropertySocialDetailsRepository
     {
         return await _context.Set<PropertySocialDetailsEntity>()
             .Include(x => x.SocialAttribute)
-            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
             .ToListAsync(cancellationToken);
     }
 }

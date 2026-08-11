@@ -2,9 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NtisPlatform.Application.DTOs.Auth;
+using NtisPlatform.Application.DTOs.PasswordReset;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Api.Controllers;
+
+
 
 /// <summary>
 /// Authentication controller
@@ -14,11 +18,28 @@ namespace NtisPlatform.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly IMfaChallengeService _mfaChallengeService;
+    private readonly IOtpChallengeService _otpChallengeService;
+    private readonly IPasswordResetService _passwordResetService;
+    private readonly IAuthTokenIssuerService _authTokenIssuer;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IAuthService authService, ILogger<AuthController> logger)
+    public AuthController(
+        IAuthService authService,
+        IMfaChallengeService mfaChallengeService,
+        IOtpChallengeService otpChallengeService,
+        IPasswordResetService passwordResetService,
+        IAuthTokenIssuerService authTokenIssuer,
+        IUserRepository userRepository,
+        ILogger<AuthController> logger)
     {
         _authService = authService;
+        _mfaChallengeService = mfaChallengeService;
+        _otpChallengeService = otpChallengeService;
+        _passwordResetService = passwordResetService;
+        _authTokenIssuer = authTokenIssuer;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -64,6 +85,120 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during login for username: {Username}", request.Username);
             return StatusCode(500, new { message = "An error occurred during login" });
+        }
+    }
+
+    /// <summary>
+    /// Completes a login that returned RequiresTwoFactor by verifying a TOTP or recovery code
+    /// against the pending MFA challenge.
+    /// </summary>
+    /// <param name="request">Challenge id plus code (or recovery code)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The normal login response (token + refresh token) once verified</returns>
+    [HttpPost("two-factor/verify")]
+    [AllowAnonymous]
+    [EnableRateLimiting("mfa-verify")]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
+    public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var result = await _mfaChallengeService.VerifyLoginChallengeAsync(
+                request.ChallengeId,
+                request.Code,
+                request.UseRecoveryCode,
+                cancellationToken);
+
+            if (!result.Success)
+            {
+                if (result.FailureReason == MfaVerificationFailureReason.ChallengeLocked)
+                {
+                    return StatusCode(StatusCodes.Status423Locked, new { message = "Too many failed attempts. Please sign in again." });
+                }
+
+                _logger.LogWarning("MFA verification failed: {Reason}", result.FailureReason);
+                return Unauthorized(new { message = "Invalid or expired verification code." });
+            }
+
+            _logger.LogInformation("MFA verification succeeded");
+            return Ok(result.LoginResponse);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during two-factor verification");
+            return StatusCode(500, new { message = "An error occurred during verification" });
+        }
+    }
+
+    /// <summary>
+    /// Completes a login that returned RequiresTwoFactor with TwoFactorMethod "otp" by verifying
+    /// the emailed/texted one-time code against the pending challenge.
+    /// </summary>
+    /// <param name="request">Challenge id plus the OTP code</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>The normal login response (token + refresh token) once verified</returns>
+    [HttpPost("login-otp/verify")]
+    [AllowAnonymous]
+    [EnableRateLimiting("mfa-verify")]
+    [ProducesResponseType(typeof(LoginResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
+    public async Task<IActionResult> VerifyLoginOtp([FromBody] VerifyLoginOtpRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var result = await _otpChallengeService.VerifyAsync(
+                request.ChallengeId, OtpChallengePurpose.LoginOtp, request.Code, cancellationToken);
+
+            if (!result.Success)
+            {
+                if (result.FailureReason == OtpVerificationFailureReason.ChallengeLocked)
+                {
+                    return StatusCode(StatusCodes.Status423Locked, new { message = "Too many failed attempts. Please sign in again." });
+                }
+
+                _logger.LogWarning("Login OTP verification failed: {Reason}", result.FailureReason);
+                return Unauthorized(new { message = "Invalid or expired verification code." });
+            }
+
+            var user = await _userRepository.GetByIdAsync(result.UserId, cancellationToken);
+            if (user == null || !user.IsActive)
+            {
+                _logger.LogWarning("Login OTP verified for user {UserId} but user is no longer valid", result.UserId);
+                return Unauthorized(new { message = "Invalid or expired verification code." });
+            }
+
+            var loginResponse = await _authTokenIssuer.IssueAsync(user, "otp", cancellationToken);
+
+            _logger.LogInformation("Login OTP verification succeeded for user {UserId}", result.UserId);
+            return Ok(loginResponse);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login OTP verification");
+            return StatusCode(500, new { message = "An error occurred during verification" });
         }
     }
 
@@ -137,6 +272,157 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during session validation");
             return StatusCode(500, new { message = "An error occurred during session validation" });
+        }
+    }
+
+    /// <summary>
+    /// Looks up which OTP delivery methods (email/SMS/authenticator app) are actually usable for
+    /// the given account, so the client can offer only real choices before calling
+    /// <see cref="ForgotPassword"/>. Gated by "2FALOGINFORFPASS" like the rest of the flow.
+    /// </summary>
+    /// <param name="request">Username or email identifying the account</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [HttpPost("forgot-password/methods")]
+    [AllowAnonymous]
+    [EnableRateLimiting("forgot-password")]
+    [ProducesResponseType(typeof(ForgotPasswordAvailableMethodsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPasswordMethods([FromBody] ForgotPasswordAvailableMethodsRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var response = await _passwordResetService.GetAvailableMethodsAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot-password methods lookup");
+            return StatusCode(500, new { message = "An error occurred processing the request" });
+        }
+    }
+
+    /// <summary>
+    /// Starts the self-service forgot-password flow by sending a one-time code via email/SMS
+    /// (per SECURITY_AUTH config). Gated by the "2FALOGINFORFPASS" flag — when off, self-service
+    /// reset is unavailable and the response says so without revealing whether the account exists.
+    /// </summary>
+    /// <param name="request">Username or email identifying the account</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("forgot-password")]
+    [ProducesResponseType(typeof(ForgotPasswordResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var response = await _passwordResetService.ForgotPasswordAsync(request, cancellationToken);
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot-password request");
+            return StatusCode(500, new { message = "An error occurred processing the request" });
+        }
+    }
+
+    /// <summary>
+    /// Verifies the OTP sent by <see cref="ForgotPassword"/> and, on success, issues a short-lived
+    /// reset token used to authorize the actual password change via <see cref="ResetPassword"/>.
+    /// </summary>
+    /// <param name="request">Challenge id plus the OTP code</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [HttpPost("forgot-password/verify-otp")]
+    [AllowAnonymous]
+    [EnableRateLimiting("mfa-verify")]
+    [ProducesResponseType(typeof(VerifyForgotPasswordOtpResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> VerifyForgotPasswordOtp([FromBody] VerifyForgotPasswordOtpRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var response = await _passwordResetService.VerifyForgotPasswordOtpAsync(request, cancellationToken);
+
+            if (!response.Success)
+            {
+                return Unauthorized(new { message = response.Message });
+            }
+
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during forgot-password OTP verification");
+            return StatusCode(500, new { message = "An error occurred during verification" });
+        }
+    }
+
+    /// <summary>
+    /// Completes the forgot-password flow, setting a new password using the reset token obtained
+    /// from <see cref="VerifyForgotPasswordOtp"/>. Revokes all of the user's existing sessions.
+    /// </summary>
+    /// <param name="request">Reset token plus new password</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    [HttpPost("forgot-password/reset")]
+    [AllowAnonymous]
+    [EnableRateLimiting("forgot-password")]
+    [ProducesResponseType(typeof(ResetPasswordResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        try
+        {
+            var response = await _passwordResetService.ResetPasswordAsync(request, cancellationToken);
+
+            if (!response.Success)
+            {
+                return BadRequest(new { message = response.Message });
+            }
+
+            return Ok(response);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during password reset");
+            return StatusCode(500, new { message = "An error occurred during password reset" });
         }
     }
 

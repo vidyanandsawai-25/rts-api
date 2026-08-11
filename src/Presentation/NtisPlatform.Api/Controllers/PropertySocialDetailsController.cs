@@ -39,9 +39,34 @@ public class PropertySocialDetailsController : ControllerBase
     public Task<IActionResult> Update(int id, [FromBody] UpdatePropertySocialDetailsDto updateDto, CancellationToken ct)
         => this.ExecuteUpdate(_service, id, updateDto, _logger, ct);
 
-    [HttpDelete("{id}")]
-    public Task<IActionResult> Delete(int id, CancellationToken ct)
-        => this.ExecuteDelete(_service, id, _logger, ct);
+
+    [HttpDelete]
+    public async Task<IActionResult> DeleteByPropertyAndAttribute([FromQuery] int propertyId, [FromQuery] int socialAttributeId, CancellationToken ct)
+    {
+        try
+        {
+            var result = await _service.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, ct);
+            return result ? Ok(new ApiResponse<PropertySocialDetailsDto>
+            {
+                Success = true,
+                Message = "Record marked for deletion"
+            }) :
+            Ok(new ApiResponse<PropertySocialDetailsDto>
+            {
+                Success = false,
+                Message = "Record not found"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Delete operation failed for propertyId: {PropertyId}, socialAttributeId: {SocialAttributeId}", propertyId, socialAttributeId);
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<PropertySocialDetailsDto>
+            {
+                Success = false,
+                Message = "An error occurred while deleting the record"
+            });
+        }
+    }
 
     /// <summary>
     /// Gets comprehensive social information for a property including ALL social attributes 

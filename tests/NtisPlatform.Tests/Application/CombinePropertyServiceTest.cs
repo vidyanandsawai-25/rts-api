@@ -23,6 +23,8 @@ public class CombinePropertyServiceTest
     private readonly Mock<IRepository<PropertyMastOldEntity, int>> _mockPropertyMastOldRepository;
     private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _mockPropertyTypeMasterRepository;
     private readonly Mock<IRepository<PropertyCategoryEntity, int>> _mockCategoryRepository;
+    private readonly Mock<IRepository<PropertyMapMasterEntity, int>> _mockPropertyMapMasterRepository;
+    private readonly Mock<IRepository<PropertyMapDetailEntity, int>> _mockPropertyMapDetailRepository;
     private readonly Mock<ICombinePropertyValidator> _mockValidator;
     private readonly Mock<IPropertyDataCopier> _mockDataCopier;
     private readonly Mock<IPropertyDeactivator> _mockDeactivator;
@@ -42,6 +44,8 @@ public class CombinePropertyServiceTest
         _mockPropertyMastOldRepository = new Mock<IRepository<PropertyMastOldEntity, int>>();
         _mockPropertyTypeMasterRepository = new Mock<IRepository<PropertyTypeMasterEntity, int>>();
         _mockCategoryRepository = new Mock<IRepository<PropertyCategoryEntity, int>>();
+        _mockPropertyMapMasterRepository = new Mock<IRepository<PropertyMapMasterEntity, int>>();
+        _mockPropertyMapDetailRepository = new Mock<IRepository<PropertyMapDetailEntity, int>>();
         _mockValidator = new Mock<ICombinePropertyValidator>();
         _mockDataCopier = new Mock<IPropertyDataCopier>();
         _mockDeactivator = new Mock<IPropertyDeactivator>();
@@ -69,6 +73,15 @@ public class CombinePropertyServiceTest
             It.IsAny<int>(), It.IsAny<List<int>>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _mockPropertyMapMasterRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyMapMasterEntity>
+            {
+                new() { Id = 3, MappingCategory = "MERGE", IsActive = true }
+            }.BuildMock());
+
+        _mockPropertyMapDetailRepository.Setup(r => r.GetQueryable())
+            .Returns(new List<PropertyMapDetailEntity>().BuildMock());
+
         _service = new CombinePropertyService(
             _mockRepository.Object,
             _mockWardRepository.Object,
@@ -78,6 +91,8 @@ public class CombinePropertyServiceTest
             _mockPropertyMastOldRepository.Object,
             _mockPropertyTypeMasterRepository.Object,
             _mockCategoryRepository.Object,
+            _mockPropertyMapMasterRepository.Object,
+            _mockPropertyMapDetailRepository.Object,
             _mockValidator.Object,
             _mockDataCopier.Object,
             _mockDeactivator.Object,
@@ -1112,6 +1127,97 @@ public class CombinePropertyServiceTest
         Assert.True(result.Success);
         Assert.Equal("Properties combined successfully.", result.Message);
         _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CombinePropertiesAsync_DuplicatesAndDeduplicatesPropertyMapDetailForCombinedProperties()
+    {
+        // Arrange
+        var request = new CombinePropertiesRequestDto
+        {
+            SourcePropertyId = 4,
+            CombinedPropertyIds = "2,3",
+            CombineReason = "Merging properties",
+            CreatedBy = 100
+        };
+
+        var sourceProperty = new PropertyEntity { Id = 4, PropertyNo = "13", PartitionNo = "A", WardId = 60, IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(4, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(sourceProperty);
+
+        var sourceWard = new WardEntity { Id = 60, WardNo = "VN7-8", IsActive = true };
+        _mockWardRepository.Setup(r => r.GetByIdAsync(60, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(sourceWard);
+
+        _mockValidator.Setup(v => v.ValidatePropertiesForCombinationAsync(4, It.IsAny<List<int>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((true, string.Empty, new List<PropertyEntity>()));
+
+        _mockDataCopier.Setup(d => d.CopyPropertyDataAsync(
+                4, It.IsAny<List<int>>(), 100, It.IsAny<bool>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockDeactivator.Setup(d => d.DeactivateCombinedPropertiesAsync(It.IsAny<List<int>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _mockDeactivator.Setup(d => d.EnsureMainPropertyRecordsActiveAsync(4, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Main property already has one old mapping: PropertyIdOld = 2280158
+        var mainPropertyMapping = new PropertyMapDetailEntity
+        {
+            PropertyIdNew = 4,
+            PropertyIdOld = 2280158,
+            PropertyNoOld = "93-12031437",
+            IsActive = true
+        };
+
+        // Combined properties mappings (both 2 and 3 map to 2280158, and property 3 also maps to a new unique legacy property 2280159)
+        var combinedMappings = new List<PropertyMapDetailEntity>
+        {
+            // Duplicates of what main property already has (should be filtered out)
+            new() { PropertyIdNew = 2, PropertyIdOld = 2280158, PropertyNoOld = "93-12031437", PropertySide = "old", IsActive = true },
+            new() { PropertyIdNew = 3, PropertyIdOld = 2280158, PropertyNoOld = "93-12031437", PropertySide = "old", IsActive = true },
+            // A new unique legacy old property detail (should be duplicated/inserted)
+            new() { PropertyIdNew = 3, PropertyIdOld = 2280159, PropertyNoOld = "93-12031438", PropertySide = "old", TaxSharePercent = 0.5m, AreaSharePercent = 0.5m, Latitude = 10, Longitude = 20, Location = "Loc", IsActive = true }
+        };
+
+        var allMappings = new List<PropertyMapDetailEntity> { mainPropertyMapping };
+        allMappings.AddRange(combinedMappings);
+
+        _mockPropertyMapDetailRepository.Setup(r => r.GetQueryable())
+            .Returns(allMappings.BuildMock());
+
+        List<PropertyMapDetailEntity>? addedDetails = null;
+        _mockPropertyMapDetailRepository.Setup(r => r.AddRangeAsync(It.IsAny<IEnumerable<PropertyMapDetailEntity>>(), It.IsAny<CancellationToken>()))
+            .Callback<IEnumerable<PropertyMapDetailEntity>, CancellationToken>((entities, ct) => addedDetails = entities.ToList())
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _service.CombinePropertiesAsync(request, default);
+
+        // Assert
+        Assert.True(result.Success);
+        
+        // Assert deduplication:
+        // Out of the 3 mappings in combined properties:
+        // - 2280158 is already present on main property, so it should be skipped.
+        // - 2280159 is new and unique, so it should be added.
+        Assert.NotNull(addedDetails);
+        Assert.Single(addedDetails);
+        
+        var addedMapping = addedDetails[0];
+        Assert.Equal(3, addedMapping.PropertyMapId); // MERGE PropertyMapMaster Id
+        Assert.Equal(4, addedMapping.PropertyIdNew);
+        Assert.Equal("VN7-8-13-A", addedMapping.PropertyNoNew);
+        Assert.Equal(2280159, addedMapping.PropertyIdOld);
+        Assert.Equal("93-12031438", addedMapping.PropertyNoOld);
+        Assert.Equal("Combine Property-Old Details combined in main property", addedMapping.ChangeReason);
+        Assert.Equal("Combine Property-Old Details combined in main property", addedMapping.Remark);
+        Assert.Equal(0.5m, addedMapping.TaxSharePercent);
+        Assert.Equal(0.5m, addedMapping.AreaSharePercent);
+        Assert.Equal(10, addedMapping.Latitude);
+        Assert.Equal(20, addedMapping.Longitude);
+        Assert.Equal("Loc", addedMapping.Location);
     }
 
     #endregion

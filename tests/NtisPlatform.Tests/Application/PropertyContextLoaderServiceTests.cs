@@ -8,6 +8,7 @@ using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Interfaces.TaxEngine;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Core.Constants;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
@@ -37,7 +38,7 @@ namespace NtisPlatform.Tests.Application
         private readonly Mock<IRepository<PropertyAssessmentEntity, int>> _propertyAssessmentRepo;
         private readonly Mock<IRepository<PropertySocialDetailsEntity, int>> _propertySocialDetailsRepo;
         private readonly Mock<IRepository<RenterMastEntity, int>> _renterRepo;
-        private readonly Mock<IRepository<PropertyOccupancyDetailsEntity, int>> _occupancyRepo;
+        private readonly Mock<IRepository<PropertyCertificateEntity, int>> _propertyCertificateRepo;
         private readonly Mock<ITaxMasterDataService> _masterDataService;
 
         private readonly Mock<IFinanceYearProvider> _financeYearProvider;
@@ -62,7 +63,7 @@ namespace NtisPlatform.Tests.Application
             _propertyAssessmentRepo = new Mock<IRepository<PropertyAssessmentEntity, int>>();
             _propertySocialDetailsRepo = new Mock<IRepository<PropertySocialDetailsEntity, int>>();
             _renterRepo = new Mock<IRepository<RenterMastEntity, int>>();
-            _occupancyRepo = new Mock<IRepository<PropertyOccupancyDetailsEntity, int>>();
+            _propertyCertificateRepo = new Mock<IRepository<PropertyCertificateEntity, int>>();
 
             _financeYearProvider = new Mock<IFinanceYearProvider>();
             _yearMasterRepo = new Mock<IRepository<YearMasterEntity, int>>();
@@ -90,8 +91,8 @@ namespace NtisPlatform.Tests.Application
             _renterRepo.Setup(r => r.GetQueryable())
                 .Returns(new List<RenterMastEntity>().BuildMockDbSet().Object);
 
-            _occupancyRepo.Setup(r => r.GetQueryable())
-                .Returns(new List<PropertyOccupancyDetailsEntity>().BuildMockDbSet().Object);
+            _propertyCertificateRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyCertificateEntity>().BuildMockDbSet().Object);
 
             _financeYearProvider.Setup(x => x.GetCurrentFinanceYear())
                 .Returns(2026);
@@ -211,9 +212,12 @@ namespace NtisPlatform.Tests.Application
         }
 
         [Fact]
-        public async Task LoadPropertyContextAsync_NoMatchingYearRange_ThrowsInvalidOperationException()
+        public async Task LoadPropertyContextAsync_NoMatchingYearRange_ReturnsZeroYearRangeRVId()
         {
-            // Arrange — construction year 1850 is outside DefaultYearRange (2000-2030)
+            // Arrange — construction year 1850 is outside DefaultYearRange (2000-2030).
+            // No range covering the construction year must not fail the whole request;
+            // it should fall back to YearRangeRVId=0, which downstream tax calculation
+            // already treats as "apply zero tax" instead of throwing.
             SetupValidProperty(propertyId: 1);
             SetupPropertyDetails(propertyId: 1, constructionYear: "1850");
 
@@ -222,12 +226,11 @@ namespace NtisPlatform.Tests.Application
 
             var sut = CreateService();
 
-            // Act & Assert
-            var ex = await Assert.ThrowsAsync<InvalidOperationException>(
-                () => sut.LoadPropertyContextAsync(1, 2026));
+            // Act
+            var ctx = await sut.LoadPropertyContextAsync(1, 2026);
 
-            Assert.Contains("Assessment year range not found", ex.Message);
-            Assert.Contains("1850", ex.Message);
+            // Assert
+            Assert.Equal(0, ctx.Parameters.YearRangeRVId);
         }
 
         // ─── Happy Path Tests ────────────────────────────────────────────────────
@@ -241,7 +244,10 @@ namespace NtisPlatform.Tests.Application
             const int constructionYearValue = 2015;
 
             SetupValidProperty(propertyId);
-            SetupPropertyDetails(propertyId, constructionYear: constructionYearValue.ToString());
+            SetupPropertyDetails(
+                propertyId,
+                constructionYear: constructionYearValue.ToString(),
+                assessmentYear: constructionYearValue.ToString());
 
             _masterDataService.Setup(m => m.GetActiveYearRangesAsync())
                 .ReturnsAsync(new List<AssessmentYearRangeEntity> { DefaultYearRange });
@@ -404,17 +410,21 @@ namespace NtisPlatform.Tests.Application
                     }
                 }.BuildMockDbSet().Object);
 
-            _occupancyRepo.Setup(r => r.GetQueryable())
-                .Returns(new List<PropertyOccupancyDetailsEntity>
+            var ocCertificate = PropertyCertificateEntity.Create(
+                propertyId: propertyId,
+                certificateTypeId: 1,
+                certificateNo: "OC-123",
+                issueDate: DateTime.UtcNow,
+                propertyDetailsId: detailId);
+            typeof(PropertyCertificateEntity)
+                .GetProperty(nameof(PropertyCertificateEntity.CertificateType))!
+                .SetValue(ocCertificate, new PropertyCertificateTypeMasterEntity
                 {
-                    new()
-                    {
-                        Id = 1,
-                        PropertyDetailId = detailId,
-                        IsActive = true,
-                        MarkedForDeletion = false
-                    }
-                }.BuildMockDbSet().Object);
+                    CertificateTypeCode = CertificateTypeCodes.OC
+                });
+
+            _propertyCertificateRepo.Setup(r => r.GetQueryable())
+                .Returns(new List<PropertyCertificateEntity> { ocCertificate }.BuildMockDbSet().Object);
 
             var sut = CreateService();
 
@@ -423,7 +433,8 @@ namespace NtisPlatform.Tests.Application
 
             // Assert
             Assert.Single(ctx.Renters);
-            Assert.Single(ctx.Occupancies);
+            Assert.Single(ctx.Certificates);
+            Assert.Equal("OC-123", ctx.Certificates[0].CertificateNo);
         }
 
         [Fact]
@@ -478,7 +489,7 @@ namespace NtisPlatform.Tests.Application
                 _propertyAssessmentRepo.Object,
                 _propertySocialDetailsRepo.Object,
                 _renterRepo.Object,
-                _occupancyRepo.Object,
+                _propertyCertificateRepo.Object,
                 _masterDataService.Object,
                 _financeYearProvider.Object,
                 _yearMasterRepo.Object,

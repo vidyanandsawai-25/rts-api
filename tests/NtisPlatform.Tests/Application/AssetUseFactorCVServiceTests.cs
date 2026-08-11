@@ -80,6 +80,125 @@ public class AssetUseFactorCVServiceTests
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery.Object);
     }
 
+    #region GetAllAsync - TypeOfUse/SubTypeOfUse Description Enrichment
+
+    [Fact]
+    public async Task GetAllAsync_WithMatchingTypeAndSubType_PopulatesBothDescriptions()
+    {
+        var typesOfUse = new List<AssetTypeOfUseMasterEntity>
+        {
+            new() { Id = 1, TypeOfUseCode = "RES", Description = "Residential", IsActive = true }
+        }.BuildMockDbSet();
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typesOfUse.Object);
+
+        SetupExistingRows(new AssetUseFactorCVMasterEntity
+        {
+            Id = 1,
+            TypeOfUseId = 1,
+            SubTypeOfUseId = 1,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetUseFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        Assert.Equal(1, result.TotalCount);
+        var item = Assert.Single(result.Items);
+        Assert.Equal("Residential", item.TypeOfUseDescription);
+        Assert.Equal("Sub A", item.SubTypeOfUseDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithNoMatchingTypeOrSubType_DescriptionsAreEmpty()
+    {
+        // TypeOfUseId 999 / SubTypeOfUseId 999 don't exist - both LEFT JOINs must not throw and
+        // must leave the corresponding description empty.
+        SetupExistingRows(new AssetUseFactorCVMasterEntity
+        {
+            Id = 1,
+            TypeOfUseId = 999,
+            SubTypeOfUseId = 999,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetUseFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.TypeOfUseDescription);
+        Assert.Equal(string.Empty, item.SubTypeOfUseDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithPagination_ReturnsCorrectPageAndTotalCount()
+    {
+        var rows = Enumerable.Range(1, 15)
+            .Select(i => new AssetUseFactorCVMasterEntity { Id = i, TypeOfUseId = 1, SubTypeOfUseId = 1, Factor = 1.0m, YearRangeCVId = 1, IsActive = true })
+            .ToArray();
+        SetupExistingRows(rows);
+
+        var result = await _service.GetAllAsync(
+            new AssetUseFactorCVMasterQueryParameters { PageNumber = 2, PageSize = 10 }, CancellationToken.None);
+
+        Assert.Equal(15, result.TotalCount);
+        Assert.Equal(5, result.Items.Count());
+        Assert.Equal(2, result.PageNumber);
+        Assert.All(result.Items, item => Assert.Equal("Sub A", item.SubTypeOfUseDescription));
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithTypeOfUseDescriptionNull_ReturnsEmptyStringNotNull()
+    {
+        // AssetTypeOfUseMasterEntity.Description is a nullable string - a matched row whose
+        // Description is null must still coalesce to string.Empty rather than leaking null into the DTO.
+        var typesOfUse = new List<AssetTypeOfUseMasterEntity>
+        {
+            new() { Id = 1, TypeOfUseCode = "RES", Description = null, IsActive = true }
+        }.BuildMockDbSet();
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typesOfUse.Object);
+
+        SetupExistingRows(new AssetUseFactorCVMasterEntity
+        {
+            Id = 1,
+            TypeOfUseId = 1,
+            SubTypeOfUseId = 1,
+            Factor = 1.0m,
+            YearRangeCVId = 1,
+            IsActive = true
+        });
+
+        var result = await _service.GetAllAsync(new AssetUseFactorCVMasterQueryParameters(), CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(string.Empty, item.TypeOfUseDescription);
+    }
+
+    [Fact]
+    public async Task GetAllAsync_WithTypeOfUseIdFilter_ReturnsFilteredResults()
+    {
+        var typesOfUse = new List<AssetTypeOfUseMasterEntity>
+        {
+            new() { Id = 1, TypeOfUseCode = "RES", Description = "Residential", IsActive = true },
+            new() { Id = 2, TypeOfUseCode = "COM", Description = "Commercial", IsActive = true }
+        }.BuildMockDbSet();
+        _mockTypeOfUseRepository.Setup(r => r.GetQueryable()).Returns(typesOfUse.Object);
+
+        SetupExistingRows(
+            new AssetUseFactorCVMasterEntity { Id = 1, TypeOfUseId = 1, SubTypeOfUseId = 1, Factor = 1.0m, YearRangeCVId = 1, IsActive = true },
+            new AssetUseFactorCVMasterEntity { Id = 2, TypeOfUseId = 2, SubTypeOfUseId = 1, Factor = 1.0m, YearRangeCVId = 1, IsActive = true });
+
+        var result = await _service.GetAllAsync(
+            new AssetUseFactorCVMasterQueryParameters { TypeOfUseId = 1 }, CancellationToken.None);
+
+        var item = Assert.Single(result.Items);
+        Assert.Equal(1, item.Id);
+        Assert.Equal("Residential", item.TypeOfUseDescription);
+    }
+
+    #endregion
+
     #region Create - Duplicate Combination Validation
 
     [Fact]

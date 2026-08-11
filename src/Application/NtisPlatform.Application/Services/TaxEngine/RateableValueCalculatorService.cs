@@ -31,7 +31,9 @@ namespace NtisPlatform.Application.Services.TaxEngine
             RateableValuePolicyOptions policyOptions,
             decimal? overrideRate = null,
             int? detailYearRangeRVId = null,
-            decimal? overrideRent = null)
+            decimal? overrideRent = null,
+			bool isPlotProperty = false,
+            decimal? overrideMaintenancePercent = null)
         {
             if (detail == null)
                 throw new ArgumentNullException(nameof(detail));
@@ -46,7 +48,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             AssessmentYearRangeEntity? yearRange = null;
             if (detailYearRangeRVId.HasValue && detailYearRangeRVId.Value == 0)
             {
-                return CreateZeroResult(detail, "AssessmentYear not found in year range entity");
+                return CreateZeroResult(detail, "Year Not Found");
             }
 
             if (detailYearRangeRVId.HasValue)
@@ -55,7 +57,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             }
 
             if (yearRange == null)
-                return CreateZeroResult(detail, "Year Range Not Found");
+                return CreateZeroResult(detail, "Year Not Found");
 
             var typeOfUse = typeOfUses.FirstOrDefault(x => x.Id == detail.TypeOfUseId);
             if (typeOfUse == null)
@@ -68,6 +70,21 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
             if (string.Equals(typeOfUse.Type, "N", StringComparison.OrdinalIgnoreCase))
                 return CreateZeroResult(detail, "Type is N");
+
+            // Plot / OpenPlot rule: tax is calculated only when Plot-category properties use an
+            // OpenPlot type of use, and only when non-Plot properties use a non-OpenPlot type of use.
+            // A Plot property with a non-OpenPlot use, or a non-Plot property with an OpenPlot use,
+            // must not be taxed.
+            bool isOpenPlotUse = string.Equals(
+                typeOfUse.TypeOfUseCategory?.TypeOfUseCategoryCode,
+                "OpenPlot",
+                StringComparison.OrdinalIgnoreCase);
+
+            if (isPlotProperty != isOpenPlotUse)
+            {
+                // AppliedOn is persisted to a nvarchar(20) column - keep these within that limit.
+                return CreateZeroResult(detail, "OpenPlot");
+            }
 
             var rate = rates.FirstOrDefault(x =>
                 x.TaxZoneId == taxZoneId &&
@@ -148,9 +165,10 @@ namespace NtisPlatform.Application.Services.TaxEngine
             depreciationAmount = Math.Round(depreciationAmount, 0, MidpointRounding.AwayFromZero);
 
             // Maintenance deduction is policy-driven. Default is 10% (see RateableValuePolicyConstants.DefaultMaintenanceRateValue).
-            // Override via policy key RateableValuePolicyConstants.MaintenanceRateKey.
+            // Override via policy key RateableValuePolicyConstants.MaintenanceRateKey or explicit overrideMaintenancePercent argument.
+            decimal maintenancePercent = overrideMaintenancePercent ?? options.MaintenanceRatePercent;
             decimal maintenance = Math.Round(
-                annualRentalValue * options.MaintenanceRatePercent / 100m, 0,
+                annualRentalValue * maintenancePercent / 100m, 0,
                 MidpointRounding.AwayFromZero);
             decimal rateableValue = Math.Round(annualRentalValue - maintenance, 0, MidpointRounding.AwayFromZero);
 
@@ -198,8 +216,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
         private decimal ResolveDepreciationRate(PropertyDetailsEntity detail, int financeYear, List<DepreciationMasterEntity> depreciations)
         {
-            int.TryParse(detail.ConstructionYear, out int constructionYear);
-            int buildingAge = constructionYear > 0 ? Math.Max(0, financeYear - constructionYear) : 0;
+            int.TryParse(detail.AssessmentYear, out int assessmentYear);
+            int buildingAge = assessmentYear > 0 ? Math.Max(0, financeYear - assessmentYear) : 0;
 
             var depreciation = depreciations.FirstOrDefault(x =>
                 x.ConstructionTypeId == detail.ConstructionTypeId &&

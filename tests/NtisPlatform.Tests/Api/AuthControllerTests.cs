@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Auth;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Interfaces;
 
 namespace NtisPlatform.Tests.Api;
 
@@ -14,14 +16,31 @@ namespace NtisPlatform.Tests.Api;
 public class AuthControllerTests
 {
     private readonly Mock<IAuthService> _authServiceMock;
+    private readonly Mock<IMfaChallengeService> _mfaChallengeServiceMock;
+    private readonly Mock<IOtpChallengeService> _otpChallengeServiceMock;
+    private readonly Mock<IPasswordResetService> _passwordResetServiceMock;
+    private readonly Mock<IAuthTokenIssuerService> _authTokenIssuerMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILogger<AuthController>> _loggerMock;
     private readonly AuthController _controller;
 
     public AuthControllerTests()
     {
         _authServiceMock = new Mock<IAuthService>();
+        _mfaChallengeServiceMock = new Mock<IMfaChallengeService>();
+        _otpChallengeServiceMock = new Mock<IOtpChallengeService>();
+        _passwordResetServiceMock = new Mock<IPasswordResetService>();
+        _authTokenIssuerMock = new Mock<IAuthTokenIssuerService>();
+        _userRepositoryMock = new Mock<IUserRepository>();
         _loggerMock = new Mock<ILogger<AuthController>>();
-        _controller = new AuthController(_authServiceMock.Object, _loggerMock.Object);
+        _controller = new AuthController(
+            _authServiceMock.Object,
+            _mfaChallengeServiceMock.Object,
+            _otpChallengeServiceMock.Object,
+            _passwordResetServiceMock.Object,
+            _authTokenIssuerMock.Object,
+            _userRepositoryMock.Object,
+            _loggerMock.Object);
     }
 
     #region Login Endpoint Tests - Success
@@ -327,6 +346,84 @@ public class AuthControllerTests
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Error during login for username: testuser")),
                 exception,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region VerifyTwoFactor Endpoint Tests
+
+    [Fact]
+    public async Task VerifyTwoFactor_WithValidCode_ReturnsOkWithLoginResponse()
+    {
+        // Arrange
+        var request = new VerifyTwoFactorRequestDto { ChallengeId = "opaque-id", Code = "123456" };
+        var loginResponse = new LoginResponseDto { Success = true, Token = "jwt", RefreshToken = "rt" };
+
+        _mfaChallengeServiceMock
+            .Setup(x => x.VerifyLoginChallengeAsync("opaque-id", "123456", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MfaVerificationResult.Succeeded(loginResponse));
+
+        // Act
+        var result = await _controller.VerifyTwoFactor(request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Same(loginResponse, okResult.Value);
+    }
+
+    [Fact]
+    public async Task VerifyTwoFactor_WithInvalidCode_ReturnsUnauthorized()
+    {
+        // Arrange
+        var request = new VerifyTwoFactorRequestDto { ChallengeId = "opaque-id", Code = "000000" };
+
+        _mfaChallengeServiceMock
+            .Setup(x => x.VerifyLoginChallengeAsync("opaque-id", "000000", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MfaVerificationResult.Failed(MfaVerificationFailureReason.InvalidCode));
+
+        // Act
+        var result = await _controller.VerifyTwoFactor(request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task VerifyTwoFactor_WithLockedChallenge_ReturnsLocked423()
+    {
+        // Arrange
+        var request = new VerifyTwoFactorRequestDto { ChallengeId = "opaque-id", Code = "000000" };
+
+        _mfaChallengeServiceMock
+            .Setup(x => x.VerifyLoginChallengeAsync("opaque-id", "000000", false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MfaVerificationResult.Failed(MfaVerificationFailureReason.ChallengeLocked));
+
+        // Act
+        var result = await _controller.VerifyTwoFactor(request, CancellationToken.None);
+
+        // Assert
+        var statusResult = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(StatusCodes.Status423Locked, statusResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task VerifyTwoFactor_WithRecoveryCode_PassesUseRecoveryCodeFlagThrough()
+    {
+        // Arrange
+        var request = new VerifyTwoFactorRequestDto { ChallengeId = "opaque-id", Code = "ABCDE-FGHJK", UseRecoveryCode = true };
+
+        _mfaChallengeServiceMock
+            .Setup(x => x.VerifyLoginChallengeAsync("opaque-id", "ABCDE-FGHJK", true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MfaVerificationResult.Succeeded(new LoginResponseDto { Success = true }));
+
+        // Act
+        var result = await _controller.VerifyTwoFactor(request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<OkObjectResult>(result);
+        _mfaChallengeServiceMock.Verify(
+            x => x.VerifyLoginChallengeAsync("opaque-id", "ABCDE-FGHJK", true, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

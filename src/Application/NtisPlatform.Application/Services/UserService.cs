@@ -33,6 +33,9 @@ public class UserService : BaseCommonCrudService<
     private readonly IEmailService _emailService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IEmailSettingsProvider _emailSettingsProvider;
+    private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly ITwoFactorRecoveryCodeRepository _recoveryCodeRepository;
+    private readonly ISecurityAuditService _securityAuditService;
 
     public UserService(
         IRepository<UserEntity, int> repository,
@@ -46,7 +49,10 @@ public class UserService : BaseCommonCrudService<
         IPasswordGeneratorService passwordGenerator,
         IEmailService emailService,
         IEmailTemplateService emailTemplateService,
-        IEmailSettingsProvider emailSettingsProvider)
+        IEmailSettingsProvider emailSettingsProvider,
+        IRefreshTokenRepository refreshTokenRepository,
+        ITwoFactorRecoveryCodeRepository recoveryCodeRepository,
+        ISecurityAuditService securityAuditService)
         : base(repository, unitOfWork, mapper)
     {
         _logger = logger;
@@ -58,6 +64,9 @@ public class UserService : BaseCommonCrudService<
         _emailService = emailService;
         _emailTemplateService = emailTemplateService;
         _emailSettingsProvider = emailSettingsProvider;
+        _refreshTokenRepository = refreshTokenRepository;
+        _recoveryCodeRepository = recoveryCodeRepository;
+        _securityAuditService = securityAuditService;
     }
 
     // GET BY ID
@@ -319,6 +328,75 @@ public class UserService : BaseCommonCrudService<
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Password reset for user: {UserId}", id);
+        return _mapper.Map<UserSecurityStatusDto>(entity);
+    }
+
+    // REQUIRE / UNREQUIRE 2FA
+    // Sets or clears the admin policy flag only — never touches the user's own enrollment state.
+    // Enabling 2FA itself still has to happen on the user's own device.
+
+    public async Task<UserSecurityStatusDto?> RequireTwoFactorAsync(int id, RequireTwoFactorDto dto, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        if (entity == null)
+            return null;
+
+        entity.TwoFactorRequired = true;
+        entity.UpdatedBy = dto.UpdatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _repository.UpdateAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _securityAuditService.RecordAsync(SecurityAuditEventType.TwoFactorRequiredByAdmin, id, success: true, cancellationToken: cancellationToken);
+        _logger.LogInformation("Two-factor authentication required for user: {UserId}", id);
+        return _mapper.Map<UserSecurityStatusDto>(entity);
+    }
+
+    public async Task<UserSecurityStatusDto?> UnrequireTwoFactorAsync(int id, UnrequireTwoFactorDto dto, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        if (entity == null)
+            return null;
+
+        entity.TwoFactorRequired = false;
+        entity.UpdatedBy = dto.UpdatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _repository.UpdateAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _securityAuditService.RecordAsync(SecurityAuditEventType.TwoFactorUnrequiredByAdmin, id, success: true, cancellationToken: cancellationToken);
+        _logger.LogInformation("Two-factor authentication requirement removed for user: {UserId}", id);
+        return _mapper.Map<UserSecurityStatusDto>(entity);
+    }
+
+    // ADMIN RESET 2FA
+    // Account-recovery path (e.g. lost device): clears the user's current enrollment and recovery
+    // codes and invalidates their sessions, without requiring any code from the user — same end
+    // state as their own self-service reset/disable, just triggered by an administrator instead.
+
+    public async Task<UserSecurityStatusDto?> AdminResetTwoFactorAsync(int id, AdminResetTwoFactorDto dto, CancellationToken cancellationToken = default)
+    {
+        var entity = await _repository.GetByIdAsync(id, cancellationToken);
+        if (entity == null)
+            return null;
+
+        entity.TwoFactorEnabled = false;
+        entity.TwoFactorSecretEncrypted = null;
+        entity.TwoFactorEnabledAt = null;
+        entity.SecurityStamp = Guid.NewGuid().ToString("N");
+        entity.UpdatedBy = dto.UpdatedBy;
+        entity.UpdatedDate = DateTime.Now;
+
+        await _repository.UpdateAsync(entity, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await _recoveryCodeRepository.RevokeAllActiveAsync(id, cancellationToken);
+        await _refreshTokenRepository.RevokeAllUserTokensAsync(id, cancellationToken);
+
+        await _securityAuditService.RecordAsync(SecurityAuditEventType.TwoFactorAdminReset, id, success: true, cancellationToken: cancellationToken);
+        _logger.LogInformation("Two-factor authentication reset by administrator for user: {UserId}", id);
         return _mapper.Map<UserSecurityStatusDto>(entity);
     }
 

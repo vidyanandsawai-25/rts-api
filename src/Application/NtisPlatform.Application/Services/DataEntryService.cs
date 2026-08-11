@@ -265,6 +265,52 @@ public class DataEntryService : BaseCommonCrudService<PropertyDetailsEntity, Pro
     }
 
     // ────────────────────────────────────────────────────────────────
+    // SOFT DELETE BY PROPERTY ID
+    // Finds all PropertyDetails records for the given PropertyId
+    // and soft-deletes each (including children) within a single
+    // transaction for aggregate consistency.
+    // ────────────────────────────────────────────────────────────────
+    public async Task<bool> DeleteByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default)
+    {
+        var entities = await _repository.GetQueryable()
+            .Where(x => x.PropertyId == propertyId && x.IsActive)
+            .ToListAsync(cancellationToken);
+
+        if (!entities.Any())
+            return false;
+
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            foreach (var entity in entities)
+            {
+                // Soft-delete parent via repository (sets IsActive = false internally)
+                await _repository.DeleteAsync(entity.Id, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                // Soft-delete all children through their own services
+                await _renterDetailService.DeleteByPropertyIdAsync(entity.Id, cancellationToken);
+                await _renterMastService.DeleteByPropertyIdAsync(entity.Id, cancellationToken);
+                await _roomWiseService.DeleteByPropertyIdAsync(entity.Id, cancellationToken);
+
+                // Soft-delete related rule application logs
+                if (_ruleLogService != null)
+                {
+                    await _ruleLogService.DeleteByPropertyDetailsIdAsync(entity.Id, cancellationToken);
+                }
+            }
+
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    // ────────────────────────────────────────────────────────────────
     // PRIVATE HELPER — Load property certificates
     // Loads certificates matching the specified certificate type codes
     // and populates the PropertyCertificates collection in the DTOs

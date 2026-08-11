@@ -158,7 +158,7 @@ public class CertificateTaxGuidelineReaderServiceTests
     }
 
     [Fact]
-    public async Task GetActiveSettingsAsync_InvalidBitValue_Throws()
+    public async Task GetActiveSettingsAsync_InvalidBitValue_DefaultsToFalse()
     {
         var rows = FullRowSet();
         rows.RemoveAll(r => r.GuidelineCode == "ENABLE_CERTIFICATE_BASED_TAX");
@@ -166,19 +166,21 @@ public class CertificateTaxGuidelineReaderServiceTests
 
         var service = CreateService(rows);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetActiveSettingsAsync());
-        Assert.Contains("ENABLE_CERTIFICATE_BASED_TAX", ex.Message);
+        var settings = await service.GetActiveSettingsAsync();
+
+        Assert.False(settings.EnableCertificateBasedTax);
     }
 
     [Fact]
-    public async Task GetActiveSettingsAsync_MissingRequiredCode_ThrowsWithCodeName()
+    public async Task GetActiveSettingsAsync_MissingRequiredCode_UsesDefaultValue()
     {
         var rows = FullRowSet();
         rows.RemoveAll(r => r.GuidelineCode == "CC_PERIOD_MULTIPLIER");
 
         var service = CreateService(rows);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetActiveSettingsAsync());
-        Assert.Contains("CC_PERIOD_MULTIPLIER", ex.Message);
+        var settings = await service.GetActiveSettingsAsync();
+
+        Assert.Equal(1m, settings.CCPeriodMultiplier);
     }
 }

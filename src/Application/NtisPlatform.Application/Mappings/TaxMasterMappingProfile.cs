@@ -8,7 +8,9 @@ public class TaxMasterMappingProfile : Profile
 {
     public TaxMasterMappingProfile()
     {
-        CreateMap<TaxMasterEntity, TaxMasterDto>();
+        CreateMap<TaxMasterEntity, TaxMasterDto>()
+            .ForMember(dest => dest.CalculationMode, opt => opt.MapFrom(src =>
+                src.CalculationModeMaster != null ? src.CalculationModeMaster.ModeCode : null));
 
         CreateMap<CreateTaxMasterDto, TaxMasterEntity>()
             .ForMember(dest => dest.Id, opt => opt.Ignore())

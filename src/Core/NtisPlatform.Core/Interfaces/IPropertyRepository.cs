@@ -99,11 +99,6 @@ public interface IPropertyRepository : IRepository<PropertyEntity, int>
     Task<List<PropertyTaxCalculationSection129ResultsEntity>> GetSection129ResultsByPropertyIdAsync(int propertyId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Retrieves property occupancy details for the specified property detail IDs.
-    /// </summary>
-    Task<List<PropertyOccupancyDetailsEntity>> GetPropertyOccupancyByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Retrieves renter master records for the specified property detail IDs.
     /// </summary>
     Task<List<RenterMastEntity>> GetRentersByPropertyDetailIdsAsync(List<int> propertyDetailIds, CancellationToken cancellationToken = default);

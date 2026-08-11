@@ -30,9 +30,11 @@ namespace NtisPlatform.Application.Services.TaxEngine
             if (baseResult == null) throw new ArgumentNullException(nameof(baseResult));
             if (tax == null) throw new ArgumentNullException(nameof(tax));
 
-            var rv = baseResult.RateableValue ?? 0m;
+            var baseValue = taxPercentage != null && string.Equals(taxPercentage.BaseType, "ALV", StringComparison.OrdinalIgnoreCase)
+                ? Convert.ToDecimal(baseResult.AnnualRentalValue ?? 0d)
+                : baseResult.RateableValue ?? 0m;
             var percentage = taxPercentage != null ? Convert.ToDecimal(taxPercentage.TaxPercentage) : 0m;
-            var amount = Math.Round(rv * percentage / 100m, 0, MidpointRounding.AwayFromZero);
+            var amount = Math.Round(baseValue * percentage / 100m, 0, MidpointRounding.AwayFromZero);
 
             var resultsRow = new RVCalculationResultsEntity
             {

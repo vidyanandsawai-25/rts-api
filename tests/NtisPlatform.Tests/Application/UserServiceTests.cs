@@ -30,6 +30,9 @@ public class UserServiceTests
     private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<IEmailTemplateService> _emailTemplateServiceMock;
     private readonly Mock<IEmailSettingsProvider> _emailSettingsProviderMock;
+    private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
+    private readonly Mock<ITwoFactorRecoveryCodeRepository> _recoveryCodeRepositoryMock;
+    private readonly Mock<ISecurityAuditService> _securityAuditServiceMock;
     private readonly UserService _userService;
 
     public UserServiceTests()
@@ -46,6 +49,9 @@ public class UserServiceTests
         _emailServiceMock = new Mock<IEmailService>();
         _emailTemplateServiceMock = new Mock<IEmailTemplateService>();
         _emailSettingsProviderMock = new Mock<IEmailSettingsProvider>();
+        _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
+        _recoveryCodeRepositoryMock = new Mock<ITwoFactorRecoveryCodeRepository>();
+        _securityAuditServiceMock = new Mock<ISecurityAuditService>();
 
         _userService = new UserService(
             _userRepositoryMock.Object,
@@ -59,7 +65,10 @@ public class UserServiceTests
             _passwordGeneratorMock.Object,
             _emailServiceMock.Object,
             _emailTemplateServiceMock.Object,
-            _emailSettingsProviderMock.Object
+            _emailSettingsProviderMock.Object,
+            _refreshTokenRepositoryMock.Object,
+            _recoveryCodeRepositoryMock.Object,
+            _securityAuditServiceMock.Object
         );
     }
 
@@ -1162,6 +1171,110 @@ public class UserServiceTests
         Assert.True(existingEntity.MustChangePassword);
         _passwordGeneratorMock.Verify(p => p.Generate(), Times.Once);
         _passwordHasherMock.Verify(p => p.HashPassword(generatedPassword), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequireTwoFactorAsync_SetsFlagAndRecordsAudit()
+    {
+        // Arrange
+        var userId = 1;
+        var existingEntity = new UserEntity { Id = userId, UserName = "testuser", TwoFactorRequired = false };
+        var dto = new RequireTwoFactorDto { UpdatedBy = 1 };
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+        _mapperMock.Setup(m => m.Map<UserSecurityStatusDto>(It.IsAny<UserEntity>()))
+            .Returns(new UserSecurityStatusDto { Id = userId, TwoFactorRequired = true });
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        // Act
+        var result = await _userService.RequireTwoFactorAsync(userId, dto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.True(existingEntity.TwoFactorRequired);
+        _securityAuditServiceMock.Verify(s => s.RecordAsync(
+            SecurityAuditEventType.TwoFactorRequiredByAdmin, userId, true, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequireTwoFactorAsync_UnknownUser_ReturnsNull()
+    {
+        // Arrange
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserEntity?)null);
+
+        // Act
+        var result = await _userService.RequireTwoFactorAsync(999, new RequireTwoFactorDto { UpdatedBy = 1 });
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task UnrequireTwoFactorAsync_ClearsFlagAndRecordsAudit()
+    {
+        // Arrange
+        var userId = 1;
+        var existingEntity = new UserEntity { Id = userId, UserName = "testuser", TwoFactorRequired = true };
+        var dto = new UnrequireTwoFactorDto { UpdatedBy = 1 };
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+        _mapperMock.Setup(m => m.Map<UserSecurityStatusDto>(It.IsAny<UserEntity>()))
+            .Returns(new UserSecurityStatusDto { Id = userId, TwoFactorRequired = false });
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        // Act
+        var result = await _userService.UnrequireTwoFactorAsync(userId, dto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(existingEntity.TwoFactorRequired);
+        _securityAuditServiceMock.Verify(s => s.RecordAsync(
+            SecurityAuditEventType.TwoFactorUnrequiredByAdmin, userId, true, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task AdminResetTwoFactorAsync_ClearsEnrollmentRotatesStampAndRevokesSessions()
+    {
+        // Arrange
+        var userId = 1;
+        var originalStamp = "original-stamp";
+        var existingEntity = new UserEntity
+        {
+            Id = userId,
+            UserName = "testuser",
+            TwoFactorEnabled = true,
+            TwoFactorSecretEncrypted = "encrypted-secret",
+            TwoFactorEnabledAt = DateTime.Now,
+            SecurityStamp = originalStamp
+        };
+        var dto = new AdminResetTwoFactorDto { UpdatedBy = 1 };
+
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingEntity);
+        _mapperMock.Setup(m => m.Map<UserSecurityStatusDto>(It.IsAny<UserEntity>()))
+            .Returns(new UserSecurityStatusDto { Id = userId, TwoFactorEnabled = false });
+        _unitOfWorkMock.Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _recoveryCodeRepositoryMock.Setup(r => r.RevokeAllActiveAsync(userId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _refreshTokenRepositoryMock.Setup(r => r.RevokeAllUserTokensAsync(userId, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act
+        var result = await _userService.AdminResetTwoFactorAsync(userId, dto);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.False(existingEntity.TwoFactorEnabled);
+        Assert.Null(existingEntity.TwoFactorSecretEncrypted);
+        Assert.Null(existingEntity.TwoFactorEnabledAt);
+        Assert.NotEqual(originalStamp, existingEntity.SecurityStamp);
+        _recoveryCodeRepositoryMock.Verify(r => r.RevokeAllActiveAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _refreshTokenRepositoryMock.Verify(r => r.RevokeAllUserTokensAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+        _securityAuditServiceMock.Verify(s => s.RecordAsync(
+            SecurityAuditEventType.TwoFactorAdminReset, userId, true, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     #endregion
