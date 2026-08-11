@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
+namespace NtisPlatform.Application.DTOs.RTSTrackApplicationHistory;
 
 public class RTSTrackApplicationHistoryDto:BaseDtos
 {
@@ -17,6 +17,3 @@ public class CreateRTSTrackApplicationHistoryDto : CreateBaseDtos
     public bool IsReverted { get; set; }
 
 }
-
-
-

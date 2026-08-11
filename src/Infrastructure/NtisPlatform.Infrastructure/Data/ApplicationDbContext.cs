@@ -164,14 +164,14 @@ public class ApplicationDbContext : DbContext
     //Asset Start
     public DbSet<CVRateMasterEntity> CVRateMaster { get; set; } = null!;
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
-    public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;    
+    public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
     public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
     public DbSet<EducationTaxMasterEntity> EducationTaxMasters { get; set; } = null!;
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
     public DbSet<ScreenFormSectionMasterEntity> ScreenFormSectionMaster { get; set; } = null!;
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
     public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
-    public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;   
+    public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
@@ -196,7 +196,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetFieldValueEntity> AssetFieldValue { get; set; } = null!;
     public DbSet<AssetLeaseRentDetailsEntity> AssetLeaseRentDetails { get; set; } = null!;
     public DbSet<AssetRoomWiseSubmissionDetailsEntity> AssetRoomWiseSubmissionDetails { get; set; } = null!;
-    public DbSet<AssetRoomWiseMinusDataEntity> AssetRoomWiseMinusData { get; set; } = null!;    
+    public DbSet<AssetRoomWiseMinusDataEntity> AssetRoomWiseMinusData { get; set; } = null!;
     public DbSet<MonthWiseDemandEntity> MonthWiseDemand { get; set; } = null!;
     public DbSet<LeaseRentBillTransactionEntity> LeaseRentBillTransactions { get; set; } = null!;
     public DbSet<LeaseRentBillTransactionDetailEntity> LeaseRentBillTransactionDetails { get; set; } = null!;
@@ -4783,7 +4783,7 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.InventoryItemCategoryId)
                   .OnDelete(DeleteBehavior.Restrict);
-        });        
+        });
 
         modelBuilder.Entity<InventoryItemModelEntity>(entity =>
         {
@@ -5874,7 +5874,7 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
         });
-      
+
         modelBuilder.Entity<RTSFieldValueEntity>(entity =>
         {
             entity.ToTable("FieldValue", "RTS");
@@ -6133,7 +6133,7 @@ public class ApplicationDbContext : DbContext
         //--------------------RTSEND Api work ------------------------
 
 
-       
+
 
         // Fluent mappings for Sign-off Module
         modelBuilder.Entity<SignAuthorityMasterEntity>(entity =>
@@ -6763,7 +6763,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy).IsRequired(false);
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
             entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_InventoryDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
-        });    
+        });
 
         // AssetPhoto configuration (AMS schema)
         modelBuilder.Entity<AssetPhotoEntity>(entity =>
@@ -7373,7 +7373,7 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.MonthWiseDemandId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("FK_LeaseRentBillTransactionDetails_MonthWiseDemand");
-        });     
+        });
 
         // InventoryDocument configuration (AMS schema)
         // InventoryBatch configuration (AMS schema)
@@ -7514,7 +7514,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            
+
             // Foreign keys
             entity.HasOne(e => e.AssetMaster)
                 .WithMany()
@@ -7525,7 +7525,7 @@ public class ApplicationDbContext : DbContext
                 .WithMany(b => b.Units)
                 .HasForeignKey(e => e.BatchId)
                 .OnDelete(DeleteBehavior.Restrict);
-            
+
             // Indexes
             entity.HasIndex(e => e.AssetId);
             entity.HasIndex(e => e.BatchId);

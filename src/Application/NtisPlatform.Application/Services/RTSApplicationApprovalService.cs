@@ -99,7 +99,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
 
         if (queryParameters.ServiceId > 0)
             query = query.Where(x => x.ServiceId == queryParameters.ServiceId);
-        
+
         if (!string.IsNullOrWhiteSpace(queryParameters.ApplicationNo))
             query = query.Where(x => x.ApplicationNo.Contains(queryParameters.ApplicationNo));
 
@@ -130,7 +130,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 UserId = x.UserId,
                 UserName = x.UserId != null ? x.User.UserName : null,
 
-                ApplicantDetails = x.FieldValueData    //this code only for citizen Name 
+                ApplicantDetails = x.FieldValueData    //this code only for citizen Name
                 .Where(fv => fv.FieldDefinition != null)
                 .Where(fv => fv.FieldDefinition!.FieldGroup ==
                     x.FieldValueData
@@ -459,7 +459,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
     }
 
     // <summary>
-    // Verify the documents for a given application and process it to the next approval stage if applicable. By Clerk Screen 
+    // Verify the documents for a given application and process it to the next approval stage if applicable. By Clerk Screen
     // </summary>
     public async Task<RTSApplicationApprovalResponseDto> VerifyDocumentsAndProcessApplicationAsync(
     int applicationId,
@@ -521,7 +521,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 "Current stage history record was not found.");
         }
 
-      
+
         //this Update ApplicationDetails Table
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
@@ -604,10 +604,10 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             throw new InvalidOperationException(
                 "Current stage history record was not found.");
 
-        //if Second Stage Is Last Satge 
+        //if Second Stage Is Last Satge
         if (currentStage.IsFinalStage)
         {
-          
+
             application.TrackApplicationHistory.Add(new TrackApplicationHistoryEntity
             {
                 ApprovalFlowId = application.ApprovalFlowId,
@@ -641,7 +641,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
             };
         }
 
-        var nextStage = await _approvalFlowStageRepository  //PENDING AT 
+        var nextStage = await _approvalFlowStageRepository  //PENDING AT
            .GetQueryable()
            .AsNoTracking()
            .Where(stage =>
@@ -654,7 +654,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         if (nextStage == null)
             throw new InvalidOperationException("Next approval stage is not configured.");
 
-       
+
         application.CurrentApprovalFlowStageId = nextStage.StageId;
         application.CurrentStageOrder = nextStage.StageOrder;
         application.UserId = nextStage.UserId;
@@ -765,7 +765,7 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
                 Status = application.ApplicationStatus,
                 Remark = application.Remark
             };
-       
+
     }
 
     public async Task<RTSApplicationApprovalResponseDto> VerifyAndCorrectApplicationAsync(
@@ -926,10 +926,9 @@ public class RTSApplicationApprovalService : BaseCommonCrudService<RTSApplicatio
         );
     }
 
-    private static int? ExtractSlaDays(string? sla)  //getApplication Dashboard to find remaining days 
+    private static int? ExtractSlaDays(string? sla)  //getApplication Dashboard to find remaining days
     {
         var numericPart = new string(sla?.Where(char.IsDigit).ToArray() ?? []);
         return int.TryParse(numericPart, out var days) ? days : null;
     }
 }
-

@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.DTOs.RTSFieldValue;
+using NtisPlatform.Application.DTOs.RTSFieldValue;
 
 namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
@@ -24,4 +24,3 @@ public class UpdateRTSApplicationProcessDto : UpdateBaseDtos
     public string? ApplicationNo { get; set; }
 
 }
-

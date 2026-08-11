@@ -4,7 +4,7 @@ namespace NtisPlatform.Core.Entities.Master;
 
 public class RTSFieldDefinitionEntity : BaseEntity, IHardDeletable
 {
-    
+
     public int DepartmentId { get; set; }
     public int ServiceId { get; set; }
 

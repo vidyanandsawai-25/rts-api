@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSApplicationApproval;
@@ -81,7 +81,7 @@ public class RTSApplicationApprovalController : ControllerBase
             Items = result
         });
     }
-      
+
 
     [AllowAnonymous]
     [HttpGet("{applicationId}/approval-stages")]
@@ -90,7 +90,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ApplicationApprovalStages(int applicationId, CancellationToken ct)
     {
-        
+
         var result = await _service.GetApplicationApprovalStagesAsync(applicationId, ct);
 
         if (result == null)
@@ -103,8 +103,8 @@ public class RTSApplicationApprovalController : ControllerBase
             Items = result
         });
     }
-      
-    
+
+
     [AllowAnonymous]
     [HttpGet("{applicationId}/approval-officer")]
     [ProducesResponseType(typeof(ApiResponse<CurrentApprovalOfficerDto>), StatusCodes.Status200OK)]
@@ -112,7 +112,7 @@ public class RTSApplicationApprovalController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetApplicationApprovalOfficer(int applicationId, CancellationToken ct)
     {
-       
+
         var result = await _service.GetCurrentApprovalOfficerAsync(applicationId, ct);
 
         if (result == null)
@@ -124,7 +124,7 @@ public class RTSApplicationApprovalController : ControllerBase
             Message = "RTS Application Approval Officer retrieved successfully",
             Items = result
         });
-     
+
     }
 
 
@@ -144,8 +144,8 @@ public class RTSApplicationApprovalController : ControllerBase
             Items = result
         });
     }
-        
-    
+
+
     [AllowAnonymous]
     [HttpPut("{applicationId}/process-approval")]
     [ProducesResponseType(typeof(ApiResponse<RTSApplicationApprovalResponseDto>), StatusCodes.Status200OK)]
@@ -199,7 +199,7 @@ public class RTSApplicationApprovalController : ControllerBase
     // <summary>
     // this api is used to revert the application to previous stage
     // </summary>
-    
+
 
     [AllowAnonymous]
     [HttpPut("{applicationId}/Revert-Application")]

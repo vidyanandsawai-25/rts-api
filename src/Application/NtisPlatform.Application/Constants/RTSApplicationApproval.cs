@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.Constants;
+namespace NtisPlatform.Application.Constants;
 
 public static class ApplicationStatus
 {
@@ -20,5 +20,3 @@ public static class ApplicationStatus
 
     public const string Remark = "Application Submitted By Citizen";
 }
-
-

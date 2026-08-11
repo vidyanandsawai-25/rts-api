@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Core.Entities;
+namespace NtisPlatform.Core.Entities;
 
 public class TrackApplicationHistoryEntity : BaseEntity
 {
@@ -11,7 +11,7 @@ public class TrackApplicationHistoryEntity : BaseEntity
     public string? Action { get; set; }
     public bool IsReverted { get; set; }
 
-    // Navigation properties 
+    // Navigation properties
     public virtual RTSApplicationDetailsEntity Application { get; set; } = null!;
     public virtual RTSApprovalFlowMasterEntity ApprovalFlow { get; set; } = null!;
     public virtual RTSApprovalFlowStageMasterEntity? ApprovalFlowStage { get; set; }
