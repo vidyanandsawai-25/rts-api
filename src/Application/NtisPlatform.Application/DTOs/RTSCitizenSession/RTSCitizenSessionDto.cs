@@ -12,7 +12,6 @@ public class RTSCitizenSessionDto : BaseDtos
     /// Unique Property Identification Code. Renamed from UPIC to Upic (camelCase convention).
     /// </summary>
     public string? Upic { get; set; }
-
     public string? PropertyNo { get; set; }
     public int? OwnerId { get; set; }
     public DateTime LoginTime { get; set; }
@@ -37,7 +36,6 @@ public class CreateRTSCitizenSessionDto : CreateBaseDtos
 
     [StringLength(100, ErrorMessage = "CitizenSession_PropertyNo_MaxLen_100")]
     public string? PropertyNo { get; set; }
-
     public int? OwnerId { get; set; }
 }
 

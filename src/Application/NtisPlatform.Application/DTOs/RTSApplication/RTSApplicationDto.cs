@@ -2,8 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace NtisPlatform.Application.DTOs.RTSFieldValue;
 
-
-    public class RTSApplicationDashboardCountsDto  //cards Counts
+    /// <summary>
+    /// Application Dashboard cards Counts
+    /// </summary>
+    public class RTSApplicationDashboardCountsDto  
     {
         public int TotalApplications { get; set; }
         public int Pending { get; set; }
@@ -13,10 +15,23 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         public int TodayApplications { get; set; }
         public int? OverdueApplications { get; set; }
         public int DueToday { get; set; }
-        public int InProgress { get; set; }
+
+        /// <summary>
+        /// Application Dashboard Cards appplication status wise percentage Percentage 
+        /// </summary>
+        public decimal PendingPercentage { get; set; }
+        public decimal ApprovedPercentage { get; set; }
+        public decimal RejectedPercentage { get; set; }
+        public decimal RevertedPercentage { get; set; }
+        public decimal TodayPercentage { get; set; }
+        public decimal DueTodayPercentage { get; set; }
+        public decimal OverduePercentage { get; set; }
     }
 
-    public class RTSApplicationDashboardDetailsDto
+    /// <summary>
+    /// RTS Application approval Dashboard Application details
+    /// </summary>
+    public class RTSApplicationDashboardDetailsDto   
     {
         public int Id { get; set; }
         public int DepartmentId { get; set; }
@@ -40,20 +55,28 @@ namespace NtisPlatform.Application.DTOs.RTSFieldValue;
         public List<ApplicantFieldDto>? ApplicantDetails { get; set; }
     }
 
+    /// <summary>
+    /// RTS Application approval Dashboard combined responce
+    /// </summary>
     public class RTSApplicationDashboardResponseDto
     {
         public RTSApplicationDashboardCountsDto Dashboard { get; set; } = new RTSApplicationDashboardCountsDto();
         public List<RTSApplicationDashboardDetailsDto> Applications { get; set; } = new List<RTSApplicationDashboardDetailsDto>();
     }
 
+    /// <summary>
+    /// get Applicant Name And Basic Details From Fieldvalue to show Dashboard
+    /// </summary>
     public class ApplicantFieldDto
     {
         public string? FieldLabel { get; set; }
         public string? FieldValue { get; set; }
     }
 
-    //Get application approval dashBoard work end
 
+    /// <summary>
+    /// Create Application After submit the application
+    /// </summary>
     public class RTSApplicationDetailsDto
     {
         public int DepartmentId { get; set; }

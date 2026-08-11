@@ -1,4 +1,4 @@
-﻿using NtisPlatform.Application.DTOs.RTSApplication;
+using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;

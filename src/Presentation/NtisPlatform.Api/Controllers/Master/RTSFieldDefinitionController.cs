@@ -4,7 +4,6 @@ using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Master.RTSFieldDefinition;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
-using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 

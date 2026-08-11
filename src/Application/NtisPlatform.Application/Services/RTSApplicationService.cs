@@ -55,7 +55,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     }
 
 
-    //}
+
     //public override async Task<RTSApplicationDetailsDto> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     //{
     //    var query = _repository.GetQueryable().Where(x => !x.MarkedForDeletion && x.Id == id).AsQueryable();
@@ -87,7 +87,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
     RTSApplicationQueryParameters queryParameters,
     CancellationToken cancellationToken = default)
     {
-        var query = _repository.GetQueryable().Where(x => !x.MarkedForDeletion).AsQueryable();
+        var query = _repository.GetQueryable().Where(x => !x.MarkedForDeletion ).AsQueryable();
 
         if (queryParameters.DepartmentId > 0)
             query = query.Where(x => x.DepartmentId == queryParameters.DepartmentId);
@@ -109,8 +109,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 Approved = g.Count(x => x.ApplicationStatus == "Approved"),
                 Rejected = g.Count(x => x.ApplicationStatus == "Rejected"),
                 Reverted = g.Count(x => x.ApplicationStatus == "Reverted"),
+                PendingPercentage= 0,
                 TodayApplications = g.Count(x => x.CreatedDate == DateTime.Today),
-                //InProgress = g.Count(x => x.ApplicationStatus == "Pending"),
                 OverdueApplications = g.Count(x =>
                  x.ApplicationStatus != "Approved" &&
                  x.ApplicationStatus != "Rejected" &&
@@ -118,7 +118,7 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                  x.Service.Sla.Contains(" ") &&
                  x.CreatedDate.HasValue &&
                  x.CreatedDate.Value.AddDays(Convert.ToInt32(x.Service.Sla.Substring(0, x.Service.Sla.IndexOf(" ")))) < DateTime.Today),
-                 DueToday = g.Count(x =>
+                   DueToday = g.Count(x =>
                  x.ApplicationStatus != "Approved" &&
                  x.ApplicationStatus != "Rejected" &&
                  x.Service.Sla != null &&
@@ -165,7 +165,8 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                 .ToList()
             }).ToListAsync(cancellationToken);
 
-       var result = new RTSApplicationDashboardResponseDto
+
+        var result = new RTSApplicationDashboardResponseDto
        {
            Dashboard = new RTSApplicationDashboardCountsDto
            {
@@ -175,14 +176,18 @@ public class RTSApplicationService : BaseCommonCrudService<RTSApplicationDetails
                Rejected = dashboard?.Rejected ?? 0,
                Reverted = dashboard?.Reverted ?? 0,
                TodayApplications = dashboard?.TodayApplications ?? 0,
-               //InProgress = dashboard?.InProgress ?? 0,
                OverdueApplications = dashboard?.OverdueApplications ?? 0,
                DueToday = dashboard?.DueToday ?? 0,
+               PendingPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.Pending ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               ApprovedPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.Approved ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               RejectedPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.Rejected ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               RevertedPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.Reverted ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               TodayPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.TodayApplications ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               OverduePercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.OverdueApplications ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0,
+               DueTodayPercentage = dashboard?.TotalApplications > 0 ? Math.Round((decimal)(dashboard?.DueToday ?? 0) / (dashboard?.TotalApplications ?? 1) * 100, 2): 0
            },
-           Applications = items
-
-       };
-
+        };
+        
         return new PagedResult<RTSApplicationDashboardResponseDto>(
             new List<RTSApplicationDashboardResponseDto> { result },
             totalCount,

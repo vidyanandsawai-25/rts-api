@@ -21,7 +21,6 @@ public class CreateRTSDepartmentDto : CreateBaseDtos
 
     [StringLength(200, ErrorMessage = "DepartmentIcon_MaxLen_200")]
     public string? DepartmentIcon { get; set; }
-
     public int DisplayOrder { get; set; }
 }
 
@@ -36,6 +35,5 @@ public class UpdateRTSDepartmentDto : UpdateBaseDtos
 
     [StringLength(200, ErrorMessage = "DepartmentIcon_MaxLen_200")]
     public string? DepartmentIcon { get; set; }
-
     public int DisplayOrder { get; set; }
 }

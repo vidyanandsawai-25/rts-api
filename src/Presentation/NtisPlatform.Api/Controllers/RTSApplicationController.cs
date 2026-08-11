@@ -20,12 +20,10 @@ namespace NtisPlatform.Api.Controllers;
         public RTSApplicationController(
             IRTSApplicationService service,
             IHardDeleteCleanupService cleanupService,
-            IReferenceValidationService referenceValidationService,
             ILogger<RTSApplicationController> logger)
         {
             _service = service;
             _cleanupService = cleanupService;
-            _referenceValidationService = referenceValidationService;
             _logger = logger;
         }
 
