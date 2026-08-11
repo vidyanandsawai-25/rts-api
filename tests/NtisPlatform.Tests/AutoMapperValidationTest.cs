@@ -186,8 +186,13 @@ public class AutoMapperValidationTest
                 // InventoryItemModelDto.InventoryItemName - resolved via a GetAllAsync-only SQL join
                 // against InventoryItemNameEntity (SubTypeName), not part of the base entity<->dto map
                 "InventoryItemName",
-                // Dynamic Tax Register / Tax Master navigation & computed properties
-                "CalculationMode", "RuleDefinition"
+                // UserEntity two-factor authentication fields - security-sensitive, owned entirely by
+                // ITwoFactorAuthenticationService/TwoFactorController and never exposed through any
+                // AutoMapper-mapped DTO (status is returned via TwoFactorStatusResponseDto, built by hand).
+                "TwoFactorEnabled", "TwoFactorSecretEncrypted", "TwoFactorEnabledAt", "SecurityStamp", "TwoFactorRequired",
+                // TaxMasterEntity.RuleDefinition - navigation property to the selected DynamicTaxRuleEntity
+                // (EF Core managed); CreateTaxMasterDto/UpdateTaxMasterDto only carry RuleDefinitionId.
+                "RuleDefinition"
              };
 
             // Check if all unmapped properties are in the expected list

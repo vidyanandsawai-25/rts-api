@@ -76,7 +76,7 @@ public class RefreshTokenRepository : Repository<RefreshTokenEntity, int>, IRefr
     public async Task RevokeAllUserTokensAsync(int userId, CancellationToken cancellationToken = default)
     {
         await _context.Set<RefreshTokenEntity>()
-            .Where(rt => rt.Id == userId && !rt.IsRevoked)
+            .Where(rt => rt.UserId == userId && !rt.IsRevoked)
             .ExecuteUpdateAsync(setter => setter
                 .SetProperty(rt => rt.IsRevoked, true)
                 .SetProperty(rt => rt.RevokedAt, DateTime.Now),

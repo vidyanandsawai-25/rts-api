@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using MockQueryable;
 using Moq;
 using NtisPlatform.Application.DTOs.Auth;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
@@ -12,7 +12,9 @@ namespace NtisPlatform.Tests.Application;
 
 /// <summary>
 /// Unit tests for AuthService
-/// Tests authentication, login validation, lockout, and token generation
+/// Tests authentication, login validation, lockout, and the 2FA login branch.
+/// Token/refresh-token issuance itself is owned by IAuthTokenIssuerService and is mocked here —
+/// see AuthTokenIssuerServiceTests for that behavior.
 /// </summary>
 public class AuthServiceTests
 {
@@ -21,6 +23,10 @@ public class AuthServiceTests
     private readonly Mock<ITokenService> _tokenServiceMock;
     private readonly Mock<IConfiguration> _configurationMock;
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
+    private readonly Mock<IMfaChallengeService> _mfaChallengeServiceMock;
+    private readonly Mock<IAuthTokenIssuerService> _authTokenIssuerMock;
+    private readonly Mock<ISecuritySettingsService> _securitySettingsMock;
+    private readonly Mock<IOtpChallengeService> _otpChallengeServiceMock;
     private readonly Mock<ILogger<AuthService>> _loggerMock;
     private readonly AuthService _authService;
 
@@ -31,11 +37,20 @@ public class AuthServiceTests
         _tokenServiceMock = new Mock<ITokenService>();
         _configurationMock = new Mock<IConfiguration>();
         _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
+        _mfaChallengeServiceMock = new Mock<IMfaChallengeService>();
+        _authTokenIssuerMock = new Mock<IAuthTokenIssuerService>();
+        _securitySettingsMock = new Mock<ISecuritySettingsService>();
+        _otpChallengeServiceMock = new Mock<IOtpChallengeService>();
         _loggerMock = new Mock<ILogger<AuthService>>();
 
         // Setup default configuration
         _configurationMock.Setup(c => c["Jwt:ExpiresInMinutes"]).Returns("60");
         _configurationMock.Setup(c => c["Jwt:RefreshTokenExpiryDays"]).Returns("7");
+
+        // 2FALOGIN off by default — existing tests exercise the pre-OTP behavior
+        _securitySettingsMock
+            .Setup(s => s.GetAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
 
         _authService = new AuthService(
             _userRepositoryMock.Object,
@@ -44,8 +59,28 @@ public class AuthServiceTests
             _configurationMock.Object,
             new Mock<IRepository<UserRoleMasterEntity>>().Object,
             _refreshTokenRepositoryMock.Object,
-            _loggerMock.Object 
+            _mfaChallengeServiceMock.Object,
+            _authTokenIssuerMock.Object,
+            _securitySettingsMock.Object,
+            _otpChallengeServiceMock.Object,
+            _loggerMock.Object
         );
+    }
+
+    private void SetUpSuccessfulTokenIssuance(UserEntity user, string token = "mock-jwt-token")
+    {
+        _authTokenIssuerMock
+            .Setup(x => x.IssueAsync(It.Is<UserEntity>(u => u.Id == user.Id), "pwd", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LoginResponseDto
+            {
+                Success = true,
+                Token = token,
+                RefreshToken = "mock-refresh-token",
+                UserId = user.Id,
+                Username = user.UserName,
+                Message = "Login successful",
+                ExpiresAt = DateTime.Now.AddMinutes(60)
+            });
     }
 
     #region Login Success Tests
@@ -70,20 +105,17 @@ public class AuthServiceTests
             IsActive = true,
             FailedLoginCount = 0,
             LockedUntilAt = null,
-
         };
 
-       
         _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
-            .Returns("mock-jwt-token");
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        SetUpSuccessfulTokenIssuance(user);
 
         // Act
         var result = await _authService.LoginAsync(request);
@@ -92,7 +124,8 @@ public class AuthServiceTests
         Assert.NotNull(result);
         Assert.True(result.Success);
         Assert.Equal("mock-jwt-token", result.Token);
-        
+        Assert.False(result.RequiresTwoFactor);
+
         Assert.Equal("testuser", result.Username);
         Assert.Equal("Login successful", result.Message);
         Assert.NotNull(result.ExpiresAt);
@@ -100,6 +133,7 @@ public class AuthServiceTests
         // Verify security operations were called
         _userRepositoryMock.Verify(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()), Times.Once);
         _userRepositoryMock.Verify(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        _mfaChallengeServiceMock.Verify(x => x.CreateLoginChallengeAsync(It.IsAny<int>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -127,18 +161,98 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
-            .Returns("mock-jwt-token");
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        SetUpSuccessfulTokenIssuance(user);
 
         // Act
         var result = await _authService.LoginAsync(request);
 
         // Assert
         Assert.True(result.Success);
+    }
+
+    [Fact]
+    public async Task LoginAsync_DelegatesTokenIssuanceToAuthTokenIssuer()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true
+        };
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        SetUpSuccessfulTokenIssuance(user);
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert — LoginAsync never talks to ITokenService directly; that responsibility
+        // belongs entirely to IAuthTokenIssuerService now.
+        Assert.True(result.Success);
+        _authTokenIssuerMock.Verify(x => x.IssueAsync(It.Is<UserEntity>(u => u.Id == 1), "pwd", It.IsAny<CancellationToken>()), Times.Once);
+        _tokenServiceMock.Verify(x => x.GenerateToken(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    #endregion
+
+    #region Login Two-Factor Tests
+
+    [Fact]
+    public async Task LoginAsync_WithTwoFactorEnabled_ReturnsRequiresTwoFactorWithoutTokens()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            Username = "testuser",
+            Password = "ValidPassword123"
+        };
+
+        var user = new UserEntity
+        {
+            Id = 1,
+            UserName = "testuser",
+            PasswordHash = "$2a$12$hashedpassword",
+            IsActive = true,
+            TwoFactorEnabled = true
+        };
+
+        var expiresAt = DateTime.UtcNow.AddMinutes(5);
+
+        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
+            .Returns(true);
+        _mfaChallengeServiceMock
+            .Setup(x => x.CreateLoginChallengeAsync(1, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MfaLoginChallenge("opaque-challenge-id", expiresAt));
+
+        // Act
+        var result = await _authService.LoginAsync(request);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.True(result.RequiresTwoFactor);
+        Assert.Equal("opaque-challenge-id", result.ChallengeId);
+        Assert.Equal(expiresAt, result.ChallengeExpiresAtUtc);
+        Assert.Null(result.Token);
+        Assert.Null(result.RefreshToken);
+
+        _authTokenIssuerMock.Verify(x => x.IssueAsync(It.IsAny<UserEntity>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     #endregion
@@ -313,13 +427,12 @@ public class AuthServiceTests
             .ReturnsAsync(user);
         _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
             .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
-            .Returns("mock-jwt-token");
 
         _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        SetUpSuccessfulTokenIssuance(user);
 
         // Act
         var result = await _authService.LoginAsync(request);
@@ -394,108 +507,6 @@ public class AuthServiceTests
         // Assert
         Assert.False(result.Success);
         Assert.Equal("Password not set for this user. Please contact administrator.", result.Message);
-    }
-
-    #endregion
-
-    #region Token Expiration Tests
-
-    [Fact]
-    public async Task LoginAsync_UsesConfiguredTokenExpiration()
-    {
-        // Arrange
-        var request = new LoginRequestDto
-        {
-            Username = "testuser",
-            Password = "ValidPassword123"
-        };
-
-        var user = new UserEntity
-        {
-            Id = 1,
-            UserName = "testuser",
-            PasswordHash = "$2a$12$hashedpassword",
-            IsActive = true,
-            MobileNo = "1234567890"
-        };
-
-        _configurationMock.Setup(c => c["Jwt:ExpiresInMinutes"]).Returns("60"); // 1 hour
-        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
-            .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
-            .Returns("mock-jwt-token");
-
-        _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var beforeLogin = DateTime.Now;
-
-        // Act
-        var result = await _authService.LoginAsync(request);
-
-        var afterLogin = DateTime.Now;
-
-        // Assert
-        Assert.True(result.Success);
-        Assert.NotNull(result.ExpiresAt);
-        
-        // Verify expiration is approximately 60 minutes from now (within 1 minute tolerance)
-        var expectedExpiration = beforeLogin.AddMinutes(60);
-        Assert.True(result.ExpiresAt >= expectedExpiration.AddMinutes(-1));
-        Assert.True(result.ExpiresAt <= afterLogin.AddMinutes(61));
-    }
-
-    [Fact]
-    public async Task LoginAsync_WithInvalidExpirationConfig_UsesDefaultExpiration()
-    {
-        // Arrange
-        var request = new LoginRequestDto
-        {
-            Username = "testuser",
-            Password = "ValidPassword123"
-        };
-
-        var user = new UserEntity
-        {
-            Id = 1,
-            UserName = "testuser",
-            PasswordHash = "$2a$12$hashedpassword",
-            IsActive = true,
-            MobileNo = "1234567890"
-        };
-
-        _configurationMock.Setup(c => c["Jwt:ExpiresInMinutes"]).Returns("invalid"); // Invalid config
-        _userRepositoryMock.Setup(x => x.GetByUsernameAsync("testuser", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-        _passwordHasherMock.Setup(x => x.VerifyPassword("ValidPassword123", "$2a$12$hashedpassword"))
-            .Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateToken(1, "testuser"))
-            .Returns("mock-jwt-token");
-
-        _userRepositoryMock.Setup(x => x.ResetFailedLoginCountAsync(1, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-        _userRepositoryMock.Setup(x => x.UpdateLastLoginAsync(1, It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        var beforeLogin = DateTime.Now;
-
-        // Act
-        var result = await _authService.LoginAsync(request);
-
-        var afterLogin = DateTime.Now;
-
-        // Assert
-        Assert.True(result.Success);
-        Assert.NotNull(result.ExpiresAt);
-        
-        // Verify default expiration of 60 minutes is used
-        var expectedExpiration = beforeLogin.AddMinutes(60);
-        Assert.True(result.ExpiresAt >= expectedExpiration.AddMinutes(-1));
-        Assert.True(result.ExpiresAt <= afterLogin.AddMinutes(61));
     }
 
     #endregion

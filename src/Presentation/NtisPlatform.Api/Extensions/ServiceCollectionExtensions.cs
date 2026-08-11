@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
@@ -215,6 +216,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped(typeof(IReportDataRepository<>), typeof(ReportDataRepository<>));
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<ITwoFactorRecoveryCodeRepository, TwoFactorRecoveryCodeRepository>();
+        services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();
+        services.AddScoped<ISecurityAuditLogRepository, SecurityAuditLogRepository>();
         services.AddScoped<IPropertyRepository, PropertyRepository>();
         services.AddScoped<ITypeOfUseByPropertyTypeRepository, TypeOfUseByPropertyTypeRepository>();
 
@@ -247,6 +251,19 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITokenService, JwtTokenService>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<ISecuritySettingsService, SecuritySettingsService>();
+
+        // Two-factor authentication (authenticator app / TOTP)
+        services.AddScoped<ITotpService, TotpService>();
+        services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+        services.AddScoped<ITwoFactorAuthenticationService, TwoFactorAuthenticationService>();
+        services.AddScoped<IMfaChallengeService, MfaChallengeService>();
+
+        // Config-driven OTP (email/SMS) challenges for login and forgot password
+        services.AddScoped<IOtpChallengeService, OtpChallengeService>();
+        services.AddScoped<ISmsService, SmsService>();
+
+        services.AddScoped<IAuthTokenIssuerService, AuthTokenIssuerService>();
+        services.AddScoped<ISecurityAuditService, SecurityAuditService>();
         services.AddScoped<IHardDeleteCleanupService, HardDeleteCleanupService>();
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IDocumentAuthorizationService, DocumentAuthorizationService>();
@@ -289,11 +306,26 @@ public static class ServiceCollectionExtensions
         services.Configure<NtisPlatform.Application.Options.ApartmentQCOptions>(configuration.GetSection(NtisPlatform.Application.Options.ApartmentQCOptions.Section));
         services.Configure<NtisPlatform.Application.Options.FileStorageOptions>(configuration.GetSection(NtisPlatform.Application.Options.FileStorageOptions.Section));
 
+        // Two-factor authentication options — validated eagerly so a misconfigured Issuer/lifetime fails fast at startup
+        services
+            .AddOptions<NtisPlatform.Application.Options.TwoFactorAuthenticationOptions>()
+            .BindConfiguration(NtisPlatform.Application.Options.TwoFactorAuthenticationOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // OTP (email/SMS) challenge options — login OTP and forgot-password OTP
+        services
+            .AddOptions<NtisPlatform.Application.Options.OtpChallengeOptions>()
+            .BindConfiguration(NtisPlatform.Application.Options.OtpChallengeOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         // Application Layer - Helpers
         services.AddSingleton<NtisPlatform.Application.Helpers.FileValidationHelper>();
 
         // Application Layer - Services
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IUlbConfigService, UlbConfigService>();
         services.AddScoped<IDocumentApplicationService, DocumentApplicationService>();
         services.AddScoped<IPropertyCertificateApplicationService, PropertyCertificateApplicationService>();
@@ -698,6 +730,10 @@ public static class ServiceCollectionExtensions
 
         services.AddSignalR();
 
+        // Data Protection - used to encrypt TOTP shared secrets at rest (never hashed, since they
+        // must remain decryptable to validate future authenticator codes).
+        services.AddDataProtection();
+
         // JWT Authentication - Validate JWT Key
         var jwtKey = configuration.GetValue<string>("Jwt:Key");
 
@@ -775,6 +811,48 @@ public static class ServiceCollectionExtensions
                         ctx.Token = token;
                     }
                     return Task.CompletedTask;
+                },
+                // Immediately invalidates access tokens issued before a sensitive security change
+                // (2FA disable/reset rotates the user's SecurityStamp) instead of waiting for the
+                // token's natural expiry. Tokens with no "sst" claim (issued before this feature
+                // existed) skip the check. The current stamp is cached briefly per user to avoid
+                // a database round trip on every authenticated request.
+                OnTokenValidated = async ctx =>
+                {
+                    var stampClaim = ctx.Principal?.FindFirst("sst")?.Value;
+                    if (string.IsNullOrEmpty(stampClaim))
+                    {
+                        return;
+                    }
+
+                    var userIdClaim = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                    if (!int.TryParse(userIdClaim, out var userId))
+                    {
+                        ctx.Fail("Token is missing a valid user identifier.");
+                        return;
+                    }
+
+                    var cache = ctx.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+                    var cacheKey = $"sst:{userId}";
+
+                    if (!cache.TryGetValue(cacheKey, out string? currentStamp))
+                    {
+                        var userRepository = ctx.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                        currentStamp = await userRepository.GetSecurityStampAsync(userId, ctx.HttpContext.RequestAborted);
+                        // This IMemoryCache is configured with a SizeLimit (see AddMemoryCache below),
+                        // which requires every entry to declare a Size — the plain Set(key, value, TimeSpan)
+                        // overload omits it and throws "Cache entry must specify a value for Size...".
+                        cache.Set(cacheKey, currentStamp ?? string.Empty, new Microsoft.Extensions.Caching.Memory.MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30),
+                            Size = 1
+                        });
+                    }
+
+                    if (string.IsNullOrEmpty(currentStamp) || !string.Equals(currentStamp, stampClaim, StringComparison.Ordinal))
+                    {
+                        ctx.Fail("Session has been invalidated by a security change. Please sign in again.");
+                    }
                 }
             };
         });
@@ -816,6 +894,12 @@ public static class ServiceCollectionExtensions
                 var uploadPermitLimit = configuration.GetValue<int>("RateLimiting:FileUpload:PermitLimit", 10);
                 var uploadWindowMinutes = configuration.GetValue<int>("RateLimiting:FileUpload:WindowMinutes", 5);
                 var uploadQueueLimit = configuration.GetValue<int>("RateLimiting:FileUpload:QueueLimit", 2);
+                var mfaVerifyPermitLimit = configuration.GetValue<int>("RateLimiting:MfaVerify:PermitLimit", 10);
+                var mfaVerifyWindowMinutes = configuration.GetValue<int>("RateLimiting:MfaVerify:WindowMinutes", 15);
+                var mfaEnablePermitLimit = configuration.GetValue<int>("RateLimiting:MfaEnable:PermitLimit", 10);
+                var mfaEnableWindowMinutes = configuration.GetValue<int>("RateLimiting:MfaEnable:WindowMinutes", 15);
+                var forgotPasswordPermitLimit = configuration.GetValue<int>("RateLimiting:ForgotPassword:PermitLimit", 5);
+                var forgotPasswordWindowMinutes = configuration.GetValue<int>("RateLimiting:ForgotPassword:WindowMinutes", 15);
 
                 // Global default policy for all endpoints (unless overridden)
                 options.GlobalLimiter = System.Threading.RateLimiting.PartitionedRateLimiter.Create<HttpContext, string>(context =>
@@ -838,6 +922,48 @@ public static class ServiceCollectionExtensions
                         {
                             PermitLimit = loginPermitLimit,
                             Window = TimeSpan.FromMinutes(loginWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // Forgot-password request/reset — same shape as "login": prevents both OTP-request
+                // spam (which would also spam the user's inbox/phone) and reset-token brute forcing.
+                options.AddPolicy("forgot-password", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = forgotPasswordPermitLimit,
+                            Window = TimeSpan.FromMinutes(forgotPasswordWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // MFA login-verification: brute forcing a 6-digit TOTP is 1-in-1,000,000 per
+                // guess, so this must be tight in addition to the per-challenge attempt-count
+                // lockout enforced in IMfaChallengeService itself. Partitioned by IP, same as
+                // "login" — the challenge id lives in the request body, which is not available
+                // to the rate limiter's partition-key resolver without buffering the request.
+                options.AddPolicy("mfa-verify", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = mfaVerifyPermitLimit,
+                            Window = TimeSpan.FromMinutes(mfaVerifyWindowMinutes),
+                            QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
+                            QueueLimit = 0
+                        }));
+
+                // Authenticator enable/disable/reset/regenerate — all accept a verification code,
+                // so they need the same brute-force protection as login verification.
+                options.AddPolicy("mfa-enable", context =>
+                    System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey: context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                        factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = mfaEnablePermitLimit,
+                            Window = TimeSpan.FromMinutes(mfaEnableWindowMinutes),
                             QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                             QueueLimit = 0
                         }));

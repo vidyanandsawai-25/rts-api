@@ -28,6 +28,8 @@
 	<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(MicrosoftPackageVersion)" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(MicrosoftPackageVersion)" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.2.1" />
+    <!-- RFC 6238 TOTP implementation used for authenticator-app 2FA (no ASP.NET Core Identity in this codebase) -->
+    <PackageReference Include="Otp.NET" Version="1.4.0" />
   </ItemGroup>
 
 </Project>

@@ -94,6 +94,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    public DbSet<TwoFactorRecoveryCodeEntity> TwoFactorRecoveryCodes { get; set; } = null!;
+    public DbSet<MfaChallengeEntity> TwoFactorChallenges { get; set; } = null!;
+    public DbSet<SecurityAuditLogEntity> SecurityAuditLogs { get; set; } = null!;
     public DbSet<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = null!;
     public DbSet<RVCalculationResultsEntity> RVCalculationResults { get; set; } = null!;
     public DbSet<RVCalculationTaxDetailsEntity> RVCalculationTaxDetails { get; set; } = null!;
@@ -2304,6 +2307,88 @@ public class ApplicationDbContext : DbContext
             // Indexes
             entity.HasIndex(e => e.UserId);
             entity.HasIndex(e => new { e.IsRevoked, e.ExpiresAt });
+        });
+
+        // ── Two-factor authentication: new UserMaster columns ──────────────────
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.Property(e => e.TwoFactorEnabled).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.TwoFactorSecretEncrypted).HasMaxLength(500);
+            entity.Property(e => e.TwoFactorEnabledAt);
+            entity.Property(e => e.SecurityStamp).HasMaxLength(64);
+            entity.Property(e => e.TwoFactorRequired).IsRequired().HasDefaultValue(false);
+        });
+
+        // ── TwoFactorRecoveryCode ────────────────────────────────────────────
+        modelBuilder.Entity<TwoFactorRecoveryCodeEntity>(entity =>
+        {
+            entity.ToTable("TwoFactorRecoveryCode", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.CodeHash).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.UsedAt);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.UserId, e.UsedAt, e.RevokedAt });
+        });
+
+        // ── TwoFactorChallenge (MFA login challenge) ────────────────────────
+        modelBuilder.Entity<MfaChallengeEntity>(entity =>
+        {
+            entity.ToTable("TwoFactorChallenge", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ChallengeHash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Purpose).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.FailedAttemptCount).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ConsumedAt);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.CodeHash).HasMaxLength(64);
+            entity.Property(e => e.Channel).HasMaxLength(20);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ChallengeHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // ── SecurityAuditLog ─────────────────────────────────────────────────
+        modelBuilder.Entity<SecurityAuditLogEntity>(entity =>
+        {
+            entity.ToTable("SecurityAuditLog", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId);
+            entity.Property(e => e.Success).IsRequired();
+            entity.Property(e => e.CorrelationId).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.Detail).HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).IsRequired();
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.EventType);
+            entity.HasIndex(e => e.CreatedAt);
         });
 
         modelBuilder.Entity<WingEntity>(entity =>
