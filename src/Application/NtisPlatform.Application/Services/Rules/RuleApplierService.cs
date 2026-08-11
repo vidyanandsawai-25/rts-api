@@ -87,6 +87,7 @@ namespace NtisPlatform.Application.Services.Rules
                 var ruleInput = new RuleExecutionInputDto
                 {
                     Category = context.Category,
+                    PropertyRuleEvaluationMasterId = context.PropertyRuleEvaluationMasterId,
                     Input = inputContext
                 };
 
@@ -107,13 +108,45 @@ namespace NtisPlatform.Application.Services.Rules
 
                     foreach (var rule in ruleResults)
                     {
-                        // Ensure rule target parameter matches context.ValueKey (e.g. "Rate", "Maintenance", "Rent") if specified
-                        if (rule.Context != null &&
-                            rule.Context.TryGetValue("ParameterCode", out var rawParamCode) &&
-                            !string.IsNullOrWhiteSpace(rawParamCode))
+                        // Ensure rule target parameter matches context.PropertyRuleEvaluationMasterId or context.ValueKey
+                        if (context.PropertyRuleEvaluationMasterId.HasValue && context.PropertyRuleEvaluationMasterId.Value > 0)
                         {
-                            var targetParameter = rawParamCode.Replace("input.", "").Trim();
-                            if (!string.Equals(targetParameter, context.ValueKey, StringComparison.OrdinalIgnoreCase))
+                            if (rule.PropertyRuleEvaluationMasterId.HasValue && rule.PropertyRuleEvaluationMasterId.Value > 0)
+                            {
+                                if (rule.PropertyRuleEvaluationMasterId.Value != context.PropertyRuleEvaluationMasterId.Value)
+                                {
+                                    continue;
+                                }
+                            }
+                            else
+                            {
+                                var paramCode = rule.ParameterCode;
+                                if (string.IsNullOrWhiteSpace(paramCode) && rule.Context != null &&
+                                    rule.Context.TryGetValue("ParameterCode", out var rawParamCode) &&
+                                    !string.IsNullOrWhiteSpace(rawParamCode))
+                                {
+                                    paramCode = rawParamCode.Replace("input.", "").Trim();
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(paramCode) &&
+                                    !string.Equals(paramCode, context.ValueKey, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            var ruleParamCode = rule.ParameterCode;
+                            if (string.IsNullOrWhiteSpace(ruleParamCode) && rule.Context != null &&
+                                rule.Context.TryGetValue("ParameterCode", out var rawParamCode) &&
+                                !string.IsNullOrWhiteSpace(rawParamCode))
+                            {
+                                ruleParamCode = rawParamCode.Replace("input.", "").Trim();
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(ruleParamCode) &&
+                                !string.Equals(ruleParamCode, context.ValueKey, StringComparison.OrdinalIgnoreCase))
                             {
                                 continue;
                             }

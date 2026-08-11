@@ -40,6 +40,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
         private readonly TimeProvider _timeProvider;
         private readonly IRVCalculationCleanupService _rvCalculationCleanupService;
         private readonly ITaxApplicabilityService _taxApplicabilityService;
+        private readonly IRepository<PropertyRuleEvaluationMasterEntity, int>? _evalMasterRepo;
 
         public RateableValueService(
             ITaxMasterDataService masterDataService,
@@ -54,7 +55,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRVPersistenceService persistenceService,
             TimeProvider timeProvider,
             IRVCalculationCleanupService rvCalculationCleanupService,
-            ITaxApplicabilityService taxApplicabilityService)
+            ITaxApplicabilityService taxApplicabilityService,
+            IRepository<PropertyRuleEvaluationMasterEntity, int>? evalMasterRepo = null)
         {
             _masterDataService = masterDataService;
             _unitOfWork = unitOfWork;
@@ -69,6 +71,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             _timeProvider = timeProvider;
             _rvCalculationCleanupService = rvCalculationCleanupService;
             _taxApplicabilityService = taxApplicabilityService;
+            _evalMasterRepo = evalMasterRepo;
         }
 
         public async Task<RateableValueResponseDto> CalculateAndSaveAsync(int propertyId)
@@ -206,6 +209,35 @@ namespace NtisPlatform.Application.Services.TaxEngine
                     policyOptions.AreaType, policyOptions.AreaUnit, policyOptions.RatePeriod,
                     policyOptions.EducationEmploymentTaxCalculationMethod, policyOptions.MaintenanceRatePercent);
 
+                // Resolve PropertyRuleEvaluationMaster ID map for parameter-specific rule execution
+                var evalMasterMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                if (_evalMasterRepo != null)
+                {
+                    try
+                    {
+                        var targetKeys = new[] { "Rate", "Rent", "Maintenance" };
+                        var masters = await _evalMasterRepo.GetQueryable()
+                            .Where(x => x.IsActive && (targetKeys.Contains(x.ParameterCode) || targetKeys.Contains(x.ParameterName)))
+                            .AsNoTracking()
+                            .ToListAsync();
+                        foreach (var m in masters)
+                        {
+                            if (!string.IsNullOrWhiteSpace(m.ParameterCode))
+                                evalMasterMap[m.ParameterCode.Trim()] = m.Id;
+                            if (!string.IsNullOrWhiteSpace(m.ParameterName))
+                                evalMasterMap[m.ParameterName.Trim()] = m.Id;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "[RuleEngine-RV] Unable to load PropertyRuleEvaluationMaster table. Falling back to string ValueKey matching.");
+                    }
+                }
+
+                int? rateEvalMasterId = evalMasterMap.TryGetValue("Rate", out var rId) ? rId : (int?)null;
+                int? rentEvalMasterId = evalMasterMap.TryGetValue("Rent", out var rnId) ? rnId : (int?)null;
+                int? maintEvalMasterId = evalMasterMap.TryGetValue("Maintenance", out var mId) ? mId : (int?)null;
+
                 // 7. Pre-compute selected areas for all details
                 var selectedAreas = RateableValuePolicyHelper.GetSelectedAreasForProperty(details, policyOptions);
 
@@ -257,7 +289,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                 PropertyContext = clonedContext,
                                 InitialValue = masterRatePerUnit,
                                 Category = "RV",
-                                ValueKey = "Rate"
+                                ValueKey = "Rate",
+                                PropertyRuleEvaluationMasterId = rateEvalMasterId
                             };
 
                             var ruleResult = await _ruleApplierService.ApplyRulesAsync(applierContext);
@@ -300,7 +333,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                                         PropertyContext = clonedContext,
                                         InitialValue = (decimal)yearlyRentValue,
                                         Category = "RV",
-                                        ValueKey = "Rent"
+                                        ValueKey = "Rent",
+                                        PropertyRuleEvaluationMasterId = rentEvalMasterId
                                     };
 
                                     var rentRuleResult = await _ruleApplierService.ApplyRulesAsync(rentApplierContext);
@@ -320,7 +354,8 @@ namespace NtisPlatform.Application.Services.TaxEngine
                             PropertyContext = clonedContext,
                             InitialValue = policyOptions.MaintenanceRatePercent,
                             Category = "RV",
-                            ValueKey = "Maintenance"
+                            ValueKey = "Maintenance",
+                            PropertyRuleEvaluationMasterId = maintEvalMasterId
                         };
 
                         var maintRuleResult = await _ruleApplierService.ApplyRulesAsync(maintApplierContext);

@@ -10,6 +10,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
     {
         public string Category { get; set; } = string.Empty;
         public string ValueKey { get; set; } = string.Empty;
+        public int? PropertyRuleEvaluationMasterId { get; set; }
         public decimal InitialValue { get; set; }
         public PropertyCalculationContext PropertyContext { get; set; } = null!;
     }

@@ -48,5 +48,7 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleExecution
 
         public int? RuleScopeId { get; set; }
         public string? RuleScopeName { get; set; }
+        public int? PropertyRuleEvaluationMasterId { get; set; }
+        public string? ParameterCode { get; set; }
     }
 }

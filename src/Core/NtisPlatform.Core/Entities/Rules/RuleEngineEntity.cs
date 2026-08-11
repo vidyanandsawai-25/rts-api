@@ -40,9 +40,18 @@ public class RuleEngineEntity : BaseEntity, IHardDeletable
     /// </summary>
     public int? RuleScopeId { get; set; }
 
+    /// <summary>
+    /// Optional foreign key to PTIS.PropertyRuleEvaluationMaster.
+    /// Defines the parameter targeted by this rule (e.g., Rate, Rent, Maintenance).
+    /// </summary>
+    public int? PropertyRuleEvaluationMasterId { get; set; }
+
     // Navigation properties
     /// <summary>The scope this rule belongs to (optional)</summary>
     public virtual RuleScopeEntity? RuleScope { get; set; }
+
+    /// <summary>The evaluation parameter master this rule belongs to (optional)</summary>
+    public virtual Master.PropertyRuleEvaluationMasterEntity? PropertyRuleEvaluationMaster { get; set; }
 
     /// <summary>Indicates whether the entity is marked for deletion</summary>
     public bool MarkedForDeletion { get; set; } = false;

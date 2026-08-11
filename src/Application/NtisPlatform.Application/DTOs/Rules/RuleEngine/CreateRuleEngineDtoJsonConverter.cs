@@ -136,7 +136,14 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
                     dto.RuleScopeId = null;
             }
 
-
+            // Map PropertyRuleEvaluationMasterId
+            if (root.TryGetProperty("propertyRuleEvaluationMasterId", out var evalProp) || root.TryGetProperty("PropertyRuleEvaluationMasterId", out evalProp))
+            {
+                if (evalProp.ValueKind == JsonValueKind.Number && evalProp.TryGetInt32(out var evalVal))
+                    dto.PropertyRuleEvaluationMasterId = evalVal > 0 ? evalVal : null;
+                else if (evalProp.ValueKind == JsonValueKind.Null)
+                    dto.PropertyRuleEvaluationMasterId = null;
+            }
 
             // Map ChangeReason
             dto.ChangeReason = GetStringProp(root, "changeReason") ?? GetStringProp(root, "ChangeReason");
@@ -176,6 +183,10 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
                 writer.WriteNumber("ruleScopeId", value.RuleScopeId.Value);
             else
                 writer.WriteNull("ruleScopeId");
+            if (value.PropertyRuleEvaluationMasterId.HasValue)
+                writer.WriteNumber("propertyRuleEvaluationMasterId", value.PropertyRuleEvaluationMasterId.Value);
+            else
+                writer.WriteNull("propertyRuleEvaluationMasterId");
             writer.WriteBoolean("isActive", value.IsActive);
             if (value.CreatedBy.HasValue)
                 writer.WriteNumber("createdBy", value.CreatedBy.Value);
