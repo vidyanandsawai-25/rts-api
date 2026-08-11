@@ -3,7 +3,6 @@ using NtisPlatform.Application.Extensions;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Asset_Management;
 using NtisPlatform.Core.Entities.Master;
-using NtisPlatform.Core.Entities.PropertyTax;
 using NtisPlatform.Core.Entities.Rules;
 
 namespace NtisPlatform.Infrastructure.Data;
@@ -257,8 +256,12 @@ public class ApplicationDbContext : DbContext
 
     public DbSet<CommunicationDetailsEntity> CommunicationDetails { get; set; } = null!;
 
-    public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
-    public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
+    //public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
+    //public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
+
+
+    //rts Tables configurations
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -5699,9 +5702,10 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
 
-<<<<<<< HEAD
 
         //------------------RTS Api work started------------
+        //----------------------------------------------------------------
+        //--------------------RTS Api work started------------------------
 
         modelBuilder.Entity<RTSDepartmentEntity>(entity =>
         {
@@ -5728,32 +5732,6 @@ public class ApplicationDbContext : DbContext
                   .HasDefaultValueSql("GETDATE()");
         });
 
-        modelBuilder.Entity<RTSPropertyMastEntity>(entity =>
-        {
-            entity.ToTable("PropertyMast", "dbo");
-            entity.HasKey(e => e.OwnerID);
-
-            entity.Property(e => e.OwnerID)
-                  .HasColumnName("OwnerID");
-
-            entity.Ignore(e => e.Id);
-            entity.Ignore(e => e.IsActive);
-            entity.Ignore(e => e.CreatedDate);
-            entity.Ignore(e => e.UpdatedDate);
-            entity.Ignore(e => e.CreatedBy);
-            entity.Ignore(e => e.UpdatedBy); entity.Property(e => e.MobileNo).HasMaxLength(20);
-            entity.Property(e => e.UnicdeAddress).HasMaxLength(100);
-            entity.Property(e => e.NewZoneNo).HasMaxLength(20);
-            entity.Property(e => e.NewWardNo).HasMaxLength(20);
-            entity.Property(e => e.NewPropertyNo).HasMaxLength(50);
-            entity.Property(e => e.NewPartitionNo).HasMaxLength(20);
-            entity.Property(e => e.OldPropertyNo).HasMaxLength(50);
-            entity.Property(e => e.OwnerFirstName).HasMaxLength(200);
-            entity.Property(e => e.MarathiSocietyName).HasMaxLength(300);
-            entity.Property(e => e.MarathiOwnerPatta).HasMaxLength(500);
-            entity.Property(e => e.MarathiOwnerDukanFlatNo).HasMaxLength(200);
-        });
-
         modelBuilder.Entity<RTSFieldDefinitionEntity>(entity =>
         {
             entity.ToTable("FieldDefinition", "RTS");
@@ -5763,7 +5741,6 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DepartmentId).IsRequired();
             entity.Property(e => e.ServiceId).IsRequired();
             entity.Property(e => e.FieldCode).IsRequired().HasMaxLength(50);
-            // FieldName removed — FieldCode is the unique identifier; FieldName was always identical.
             entity.Property(e => e.FieldLabel).IsRequired().HasMaxLength(200);
             entity.Property(e => e.FieldLabelLocal).HasMaxLength(200);
             entity.Property(e => e.FieldType).IsRequired().HasMaxLength(50);
@@ -5797,157 +5774,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.DepartmentId, e.ServiceId, e.FieldCode })
                 .IsUnique()
                 .HasDatabaseName("UQ_FieldDefinition_Department_Service_FieldCode");
-        });
-
-
-        modelBuilder.Entity<RTSFieldValueEntity>(entity =>
-        {
-            entity.ToTable("FieldValue", "RTS");
-
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id)
-                .ValueGeneratedOnAdd();
-
-            entity.Property(e => e.ApplicationId)
-                .IsRequired();
-            entity.Property(e => e.FieldDefinitionId)
-                .IsRequired();
-            // FieldName removed — redundant, available via JOIN to FieldDefinition using FieldDefinitionId.
-            entity.Property(e => e.TextValue)
-                .HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NumberValue)
-                .HasColumnType("decimal(18, 4)");
-            entity.Property(e => e.DateValue)
-                .HasColumnType("datetime");
-            entity.Property(e => e.BooleanValue);
-            entity.Property(e => e.DocumentGuid);
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate)
-                .IsRequired()
-                .HasColumnType("datetime")
-                .HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate)
-                .HasColumnType("datetime");
-            entity.Property(e => e.MarkedForDeletion)
-                .IsRequired()
-                .HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate)
-                .HasColumnType("datetime");
-            entity.HasIndex(e => new { e.ApplicationId, e.FieldDefinitionId })
-                .IsUnique()
-                .HasDatabaseName("UQ_FieldValue_Application_FieldDefinition");
-
-            entity.HasOne(e => e.Application)
-                .WithMany(a => a.FieldValueData)
-                .HasForeignKey(e => e.ApplicationId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("FK_FieldValue_ApplicationDetails");
-
-            entity.HasOne(e => e.FieldDefinition)
-                .WithMany()
-                .HasForeignKey(e => e.FieldDefinitionId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-        });
-
-
-        modelBuilder.Entity<RTSApplicationDetailsEntity>(entity =>
-        {
-            entity.ToTable("ApplicationDetails", "RTS");
-
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.ApplicationNo)
-                .HasMaxLength(50)
-                .HasComputedColumnSql("('RTS' + RIGHT('00000000' + CONVERT(varchar(8), [Id]), 8))", stored: true);
-
-            entity.Property(e => e.DepartmentId)
-                .IsRequired();
-            entity.Property(e => e.ServiceId)
-                .IsRequired();
-            entity.Property(e => e.SessionId)
-                    .HasMaxLength(200)
-                    .IsRequired(false);
-            entity.Property(e => e.ApplicationStatus)
-                .HasMaxLength(50)
-                .IsRequired()
-                .HasDefaultValue("Submitted");
-            entity.Property(e => e.Remark)
-                .HasMaxLength(500);
-            entity.Property(e => e.IsActive)
-                .IsRequired()
-                .HasDefaultValue(true);
-            entity.Property(e => e.CreatedDate)
-                .HasColumnType("datetime")
-                .HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedDate)
-                .HasColumnType("datetime");
-            entity.Property(e => e.MarkedForDeletion)
-                .IsRequired()
-                .HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate)
-                .HasColumnType("datetime");
-
-            entity.HasOne(e => e.Department)
-               .WithMany()
-               .HasForeignKey(e => e.DepartmentId)
-               .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne(e => e.Service)
-                .WithMany()
-                .HasForeignKey(e => e.ServiceId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasOne<RTSCitizenSessionEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.SessionId)
-                .HasPrincipalKey(e => e.SessionId)
-                .OnDelete(DeleteBehavior.Restrict)
-                .HasConstraintName("FK_ApplicationDetails_CitizenSession");
-
-        });
-
-        modelBuilder.Entity<ApprovalFlowMasterEntity>(entity =>
-        {
-            entity.ToTable("ApprovalFlowMaster", "RTS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.ApprovalFlowName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.UpdatedBy);
-
-            entity.HasOne<RTSServiceEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.ServiceId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<ApprovalFlowStageMasterEntity>(entity =>
-        {
-            entity.ToTable("ApprovalFlowStageMaster", "RTS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.StageName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.StageOrder).IsRequired();
-            entity.Property(e => e.EmployeeTypeId).IsRequired();
-            entity.Property(e => e.SLADays).IsRequired();
-            entity.Property(e => e.CanVerifyDocument).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CanApprove).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CanReject).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CanReturn).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.CanPay).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsFinalStage).IsRequired().HasDefaultValue(false);
-
-            entity.HasOne<ApprovalFlowMasterEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.ApprovalFlowId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<RTSServiceEntity>(entity =>
@@ -6048,6 +5874,267 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
         });
+      
+        modelBuilder.Entity<RTSFieldValueEntity>(entity =>
+        {
+            entity.ToTable("FieldValue", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApplicationId)
+                .IsRequired();
+            entity.Property(e => e.FieldDefinitionId)
+                .IsRequired();
+            // FieldName removed — redundant, available via JOIN to FieldDefinition using FieldDefinitionId.
+            entity.Property(e => e.TextValue)
+                .HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NumberValue)
+                .HasColumnType("decimal(18, 4)");
+            entity.Property(e => e.DateValue)
+                .HasColumnType("datetime");
+            entity.Property(e => e.BooleanValue);
+            entity.Property(e => e.DocumentGuid);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate)
+                .IsRequired()
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate)
+                .HasColumnType("datetime");
+            entity.HasIndex(e => new { e.ApplicationId, e.FieldDefinitionId })
+                .IsUnique()
+                .HasDatabaseName("UQ_FieldValue_Application_FieldDefinition");
+
+            entity.HasOne(e => e.Application)
+                .WithMany(a => a.FieldValueData)
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_FieldValue_ApplicationDetails");
+
+            entity.HasOne(e => e.FieldDefinition)
+                .WithMany(fd => fd.FieldValues)
+                .HasForeignKey(e => e.FieldDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_FieldValue_FieldDefinition");
+
+        });
+
+        modelBuilder.Entity<RTSApplicationDetailsEntity>(entity =>
+        {
+            entity.ToTable("ApplicationDetails", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.ApplicationNo)
+                .HasMaxLength(50)
+                .HasComputedColumnSql("('RTS' + RIGHT('00000000' + CONVERT(varchar(8), [Id]), 8))", stored: true);
+
+            entity.Property(e => e.DepartmentId)
+                .IsRequired();
+            entity.Property(e => e.ServiceId)
+                .IsRequired();
+            entity.Property(e => e.CurrentStageOrder);
+            entity.Property(e => e.ApprovalFlowId);  //fk
+            entity.Property(e => e.CurrentApprovalFlowStageId);//fk
+            entity.Property(e => e.UserId);
+            entity.Property(e => e.SessionId)
+                    .HasMaxLength(200)
+                    .IsRequired(false);
+            entity.Property(e => e.ApplicationStatus)
+                .HasMaxLength(50)
+                .IsRequired()
+                .HasDefaultValue("Submitted");
+            entity.Property(e => e.Remark)
+                .HasMaxLength(500);
+            entity.Property(e => e.IsReverted)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate)
+                .HasColumnType("datetime");
+
+            entity.HasOne(e => e.Department)
+               .WithMany()
+               .HasForeignKey(e => e.DepartmentId)
+               .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Service)
+                .WithMany()
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<RTSCitizenSessionEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.SessionId)
+                .HasPrincipalKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_ApplicationDetails_CitizenSession");
+
+        });
+
+
+        modelBuilder.Entity<RTSApprovalFlowMasterEntity>(entity =>
+        {
+            entity.ToTable("ApprovalFlowMaster", "RTS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ServiceId)
+                .IsRequired();
+
+            entity.Property(e => e.ApprovalFlowName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+
+            entity.Property(e => e.UpdatedDate)
+                .HasColumnType("datetime");
+
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.UpdatedBy);
+
+            entity.HasOne(e => e.Service)
+                .WithMany(e => e.ApprovalFlows)
+                .HasForeignKey(e => e.ServiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+
+        modelBuilder.Entity<RTSApprovalFlowStageMasterEntity>(entity =>
+        {
+            entity.ToTable("ApprovalFlowStageMaster", "RTS");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.ApprovalFlowId)
+                .IsRequired();
+
+            entity.Property(e => e.StageName)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.StageOrder)
+                .IsRequired();
+
+            entity.Property(e => e.UserId)
+                .IsRequired();
+
+            entity.Property(e => e.SLADays)
+                .IsRequired();
+
+            entity.Property(e => e.CanVerifyDocument)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanApprove)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanReject)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanReturn)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanViewNoteSheet)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CanPay)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.IsFinalStage)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.HasOne(e => e.ApprovalFlow)
+                .WithMany(e => e.ApprovalFlowStages)
+                .HasForeignKey(e => e.ApprovalFlowId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+
+        modelBuilder.Entity<TrackApplicationHistoryEntity>(entity =>
+        {
+            entity.ToTable("TrackApplicationHistory", "RTS");
+
+            entity.HasKey(e => e.Id);
+            entity.Property(x => x.Action)
+            .IsRequired()
+            .HasMaxLength(100);
+
+            entity.Property(x => x.Status)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(x => x.Remark)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.IsReverted)
+                .IsRequired()
+                .HasDefaultValue(false);
+            entity.Property(e => e.CreatedDate)
+                .HasColumnType("datetime")
+                .HasDefaultValueSql("GETDATE()");
+            entity.HasOne(e => e.Application)
+                .WithMany(a => a.TrackApplicationHistory)
+                .HasForeignKey(e => e.ApplicationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ApprovalFlow)
+                .WithMany(f => f.TrackApplicationHistories)
+                .HasForeignKey(e => e.ApprovalFlowId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ApprovalFlowStage)
+                .WithMany(s => s.TrackApplicationHistory)
+                .HasForeignKey(e => e.ApprovalFlowStageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+
+        //----------------------------------------------------------------
+        //--------------------RTSEND Api work ------------------------
+
+
+       
+
 
 
 

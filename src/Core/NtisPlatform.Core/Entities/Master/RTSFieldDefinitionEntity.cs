@@ -4,6 +4,7 @@ namespace NtisPlatform.Core.Entities.Master;
 
 public class RTSFieldDefinitionEntity : BaseEntity, IHardDeletable
 {
+    
     public int DepartmentId { get; set; }
     public int ServiceId { get; set; }
 
@@ -12,7 +13,6 @@ public class RTSFieldDefinitionEntity : BaseEntity, IHardDeletable
     /// Doubles as both the code and name — FieldName column was removed as it was always identical to FieldCode.
     /// </summary>
     public string FieldCode { get; set; } = string.Empty;
-
     public string FieldLabel { get; set; } = string.Empty;
     public string? FieldLabelLocal { get; set; }
     public string FieldType { get; set; } = string.Empty;
@@ -27,4 +27,5 @@ public class RTSFieldDefinitionEntity : BaseEntity, IHardDeletable
     public int? MaxLength { get; set; }
     public bool MarkedForDeletion { get; set; }
     public DateTime? MarkedForDeletionDate { get; set; }
+    public virtual List<RTSFieldValueEntity> FieldValues { get; set; } = new List<RTSFieldValueEntity>();
 }

@@ -1,4 +1,5 @@
 using AutoMapper;
+using NtisPlatform.Application.DTOs.RTSApplication;
 using NtisPlatform.Application.DTOs.RTSFieldValue;
 using NtisPlatform.Core.Entities;
 
@@ -9,7 +10,7 @@ public class RTSApplicationMappingProfile:Profile
     public RTSApplicationMappingProfile()
     {
 
-        CreateMap<CreateRTSApplicationDetailsDto, RTSApplicationDetailsEntity>()  //insert mapping ApplicationDetails
+        CreateMap<CreateRTSApplicationDetailsDto, RTSApplicationDetailsEntity>()  //insert  ApplicationDetails When Application is submit
             .ForMember(d => d.Id, o => o.Ignore())
             .ForMember(d => d.CreatedDate, o => o.MapFrom(s => DateTime.Now))
             .ForMember(d => d.UpdatedDate, o => o.Ignore())
@@ -20,7 +21,7 @@ public class RTSApplicationMappingProfile:Profile
             .ForMember(d => d.FieldValueData, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.MapFrom(s => s.CreatedBy));
 
-        CreateMap<CreateRTSFieldValueDto, RTSFieldValueEntity>()   //insert mapping FieldValue
+        CreateMap<CreateRTSFieldValueDto, RTSFieldValueEntity>()   //insert FieldValueData When Application is submit
             .ForMember(d => d.Id, o => o.Ignore())
             .ForMember(d => d.CreatedDate, o => o.Ignore())
             .ForMember(d => d.UpdatedDate, o => o.Ignore())
@@ -29,6 +30,11 @@ public class RTSApplicationMappingProfile:Profile
             .ForMember(d => d.MarkedForDeletionDate, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.MapFrom(s => s.CreatedBy));
 
+
+        CreateMap<RTSApplicationDetailsEntity, RTSApplicationDetailsDto>()    //SELECT APPLICATION DETAILS FOR APPROVAL DASHBAORD
+                   .ForMember(dest => dest.FieldValues, opt => opt.MapFrom(src => src.FieldValueData));
+
+        CreateMap<RTSFieldValueEntity, RTSFieldValueDto>();
         // ──────────────────────────Other MappingProfile Are Not configured Due To No Requirements Provided──────────────────────────────────────
 
         CreateMap<UpdateRTSFieldValueDto, RTSFieldValueEntity>()
@@ -40,10 +46,6 @@ public class RTSApplicationMappingProfile:Profile
             .ForMember(d => d.MarkedForDeletionDate, o => o.Ignore())
             .ForMember(d => d.UpdatedBy, o => o.MapFrom(s => s.UpdatedBy));
 
-        CreateMap<RTSApplicationDetailsEntity, RTSApplicationDetailsDto>()
-                   .ForMember(dest => dest.FieldValues, opt => opt.MapFrom(src => src.FieldValueData));
-
-        CreateMap<RTSFieldValueEntity, RTSFieldValueDto>();
     }
 
 }

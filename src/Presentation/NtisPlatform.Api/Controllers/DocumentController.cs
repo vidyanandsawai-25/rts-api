@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Net.Http.Headers;
-using NtisPlatform.Api.Constants;
 using NtisPlatform.Api.DTOs;
 using NtisPlatform.Application.DTOs.Document;
 using NtisPlatform.Application.Helpers;
@@ -143,6 +142,7 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// Get document by GUID
     /// </summary>
+
     [HttpGet("{documentGuid}")]
     [ProducesResponseType(typeof(ApiResponse<DocumentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -170,6 +170,10 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// View document (inline display)
     /// </summary>
+    
+
+
+    [AllowAnonymous]
     [HttpGet("{documentGuid}/view")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -200,6 +204,9 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// Download document
     /// </summary>
+    /// 
+
+    [AllowAnonymous]
     [HttpGet("{documentGuid}/download")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

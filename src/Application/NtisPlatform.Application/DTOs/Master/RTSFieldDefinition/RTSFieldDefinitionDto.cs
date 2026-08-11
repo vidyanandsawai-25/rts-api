@@ -11,7 +11,6 @@ public class RTSFieldDefinitionDto : BaseDtos
     /// Unique field identifier (camelCase). FieldName was removed — FieldCode serves both purposes.
     /// </summary>
     public string FieldCode { get; set; } = string.Empty;
-
     public string FieldLabel { get; set; } = string.Empty;
     public string? FieldLabelLocal { get; set; }
     public string FieldType { get; set; } = string.Empty;
@@ -41,8 +40,6 @@ public class CreateRTSFieldDefinitionDto : CreateBaseDtos
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldCode_Invalid")]
     public string FieldCode { get; set; } = string.Empty;
 
-    // FieldName removed — FieldCode serves as the unique field identifier.
-
     [Required(ErrorMessage = "RTSFieldDefinition_FieldLabel_Required")]
     [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabel_MaxLengthExceeded_200")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldLabel_Invalid")]
@@ -59,21 +56,17 @@ public class CreateRTSFieldDefinitionDto : CreateBaseDtos
     [StringLength(100, ErrorMessage = "RTSFieldDefinition_FieldGroup_MaxLengthExceeded_100")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldGroup_Invalid")]
     public string? FieldGroup { get; set; }
-
     public string? OptionsJson { get; set; }
-
     public bool IsRequired { get; set; }
 
     [Required(ErrorMessage = "RTSFieldDefinition_DisplayOrder_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "RTSFieldDefinition_DisplayOrder_InvalidRange")]
     public int DisplayOrder { get; set; }
-
     public string? ValidationRules { get; set; }
 
     [StringLength(500, ErrorMessage = "RTSFieldDefinition_DefaultValue_MaxLengthExceeded_500")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_DefaultValue_Invalid")]
     public string? DefaultValue { get; set; }
-
     public decimal? MinValue { get; set; }
     public decimal? MaxValue { get; set; }
 
@@ -96,8 +89,6 @@ public class UpdateRTSFieldDefinitionDto : UpdateBaseDtos
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldCode_Invalid")]
     public string FieldCode { get; set; } = string.Empty;
 
-    // FieldName removed — FieldCode serves as the unique field identifier.
-
     [Required(ErrorMessage = "RTSFieldDefinition_FieldLabel_Required")]
     [StringLength(200, ErrorMessage = "RTSFieldDefinition_FieldLabel_MaxLengthExceeded_200")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldLabel_Invalid")]
@@ -114,21 +105,17 @@ public class UpdateRTSFieldDefinitionDto : UpdateBaseDtos
     [StringLength(100, ErrorMessage = "RTSFieldDefinition_FieldGroup_MaxLengthExceeded_100")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_FieldGroup_Invalid")]
     public string? FieldGroup { get; set; }
-
     public string? OptionsJson { get; set; }
-
     public bool IsRequired { get; set; }
 
     [Required(ErrorMessage = "RTSFieldDefinition_DisplayOrder_Required")]
     [Range(1, int.MaxValue, ErrorMessage = "RTSFieldDefinition_DisplayOrder_InvalidRange")]
     public int DisplayOrder { get; set; }
-
     public string? ValidationRules { get; set; }
 
     [StringLength(500, ErrorMessage = "RTSFieldDefinition_DefaultValue_MaxLengthExceeded_500")]
     [RegularExpression(@"^[^@#]*$", ErrorMessage = "RTSFieldDefinition_DefaultValue_Invalid")]
     public string? DefaultValue { get; set; }
-
     public decimal? MinValue { get; set; }
     public decimal? MaxValue { get; set; }
 

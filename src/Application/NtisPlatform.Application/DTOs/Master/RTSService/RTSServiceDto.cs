@@ -10,7 +10,6 @@ public class RTSServiceDto : BaseDtos
     /// Government RTS portal service reference code (e.g., 7204 = Birth Certificate).
     /// </summary>
     public int? GovtServiceCode { get; set; }
-
     public string ServiceName { get; set; } = string.Empty;
     public string? ServiceNameLocal { get; set; }
     public string? Description { get; set; }
@@ -46,7 +45,6 @@ public class CreateRTSServiceDto : CreateBaseDtos
 
     [StringLength(100, ErrorMessage = "Service_ServiceIcon_MaxLengthExceeded_100")]
     public string? ServiceIcon { get; set; }
-
     public int DisplayOrder { get; set; }
     public string? Sla { get; set; }
     public decimal? Fees { get; set; }

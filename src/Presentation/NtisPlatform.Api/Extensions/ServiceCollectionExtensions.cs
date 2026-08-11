@@ -617,6 +617,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRTSApplicationService, RTSApplicationService>();
         services.AddScoped<IRTSServiceService, RTSServiceService>();
         services.AddScoped<IRTSCitizenSessionService, RTSCitizenSessionService>();
+        services.AddScoped<IRTSApplicationApprovalService, RTSApplicationApprovalService>();
+
 
 
         // Report Services

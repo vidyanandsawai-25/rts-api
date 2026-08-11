@@ -19,7 +19,7 @@ public class RTSDepartmentController : ControllerBase
         _logger = logger;
     }
     /// <summary>
-    /// Get all ApprovalFlow Masters with filtering, sorting, and pagination
+    /// Get all Departments Masters with filtering, sorting
     /// </summary>
     [HttpGet]
     public Task<IActionResult> GetAll([FromQuery] RTSDepartmentQueryParameters queryParameters, CancellationToken ct)
