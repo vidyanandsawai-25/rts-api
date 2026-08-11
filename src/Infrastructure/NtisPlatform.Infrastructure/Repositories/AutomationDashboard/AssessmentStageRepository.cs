@@ -1,4 +1,3 @@
-using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
@@ -18,16 +17,11 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
     private const string AssessmentTypeUnassessed = "Unassessed";
     private const string TaxTotalCode = "TaxTotal";
     private const string TaxTotalName = "TaxTotal";
+    private const string RenterTaxLiability = "RENTER";
 
-    public AssessmentStageRepository(ApplicationDbContext context, IMapper mapper) : base(context)
+    public AssessmentStageRepository(ApplicationDbContext context) : base(context)
     {
     }
-
-    // Checks whether the workflow stage exists and is active.
-    public Task<bool> AssessmentWorkflowStageExistsAsync(int workflowStageId, CancellationToken cancellationToken = default)
-        => _context.PropertyWorkflowStageMaster
-            .AsNoTracking()
-            .AnyAsync(s => s.IsActive && s.Id == workflowStageId, cancellationToken);
 
     // Reads active Assessed and Unassessed status ids from the master table.
     public async Task<Dictionary<string, int>> GetAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
@@ -49,18 +43,30 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
     public async Task<List<AssessmentStagePropertyProjection>> GetStagePropertiesAsync(
         int workflowStageId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null)
+        AssessmentGridQueryParameters? queryParameters = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
-            searchRequest);
+            queryParameters);
 
-        return await (
-            from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
-            join p in properties on pwd.PropertyId equals p.Id
-            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
-            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
-            where pwd.WorkflowStageId == workflowStageId && w.IsActive && z.IsActive
+        // Remove duplicate workflow properties before joining the larger tables.
+        var stagePropertyIds = _context.PropertyWorkflowDetails
+            .AsNoTracking()
+            .Where(pwd => pwd.WorkflowStageId == workflowStageId)
+            .Select(pwd => pwd.PropertyId)
+            .Distinct();
+
+        var query =
+            from propertyId in stagePropertyIds
+            join p in properties
+                on propertyId equals p.Id
+
+            join w in _context.WardMaster.AsNoTracking().Where(w => w.IsActive)
+                on p.WardId equals w.Id
+
+            join z in _context.ZoneMaster.AsNoTracking().Where(z => z.IsActive)
+                on w.ZoneId equals z.Id
+
             select new AssessmentStagePropertyProjection
             {
                 PropertyId = p.Id,
@@ -68,16 +74,41 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 ZoneId = z.Id,
                 ZoneName = z.Description ?? z.ZoneNo,
                 ZoneNo = z.ZoneNo,
-                AssessmentStatusId = p.PropertyAssessmentStatusId,
-                IsRented = (
-                    from pd in _context.PropertyDetails.AsNoTracking()
-                    join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
-                    where pd.PropertyId == p.Id && pd.IsActive && !pd.MarkedForDeletion
-                          && rm.IsActive && !rm.MarkedForDeletion && rm.TaxLiability != null
-                          && rm.TaxLiability.Trim().ToUpper() == "RENTER"
-                    select rm.Id
-                ).Any()
-            }).Distinct().ToListAsync(cancellationToken);
+                AssessmentStatusId = p.PropertyAssessmentStatusId
+            };
+
+        var stageProperties = await query
+            .OrderBy(x => x.ZoneId)
+            .ThenBy(x => x.PropertyId)
+            .ToListAsync(cancellationToken);
+
+        if (!stageProperties.Any())
+            return stageProperties;
+
+        var renterPropertyIds = new HashSet<int>();
+        foreach (var batch in BatchIds(stageProperties.Select(p => p.PropertyId)))
+        {
+            var batchRenterPropertyIds = await (
+                from pd in _context.PropertyDetails.AsNoTracking()
+                join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
+                where batch.Contains(pd.PropertyId)
+                      && pd.IsActive
+                      && !pd.MarkedForDeletion
+                      && rm.IsActive
+                      && !rm.MarkedForDeletion
+                      && rm.TaxLiability != null
+                      && rm.TaxLiability.Trim().ToUpper() == "RENTER"
+                select pd.PropertyId
+            ).Distinct().ToListAsync(cancellationToken);
+
+            foreach (var propertyId in batchRenterPropertyIds)
+                renterPropertyIds.Add(propertyId);
+        }
+
+        foreach (var property in stageProperties)
+            property.IsRented = renterPropertyIds.Contains(property.PropertyId);
+
+        return stageProperties;
     }
 
     // Reads assessed properties with old mapped values for classification comparisons.
@@ -85,11 +116,11 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
         int workflowStageId,
         int assessedStatusId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null)
+        AssessmentGridQueryParameters? queryParameters = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
-            searchRequest);
+            queryParameters);
 
         return await (
             from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
@@ -117,14 +148,12 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
     // Reads unassessed properties with zone and open-plot data.
     public async Task<List<UnassessedPropertyProjection>> GetUnassessedPropertiesAsync(
-        int workflowStageId,
-        int unassessedStatusId,
-        CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null)
+        int workflowStageId,int unassessedStatusId,CancellationToken cancellationToken = default,
+        AssessmentGridQueryParameters? queryParameters = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
-            searchRequest);
+            queryParameters);
 
         return await (
             from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
@@ -174,12 +203,8 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
                 from pd in _context.PropertyDetails.AsNoTracking()
                 join rm in _context.RenterMast.AsNoTracking() on pd.Id equals rm.PropertyDetailsId
                 where batch.Contains(pd.PropertyId)
-                      && pd.IsActive
-                      && !pd.MarkedForDeletion
-                      && rm.IsActive
-                      && !rm.MarkedForDeletion
-                      && rm.TaxLiability != null
-                      && rm.TaxLiability.Trim().ToUpper() == "RENTER"
+                      && pd.IsActive && !pd.MarkedForDeletion && rm.IsActive
+                      && !rm.MarkedForDeletion && rm.TaxLiability != null && rm.TaxLiability.Trim().ToUpper() == RenterTaxLiability
                 select pd.PropertyId
             ).Distinct().ToListAsync(cancellationToken);
 
@@ -197,11 +222,11 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
     // Reads Rented tab properties with renter flag and demand values using set-based grouped queries.
     public async Task<List<RentedPropertyDemandProjection>> GetRentedPropertyDemandDataAsync(
-        int workflowStageId, CancellationToken cancellationToken = default,PropertySearchRequestDto? searchRequest = null)
+        int workflowStageId,CancellationToken cancellationToken = default,AssessmentGridQueryParameters? queryParameters = null)
     {
         var properties = ApplyMainGridPropertyTypeFilters(
             _context.PropertyMast.AsNoTracking().Where(p => p.IsActive && !p.MarkedForDeletion),
-            searchRequest);
+            queryParameters);
 
         var stagePropertyIds = (
             from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
@@ -635,6 +660,7 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
             PropertyId = propertyId,
             SignAuthorityId = signAuthorityId,
             NoticeNo = noticeNoByPropertyId.GetValueOrDefault(propertyId),
+            SignStatus = "PendingToClerk",
             IsActive = true,
             CreatedDate = now,
             CreatedBy = userId
@@ -666,3 +692,5 @@ public class AssessmentStageRepository : WorkflowStageBaseRepository, IAssessmen
 
 
 }
+
+

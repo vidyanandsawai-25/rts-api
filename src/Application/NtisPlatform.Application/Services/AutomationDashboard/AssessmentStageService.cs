@@ -1,12 +1,14 @@
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
-using NtisPlatform.Core.Models.AutomationDashboard;
 
-namespace NtisPlatform.Application.Services;
+namespace NtisPlatform.Application.Services.AutomationDashboard;
 
 /// <summary>
 /// Service for Assessment dashboard grid assembly and classification rules.
+/// Implements optimized data aggregation with proper exception handling and logging.
 /// </summary>
 public class AssessmentStageService : IAssessmentStageService
 {
@@ -31,96 +33,160 @@ public class AssessmentStageService : IAssessmentStageService
     private const string ClerkAuthorityCode = "CLERK";
 
     private readonly IAssessmentStageRepository _repository;
+    private readonly ILogger<AssessmentStageService> _logger;
 
-    public AssessmentStageService(IAssessmentStageRepository repository)
+    public AssessmentStageService(
+        IAssessmentStageRepository repository,
+        ILogger<AssessmentStageService> logger)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // Entry point for Assessment grid; routes request to Total, Assessed, Unassessed, or Rented logic.
-    public async Task<AssessmentGridResponseDto> GetAssessmentGridDataAsync(PropertySearchRequestDto? searchRequest, string type, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Entry point for Assessment grid; routes request to Total, Assessed, Unassessed, or Rented logic.
+    /// Implements proper exception handling and logging.
+    /// </summary>
+    public async Task<AssessmentGridResponseDto> GetAssessmentGridDataAsync(
+        AssessmentGridQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
     {
-        if (searchRequest?.WorkflowStageId == null)
-            return new AssessmentGridResponseDto();
-
-        var requestedType = NormalizeAssessmentType(type);
-        if (requestedType == null)
-            return new AssessmentGridResponseDto();
-
-        var workflowStageId = searchRequest.WorkflowStageId.Value;
-        if (!await _repository.AssessmentWorkflowStageExistsAsync(workflowStageId, cancellationToken))
-            return new AssessmentGridResponseDto();
-
-        var assessmentStatusIds = await _repository.GetAssessmentStatusIdsAsync(cancellationToken);
-        return requestedType switch
+        try
         {
-            AssessmentTypeTotal => await GetTotalAssessmentGridDataAsync(workflowStageId, searchRequest, assessmentStatusIds, cancellationToken),
-            AssessmentTypeAssessed => await GetAssessedAssessmentGridDataAsync(workflowStageId, searchRequest, assessmentStatusIds, cancellationToken),
-            AssessmentTypeUnassessed => await GetUnassessedAssessmentGridDataAsync(workflowStageId, searchRequest, assessmentStatusIds, cancellationToken),
-            AssessmentTypeRented => await GetRentedAssessmentGridDataAsync(workflowStageId, searchRequest, cancellationToken),
-            _ => await GetAssessmentGridDataByTypeAsync(workflowStageId, searchRequest, requestedType, assessmentStatusIds, cancellationToken)
-        };
+            var requestedType = NormalizeAssessmentType(queryParameters.Type ?? string.Empty);
+            if (requestedType == null)
+            {
+                _logger.LogWarning("Invalid assessment type requested: {Type}", queryParameters.Type);
+                return new AssessmentGridResponseDto();
+            }
+
+            var assessmentStatusIds = await _repository.GetAssessmentStatusIdsAsync(cancellationToken);
+
+            var result = requestedType switch
+            {
+                AssessmentTypeTotal => await GetTotalAssessmentGridDataAsync(queryParameters, assessmentStatusIds, cancellationToken),
+                AssessmentTypeAssessed => await GetAssessedAssessmentGridDataAsync(queryParameters, assessmentStatusIds, cancellationToken),
+                AssessmentTypeUnassessed => await GetUnassessedAssessmentGridDataAsync(queryParameters, assessmentStatusIds, cancellationToken),
+                AssessmentTypeRented => await GetRentedAssessmentGridDataAsync(queryParameters, cancellationToken),
+                _ => await GetAssessmentGridDataByTypeAsync(queryParameters, requestedType, assessmentStatusIds, cancellationToken)
+            };
+
+            _logger.LogInformation(
+                "Successfully retrieved Assessment grid data for stage {WorkflowStageId}, type {AssessmentType}",
+                queryParameters.WorkflowStageId, requestedType);
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving Assessment grid data for type {Type}", queryParameters.Type);
+            throw new ApplicationException("An error occurred while retrieving Assessment grid data", ex);
+        }
     }
 
-    // Sends one or more Assessment properties to the Clerk approval queue.
-    public async Task<SendToApproveResponseDto> SendToApproveAsync(SendToApproveRequestDto request, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Sends one or more Assessment properties to the Clerk approval queue.
+    /// Implements proper exception handling and logging.
+    /// </summary>
+    public async Task<SendToApproveResponseDto> SendToApproveAsync(
+        SendToApproveRequestDto request,
+        CancellationToken cancellationToken = default)
     {
-        var requestedPropertyIds = GetRequestedPropertyIds(request);
-        var invalidPropertyIds = GetRawRequestedPropertyIds(request).Where(id => id <= 0).Distinct().ToList();
+        try
+        {
+            var requestedPropertyIds = GetRequestedPropertyIds(request);
+            var invalidPropertyIds = GetRawRequestedPropertyIds(request).Where(id => id <= 0).Distinct().ToList();
 
-        if (!requestedPropertyIds.Any())
-            return CreateSendToApproveResponse(request, 0, Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), invalidPropertyIds, "PropertyIds are required.");
+            // Execute sequentially to avoid DbContext concurrency issues
+            var signAuthorityId = await _repository.GetSignAuthorityIdByCodeAsync(ClerkAuthorityCode, cancellationToken);
+            if (signAuthorityId <= 0)
+            {
+                _logger.LogError("CLERK signing authority not found");
+                return CreateSendToApproveResponse(request, 0, Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), invalidPropertyIds, "CLERK signing authority was not found.");
+            }
 
-        if (request.UserId <= 0)
-            return CreateSendToApproveResponse(request, 0, Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), invalidPropertyIds, "UserId is required.");
+            var existingPropertyIds = await _repository.GetExistingPropertyIdsAsync(requestedPropertyIds, cancellationToken);
+            var existingPropertyIdSet = existingPropertyIds.ToHashSet();
+            var missingPropertyIds = requestedPropertyIds.Where(id => !existingPropertyIdSet.Contains(id)).ToList();
 
-        var signAuthorityId = await _repository.GetSignAuthorityIdByCodeAsync(ClerkAuthorityCode, cancellationToken);
-        if (signAuthorityId <= 0)
-            return CreateSendToApproveResponse(request, 0, Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), invalidPropertyIds, "CLERK signing authority was not found.");
+            var alreadySentPropertyIds = existingPropertyIds.Any()
+                ? await _repository.GetExistingPropertySignatureIdsAsync(existingPropertyIds, cancellationToken)
+                : new List<int>();
+            var alreadySentPropertyIdSet = alreadySentPropertyIds.ToHashSet();
 
-        var existingPropertyIds = await _repository.GetExistingPropertyIdsAsync(requestedPropertyIds, cancellationToken);
-        var existingPropertyIdSet = existingPropertyIds.ToHashSet();
-        var missingPropertyIds = requestedPropertyIds.Where(id => !existingPropertyIdSet.Contains(id)).ToList();
+            var propertyIdsToInsert = existingPropertyIds.Where(id => !alreadySentPropertyIdSet.Contains(id)).ToList();
+            var savedCount = propertyIdsToInsert.Any()
+                ? await _repository.InsertPropertySignaturesAsync(propertyIdsToInsert, request.UserId, signAuthorityId, cancellationToken)
+                : 0;
 
-        var alreadySentPropertyIds = existingPropertyIds.Any()
-            ? await _repository.GetExistingPropertySignatureIdsAsync(existingPropertyIds, cancellationToken)
-            : new List<int>();
-        var alreadySentPropertyIdSet = alreadySentPropertyIds.ToHashSet();
+            _logger.LogInformation(
+                "SendToApprove completed: {SavedCount} inserted, {MissingCount} missing, {AlreadySentCount} already sent",
+                savedCount, missingPropertyIds.Count, alreadySentPropertyIds.Count);
 
-        var propertyIdsToInsert = existingPropertyIds.Where(id => !alreadySentPropertyIdSet.Contains(id)).ToList();
-        var savedCount = propertyIdsToInsert.Any()
-            ? await _repository.InsertPropertySignaturesAsync(propertyIdsToInsert, request.UserId, signAuthorityId, cancellationToken)
-            : 0;
-
-        return CreateSendToApproveResponse(
-            request,
-            signAuthorityId,
-            propertyIdsToInsert,
-            missingPropertyIds,
-            alreadySentPropertyIds,
-            invalidPropertyIds,
-            CreateSendToApproveMessage(savedCount, missingPropertyIds.Count, alreadySentPropertyIds.Count, invalidPropertyIds.Count));
+            return CreateSendToApproveResponse(
+                request,
+                signAuthorityId,
+                propertyIdsToInsert,
+                missingPropertyIds,
+                alreadySentPropertyIds,
+                invalidPropertyIds,
+                CreateSendToApproveMessage(savedCount, missingPropertyIds.Count, alreadySentPropertyIds.Count, invalidPropertyIds.Count));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in SendToApproveAsync");
+            throw new ApplicationException("An error occurred while sending properties for approval", ex);
+        }
     }
 
-    // Builds the Total tab with Assessed, Unassessed, and Rented rows for every zone.
+    /// <summary>
+    /// Builds the Total tab with Assessed, Unassessed, and Rented rows for every zone.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<AssessmentGridResponseDto> GetTotalAssessmentGridDataAsync(
-        int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        AssessmentGridQueryParameters queryParameters,
         IReadOnlyDictionary<string, int> assessmentStatusIds,
         CancellationToken cancellationToken)
     {
-        var properties = await _repository.GetStagePropertiesAsync(workflowStageId, cancellationToken, searchRequest);
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
+
+        // Execute sequentially to avoid DbContext concurrency issues
+        var properties = await _repository.GetStagePropertiesAsync(workflowStageId, cancellationToken, queryParameters);
         var zoneCounts = GetZoneCounts(properties);
         if (!zoneCounts.Any())
             return new AssessmentGridResponseDto();
 
-        var assessedByZone = assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId)
-            ? await GetClassificationByZoneAsync(properties.Where(p => p.AssessmentStatusId == assessedStatusId), AssessmentTypeAssessed, cancellationToken)
-            : new Dictionary<int, PropertyClassificationDto>();
-        var unassessedByZone = assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId)
-            ? await GetClassificationByZoneAsync(properties.Where(p => p.AssessmentStatusId == unassessedStatusId), AssessmentTypeUnassessed, cancellationToken)
-            : new Dictionary<int, PropertyClassificationDto>();
-        var rentedByZone = await GetClassificationByZoneAsync(properties.Where(p => p.IsRented), AssessmentTypeRented, cancellationToken);
+        // Fetch classifications sequentially
+        Dictionary<int, PropertyClassificationDto> assessedByZone;
+        if (assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId))
+        {
+            assessedByZone = await GetClassificationByZoneAsync(
+                properties.Where(p => p.AssessmentStatusId == assessedStatusId),
+                AssessmentTypeAssessed,
+                cancellationToken);
+        }
+        else
+        {
+            assessedByZone = new Dictionary<int, PropertyClassificationDto>();
+        }
+
+        Dictionary<int, PropertyClassificationDto> unassessedByZone;
+        if (assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId))
+        {
+            unassessedByZone = await GetClassificationByZoneAsync(
+                properties.Where(p => p.AssessmentStatusId == unassessedStatusId),
+                AssessmentTypeUnassessed,
+                cancellationToken);
+        }
+        else
+        {
+            unassessedByZone = new Dictionary<int, PropertyClassificationDto>();
+        }
+
+        var rentedByZone = await GetClassificationByZoneAsync(
+            properties.Where(p => p.IsRented),
+            AssessmentTypeRented,
+            cancellationToken);
 
         return BuildGridResponse(
             zoneCounts.Select(zone => CreateZoneData(zone, new[]
@@ -133,14 +199,15 @@ public class AssessmentStageService : IAssessmentStageService
 
     // Builds single-type tabs that only need one classification row per zone.
     private async Task<AssessmentGridResponseDto> GetAssessmentGridDataByTypeAsync(
-        int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        AssessmentGridQueryParameters queryParameters,
         string assessmentType,
         IReadOnlyDictionary<string, int> assessmentStatusIds,
         CancellationToken cancellationToken)
     {
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
+
         var properties = FilterPropertiesByAssessmentType(
-            await _repository.GetStagePropertiesAsync(workflowStageId, cancellationToken, searchRequest),
+            await _repository.GetStagePropertiesAsync(workflowStageId, cancellationToken, queryParameters),
             assessmentType,
             assessmentStatusIds).ToList();
         var zoneCounts = GetZoneCounts(properties);
@@ -157,24 +224,33 @@ public class AssessmentStageService : IAssessmentStageService
             zoneData => CalculateGrandTotalRow(zoneData, new[] { assessmentType }, assessmentType));
     }
 
-    // Builds the Assessed tab with construction/use/RV based classification rows.
+    /// <summary>
+    /// Builds the Assessed tab with construction/use/RV based classification rows.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<AssessmentGridResponseDto> GetAssessedAssessmentGridDataAsync(
-        int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        AssessmentGridQueryParameters queryParameters,
         IReadOnlyDictionary<string, int> assessmentStatusIds,
         CancellationToken cancellationToken)
     {
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
+
         if (!assessmentStatusIds.TryGetValue(AssessmentTypeAssessed, out var assessedStatusId))
             return new AssessmentGridResponseDto();
 
-        var assessedProperties = await _repository.GetAssessedClassificationPropertiesAsync(workflowStageId, assessedStatusId, cancellationToken, searchRequest);
+        // Execute sequentially to avoid DbContext concurrency issues
+        var assessedProperties = await _repository.GetAssessedClassificationPropertiesAsync(
+            workflowStageId, assessedStatusId, cancellationToken, queryParameters);
+
         if (!assessedProperties.Any())
             return new AssessmentGridResponseDto();
 
         var classifiedProperties = await ClassifyAssessedPropertiesAsync(assessedProperties, cancellationToken);
+
         var oldDemandByProperty = await _repository.GetOldDemandByPropertyAsync(classifiedProperties, cancellationToken);
         var currentDemandByProperty = await _repository.GetCurrentDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
         var retroDemandByProperty = await _repository.GetRetroDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
+
         var classificationTypes = GetAssessedClassificationTypes();
 
         return BuildGridResponse(
@@ -185,23 +261,32 @@ public class AssessmentStageService : IAssessmentStageService
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, AssessmentTypeAssessed));
     }
 
-    // Builds the Unassessed tab with property-type rows and no old demand.
+    /// <summary>
+    /// Builds the Unassessed tab with property-type rows and no old demand.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<AssessmentGridResponseDto> GetUnassessedAssessmentGridDataAsync(
-        int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        AssessmentGridQueryParameters queryParameters,
         IReadOnlyDictionary<string, int> assessmentStatusIds,
         CancellationToken cancellationToken)
     {
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
+
         if (!assessmentStatusIds.TryGetValue(AssessmentTypeUnassessed, out var unassessedStatusId))
             return new AssessmentGridResponseDto();
 
-        var unassessedProperties = await _repository.GetUnassessedPropertiesAsync(workflowStageId, unassessedStatusId, cancellationToken, searchRequest);
+        // Execute sequentially to avoid DbContext concurrency issues
+        var unassessedProperties = await _repository.GetUnassessedPropertiesAsync(
+            workflowStageId, unassessedStatusId, cancellationToken, queryParameters);
+
         if (!unassessedProperties.Any())
             return new AssessmentGridResponseDto();
 
         var classifiedProperties = await ClassifyUnassessedPropertiesAsync(unassessedProperties, cancellationToken);
+
         var currentDemandByProperty = await _repository.GetCurrentDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
         var retroDemandByProperty = await _repository.GetRetroDemandByPropertyAsync(classifiedProperties.Select(p => p.PropertyId), cancellationToken);
+
         var propertyTypes = GetUnassessedPropertyTypes();
 
         return BuildGridResponse(
@@ -214,11 +299,12 @@ public class AssessmentStageService : IAssessmentStageService
 
     // Builds the Rented tab with Owner and Renter rows based on RenterMast tax liability.
     private async Task<AssessmentGridResponseDto> GetRentedAssessmentGridDataAsync(
-        int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        AssessmentGridQueryParameters queryParameters,
         CancellationToken cancellationToken)
     {
-        var rentedProperties = (await _repository.GetRentedPropertyDemandDataAsync(workflowStageId, cancellationToken, searchRequest))
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
+
+        var rentedProperties = (await _repository.GetRentedPropertyDemandDataAsync(workflowStageId, cancellationToken, queryParameters))
             .Select(p => new RentedClassifiedPropertyProjection
             {
                 PropertyId = p.PropertyId,
@@ -245,12 +331,17 @@ public class AssessmentStageService : IAssessmentStageService
             zoneData => CalculateGrandTotalRow(zoneData, classificationTypes, RentedGrandTotalClassificationType));
     }
 
-    // Creates one classification row per zone with counts and all demand totals.
+    /// <summary>
+    /// Creates one classification row per zone with counts and all demand totals.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<Dictionary<int, PropertyClassificationDto>> GetClassificationByZoneAsync(
-        IEnumerable<AssessmentStagePropertyProjection> properties, string classificationType, CancellationToken cancellationToken)
+        IEnumerable<AssessmentStagePropertyProjection> properties,string classificationType,CancellationToken cancellationToken)
     {
         var rows = properties.ToList();
         var countsByZone = GetZoneCounts(rows);
+
+        // Execute sequentially to avoid DbContext concurrency issues
         var oldDemandByZone = await _repository.GetOldDemandByZoneAsync(rows, cancellationToken);
         var currentDemandByZone = await _repository.GetCurrentDemandByZoneAsync(rows, cancellationToken);
         var retroDemandByZone = await _repository.GetRetroDemandByZoneAsync(rows, cancellationToken);
@@ -263,12 +354,18 @@ public class AssessmentStageService : IAssessmentStageService
                 retroDemandByZone.GetValueOrDefault(z.ZoneId)));
     }
 
-    // Assigns each assessed property to one exclusive classification bucket.
+    /// <summary>
+    /// Assigns each assessed property to one exclusive classification bucket.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<List<AssessedClassifiedPropertyProjection>> ClassifyAssessedPropertiesAsync(
-        List<AssessedClassificationPropertyProjection> properties, CancellationToken cancellationToken)
+        List<AssessedClassificationPropertyProjection> properties,CancellationToken cancellationToken)
     {
         var propertyIds = properties.Select(p => p.PropertyId).Distinct().ToList();
-        var detailsByProperty = (await _repository.GetPropertyUseDetailsAsync(propertyIds, cancellationToken))
+
+        // Execute sequentially to avoid DbContext concurrency issues
+        var propertyUseDetails = await _repository.GetPropertyUseDetailsAsync(propertyIds, cancellationToken);
+        var detailsByProperty = propertyUseDetails
             .GroupBy(d => d.PropertyId)
             .ToDictionary(
                 g => g.Key,
@@ -278,6 +375,7 @@ public class AssessmentStageService : IAssessmentStageService
                     NewUseTypes = g.Select(x => NormalizeUseType(x.TypeOfUseCode, x.Type, x.TypeOfUseDescription))
                         .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().ToList()
                 });
+
         var currentRvByProperty = await _repository.GetCurrentRvByPropertyAsync(propertyIds, cancellationToken);
 
         return properties.Select(property =>
@@ -312,13 +410,21 @@ public class AssessmentStageService : IAssessmentStageService
         }).ToList();
     }
 
-    // Assigns each unassessed property to one property-type bucket.
+    /// <summary>
+    /// Assigns each unassessed property to one property-type bucket.
+    /// Implements sequential data fetching to avoid DbContext concurrency issues.
+    /// </summary>
     private async Task<List<UnassessedClassifiedPropertyProjection>> ClassifyUnassessedPropertiesAsync(
-        List<UnassessedPropertyProjection> properties, CancellationToken cancellationToken)
+        List<UnassessedPropertyProjection> properties,
+        CancellationToken cancellationToken)
     {
         var propertyIds = properties.Select(p => p.PropertyId).Distinct().ToList();
+
+        // Execute sequentially to avoid DbContext concurrency issues
         var mixedPropertyIds = await _repository.GetMixedPropertyIdsAsync(propertyIds, cancellationToken);
-        var detailsByProperty = (await _repository.GetPropertyUseDetailsAsync(propertyIds, cancellationToken))
+        var propertyUseDetails = await _repository.GetPropertyUseDetailsAsync(propertyIds, cancellationToken);
+
+        var detailsByProperty = propertyUseDetails
             .GroupBy(x => x.PropertyId)
             .ToDictionary(
                 g => g.Key,
@@ -783,3 +889,4 @@ public class AssessmentStageService : IAssessmentStageService
         };
     }
 }
+

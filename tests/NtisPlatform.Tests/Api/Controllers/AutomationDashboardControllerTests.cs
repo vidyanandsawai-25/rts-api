@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
-using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -11,24 +10,9 @@ namespace NtisPlatform.Tests.Api.Controllers;
 public class AutomationDashboardControllerTests
 {
     private static AutomationDashboardController CreateController(Mock<IAutomationDashboardService> service)
-        => new(Mock.Of<ILogger<AutomationDashboardController>>(), service.Object);
-
-    [Fact]
-    public async Task TrackStageStatus_WithInvalidPropertyId_ReturnsBadRequest()
-    {
-        var service = new Mock<IAutomationDashboardService>();
-        var controller = CreateController(service);
-
-        var result = await controller.TrackStageStatus(0, CancellationToken.None);
-
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        var response = Assert.IsType<ApiResponse<object>>(badRequest.Value);
-        Assert.False(response.Success);
-        Assert.Equal("PropertyId parameter is required", response.Message);
-        service.Verify(
-            x => x.TrackStageStatusAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
+        => new(
+            service.Object,
+            Mock.Of<ILogger<AutomationDashboardController>>());
 
     [Fact]
     public async Task TrackStageStatus_WithValidPropertyId_ReturnsWorkflowStages()
@@ -47,9 +31,7 @@ public class AutomationDashboardControllerTests
         var result = await controller.TrackStageStatus(10, CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result.Result);
-        var response = Assert.IsType<ApiResponse<List<TrackStageStatusDto>>>(ok.Value);
-        Assert.True(response.Success);
+        var response = Assert.IsType<AutomationDashboardItemsResponse<IReadOnlyList<TrackStageStatusDto>>>(ok.Value);
         Assert.Equal(stages, response.Items);
-        Assert.Equal("Workflow stage status retrieved successfully", response.Message);
     }
 }

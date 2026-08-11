@@ -1,7 +1,8 @@
+using Microsoft.Extensions.Logging;
 using Moq;
-using NtisPlatform.Application.Services;
-using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models.AutomationDashboard;
+using NtisPlatform.Application.Services.AutomationDashboard;
+using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 
 namespace NtisPlatform.Tests.Application;
 
@@ -16,9 +17,6 @@ public class GeoSequencingStageServiceWardWiseSummaryTests
             .ToList();
 
         repository
-            .Setup(x => x.StageExistsAsync(1, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        repository
             .Setup(x => x.ReadZoneAsync(14, It.IsAny<CancellationToken>()))
             .ReturnsAsync((14, "Zone 14", "Z14"));
         repository
@@ -29,7 +27,7 @@ public class GeoSequencingStageServiceWardWiseSummaryTests
                 1,
                 It.Is<List<int>>(ids => ids.SequenceEqual(new[] { 14 })),
                 It.IsAny<CancellationToken>(),
-                null))
+                It.IsAny<WardWiseSummaryQueryParameters?>()))
             .ReturnsAsync(new List<GeoSequencingStagePropertyProjection>
             {
                 new()
@@ -47,29 +45,35 @@ public class GeoSequencingStageServiceWardWiseSummaryTests
                 1,
                 It.Is<List<int>>(ids => ids.SequenceEqual(new[] { 14 })),
                 It.IsAny<CancellationToken>(),
-                null))
+                It.IsAny<WardWiseSummaryQueryParameters?>()))
             .ReturnsAsync(new List<GeoSequencingPropertyUseProjection>());
         repository
             .Setup(x => x.ReadRegisteredCountsByWardAsync(
                 It.Is<List<int>>(ids => ids.SequenceEqual(wards.Select(w => w.WardId))),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<int, int> { [12] = 1 });
+            .ReturnsAsync(wards.ToDictionary(w => w.WardId, w => 100));
         repository
             .Setup(x => x.ReadAssessmentStatusIdsByNameAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<string, int> { ["ASSESSED"] = 1 });
-        var service = new GeoSequencingStageService(repository.Object);
+
+        var logger = new Mock<ILogger<GeoSequencingStageService>>();
+        var service = new GeoSequencingStageService(repository.Object, logger.Object);
 
         var result = await service.GetGeoSequencingWardWiseSummaryAsync(
-            14,
-            1,
-            pageNumber: 1,
-            pageSize: 10,
+            new WardWiseSummaryQueryParameters
+            {
+                ZoneId = 14,
+                WorkflowStageId = 1,
+                PageNumber = 1,
+                PageSize = 10
+            },
             CancellationToken.None);
 
         Assert.Equal(12, result.TotalCount);
-        Assert.Equal(1, result.TotalRow.RegisteredProperties);
+        Assert.Equal(1200, result.TotalRow.RegisteredProperties);
         Assert.Equal("W12", result.WardData.First().WardNo);
-        Assert.Equal(1, result.WardData.First().RegisteredProperties);
+        Assert.Equal(100, result.WardData.First().RegisteredProperties);
         Assert.Equal(1, result.WardData.First().GeoSequencedProperties.StructureCount);
     }
 }
+

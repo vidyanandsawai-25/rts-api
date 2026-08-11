@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// <summary>
 /// Projection for workflow-stage properties used by Assessment dashboard queries.
 /// </summary>
-public sealed class AssessmentStagePropertyProjection
+public  class AssessmentStagePropertyProjection
 {
     public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
@@ -17,7 +17,7 @@ public sealed class AssessmentStagePropertyProjection
 /// <summary>
 /// Projection for assessed properties with old values needed for classification.
 /// </summary>
-public sealed class AssessedClassificationPropertyProjection
+public  class AssessedClassificationPropertyProjection
 {
     public int PropertyId { get; set; }
     public int? PropertyMastOldId { get; set; }
@@ -33,7 +33,7 @@ public sealed class AssessedClassificationPropertyProjection
 /// <summary>
 /// Projection for assessed properties after service-side classification.
 /// </summary>
-public sealed class AssessedClassifiedPropertyProjection
+public  class AssessedClassifiedPropertyProjection
 {
     public int PropertyId { get; set; }
     public int? PropertyMastOldId { get; set; }
@@ -47,7 +47,7 @@ public sealed class AssessedClassifiedPropertyProjection
 /// <summary>
 /// Projection for unassessed properties before service-side type classification.
 /// </summary>
-public sealed class UnassessedPropertyProjection
+public  class UnassessedPropertyProjection
 {
     public int PropertyId { get; set; }
     public int? PropertyTypeId { get; set; }
@@ -61,7 +61,7 @@ public sealed class UnassessedPropertyProjection
 /// <summary>
 /// Projection for unassessed properties after service-side property-type classification.
 /// </summary>
-public sealed class UnassessedClassifiedPropertyProjection
+public  class UnassessedClassifiedPropertyProjection
 {
     public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
@@ -74,7 +74,7 @@ public sealed class UnassessedClassifiedPropertyProjection
 /// <summary>
 /// Projection for rented-tab properties after owner/renter classification.
 /// </summary>
-public sealed class RentedClassifiedPropertyProjection
+public  class RentedClassifiedPropertyProjection
 {
     public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
@@ -90,7 +90,7 @@ public sealed class RentedClassifiedPropertyProjection
 /// <summary>
 /// Raw Rented tab row with renter flag and demand values.
 /// </summary>
-public sealed class RentedPropertyDemandProjection
+public  class RentedPropertyDemandProjection
 {
     public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
@@ -106,7 +106,7 @@ public sealed class RentedPropertyDemandProjection
 /// <summary>
 /// Projection for current property details and use-type metadata.
 /// </summary>
-public sealed class AssessmentPropertyUseDetailProjection
+public  class AssessmentPropertyUseDetailProjection
 {
     public int PropertyId { get; set; }
     public double CarpetArea { get; set; }
@@ -119,7 +119,7 @@ public sealed class AssessmentPropertyUseDetailProjection
 /// <summary>
 /// Projection for zone-wise structure and unit counts.
 /// </summary>
-public sealed class AssessmentZoneCountProjection
+public  class AssessmentZoneCountProjection
 {
     public int ZoneId { get; set; }
     public string ZoneName { get; set; } = string.Empty;

@@ -55,6 +55,7 @@ using NtisPlatform.Application.Services.ReportDataProviders;
 using NtisPlatform.Application.Services.Rules;
 using NtisPlatform.Application.Services.Rules.Effects;
 using NtisPlatform.Application.Services.TaxEngine;
+using NtisPlatform.Application.Services.AutomationDashboard;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Interfaces.Property;

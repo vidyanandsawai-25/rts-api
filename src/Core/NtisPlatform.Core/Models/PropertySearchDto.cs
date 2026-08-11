@@ -51,6 +51,11 @@ public class PropertySearchRequestDto
     public int? CategoryId { get; set; }
 
     /// <summary>
+    /// Filter by PropertyNo (contains search)
+    /// </summary>
+    public string? PropertyNo { get; set; }
+
+    /// <summary>
     /// Filter by PropertyNo - From Property
     /// </summary>
     public string? PropertyNoFrom { get; set; }

@@ -37,7 +37,7 @@ public class PropertyApprovalItemDto
     /// <summary>Property to approve</summary>
     public int PropertyId { get; set; }
 
-    /// <summary>Optional remark/note by the approving user</summary>
+    /// <summary>Optional remarks or comments for this approval</summary>
     public string? Remarks { get; set; }
 }
 
@@ -152,6 +152,7 @@ public class SignAuthorityZoneDataDto
 /// </summary>
 public class SignAuthorityClassificationDto
 {
+    public int TypeId { get; set; }
     public string Type { get; set; } = string.Empty;
     public int Structure { get; set; } // Signed Structures
     public int Unit { get; set; }      // Signed Units
@@ -176,6 +177,23 @@ public class PropertySignatureSubGridDto
     public List<PropertySignatureAuthoritySignDto> AuthoritySignatures { get; set; } = new();
 }
 
+public class PropertySignatureBuildingWiseQueryParameters
+{
+    public int WardId { get; set; }
+    public int WorkflowStageId { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+    public string? NoticeNo { get; set; }
+}
+
+public class PropertySignaturePropertyWiseQueryParameters
+{
+    public string PropertyNo { get; set; } = string.Empty;
+    public string? SearchType { get; set; }
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 10;
+}
+
 /// <summary>
 /// Dynamic authority status from SignAuthorityMaster for a sub-grid row.
 /// </summary>
@@ -193,6 +211,7 @@ public class PropertySignatureAuthoritySignDto
 /// </summary>
 public class PropertySignaturePropertyWiseDto
 {
+    public int PropertyId { get; set; }
     public string WardNo { get; set; } = string.Empty;
     public string NewPropertyNo { get; set; } = string.Empty;
     public string OldPropertyNo { get; set; } = string.Empty;

@@ -1,10 +1,9 @@
-﻿using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
-using NtisPlatform.Application.DTOs.AutomationDashboard;
+using NtisPlatform.Core.Models.AutomationDashboard;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Application.Interfaces.AutomationDashboard
 {
@@ -22,41 +21,31 @@ namespace NtisPlatform.Application.Interfaces.AutomationDashboard
 
         // Stage-Specific Grids
         Task<GeoSequencingGridResponseDto> GetGeoSequencingGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null,
+            DashboardGridQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<GeoSequencingWardWiseSummaryResponseDto> GetGeoSequencingWardWiseSummaryAsync(
-            int zoneId,
-            int workflowStageId,
-            int? pageNumber,
-            int? pageSize,
+            WardWiseSummaryQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<InternalSurveyGridResponseDto> GetInternalSurveyGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null,
+            DashboardGridQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<InternalSurveyWardWiseSummaryResponseDto> GetInternalSurveyWardWiseSummaryAsync(
-            int zoneId,
-            int workflowStageId,
-            int? pageNumber,
-            int? pageSize,
+            WardWiseSummaryQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<DataEntryGridResponseDto> GetDataEntryGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null,
+            DashboardGridQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<DataEntryWardWiseSummaryResponseDto> GetDataEntryWardWiseSummaryAsync(
-            int zoneId,
-            int workflowStageId,
-            int? pageNumber,
-            int? pageSize,
+            WardWiseSummaryQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         Task<AssessmentGridResponseDto> GetAssessmentGridDataAsync(
-            PropertySearchRequestDto? searchRequest,
-            string type,
+            AssessmentGridQueryParameters queryParameters,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -95,3 +84,4 @@ namespace NtisPlatform.Application.Interfaces.AutomationDashboard
         Task<List<TrackStageStatusDto>> TrackStageStatusAsync( int propertyId, CancellationToken cancellationToken = default);
     }
 }
+

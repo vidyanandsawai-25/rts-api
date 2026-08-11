@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Core.Interfaces.IAutomationDashboard;
@@ -8,11 +7,6 @@ namespace NtisPlatform.Core.Interfaces.IAutomationDashboard;
 /// </summary>
 public interface IGeoSequencingStageRepository
 {
-    /// <summary>
-    /// Checks whether the workflow stage exists and is active.
-    /// </summary>
-    Task<bool> StageExistsAsync(int workflowStageId, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Gets active zones, optionally filtered by zone id.
     /// </summary>
@@ -35,7 +29,13 @@ public interface IGeoSequencingStageRepository
         int workflowStageId,
         List<int> zoneIds,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
+
+    Task<List<GeoSequencingStagePropertyProjection>> ReadStagePropertiesForZonesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        WardWiseSummaryQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads registered property counts grouped by zone.
@@ -43,7 +43,7 @@ public interface IGeoSequencingStageRepository
     Task<Dictionary<int, int>> ReadRegisteredCountsByZoneAsync(
         List<int> zoneIds,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads registered property counts grouped by ward.
@@ -59,7 +59,13 @@ public interface IGeoSequencingStageRepository
         int workflowStageId,
         List<int> zoneIds,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
+
+    Task<List<GeoSequencingPropertyUseProjection>> ReadPropertyUsesForZonesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        WardWiseSummaryQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads assessment status ids by status name.

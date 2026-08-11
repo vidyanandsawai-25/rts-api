@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Core.Interfaces.IAutomationDashboard;
@@ -11,8 +10,6 @@ public interface IInternalSurveyStageRepository
     /// <summary>
     /// Checks whether the workflow stage exists and is active.
     /// </summary>
-    Task<bool> StageExistsAsync(int workflowStageId, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Gets active zones, optionally filtered by zone id.
     /// </summary>
@@ -51,7 +48,14 @@ public interface IInternalSurveyStageRepository
         List<int> zoneIds,
         bool requirePropertyNo,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
+
+    Task<List<InternalSurveyStagePropertyProjection>> ReadStagePropertiesForZonesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        bool requirePropertyNo,
+        CancellationToken cancellationToken = default,
+        WardWiseSummaryQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads property use rows for selected stage properties in zones.
@@ -61,7 +65,14 @@ public interface IInternalSurveyStageRepository
         List<int> zoneIds,
         bool requirePropertyNo,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
+
+    Task<List<InternalSurveyPropertyUseSourceProjection>> ReadPropertyUsesForStageInZonesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        bool requirePropertyNo,
+        CancellationToken cancellationToken = default,
+        WardWiseSummaryQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads property photo counts grouped by zone.
@@ -71,7 +82,7 @@ public interface IInternalSurveyStageRepository
         List<int> zoneIds,
         int propertyPhotoTypeId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        DashboardGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads property photo counts grouped by ward.

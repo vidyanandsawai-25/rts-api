@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// <summary>
 /// Property row used for Geo-Sequencing dashboard aggregation.
 /// </summary>
-public sealed class GeoSequencingStagePropertyProjection
+public  class GeoSequencingStagePropertyProjection
 {
     public int PropertyId { get; set; }
     public int WardId { get; set; }
@@ -17,7 +17,7 @@ public sealed class GeoSequencingStagePropertyProjection
 /// <summary>
 /// Property use row used for Geo-Sequencing property-type grouping.
 /// </summary>
-public sealed class GeoSequencingPropertyUseProjection
+public  class GeoSequencingPropertyUseProjection
 {
     public int PropertyId { get; set; }
     public string? Type { get; set; }

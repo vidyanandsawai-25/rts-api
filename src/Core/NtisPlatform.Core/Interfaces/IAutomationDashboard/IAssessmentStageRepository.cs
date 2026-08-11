@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Core.Interfaces.IAutomationDashboard;
@@ -12,8 +11,6 @@ public interface IAssessmentStageRepository
     /// <summary>
     /// Checks whether the requested assessment workflow stage exists.
     /// </summary>
-    Task<bool> AssessmentWorkflowStageExistsAsync(int workflowStageId, CancellationToken cancellationToken = default);
-
     /// <summary>
     /// Reads active assessment status ids from PropertyAssessmentStatusMaster.
     /// </summary>
@@ -25,7 +22,7 @@ public interface IAssessmentStageRepository
     Task<List<AssessmentStagePropertyProjection>> GetStagePropertiesAsync(
         int workflowStageId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        AssessmentGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads assessed properties with old mapped values needed for classification.
@@ -34,7 +31,7 @@ public interface IAssessmentStageRepository
         int workflowStageId,
         int assessedStatusId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        AssessmentGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads unassessed properties with zone/type/open-plot data.
@@ -43,7 +40,7 @@ public interface IAssessmentStageRepository
         int workflowStageId,
         int unassessedStatusId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        AssessmentGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads workflow properties classified as Owner or Renter from RenterMast tax liability.
@@ -58,7 +55,7 @@ public interface IAssessmentStageRepository
     Task<List<RentedPropertyDemandProjection>> GetRentedPropertyDemandDataAsync(
         int workflowStageId,
         CancellationToken cancellationToken = default,
-        PropertySearchRequestDto? searchRequest = null);
+        AssessmentGridQueryParameters? queryParameters = null);
 
     /// <summary>
     /// Reads property details and use-type values for classification.

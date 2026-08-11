@@ -18,12 +18,18 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
     private const string TaxTotalName = "TaxTotal";
     private const string AssessedStatusName = "ASSESSED";
     private const string UnassessedStatusName = "UNASSESSED";
-    private static readonly string[] MixedPropertyTypes = { "R-C", "C-R", "C-I", "I-C", "I-R", "R-I" };
+    private const string ApprovedByAcdStatus = "ApprovedByACD";
+    private const string CalculationTypeRV = "RV";
 
     public AutomationDashboardRepository(ApplicationDbContext context) : base(context)
     {
     }
 
+    #region Public API Methods
+
+    /// <summary>
+    /// Gets main dashboard cards with counts and demand calculations.
+    /// </summary>
     public async Task<MainCardsResponseDto> GetMainCardsAsync(PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
     {
         var baseQuery = _context.PropertyMast.AsNoTracking()
@@ -32,17 +38,9 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         baseQuery = ApplyDashboardFilters(baseQuery, searchRequest);
 
         var assessmentStatusIds = await GetAssessmentStatusIdsAsync(cancellationToken);
-        var previouslyRegistered = await CalculatePreviouslyRegisteredAsync(baseQuery, cancellationToken);
-        var assessed = await CalculateByAssessmentStatusAsync(
-            baseQuery,
-            assessmentStatusIds.GetValueOrDefault(AssessedStatusName),
-            true,
-            cancellationToken);
-        var unassessed = await CalculateByAssessmentStatusAsync(
-            baseQuery,
-            assessmentStatusIds.GetValueOrDefault(UnassessedStatusName),
-            false,
-            cancellationToken);
+        var previouslyRegistered = await CalculatePreviouslyRegisteredAsync(cancellationToken);
+        var assessed = await CalculateByAssessmentStatusAsync(baseQuery,assessmentStatusIds.GetValueOrDefault(AssessedStatusName),true, cancellationToken);
+        var unassessed = await CalculateByAssessmentStatusAsync(baseQuery,assessmentStatusIds.GetValueOrDefault(UnassessedStatusName),false,cancellationToken);
         var additionalRevenue = await CalculateAdditionalRevenueAsync(baseQuery, cancellationToken);
 
         return new MainCardsResponseDto
@@ -57,6 +55,9 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         };
     }
 
+    /// <summary>
+    /// Gets workflow stage cards with property counts per stage.
+    /// </summary>
     public async Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
     {
         IQueryable<PropertyWorkflowStageMasterEntity> stagesBaseQuery = _context.PropertyWorkflowStageMaster
@@ -129,9 +130,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return cards;
     }
 
-    public async Task<List<TrackStageStatusDto>> TrackStageStatusAsync(
-        int propertyId,
-        CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Tracks which workflow stages a property has completed.
+    /// </summary>
+    public async Task<List<TrackStageStatusDto>> TrackStageStatusAsync(int propertyId,CancellationToken cancellationToken = default)
     {
         var completedStageIds = _context.PropertyWorkflowDetails
             .AsNoTracking()
@@ -187,7 +189,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             {
                 PropertyCount = g.Count(),
                 UnitsOnlyCount = g.Count(x => x.pc != null
-                                               && x.pc.PropertyCategoryName == ApartmentCategoryName
+                                               //&& x.pc.PropertyCategoryName == ApartmentCategoryName
                                                && x.p.PartitionNo != null
                                                && x.p.PartitionNo.Trim() != "")
             }
@@ -199,18 +201,26 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return (propertyCount, propertyCount - unitsOnlyCount, unitsOnlyCount);
     }
 
-    private async Task<DashboardCardBreakdownDto> CalculatePreviouslyRegisteredAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)
+    private async Task<DashboardCardBreakdownDto> CalculatePreviouslyRegisteredAsync(CancellationToken cancellationToken)
     {
-        var prevQuery = query.Where(p => p.PropertyMastOldId != null);
-        var (propertyCount, structureCount, unitCount) = await CountDashboardPropertiesAsync(prevQuery, cancellationToken);
-        var demand = await GetOldTaxTotalDemandAsync(prevQuery, cancellationToken);
+        var counts = await _context.PropertyMastOld
+            .AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                PropertyCount = g.Count(),
+                StructureCount = g.Count(p => p.OldPartitionNo == null || p.OldPartitionNo.Trim() == ""),
+                Demand = g.Sum(p => p.OldTotalTax ?? 0d)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
         return new DashboardCardBreakdownDto
         {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = demand
+            PropertyCount = counts?.PropertyCount ?? 0,
+            StructureCount = counts?.StructureCount ?? 0,
+            UnitCount = counts?.PropertyCount ?? 0,
+            Demand = counts == null ? 0m : Convert.ToDecimal(counts.Demand)
         };
     }
 
@@ -243,21 +253,33 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         };
     }
 
-    private async Task<DashboardCardBreakdownDto> CalculateAdditionalRevenueAsync( IQueryable<PropertyEntity> query, CancellationToken cancellationToken)
+    private async Task<DashboardCardBreakdownDto> CalculateAdditionalRevenueAsync(IQueryable<PropertyEntity> query, CancellationToken cancellationToken)
     {
-        var assessedQuery = query.Where(p => p.PropertyMastOldId != null);
-        var (propertyCount, structureCount, unitCount) = await CountDashboardPropertiesAsync(assessedQuery, cancellationToken);
+        var approvedPropertyIds = _context.PropertySignatureDetails
+            .AsNoTracking()
+            .Where(signature => signature.IsActive && signature.SignStatus == ApprovedByAcdStatus)
+            .Select(signature => signature.PropertyId)
+            .Distinct();
 
-        var newDemand = await GetNewTaxTotalDemandAsync(assessedQuery, cancellationToken);
-        var oldDemand = await GetOldTaxTotalDemandAsync(assessedQuery, cancellationToken);
-        var additionalRevenue = newDemand - oldDemand;
+        var approvedProperties = query.Where(property => approvedPropertyIds.Contains(property.Id));
+
+        var counts = await approvedProperties
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                PropertyCount = g.Count(),
+                StructureCount = g.Count(property => property.PartitionNo == null || property.PartitionNo.Trim() == "")
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var currentDemand = await GetNewTaxTotalDemandAsync(approvedProperties, cancellationToken);
 
         return new DashboardCardBreakdownDto
         {
-            PropertyCount = propertyCount,
-            StructureCount = structureCount,
-            UnitCount = unitCount,
-            Demand = additionalRevenue
+            PropertyCount = counts?.PropertyCount ?? 0,
+            StructureCount = counts?.StructureCount ?? 0,
+            UnitCount = counts?.PropertyCount ?? 0,
+            Demand = currentDemand
         };
     }
 
@@ -293,12 +315,54 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         return demand;
     }
 
-    public async Task<SubGridDataProjection> GetSubGridDataAsync(SubGridFilterRequestDto query,CancellationToken cancellationToken = default)
+    public Task<SubGridDataProjection> GetSubGridDataAsync(SubGridQueryParameters query,CancellationToken cancellationToken = default)
+        => GetSubGridDataCoreAsync(
+            query.ZoneId,
+            query.WorkflowStageId,
+            query.WardId,
+            query.PropertyTypeId,
+            query.PropertyTypeCategoryId,
+            query.AssessmentTypeId,
+            query.PropertyNo,
+            query.OwnerName,
+            query.Structure,
+            query.Unit,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
+
+    public Task<SubGridDataProjection> GetSubGridDataAsync(WardSubGridQueryParameters query,CancellationToken cancellationToken = default)
+        => GetSubGridDataCoreAsync(
+            null,
+            query.WorkflowStageId,
+            query.WardId,
+            query.PropertyTypeId,
+            query.PropertyTypeCategoryId,
+            query.AssessmentTypeId,
+            query.PropertyNo,
+            query.OwnerName,
+            query.Structure,
+            query.Unit,
+            query.PageNumber,
+            query.PageSize,
+            cancellationToken);
+
+    private async Task<SubGridDataProjection> GetSubGridDataCoreAsync(
+        int? zoneId,
+        int? workflowStageId,
+        int? wardId,
+        int? propertyTypeId,
+        int? propertyTypeCategoryId,
+        int? assessmentTypeId,
+        string? propertyNo,
+        string? ownerNameFilter,
+        bool? structure,
+        bool? unit,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken = default)
     {
-        var zoneId = query.ZoneId;
-        var workflowStageId = query.WorkflowStageId;
-        var wardId = query.WardId;
-        var (pageNumber, pageSize) = NormalizePaging(query.PageNumber, query.PageSize);
+        (pageNumber, pageSize) = NormalizePaging(pageNumber, pageSize);
 
         var workflowStageName = "All Stages";
         if (workflowStageId is int selectedWorkflowStageId && selectedWorkflowStageId > 0)
@@ -375,16 +439,31 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             zoneNo = zone.ZoneNo;
         }
 
-        var propertyQuery = from pm in _context.PropertyMast.AsNoTracking()
+        var basePropertyQuery = _context.PropertyMast
+            .AsNoTracking()
+            .Where(pm => pm.IsActive && !pm.MarkedForDeletion);
+
+        if (propertyTypeId is > 0)
+            basePropertyQuery = basePropertyQuery.Where(p => p.PropertyTypeId == propertyTypeId.Value);
+
+        if (propertyTypeCategoryId is > 0)
+            basePropertyQuery = ApplyPropertyTypeCategoryFilter(basePropertyQuery, propertyTypeCategoryId.Value);
+
+        if (assessmentTypeId is > 0)
+            basePropertyQuery = basePropertyQuery.Where(p => p.PropertyAssessmentStatusId == assessmentTypeId.Value);
+
+        var propertyQuery = from pm in basePropertyQuery
                             join wd in _context.WardMaster.AsNoTracking() on pm.WardId equals wd.Id
-                            where pm.IsActive
-                                  && !pm.MarkedForDeletion
-                                  && wd.IsActive
+                            where wd.IsActive
                             select new SubGridPropertyFilterProjection
                             {
                                 PropertyId = pm.Id,
                                 PropertyAssessmentStatusId = pm.PropertyAssessmentStatusId,
                                 WardId = pm.WardId,
+                                WardNo = wd.WardNo,
+                                PropertyNo = pm.PropertyNo,
+                                PartitionNo = pm.PartitionNo,
+                                OwnerName = pm.OwnerName,
                                 PropertyTypeId = pm.PropertyTypeId,
                                 ZoneId = wd.ZoneId,
                                 IsPropertyOpenPlot = pm.OpenPlot == true
@@ -403,14 +482,19 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         if (wardId is int filterWardId && filterWardId > 0)
             propertyQuery = propertyQuery.Where(p => p.WardId == filterWardId);
 
-        if (query.PropertyTypeId is int propertyTypeId && propertyTypeId > 0)
-            propertyQuery = propertyQuery.Where(p => p.PropertyTypeId == propertyTypeId);
+        if (structure == true && unit != true)
+            propertyQuery = propertyQuery.Where(p => p.PartitionNo == null || p.PartitionNo.Trim() == "");
 
-        if (query.PropertyTypeCategoryId is int propertyTypeCategoryId && propertyTypeCategoryId > 0)
-            propertyQuery = ApplySubGridPropertyDescriptionFilter(propertyQuery, propertyTypeCategoryId);
+        if (!string.IsNullOrWhiteSpace(propertyNo))
+        {
+            propertyQuery = ApplySubGridPropertyNoFilter(propertyQuery, propertyNo);
+        }
 
-        if (query.AssessmentTypeId is int assessmentTypeId && assessmentTypeId > 0)
-            propertyQuery = propertyQuery.Where(p => p.PropertyAssessmentStatusId == assessmentTypeId);
+        if (!string.IsNullOrWhiteSpace(ownerNameFilter))
+        {
+            var ownerName = ownerNameFilter.Trim();
+            propertyQuery = propertyQuery.Where(p => p.OwnerName != null && p.OwnerName.Contains(ownerName));
+        }
 
         var propertyIdsQuery = propertyQuery.Select(p => p.PropertyId);
 
@@ -449,105 +533,60 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             cancellationToken);
     }
 
-    private IQueryable<SubGridPropertyFilterProjection> ApplySubGridPropertyDescriptionFilter(IQueryable<SubGridPropertyFilterProjection> query,int PropertyTypeCategoryId)
+    private static IQueryable<SubGridPropertyFilterProjection> ApplySubGridPropertyNoFilter(
+        IQueryable<SubGridPropertyFilterProjection> query,
+        string propertyNo)
     {
-        const int residential = 1;
-        const int nonResidential = 2;
-        const int mixed = 3;
-        const int openPlots = 4;
-        const int publicUtility = 5;
-        const int underConstruction = 6;
+        var normalizedPropertyNo = propertyNo.Trim();
+        var parsed = ParseSubGridPropertyNo(normalizedPropertyNo);
 
-        var detailUses = from pd in _context.PropertyDetails.AsNoTracking()
-                         join tou in _context.TypeOfUse.AsNoTracking() on pd.TypeOfUseId equals tou.Id into typeOfUseJoin
-                         from tou in typeOfUseJoin.DefaultIfEmpty()
-                         where pd.IsActive && !pd.MarkedForDeletion
-                         select new
-                         {
-                             pd.PropertyId,
-                             IsDetailOpenPlot = pd.IsOpenPlot == true,
-                             Type = tou != null ? tou.Type : null,
-                             Code = tou != null ? tou.TypeOfUseCode : null,
-                             Description = tou != null ? tou.Description : null
-                         };
-
-        var mixedPropertyIds = (
-            from p in query
-            join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id
-            where pt.IsActive
-                  && pt.Type != null
-                  && MixedPropertyTypes.Contains(pt.Type.ToUpper())
-            select p.PropertyId).Distinct();
-
-        var openPlotPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId)
-                        && (p.IsPropertyOpenPlot
-                            || detailUses.Any(d => d.PropertyId == p.PropertyId
-                                                   && (d.IsDetailOpenPlot || ((d.Description ?? "").ToUpper().Contains("OPEN"))))))
-            .Select(p => p.PropertyId)
-            .Distinct();
-
-        var underConstructionPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId)
-                        && !openPlotPropertyIds.Contains(p.PropertyId)
-                        && detailUses.Any(d => d.PropertyId == p.PropertyId
-                                               && (d.Code ?? "").ToUpper() == "UC"))
-            .Select(p => p.PropertyId)
-            .Distinct();
-
-        var publicUtilityPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId)
-                        && !openPlotPropertyIds.Contains(p.PropertyId)
-                        && !underConstructionPropertyIds.Contains(p.PropertyId)
-                        && detailUses.Any(d => d.PropertyId == p.PropertyId
-                                               && (((d.Type ?? "").ToUpper() == "N")
-                                                   || ((d.Type ?? "").ToUpper() == "I")
-                                                   || ((d.Code ?? "").ToUpper() == "PU")
-                                                   || ((d.Description ?? "").ToUpper().Contains("PUBLIC"))
-                                                   || ((d.Description ?? "").ToUpper().Contains("INDUSTRIAL")))))
-            .Select(p => p.PropertyId)
-            .Distinct();
-
-        var propertiesWithDetails = detailUses
-            .Select(d => d.PropertyId)
-            .Distinct();
-
-        var residentialPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId)
-                        && !openPlotPropertyIds.Contains(p.PropertyId)
-                        && !underConstructionPropertyIds.Contains(p.PropertyId)
-                        && !publicUtilityPropertyIds.Contains(p.PropertyId)
-                        && (detailUses.Any(d => d.PropertyId == p.PropertyId && (((d.Type ?? "").ToUpper() == "R")|| ((d.Description ?? "").ToUpper().Contains("RESIDENTIAL"))))
-                            || !propertiesWithDetails.Contains(p.PropertyId)))
-            .Select(p => p.PropertyId)
-            .Distinct();
-
-        var nonResidentialPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId)
-                        && !openPlotPropertyIds.Contains(p.PropertyId)
-                        && !underConstructionPropertyIds.Contains(p.PropertyId)
-                        && !publicUtilityPropertyIds.Contains(p.PropertyId)
-                        && !residentialPropertyIds.Contains(p.PropertyId)
-                        && detailUses.Any(d => d.PropertyId == p.PropertyId
-                                               && (((d.Type ?? "").ToUpper() == "C")
-                                                   || ((d.Description ?? "").ToUpper().Contains("COMMERCIAL")))))
-            .Select(p => p.PropertyId)
-            .Distinct();
-
-        return PropertyTypeCategoryId switch
+        if (!string.IsNullOrWhiteSpace(parsed.WardNo) && !string.IsNullOrWhiteSpace(parsed.PropertyNo))
         {
-            residential => query.Where(p => residentialPropertyIds.Contains(p.PropertyId)),
-            nonResidential => query.Where(p => nonResidentialPropertyIds.Contains(p.PropertyId)),
-            mixed => query.Where(p => mixedPropertyIds.Contains(p.PropertyId)),
-            openPlots => query.Where(p => openPlotPropertyIds.Contains(p.PropertyId)),
-            publicUtility => query.Where(p => publicUtilityPropertyIds.Contains(p.PropertyId)),
-            underConstruction => query.Where(p => underConstructionPropertyIds.Contains(p.PropertyId)),
-            _ => query
+            var wardNo = parsed.WardNo.ToUpper();
+            var basePropertyNo = parsed.PropertyNo;
+
+            if (!string.IsNullOrWhiteSpace(parsed.PartitionNo))
+            {
+                var partitionNo = parsed.PartitionNo;
+                return query.Where(p =>
+                    p.WardNo != null
+                    && p.PropertyNo != null
+                    && p.PartitionNo != null
+                    && p.WardNo.ToUpper() == wardNo
+                    && p.PropertyNo == basePropertyNo
+                    && p.PartitionNo == partitionNo);
+            }
+
+            return query.Where(p =>
+                p.WardNo != null
+                && p.PropertyNo != null
+                && p.WardNo.ToUpper() == wardNo
+                && p.PropertyNo == basePropertyNo
+                && (p.PartitionNo == null || p.PartitionNo.Trim() == ""));
+        }
+
+        return query.Where(p => p.PropertyNo != null && p.PropertyNo.Contains(normalizedPropertyNo));
+    }
+
+    private static (string? WardNo, string? PropertyNo, string? PartitionNo) ParseSubGridPropertyNo(string propertyNo)
+    {
+        var parts = propertyNo
+            .Split('-', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            >= 3 => (parts[0], parts[1], string.Join("-", parts.Skip(2))),
+            2 => (parts[0], parts[1], null),
+            _ => (null, propertyNo, null)
         };
     }
 
+    #endregion
+
+    #region Private Query Builders
+
     public async Task<SubGridDataProjection> GetPendingAssessmentPropsAsync(
-        SubGridFilterRequestDto query,
+        PendingAssessmentQueryParameters query,
         CancellationToken cancellationToken = default)
     {
         var (normalizedPageNumber, normalizedPageSize) = NormalizePaging(query.PageNumber, query.PageSize);
@@ -931,7 +970,7 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             where pagePropertyIds.Contains(tm.PropertyId)
                   && tm.IsActive
                   && !tm.MarkedForDeletion
-                  && tm.CalculationType == "RV"
+                  && tm.CalculationType == CalculationTypeRV
             select new SubGridTaxValueProjection
             {
                 PropertyId = tm.PropertyId,
@@ -946,10 +985,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             where pagePropertyIds.Contains(tm.PropertyId)
                   && tm.IsActive
                   && !tm.MarkedForDeletion
-                  && tm.CalculationType == "RV"
+                  && tm.CalculationType == CalculationTypeRV
                   && tax.IsActive
-                  && tax.TaxCode == "TaxTotal"
-                  && tax.TaxName == "TaxTotal"
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
             select new SubGridTaxValueProjection
             {
                 PropertyId = tm.PropertyId,
@@ -1012,10 +1051,10 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             where oldPropertyIds.Contains(tmo.PropertyMastOldId)
                   && tmo.IsActive
                   && !tmo.MarkedForDeletion
-                  && tmo.CalculationType == "RV"
+                  && tmo.CalculationType == CalculationTypeRV
                   && tax.IsActive
-                  && tax.TaxCode == "TaxTotal"
-                  && tax.TaxName == "TaxTotal"
+                  && tax.TaxCode == TaxTotalCode
+                  && tax.TaxName == TaxTotalName
             select new SubGridTaxValueProjection
             {
                 PropertyId = tmo.PropertyMastOldId,
@@ -1069,6 +1108,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
             .Include(p => p.PropertyAssessmentStatus)
             .Where(p => propertyIds.Contains(p.Id));
 
+    #endregion
+
+    #region Internal Projection Classes
+
+    /// <summary>
+    /// Internal projection for filtering sub-grid properties.
+    /// </summary>
     private sealed class SubGridPropertyFilterProjection
     {
         public int PropertyId { get; set; }
@@ -1080,10 +1126,13 @@ public class AutomationDashboardRepository : WorkflowStageBaseRepository, IAutom
         public string? ZoneNo { get; set; }
         public bool IsPropertyOpenPlot { get; set; }
         public string? PropertyNo { get; set; }
+        public string? PartitionNo { get; set; }
         public string? OwnerName { get; set; }
         public string? OccupierName { get; set; }
         public string? MobileNo { get; set; }
         public string? Address { get; set; }
         public string? UPICId { get; set; }
     }
+
+    #endregion
 }

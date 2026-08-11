@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Models;
+using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Infrastructure.Data;
 using NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
 
@@ -16,6 +17,181 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             .Options;
 
         return new ApplicationDbContext(options);
+    }
+
+    [Fact]
+    public async Task GetMainCardsAsync_CalculatesPreviouslyRegisteredFromPropertyMastOld()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyMastOld.AddRange(
+            new PropertyMastOldEntity
+            {
+                Id = 1,
+                OldPropertyNo = "100",
+                OldPartitionNo = null,
+                OldTotalTax = 1000,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyMastOldEntity
+            {
+                Id = 2,
+                OldPropertyNo = "100",
+                OldPartitionNo = "1",
+                OldTotalTax = 250,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyMastOldEntity
+            {
+                Id = 3,
+                OldPropertyNo = "101",
+                OldPartitionNo = "",
+                OldTotalTax = 500,
+                IsActive = true,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyMastOldEntity
+            {
+                Id = 4,
+                OldPropertyNo = "102",
+                OldPartitionNo = "1",
+                OldTotalTax = 700,
+                IsActive = false,
+                MarkedForDeletion = false,
+                CreatedDate = createdDate
+            },
+            new PropertyMastOldEntity
+            {
+                Id = 5,
+                OldPropertyNo = "103",
+                OldPartitionNo = null,
+                OldTotalTax = 900,
+                IsActive = true,
+                MarkedForDeletion = true,
+                CreatedDate = createdDate
+            });
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetMainCardsAsync(cancellationToken: CancellationToken.None);
+
+        Assert.Equal(3, result.PreviouslyRegistered.PropertyCount);
+        Assert.Equal(2, result.PreviouslyRegistered.StructureCount);
+        Assert.Equal(3, result.PreviouslyRegistered.UnitCount);
+        Assert.Equal(1750m, result.PreviouslyRegistered.Demand);
+    }
+
+    [Fact]
+    public async Task GetMainCardsAsync_CalculatesAdditionalRevenueFromAcdApprovedSignatures()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(100, 21, "1", "", "Approved Main", createdDate),
+            CreateSubGridProperty(101, 21, "1", "1", "Approved Partition", createdDate),
+            CreateSubGridProperty(102, 21, "2", "", "Wrong Status", createdDate),
+            CreateSubGridProperty(103, 21, "3", "", "Inactive Signature", createdDate),
+            CreateSubGridProperty(104, 21, "4", "", "Inactive Property", createdDate, isActive: false));
+        context.PropertySignatureDetails.AddRange(
+            new PropertySignatureDetailsEntity
+            {
+                Id = 1,
+                PropertyId = 100,
+                UserId = 1,
+                SignAuthorityId = 1,
+                SignStatus = "ApprovedByACD",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 2,
+                PropertyId = 100,
+                UserId = 2,
+                SignAuthorityId = 2,
+                SignStatus = "ApprovedByACD",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 3,
+                PropertyId = 101,
+                UserId = 1,
+                SignAuthorityId = 1,
+                SignStatus = "ApprovedByACD",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 4,
+                PropertyId = 102,
+                UserId = 1,
+                SignAuthorityId = 1,
+                SignStatus = "PendingToACD",
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 5,
+                PropertyId = 103,
+                UserId = 1,
+                SignAuthorityId = 1,
+                SignStatus = "ApprovedByACD",
+                IsActive = false,
+                CreatedDate = createdDate
+            },
+            new PropertySignatureDetailsEntity
+            {
+                Id = 6,
+                PropertyId = 104,
+                UserId = 1,
+                SignAuthorityId = 1,
+                SignStatus = "ApprovedByACD",
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.TaxMaster.AddRange(
+            new TaxMasterEntity
+            {
+                Id = 1,
+                TaxCode = "TaxTotal",
+                TaxName = "TaxTotal",
+                TaxCategoryId = 1,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new TaxMasterEntity
+            {
+                Id = 2,
+                TaxCode = "GENERAL",
+                TaxName = "General Tax",
+                TaxCategoryId = 1,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.TransMast.AddRange(
+            CreateTransMast(1, 100, 1, 1000m, createdDate),
+            CreateTransMast(2, 100, 2, 50m, createdDate),
+            CreateTransMast(3, 101, 1, 250m, createdDate),
+            CreateTransMast(4, 102, 1, 700m, createdDate),
+            CreateTransMast(5, 104, 1, 900m, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetMainCardsAsync(cancellationToken: CancellationToken.None);
+
+        Assert.Equal(2, result.AdditionalRevenueGenerated.PropertyCount);
+        Assert.Equal(1, result.AdditionalRevenueGenerated.StructureCount);
+        Assert.Equal(2, result.AdditionalRevenueGenerated.UnitCount);
+        Assert.Equal(1250m, result.AdditionalRevenueGenerated.Demand);
     }
 
     [Fact]
@@ -352,7 +528,7 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         var repository = new AutomationDashboardRepository(context);
 
         var result = await repository.GetPendingAssessmentPropsAsync(
-            new SubGridFilterRequestDto
+            new PendingAssessmentQueryParameters
             {
                 PageNumber = 1,
                 PageSize = 10,
@@ -374,6 +550,307 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
         Assert.Equal(21, result.WardId);
         Assert.Equal("D11", result.WardNo);
     }
+
+    [Fact]
+    public async Task GetSubGridDataAsync_FiltersFormattedWardPropertyAndPartitionNumber()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 14,
+            ZoneNo = "MM",
+            Description = "MM",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.AddRange(
+            new WardEntity
+            {
+                Id = 21,
+                WardNo = "MMMAJOR4",
+                ZoneId = 14,
+                IsActive = true,
+                CreatedDate = createdDate
+            },
+            new WardEntity
+            {
+                Id = 22,
+                WardNo = "MMMAJOR5",
+                ZoneId = 14,
+                IsActive = true,
+                CreatedDate = createdDate
+            });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(100, 21, "8", "", "Main Owner", createdDate),
+            CreateSubGridProperty(101, 21, "8", "1", "Partition Owner", createdDate),
+            CreateSubGridProperty(102, 21, "8", "2", "Second Partition Owner", createdDate),
+            CreateSubGridProperty(103, 22, "8", "", "Other Ward Owner", createdDate));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(200, 100, 1, createdDate),
+            CreateWorkflowDetail(201, 101, 1, createdDate),
+            CreateWorkflowDetail(202, 102, 1, createdDate),
+            CreateWorkflowDetail(203, 103, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var mainResult = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                WorkflowStageId = 1,
+                PropertyNo = "MMMAJOR4-8",
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+        var partitionResult = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                WorkflowStageId = 1,
+                PropertyNo = "MMMAJOR4-8-1",
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        var mainProperty = Assert.Single(mainResult.Properties);
+        Assert.Equal(100, mainProperty.Id);
+        Assert.Equal(1, mainResult.TotalCount);
+
+        var partitionProperty = Assert.Single(partitionResult.Properties);
+        Assert.Equal(101, partitionProperty.Id);
+        Assert.Equal("1", partitionProperty.PartitionNo);
+        Assert.Equal(1, partitionResult.TotalCount);
+    }
+
+    [Fact]
+    public async Task GetSubGridDataAsync_FiltersStructureAndUnitRows()
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 14,
+            ZoneNo = "MM",
+            Description = "MM",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 21,
+            WardNo = "MMMAJOR4",
+            ZoneId = 14,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(100, 21, "8", "", "Main Owner", createdDate),
+            CreateSubGridProperty(101, 21, "8", "1", "Partition Owner", createdDate),
+            CreateSubGridProperty(102, 21, "8", "2", "Second Partition Owner", createdDate));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(200, 100, 1, createdDate),
+            CreateWorkflowDetail(201, 101, 1, createdDate),
+            CreateWorkflowDetail(202, 102, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var structureResult = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                ZoneId = 14,
+                WorkflowStageId = 1,
+                Structure = true,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+        var unitResult = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                ZoneId = 14,
+                WorkflowStageId = 1,
+                Unit = true,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+        var allResult = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                ZoneId = 14,
+                WorkflowStageId = 1,
+                Structure = true,
+                Unit = true,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        Assert.Equal(new[] { 100 }, structureResult.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(1, structureResult.TotalCount);
+        Assert.Equal(new[] { 100, 101, 102 }, unitResult.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(3, unitResult.TotalCount);
+        Assert.Equal(new[] { 100, 101, 102 }, allResult.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(3, allResult.TotalCount);
+    }
+
+    public static TheoryData<int, int[]> PropertyTypeCategoryFilterCases => new()
+    {
+        { 1, new[] { 101, 106 } },
+        { 2, new[] { 102 } },
+        { 3, new[] { 104 } },
+        { 4, new[] { 106 } },
+        { 5, new[] { 103, 105 } },
+        { 6, new[] { 107 } }
+    };
+
+    [Theory]
+    [MemberData(nameof(PropertyTypeCategoryFilterCases))]
+    public async Task GetSubGridDataAsync_FiltersPropertyTypeCategoryFromConfiguredBusinessRules(
+        int propertyTypeCategoryId,
+        int[] expectedPropertyIds)
+    {
+        using var context = CreateContext();
+        var createdDate = new DateTime(2026, 1, 1);
+        context.PropertyWorkflowStageMaster.Add(new PropertyWorkflowStageMasterEntity
+        {
+            Id = 1,
+            StageName = "GeoSequencing",
+            DisplayOrder = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.ZoneMaster.Add(new ZoneEntity
+        {
+            Id = 15,
+            ZoneNo = "Z15",
+            Description = "Zone 15",
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.WardMaster.Add(new WardEntity
+        {
+            Id = 21,
+            WardNo = "W15",
+            ZoneId = 15,
+            IsActive = true,
+            CreatedDate = createdDate
+        });
+        context.PropertyTypeMasters.AddRange(
+            CreatePropertyType(11, "Residential", "R", createdDate),
+            CreatePropertyType(12, "Commercial", "C", createdDate),
+            CreatePropertyType(13, "Industrial", "I", createdDate),
+            CreatePropertyType(14, "Mixed", "R-C", createdDate),
+            CreatePropertyType(15, "Public Utility", "N", createdDate));
+        context.TypeOfUse.AddRange(
+            CreateTypeOfUse(901, "R", "R", "Residential", createdDate),
+            CreateTypeOfUse(902, "C", "C", "Commercial", createdDate),
+            CreateTypeOfUse(903, "I", "I", "Industrial", createdDate),
+            CreateTypeOfUse(904, "N", "N", "Public Utility", createdDate),
+            CreateTypeOfUse(905, "UC", "R", "Under Construction", createdDate));
+        context.PropertyMast.AddRange(
+            CreateSubGridProperty(101, 21, "1", "", "Residential Owner", createdDate, 11),
+            CreateSubGridProperty(102, 21, "2", "", "Commercial Owner", createdDate, 12),
+            CreateSubGridProperty(103, 21, "3", "", "Industrial Owner", createdDate, 13),
+            CreateSubGridProperty(104, 21, "4", "", "Mixed Owner", createdDate, 14),
+            CreateSubGridProperty(105, 21, "5", "", "Public Utility Owner", createdDate, 15),
+            CreateSubGridProperty(106, 21, "6", "", "Open Plot Owner", createdDate, 11, isOpenPlot: true),
+            CreateSubGridProperty(107, 21, "7", "", "Under Construction Owner", createdDate, 11));
+        context.PropertyDetails.AddRange(
+            CreatePropertyDetail(901, 101, 901, createdDate),
+            CreatePropertyDetail(902, 102, 902, createdDate),
+            CreatePropertyDetail(903, 103, 903, createdDate),
+            CreatePropertyDetail(904, 105, 904, createdDate),
+            CreatePropertyDetail(905, 107, 905, createdDate));
+        context.PropertyWorkflowDetails.AddRange(
+            CreateWorkflowDetail(201, 101, 1, createdDate),
+            CreateWorkflowDetail(202, 102, 1, createdDate),
+            CreateWorkflowDetail(203, 103, 1, createdDate),
+            CreateWorkflowDetail(204, 104, 1, createdDate),
+            CreateWorkflowDetail(205, 105, 1, createdDate),
+            CreateWorkflowDetail(206, 106, 1, createdDate),
+            CreateWorkflowDetail(207, 107, 1, createdDate));
+        await context.SaveChangesAsync();
+        var repository = new AutomationDashboardRepository(context);
+
+        var result = await repository.GetSubGridDataAsync(
+            new SubGridQueryParameters
+            {
+                ZoneId = 15,
+                WorkflowStageId = 1,
+                PropertyTypeCategoryId = propertyTypeCategoryId,
+                PageNumber = 1,
+                PageSize = 10
+            },
+            CancellationToken.None);
+
+        Assert.Equal(expectedPropertyIds, result.Properties.Select(p => p.Id).ToArray());
+        Assert.Equal(expectedPropertyIds.Length, result.TotalCount);
+    }
+
+    private static PropertyTypeMasterEntity CreatePropertyType(
+        int id,
+        string description,
+        string type,
+        DateTime createdDate)
+        => new()
+        {
+            Id = id,
+            PropertyDescription = description,
+            Type = type,
+            PropertyTypeCategoryId = null,
+            IsActive = true,
+            CreatedDate = createdDate
+        };
+
+    private static TypeOfUseEntity CreateTypeOfUse(
+        int id,
+        string code,
+        string type,
+        string description,
+        DateTime createdDate)
+        => new()
+        {
+            Id = id,
+            TypeOfUseCode = code,
+            Description = description,
+            Type = type,
+            TypeOfUseGroupId = 1,
+            IsActive = true,
+            CreatedDate = createdDate
+        };
+
+    private static PropertyDetailsEntity CreatePropertyDetail(
+        int id,
+        int propertyId,
+        int typeOfUseId,
+        DateTime createdDate)
+        => new()
+        {
+            Id = id,
+            PropertyId = propertyId,
+            TypeOfUseId = typeOfUseId,
+            IsActive = true,
+            MarkedForDeletion = false,
+            CreatedDate = createdDate
+        };
 
     private static PropertyEntity CreatePendingAssessmentProperty(
         int id,
@@ -397,6 +874,30 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             CreatedDate = createdDate
         };
 
+    private static PropertyEntity CreateSubGridProperty(
+        int id,
+        int wardId,
+        string propertyNo,
+        string partitionNo,
+        string ownerName,
+        DateTime createdDate,
+        int? propertyTypeId = null,
+        bool isOpenPlot = false,
+        bool isActive = true)
+        => new()
+        {
+            Id = id,
+            WardId = wardId,
+            PropertyNo = propertyNo,
+            PartitionNo = partitionNo,
+            OwnerName = ownerName,
+            PropertyTypeId = propertyTypeId,
+            OpenPlot = isOpenPlot,
+            IsActive = isActive,
+            MarkedForDeletion = false,
+            CreatedDate = createdDate
+        };
+
     private static PropertyWorkflowDetailsEntity CreateWorkflowDetail(
         int id,
         int propertyId,
@@ -408,6 +909,26 @@ public class AutomationDashboardRepositoryTrackStageStatusTests
             PropertyId = propertyId,
             WorkflowStageId = workflowStageId,
             IsActive = true,
+            CreatedDate = createdDate
+        };
+
+    private static TransMastEntity CreateTransMast(
+        int id,
+        int propertyId,
+        int taxId,
+        decimal taxAmount,
+        DateTime createdDate)
+        => new()
+        {
+            Id = id,
+            PropertyId = propertyId,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            CalculationValue = 0,
+            TaxId = taxId,
+            TaxAmount = taxAmount,
+            IsActive = true,
+            MarkedForDeletion = false,
             CreatedDate = createdDate
         };
 }

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
@@ -10,13 +11,390 @@ namespace NtisPlatform.Infrastructure.Repositories.AutomationDashboard;
 
 /// <summary>
 /// Repository for Data Entry and Quality Analyst stage operations.
-/// Handles division-wise grid data for Data Entry and Quality Analyst workflow stage ONLY.
+/// Optimized for performance with reusable query builders and efficient data fetching.
+/// Implements granular methods to avoid DbContext concurrency issues.
 /// </summary>
 public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryStageRepository
 {
     public DataEntryStageRepository(ApplicationDbContext context) : base(context)
     {
     }
+
+    #region Public Interface Methods
+
+    /// <summary>
+    /// Reads active zones, optionally filtered by zone id.
+    /// Delegates to base repository for consistency.
+    /// </summary>
+    public Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> ReadZonesAsync(
+        int? zoneId,
+        CancellationToken cancellationToken = default)
+        => GetZonesAsync(zoneId, cancellationToken);
+
+    /// <summary>
+    /// Reads the Internal Survey stage id.
+    /// Delegates to base repository for consistency.
+    /// </summary>
+    public Task<int> ReadInternalSurveyStageIdAsync(CancellationToken cancellationToken = default)
+        => GetStageIdByNameAsync(InternalSurveyStageName, cancellationToken);
+
+    /// <summary>
+    /// Reads the Assessment stage id.
+    /// Delegates to base repository for consistency.
+    /// </summary>
+    public Task<int> ReadAssessmentStageIdAsync(CancellationToken cancellationToken = default)
+        => GetStageIdByNameAsync(AssessmentStageName, cancellationToken);
+
+    /// <summary>
+    /// Reads the Property photo type id.
+    /// Delegates to base repository for consistency.
+    /// </summary>
+    public Task<int> ReadPropertyPhotoTypeIdAsync(CancellationToken cancellationToken = default)
+        => GetPhotoTypeIdAsync(PropertyPhotoTypeCode, cancellationToken);
+
+    /// <summary>
+    /// Reads the Plan photo type id.
+    /// Delegates to base repository for consistency.
+    /// </summary>
+    public Task<int> ReadPlanPhotoTypeIdAsync(CancellationToken cancellationToken = default)
+        => GetPhotoTypeIdAsync(PlanPhotoTypeCode, cancellationToken);
+
+    /// <summary>
+    /// Reads stage properties for selected zones.
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<List<DataEntryStagePropertyProjection>> ReadStagePropertiesForZonesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (workflowStageId <= 0 || !zoneIds.Any())
+            return new List<DataEntryStagePropertyProjection>();
+
+        var query = BuildStagePropertiesQuery(workflowStageId, zoneIds, queryParameters);
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads zone totals (structure and unit counts).
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<Dictionary<int, (int StructureCount, int UnitCount)>> ReadZoneTotalsAsync(
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (!zoneIds.Any())
+            return new Dictionary<int, (int StructureCount, int UnitCount)>();
+
+        var query = BuildZoneTotalsQuery(zoneIds, queryParameters);
+        var results = await query.ToListAsync(cancellationToken);
+
+        return results.ToDictionary(
+            r => r.ZoneId,
+            r => (r.StructureCount, r.UnitCount));
+    }
+
+    /// <summary>
+    /// Reads completed photos for selected zones.
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<List<DataEntryCompletedPhotoProjection>> ReadCompletedPhotosAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        int propertyPhotoTypeId,
+        int planPhotoTypeId,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (workflowStageId <= 0 || !zoneIds.Any())
+            return new List<DataEntryCompletedPhotoProjection>();
+
+        var photoTypeIds = new List<int>();
+        if (propertyPhotoTypeId > 0) photoTypeIds.Add(propertyPhotoTypeId);
+        if (planPhotoTypeId > 0) photoTypeIds.Add(planPhotoTypeId);
+
+        if (!photoTypeIds.Any())
+            return new List<DataEntryCompletedPhotoProjection>();
+
+        var query = BuildCompletedPhotosQuery(workflowStageId, zoneIds, photoTypeIds, queryParameters);
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads property types for selected zones.
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<List<DataEntryPropertyTypeSourceProjection>> ReadPropertyTypesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (workflowStageId <= 0 || !zoneIds.Any())
+            return new List<DataEntryPropertyTypeSourceProjection>();
+
+        var query = BuildPropertyTypesQuery(workflowStageId, zoneIds, queryParameters);
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads property uses for selected zones.
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<List<DataEntryPropertyUseSourceProjection>> ReadPropertyUsesAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (workflowStageId <= 0 || !zoneIds.Any())
+            return new List<DataEntryPropertyUseSourceProjection>();
+
+        var query = BuildPropertyUsesQuery(workflowStageId, zoneIds, queryParameters);
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads assessment status IDs by name.
+    /// </summary>
+    public async Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default)
+    {
+        var statuses = new[] { "ASSESSED", "UNASSESSED", "PARTIALLY_ASSESSED", "UNDER_UNASSESSED" };
+
+        var results = await _context.PropertyAssessmentStatuses
+            .AsNoTracking()
+            .Where(s => s.IsActive && statuses.Contains(s.StatusName.ToUpper()))
+            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
+            .ToListAsync(cancellationToken);
+
+        return results.ToDictionary(s => s.StatusName, s => s.Id);
+    }
+
+    /// <summary>
+    /// Reads assessment status counts grouped by zone.
+    /// Optimized with efficient query composition using query builder pattern.
+    /// </summary>
+    public async Task<List<DataEntryAssessmentStatusCountProjection>> ReadAssessmentStatusCountsAsync(
+        int workflowStageId,
+        List<int> zoneIds,
+        CancellationToken cancellationToken = default,
+        DashboardGridQueryParameters? queryParameters = null)
+    {
+        if (workflowStageId <= 0 || !zoneIds.Any())
+            return new List<DataEntryAssessmentStatusCountProjection>();
+
+        var query = BuildAssessmentStatusCountsQuery(workflowStageId, zoneIds, queryParameters);
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region Query Builders
+
+    /// <summary>
+    /// Builds query for stage properties.
+    /// Reusable and composable for different workflow stages.
+    /// </summary>
+    private IQueryable<DataEntryStagePropertyProjection> BuildStagePropertiesQuery(
+        int workflowStageId,
+        List<int> zoneIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var query = from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+                    join p in properties on pwd.PropertyId equals p.Id
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                    where pwd.WorkflowStageId == workflowStageId
+                          && zoneIds.Contains(w.ZoneId)
+                          && w.IsActive
+                    select new DataEntryStagePropertyProjection
+                    {
+                        PropertyId = p.Id,
+                        WorkflowStageId = pwd.WorkflowStageId,
+                        ZoneId = w.ZoneId,
+                        PartitionNo = p.PartitionNo
+                    };
+
+        return query.Distinct();
+    }
+
+    /// <summary>
+    /// Builds query for zone totals.
+    /// </summary>
+    private IQueryable<DataEntryZoneCountProjection> BuildZoneTotalsQuery(
+        List<int> zoneIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var baseQuery = from p in properties
+                        join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                        where zoneIds.Contains(w.ZoneId)
+                              && w.IsActive
+                        select new { p, w.ZoneId };
+
+        return baseQuery
+            .GroupBy(x => x.ZoneId)
+            .Select(g => new DataEntryZoneCountProjection
+            {
+                ZoneId = g.Key,
+                StructureCount = g.Count(x => string.IsNullOrEmpty(x.p.PartitionNo)),
+                UnitCount = g.Count()
+            });
+    }
+
+    /// <summary>
+    /// Builds query for completed photos.
+    /// </summary>
+    private IQueryable<DataEntryCompletedPhotoProjection> BuildCompletedPhotosQuery(
+        int workflowStageId,
+        List<int> zoneIds,
+        List<int> photoTypeIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var query = from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+                    join p in properties on pwd.PropertyId equals p.Id
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                    join pp in _context.PropertyPhotos.AsNoTracking() on p.Id equals pp.PropertyId
+                    where pwd.WorkflowStageId == workflowStageId
+                          && zoneIds.Contains(w.ZoneId)
+                          && photoTypeIds.Contains(pp.PhotoTypeId)
+                          && w.IsActive
+                          && pp.IsActive
+                          && !pp.MarkedForDeletion
+                    select new DataEntryCompletedPhotoProjection
+                    {
+                        PropertyId = p.Id,
+                        PhotoTypeId = pp.PhotoTypeId
+                    };
+
+        return query.Distinct();
+    }
+
+    /// <summary>
+    /// Builds query for property types.
+    /// </summary>
+    private IQueryable<DataEntryPropertyTypeSourceProjection> BuildPropertyTypesQuery(
+        int workflowStageId,
+        List<int> zoneIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var query = from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+                    join p in properties on pwd.PropertyId equals p.Id
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                    join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into ptJoin
+                    from pt in ptJoin.DefaultIfEmpty()
+                    where pwd.WorkflowStageId == workflowStageId
+                          && zoneIds.Contains(w.ZoneId)
+                          && w.IsActive
+                          && (pt == null || pt.IsActive)
+                    select new DataEntryPropertyTypeSourceProjection
+                    {
+                        PropertyId = p.Id,
+                        ZoneId = w.ZoneId,
+                        PropertyType = pt != null ? pt.Type : null
+                    };
+
+        return query.Distinct();
+    }
+
+    /// <summary>
+    /// Builds query for property uses.
+    /// </summary>
+    private IQueryable<DataEntryPropertyUseSourceProjection> BuildPropertyUsesQuery(
+        int workflowStageId,
+        List<int> zoneIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var query = from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+                    join p in properties on pwd.PropertyId equals p.Id
+                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                    join pd in _context.PropertyDetails.AsNoTracking() on p.Id equals pd.PropertyId
+                    join tou in _context.TypeOfUse.AsNoTracking() on pd.TypeOfUseId equals tou.Id
+                    where pwd.WorkflowStageId == workflowStageId
+                          && zoneIds.Contains(w.ZoneId)
+                          && w.IsActive
+                          && pd.IsActive
+                          && !pd.MarkedForDeletion
+                          && tou.IsActive
+                    select new DataEntryPropertyUseSourceProjection
+                    {
+                        PropertyId = p.Id,
+                        ZoneId = w.ZoneId,
+                        Type = tou.Type,
+                        TypeOfUseCode = tou.TypeOfUseCode
+                    };
+
+        return query;
+    }
+
+    /// <summary>
+    /// Builds query for assessment status counts.
+    /// </summary>
+    private IQueryable<DataEntryAssessmentStatusCountProjection> BuildAssessmentStatusCountsQuery(
+        int workflowStageId,
+        List<int> zoneIds,
+        DashboardGridQueryParameters? queryParameters)
+    {
+        var statuses = new[] { "ASSESSED", "UNASSESSED", "PARTIALLY_ASSESSED", "UNDER_UNASSESSED" };
+        var properties = BuildFilteredPropertyQuery(queryParameters);
+
+        var baseQuery = from pwd in _context.PropertyWorkflowDetails.AsNoTracking()
+                        join p in properties on pwd.PropertyId equals p.Id
+                        join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                        join pas in _context.PropertyAssessmentStatuses.AsNoTracking() on p.PropertyAssessmentStatusId equals pas.Id
+                        join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into pcJoin
+                        from pc in pcJoin.DefaultIfEmpty()
+                        where pwd.WorkflowStageId == workflowStageId
+                              && zoneIds.Contains(w.ZoneId)
+                              && p.PropertyAssessmentStatusId != null
+                              && w.IsActive
+                              && pas.IsActive
+                              && statuses.Contains(pas.StatusName.ToUpper())
+                              && (pc == null || pc.IsActive)
+                        select new
+                        {
+                            p,
+                            w.ZoneId,
+                            StatusId = p.PropertyAssessmentStatusId!.Value,
+                            IsUnitOnly = pc != null && pc.PropertyCategoryName == ApartmentCategoryName
+                                        && !string.IsNullOrEmpty(p.PartitionNo)
+                        };
+
+        return baseQuery
+            .GroupBy(x => new { x.ZoneId, x.StatusId })
+            .Select(g => new DataEntryAssessmentStatusCountProjection
+            {
+                ZoneId = g.Key.ZoneId,
+                StatusId = g.Key.StatusId,
+                PropertyCount = g.Count(),
+                UnitsOnlyCount = g.Count(x => x.IsUnitOnly)
+            });
+    }
+
+    #endregion
+
+    #region Filter Helpers
+
+    private IQueryable<PropertyEntity> BuildFilteredPropertyQuery(DashboardGridQueryParameters? queryParameters)
+        => ApplyMainGridPropertyTypeFilters(
+            _context.PropertyMast
+                .AsNoTracking()
+                .Where(p => p.IsActive && !p.MarkedForDeletion),
+            queryParameters);
+
+    #endregion
+
+    #region Legacy Ward-Wise Summary Method
 
     public async Task<DataEntryGridSnapshotProjection> GetDataEntryGridSnapshotAsync(
         int dataEntryStageId,
@@ -521,51 +899,52 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
         return rows;
     }
 
-    public async Task<DataEntryWardWiseSummaryResponseDto> GetDataEntryWardWiseSummaryAsync(
-        int zoneId,
-        int workflowStageId,
-        int? pageNumber,
-        int? pageSize,
+    public async Task<DataEntryWardWiseSummaryProjection> ReadDataEntryWardWiseSummaryAsync(
+        WardWiseSummaryQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var context = await GetWardWiseSummaryContextAsync(zoneId, workflowStageId, pageNumber, pageSize, cancellationToken);
+        var zoneId = queryParameters.ZoneId;
+        var workflowStageId = queryParameters.WorkflowStageId;
+        var context = await GetWardWiseSummaryContextAsync(
+            zoneId,
+            workflowStageId,
+            queryParameters.PageNumber,
+            queryParameters.PageSize,
+            cancellationToken);
         if (!context.IsValid)
-            return new DataEntryWardWiseSummaryResponseDto();
+            return new DataEntryWardWiseSummaryProjection
+            {
+                PageNumber = context.PageNumber,
+                PageSize = context.PageSize
+            };
 
         var internalSurveyStageId = await GetInternalSurveyStageIdAsync(cancellationToken);
         var assessmentStageId = await GetAssessmentStageIdAsync(cancellationToken);
         var propertyPhotoTypeId = await GetPhotoTypeIdAsync(PropertyPhotoTypeCode, cancellationToken);
         var planPhotoTypeId = await GetPhotoTypeIdAsync(PlanPhotoTypeCode, cancellationToken);
 
-        var result = new DataEntryWardWiseSummaryResponseDto
-        {
-            ZoneId = context.ZoneId,
-            ZoneName = context.ZoneName,
-            PageNumber = context.PageNumber,
-            PageSize = context.PageSize,
-            TotalCount = context.TotalCount
-        };
-
-        var allWardData = await GetDataEntryWardDataBatchAsync(
+        return await ReadDataEntryWardDataBatchAsync(
             context.Wards,
+            context.ZoneId,
+            context.ZoneName,
+            context.PageNumber,
+            context.PageSize,
+            context.TotalCount,
             workflowStageId,
             internalSurveyStageId,
             assessmentStageId,
             propertyPhotoTypeId,
             planPhotoTypeId,
             cancellationToken);
-
-        var orderedWardData = allWardData
-            .OrderByDescending(HasWardSummaryData)
-            .ToList();
-
-        result.TotalRow = CalculateWardTotals(allWardData);
-        result.WardData = PageWardData(orderedWardData, context.PageNumber, context.PageSize);
-        return result;
     }
 
-    private async Task<List<DataEntryWardDataDto>> GetDataEntryWardDataBatchAsync(
+    private async Task<DataEntryWardWiseSummaryProjection> ReadDataEntryWardDataBatchAsync(
         List<(int WardId, string WardNo)> wards,
+        int zoneId,
+        string zoneName,
+        int pageNumber,
+        int pageSize,
+        int totalCount,
         int dataEntryStageId,
         int internalSurveyStageId,
         int assessmentStageId,
@@ -575,7 +954,20 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
     {
         var wardIds = wards.Select(w => w.WardId).ToList();
         if (!wardIds.Any())
-            return new List<DataEntryWardDataDto>();
+            return new DataEntryWardWiseSummaryProjection
+            {
+                ZoneId = zoneId,
+                ZoneName = zoneName,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                DataEntryStageId = dataEntryStageId,
+                InternalSurveyStageId = internalSurveyStageId,
+                AssessmentStageId = assessmentStageId,
+                PropertyPhotoTypeId = propertyPhotoTypeId,
+                PlanPhotoTypeId = planPhotoTypeId,
+                Wards = wards
+            };
 
         var stageIds = new[] { dataEntryStageId, internalSurveyStageId, assessmentStageId }
             .Where(id => id > 0)
@@ -591,7 +983,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                   && p.IsActive
                   && !p.MarkedForDeletion
                   && wardIds.Contains(p.WardId)
-            select new DataEntryWardStageRow
+            select new DataEntryWardStageProjection
             {
                 PropertyId = p.Id,
                 WorkflowStageId = pwd.WorkflowStageId,
@@ -613,7 +1005,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                      && !p.MarkedForDeletion
                      && wardIds.Contains(p.WardId))
             .GroupBy(p => p.WardId)
-            .Select(g => new DataEntryWardCountRow
+            .Select(g => new DataEntryWardCountProjection
             {
                 WardId = g.Key,
                 StructureCount = g.Count(p => p.PartitionNo == null || p.PartitionNo == ""),
@@ -638,14 +1030,14 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
                       && (pp.PhotoTypeId == propertyPhotoTypeId || pp.PhotoTypeId == planPhotoTypeId)
                       && pp.IsActive
                       && !pp.MarkedForDeletion
-                select new DataEntryWardPhotoRow
+                select new DataEntryCompletedPhotoProjection
                 {
                     PropertyId = pp.PropertyId,
                     PhotoTypeId = pp.PhotoTypeId
                 })
                 .Distinct()
                 .ToListAsync(cancellationToken)
-            : new List<DataEntryWardPhotoRow>();
+            : new List<DataEntryCompletedPhotoProjection>();
 
         var propertyTypeRows = dataEntryIds.Any()
             ? await (
@@ -691,274 +1083,25 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
 
         var statusIdsByName = await ReadAssessmentStatusIdsByNameAsync(cancellationToken);
 
-        return BuildDataEntryWardRows(
-            wards,
-            dataEntryStageId,
-            internalSurveyStageId,
-            assessmentStageId,
-            propertyPhotoTypeId,
-            planPhotoTypeId,
-            stageRows,
-            wardTotalRows,
-            completedPhotoRows,
-            propertyTypeRows,
-            propertyUseRows,
-            statusIdsByName);
-    }
-
-    private static List<DataEntryWardDataDto> BuildDataEntryWardRows(
-        List<(int WardId, string WardNo)> wards,
-        int dataEntryStageId,
-        int internalSurveyStageId,
-        int assessmentStageId,
-        int propertyPhotoTypeId,
-        int planPhotoTypeId,
-        List<DataEntryWardStageRow> stageRows,
-        List<DataEntryWardCountRow> wardTotalRows,
-        List<DataEntryWardPhotoRow> completedPhotoRows,
-        List<DataEntryPropertyTypeSourceProjection> propertyTypeRows,
-        List<DataEntryPropertyUseSourceProjection> propertyUseRows,
-        Dictionary<string, int> statusIdsByName)
-    {
-        var dataEntryRows = stageRows.Where(r => r.WorkflowStageId == dataEntryStageId).ToList();
-        var internalSurveyRows = stageRows.Where(r => r.WorkflowStageId == internalSurveyStageId).ToList();
-        var assessmentPropertyIds = assessmentStageId == 0
-            ? new HashSet<int>()
-            : stageRows
-                .Where(r => r.WorkflowStageId == assessmentStageId)
-                .Select(r => r.PropertyId)
-                .ToHashSet();
-        var dataEntryCountsByWard = CountByWard(dataEntryRows);
-        var internalCountsByWard = CountByWard(internalSurveyRows);
-        var wardTotalsByWard = wardTotalRows.ToDictionary(r => r.WardId, r => (r.StructureCount, r.UnitCount));
-        var dataEntryPropertyIdsByWard = dataEntryRows
-            .GroupBy(r => r.WardId)
-            .ToDictionary(g => g.Key, g => g.Select(r => r.PropertyId).Distinct().ToHashSet());
-        var dataEntryRowsByPropertyId = dataEntryRows
-            .GroupBy(r => r.PropertyId)
-            .ToDictionary(g => g.Key, g => g.First());
-        var photoCompleteByWard = CountCompletedPhotosByWard(
-            completedPhotoRows,
-            dataEntryRowsByPropertyId,
-            propertyPhotoTypeId);
-        var planCompleteByWard = CountCompletedPhotosByWard(
-            completedPhotoRows,
-            dataEntryRowsByPropertyId,
-            planPhotoTypeId);
-        var qaCompletedCountsByWard = assessmentStageId == 0
-            ? new Dictionary<int, (int StructureCount, int UnitCount)>()
-            : CountByWard(dataEntryRows.Where(r => assessmentPropertyIds.Contains(r.PropertyId)));
-        var qaPendingCountsByWard = assessmentStageId == 0
-            ? dataEntryCountsByWard
-            : CountByWard(dataEntryRows.Where(r => !assessmentPropertyIds.Contains(r.PropertyId)));
-        var propertyTypeByWard = BuildPropertyTypeBreakdownByWard(
-            wards.Select(w => w.WardId).ToList(),
-            propertyTypeRows,
-            propertyUseRows);
-        var assessmentStatusByWard = BuildAssessmentStatusBreakdownByWard(
-            wards.Select(w => w.WardId).ToList(),
-            dataEntryRows,
-            statusIdsByName);
-
-        return wards
-            .Select(ward =>
-            {
-                var dataEntryCounts = dataEntryCountsByWard.GetValueOrDefault(ward.WardId);
-                var internalCounts = internalCountsByWard.GetValueOrDefault(ward.WardId);
-                var totalCounts = wardTotalsByWard.GetValueOrDefault(ward.WardId);
-                var qaCompletedCounts = qaCompletedCountsByWard.GetValueOrDefault(ward.WardId);
-                var qaPendingCounts = qaPendingCountsByWard.GetValueOrDefault(ward.WardId);
-                var dataEntryPropertyCount = dataEntryPropertyIdsByWard.TryGetValue(ward.WardId, out var propertyIds)
-                    ? propertyIds.Count
-                    : 0;
-                var photoComplete = propertyPhotoTypeId == 0 ? 0 : photoCompleteByWard.GetValueOrDefault(ward.WardId);
-                var planComplete = planPhotoTypeId == 0 ? 0 : planCompleteByWard.GetValueOrDefault(ward.WardId);
-
-                return new DataEntryWardDataDto
-                {
-                    WardId = ward.WardId,
-                    WardNo = ward.WardNo,
-                    Structure = dataEntryCounts.StructureCount,
-                    Unit = dataEntryCounts.UnitCount,
-                    InternalSurvey = new InternalSurveyBreakdownDto
-                    {
-                        Structure = internalCounts.StructureCount,
-                        Unit = internalCounts.UnitCount
-                    },
-                    DataEntry = new DataEntryBreakdownDto
-                    {
-                        CompletedStructure = dataEntryCounts.StructureCount,
-                        CompletedUnit = dataEntryCounts.UnitCount,
-                        PendingStructure = Math.Max(0, totalCounts.StructureCount - dataEntryCounts.StructureCount),
-                        PendingUnit = Math.Max(0, totalCounts.UnitCount - dataEntryCounts.UnitCount)
-                    },
-                    Photo = new PhotoBreakdownDto
-                    {
-                        Complete = photoComplete,
-                        Pending = propertyPhotoTypeId == 0 ? dataEntryPropertyCount : dataEntryPropertyCount - photoComplete
-                    },
-                    Plan = new PlanBreakdownDto
-                    {
-                        Complete = planComplete,
-                        Pending = planPhotoTypeId == 0 ? dataEntryPropertyCount : dataEntryPropertyCount - planComplete
-                    },
-                    QualityAnalyst = new QualityAnalystBreakdownDto
-                    {
-                        CompletedStructure = assessmentStageId == 0 ? 0 : qaCompletedCounts.StructureCount,
-                        CompletedUnit = assessmentStageId == 0 ? 0 : qaCompletedCounts.UnitCount,
-                        PendingStructure = assessmentStageId == 0 ? dataEntryCounts.StructureCount : qaPendingCounts.StructureCount,
-                        PendingUnit = assessmentStageId == 0 ? dataEntryCounts.UnitCount : qaPendingCounts.UnitCount
-                    },
-                    PropertyType = propertyTypeByWard.GetValueOrDefault(ward.WardId) ?? new DataEntryPropertyTypeBreakdownDto(),
-                    AssessmentStatusBreakdown = assessmentStatusByWard.GetValueOrDefault(ward.WardId) ?? new AssessmentStatusBreakdownDto()
-                };
-            })
-            .ToList();
-    }
-
-    private static Dictionary<int, (int StructureCount, int UnitCount)> CountByWard(IEnumerable<DataEntryWardStageRow> rows)
-        => rows
-            .GroupBy(r => r.WardId)
-            .ToDictionary(
-                g => g.Key,
-                g =>
-                {
-                    var distinctRows = g
-                        .GroupBy(r => r.PropertyId)
-                        .Select(group => group.First())
-                        .ToList();
-
-                    return (
-                        distinctRows.Count(r => string.IsNullOrWhiteSpace(r.PartitionNo)),
-                        distinctRows.Count);
-                });
-
-    private static Dictionary<int, int> CountCompletedPhotosByWard(
-        List<DataEntryWardPhotoRow> completedPhotoRows,
-        Dictionary<int, DataEntryWardStageRow> dataEntryRowsByPropertyId,
-        int photoTypeId)
-    {
-        if (photoTypeId == 0)
-            return new Dictionary<int, int>();
-
-        return completedPhotoRows
-            .Where(row => row.PhotoTypeId == photoTypeId
-                          && dataEntryRowsByPropertyId.ContainsKey(row.PropertyId))
-            .GroupBy(row => dataEntryRowsByPropertyId[row.PropertyId].WardId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(row => row.PropertyId).Distinct().Count());
-    }
-
-    private static Dictionary<int, DataEntryPropertyTypeBreakdownDto> BuildPropertyTypeBreakdownByWard(
-        List<int> wardIds,
-        List<DataEntryPropertyTypeSourceProjection> properties,
-        List<DataEntryPropertyUseSourceProjection> details)
-    {
-        var result = wardIds.ToDictionary(id => id, _ => new DataEntryPropertyTypeBreakdownDto());
-        var mixedTypes = new HashSet<string>(new[] { "R-C", "C-R", "C-I", "I-C", "I-R", "R-I" }, StringComparer.OrdinalIgnoreCase);
-        var mixedPropertyIds = properties
-            .Where(p => p.PropertyType != null && mixedTypes.Contains(p.PropertyType))
-            .Select(p => p.PropertyId)
-            .ToHashSet();
-
-        foreach (var wardGroup in properties.Where(p => mixedPropertyIds.Contains(p.PropertyId)).GroupBy(p => p.ZoneId))
-            result[wardGroup.Key].Mixed = wardGroup.Select(p => p.PropertyId).Distinct().Count();
-
-        var remainingPropertiesByWard = properties
-            .Where(p => !mixedPropertyIds.Contains(p.PropertyId))
-            .GroupBy(p => p.ZoneId)
-            .ToDictionary(g => g.Key, g => g.Select(p => p.PropertyId).Distinct().ToHashSet());
-        var detailGroups = details
-            .Where(d => !mixedPropertyIds.Contains(d.PropertyId))
-            .GroupBy(d => new { WardId = d.ZoneId, d.PropertyId })
-            .ToList();
-        var propertiesWithDetailsByWard = detailGroups
-            .GroupBy(g => g.Key.WardId)
-            .ToDictionary(g => g.Key, g => g.Select(x => x.Key.PropertyId).Distinct().Count());
-
-        foreach (var group in detailGroups)
+        return new DataEntryWardWiseSummaryProjection
         {
-            var types = group.Select(x => x.Type?.Trim().ToUpperInvariant()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
-            var codes = group.Select(x => x.TypeOfUseCode?.Trim().ToUpperInvariant()).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
-            var breakdown = result[group.Key.WardId];
-
-            if (codes.Any(code => code == "UC"))
-                continue;
-            if (types.Any(type => type == "N" || type == "I"))
-                breakdown.PublicUtility++;
-            else if (types.Any(type => type == "R"))
-                breakdown.Residential++;
-            else if (types.Any(type => type == "C"))
-                breakdown.NonResidential++;
-        }
-
-        foreach (var (wardId, propertyIds) in remainingPropertiesByWard)
-        {
-            var propertiesWithDetails = propertiesWithDetailsByWard.GetValueOrDefault(wardId);
-            result[wardId].Residential += Math.Max(0, propertyIds.Count - propertiesWithDetails);
-        }
-
-        return result;
-    }
-
-    private static Dictionary<int, AssessmentStatusBreakdownDto> BuildAssessmentStatusBreakdownByWard(
-        List<int> wardIds,
-        List<DataEntryWardStageRow> dataEntryRows,
-        Dictionary<string, int> statusIdsByName)
-    {
-        var statusIds = statusIdsByName.Values.ToHashSet();
-        var countsByWardAndStatus = dataEntryRows
-            .Where(row => row.PropertyAssessmentStatusId.HasValue && statusIds.Contains(row.PropertyAssessmentStatusId.Value))
-            .GroupBy(row => row.WardId)
-            .ToDictionary(
-                g => g.Key,
-                g => g
-                    .GroupBy(row => row.PropertyAssessmentStatusId!.Value)
-                    .ToDictionary(
-                        sg => sg.Key,
-                        sg =>
-                        {
-                            var rows = sg.ToList();
-                            var unitCount = rows.Count(IsApartmentUnit);
-                            return (StructureCount: rows.Count - unitCount, UnitCount: unitCount);
-                        }));
-
-        return wardIds.ToDictionary(
-            wardId => wardId,
-            wardId =>
-            {
-                countsByWardAndStatus.TryGetValue(wardId, out var wardCounts);
-                wardCounts ??= new Dictionary<int, (int StructureCount, int UnitCount)>();
-                return new AssessmentStatusBreakdownDto
-                {
-                    Assessed = GetStatusCounts(statusIdsByName, wardCounts, "ASSESSED"),
-                    Unassessed = GetStatusCounts(statusIdsByName, wardCounts, "UNASSESSED"),
-                    NewlyAssessedFound = GetStatusCounts(statusIdsByName, wardCounts, "PARTIALLY_ASSESSED"),
-                    AssessmentInProcess = GetStatusCounts(statusIdsByName, wardCounts, "UNDER_UNASSESSED")
-                };
-            });
-    }
-
-    private static bool IsApartmentUnit(DataEntryWardStageRow row)
-        => row.CategoryName == ApartmentCategoryName
-           && !string.IsNullOrWhiteSpace(row.PartitionNo);
-
-    private static StructureUnitCountDto GetStatusCounts(
-        Dictionary<string, int> statusIdsByName,
-        Dictionary<int, (int StructureCount, int UnitCount)> countsByStatusId,
-        string statusName)
-    {
-        if (!statusIdsByName.TryGetValue(statusName, out var statusId) ||
-            !countsByStatusId.TryGetValue(statusId, out var counts))
-        {
-            return new StructureUnitCountDto();
-        }
-
-        return new StructureUnitCountDto
-        {
-            StructureCount = counts.StructureCount,
-            UnitCount = counts.UnitCount
+            ZoneId = zoneId,
+            ZoneName = zoneName,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            DataEntryStageId = dataEntryStageId,
+            InternalSurveyStageId = internalSurveyStageId,
+            AssessmentStageId = assessmentStageId,
+            PropertyPhotoTypeId = propertyPhotoTypeId,
+            PlanPhotoTypeId = planPhotoTypeId,
+            Wards = wards,
+            StageRows = stageRows,
+            WardTotalRows = wardTotalRows,
+            CompletedPhotoRows = completedPhotoRows,
+            PropertyTypeRows = propertyTypeRows,
+            PropertyUseRows = propertyUseRows,
+            AssessmentStatusIdsByName = statusIdsByName
         };
     }
 
@@ -978,127 +1121,7 @@ public class DataEntryStageRepository : WorkflowStageBaseRepository, IDataEntryS
     private Task<int> GetAssessmentStageIdAsync(CancellationToken cancellationToken)
         => GetStageIdByNameAsync(AssessmentStageName, cancellationToken);
 
-    private static bool HasWardSummaryData(DataEntryWardDataDto ward)
-        => ward.Structure > 0
-           || ward.Unit > 0
-           || ward.InternalSurvey.Structure > 0
-           || ward.InternalSurvey.Unit > 0
-           || ward.DataEntry.CompletedStructure > 0
-           || ward.DataEntry.CompletedUnit > 0
-           || ward.DataEntry.PendingStructure > 0
-           || ward.DataEntry.PendingUnit > 0
-           || ward.Photo.Complete > 0
-           || ward.Photo.Pending > 0
-           || ward.Plan.Complete > 0
-           || ward.Plan.Pending > 0
-           || ward.QualityAnalyst.CompletedStructure > 0
-           || ward.QualityAnalyst.CompletedUnit > 0
-           || ward.QualityAnalyst.PendingStructure > 0
-           || ward.QualityAnalyst.PendingUnit > 0
-           || ward.PropertyType.Residential > 0
-           || ward.PropertyType.NonResidential > 0
-           || ward.PropertyType.Mixed > 0
-           || ward.PropertyType.PublicUtility > 0
-           || ward.AssessmentStatusBreakdown.Assessed.StructureCount > 0
-           || ward.AssessmentStatusBreakdown.Assessed.UnitCount > 0
-           || ward.AssessmentStatusBreakdown.Unassessed.StructureCount > 0
-           || ward.AssessmentStatusBreakdown.Unassessed.UnitCount > 0
-           || ward.AssessmentStatusBreakdown.NewlyAssessedFound.StructureCount > 0
-           || ward.AssessmentStatusBreakdown.NewlyAssessedFound.UnitCount > 0
-           || ward.AssessmentStatusBreakdown.AssessmentInProcess.StructureCount > 0
-           || ward.AssessmentStatusBreakdown.AssessmentInProcess.UnitCount > 0;
-
-    private DataEntryWardDataDto CalculateWardTotals(List<DataEntryWardDataDto> wardData)
-    {
-        return new DataEntryWardDataDto
-        {
-            WardNo = "TOTAL",
-            Structure = wardData.Sum(w => w.Structure),
-            Unit = wardData.Sum(w => w.Unit),
-            InternalSurvey = new InternalSurveyBreakdownDto
-            {
-                Structure = wardData.Sum(w => w.InternalSurvey.Structure),
-                Unit = wardData.Sum(w => w.InternalSurvey.Unit)
-            },
-            DataEntry = new DataEntryBreakdownDto
-            {
-                CompletedStructure = wardData.Sum(w => w.DataEntry.CompletedStructure),
-                CompletedUnit = wardData.Sum(w => w.DataEntry.CompletedUnit),
-                PendingStructure = wardData.Sum(w => w.DataEntry.PendingStructure),
-                PendingUnit = wardData.Sum(w => w.DataEntry.PendingUnit)
-            },
-            Photo = new PhotoBreakdownDto
-            {
-                Complete = wardData.Sum(w => w.Photo.Complete),
-                Pending = wardData.Sum(w => w.Photo.Pending)
-            },
-            Plan = new PlanBreakdownDto
-            {
-                Complete = wardData.Sum(w => w.Plan.Complete),
-                Pending = wardData.Sum(w => w.Plan.Pending)
-            },
-            QualityAnalyst = new QualityAnalystBreakdownDto
-            {
-                CompletedStructure = wardData.Sum(w => w.QualityAnalyst.CompletedStructure),
-                CompletedUnit = wardData.Sum(w => w.QualityAnalyst.CompletedUnit),
-                PendingStructure = wardData.Sum(w => w.QualityAnalyst.PendingStructure),
-                PendingUnit = wardData.Sum(w => w.QualityAnalyst.PendingUnit)
-            },
-            PropertyType = new DataEntryPropertyTypeBreakdownDto
-            {
-                Residential = wardData.Sum(w => w.PropertyType.Residential),
-                NonResidential = wardData.Sum(w => w.PropertyType.NonResidential),
-                Mixed = wardData.Sum(w => w.PropertyType.Mixed),
-                PublicUtility = wardData.Sum(w => w.PropertyType.PublicUtility)
-            },
-            AssessmentStatusBreakdown = new AssessmentStatusBreakdownDto
-            {
-                Assessed = new StructureUnitCountDto
-                {
-                    StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Assessed.StructureCount),
-                    UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Assessed.UnitCount)
-                },
-                Unassessed = new StructureUnitCountDto
-                {
-                    StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Unassessed.StructureCount),
-                    UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.Unassessed.UnitCount)
-                },
-                NewlyAssessedFound = new StructureUnitCountDto
-                {
-                    StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.NewlyAssessedFound.StructureCount),
-                    UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.NewlyAssessedFound.UnitCount)
-                },
-                AssessmentInProcess = new StructureUnitCountDto
-                {
-                    StructureCount = wardData.Sum(w => w.AssessmentStatusBreakdown.AssessmentInProcess.StructureCount),
-                    UnitCount = wardData.Sum(w => w.AssessmentStatusBreakdown.AssessmentInProcess.UnitCount)
-                }
-            }
-        };
-    }
-
-    private sealed class DataEntryWardStageRow
-    {
-        public int PropertyId { get; set; }
-        public int WorkflowStageId { get; set; }
-        public int WardId { get; set; }
-        public string? PartitionNo { get; set; }
-        public int? PropertyTypeId { get; set; }
-        public int? CategoryId { get; set; }
-        public string? CategoryName { get; set; }
-        public int? PropertyAssessmentStatusId { get; set; }
-    }
-
-    private sealed class DataEntryWardCountRow
-    {
-        public int WardId { get; set; }
-        public int StructureCount { get; set; }
-        public int UnitCount { get; set; }
-    }
-
-    private sealed class DataEntryWardPhotoRow
-    {
-        public int PropertyId { get; set; }
-        public int PhotoTypeId { get; set; }
-    }
+    #endregion
 }
+
+

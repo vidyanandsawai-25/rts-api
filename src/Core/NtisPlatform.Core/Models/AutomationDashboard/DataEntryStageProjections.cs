@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// <summary>
 /// Property row used for Data Entry dashboard stage aggregation.
 /// </summary>
-public sealed class DataEntryStagePropertyProjection
+public  class DataEntryStagePropertyProjection
 {
     public int PropertyId { get; set; }
     public int WorkflowStageId { get; set; }
@@ -14,7 +14,7 @@ public sealed class DataEntryStagePropertyProjection
 /// <summary>
 /// Data Entry grid count row grouped by zone.
 /// </summary>
-public sealed class DataEntryZoneCountProjection
+public  class DataEntryZoneCountProjection
 {
     public int ZoneId { get; set; }
     public int StructureCount { get; set; }
@@ -24,7 +24,7 @@ public sealed class DataEntryZoneCountProjection
 /// <summary>
 /// Property id that has a completed photo or plan.
 /// </summary>
-public sealed class DataEntryCompletedPhotoProjection
+public  class DataEntryCompletedPhotoProjection
 {
     public int PropertyId { get; set; }
     public int PhotoTypeId { get; set; }
@@ -33,7 +33,7 @@ public sealed class DataEntryCompletedPhotoProjection
 /// <summary>
 /// Property type source row used for Data Entry dashboard type grouping.
 /// </summary>
-public sealed class DataEntryPropertyTypeSourceProjection
+public  class DataEntryPropertyTypeSourceProjection
 {
     public int PropertyId { get; set; }
     public int ZoneId { get; set; }
@@ -43,7 +43,7 @@ public sealed class DataEntryPropertyTypeSourceProjection
 /// <summary>
 /// Property use source row used for Data Entry dashboard type grouping.
 /// </summary>
-public sealed class DataEntryPropertyUseSourceProjection
+public  class DataEntryPropertyUseSourceProjection
 {
     public int PropertyId { get; set; }
     public int ZoneId { get; set; }
@@ -54,7 +54,7 @@ public sealed class DataEntryPropertyUseSourceProjection
 /// <summary>
 /// Assessment status count row grouped by zone and status.
 /// </summary>
-public sealed class DataEntryAssessmentStatusCountProjection
+public  class DataEntryAssessmentStatusCountProjection
 {
     public int ZoneId { get; set; }
     public int StatusId { get; set; }
@@ -65,7 +65,7 @@ public sealed class DataEntryAssessmentStatusCountProjection
 /// <summary>
 /// One-shot raw data snapshot for the Data Entry grid.
 /// </summary>
-public sealed class DataEntryGridSnapshotProjection
+public  class DataEntryGridSnapshotProjection
 {
     public bool WorkflowStageExists { get; set; }
     public int InternalSurveyStageId { get; set; }
@@ -80,4 +80,47 @@ public sealed class DataEntryGridSnapshotProjection
     public List<DataEntryPropertyUseSourceProjection> PropertyUseSources { get; set; } = new();
     public Dictionary<string, int> AssessmentStatusIdsByName { get; set; } = new();
     public List<DataEntryAssessmentStatusCountProjection> AssessmentStatusCounts { get; set; } = new();
+}
+
+/// <summary>
+/// Raw ward-wise data snapshot used by the application service to build Data Entry ward summaries.
+/// </summary>
+public  class DataEntryWardWiseSummaryProjection
+{
+    public int ZoneId { get; set; }
+    public string ZoneName { get; set; } = string.Empty;
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
+    public int DataEntryStageId { get; set; }
+    public int InternalSurveyStageId { get; set; }
+    public int AssessmentStageId { get; set; }
+    public int PropertyPhotoTypeId { get; set; }
+    public int PlanPhotoTypeId { get; set; }
+    public List<(int WardId, string WardNo)> Wards { get; set; } = new();
+    public List<DataEntryWardStageProjection> StageRows { get; set; } = new();
+    public List<DataEntryWardCountProjection> WardTotalRows { get; set; } = new();
+    public List<DataEntryCompletedPhotoProjection> CompletedPhotoRows { get; set; } = new();
+    public List<DataEntryPropertyTypeSourceProjection> PropertyTypeRows { get; set; } = new();
+    public List<DataEntryPropertyUseSourceProjection> PropertyUseRows { get; set; } = new();
+    public Dictionary<string, int> AssessmentStatusIdsByName { get; set; } = new();
+}
+
+public  class DataEntryWardStageProjection
+{
+    public int PropertyId { get; set; }
+    public int WorkflowStageId { get; set; }
+    public int WardId { get; set; }
+    public string? PartitionNo { get; set; }
+    public int? PropertyTypeId { get; set; }
+    public int? CategoryId { get; set; }
+    public string? CategoryName { get; set; }
+    public int? PropertyAssessmentStatusId { get; set; }
+}
+
+public  class DataEntryWardCountProjection
+{
+    public int WardId { get; set; }
+    public int StructureCount { get; set; }
+    public int UnitCount { get; set; }
 }

@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Application.Interfaces.AutomationDashboard;
@@ -12,8 +11,7 @@ public interface IAssessmentStageService
     /// Builds Assessment dashboard grid data for the requested tab type.
     /// </summary>
     Task<AssessmentGridResponseDto> GetAssessmentGridDataAsync(
-        PropertySearchRequestDto? searchRequest,
-        string type,
+        AssessmentGridQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -23,3 +21,4 @@ public interface IAssessmentStageService
         SendToApproveRequestDto request,
         CancellationToken cancellationToken = default);
 }
+

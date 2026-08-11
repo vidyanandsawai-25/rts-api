@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Application.Interfaces.AutomationDashboard;
@@ -12,16 +11,14 @@ public interface IInternalSurveyStageService
     /// Builds Internal Survey dashboard grid data from batched repository reads.
     /// </summary>
     Task<InternalSurveyGridResponseDto> GetInternalSurveyGridDataAsync(
-        PropertySearchRequestDto? searchRequest = null,
+        DashboardGridQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Builds Internal Survey ward-wise summary data from batched repository reads.
     /// </summary>
     Task<InternalSurveyWardWiseSummaryResponseDto> GetInternalSurveyWardWiseSummaryAsync(
-        int zoneId,
-        int workflowStageId,
-        int? pageNumber,
-        int? pageSize,
+        WardWiseSummaryQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 }
+
