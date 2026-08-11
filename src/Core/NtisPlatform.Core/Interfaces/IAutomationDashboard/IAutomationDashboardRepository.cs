@@ -29,14 +29,21 @@ public interface IAutomationDashboardRepository
     /// Gets common property details sub-grid data for a zone and workflow stage.
     /// </summary>
     Task<SubGridDataProjection> GetSubGridDataAsync(
-        SubGridFilterRequestDto query,
+        SubGridQueryParameters query,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets common property details sub-grid data for a ward and workflow stage.
+    /// </summary>
+    Task<SubGridDataProjection> GetSubGridDataAsync(
+        WardSubGridQueryParameters query,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets Assessment stage properties that have not yet entered the signature approval table.
     /// </summary>
     Task<SubGridDataProjection> GetPendingAssessmentPropsAsync(
-        SubGridFilterRequestDto query,
+        PendingAssessmentQueryParameters query,
         CancellationToken cancellationToken = default);
 
     /// <summary>

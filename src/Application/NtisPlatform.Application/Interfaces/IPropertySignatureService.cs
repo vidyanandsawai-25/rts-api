@@ -86,19 +86,14 @@ public interface IPropertySignatureService
     /// Gets building-level property signature sub-grid data for a ward and workflow stage.
     /// </summary>
     Task<PropertySignaturePagedResultDto<PropertySignatureSubGridDto>> GetSubGridAsync(
-        int wardId,
-        int workflowStageId,
-        int pageNumber,
-        int pageSize,
+        PropertySignatureBuildingWiseQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets property-level signature rows for a building number, including all partitions.
     /// </summary>
     Task<PropertySignaturePagedResultDto<PropertySignaturePropertyWiseDto>> GetPropertyWiseDataAsync(
-        string propertyNo,
-        int pageNumber,
-        int pageSize,
+        PropertySignaturePropertyWiseQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>

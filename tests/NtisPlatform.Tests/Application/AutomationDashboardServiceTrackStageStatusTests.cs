@@ -25,12 +25,10 @@ public class AutomationDashboardServiceTrackStageStatusTests
 
         var service = new AutomationDashboardService(
             repository.Object,
-            Mock.Of<IDataEntryStageRepository>(),
             Mock.Of<IGeoSequencingStageService>(),
             Mock.Of<IInternalSurveyStageService>(),
             Mock.Of<IDataEntryStageService>(),
-            Mock.Of<IAssessmentStageService>(),
-            Mock.Of<IMapper>());
+            Mock.Of<IAssessmentStageService>());
 
         var result = await service.TrackStageStatusAsync(25, CancellationToken.None);
 

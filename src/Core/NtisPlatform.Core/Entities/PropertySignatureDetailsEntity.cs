@@ -26,7 +26,10 @@ public class PropertySignatureDetailsEntity : BaseEntity
 
     /// <summary>Optional approval note or comment from the signing user</summary>
     public string? NoticeNo { get; set; }
-  
+
+    /// <summary>Current signature/approval status (e.g., PendingToClerk, ApprovedByClerk, RejectedByClerk, etc.)</summary>
+    public string? SignStatus { get; set; } 
+
     // Navigation Properties
 
     [ForeignKey(nameof(UserId))]

@@ -803,34 +803,55 @@ public class PropertyMapMasterService : BaseCommonCrudService<PropertyMapMasterE
         int skip = (pageNumber - 1) * pageSize;
 
         List<PropertyMastOldEntity> entities;
-        query = query.OrderByDescending(x =>
-            // Tier 1: Exact Property No / Ward / Composite Code Match (Highest Priority: 1000 pts)
-            (hasSearchTerm && (
-                ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
-                ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
-                x.OldPropertyNo == st ||
-                x.OldPartitionNo == st ||
-                x.OldEgovNo == st
-            ) ? 1000 : 0)
+        var searchTermOnly = hasSearchTerm
+                             && !hasOwnerName
+                             && !hasOwnerNameEng
+                             && !hasMobileNo
+                             && !hasAddress
+                             && !hasSocietyName
+                             && !hasOccupierName
+                             && !hasBuilderName
+                             && !hasConstrYear;
 
-            // Tier 2: Exact Parameter Matches (500 pts each)
-            + (hasOwnerName && x.OldOwnerName == ownerName ? 500 : 0)
-            + (hasOwnerNameEng && x.OldOwnerNameEnglish == ownerNameEng ? 500 : 0)
-            + (hasMobileNo && x.OldMobileNo == mobileNo ? 500 : 0)
+        query = searchTermOnly
+            ? query
+                .OrderByDescending(x =>
+                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
+                    ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
+                    x.OldPropertyNo == st ||
+                    x.OldPartitionNo == st ||
+                    x.OldEgovNo == st)
+                .ThenBy(x => x.Id)
+            : query
+                .OrderByDescending(x =>
+                    // Tier 1: Exact Property No / Ward / Composite Code Match (Highest Priority: 1000 pts)
+                    (hasSearchTerm && (
+                        ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "-" + (x.OldPartitionNo ?? "")) == st ||
+                        ((x.OldWardNo ?? "") + "-" + (x.OldPropertyNo ?? "") + "/" + (x.OldPartitionNo ?? "")) == st ||
+                        x.OldPropertyNo == st ||
+                        x.OldPartitionNo == st ||
+                        x.OldEgovNo == st
+                    ) ? 1000 : 0)
 
-            // Tier 3: Unified Search Term Partial Matches (200 pts each)
-            + (hasSearchTerm && x.OldOwnerName != null && x.OldOwnerName.Contains(st!) ? 200 : 0)
-            + (hasSearchTerm && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(st!) ? 200 : 0)
-            + (hasSearchTerm && x.OldMobileNo != null && x.OldMobileNo.Contains(st!) ? 200 : 0)
+                    // Tier 2: Exact Parameter Matches (500 pts each)
+                    + (hasOwnerName && x.OldOwnerName == ownerName ? 500 : 0)
+                    + (hasOwnerNameEng && x.OldOwnerNameEnglish == ownerNameEng ? 500 : 0)
+                    + (hasMobileNo && x.OldMobileNo == mobileNo ? 500 : 0)
 
-            // Tier 4: Specific Parameter Partial Matches (100 pts each)
-            + (hasOwnerName && x.OldOwnerName != null && x.OldOwnerName.Contains(ownerName!) ? 100 : 0)
-            + (hasOwnerNameEng && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(ownerNameEng!) ? 100 : 0)
-            + (hasMobileNo && x.OldMobileNo != null && x.OldMobileNo.Contains(mobileNo!) ? 100 : 0)
-            + (hasAddress && x.OldAddress != null && x.OldAddress.Contains(address!) ? 50 : 0)
-            + (hasSocietyName && x.OldSocietyName != null && x.OldSocietyName.Contains(societyName!) ? 50 : 0)
-            + (hasOccupierName && x.OldOccupierName != null && x.OldOccupierName.Contains(occupierName!) ? 50 : 0)
-        ).ThenBy(x => x.Id);
+                    // Tier 3: Unified Search Term Partial Matches (200 pts each)
+                    + (hasSearchTerm && x.OldOwnerName != null && x.OldOwnerName.Contains(st!) ? 200 : 0)
+                    + (hasSearchTerm && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(st!) ? 200 : 0)
+                    + (hasSearchTerm && x.OldMobileNo != null && x.OldMobileNo.Contains(st!) ? 200 : 0)
+
+                    // Tier 4: Specific Parameter Partial Matches (100 pts each)
+                    + (hasOwnerName && x.OldOwnerName != null && x.OldOwnerName.Contains(ownerName!) ? 100 : 0)
+                    + (hasOwnerNameEng && x.OldOwnerNameEnglish != null && x.OldOwnerNameEnglish.Contains(ownerNameEng!) ? 100 : 0)
+                    + (hasMobileNo && x.OldMobileNo != null && x.OldMobileNo.Contains(mobileNo!) ? 100 : 0)
+                    + (hasAddress && x.OldAddress != null && x.OldAddress.Contains(address!) ? 50 : 0)
+                    + (hasSocietyName && x.OldSocietyName != null && x.OldSocietyName.Contains(societyName!) ? 50 : 0)
+                    + (hasOccupierName && x.OldOccupierName != null && x.OldOccupierName.Contains(occupierName!) ? 50 : 0)
+                )
+                .ThenBy(x => x.Id);
 
         entities = await query
             .Skip(skip)

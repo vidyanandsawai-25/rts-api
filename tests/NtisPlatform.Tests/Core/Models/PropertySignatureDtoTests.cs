@@ -48,4 +48,12 @@ public class PropertySignatureDtoTests
 
         Assert.Equal(string.Empty, dto.ZoneNo);
     }
+
+    [Fact]
+    public void SignAuthorityClassificationDto_DefaultsTypeIdToZero()
+    {
+        var dto = new SignAuthorityClassificationDto();
+
+        Assert.Equal(0, dto.TypeId);
+    }
 }

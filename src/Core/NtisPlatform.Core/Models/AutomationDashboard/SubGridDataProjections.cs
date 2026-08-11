@@ -3,7 +3,7 @@ namespace NtisPlatform.Core.Models;
 /// <summary>
 /// Raw database snapshot used by the Automation sub-grid service mapper.
 /// </summary>
-public sealed class SubGridDataProjection
+public  class SubGridDataProjection
 {
     public int WorkflowStageId { get; set; }
     public string WorkflowStageName { get; set; } = string.Empty;
@@ -33,7 +33,7 @@ public sealed class SubGridDataProjection
 /// <summary>
 /// Raw property row for the sub-grid.
 /// </summary>
-public sealed class SubGridPropertyProjection
+public  class SubGridPropertyProjection
 {
     public int Id { get; set; }
     public int WardId { get; set; }
@@ -52,32 +52,32 @@ public sealed class SubGridPropertyProjection
     public string AssessmentStatusName { get; set; } = string.Empty;
 }
 
-public sealed class SubGridCountProjection
+public  class SubGridCountProjection
 {
     public int PropertyId { get; set; }
     public int Count { get; set; }
 }
 
-public sealed class SubGridDocumentProjection
+public  class SubGridDocumentProjection
 {
     public int PropertyId { get; set; }
     public string? DocumentGuid { get; set; }
 }
 
-public sealed class SubGridPropertyMapProjection
+public  class SubGridPropertyMapProjection
 {
     public int PropertyIdNew { get; set; }
     public int? PropertyIdOld { get; set; }
 }
 
-public sealed class SubGridNewPropertyDetailProjection
+public  class SubGridNewPropertyDetailProjection
 {
     public int Id { get; set; }
     public decimal Area { get; set; }
     public string Use { get; set; } = string.Empty;
 }
 
-public sealed class SubGridOldPropertyDetailProjection
+public  class SubGridOldPropertyDetailProjection
 {
     public int Id { get; set; }
     public decimal Area { get; set; }
@@ -85,13 +85,13 @@ public sealed class SubGridOldPropertyDetailProjection
     public double OldRV { get; set; }
 }
 
-public sealed class SubGridTaxValueProjection
+public  class SubGridTaxValueProjection
 {
     public int PropertyId { get; set; }
     public decimal Amount { get; set; }
 }
 
-public sealed class SubGridAssessmentDetailProjection
+public  class SubGridAssessmentDetailProjection
 {
     public int PropertyId { get; set; }
     public DateTime? PartOCDate { get; set; }

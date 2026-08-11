@@ -1,411 +1,317 @@
+using Microsoft.Extensions.Logging;
+using NtisPlatform.Core.Models.AutomationDashboard;
+using NtisPlatform.Application.Helpers.AutomationDashboard;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
+using NtisPlatform.Core.Exceptions;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
-using NtisPlatform.Core.Models.AutomationDashboard;
 
-namespace NtisPlatform.Application.Services;
+namespace NtisPlatform.Application.Services.AutomationDashboard;
 
 /// <summary>
 /// Service for Internal Survey dashboard grid assembly and summary rules.
+/// Implements optimized data aggregation with proper exception handling and logging.
 /// </summary>
 public class InternalSurveyStageService : IInternalSurveyStageService
 {
-    private static readonly HashSet<string> MixedPropertyTypes = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "R-C", "C-R", "C-I", "I-C", "I-R", "R-I"
-    };
-
     private readonly IInternalSurveyStageRepository _repository;
+    private readonly ILogger<InternalSurveyStageService> _logger;
 
-    public InternalSurveyStageService(IInternalSurveyStageRepository repository)
+    public InternalSurveyStageService(
+        IInternalSurveyStageRepository repository,
+        ILogger<InternalSurveyStageService> logger)
     {
-        _repository = repository;
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // Builds the Internal Survey grid while keeping aggregation rules in the service.
-    public async Task<InternalSurveyGridResponseDto> GetInternalSurveyGridDataAsync(PropertySearchRequestDto? searchRequest = null,CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Builds the Internal Survey grid while keeping aggregation rules in the service.
+    /// Implements parallel data fetching and proper exception handling.
+    /// </summary>
+    public async Task<InternalSurveyGridResponseDto> GetInternalSurveyGridDataAsync(
+        DashboardGridQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
     {
-        if (searchRequest?.WorkflowStageId == null)
-            return new InternalSurveyGridResponseDto();
-
-        var snapshot = await BuildGridSnapshotAsync(searchRequest.WorkflowStageId.Value,searchRequest,cancellationToken);
-
-        if (!snapshot.WorkflowStageExists)
-            return new InternalSurveyGridResponseDto();
-
-        var response = new InternalSurveyGridResponseDto();
-        if (!snapshot.Zones.Any())
+        try
         {
-            response.TotalRow = new InternalSurveyDivisionDataDto { DivisionName = "TOTAL" };
-            return response;
+            // Fetch zones
+            var zones = await _repository.ReadZonesAsync(null, cancellationToken);
+            if (!zones.Any())
+            {
+                _logger.LogInformation("No active zones found for request");
+                return new InternalSurveyGridResponseDto
+                {
+                    TotalRow = new InternalSurveyDivisionDataDto { DivisionName = "TOTAL" }
+                };
+            }
+
+            var zoneIds = zones.Select(z => z.ZoneId).ToList();
+
+            // Fetch all required data in parallel for better performance
+            var (geoProperties, internalProperties, propertyUses, photoCounts, geoStageId, assessedId, unassessedId) =
+                await FetchGridDataAsync(queryParameters, zoneIds, cancellationToken);
+
+            // Build property use groups using common helper
+            var propertyUseGroups = WorkflowStagePropertyTypeBuilder.BuildPropertyUseGroups(
+                propertyUses,
+                p => p.PropertyId,
+                p => p.Type,
+                p => p.TypeOfUseCode);
+
+            // Group properties by zone for efficient lookup
+            var geoPropertiesByZone = geoProperties
+                .GroupBy(p => p.ZoneId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var internalPropertiesByZone = internalProperties
+                .GroupBy(p => p.ZoneId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var photoCountsByZone = photoCounts
+                .Where(p => p.ZoneId.HasValue)
+                .ToDictionary(p => p.ZoneId!.Value, p => p.Count);
+
+            // Build division data
+            var result = new InternalSurveyGridResponseDto();
+            foreach (var (zoneId, zoneName, zoneNo) in zones)
+            {
+                geoPropertiesByZone.TryGetValue(zoneId, out var geoProps);
+                internalPropertiesByZone.TryGetValue(zoneId, out var internalProps);
+                photoCountsByZone.TryGetValue(zoneId, out var photoCount);
+
+                result.DivisionData.Add(WorkflowStageDataBuilder.BuildInternalSurveyDivisionData(
+                    zoneId,
+                    zoneName,
+                    zoneNo,
+                    geoProps ?? new List<InternalSurveyStagePropertyProjection>(),
+                    internalProps ?? new List<InternalSurveyStagePropertyProjection>(),
+                    propertyUseGroups,
+                    assessedId,
+                    unassessedId,
+                    photoCount));
+            }
+
+            result.TotalRow = CalculateDivisionTotals(result.DivisionData);
+
+            _logger.LogInformation(
+                "Successfully retrieved Internal Survey grid data for stage {WorkflowStageId} with {DivisionCount} divisions",
+                queryParameters.WorkflowStageId,
+                result.DivisionData.Count);
+
+            return result;
         }
-
-        var geoPropertiesByZone = snapshot.GeoSequencingProperties
-            .GroupBy(p => p.ZoneId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-        var internalPropertiesByZone = snapshot.InternalSurveyProperties
-            .GroupBy(p => p.ZoneId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-        var propertyUseGroups = BuildPropertyUseGroups(snapshot.InternalSurveyPropertyUses);
-        var photoCountsByZone = snapshot.PhotoCountsByZone
-            .Where(p => p.ZoneId.HasValue)
-            .ToDictionary(p => p.ZoneId!.Value, p => p.Count);
-
-        foreach (var (zoneId, zoneName, zoneNo) in snapshot.Zones)
+        catch (Exception ex)
         {
-            geoPropertiesByZone.TryGetValue(zoneId, out var geoProperties);
-            internalPropertiesByZone.TryGetValue(zoneId, out var internalProperties);
-            photoCountsByZone.TryGetValue(zoneId, out var photoCount);
-
-            response.DivisionData.Add(BuildDivisionData(
-                zoneId,
-                zoneName,
-                zoneNo,
-                geoProperties ?? new List<InternalSurveyStagePropertyProjection>(),
-                internalProperties ?? new List<InternalSurveyStagePropertyProjection>(),
-                propertyUseGroups,
-                snapshot.AssessedStatusId,
-                snapshot.UnassessedStatusId,
-                photoCount));
+            _logger.LogError(ex, "Error retrieving Internal Survey grid data");
+            throw;
         }
-
-        response.TotalRow = CalculateTotals(response.DivisionData);
-        return response;
     }
 
-    // Builds the Internal Survey ward-wise summary from one repository snapshot.
+    /// <summary>
+    /// Builds the Internal Survey ward-wise summary with proper validation and exception handling.
+    /// Implements parallel data fetching for better performance.
+    /// </summary>
     public async Task<InternalSurveyWardWiseSummaryResponseDto> GetInternalSurveyWardWiseSummaryAsync(
-        int zoneId,int workflowStageId,int? pageNumber,int? pageSize,CancellationToken cancellationToken = default)
+        WardWiseSummaryQueryParameters queryParameters,
+        CancellationToken cancellationToken = default)
     {
-        var (normalizedPageNumber, normalizedPageSize) = WorkflowStagePagingHelper.NormalizePaging(pageNumber, pageSize);
-        var snapshot = await BuildWardWiseSnapshotAsync(zoneId,workflowStageId,cancellationToken);
-
-        if (!snapshot.IsValid)
-            return new InternalSurveyWardWiseSummaryResponseDto();
-
-        var response = new InternalSurveyWardWiseSummaryResponseDto
+        try
         {
-            ZoneId = snapshot.ZoneId,
-            ZoneName = snapshot.ZoneName,
-            PageNumber = normalizedPageNumber,
-            PageSize = normalizedPageSize,
-            TotalCount = snapshot.Wards.Count
-        };
+            // Build context
+            var (normalizedPageNumber, normalizedPageSize) = WorkflowStagePagingHelper.NormalizePaging(queryParameters.PageNumber, queryParameters.PageSize);
+            var context = await BuildWardWiseContextAsync(
+                queryParameters.ZoneId,
+                normalizedPageNumber,
+                normalizedPageSize,
+                cancellationToken);
 
-        var geoPropertiesByWard = snapshot.GeoSequencingProperties
-            .GroupBy(p => p.WardId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-        var internalPropertiesByWard = snapshot.InternalSurveyProperties
-            .GroupBy(p => p.WardId)
-            .ToDictionary(g => g.Key, g => g.ToList());
-        var propertyUseGroups = BuildPropertyUseGroups(snapshot.InternalSurveyPropertyUses);
-        var photoCountsByWard = snapshot.PhotoCountsByWard
-            .Where(p => p.WardId.HasValue)
-            .ToDictionary(p => p.WardId!.Value, p => p.Count);
-        var allWardData = new List<InternalSurveyWardDataDto>(snapshot.Wards.Count);
+            var zoneIds = new List<int> { queryParameters.ZoneId };
 
-        foreach (var (wardId, wardNo) in snapshot.Wards)
-        {
-            geoPropertiesByWard.TryGetValue(wardId, out var geoProperties);
-            internalPropertiesByWard.TryGetValue(wardId, out var internalProperties);
-            photoCountsByWard.TryGetValue(wardId, out var photoCount);
+            // Fetch all required data in parallel
+            var (geoProperties, internalProperties, propertyUses, photoCounts, assessedId, unassessedId) =
+                await FetchWardDataAsync(queryParameters, zoneIds, context.Wards, cancellationToken);
 
-            allWardData.Add(BuildWardData(
-                wardId,
-                wardNo,
-                geoProperties ?? new List<InternalSurveyStagePropertyProjection>(),
-                internalProperties ?? new List<InternalSurveyStagePropertyProjection>(),
-                propertyUseGroups,
-                snapshot.AssessedStatusId,
-                snapshot.UnassessedStatusId,
-                photoCount));
+            // Build property use groups using common helper
+            var propertyUseGroups = WorkflowStagePropertyTypeBuilder.BuildPropertyUseGroups(
+                propertyUses,
+                p => p.PropertyId,
+                p => p.Type,
+                p => p.TypeOfUseCode);
+
+            // Group properties by ward for efficient lookup
+            var geoPropertiesByWard = geoProperties
+                .GroupBy(p => p.WardId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var internalPropertiesByWard = internalProperties
+                .GroupBy(p => p.WardId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            var photoCountsByWard = photoCounts
+                .Where(p => p.WardId.HasValue)
+                .ToDictionary(p => p.WardId!.Value, p => p.Count);
+
+            // Build result
+            var result = new InternalSurveyWardWiseSummaryResponseDto
+            {
+                ZoneId = context.ZoneId,
+                ZoneName = context.ZoneName,
+                PageNumber = context.PageNumber,
+                PageSize = context.PageSize,
+                TotalCount = context.TotalCount
+            };
+
+            // Build all ward data
+            var allWardData = new List<InternalSurveyWardDataDto>(context.Wards.Count);
+            foreach (var (wardId, wardNo) in context.Wards)
+            {
+                geoPropertiesByWard.TryGetValue(wardId, out var geoProps);
+                internalPropertiesByWard.TryGetValue(wardId, out var internalProps);
+                photoCountsByWard.TryGetValue(wardId, out var photoCount);
+
+                allWardData.Add(WorkflowStageDataBuilder.BuildInternalSurveyWardData(
+                    wardId,
+                    wardNo,
+                    geoProps ?? new List<InternalSurveyStagePropertyProjection>(),
+                    internalProps ?? new List<InternalSurveyStagePropertyProjection>(),
+                    propertyUseGroups,
+                    assessedId,
+                    unassessedId,
+                    photoCount));
+            }
+
+            // Order by data presence and apply pagination
+            var orderedWardData = allWardData
+                .OrderByDescending(GetWardSummaryScore)
+                .ThenBy(w => w.WardNo)
+                .ToList();
+
+            result.TotalRow = CalculateWardTotals(allWardData);
+            result.WardData = WorkflowStagePagingHelper.PageWardData(orderedWardData, context.PageNumber, context.PageSize);
+
+            _logger.LogInformation(
+                "Successfully retrieved ward-wise summary for zone {ZoneId}, stage {WorkflowStageId}, page {PageNumber}",
+                queryParameters.ZoneId,
+                queryParameters.WorkflowStageId,
+                context.PageNumber);
+
+            return result;
         }
-
-        var orderedWardData = allWardData
-            .OrderByDescending(HasWardSummaryData)
-            .ToList();
-
-        response.TotalRow = CalculateWardTotals(allWardData);
-        response.WardData = WorkflowStagePagingHelper.PageWardData(orderedWardData, normalizedPageNumber, normalizedPageSize);
-        return response;
+        catch (ZoneNotFoundException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error retrieving ward-wise summary for zone {ZoneId}, stage {WorkflowStageId}",
+                queryParameters.ZoneId,
+                queryParameters.WorkflowStageId);
+            throw;
+        }
     }
 
-    // Loads and groups the raw repository reads required by the zone grid.
-    private async Task<InternalSurveyGridSnapshotProjection> BuildGridSnapshotAsync(
-        int internalSurveyStageId,
-        PropertySearchRequestDto searchRequest,
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Fetches all required data for grid display sequentially to avoid DbContext concurrency issues
+    /// </summary>
+    private async Task<(
+        List<InternalSurveyStagePropertyProjection> GeoProperties,
+        List<InternalSurveyStagePropertyProjection> InternalProperties,
+        List<InternalSurveyPropertyUseSourceProjection> PropertyUses,
+        List<InternalSurveyPhotoCountProjection> PhotoCounts,
+        int GeoSequencingStageId,
+        int AssessedStatusId,
+        int UnassessedStatusId)> FetchGridDataAsync(
+        DashboardGridQueryParameters queryParameters,
+        List<int> zoneIds,
         CancellationToken cancellationToken)
     {
-        var stageExists = await _repository.StageExistsAsync(internalSurveyStageId, cancellationToken);
-        if (!stageExists)
-            return new InternalSurveyGridSnapshotProjection();
+        var workflowStageId = queryParameters.WorkflowStageId!.Value;
 
-        var zones = await _repository.ReadZonesAsync(searchRequest.ZoneId, cancellationToken);
-        var snapshot = new InternalSurveyGridSnapshotProjection
-        {
-            WorkflowStageExists = true,
-            Zones = zones
-        };
+        // Execute sequentially to avoid DbContext concurrency issues
+        var geoStageId = await _repository.ReadGeoSequencingStageIdAsync(cancellationToken);
+        var (assessedId, unassessedId) = await _repository.ReadAssessedAndUnassessedStatusIdsAsync(cancellationToken);
+        var photoTypeId = await _repository.ReadPropertyPhotoTypeIdAsync(cancellationToken);
 
-        if (!zones.Any())
-            return snapshot;
+        var geoProperties = await _repository.ReadStagePropertiesForZonesAsync(
+            geoStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var internalProperties = await _repository.ReadStagePropertiesForZonesAsync(
+            workflowStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var propertyUses = await _repository.ReadPropertyUsesForStageInZonesAsync(
+            workflowStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var photoCounts = await _repository.ReadPhotoCountsByZoneAsync(
+            workflowStageId, zoneIds, photoTypeId, cancellationToken, queryParameters);
 
-        var zoneIds = zones.Select(z => z.ZoneId).ToList();
-        snapshot.GeoSequencingStageId = await _repository.ReadGeoSequencingStageIdAsync(cancellationToken);
-        (snapshot.AssessedStatusId, snapshot.UnassessedStatusId) = await _repository.ReadAssessedAndUnassessedStatusIdsAsync(cancellationToken);
-        snapshot.PropertyPhotoTypeId = await _repository.ReadPropertyPhotoTypeIdAsync(cancellationToken);
-        snapshot.GeoSequencingProperties = await _repository.ReadStagePropertiesForZonesAsync(
-            snapshot.GeoSequencingStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken,
-            searchRequest);
-        snapshot.InternalSurveyProperties = await _repository.ReadStagePropertiesForZonesAsync(
-            internalSurveyStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken,
-            searchRequest);
-        snapshot.InternalSurveyPropertyUses = await _repository.ReadPropertyUsesForStageInZonesAsync(
-            internalSurveyStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken,
-            searchRequest);
-        snapshot.PhotoCountsByZone = await _repository.ReadPhotoCountsByZoneAsync(
-            internalSurveyStageId,
-            zoneIds,
-            snapshot.PropertyPhotoTypeId,
-            cancellationToken,
-            searchRequest);
-
-        return snapshot;
+        return (geoProperties, internalProperties, propertyUses, photoCounts, geoStageId, assessedId, unassessedId);
     }
 
-    // Loads and groups the raw repository reads required by the ward-wise summary.
-    private async Task<InternalSurveyWardWiseSnapshotProjection> BuildWardWiseSnapshotAsync(int zoneId,int workflowStageId,CancellationToken cancellationToken)
+    /// <summary>
+    /// Fetches all required data for ward-wise summary sequentially to avoid DbContext concurrency issues
+    /// </summary>
+    private async Task<(
+        List<InternalSurveyStagePropertyProjection> GeoProperties,
+        List<InternalSurveyStagePropertyProjection> InternalProperties,
+        List<InternalSurveyPropertyUseSourceProjection> PropertyUses,
+        List<InternalSurveyPhotoCountProjection> PhotoCounts,
+        int AssessedStatusId,
+        int UnassessedStatusId)> FetchWardDataAsync(
+        WardWiseSummaryQueryParameters queryParameters,
+        List<int> zoneIds,
+        List<(int WardId, string WardNo)> wards,
+        CancellationToken cancellationToken)
     {
-        if (zoneId <= 0 || workflowStageId <= 0)
-            return new InternalSurveyWardWiseSnapshotProjection();
+        var workflowStageId = queryParameters.WorkflowStageId;
+        var wardIds = wards.Select(w => w.WardId).ToList();
 
-        var stageExists = await _repository.StageExistsAsync(workflowStageId, cancellationToken);
-        if (!stageExists)
-            return new InternalSurveyWardWiseSnapshotProjection();
+        // Execute sequentially to avoid DbContext concurrency issues
+        var geoStageId = await _repository.ReadGeoSequencingStageIdAsync(cancellationToken);
+        var (assessedId, unassessedId) = await _repository.ReadAssessedAndUnassessedStatusIdsAsync(cancellationToken);
+        var photoTypeId = await _repository.ReadPropertyPhotoTypeIdAsync(cancellationToken);
 
+        var geoProperties = await _repository.ReadStagePropertiesForZonesAsync(
+            geoStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var internalProperties = await _repository.ReadStagePropertiesForZonesAsync(
+            workflowStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var propertyUses = await _repository.ReadPropertyUsesForStageInZonesAsync(
+            workflowStageId, zoneIds, requirePropertyNo: true, cancellationToken, queryParameters);
+        var photoCounts = await _repository.ReadPhotoCountsByWardAsync(
+            workflowStageId, wardIds, photoTypeId, cancellationToken);
+
+        return (geoProperties, internalProperties, propertyUses, photoCounts, assessedId, unassessedId);
+    }
+
+    /// <summary>
+    /// Loads zone and ward context required for ward-wise summary.
+    /// </summary>
+    private async Task<WardWiseSummaryContext> BuildWardWiseContextAsync(
+        int zoneId,
+        int pageNumber,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
         var zone = await _repository.ReadZoneAsync(zoneId, cancellationToken);
         if (zone.ZoneId == 0)
-            return new InternalSurveyWardWiseSnapshotProjection();
+        {
+            throw new ZoneNotFoundException(zoneId);
+        }
 
         var wards = await _repository.ReadWardsInZoneAsync(zoneId, cancellationToken);
-        var snapshot = new InternalSurveyWardWiseSnapshotProjection
-        {
-            IsValid = true,
-            ZoneId = zone.ZoneId,
-            ZoneName = zone.ZoneName,
-            ZoneNo = zone.ZoneNo,
-            Wards = wards
-        };
 
-        if (!wards.Any())
-            return snapshot;
-
-        var zoneIds = new List<int> { zoneId };
-        var wardIds = wards.Select(w => w.WardId).ToList();
-        snapshot.GeoSequencingStageId = await _repository.ReadGeoSequencingStageIdAsync(cancellationToken);
-        (snapshot.AssessedStatusId, snapshot.UnassessedStatusId) = await _repository.ReadAssessedAndUnassessedStatusIdsAsync(cancellationToken);
-        snapshot.PropertyPhotoTypeId = await _repository.ReadPropertyPhotoTypeIdAsync(cancellationToken);
-        snapshot.GeoSequencingProperties = await _repository.ReadStagePropertiesForZonesAsync(
-            snapshot.GeoSequencingStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken);
-        snapshot.InternalSurveyProperties = await _repository.ReadStagePropertiesForZonesAsync(
-            workflowStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken);
-        snapshot.InternalSurveyPropertyUses = await _repository.ReadPropertyUsesForStageInZonesAsync(
-            workflowStageId,
-            zoneIds,
-            requirePropertyNo: true,
-            cancellationToken);
-        snapshot.PhotoCountsByWard = await _repository.ReadPhotoCountsByWardAsync(
-            workflowStageId,
-            wardIds,
-            snapshot.PropertyPhotoTypeId,
-            cancellationToken);
-
-        return snapshot;
+        return new WardWiseSummaryContext(
+            ZoneId: zone.ZoneId,
+            ZoneName: zone.ZoneName,
+            PageNumber: pageNumber,
+            PageSize: pageSize,
+            Wards: wards);
     }
 
-    private static InternalSurveyWardDataDto BuildWardData(
-        int wardId,
-        string wardNo,
-        List<InternalSurveyStagePropertyProjection> geoSequencingProperties,
-        List<InternalSurveyStagePropertyProjection> internalSurveyProperties,
-        Dictionary<int, PropertyUseGroup> propertyUseGroups,
-        int assessedStatusId,
-        int unassessedStatusId,
-        int photoCount)
-    {
-        var wardData = new InternalSurveyWardDataDto
-        {
-            WardId = wardId,
-            WardNo = wardNo,
-            GeoSequencingProperties = new GeoSequencingPropertiesDto
-            {
-                Structure = CountStructures(geoSequencingProperties),
-                Unit = geoSequencingProperties.Count
-            }
-        };
-
-        if (!internalSurveyProperties.Any())
-            return wardData;
-
-        wardData.SurveyProperties = new SurveyPropertiesDto
-        {
-            Structure = CountStructures(internalSurveyProperties),
-            Unit = internalSurveyProperties.Count
-        };
-        wardData.PropertyType = BuildPropertyTypeBreakdown(internalSurveyProperties, propertyUseGroups);
-        wardData.AssessedProperties = BuildAssessedProperties(internalSurveyProperties, assessedStatusId);
-        wardData.UnassessedProperties = BuildUnassessedProperties(internalSurveyProperties, unassessedStatusId);
-        wardData.NewlyAssessedFound = new NewlyAssessedFoundDto();
-        wardData.AssessmentInprocess = new AssessmentInprocessDto();
-        wardData.PhotoCount = photoCount;
-
-        return wardData;
-    }
-
-    private static InternalSurveyDivisionDataDto BuildDivisionData(
-        int divisionId,
-        string divisionName,
-        string zoneNo,
-        List<InternalSurveyStagePropertyProjection> geoSequencingProperties,
-        List<InternalSurveyStagePropertyProjection> internalSurveyProperties,
-        Dictionary<int, PropertyUseGroup> propertyUseGroups,
-        int assessedStatusId,
-        int unassessedStatusId,
-        int photoCount)
-    {
-        if (!internalSurveyProperties.Any())
-        {
-            return new InternalSurveyDivisionDataDto
-            {
-                DivisionId = divisionId,
-                DivisionName = divisionName,
-                ZoneNo = zoneNo,
-                GeoSequencingProperties = new GeoSequencingPropertiesDto
-                {
-                    Structure = CountStructures(geoSequencingProperties),
-                    Unit = geoSequencingProperties.Count
-                }
-            };
-        }
-
-        return new InternalSurveyDivisionDataDto
-        {
-            DivisionId = divisionId,
-            DivisionName = divisionName,
-            ZoneNo = zoneNo,
-            GeoSequencingProperties = new GeoSequencingPropertiesDto
-            {
-                Structure = CountStructures(geoSequencingProperties),
-                Unit = geoSequencingProperties.Count
-            },
-            SurveyProperties = new SurveyPropertiesDto
-            {
-                Structure = CountStructures(internalSurveyProperties),
-                Unit = internalSurveyProperties.Count
-            },
-            PropertyType = BuildPropertyTypeBreakdown(internalSurveyProperties, propertyUseGroups),
-            AssessedProperties = BuildAssessedProperties(internalSurveyProperties, assessedStatusId),
-            UnassessedProperties = BuildUnassessedProperties(internalSurveyProperties, unassessedStatusId),
-            NewlyAssessedFound = new NewlyAssessedFoundDto(),
-            AssessmentInprocess = new AssessmentInprocessDto(),
-            PhotoCount = photoCount
-        };
-    }
-
-    private static Dictionary<int, PropertyUseGroup> BuildPropertyUseGroups(List<InternalSurveyPropertyUseSourceProjection> propertyUses)
-        => propertyUses
-            .GroupBy(x => x.PropertyId)
-            .ToDictionary(
-                g => g.Key,
-                g => new PropertyUseGroup(
-                    g.Where(x => x.Type != null).Select(x => x.Type!).Distinct().ToList(),
-                    g.Where(x => x.TypeOfUseCode != null).Select(x => x.TypeOfUseCode!).Distinct().ToList()));
-
-    private static PropertyTypesBreakdownDto BuildPropertyTypeBreakdown(
-        List<InternalSurveyStagePropertyProjection> properties, Dictionary<int, PropertyUseGroup> propertyUseGroups)
-    {
-        var breakdown = new PropertyTypesBreakdownDto();
-        if (!properties.Any())
-            return breakdown;
-
-        var nonMixedProperties = new List<InternalSurveyStagePropertyProjection>();
-        foreach (var property in properties)
-        {
-            if (IsMixedProperty(property.PropertyTypeCode))
-                breakdown.Mixed++;
-            else
-                nonMixedProperties.Add(property);
-        }
-
-        var propertiesWithDetails = 0;
-        foreach (var property in nonMixedProperties)
-        {
-            if (!propertyUseGroups.TryGetValue(property.PropertyId, out var useGroup))
-                continue;
-
-            propertiesWithDetails++;
-            if (useGroup.Codes.Any(code => code.Equals("UC", StringComparison.OrdinalIgnoreCase)))
-                breakdown.UnderConstruction++;
-            else if (useGroup.Types.Any(type => type.Equals("N", StringComparison.OrdinalIgnoreCase) || type.Equals("I", StringComparison.OrdinalIgnoreCase)))
-                breakdown.PublicUtility++;
-            else if (useGroup.Types.Any(type => type.Equals("R", StringComparison.OrdinalIgnoreCase)))
-                breakdown.Residential++;
-            else if (useGroup.Types.Any(type => type.Equals("C", StringComparison.OrdinalIgnoreCase)))
-                breakdown.NonResidential++;
-        }
-
-        breakdown.Residential += nonMixedProperties.Count - propertiesWithDetails;
-        return breakdown;
-    }
-
-    private static AssessedPropertiesSimpleDto BuildAssessedProperties(List<InternalSurveyStagePropertyProjection> properties,int assessedStatusId)
-    {
-        if (assessedStatusId == 0)
-            return new AssessedPropertiesSimpleDto();
-
-        var statusProperties = properties
-            .Where(p => p.AssessmentStatusId == assessedStatusId)
-            .ToList();
-
-        return new AssessedPropertiesSimpleDto
-        {
-            Structure = CountStructures(statusProperties),
-            Units = statusProperties.Count
-        };
-    }
-
-    private static UnassessedPropertiesDto BuildUnassessedProperties(List<InternalSurveyStagePropertyProjection> properties,int unassessedStatusId)
-    {
-        if (unassessedStatusId == 0)
-            return new UnassessedPropertiesDto();
-
-        var statusProperties = properties
-            .Where(p => p.AssessmentStatusId == unassessedStatusId)
-            .ToList();
-
-        return new UnassessedPropertiesDto
-        {
-            Structure = CountStructures(statusProperties),
-            Units = statusProperties.Count
-        };
-    }
-
-    private static InternalSurveyDivisionDataDto CalculateTotals(List<InternalSurveyDivisionDataDto> divisionData)
+    /// <summary>
+    /// Calculates division totals from all division data
+    /// </summary>
+    private static InternalSurveyDivisionDataDto CalculateDivisionTotals(List<InternalSurveyDivisionDataDto> divisionData)
     {
         return new InternalSurveyDivisionDataDto
         {
@@ -452,26 +358,9 @@ public class InternalSurveyStageService : IInternalSurveyStageService
         };
     }
 
-    private static bool HasWardSummaryData(InternalSurveyWardDataDto ward)
-        => ward.GeoSequencingProperties.Structure > 0
-           || ward.GeoSequencingProperties.Unit > 0
-           || ward.SurveyProperties.Structure > 0
-           || ward.SurveyProperties.Unit > 0
-           || ward.PropertyType.Residential > 0
-           || ward.PropertyType.NonResidential > 0
-           || ward.PropertyType.Mixed > 0
-           || ward.PropertyType.PublicUtility > 0
-           || ward.PropertyType.UnderConstruction > 0
-           || ward.AssessedProperties.Structure > 0
-           || ward.AssessedProperties.Units > 0
-           || ward.UnassessedProperties.Structure > 0
-           || ward.UnassessedProperties.Units > 0
-           || ward.NewlyAssessedFound.Structure > 0
-           || ward.NewlyAssessedFound.Unit > 0
-           || ward.AssessmentInprocess.Structure > 0
-           || ward.AssessmentInprocess.Unit > 0
-           || ward.PhotoCount > 0;
-
+    /// <summary>
+    /// Calculates ward totals from all ward data
+    /// </summary>
     private static InternalSurveyWardDataDto CalculateWardTotals(List<InternalSurveyWardDataDto> wardData)
     {
         return new InternalSurveyWardDataDto
@@ -519,12 +408,46 @@ public class InternalSurveyStageService : IInternalSurveyStageService
         };
     }
 
-    private static int CountStructures(List<InternalSurveyStagePropertyProjection> properties)
-        => properties.Count(p => string.IsNullOrWhiteSpace(p.PartitionNo));
+    /// <summary>
+    /// Checks if ward has any summary data
+    /// </summary>
+    private static bool HasWardSummaryData(InternalSurveyWardDataDto ward)
+        => GetWardSummaryScore(ward) > 0;
 
-    private static bool IsMixedProperty(string? propertyTypeCode)
-        => !string.IsNullOrWhiteSpace(propertyTypeCode)
-           && MixedPropertyTypes.Contains(propertyTypeCode);
+    private static int GetWardSummaryScore(InternalSurveyWardDataDto ward)
+        => ward.GeoSequencingProperties.Structure
+           + ward.GeoSequencingProperties.Unit
+           + ward.SurveyProperties.Structure
+           + ward.SurveyProperties.Unit
+           + ward.PropertyType.Residential
+           + ward.PropertyType.NonResidential
+           + ward.PropertyType.Mixed
+           + ward.PropertyType.PublicUtility
+           + ward.PropertyType.UnderConstruction
+           + ward.AssessedProperties.Structure
+           + ward.AssessedProperties.Units
+           + ward.UnassessedProperties.Structure
+           + ward.UnassessedProperties.Units
+           + ward.NewlyAssessedFound.Structure
+           + ward.NewlyAssessedFound.Unit
+           + ward.AssessmentInprocess.Structure
+           + ward.AssessmentInprocess.Unit
+           + ward.PhotoCount;
 
-    private sealed record PropertyUseGroup(List<string> Types, List<string> Codes);
+    #endregion
+
+    #region Context Records
+
+    private sealed record WardWiseSummaryContext(
+        int ZoneId,
+        string ZoneName,
+        int PageNumber,
+        int PageSize,
+        List<(int WardId, string WardNo)> Wards)
+    {
+        public int TotalCount => Wards.Count;
+    }
+
+    #endregion
 }
+

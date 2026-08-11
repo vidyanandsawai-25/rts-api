@@ -91,8 +91,7 @@ public abstract class WorkflowStageBaseRepository
     /// </summary>
     protected async Task<int> GetPhotoTypeIdAsync(string photoTypeCode, CancellationToken cancellationToken = default)
     {
-        return await _context.PropertyPhotoTypes
-            .AsNoTracking()
+        return await _context.PropertyPhotoTypes.AsNoTracking()
             .Where(pt => pt.IsActive && pt.PhotoTypeCode == photoTypeCode)
             .Select(pt => pt.Id)
             .FirstOrDefaultAsync(cancellationToken);
@@ -116,12 +115,8 @@ public abstract class WorkflowStageBaseRepository
     }
 
     protected sealed record WardWiseSummaryContext(
-        bool IsValid,
-        int ZoneId,
-        string ZoneName,
-        int PageNumber,
-        int PageSize,
-        List<(int WardId, string WardNo)> Wards)
+        bool IsValid,int ZoneId,string ZoneName,
+        int PageNumber,int PageSize,List<(int WardId, string WardNo)> Wards)
     {
         public int TotalCount => Wards.Count;
 
@@ -138,7 +133,7 @@ public abstract class WorkflowStageBaseRepository
     /// </summary>
     protected async Task<Dictionary<int, List<int>>> GetZoneToPropertyMappingAsync(
         int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
+        PropertySearchRequestDto? queryParameters,
         CancellationToken cancellationToken)
     {
         // Step 1: Get PropertyIds from PropertyWorkflowDetails by WorkflowStageId
@@ -172,10 +167,11 @@ public abstract class WorkflowStageBaseRepository
             .ToListAsync(cancellationToken);
 
         // Apply zone filter if provided
-        if (searchRequest?.ZoneId.HasValue == true)
+        var filterZoneId = queryParameters?.ZoneId;
+        if (filterZoneId.HasValue)
         {
             wardToZoneMapping = wardToZoneMapping
-                .Where(w => w.ZoneId == searchRequest.ZoneId.Value)
+                .Where(w => w.ZoneId == filterZoneId.Value)
                 .ToList();
         }
 
@@ -200,14 +196,14 @@ public abstract class WorkflowStageBaseRepository
     /// <summary>
     /// Get all zones (optionally filtered)
     /// </summary>
-    protected async Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> GetZonesAsync(PropertySearchRequestDto? searchRequest,CancellationToken cancellationToken)
+    protected async Task<List<(int ZoneId, string ZoneName, string ZoneNo)>> GetZonesAsync(int? zoneId, CancellationToken cancellationToken)
     {
         var zonesQuery = _context.ZoneMaster
             .AsNoTracking()
             .Where(z => z.IsActive);
 
-        if (searchRequest?.ZoneId.HasValue == true)
-            zonesQuery = zonesQuery.Where(z => z.Id == searchRequest.ZoneId.Value);
+        if (zoneId.HasValue)
+            zonesQuery = zonesQuery.Where(z => z.Id == zoneId.Value);
 
         return await zonesQuery
             .OrderBy(z => z.SequenceNo ?? 0)
@@ -244,23 +240,47 @@ public abstract class WorkflowStageBaseRepository
     /// Common: Apply filters to property query
     /// </summary>
     protected static IQueryable<PropertyEntity> ApplyFilters(IQueryable<PropertyEntity> query, PropertySearchRequestDto? request)
+        => request is null
+            ? query
+            : ApplyFiltersCore(query, request.PropertyTypeId, request.WardId, request.CategoryId, request.PropertyNo, request.OwnerName);
+
+    protected static IQueryable<PropertyEntity> ApplyFilters(IQueryable<PropertyEntity> query, AssessmentGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyFiltersCore(query, request.PropertyTypeId, wardId: null, request.CategoryId, request.PropertyNo, request.OwnerName);
+
+    protected static IQueryable<PropertyEntity> ApplyFilters(IQueryable<PropertyEntity> query, SubGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyFiltersCore(query, request.PropertyTypeId, request.WardId, categoryId: null, request.PropertyNo, request.OwnerName);
+
+    protected static IQueryable<PropertyEntity> ApplyFilters(IQueryable<PropertyEntity> query, WardSubGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyFiltersCore(query, request.PropertyTypeId, request.WardId, categoryId: null, request.PropertyNo, request.OwnerName);
+
+    private static IQueryable<PropertyEntity> ApplyFiltersCore(
+        IQueryable<PropertyEntity> query,
+        int? propertyTypeId,
+        int? wardId,
+        int? categoryId,
+        string? propertyNo,
+        string? ownerName)
     {
-        if (request is null) return query;
+        if (propertyTypeId.HasValue)
+            query = query.Where(p => p.PropertyTypeId == propertyTypeId.Value);
 
-        if (request.PropertyAssessmentStatusId.HasValue)
-            query = query.Where(p => p.PropertyAssessmentStatusId == request.PropertyAssessmentStatusId.Value);
+        if (wardId.HasValue)
+            query = query.Where(p => p.WardId == wardId.Value);
 
-        if (request.PropertyDescriptionId.HasValue)
-            query = query.Where(p => p.PropertyTypeId == request.PropertyDescriptionId.Value);
+        if (categoryId.HasValue)
+            query = query.Where(p => p.CategoryId == categoryId.Value);
 
-        if (request.PropertyTypeId.HasValue)
-            query = query.Where(p => p.PropertyTypeId == request.PropertyTypeId.Value);
+        if (!string.IsNullOrWhiteSpace(propertyNo))
+            query = query.Where(p => p.PropertyNo != null && p.PropertyNo.Contains(propertyNo));
 
-        if (request.WardId.HasValue)
-            query = query.Where(p => p.WardId == request.WardId.Value);
-
-        if (request.CategoryId.HasValue)
-            query = query.Where(p => p.CategoryId == request.CategoryId.Value);
+        if (!string.IsNullOrWhiteSpace(ownerName))
+            query = query.Where(p => p.OwnerName != null && p.OwnerName.Contains(ownerName));
 
         return query;
     }
@@ -271,21 +291,68 @@ public abstract class WorkflowStageBaseRepository
     protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
         IQueryable<PropertyEntity> query,
         PropertySearchRequestDto? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        DashboardGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        AssessmentGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        WardWiseSummaryQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        SubGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        WardSubGridQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, request.PropertyTypeCategoryId);
+
+    protected IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFilters(
+        IQueryable<PropertyEntity> query,
+        PendingAssessmentQueryParameters? request)
+        => request is null
+            ? query
+            : ApplyMainGridPropertyTypeFiltersCore(query, request.PropertyTypeId, propertyTypeCategoryId: null);
+
+    private IQueryable<PropertyEntity> ApplyMainGridPropertyTypeFiltersCore(
+        IQueryable<PropertyEntity> query,
+        int? propertyTypeId,
+        int? propertyTypeCategoryId)
     {
-        if (request is null)
-            return query;
+        if (propertyTypeId is > 0)
+            query = query.Where(p => p.PropertyTypeId == propertyTypeId.Value);
 
-        if (request.PropertyTypeId is int propertyTypeId && propertyTypeId > 0)
-            query = query.Where(p => p.PropertyTypeId == propertyTypeId);
-
-        if (request.PropertyTypeCategoryId is int propertyTypeCategoryId && propertyTypeCategoryId > 0)
-            query = ApplyPropertyTypeCategoryFilter(query, propertyTypeCategoryId);
+        if (propertyTypeCategoryId is > 0)
+            query = ApplyPropertyTypeCategoryFilter(query, propertyTypeCategoryId.Value);
 
         return query;
     }
 
     /// <summary>
-    /// Filters properties into the same Residential/Non-Residential/Mixed/Open Plot/Public Utility/Under Construction buckets used by the subgrid.
+    /// Filters properties into the same Residential/Non-Residential/Mixed/Public Utility/Under Construction buckets used by main-grid breakdowns.
     /// </summary>
     protected IQueryable<PropertyEntity> ApplyPropertyTypeCategoryFilter(
         IQueryable<PropertyEntity> query,
@@ -298,93 +365,123 @@ public abstract class WorkflowStageBaseRepository
         const int publicUtility = 5;
         const int underConstruction = 6;
 
-        var detailUses = from pd in _context.PropertyDetails.AsNoTracking()
-                         join tou in _context.TypeOfUse.AsNoTracking() on pd.TypeOfUseId equals tou.Id into typeOfUseJoin
-                         from tou in typeOfUseJoin.DefaultIfEmpty()
-                         where pd.IsActive && !pd.MarkedForDeletion
-                         select new
-                         {
-                             pd.PropertyId,
-                             IsDetailOpenPlot = pd.IsOpenPlot == true,
-                             Type = tou != null ? tou.Type : null,
-                             Code = tou != null ? tou.TypeOfUseCode : null,
-                             Description = tou != null ? tou.Description : null
-                         };
-
-        var mixedPropertyIds = (
-            from p in query
-            join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id
-            where pt.IsActive
-                  && pt.Type != null
-                  && MixedPropertyTypes.Contains(pt.Type.ToUpper())
-            select p.Id).Distinct();
-
-        var openPlotPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.Id)
-                        && (p.OpenPlot == true
-                            || detailUses.Any(d => d.PropertyId == p.Id
-                                                   && (d.IsDetailOpenPlot || ((d.Description ?? "").ToUpper().Contains("OPEN"))))))
-            .Select(p => p.Id)
-            .Distinct();
-
-        var underConstructionPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.Id)
-                        && !openPlotPropertyIds.Contains(p.Id)
-                        && detailUses.Any(d => d.PropertyId == p.Id && (d.Code ?? "").ToUpper() == "UC"))
-            .Select(p => p.Id)
-            .Distinct();
-
-        var publicUtilityPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.Id)
-                        && !openPlotPropertyIds.Contains(p.Id)
-                        && !underConstructionPropertyIds.Contains(p.Id)
-                        && detailUses.Any(d => d.PropertyId == p.Id
-                                               && (((d.Type ?? "").ToUpper() == "N")
-                                                   || ((d.Type ?? "").ToUpper() == "I")
-                                                   || ((d.Code ?? "").ToUpper() == "PU")
-                                                   || ((d.Description ?? "").ToUpper().Contains("PUBLIC"))
-                                                   || ((d.Description ?? "").ToUpper().Contains("INDUSTRIAL")))))
-            .Select(p => p.Id)
-            .Distinct();
-
-        var propertiesWithDetails = detailUses
-            .Select(d => d.PropertyId)
-            .Distinct();
-
-        var residentialPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.Id)
-                        && !openPlotPropertyIds.Contains(p.Id)
-                        && !underConstructionPropertyIds.Contains(p.Id)
-                        && !publicUtilityPropertyIds.Contains(p.Id)
-                        && (detailUses.Any(d => d.PropertyId == p.Id
-                                                && (((d.Type ?? "").ToUpper() == "R")
-                                                    || ((d.Description ?? "").ToUpper().Contains("RESIDENTIAL"))))
-                            || !propertiesWithDetails.Contains(p.Id)))
-            .Select(p => p.Id)
-            .Distinct();
-
-        var nonResidentialPropertyIds = query
-            .Where(p => !mixedPropertyIds.Contains(p.Id)
-                        && !openPlotPropertyIds.Contains(p.Id)
-                        && !underConstructionPropertyIds.Contains(p.Id)
-                        && !publicUtilityPropertyIds.Contains(p.Id)
-                        && !residentialPropertyIds.Contains(p.Id)
-                        && detailUses.Any(d => d.PropertyId == p.Id
-                                               && (((d.Type ?? "").ToUpper() == "C")
-                                                   || ((d.Description ?? "").ToUpper().Contains("COMMERCIAL")))))
-            .Select(p => p.Id)
-            .Distinct();
-
-        return propertyTypeCategoryId switch
+        if (propertyTypeCategoryId == mixed)
         {
-            residential => query.Where(p => residentialPropertyIds.Contains(p.Id)),
-            nonResidential => query.Where(p => nonResidentialPropertyIds.Contains(p.Id)),
-            mixed => query.Where(p => mixedPropertyIds.Contains(p.Id)),
-            openPlots => query.Where(p => openPlotPropertyIds.Contains(p.Id)),
-            publicUtility => query.Where(p => publicUtilityPropertyIds.Contains(p.Id)),
-            underConstruction => query.Where(p => underConstructionPropertyIds.Contains(p.Id)),
-            _ => query
-        };
+            return query.Where(p =>
+                _context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type)));
+        }
+
+        if (propertyTypeCategoryId == openPlots)
+        {
+            return query.Where(p =>
+                !_context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type))
+                && (p.OpenPlot == true
+                    || _context.PropertyDetails.AsNoTracking()
+                        .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                        .Any(pd => pd.IsOpenPlot == true
+                            || _context.TypeOfUse.AsNoTracking()
+                                .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                                .Select(tou => tou.Description ?? "")
+                                .Any(desc => desc.ToUpper().Contains("OPEN")))));
+        }
+
+        if (propertyTypeCategoryId == underConstruction)
+        {
+            return query.Where(p =>
+                !_context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type))
+                && _context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.TypeOfUseCode ?? "").ToUpper() == "UC")));
+        }
+
+        if (propertyTypeCategoryId == publicUtility)
+        {
+            return query.Where(p =>
+                !_context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.TypeOfUseCode ?? "").ToUpper() == "UC"))
+                && _context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "N" || (tou.Type ?? "").ToUpper() == "I")));
+        }
+
+        if (propertyTypeCategoryId == residential)
+        {
+            return query.Where(p =>
+                !_context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.TypeOfUseCode ?? "").ToUpper() == "UC"))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "N" || (tou.Type ?? "").ToUpper() == "I"))
+                && (_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "R"))
+                    || !_context.PropertyDetails.AsNoTracking()
+                        .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                        .Any(pd => _context.TypeOfUse.AsNoTracking()
+                            .Any(tou => tou.IsActive && tou.Id == pd.TypeOfUseId))));
+        }
+
+        if (propertyTypeCategoryId == nonResidential)
+        {
+            return query.Where(p =>
+                !_context.PropertyTypeMasters.AsNoTracking()
+                    .Where(x => x.IsActive && x.Id == p.PropertyTypeId)
+                    .Select(pt => pt.Type == null ? string.Empty : pt.Type.Trim().ToUpper())
+                    .Any(type => MixedPropertyTypes.Contains(type))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.TypeOfUseCode ?? "").ToUpper() == "UC"))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "N" || (tou.Type ?? "").ToUpper() == "I"))
+                && !_context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "R"))
+                && _context.PropertyDetails.AsNoTracking()
+                    .Where(pd => pd.IsActive && !pd.MarkedForDeletion && pd.PropertyId == p.Id)
+                    .Any(pd => _context.TypeOfUse.AsNoTracking()
+                        .Where(tou => tou.IsActive && tou.Id == pd.TypeOfUseId)
+                        .Any(tou => (tou.Type ?? "").ToUpper() == "C")));
+        }
+
+        return query;
     }
 
     /// <summary>
@@ -646,7 +743,6 @@ public abstract class WorkflowStageBaseRepository
     protected async Task<List<int>> GetPropertiesInZoneForStageAsync(
         int zoneId,
         int workflowStageId,
-        PropertySearchRequestDto? searchRequest,
         CancellationToken cancellationToken)
     {
         // Get ward IDs in this zone
@@ -725,4 +821,11 @@ public abstract class WorkflowStageBaseRepository
             .Distinct()
             .ToListAsync(cancellationToken);
     }
+
+    protected static int? GetTypeOfUseId(PropertySearchRequestDto? request)
+        => request?.TypeOfUseId;
+
+    protected static int? GetTypeOfUseId(AssessmentGridQueryParameters? request)
+        => request?.TypeOfUseId;
 }
+

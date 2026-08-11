@@ -23,6 +23,7 @@
 	<ItemGroup>
 	  <Folder Include="DTOs\Master\AgeFactorMaster\" />
 	  <Folder Include="DTOs\Master\FloorFactorMaster\" />
+	  <Folder Include="Services\PropertySignature\" />
 	</ItemGroup>
 
  

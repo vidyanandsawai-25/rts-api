@@ -1,4 +1,3 @@
-using NtisPlatform.Core.Models;
 using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Application.Interfaces.AutomationDashboard;
@@ -12,16 +11,14 @@ public interface IGeoSequencingStageService
     /// Builds zone-wise Geo-Sequencing grid data.
     /// </summary>
     Task<GeoSequencingGridResponseDto> GetGeoSequencingGridDataAsync(
-        PropertySearchRequestDto? searchRequest = null,
+        DashboardGridQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Builds ward-wise Geo-Sequencing summary data.
     /// </summary>
     Task<GeoSequencingWardWiseSummaryResponseDto> GetGeoSequencingWardWiseSummaryAsync(
-        int zoneId,
-        int workflowStageId,
-        int? pageNumber,
-        int? pageSize,
+        WardWiseSummaryQueryParameters queryParameters,
         CancellationToken cancellationToken = default);
 }
+

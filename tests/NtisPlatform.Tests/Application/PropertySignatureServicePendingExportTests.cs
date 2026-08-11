@@ -1,4 +1,5 @@
 using AutoMapper;
+using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Mappings;
@@ -22,7 +23,8 @@ public class PropertySignatureServicePendingExportTests
         _service = new PropertySignatureService(
             _repository.Object,
             Mock.Of<IExcelUploadService>(),
-            mapperConfig.CreateMapper());
+            mapperConfig.CreateMapper(),
+            Mock.Of<ILogger<PropertySignatureService>>());
     }
 
     [Fact]

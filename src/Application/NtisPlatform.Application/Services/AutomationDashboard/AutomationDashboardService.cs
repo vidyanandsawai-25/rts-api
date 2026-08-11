@@ -1,10 +1,8 @@
-using AutoMapper;
-using NtisPlatform.Application.DTOs.AutomationDashboard;
+using NtisPlatform.Core.Models.AutomationDashboard;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.AutomationDashboard;
 using NtisPlatform.Core.Interfaces.IAutomationDashboard;
 using NtisPlatform.Core.Models;
-using NtisPlatform.Core.Models.AutomationDashboard;
 
 namespace NtisPlatform.Application.Services
 {
@@ -15,31 +13,30 @@ namespace NtisPlatform.Application.Services
     public class AutomationDashboardService : IAutomationDashboardService
     {
         private readonly IAutomationDashboardRepository _dashboardRepository;
-        private readonly IDataEntryStageRepository _dataEntryRepository;
         private readonly IGeoSequencingStageService _geoSequencingStageService;
         private readonly IInternalSurveyStageService _internalSurveyStageService;
         private readonly IDataEntryStageService _dataEntryStageService;
         private readonly IAssessmentStageService _assessmentStageService;
-        private readonly IMapper _mapper;
 
         public AutomationDashboardService(
             IAutomationDashboardRepository dashboardRepository,
-            IDataEntryStageRepository dataEntryRepository,
             IGeoSequencingStageService geoSequencingStageService,
             IInternalSurveyStageService internalSurveyStageService,
             IDataEntryStageService dataEntryStageService,
-            IAssessmentStageService assessmentStageService,
-            IMapper mapper)
+            IAssessmentStageService assessmentStageService)
         {
             _dashboardRepository = dashboardRepository;
-            _dataEntryRepository = dataEntryRepository;
             _geoSequencingStageService = geoSequencingStageService;
             _internalSurveyStageService = internalSurveyStageService;
             _dataEntryStageService = dataEntryStageService;
             _assessmentStageService = assessmentStageService;
-            _mapper = mapper;
         }
 
+        #region Public API Methods
+
+        /// <summary>
+        /// Gets main dashboard cards (Previously Registered, Assessment Approved, Additional Revenue).
+        /// </summary>
         public Task<MainCardsResponseDto> GetMainCardsAsync()
             => _dashboardRepository.GetMainCardsAsync();
 
@@ -47,100 +44,66 @@ namespace NtisPlatform.Application.Services
             => _dashboardRepository.GetWorkflowCardsAsync();
 
         public Task<GeoSequencingGridResponseDto> GetGeoSequencingGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
-            => _geoSequencingStageService.GetGeoSequencingGridDataAsync(searchRequest, cancellationToken);
+            DashboardGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _geoSequencingStageService.GetGeoSequencingGridDataAsync(queryParameters, cancellationToken);
 
         public Task<GeoSequencingWardWiseSummaryResponseDto> GetGeoSequencingWardWiseSummaryAsync(
-            int zoneId, int workflowStageId, int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
-            => _geoSequencingStageService.GetGeoSequencingWardWiseSummaryAsync(zoneId, workflowStageId, pageNumber, pageSize, cancellationToken);
+            WardWiseSummaryQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _geoSequencingStageService.GetGeoSequencingWardWiseSummaryAsync(queryParameters, cancellationToken);
 
         public Task<InternalSurveyGridResponseDto> GetInternalSurveyGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
-            => _internalSurveyStageService.GetInternalSurveyGridDataAsync(searchRequest, cancellationToken);
+            DashboardGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _internalSurveyStageService.GetInternalSurveyGridDataAsync(queryParameters, cancellationToken);
 
         public Task<InternalSurveyWardWiseSummaryResponseDto> GetInternalSurveyWardWiseSummaryAsync(
-            int zoneId, int workflowStageId, int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
-            => _internalSurveyStageService.GetInternalSurveyWardWiseSummaryAsync(zoneId, workflowStageId, pageNumber, pageSize, cancellationToken);
+            WardWiseSummaryQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _internalSurveyStageService.GetInternalSurveyWardWiseSummaryAsync(queryParameters, cancellationToken);
 
         public Task<DataEntryGridResponseDto> GetDataEntryGridDataAsync(
-            PropertySearchRequestDto? searchRequest = null, CancellationToken cancellationToken = default)
-            => _dataEntryStageService.GetDataEntryGridDataAsync(searchRequest, cancellationToken);
+            DashboardGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _dataEntryStageService.GetDataEntryGridDataAsync(queryParameters, cancellationToken);
 
         public Task<DataEntryWardWiseSummaryResponseDto> GetDataEntryWardWiseSummaryAsync(
-            int zoneId, int workflowStageId, int? pageNumber, int? pageSize, CancellationToken cancellationToken = default)
-            => _dataEntryRepository.GetDataEntryWardWiseSummaryAsync(zoneId, workflowStageId, pageNumber, pageSize, cancellationToken);
+            WardWiseSummaryQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _dataEntryStageService.GetDataEntryWardWiseSummaryAsync(queryParameters, cancellationToken);
 
         public Task<AssessmentGridResponseDto> GetAssessmentGridDataAsync(
-            PropertySearchRequestDto? searchRequest, string type, CancellationToken cancellationToken = default)
-            => _assessmentStageService.GetAssessmentGridDataAsync(searchRequest, type, cancellationToken);
+            AssessmentGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
+            => _assessmentStageService.GetAssessmentGridDataAsync(queryParameters, cancellationToken);
 
         public Task<SendToApproveResponseDto> SendToApproveAsync(
             SendToApproveRequestDto request,
             CancellationToken cancellationToken = default)
             => _assessmentStageService.SendToApproveAsync(request, cancellationToken);
 
+        /// <summary>
+        /// Tracks property status across all workflow stages.
+        /// </summary>
         public Task<List<TrackStageStatusDto>> TrackStageStatusAsync(
             int propertyId,
             CancellationToken cancellationToken = default)
             => _dashboardRepository.TrackStageStatusAsync(propertyId, cancellationToken);
 
-        public Task<SubGridPDDataDto> GetSubGridDataAsync(SubGridQueryParameters queryParameters,CancellationToken cancellationToken = default)
-        {
-            var query = new SubGridFilterRequestDto
-            {
-                ZoneId = queryParameters.ZoneId,
-                WorkflowStageId = queryParameters.WorkflowStageId,
-                PageNumber = queryParameters.PageNumber,
-                PageSize = queryParameters.PageSize,
-                WardId = queryParameters.WardId,
-                PropertyTypeCategoryId = queryParameters.PropertyTypeCategoryId,
-                PropertyTypeId = queryParameters.PropertyTypeId,
-                AssessmentTypeId = queryParameters.AssessmentTypeId
-            };
+        #endregion
 
-            return GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(query, cancellationToken));
-        }
+        #region SubGrid Operations
+
+        public Task<SubGridPDDataDto> GetSubGridDataAsync(SubGridQueryParameters queryParameters,CancellationToken cancellationToken = default)
+            => GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(queryParameters, cancellationToken));
 
         public Task<SubGridPDDataDto> GetWardSubGridDataAsync(
             WardSubGridQueryParameters queryParameters,
             CancellationToken cancellationToken = default)
-        {
-            if (!queryParameters.WardId.HasValue || queryParameters.WardId.Value <= 0)
-                throw new ArgumentException("WardId parameter is required");
-
-            var query = new SubGridFilterRequestDto
-            {
-                WardId = queryParameters.WardId,
-                WorkflowStageId = queryParameters.WorkflowStageId,
-                PageNumber = queryParameters.PageNumber,
-                PageSize = queryParameters.PageSize,
-                PropertyTypeCategoryId = queryParameters.PropertyTypeCategoryId,
-                PropertyTypeId = queryParameters.PropertyTypeId,
-                AssessmentTypeId = queryParameters.AssessmentTypeId
-            };
-
-            return GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(query, cancellationToken));
-        }
+            => GetSubGridResponseAsync(() => _dashboardRepository.GetSubGridDataAsync(queryParameters, cancellationToken));
 
         public Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentPropsAsync(
             PendingAssessmentQueryParameters queryParameters,
             CancellationToken cancellationToken = default)
-        {
-            var query = new SubGridFilterRequestDto
-            {
-                PageNumber = queryParameters.PageNumber,
-                PageSize = queryParameters.PageSize,
-                SearchTerm = queryParameters.SearchTerm,
-                SurveyTypeId = queryParameters.SurveyTypeId,
-                ZoneId = queryParameters.ZoneId,
-                ZoneNo = queryParameters.ZoneNo,
-                WardId = queryParameters.WardId,
-                WardNo = queryParameters.WardNo,
-                PropertyTypeId = queryParameters.PropertyTypeId
-            };
+            => GetPendingAssessmentSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(queryParameters, cancellationToken));
 
-            return GetPendingAssessmentSubGridResponseAsync(() => _dashboardRepository.GetPendingAssessmentPropsAsync(query, cancellationToken));
-        }
+        #endregion
+
+        #region Private Helper Methods
 
         private async Task<SubGridPDDataDto> GetSubGridResponseAsync(
             Func<Task<SubGridDataProjection>> fetchSnapshot)
@@ -387,5 +350,8 @@ namespace NtisPlatform.Application.Services
 
             return "N/A";
         }
+
+        #endregion
     }
 }
+

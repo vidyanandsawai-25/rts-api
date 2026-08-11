@@ -1569,8 +1569,8 @@ public class PropertyMapMasterServiceTests
         Assert.Equal(2, result.OldPropertySuggestions.First().Id);
         Assert.Equal("John Doe", result.OldPropertySuggestions.First().OldOwnerName);
     }
-
     [Fact]
+    [Trait("Category", "Performance")]
     public async Task SearchPropertyMappingsAsync_PerformanceTest_WithLargeDataset()
     {
         // Arrange
@@ -1579,27 +1579,46 @@ public class PropertyMapMasterServiceTests
         var mockPmRepo = new Mock<IRepository<PropertyEntity, int>>();
         var mockPmoRepo = new Mock<IRepository<PropertyMastOldEntity, int>>();
         var mockUow = new Mock<IUnitOfWork>();
-        var mapper = NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
+
+        var mapper =
+            NtisPlatform.Tests.Helpers.AutoMapperTestHelper.CreateMapper();
 
         var pmmList = new List<PropertyMapMasterEntity>().BuildMock();
         var pmdList = new List<PropertyMapDetailEntity>().BuildMock();
         var pmList = new List<PropertyEntity>().BuildMock();
 
-        // Create 10,000 matching old property records
-        var pmoList = Enumerable.Range(1, 10000).Select(i => new PropertyMastOldEntity
-        {
-            Id = i,
-            OldPropertyNo = $"PROP-OLD-{i}",
-            OldWardNo = $"Ward-{i % 10}",
-            OldOwnerName = i % 2 == 0 ? "Jane Smith" : "John Doe",
-            OldMobileNo = $"98765{i:D5}",
-            IsActive = true
-        }).ToList().BuildMock();
+        // Create 10,000 old property records.
+        // 5,000 records will match "Jane Smith".
+        var pmoList = Enumerable.Range(1, 10000)
+            .Select(i => new PropertyMastOldEntity
+            {
+                Id = i,
+                OldPropertyNo = $"PROP-OLD-{i}",
+                OldWardNo = $"Ward-{i % 10}",
+                OldOwnerName = i % 2 == 0
+                    ? "Jane Smith"
+                    : "John Doe",
+                OldMobileNo = $"98765{i:D5}",
+                IsActive = true
+            })
+            .ToList()
+            .BuildMock();
 
-        mockPmmRepo.Setup(r => r.GetQueryable()).Returns(pmmList);
-        mockPmdRepo.Setup(r => r.GetQueryable()).Returns(pmdList);
-        mockPmRepo.Setup(r => r.GetQueryable()).Returns(pmList);
-        mockPmoRepo.Setup(r => r.GetQueryable()).Returns(pmoList);
+        mockPmmRepo
+            .Setup(r => r.GetQueryable())
+            .Returns(pmmList);
+
+        mockPmdRepo
+            .Setup(r => r.GetQueryable())
+            .Returns(pmdList);
+
+        mockPmRepo
+            .Setup(r => r.GetQueryable())
+            .Returns(pmList);
+
+        mockPmoRepo
+            .Setup(r => r.GetQueryable())
+            .Returns(pmoList);
 
         var service = new PropertyMapMasterService(
             mockPmmRepo.Object,
@@ -1610,50 +1629,115 @@ public class PropertyMapMasterServiceTests
             mockPmoRepo.Object
         );
 
-        var q = new PropertyMapDetailQueryParameters
+        var queryParameters = new PropertyMapDetailQueryParameters
         {
             SearchTerm = "Jane Smith",
-            PageNumber = 50, // Page 50 out of 250 pages
+            PageNumber = 50,
             PageSize = 20
         };
 
-        // Warm up (several calls, not just one, so JIT tiering/caching settles before timing starts --
-        // a single warm-up call was letting residual JIT cost leak into the timed iterations below).
-        for (int i = 0; i < 3; i++)
+        // Warm-up calls to reduce JIT/tiering effects.
+        const int warmupIterations = 3;
+
+        for (var i = 0; i < warmupIterations; i++)
         {
-            await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+            await service.SearchPropertyMappingsAsync(
+                queryParameters,
+                CancellationToken.None);
         }
 
-        // Act - Measure performance across 10 consecutive searches over 10,000 records. Per-iteration
-        // times (not a single overall average) so a single GC pause or scheduler hiccup on a shared CI
-        // runner can't drag the whole result over the threshold -- the median is robust to exactly one
-        // outlier iteration in a way a plain average isn't.
-        int iterations = 10;
-        var iterationMs = new List<double>(iterations);
+        // Act
+        // Use an odd number so median calculation is straightforward.
+        const int iterations = 11;
+
+        var iterationTimes = new double[iterations];
+
         PropertyMapSearchResultDto lastResult = null!;
-        for (int i = 0; i < iterations; i++)
+
+        for (var i = 0; i < iterations; i++)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-            lastResult = await service.SearchPropertyMappingsAsync(q, CancellationToken.None);
+
+            lastResult = await service.SearchPropertyMappingsAsync(
+                queryParameters,
+                CancellationToken.None);
+
             stopwatch.Stop();
-            iterationMs.Add(stopwatch.Elapsed.TotalMilliseconds);
+
+            iterationTimes[i] = stopwatch.Elapsed.TotalMilliseconds;
         }
 
-        iterationMs.Sort();
-        double medianMs = iterationMs[iterationMs.Count / 2];
+        // Calculate median.
+        Array.Sort(iterationTimes);
 
-        // Assert
+        var medianMs = iterationTimes[iterations / 2];
+
+        // Assert result correctness
         Assert.NotNull(lastResult);
-        Assert.Equal(5000, lastResult.TotalCount); // 5,000 Jane Smith records
-        Assert.Equal(50, lastResult.PageNumber);
-        Assert.Equal(20, lastResult.PageSize);
-        Assert.Equal(250, lastResult.TotalPages);
-        Assert.Equal(20, lastResult.OldPropertySuggestions.Count);
 
-        // Assert median execution time is under threshold
-        Assert.True(medianMs < 500, $"Performance test failed: Median search time was {medianMs:F2}ms, expected < 500ms");
+        Assert.Equal(
+            5000,
+            lastResult.TotalCount);
+
+        Assert.Equal(
+            50,
+            lastResult.PageNumber);
+
+        Assert.Equal(
+            20,
+            lastResult.PageSize);
+
+        Assert.Equal(
+            250,
+            lastResult.TotalPages);
+
+        Assert.Equal(
+            20,
+            lastResult.OldPropertySuggestions.Count);
+
+        // Detect CI environment.
+        var isCi =
+            !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable("CI")) ||
+            !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable("GITHUB_ACTIONS")) ||
+            !string.IsNullOrWhiteSpace(
+                Environment.GetEnvironmentVariable("TF_BUILD"));
+
+        // Allow threshold override from CI/environment.
+        var configuredThreshold =
+            Environment.GetEnvironmentVariable(
+                "PROPERTY_MAP_SEARCH_MEDIAN_BUDGET_MS");
+
+        double thresholdMs;
+
+        if (!double.TryParse(
+                configuredThreshold,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out thresholdMs))
+        {
+            // More lenient threshold for CI runners.
+            thresholdMs = isCi ? 400 : 150;
+        }
+
+        // Useful diagnostics when the test fails.
+        var timingSamples = string.Join(
+            ", ",
+            iterationTimes.Select(
+                x => x.ToString(
+                    "F2",
+                    System.Globalization.CultureInfo.InvariantCulture)));
+
+        // Assert median execution time is under threshold.
+        Assert.True(
+            medianMs < thresholdMs,
+            $"Performance test failed: " +
+            $"Median search time was {medianMs:F2}ms, " +
+            $"expected < {thresholdMs:F2}ms. " +
+            $"Environment: {(isCi ? "CI" : "Local")}. " +
+            $"Samples: [{timingSamples}]");
     }
-
     [Fact]
     public async Task GetMappedPropertiesAsync_ShouldFilterBySearchParameters_AndReturnPropertyDetailsOld()
     {

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Core.Models;
@@ -13,40 +14,65 @@ namespace NtisPlatform.Infrastructure.Repositories;
 /// </summary>
 public class PropertySignatureRepository : IPropertySignatureRepository
 {
+    #region Constants
+
     private const string TaxTotalCode = "TaxTotal";
     private const string TaxTotalName = "TaxTotal";
+ 
+
+    #endregion
+
+    #region Fields
 
     private readonly ApplicationDbContext _context;
+    private readonly ILogger<PropertySignatureRepository> _logger;
 
-    public PropertySignatureRepository(ApplicationDbContext context)
+    #endregion
+
+    #region Constructor
+
+    public PropertySignatureRepository(
+        ApplicationDbContext context,
+        ILogger<PropertySignatureRepository> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
-    // ─────────────────────────────────────────────────────
-    // 1. Authorities Lookup
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Authority Queries
 
     public async Task<List<SignAuthorityDto>> GetAuthoritiesAsync(
         CancellationToken cancellationToken = default)
     {
-        return await _context.SignAuthorityMaster
-            .AsNoTracking()
-            .Where(a => a.IsActive)
-            .OrderBy(a => a.SequenceOrder)
-            .Select(a => new SignAuthorityDto
-            {
-                Id = a.Id,
-                AuthorityName = a.AuthorityName,
-                AuthorityCode = a.AuthorityCode,
-                SequenceOrder = a.SequenceOrder
-            })
-            .ToListAsync(cancellationToken);
+        try
+        {
+            _logger.LogDebug("Fetching all active signing authorities");
+
+            return await _context.SignAuthorityMaster
+                .AsNoTracking()
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.SequenceOrder)
+                .Select(a => new SignAuthorityDto
+                {
+                    Id = a.Id,
+                    AuthorityName = a.AuthorityName,
+                    AuthorityCode = a.AuthorityCode,
+                    SequenceOrder = a.SequenceOrder
+                })
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching signing authorities from database");
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 2. Eligible Properties
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Eligible Properties Queries
 
     public async Task<List<EligiblePropertyDto>> GetEligiblePropertiesAsync(
         int signAuthorityId,
@@ -54,121 +80,152 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         int? wardId,
         CancellationToken cancellationToken = default)
     {
-        var propertiesQuery = _context.PropertyMast
-            .AsNoTracking()
-            .Where(p => p.IsActive
-                        && !p.MarkedForDeletion
-                        && p.PropertyNo != null
-                        && p.PropertyNo != "");
+        try
+        {
+            _logger.LogDebug(
+                "Fetching eligible properties for SignAuthorityId={SignAuthorityId}, ZoneId={ZoneId}, WardId={WardId}",
+                signAuthorityId, zoneId, wardId);
 
-        // Apply zone filter (via Ward → Zone)
-        if (zoneId.HasValue)
-            propertiesQuery = propertiesQuery.Where(p =>
-                _context.WardMaster.Any(w => w.IsActive && w.Id == p.WardId && w.ZoneId == zoneId.Value));
+            var propertiesQuery = BuildActivePropertiesQuery();
 
-        // Apply ward filter
-        if (wardId.HasValue)
-            propertiesQuery = propertiesQuery.Where(p => p.WardId == wardId.Value);
+            // Apply zone filter (via Ward → Zone)
+            if (zoneId.HasValue)
+                propertiesQuery = propertiesQuery.Where(p =>
+                    _context.WardMaster.Any(w => w.IsActive && w.Id == p.WardId && w.ZoneId == zoneId.Value));
 
-        return await (
-            from p in propertiesQuery
-            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
-            from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id into zoneJoin
-            from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            select new EligiblePropertyDto
-            {
-                PropertyId = p.Id,
-                PropertyNo = p.PropertyNo,
-                PartitionNo = p.PartitionNo,
-                WardName = w != null ? (w.Description ?? w.WardNo) : null,
-                ZoneName = z != null ? (z.Description ?? z.ZoneNo) : null
-            }
-        ).ToListAsync(cancellationToken);
+            // Apply ward filter
+            if (wardId.HasValue)
+                propertiesQuery = propertiesQuery.Where(p => p.WardId == wardId.Value);
+
+            return await (
+                from p in propertiesQuery
+                join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
+                from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id into zoneJoin
+                from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                select new EligiblePropertyDto
+                {
+                    PropertyId = p.Id,
+                    PropertyNo = p.PropertyNo,
+                    PartitionNo = p.PartitionNo,
+                    WardName = w != null ? (w.Description ?? w.WardNo) : null,
+                    ZoneName = z != null ? (z.Description ?? z.ZoneNo) : null
+                }
+            ).ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error fetching eligible properties for SignAuthorityId={SignAuthorityId}",
+                signAuthorityId);
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 3. Sequential Validation
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Sequential Validation Queries
 
     public async Task<List<PropertySignaturePendingExportAuthorityDto>> GetPendingExportAuthoritiesAsync(
         CancellationToken cancellationToken = default)
-        => await _context.SignAuthorityMaster
-            .AsNoTracking()
-            .Where(a => a.IsActive)
-            .OrderBy(a => a.SequenceOrder)
-            .Select(a => new PropertySignaturePendingExportAuthorityDto
-            {
-                SignAuthorityId = a.Id,
-                AuthorityName = a.AuthorityName,
-                OfficerName = a.OfficerName,
-                SequenceOrder = a.SequenceOrder
-            })
-            .ToListAsync(cancellationToken);
+    {
+        try
+        {
+            _logger.LogDebug("Fetching pending export authorities");
+
+            return await _context.SignAuthorityMaster
+                .AsNoTracking()
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.SequenceOrder)
+                .Select(a => new PropertySignaturePendingExportAuthorityDto
+                {
+                    SignAuthorityId = a.Id,
+                    AuthorityName = a.AuthorityName,
+                    OfficerName = a.OfficerName,
+                    SequenceOrder = a.SequenceOrder
+                })
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching pending export authorities");
+            throw;
+        }
+    }
 
     public async Task<List<PropertySignaturePendingExportSourceDto>> GetPendingExportSourceDataAsync(
         CancellationToken cancellationToken = default)
     {
-        var signatureRows = await (
-            from sig in _context.PropertySignatureDetails.AsNoTracking()
-            join p in _context.PropertyMast.AsNoTracking() on sig.PropertyId equals p.Id
-            join ward in _context.WardMaster.AsNoTracking() on p.WardId equals ward.Id
-            join zone in _context.ZoneMaster.AsNoTracking() on ward.ZoneId equals zone.Id
-            where sig.IsActive
-                  && p.IsActive
-                  && !p.MarkedForDeletion
-                  && p.PropertyNo != null
-                  && p.PropertyNo != ""
-                  && ward.IsActive
-                  && zone.IsActive
-            select new
-            {
-                sig.PropertyId,
-                sig.SignAuthorityId,
-                sig.NoticeNo,
-                sig.CreatedDate,
-                Zone = zone.ZoneNo,
-                ZoneSequenceNo = zone.SequenceNo,
-                ward.WardNo,
-                p.PropertyNo,
-                p.PartitionNo
-            })
-            .ToListAsync(cancellationToken);
+        try
+        {
+            _logger.LogDebug("Fetching pending export source data");
 
-        return signatureRows
-            .GroupBy(x => x.PropertyId)
-            .Select(g =>
-            {
-                var first = g
-                    .OrderBy(x => x.ZoneSequenceNo ?? 0)
-                    .ThenBy(x => x.Zone)
-                    .ThenBy(x => x.WardNo)
-                    .ThenBy(x => x.PropertyNo)
-                    .ThenBy(x => x.PartitionNo)
-                    .First();
-                var latestNoticeNo = g
-                    .OrderByDescending(x => x.CreatedDate)
-                    .Select(x => x.NoticeNo)
-                    .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
-
-                return new PropertySignaturePendingExportSourceDto
+            var signatureRows = await (
+                from sig in _context.PropertySignatureDetails.AsNoTracking()
+                join p in _context.PropertyMast.AsNoTracking() on sig.PropertyId equals p.Id
+                join ward in _context.WardMaster.AsNoTracking() on p.WardId equals ward.Id
+                join zone in _context.ZoneMaster.AsNoTracking() on ward.ZoneId equals zone.Id
+                where sig.IsActive
+                      && p.IsActive
+                      && !p.MarkedForDeletion
+                      && p.PropertyNo != null
+                      && p.PropertyNo != ""
+                      && ward.IsActive
+                      && zone.IsActive
+                select new
                 {
-                    PropertyId = g.Key,
-                    Zone = first.Zone,
-                    BuildingNo = string.IsNullOrWhiteSpace(first.PartitionNo)
-                        ? first.WardNo + "-" + first.PropertyNo
-                        : first.WardNo + "-" + first.PropertyNo + "-" + first.PartitionNo,
-                    SrNoticeNo = latestNoticeNo ?? "",
-                    SignedAuthorityIds = g
-                        .Select(x => x.SignAuthorityId)
-                        .Distinct()
-                        .ToList()
-                };
-            })
-            .OrderBy(x => x.Zone)
-            .ThenBy(x => x.BuildingNo)
-            .ThenBy(x => x.SrNoticeNo)
-            .ToList();
+                    sig.PropertyId,
+                    sig.SignAuthorityId,
+                    sig.NoticeNo,
+                    sig.CreatedDate,
+                    Zone = zone.ZoneNo,
+                    ZoneSequenceNo = zone.SequenceNo,
+                    ward.WardNo,
+                    p.PropertyNo,
+                    p.PartitionNo
+                })
+                .ToListAsync(cancellationToken);
+
+            return signatureRows
+                .GroupBy(x => x.PropertyId)
+                .Select(g =>
+                {
+                    var first = g
+                        .OrderBy(x => x.ZoneSequenceNo ?? 0)
+                        .ThenBy(x => x.Zone)
+                        .ThenBy(x => x.WardNo)
+                        .ThenBy(x => x.PropertyNo)
+                        .ThenBy(x => x.PartitionNo)
+                        .First();
+                    var latestNoticeNo = g
+                        .OrderByDescending(x => x.CreatedDate)
+                        .Select(x => x.NoticeNo)
+                        .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+                    return new PropertySignaturePendingExportSourceDto
+                    {
+                        PropertyId = g.Key,
+                        Zone = first.Zone,
+                        BuildingNo = string.IsNullOrWhiteSpace(first.PartitionNo)
+                            ? first.WardNo + "-" + first.PropertyNo
+                            : first.WardNo + "-" + first.PropertyNo + "-" + first.PartitionNo,
+                        SrNoticeNo = latestNoticeNo ?? "",
+                        SignedAuthorityIds = g
+                            .Select(x => x.SignAuthorityId)
+                            .Distinct()
+                            .ToList()
+                    };
+                })
+                .OrderBy(x => x.Zone)
+                .ThenBy(x => x.BuildingNo)
+                .ThenBy(x => x.SrNoticeNo)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching pending export source data");
+            throw;
+        }
     }
 
     public async Task<List<int>> GetSignedPropertyIdsAsync(
@@ -179,19 +236,32 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         if (!propertyIds.Any())
             return new List<int>();
 
-        return await _context.PropertySignatureDetails
-            .AsNoTracking()
-            .Where(d => d.IsActive
-                        && d.SignAuthorityId == signAuthorityId
-                        && propertyIds.Contains(d.PropertyId))
-            .Select(d => d.PropertyId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
+        try
+        {
+            _logger.LogDebug( "Fetching signed property IDs for SignAuthorityId={SignAuthorityId}, Count={Count}",
+                signAuthorityId, propertyIds.Count);
+
+            return await _context.PropertySignatureDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive
+                            && d.SignAuthorityId == signAuthorityId
+                            && propertyIds.Contains(d.PropertyId))
+                .Select(d => d.PropertyId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error fetching signed property IDs for SignAuthorityId={SignAuthorityId}",
+                signAuthorityId);
+            throw;
+        }
     }
 
-    // -------------------------------------------------------------------------------------
-    // 4. Duplicate Check
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Duplicate Check Queries
 
     public async Task<List<int>> GetAlreadyApprovedPropertyIdsAsync(
         List<int> propertyIds,
@@ -201,18 +271,32 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         if (!propertyIds.Any())
             return new List<int>();
 
-        return await _context.PropertySignatureDetails
-            .AsNoTracking()
-            .Where(d => d.IsActive
-                        && d.SignAuthorityId == signAuthorityId
-                        && propertyIds.Contains(d.PropertyId))
-            .Select(d => d.PropertyId)
-            .ToListAsync(cancellationToken);
+        try
+        {
+            _logger.LogDebug(
+                "Checking already approved properties for SignAuthorityId={SignAuthorityId}, Count={Count}",
+                signAuthorityId, propertyIds.Count);
+
+            return await _context.PropertySignatureDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive
+                            && d.SignAuthorityId == signAuthorityId
+                            && propertyIds.Contains(d.PropertyId))
+                .Select(d => d.PropertyId)
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error checking already approved properties for SignAuthorityId={SignAuthorityId}",
+                signAuthorityId);
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 5. Save Approvals
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Save Approvals Commands
 
     public async Task<int> SaveApprovalsAsync(
         int userId,
@@ -223,26 +307,46 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         if (!approvals.Any())
             return 0;
 
-        var now = DateTime.Now;
-
-        var records = approvals.Select(a => new PropertySignatureDetailsEntity
+        try
         {
-            UserId = userId,
-            PropertyId = a.PropertyId,
-            SignAuthorityId = signAuthorityId,
-             
-            IsActive = true,
-            CreatedDate = now,
-            CreatedBy = userId
-        }).ToList();
+            _logger.LogDebug(
+                "Saving {Count} approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}",
+                approvals.Count, userId, signAuthorityId);
 
-        await _context.PropertySignatureDetails.AddRangeAsync(records, cancellationToken);
-        return await _context.SaveChangesAsync(cancellationToken);
+            var now = DateTime.Now;
+
+            var records = approvals.Select(a => new PropertySignatureDetailsEntity
+            {
+                UserId = userId,
+                PropertyId = a.PropertyId,
+                SignAuthorityId = signAuthorityId,
+
+                IsActive = true,
+                CreatedDate = now,
+                CreatedBy = userId
+            }).ToList();
+
+            await _context.PropertySignatureDetails.AddRangeAsync(records, cancellationToken);
+            var savedCount = await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Saved {SavedCount} approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}",
+                savedCount, userId, signAuthorityId);
+
+            return savedCount;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error saving approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}",
+                userId, signAuthorityId);
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 6. My Approvals
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region My Approvals Queries
 
     public async Task<List<SignatureApprovalDto>> GetMyApprovalsAsync(
         int userId,
@@ -250,109 +354,133 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         int? zoneId,
         CancellationToken cancellationToken = default)
     {
-        var query = _context.PropertySignatureDetails
-            .AsNoTracking()
-            .Where(d => d.IsActive
-                        && d.UserId == userId
-                        && d.SignAuthorityId == signAuthorityId
-                        && d.Property.IsActive
-                        && !d.Property.MarkedForDeletion);
-
-        if (zoneId.HasValue)
+        try
         {
-            var wardIdsInZone = _context.WardMaster
-                .Where(w => w.IsActive && w.ZoneId == zoneId.Value)
-                .Select(w => w.Id);
+            _logger.LogDebug(
+                "Fetching approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}, ZoneId={ZoneId}",
+                userId, signAuthorityId, zoneId);
 
-            query = query.Where(d => wardIdsInZone.Contains(d.Property.WardId));
-        }
+            var query = _context.PropertySignatureDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive
+                            && d.UserId == userId
+                            && d.SignAuthorityId == signAuthorityId
+                            && d.Property.IsActive
+                            && !d.Property.MarkedForDeletion);
 
-        return await (
-            from d in query
-            join w in _context.WardMaster.AsNoTracking() on d.Property.WardId equals w.Id into wardJoin
-            from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            select new SignatureApprovalDto
+            if (zoneId.HasValue)
             {
-                Id = d.Id,
-                PropertyId = d.PropertyId,
-                PropertyNo = d.Property.PropertyNo,
-                PartitionNo = d.Property.PartitionNo,
-                WardName = w != null ? (w.Description ?? w.WardNo) : null,
-                SignAuthorityId = d.SignAuthorityId,
-                AuthorityName = d.SignAuthority.AuthorityName,
-                ApprovedByUserName = d.User.UserName,
-              
-                ApprovedOn = d.CreatedDate
+                var wardIdsInZone = _context.WardMaster
+                    .Where(w => w.IsActive && w.ZoneId == zoneId.Value)
+                    .Select(w => w.Id);
+
+                query = query.Where(d => wardIdsInZone.Contains(d.Property.WardId));
             }
-        ).ToListAsync(cancellationToken);
+
+            return await (
+                from d in query
+                join w in _context.WardMaster.AsNoTracking() on d.Property.WardId equals w.Id into wardJoin
+                from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                select new SignatureApprovalDto
+                {
+                    Id = d.Id,
+                    PropertyId = d.PropertyId,
+                    PropertyNo = d.Property.PropertyNo,
+                    PartitionNo = d.Property.PartitionNo,
+                    WardName = w != null ? (w.Description ?? w.WardNo) : null,
+                    SignAuthorityId = d.SignAuthorityId,
+                    AuthorityName = d.SignAuthority.AuthorityName,
+                    ApprovedByUserName = d.User.UserName,
+
+                    ApprovedOn = d.CreatedDate
+                }
+            ).ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error fetching approvals for UserId={UserId}, SignAuthorityId={SignAuthorityId}",
+                userId, signAuthorityId);
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 7. Property Approval Status
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Property Status Queries
 
     public async Task<PropertySignatureStatusDto?> GetPropertySignatureStatusAsync(
         int propertyId,
         CancellationToken cancellationToken = default)
     {
-        var property = await _context.PropertyMast
-            .AsNoTracking()
-            .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyNo })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (property == null)
-            return null;
-
-        // All authorities in sequence order
-        var allAuthorities = await _context.SignAuthorityMaster
-            .AsNoTracking()
-            .Where(a => a.IsActive)
-            .OrderBy(a => a.SequenceOrder)
-            .ToListAsync(cancellationToken);
-
-        // All approvals for this property
-        var existingApprovals = await _context.PropertySignatureDetails
-            .AsNoTracking()
-            .Where(d => d.IsActive && d.PropertyId == propertyId)
-            .Select(d => new
-            {
-                d.SignAuthorityId,
-                d.User.UserName,
-         
-                d.CreatedDate
-            })
-            .ToListAsync(cancellationToken);
-
-        var statusList = allAuthorities.Select(auth =>
+        try
         {
-            var approval = existingApprovals.FirstOrDefault(a => a.SignAuthorityId == auth.Id);
-            return new AuthorityApprovalStatusDto
+            _logger.LogDebug("Fetching signature status for PropertyId={PropertyId}", propertyId);
+
+            var property = await _context.PropertyMast
+                .AsNoTracking()
+                .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
+                .Select(p => new { p.Id, p.PropertyNo })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (property == null)
+                return null;
+
+            // All authorities in sequence order
+            var allAuthorities = await _context.SignAuthorityMaster
+                .AsNoTracking()
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.SequenceOrder)
+                .ToListAsync(cancellationToken);
+
+            // All approvals for this property
+            var existingApprovals = await _context.PropertySignatureDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive && d.PropertyId == propertyId)
+                .Select(d => new
+                {
+                    d.SignAuthorityId,
+                    d.User.UserName,
+
+                    d.CreatedDate
+                })
+                .ToListAsync(cancellationToken);
+
+            var statusList = allAuthorities.Select(auth =>
             {
-                SignAuthorityId = auth.Id,
-                AuthorityName = auth.AuthorityName,
-                SequenceOrder = auth.SequenceOrder,
-                IsApproved = approval != null,
-                ApprovedByUserName = approval?.UserName,
-                ApprovedOn = approval?.CreatedDate 
+                var approval = existingApprovals.FirstOrDefault(a => a.SignAuthorityId == auth.Id);
+                return new AuthorityApprovalStatusDto
+                {
+                    SignAuthorityId = auth.Id,
+                    AuthorityName = auth.AuthorityName,
+                    SequenceOrder = auth.SequenceOrder,
+                    IsApproved = approval != null,
+                    ApprovedByUserName = approval?.UserName,
+                    ApprovedOn = approval?.CreatedDate 
+                };
+            }).ToList();
+
+            var pendingAuthority = statusList.FirstOrDefault(s => !s.IsApproved);
+
+            return new PropertySignatureStatusDto
+            {
+                PropertyId = property.Id,
+                PropertyNo = property.PropertyNo,
+                Approvals = statusList,
+                PendingAuthority = pendingAuthority?.AuthorityName,
+                IsFullyApproved = pendingAuthority == null
             };
-        }).ToList();
-
-        var pendingAuthority = statusList.FirstOrDefault(s => !s.IsApproved);
-
-        return new PropertySignatureStatusDto
+        }
+        catch (Exception ex)
         {
-            PropertyId = property.Id,
-            PropertyNo = property.PropertyNo,
-            Approvals = statusList,
-            PendingAuthority = pendingAuthority?.AuthorityName,
-            IsFullyApproved = pendingAuthority == null
-        };
+            _logger.LogError(ex, "Error fetching signature status for PropertyId={PropertyId}", propertyId);
+            throw;
+        }
     }
 
-    // ─────────────────────────────────────────────────────
-    // 8. Revoke Approval
-    // ─────────────────────────────────────────────────────
+    #endregion
+
+    #region Revoke Commands
 
     public async Task<bool> RevokeApprovalAsync(
         int propertyId,
@@ -360,68 +488,179 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         int updatedBy,
         CancellationToken cancellationToken = default)
     {
-        var record = await _context.PropertySignatureDetails
-            .Where(d => d.IsActive
-                        && d.PropertyId == propertyId
-                        && d.SignAuthorityId == signAuthorityId)
-            .FirstOrDefaultAsync(cancellationToken);
+        try
+        {
+            _logger.LogDebug(
+                "Revoking approval for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                propertyId, signAuthorityId);
 
-        if (record == null)
-            return false;
+            var record = await _context.PropertySignatureDetails
+                .Where(d => d.IsActive
+                            && d.PropertyId == propertyId
+                            && d.SignAuthorityId == signAuthorityId)
+                .FirstOrDefaultAsync(cancellationToken);
 
-        record.IsActive = false;
-        record.UpdatedDate = DateTime.Now;
-        record.UpdatedBy = updatedBy;
+            if (record == null)
+                return false;
 
-        await _context.SaveChangesAsync(cancellationToken);
-        return true;
+            record.IsActive = false;
+            record.UpdatedDate = DateTime.Now;
+            record.UpdatedBy = updatedBy;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Revoked approval for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                propertyId, signAuthorityId);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error revoking approval for PropertyId={PropertyId}, SignAuthorityId={SignAuthorityId}",
+                propertyId, signAuthorityId);
+            throw;
+        }
     }
 
+    #endregion
+
+    #region Grid Data Queries
+
     public async Task<SignAuthorityGridResponseDto> GetSignAuthorityGridDataAsync(
-        PropertySearchRequestDto? searchRequest = null,
+        PropertySearchRequestDto? searchRequest = null,CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("Fetching sign-off grid data, ZoneId={ZoneId}", searchRequest?.ZoneId);
+
+            var result = new SignAuthorityGridResponseDto();
+
+            // 1. Get all active signing authorities in SequenceOrder
+            var authorities = await _context.SignAuthorityMaster.AsNoTracking().Where(a => a.IsActive).OrderBy(a => a.SequenceOrder).ToListAsync(cancellationToken);
+
+            // 2. Get active zones
+            var zonesQuery = _context.ZoneMaster.AsNoTracking().Where(z => z.IsActive);
+
+            if (searchRequest?.ZoneId.HasValue == true)
+                zonesQuery = zonesQuery.Where(z => z.Id == searchRequest.ZoneId.Value);
+
+            var zones = await zonesQuery
+                .OrderBy(z => z.SequenceNo ?? 0)
+                .ThenBy(z => z.ZoneNo)
+                .ToListAsync(cancellationToken);
+
+            // 3. Populate per-zone data (N+1 issue - needs optimization in future)
+            foreach (var zone in zones)
+            {
+                var zoneData = await GetZoneSignAuthorityDataAsync(
+                    zone.Id,
+                    zone.Description ?? zone.ZoneNo,
+                    zone.ZoneNo,
+                    authorities,
+                    searchRequest,
+                    cancellationToken);
+                result.ZoneData.Add(zoneData);
+            }
+
+            // 4. Calculate total row (sum of all filtered zoneData list)
+            result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
+
+            // 5. Calculate grand total row (all zones in the municipality)
+            if (searchRequest?.ZoneId.HasValue == true)
+            {
+                var allZones = await _context.ZoneMaster
+                    .AsNoTracking()
+                    .Where(z => z.IsActive)
+                    .OrderBy(z => z.SequenceNo ?? 0)
+                    .ThenBy(z => z.ZoneNo)
+                    .ToListAsync(cancellationToken);
+
+                var allZoneData = new List<SignAuthorityZoneDataDto>();
+                foreach (var zone in allZones)
+                {
+                    var zoneData = await GetZoneSignAuthorityDataAsync(
+                        zone.Id,
+                        zone.Description ?? zone.ZoneNo,
+                        zone.ZoneNo,
+                        authorities,
+                        null,
+                        cancellationToken);
+                    allZoneData.Add(zoneData);
+                }
+                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
+            }
+            else
+            {
+                result.GrandTotalRow = CalculateTotals("GRAND TOTAL", result.ZoneData, authorities);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching sign-off grid data");
+            throw;
+        }
+    }
+
+    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
+        int zoneId,
         CancellationToken cancellationToken = default)
     {
-        var result = new SignAuthorityGridResponseDto();
-
-        // 1. Get all active signing authorities in SequenceOrder
-        var authorities = await _context.SignAuthorityMaster
-            .AsNoTracking()
-            .Where(a => a.IsActive)
-            .OrderBy(a => a.SequenceOrder)
-            .ToListAsync(cancellationToken);
-
-        // 2. Get active zones
-        var zonesQuery = _context.ZoneMaster
-            .AsNoTracking()
-            .Where(z => z.IsActive);
-
-        if (searchRequest?.ZoneId.HasValue == true)
-            zonesQuery = zonesQuery.Where(z => z.Id == searchRequest.ZoneId.Value);
-
-        var zones = await zonesQuery
-            .OrderBy(z => z.SequenceNo ?? 0)
-            .ThenBy(z => z.ZoneNo)
-            .ToListAsync(cancellationToken);
-
-        // 3. Populate per-zone data
-        foreach (var zone in zones)
+        try
         {
-            var zoneData = await GetZoneSignAuthorityDataAsync(
-                zone.Id,
-                zone.Description ?? zone.ZoneNo,
-                zone.ZoneNo,
-                authorities,
-                searchRequest,
-                cancellationToken);
-            result.ZoneData.Add(zoneData);
-        }
+            _logger.LogDebug("Fetching ward-wise grid data for ZoneId={ZoneId}", zoneId);
 
-        // 4. Calculate total row (sum of all filtered zoneData list)
-        result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
+            var result = new SignAuthorityGridResponseDto();
 
-        // 5. Calculate grand total row (all zones in the municipality)
-        if (searchRequest?.ZoneId.HasValue == true)
-        {
+            // 1. Get all active signing authorities in SequenceOrder
+            var authorities = await _context.SignAuthorityMaster
+                .AsNoTracking()
+                .Where(a => a.IsActive)
+                .OrderBy(a => a.SequenceOrder)
+                .ToListAsync(cancellationToken);
+
+            // 2. Fetch the zone name
+            var zone = await _context.ZoneMaster
+                .AsNoTracking()
+                .FirstOrDefaultAsync(z => z.IsActive && z.Id == zoneId, cancellationToken);
+
+            if (zone == null)
+            {
+                return result;
+            }
+
+            var zoneName = zone.Description ?? zone.ZoneNo;
+            var zoneNo = zone.ZoneNo;
+
+            // 3. Get active wards for this zone
+            var wards = await _context.WardMaster
+                .AsNoTracking()
+                .Where(w => w.IsActive && w.ZoneId == zoneId)
+                .OrderBy(w => w.SequenceNo ?? 0)
+                .ThenBy(w => w.WardNo)
+                .ToListAsync(cancellationToken);
+
+            // 4. Populate per-ward data (N+1 issue - needs optimization in future)
+            foreach (var ward in wards)
+            {
+                var wardData = await GetWardSignAuthorityDataAsync(
+                    zoneId,
+                    zoneName,
+                    zoneNo,
+                    ward.Id,
+                    ward.Description ?? ward.WardNo,
+                    authorities,
+                    cancellationToken);
+                result.ZoneData.Add(wardData);
+            }
+
+            // 5. Calculate total row (sum of all wards in this zone)
+            result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
+
+            // 6. Calculate grand total row (all zones in the municipality)
             var allZones = await _context.ZoneMaster
                 .AsNoTracking()
                 .Where(z => z.IsActive)
@@ -430,101 +669,26 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 .ToListAsync(cancellationToken);
 
             var allZoneData = new List<SignAuthorityZoneDataDto>();
-            foreach (var zone in allZones)
+            foreach (var z in allZones)
             {
-                var zoneData = await GetZoneSignAuthorityDataAsync(
-                    zone.Id,
-                    zone.Description ?? zone.ZoneNo,
-                    zone.ZoneNo,
+                var zData = await GetZoneSignAuthorityDataAsync(
+                    z.Id,
+                    z.Description ?? z.ZoneNo,
+                    z.ZoneNo,
                     authorities,
                     null,
                     cancellationToken);
-                allZoneData.Add(zoneData);
+                allZoneData.Add(zData);
             }
             result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
-        }
-        else
-        {
-            result.GrandTotalRow = CalculateTotals("GRAND TOTAL", result.ZoneData, authorities);
-        }
 
-        return result;
-    }
-
-    public async Task<SignAuthorityGridResponseDto> GetSignAuthorityWardGridDataAsync(
-        int zoneId,
-        CancellationToken cancellationToken = default)
-    {
-        var result = new SignAuthorityGridResponseDto();
-
-        // 1. Get all active signing authorities in SequenceOrder
-        var authorities = await _context.SignAuthorityMaster
-            .AsNoTracking()
-            .Where(a => a.IsActive)
-            .OrderBy(a => a.SequenceOrder)
-            .ToListAsync(cancellationToken);
-
-        // 2. Fetch the zone name
-        var zone = await _context.ZoneMaster
-            .AsNoTracking()
-            .FirstOrDefaultAsync(z => z.IsActive && z.Id == zoneId, cancellationToken);
-
-        if (zone == null)
-        {
             return result;
         }
-
-        var zoneName = zone.Description ?? zone.ZoneNo;
-        var zoneNo = zone.ZoneNo;
-
-        // 3. Get active wards for this zone
-        var wards = await _context.WardMaster
-            .AsNoTracking()
-            .Where(w => w.IsActive && w.ZoneId == zoneId)
-            .OrderBy(w => w.SequenceNo ?? 0)
-            .ThenBy(w => w.WardNo)
-            .ToListAsync(cancellationToken);
-
-        // 4. Populate per-ward data
-        foreach (var ward in wards)
+        catch (Exception ex)
         {
-            var wardData = await GetWardSignAuthorityDataAsync(
-                zoneId,
-                zoneName,
-                zoneNo,
-                ward.Id,
-                ward.Description ?? ward.WardNo,
-                authorities,
-                cancellationToken);
-            result.ZoneData.Add(wardData);
+            _logger.LogError(ex, "Error fetching ward-wise grid data for ZoneId={ZoneId}", zoneId);
+            throw;
         }
-
-        // 5. Calculate total row (sum of all wards in this zone)
-        result.TotalRow = CalculateTotals("TOTAL", result.ZoneData, authorities);
-
-        // 6. Calculate grand total row (all zones in the municipality)
-        var allZones = await _context.ZoneMaster
-            .AsNoTracking()
-            .Where(z => z.IsActive)
-            .OrderBy(z => z.SequenceNo ?? 0)
-            .ThenBy(z => z.ZoneNo)
-            .ToListAsync(cancellationToken);
-
-        var allZoneData = new List<SignAuthorityZoneDataDto>();
-        foreach (var z in allZones)
-        {
-            var zData = await GetZoneSignAuthorityDataAsync(
-                z.Id,
-                z.Description ?? z.ZoneNo,
-                z.ZoneNo,
-                authorities,
-                null,
-                cancellationToken);
-            allZoneData.Add(zData);
-        }
-        result.GrandTotalRow = CalculateTotals("GRAND TOTAL", allZoneData, authorities);
-
-        return result;
     }
 
     private async Task<SignAuthorityZoneDataDto> GetWardSignAuthorityDataAsync(
@@ -565,8 +729,8 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
         foreach (var authority in authorities)
         {
-            // Property IDs approved by this authority in this ward
-            var approvedPropertyIds = await _context.PropertySignatureDetails
+            var approvedPropertyIds =
+                _context.PropertySignatureDetails
                 .AsNoTracking()
                 .Where(d => d.IsActive
                             && d.SignAuthorityId == authority.Id
@@ -576,71 +740,14 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                             && d.Property.PropertyNo != ""
                             && d.Property.WardId == wardId)
                 .Select(d => d.PropertyId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
+                .Distinct();
 
-            var classification = new SignAuthorityClassificationDto
-            {
-                Type = authority.AuthorityName
-            };
-
-            var signedStructure = 0;
-            var signedUnit = 0;
-
-            if (approvedPropertyIds.Any())
-            {
-                // Approved structure count (no PartitionNo)
-                signedStructure = await _context.PropertyMast
-                    .AsNoTracking()
-                    .Where(p => approvedPropertyIds.Contains(p.Id)
-                                && (p.PartitionNo == null || p.PartitionNo == ""))
-                    .CountAsync(cancellationToken);
-
-                // Approved unit count
-                signedUnit = approvedPropertyIds.Count;
-
-                // Demands: New/Current (TransMast)
-                classification.CurrentDemand = await (
-                    from t in _context.TransMast.AsNoTracking()
-                    join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-                    where approvedPropertyIds.Contains(t.PropertyId)
-                          && t.IsActive && !t.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select (decimal?)t.TaxAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Demands: Old (TransMastOld)
-                classification.OldDemand = await (
-                    from p in _context.PropertyMast.AsNoTracking()
-                    where approvedPropertyIds.Contains(p.Id) && p.PropertyMastOldId != null
-                    join tmo in _context.TransMastOld.AsNoTracking() on p.PropertyMastOldId equals tmo.PropertyMastOldId
-                    join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
-                    where tmo.IsActive && !tmo.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select (decimal?)tmo.TaxAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Demands: Retrospective (TaxPendingDetailsRetro)
-                classification.RetroDemand = await (
-                    from tr in _context.TaxPendingDetailsRetro.AsNoTracking()
-                    join tax in _context.TaxMaster.AsNoTracking() on tr.TaxId equals tax.Id
-                    where approvedPropertyIds.Contains(tr.PropertyId)
-                          && !tr.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select tr.PendingAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Sum demands
-                classification.TotalDemand = classification.CurrentDemand + classification.RetroDemand;
-                classification.AdditionalRevenueGenerated = classification.CurrentDemand - classification.OldDemand;
-            }
-
-            classification.Structure = signedStructure;
-            classification.Unit = signedUnit;
-            classification.PendingStructure = Math.Max(0, wardData.TotalStructure - signedStructure);
-            classification.PendingUnit = Math.Max(0, wardData.TotalUnit - signedUnit);
-
-            wardData.Classifications.Add(classification);
+            wardData.Classifications.Add(await BuildSignAuthorityClassificationAsync(
+                authority,
+                wardData.TotalStructure,
+                wardData.TotalUnit,
+                approvedPropertyIds,
+                cancellationToken));
         }
 
         return wardData;
@@ -691,8 +798,8 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
         foreach (var authority in authorities)
         {
-            // Property IDs approved by this authority in this zone
-            var approvedPropertyIds = await _context.PropertySignatureDetails
+            var approvedPropertyIds =
+                _context.PropertySignatureDetails
                 .AsNoTracking()
                 .Where(d => d.IsActive
                             && d.SignAuthorityId == authority.Id
@@ -702,74 +809,89 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                             && d.Property.PropertyNo != ""
                             && wardIds.Contains(d.Property.WardId))
                 .Select(d => d.PropertyId)
-                .Distinct()
-                .ToListAsync(cancellationToken);
+                .Distinct();
 
-            var classification = new SignAuthorityClassificationDto
-            {
-                Type = authority.AuthorityName
-            };
-
-            var signedStructure = 0;
-            var signedUnit = 0;
-
-            if (approvedPropertyIds.Any())
-            {
-                // Approved structure count (no PartitionNo)
-                signedStructure = await _context.PropertyMast
-                    .AsNoTracking()
-                    .Where(p => approvedPropertyIds.Contains(p.Id)
-                                && (p.PartitionNo == null || p.PartitionNo == ""))
-                    .CountAsync(cancellationToken);
-
-                // Approved unit count
-                signedUnit = approvedPropertyIds.Count;
-
-                // Demands: New/Current (TransMast)
-                classification.CurrentDemand = await (
-                    from t in _context.TransMast.AsNoTracking()
-                    join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-                    where approvedPropertyIds.Contains(t.PropertyId)
-                          && t.IsActive && !t.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select (decimal?)t.TaxAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Demands: Old (TransMastOld)
-                classification.OldDemand = await (
-                    from p in _context.PropertyMast.AsNoTracking()
-                    where approvedPropertyIds.Contains(p.Id) && p.PropertyMastOldId != null
-                    join tmo in _context.TransMastOld.AsNoTracking() on p.PropertyMastOldId equals tmo.PropertyMastOldId
-                    join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
-                    where tmo.IsActive && !tmo.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select (decimal?)tmo.TaxAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Demands: Retrospective (TaxPendingDetailsRetro)
-                classification.RetroDemand = await (
-                    from tr in _context.TaxPendingDetailsRetro.AsNoTracking()
-                    join tax in _context.TaxMaster.AsNoTracking() on tr.TaxId equals tax.Id
-                    where approvedPropertyIds.Contains(tr.PropertyId)
-                          && !tr.MarkedForDeletion
-                          && tax.IsActive && tax.TaxCode == "TaxTotal" && tax.TaxName == "TaxTotal"
-                    select tr.PendingAmount
-                ).SumAsync(cancellationToken) ?? 0m;
-
-                // Sum demands
-                classification.TotalDemand = classification.CurrentDemand + classification.RetroDemand;
-                classification.AdditionalRevenueGenerated = classification.CurrentDemand - classification.OldDemand;
-            }
-
-            classification.Structure = signedStructure;
-            classification.Unit = signedUnit;
-            classification.PendingStructure = Math.Max(0, zoneData.TotalStructure - signedStructure);
-            classification.PendingUnit = Math.Max(0, zoneData.TotalUnit - signedUnit);
-
-            zoneData.Classifications.Add(classification);
+            zoneData.Classifications.Add(await BuildSignAuthorityClassificationAsync(
+                authority,
+                zoneData.TotalStructure,
+                zoneData.TotalUnit,
+                approvedPropertyIds,
+                cancellationToken));
         }
 
         return zoneData;
+    }
+
+    private async Task<SignAuthorityClassificationDto> BuildSignAuthorityClassificationAsync(
+        SignAuthorityMasterEntity authority,
+        int totalStructure,
+        int totalUnit,
+        IQueryable<int> approvedPropertyIds,
+        CancellationToken cancellationToken)
+    {
+        var classification = new SignAuthorityClassificationDto
+        {
+            TypeId = authority.Id,
+            Type = authority.AuthorityName
+        };
+
+        var signedUnit = await approvedPropertyIds.CountAsync(cancellationToken);
+        if (signedUnit > 0)
+        {
+            classification.Structure = await (
+                from propertyId in approvedPropertyIds
+                join p in _context.PropertyMast.AsNoTracking() on propertyId equals p.Id
+                where p.PartitionNo == null || p.PartitionNo == ""
+                select p.Id
+            ).CountAsync(cancellationToken);
+
+            classification.CurrentDemand = await (
+                from propertyId in approvedPropertyIds
+                join t in _context.TransMast.AsNoTracking() on propertyId equals t.PropertyId
+                join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+                where t.IsActive
+                      && !t.MarkedForDeletion
+                      && tax.IsActive
+                      && tax.TaxCode == TaxTotalCode
+                      && tax.TaxName == TaxTotalName
+                select (decimal?)t.TaxAmount
+            ).SumAsync(cancellationToken) ?? 0m;
+
+            classification.OldDemand = await (
+                from propertyId in approvedPropertyIds
+                join p in _context.PropertyMast.AsNoTracking() on propertyId equals p.Id
+                where p.PropertyMastOldId != null
+                join tmo in _context.TransMastOld.AsNoTracking() on p.PropertyMastOldId equals tmo.PropertyMastOldId
+                join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
+                where tmo.IsActive
+                      && !tmo.MarkedForDeletion
+                      && tax.IsActive
+                      && tax.TaxCode == TaxTotalCode
+                      && tax.TaxName == TaxTotalName
+                select (decimal?)tmo.TaxAmount
+            ).SumAsync(cancellationToken) ?? 0m;
+
+            classification.RetroDemand = await (
+                from propertyId in approvedPropertyIds
+                join tr in _context.TaxPendingDetailsRetro.AsNoTracking() on propertyId equals tr.PropertyId
+                join tax in _context.TaxMaster.AsNoTracking() on tr.TaxId equals tax.Id
+                where tr.IsActive
+                      && !tr.MarkedForDeletion
+                      && tax.IsActive
+                      && tax.TaxCode == TaxTotalCode
+                      && tax.TaxName == TaxTotalName
+                select tr.PendingAmount
+            ).SumAsync(cancellationToken) ?? 0m;
+
+            classification.Unit = signedUnit;
+            classification.TotalDemand = classification.CurrentDemand + classification.RetroDemand;
+            classification.AdditionalRevenueGenerated = classification.CurrentDemand - classification.OldDemand;
+        }
+
+        classification.PendingStructure = Math.Max(0, totalStructure - classification.Structure);
+        classification.PendingUnit = Math.Max(0, totalUnit - signedUnit);
+
+        return classification;
     }
 
     private static SignAuthorityZoneDataDto CalculateTotals(
@@ -789,6 +911,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         {
             var classification = new SignAuthorityClassificationDto
             {
+                TypeId = authority.Id,
                 Type = authority.AuthorityName
             };
 
@@ -832,13 +955,14 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         ).SumAsync(cancellationToken) ?? 0m;
 
     public async Task<PropertySignaturePagedResultDto<PropertySignatureSubGridDto>> GetBuildingWiseDataAsync(
-        int wardId,
-        int workflowStageId,
-        int pageNumber,
-        int pageSize,
+        PropertySignatureBuildingWiseQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var paging = NormalizePaging(pageNumber, pageSize);
+        var paging = NormalizePaging(queryParameters.PageNumber, queryParameters.PageSize);
+        var wardId = queryParameters.WardId;
+        var workflowStageId = queryParameters.WorkflowStageId;
+        var noticeNo = NormalizeOptionalText(queryParameters.NoticeNo);
+
         var authorities = await _context.SignAuthorityMaster
             .AsNoTracking()
             .Where(a => a.IsActive)
@@ -859,10 +983,25 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                   && w.IsActive
             select new
             {
+                PropertyId = p.Id,
                 p.PropertyNo,
                 w.WardNo,
                 BuildingNo = w.WardNo + "-" + p.PropertyNo
             }).Distinct();
+
+        if (noticeNo != null)
+        {
+            var noticePropertyIds = _context.PropertySignatureDetails
+                .AsNoTracking()
+                .Where(sig => sig.IsActive
+                              && sig.NoticeNo != null
+                              && sig.NoticeNo.Contains(noticeNo))
+                .Select(sig => sig.PropertyId)
+                .Distinct();
+
+            scopedBuildingKeysQuery = scopedBuildingKeysQuery
+                .Where(building => noticePropertyIds.Contains(building.PropertyId));
+        }
 
         var scopedBuildingKeys = await scopedBuildingKeysQuery.ToListAsync(cancellationToken);
 
@@ -984,13 +1123,11 @@ public class PropertySignatureRepository : IPropertySignatureRepository
     }
 
     public async Task<PropertySignaturePagedResultDto<PropertySignaturePropertyWiseDto>> GetPropertyWiseDataAsync(
-        string propertyNo,
-        int pageNumber,
-        int pageSize,
+        PropertySignaturePropertyWiseQueryParameters queryParameters,
         CancellationToken cancellationToken = default)
     {
-        var paging = NormalizePaging(pageNumber, pageSize);
-        var (wardNo, basePropertyNo) = ParseBuildingPropertyNo(propertyNo);
+        var paging = NormalizePaging(queryParameters.PageNumber, queryParameters.PageSize);
+        var (wardNo, basePropertyNo) = ParseBuildingPropertyNo(queryParameters.PropertyNo);
         if (string.IsNullOrWhiteSpace(wardNo) || string.IsNullOrWhiteSpace(basePropertyNo))
             return CreatePagedResult(Enumerable.Empty<PropertySignaturePropertyWiseDto>(), 0, paging.PageNumber, paging.PageSize);
 
@@ -1001,7 +1138,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             .Select(a => new AuthoritySignatureSource(a.Id, a.AuthorityName, a.AuthorityCode, a.SequenceOrder))
             .ToListAsync(cancellationToken);
 
-        var propertyRows = await (
+        var propertyRowsQuery = (
             from p in _context.PropertyMast.AsNoTracking()
             join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
             from w in wardJoin.DefaultIfEmpty()
@@ -1052,8 +1189,37 @@ public class PropertySignatureRepository : IPropertySignatureRepository
                 OldAssessmentYear = oldProperty != null ? oldProperty.OldAssessmentYear : null,
                 OldRV = oldProperty != null ? oldProperty.OldRV : null,
                 OldTax = oldProperty != null ? oldProperty.OldTotalTax : null
-            })
-            .ToListAsync(cancellationToken);
+            });
+
+        var searchType = NormalizeOptionalText(queryParameters.SearchType);
+        if (searchType != null)
+        {
+            var searchProperty = ParsePropertyWiseSearchNo(searchType);
+            if (!string.IsNullOrWhiteSpace(searchProperty.WardNo)
+                && !string.IsNullOrWhiteSpace(searchProperty.PropertyNo))
+            {
+                var searchWardNo = searchProperty.WardNo.ToUpper();
+                var searchPropertyNo = searchProperty.PropertyNo;
+
+                propertyRowsQuery = string.IsNullOrWhiteSpace(searchProperty.PartitionNo)
+                    ? propertyRowsQuery.Where(p =>
+                        p.WardNo.ToUpper() == searchWardNo
+                        && p.PropertyNo == searchPropertyNo)
+                    : propertyRowsQuery.Where(p =>
+                        p.WardNo.ToUpper() == searchWardNo
+                        && p.PropertyNo == searchPropertyNo
+                        && p.PartitionNo != null
+                        && p.PartitionNo == searchProperty.PartitionNo);
+            }
+            else
+            {
+                propertyRowsQuery = propertyRowsQuery.Where(p =>
+                    (p.PropertyNo != null && p.PropertyNo.Contains(searchType))
+                    || (p.PartitionNo != null && p.PartitionNo.Contains(searchType)));
+            }
+        }
+
+        var propertyRows = await propertyRowsQuery.ToListAsync(cancellationToken);
 
         if (!propertyRows.Any())
             return CreatePagedResult(Enumerable.Empty<PropertySignaturePropertyWiseDto>(), 0, paging.PageNumber, paging.PageSize);
@@ -1217,6 +1383,7 @@ public class PropertySignatureRepository : IPropertySignatureRepository
 
                 var row = new PropertySignaturePropertyWiseDto
                 {
+                    PropertyId = p.PropertyId,
                     WardNo = p.WardNo,
                     NewPropertyNo = FormatPropertyNo(p.WardNo, p.PropertyNo, p.PartitionNo),
                     OldPropertyNo = FormatPropertyNo(p.OldWardNo, p.OldPropertyNo, p.OldPartitionNo),
@@ -1268,6 +1435,23 @@ public class PropertySignatureRepository : IPropertySignatureRepository
         var parts = propertyNo.Trim().Split('-', 2, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         return parts.Length == 2 ? (parts[0], parts[1]) : (string.Empty, propertyNo.Trim());
     }
+
+    private static (string? WardNo, string? PropertyNo, string? PartitionNo) ParsePropertyWiseSearchNo(string propertyNo)
+    {
+        var parts = propertyNo
+            .Trim()
+            .Split('-', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            >= 3 => (parts[0], parts[1], string.Join("-", parts.Skip(2))),
+            2 => (parts[0], parts[1], null),
+            _ => (null, propertyNo.Trim(), null)
+        };
+    }
+
+    private static string? NormalizeOptionalText(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static string FormatPropertyNo(string? wardNo, string? propertyNo, string? partitionNo)
     {
@@ -1373,6 +1557,23 @@ public class PropertySignatureRepository : IPropertySignatureRepository
             }
         }
     }
+
+    #endregion
+
+    #region Private Helper Methods
+
+    /// <summary>
+    /// Builds base query for active properties.
+    /// </summary>
+    private IQueryable<PropertyEntity> BuildActivePropertiesQuery()
+        => _context.PropertyMast
+            .AsNoTracking()
+            .Where(p => p.IsActive
+                        && !p.MarkedForDeletion
+                        && p.PropertyNo != null
+                        && p.PropertyNo != "");
+
+    #endregion
 
     private sealed record AuthoritySignatureSource(
         int Id,

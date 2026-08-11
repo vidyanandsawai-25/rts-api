@@ -1,6 +1,6 @@
 namespace NtisPlatform.Core.Models;
 
-public sealed class SubGridFilterRequestDto
+public  class SubGridFilterRequestDto
 {
     public int? ZoneId { get; set; }
 
@@ -25,4 +25,8 @@ public sealed class SubGridFilterRequestDto
     public string? WardNo { get; set; }
 
     public string? SearchTerm { get; set; }
+
+    public string? PropertyNo { get; set; }
+
+    public string? OwnerName { get; set; }
 }
