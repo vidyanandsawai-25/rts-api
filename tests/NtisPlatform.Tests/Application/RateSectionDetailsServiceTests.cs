@@ -7,6 +7,7 @@ using NtisPlatform.Api.Controllers.Master;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Interfaces;
@@ -16,6 +17,7 @@ namespace NtisPlatform.Tests.Application;
 public class RateSectionDetailsServiceTests
 {
     private readonly Mock<IRepository<RateSectionDetailsEntity, int>> _mockRepository;
+    private readonly Mock<IRepository<WardEntity>> _mockWardRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly Mock<IMapper> _mockMapper;
     private readonly RateSectionDetailsService _service;
@@ -23,6 +25,7 @@ public class RateSectionDetailsServiceTests
     public RateSectionDetailsServiceTests()
     {
         _mockRepository = new Mock<IRepository<RateSectionDetailsEntity, int>>();
+        _mockWardRepository = new Mock<IRepository<WardEntity>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockMapper = new Mock<IMapper>();
 
@@ -38,7 +41,7 @@ public class RateSectionDetailsServiceTests
             .Setup(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        _service = new RateSectionDetailsService(_mockRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
+        _service = new RateSectionDetailsService(_mockRepository.Object, _mockWardRepository.Object, _mockUnitOfWork.Object, _mockMapper.Object);
     }
 
     [Fact]
@@ -62,13 +65,15 @@ public class RateSectionDetailsServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
+        _mockWardRepository.Setup(r => r.GetByIdAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WardEntity { Id = 5, WardNo = "W001" });
+
         _mockMapper.Setup(m => m.Map<RateSectionDetailsDto>(It.IsAny<RateSectionDetailsEntity>()))
             .Returns((RateSectionDetailsEntity e) => new RateSectionDetailsDto
             {
                 Id = e.Id,
                 RateSectionId = e.RateSectionId,
                 WardId = e.WardId,
-                WardNo = e.Ward?.WardNo,
                 IsActive = e.IsActive,
                 CreatedDate = e.CreatedDate,
                 UpdatedDate = e.UpdatedDate
@@ -136,10 +141,16 @@ public class RateSectionDetailsServiceTests
         var mockQuery = entities.BuildMock();
         _mockRepository.Setup(r => r.GetQueryable()).Returns(mockQuery);
 
+        var wards = new List<WardEntity>
+        {
+            new() { Id = 5, WardNo = "W001" },
+            new() { Id = 6, WardNo = "W002" }
+        };
+        _mockWardRepository.Setup(r => r.GetQueryable()).Returns(wards.BuildMock());
+
         var mapperConfig = new MapperConfiguration(cfg =>
         {
-            cfg.CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()
-                .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
+            cfg.AddProfile<RateSectionDetailsMappingProfile>();
         }, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
 
         mapperConfig.AssertConfigurationIsValid();
@@ -147,6 +158,7 @@ public class RateSectionDetailsServiceTests
 
         var service = new RateSectionDetailsService(
             _mockRepository.Object,
+            _mockWardRepository.Object,
             _mockUnitOfWork.Object,
             mapper);
 

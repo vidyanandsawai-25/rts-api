@@ -8,18 +8,25 @@ public class RateSectionDetailsMappingProfile : Profile
 {
     public RateSectionDetailsMappingProfile()
     {
-        CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()
-            
-            .ForMember(dest => dest.WardNo, opt => opt.MapFrom(src => src.Ward != null ? src.Ward.WardNo : null));
+        CreateMap<RateSectionDetailsEntity, RateSectionDetailsDto>()     
+            .ForMember(dest => dest.WardNo, opt => opt.Ignore());
 
         CreateMap<CreateRateSectionDetailsDto, RateSectionDetailsEntity>()
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.Ward, opt => opt.Ignore())
+            .ForMember(dest => dest.RateSection, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedBy, opt => opt.MapFrom(src => src.CreatedBy));
 
         CreateMap<UpdateRateSectionDetailsDto, RateSectionDetailsEntity>()
             .ForMember(dest => dest.UpdatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedBy, opt => opt.Ignore())
+            .ForMember(dest => dest.Id, opt => opt.Ignore())
+            .ForMember(dest => dest.Ward, opt => opt.Ignore())
+            .ForMember(dest => dest.RateSection, opt => opt.Ignore())
             .ForMember(dest => dest.UpdatedBy, opt => opt.MapFrom(src => src.UpdatedBy));
     }
 }
