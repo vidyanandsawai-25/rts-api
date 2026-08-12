@@ -74,7 +74,7 @@ public class AutoMapperValidationTest
               "ConfigKey", "ConfigKeys", "Category", "Department", "Module", "ScreenGroup", "Ward",
               "PropertySeqNo", "MoujaId", "MarkedForDeletionDate",
               "FlagMaster", "PropertyTaxCalculationCVResults", "RVCalculationResults", "PlotDetails", "PropertyDetails",
-              "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails",
+              "PropertyDetailsOld", "PropertyMastOld", "SocietyDetailsMast", "PropertyMastDetails", "MergeDetail",
               "TaxMaster", "User", "PropertyMast", "RateCVMaster", "YearMaster", "DocumentBinding", "DocumentBindingId", // Navigation properties
               "AssessmentYearRange", "FloorGroup", "TypeOfUseGroup", "SubZone", // More navigation properties
               "Floor", "YearRangeCV", "ConstructionType", // Additional navigation properties

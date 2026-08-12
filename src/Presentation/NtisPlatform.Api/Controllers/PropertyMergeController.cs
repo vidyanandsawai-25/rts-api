@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.PropertyMergeDetails;
 using NtisPlatform.Application.Interfaces;
-using NtisPlatform.Application.Models;
-using PropertyMergeDto = NtisPlatform.Application.DTOs.PropertyMergeDetails.PropertyMergeDto;
 
 namespace NtisPlatform.Api.Controllers;
 
@@ -22,48 +20,16 @@ public class PropertyMergeController : ControllerBase
         _logger = logger;
     }
 
-    [HttpPost("merge")]
-    public Task<IActionResult> MergePropertyAsync([FromBody] CreatePropertyMergeDto createDto, CancellationToken ct)
+    [HttpPost]
+    public Task<IActionResult> PropertyMergeCreateAsync([FromBody] CreatePropertyMergeDto createDto, CancellationToken ct)
         => this.ExecuteCreate(_propertyMergeService, createDto, _logger, ct);
 
-    [HttpPut("demerge")]
-    public Task<IActionResult> DemergeProperty([FromBody] UpdatePropertyMergeDto dto, CancellationToken cancellationToken = default)
-        => this.ExecuteUpdate(_propertyMergeService, dto.PropertyIds?.FirstOrDefault() ?? 0, dto, _logger, cancellationToken);
+    [HttpPut]
+    public Task<IActionResult> PropertyMergeUpdateAsync([FromBody] UpdatePropertyMergeDto dto, CancellationToken cancellationToken = default)
+        => this.ExecuteUpdate(_propertyMergeService, dto.PropertyId, dto, _logger, cancellationToken);
 
-    [HttpGet("{propertyId}/merge-details")]
+    [HttpGet("{propertyId}")]
     public Task<IActionResult> GetPropertyMergeDetailsById(int propertyId, CancellationToken cancellationToken = default)
-        => this.ExecuteGetById(_propertyMergeService, propertyId, _logger, cancellationToken);
-
-    [HttpGet("unmerge-details")]
-    public Task<IActionResult> GetUnMergePropertyDetailsAsync([FromQuery] PropertyMergeQueryParameters queryParameters, CancellationToken ct)
-        => this.ExecuteGetAllPaged(_propertyMergeService, queryParameters, _logger, ct);
-
-    [HttpPost("merge-multiple")]
-    [ProducesResponseType(typeof(ApiResponse<PropertyMergeDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> MergeMultiplePropertyAsync([FromBody] PropertyMergeMultipleDto request, CancellationToken ct)
-    {
-        var result = await _propertyMergeService.MergeMultiplePropertyAsync(request, ct);
-        return Ok(new ApiResponse<PropertyMergeDto>
-        {
-            Success = result.Success,
-            Message = result.Message,
-            Items = result
-        });
-    }
-
-    [HttpPost("demerge-multiple")]
-    [ProducesResponseType(typeof(ApiResponse<PropertyMergeDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> DemergeMultiplePropertyAsync([FromBody] PropertyDemergeMultipleDto request, CancellationToken ct)
-    {
-        var result = await _propertyMergeService.DemergeMultiplePropertyAsync(request, ct);
-        return Ok(new ApiResponse<PropertyMergeDto>
-        {
-            Success = result.Success,
-            Message = result.Message,
-            Items = result
-        });
-    }
+    => this.ExecuteGetById(_propertyMergeService, propertyId, _logger, cancellationToken);
 }
 

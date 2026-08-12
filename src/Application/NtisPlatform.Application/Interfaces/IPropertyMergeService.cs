@@ -7,7 +7,6 @@ namespace NtisPlatform.Application.Interfaces;
 
 public interface IPropertyMergeService : ICommonCrudService<PropertyMapDetailEntity, PropertyMergeDto, CreatePropertyMergeDto, UpdatePropertyMergeDto, PropertyMergeQueryParameters, int>
 {
-    Task<PropertyMergeDto> MergeMultiplePropertyAsync(PropertyMergeMultipleDto dto, CancellationToken cancellationToken = default);
-    Task<PropertyMergeDto> DemergeMultiplePropertyAsync(PropertyDemergeMultipleDto dto, CancellationToken cancellationToken = default);
+   
 }
 

@@ -7160,5 +7160,39 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
         });
+
+        // MergeDetails configuration
+        modelBuilder.Entity<MergeDetailEntity>(entity =>
+        {
+            entity.ToTable("MergeDetails", "GSMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd().UseIdentityColumn(1, 1);
+            entity.Property(e => e.PropertyMapDetailId).IsRequired();
+            entity.Property(e => e.OwnerName).HasMaxLength(1000).IsUnicode(true);
+            entity.Property(e => e.OwnerNameEnglish).HasMaxLength(1000).IsUnicode(false);
+            entity.Property(e => e.OccupierName).HasMaxLength(1000).IsUnicode(true);
+            entity.Property(e => e.OccupierNameEnglish).HasMaxLength(1000).IsUnicode(false);
+            entity.Property(e => e.MobileNo).HasMaxLength(13).IsUnicode(false);
+            entity.Property(e => e.Address).HasMaxLength(500).IsUnicode(true);
+            entity.Property(e => e.AddressEnglish).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.BuilderName).HasMaxLength(200).IsUnicode(true);
+            entity.Property(e => e.BuilderNameEnglish).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.FlatOrShopNo).HasMaxLength(100).IsUnicode(true);
+            entity.Property(e => e.FlatOrShopNoEnglish).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.FlatOrShopName).HasMaxLength(200).IsUnicode(true);
+            entity.Property(e => e.FlatOrShopNameEnglish).HasMaxLength(200).IsUnicode(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy).IsRequired();
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime2(0)").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).IsRequired(false).HasColumnType("datetime2(0)");
+
+            // Foreign key
+            entity.HasOne(e => e.PropertyMapDetail)
+                .WithOne(e => e.MergeDetail)
+                .HasForeignKey<MergeDetailEntity>(e => e.PropertyMapDetailId).OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MergeDetails_PropertyMapDetail");
+
+        });
     }
 }
