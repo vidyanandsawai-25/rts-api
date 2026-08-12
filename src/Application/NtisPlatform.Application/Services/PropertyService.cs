@@ -140,6 +140,12 @@ public partial class PropertyService
     {
         return await _propertyRepository.GetGenerateBuildingStructureAsync(dto, cancellationToken);
     }
+
+    public async Task<MaxPartitionNoDto?> GetMaxPartition(int wardId, string propertyNo, CancellationToken cancellationToken = default)
+    {
+        return await _propertyRepository.GetMaxPartition(wardId, propertyNo, cancellationToken);
+    }
+
     public async Task<List<SocietyAminityDetailsDto>?> GetSocietyAmenityDetailsAsync(int SocietyDetailId, bool isAmenity, CancellationToken cancellationToken = default)
     {
         return await _propertyRepository.GetSocietyAmenityDetailsAsync(SocietyDetailId, isAmenity, cancellationToken);

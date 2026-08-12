@@ -23,4 +23,7 @@ public class SubFloorQueryParameters : BaseQueryParameters
     [Filterable]
     [Sortable]
     public bool? IsActive { get; set; }
+    [Filterable]
+    [Sortable]
+    public int? SequenceNo { get; set; }
 }

@@ -10,5 +10,6 @@ public class SubFloorEntity :BaseEntity
     public string? SubFloorCode { get; set; }
     public string? Description { get; set; }
     public decimal? SubFloorPercentage { get; set; }
+    public int? SequenceNo { get; set; }
     public ICollection<PropertyDetailsEntity> PropertyDetails { get; set; } = new List<PropertyDetailsEntity>();
 }

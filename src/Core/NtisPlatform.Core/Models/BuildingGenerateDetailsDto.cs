@@ -55,3 +55,11 @@ public class BuildingListDto
     public string? CatPropertyCategoryName { get; set; } = string.Empty;
     public string? PartitionNo { get; set; } = string.Empty;
 }
+
+public class MaxPartitionNoDto
+{
+    public string? WardNo { get; set; } = string.Empty;
+    public string? PropertyNo { get; set; } = string.Empty;
+    public string? Category { get; set; } = string.Empty;
+    public string? MaxPartitionNo { get; set; } = string.Empty;
+}

@@ -50,16 +50,16 @@ public class TypeOfUseGroupService : BaseCommonCrudService<TypeOfUseGroupEntity,
         var totalRow = new TypeOfUseGroupDto 
         {
             Id = 0,
-            GroupName = "all",
+            GroupName = "All Groups",
             TypeOfUseGroupCode = "TOTAL",
             CountOfTypes = totalTypesCount,
-            GroupIcon = null,
+            GroupIcon = "LayoutGrid",
             IsActive = true
         };
 
         // 4. Append TOTAL row to the list
         var items = new List<TypeOfUseGroupDto>(result.Items);
-        items.Add(totalRow);
+        items.Insert(0, totalRow);
 
         result.Items = items;
 

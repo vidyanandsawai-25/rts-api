@@ -211,7 +211,7 @@ public class TypeOfUseGroupServiceTests
         // Assert
         var totalRow = Assert.Single(result.Items, x => x.TypeOfUseGroupCode == "TOTAL");
         Assert.Equal(0, totalRow.Id);
-        Assert.Equal("all", totalRow.GroupName);
+        Assert.Equal("All Groups", totalRow.GroupName);
         Assert.Equal(3, totalRow.CountOfTypes);
         Assert.True(totalRow.IsActive);
     }
