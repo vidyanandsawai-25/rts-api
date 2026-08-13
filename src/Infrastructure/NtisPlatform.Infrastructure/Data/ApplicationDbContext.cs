@@ -50,6 +50,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<DepreciationMasterEntity> DepreciationMaster { get; set; } = null!;
     public DbSet<ZoneEntity> ZoneMaster { get; set; } = null!;
     public DbSet<WardEntity> WardMaster { get; set; } = null!;
+    public DbSet<TaxZoningRangeEntity> TaxZoningRange { get; set; } = null!;
+    public DbSet<ULBDocumentTypeEntity> ULBDocumentType { get; set; } = null!;
+    public DbSet<ULBDocumentEntity> ULBDocument { get; set; } = null!;
     public DbSet<BankMasterEntity> BankMasters { get; set; } = null!;
     public DbSet<PropertyRuleEvaluationMasterEntity> PropertyRuleEvaluationMaster { get; set; } = null!;
     public DbSet<YearMasterEntity> YearMaster { get; set; } = null!;
@@ -686,6 +689,101 @@ public class ApplicationDbContext : DbContext
                 .WithOne(a => a.Ward)
                 .HasForeignKey(a => a.WardId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxZoningRange configuration
+        modelBuilder.Entity<TaxZoningRangeEntity>(entity =>
+        {
+            entity.ToTable("TaxZoningRange", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.WardId).IsRequired();
+            entity.Property(e => e.TaxZoneId).IsRequired();
+            entity.Property(e => e.FromPropertyNo).HasMaxLength(10);
+            entity.Property(e => e.ToPropertyNo).HasMaxLength(10);
+            entity.Property(e => e.AssignEntireWard).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ZoneDescription).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.Ward)
+                .WithMany()
+                .HasForeignKey(e => e.WardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.TaxZone)
+                .WithMany()
+                .HasForeignKey(e => e.TaxZoneId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.WardId)
+                .HasDatabaseName("IX_TaxZoningRange_Ward")
+                .HasFilter("[MarkedForDeletion] = 0");
+
+            entity.HasIndex(e => new { e.WardId, e.TaxZoneId })
+                .HasDatabaseName("IX_TaxZoningRange_WardZone")
+                .HasFilter("[MarkedForDeletion] = 0");
+        });
+
+        // ULBDocumentType configuration
+        modelBuilder.Entity<ULBDocumentTypeEntity>(entity =>
+        {
+            entity.ToTable("ULBDocumentType", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DocumentTypeCode).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DocumentTypeName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasIndex(e => e.DocumentTypeCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_ULBDocumentType_DocumentTypeCode");
+        });
+
+        // ULBDocument configuration
+        modelBuilder.Entity<ULBDocumentEntity>(entity =>
+        {
+            entity.ToTable("ULBDocument", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ULBDocumentTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.DocumentTitle).HasMaxLength(250);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.ULBDocumentType)
+                .WithMany()
+                .HasForeignKey(e => e.ULBDocumentTypeId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.ULBDocumentTypeId)
+                .HasDatabaseName("IX_ULBDocument_ULBDocumentTypeId");
+
+            entity.HasIndex(e => e.IsLatest)
+                .HasDatabaseName("IX_ULBDocument_IsLatest")
+                .HasFilter("[IsActive] = 1 AND [MarkedForDeletion] = 0");
         });
 
         modelBuilder.Entity<SubTypeOfUseEntity>(entity =>

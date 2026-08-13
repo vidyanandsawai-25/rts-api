@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Mappings;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
@@ -33,7 +34,7 @@ public class PropertyBasicDetailsTests
     /// matches the former PropertyRepository.GetBasicDetailsAsync/UpdateBasicDetailsAsync exactly.
     /// </summary>
     private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
-        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+        => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy(), new Mock<ITaxZoningRangeService>().Object, new Mock<ICurrentUserService>().Object);
 
     #region UpdatePropertyBasicDetailsDto Tests
 
@@ -788,7 +789,7 @@ public class PropertyBasicDetailsTests
             repo = new Mock<IPropertyBasicDetailsRepository>();
             master = new Mock<IMasterRepository>();
             unitOfWork = new Mock<IUnitOfWork>();
-            return new PropertyBasicDetailsService(repo.Object, master.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy());
+            return new PropertyBasicDetailsService(repo.Object, master.Object, unitOfWork.Object, new PropertyMutationInvariantPolicy(), new Mock<ITaxZoningRangeService>().Object, new Mock<ICurrentUserService>().Object);
         }
 
         [Fact]

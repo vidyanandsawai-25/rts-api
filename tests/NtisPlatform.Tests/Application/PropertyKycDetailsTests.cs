@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MockQueryable;
 using Moq;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Options;
 using NtisPlatform.Application.Services;
 using NtisPlatform.Application.Services.Property;
@@ -814,7 +815,7 @@ public class PropertyKycDetailsTests
     {
         // Basic Details now runs through the per-tab service; KYC edge cases still use PropertyRepository directly.
         private static PropertyBasicDetailsService CreateBasicDetailsService(ApplicationDbContext context)
-            => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy());
+            => new(new PropertyBasicDetailsRepository(context), new MasterRepository(context), new UnitOfWork(context), new PropertyMutationInvariantPolicy(), new Mock<ITaxZoningRangeService>().Object, new Mock<ICurrentUserService>().Object);
 
         [Fact]
         public async Task UpdateBasicDetailsAsync_MarkedForDeletionTrue_NotReturned()
