@@ -15,8 +15,8 @@ public class RTSFieldValueDto : BaseDtos
 
 public class CreateRTSFieldValueDto : CreateBaseDtos
 {
-    [Required(ErrorMessage = "RTSFieldValue_FieldDefinitionId_Required")]
-    [Range(1, int.MaxValue, ErrorMessage = "RTSFieldValue_FieldDefinitionId_InvalidRange")]
+    //[Required(ErrorMessage = "RTSFieldValue_FieldDefinitionId_Required")]
+    //[Range(1, int.MaxValue, ErrorMessage = "RTSFieldValue_FieldDefinitionId_InvalidRange")]
     public int FieldDefinitionId { get; set; }
     public string? TextValue { get; set; }
     public decimal? NumberValue { get; set; }
