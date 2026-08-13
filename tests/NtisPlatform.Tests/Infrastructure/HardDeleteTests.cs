@@ -238,4 +238,85 @@ public class HardDeleteTests
     }
 
     #endregion
+
+    // ============================================================
+    // AssetMasterEntity - IHardDeletable was restored (the entity already carried
+    // MarkedForDeletion/MarkedForDeletionDate, but the interface declaration had been dropped,
+    // so Repository<AssetMasterEntity,int>.DeleteAsync was silently falling into the plain
+    // soft-delete branch and MarkForHardDeleteAsync would log a warning and no-op). This
+    // exercises the real DeleteAsync soft-delete branch end-to-end, mirroring the coverage above.
+    // ============================================================
+
+    #region AssetMasterEntity
+
+    [Fact]
+    public void AssetMasterEntity_MarkedForDeletion_DefaultsToFalse()
+    {
+        var entity = new AssetMasterEntity();
+
+        Assert.False(entity.MarkedForDeletion);
+        Assert.Null(entity.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AssetMasterEntity_SetsMarkedForDeletionAndDeactivates()
+    {
+        var context = GetInMemoryDbContext();
+        var repository = new Repository<AssetMasterEntity, int>(context);
+
+        var entity = new AssetMasterEntity
+        {
+            AssetNo = "AST-001",
+            AssetName = "Municipal Building",
+            AssetCategoryId = 1,
+            AssetTypeId = 1,
+            IsActive = true
+        };
+
+        await repository.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+
+        var deleted = await context.Set<AssetMasterEntity>().FindAsync(entity.Id);
+        Assert.NotNull(deleted); // Still exists — soft deleted, not physically removed
+        Assert.False(deleted!.IsActive);
+        Assert.True(deleted.MarkedForDeletion);
+        Assert.NotNull(deleted.MarkedForDeletionDate);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_AssetMasterEntity_PreservesOriginalMarkedForDeletionDate_OnRepeatDelete()
+    {
+        // Repository.DeleteAsync only sets MarkedForDeletionDate if it isn't already set - this
+        // guards against a second soft-delete call (e.g. a retried request) resetting the original
+        // timestamp the nightly cleanup job uses to compute retention.
+        var context = GetInMemoryDbContext();
+        var repository = new Repository<AssetMasterEntity, int>(context);
+
+        var entity = new AssetMasterEntity
+        {
+            AssetNo = "AST-002",
+            AssetName = "Another Building",
+            AssetCategoryId = 1,
+            AssetTypeId = 1,
+            IsActive = true
+        };
+
+        await repository.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+        var firstDeletionDate = (await context.Set<AssetMasterEntity>().FindAsync(entity.Id))!.MarkedForDeletionDate;
+
+        await repository.DeleteAsync(entity.Id);
+        await context.SaveChangesAsync();
+        var secondDeletionDate = (await context.Set<AssetMasterEntity>().FindAsync(entity.Id))!.MarkedForDeletionDate;
+
+        Assert.Equal(firstDeletionDate, secondDeletionDate);
+    }
+
+    #endregion
 }

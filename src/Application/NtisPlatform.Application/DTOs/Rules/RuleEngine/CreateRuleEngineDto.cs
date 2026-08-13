@@ -48,6 +48,13 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
         /// </summary>
         public int? RuleScopeId { get; set; }
 
+        /// <summary>
+        /// Optional FK to PTIS.PropertyRuleEvaluationMaster.
+        /// Defines the parameter targeted by this rule (e.g. Rate, Rent, Maintenance).
+        /// </summary>
+        [Range(1, int.MaxValue, ErrorMessage = "PropertyRuleEvaluationMasterId must be greater than 0")]
+        public int? PropertyRuleEvaluationMasterId { get; set; }
+
         [StringLength(500, ErrorMessage = "Change reason cannot exceed 500 characters")]
         public string? ChangeReason { get; set; }
     }

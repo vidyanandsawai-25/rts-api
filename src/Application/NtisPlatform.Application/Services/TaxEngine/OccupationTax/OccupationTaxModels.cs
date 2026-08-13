@@ -62,17 +62,10 @@ public sealed class OccupationTaxOptions
     public int FloorDivisor { get; init; } = 2;
 
     /// <summary>
-    /// Number of finance years to look back when no explicit retro cut-off date is configured
-    /// (BR4 default cut-off). With CurrentFY 2026 and a value of 6, retro spans FY2020..FY2025.
+    /// Number of finance years to look back for the no-certificate-date fallback (BR4). With
+    /// CurrentFY 2026 and a value of 6, retro spans FY2020..FY2025.
     /// </summary>
     public int DefaultRetroLookbackYears { get; init; } = 6;
-
-    /// <summary>
-    /// Optional configured retro cut-off date. When present, retro application starts at the
-    /// finance year containing this date and overrides <see cref="DefaultRetroLookbackYears"/>
-    /// (BR4 config-driven cut-off).
-    /// </summary>
-    public DateTime? RetroCutoffDate { get; init; }
 
     /// <summary>
     /// The CC baseline value (annual NETTAX x multiplier). Convenience accessor.

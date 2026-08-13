@@ -49,7 +49,6 @@ public class CertificateTaxGuidelineReaderServiceTests
         Row("NO_DATE_RULE", "DEFAULT_RETROSPECTIVE"),
         Row("NO_DATE_LOOKBACK_YEARS", "5"),
         Row("NO_DATE_RETROSPECTIVE_MULTIPLIER", "1.0000"),
-        Row("MINIMUM_BACKDATE_FINANCIAL_YEAR", "0"),
         Row("ENABLE_CURRENT_YEAR_PRORATION", "1"),
         Row("PRORATION_METHOD", "DAILY"),
         Row("CURRENT_YEAR_PRORATION_START_RULE", "EXACT_DATE"),
@@ -73,6 +72,9 @@ public class CertificateTaxGuidelineReaderServiceTests
         Row("RETROSPECTIVE_CURRENT_YEAR_COUNT", "1"),
         Row("RETROSPECTIVE_PENDING_YEAR_COUNT_MODE", "TOTAL_MINUS_CURRENT"),
         Row("FLOOR_POLICY_DISPLAY_RULE", "BIGGEST_AREA_FLOOR_POLICY"),
+        Row("TAXATION_RATE_MODE", "HISTORICAL_YEAR_WISE"),
+        Row("TAX_PERCENTAGE_MODE", "FIXED_FOR_ALL"),
+        Row("FIXED_TAX_PERCENTAGE", "12.5000"),
     };
 
     private static CertificateTaxGuidelineReaderService CreateService(List<CertificateTaxGuidelineEntity> rows)
@@ -118,7 +120,6 @@ public class CertificateTaxGuidelineReaderServiceTests
         Assert.Equal("DEFAULT_RETROSPECTIVE", settings.NoDateRule);
         Assert.Equal(5, settings.LookbackYears);
         Assert.Equal(1.0m, settings.DefaultRetrospectiveMultiplier);
-        Assert.Equal(0, settings.MinimumBackdateFinancialYear);
         Assert.True(settings.EnableCurrentYearProration);
         Assert.Equal("DAILY", settings.ProrationMethod);
         Assert.Equal("EXACT_DATE", settings.CurrentYearProrationStartRule);
@@ -142,6 +143,9 @@ public class CertificateTaxGuidelineReaderServiceTests
         Assert.Equal(1, settings.RetrospectiveCurrentYearCount);
         Assert.Equal("TOTAL_MINUS_CURRENT", settings.RetrospectivePendingYearCountMode);
         Assert.Equal("BIGGEST_AREA_FLOOR_POLICY", settings.FloorPolicyDisplayRule);
+        Assert.Equal("HISTORICAL_YEAR_WISE", settings.TaxationRateMode);
+        Assert.Equal("FIXED_FOR_ALL", settings.TaxPercentageMode);
+        Assert.Equal(12.5m, settings.FixedTaxPercentage);
     }
 
     [Fact]
@@ -158,7 +162,7 @@ public class CertificateTaxGuidelineReaderServiceTests
     }
 
     [Fact]
-    public async Task GetActiveSettingsAsync_InvalidBitValue_Throws()
+    public async Task GetActiveSettingsAsync_InvalidBitValue_DefaultsToFalse()
     {
         var rows = FullRowSet();
         rows.RemoveAll(r => r.GuidelineCode == "ENABLE_CERTIFICATE_BASED_TAX");
@@ -166,19 +170,38 @@ public class CertificateTaxGuidelineReaderServiceTests
 
         var service = CreateService(rows);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetActiveSettingsAsync());
-        Assert.Contains("ENABLE_CERTIFICATE_BASED_TAX", ex.Message);
+        var settings = await service.GetActiveSettingsAsync();
+
+        Assert.False(settings.EnableCertificateBasedTax);
     }
 
     [Fact]
-    public async Task GetActiveSettingsAsync_MissingRequiredCode_ThrowsWithCodeName()
+    public async Task GetActiveSettingsAsync_MissingRequiredCode_UsesDefaultValue()
     {
         var rows = FullRowSet();
         rows.RemoveAll(r => r.GuidelineCode == "CC_PERIOD_MULTIPLIER");
 
         var service = CreateService(rows);
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetActiveSettingsAsync());
-        Assert.Contains("CC_PERIOD_MULTIPLIER", ex.Message);
+        var settings = await service.GetActiveSettingsAsync();
+
+        Assert.Equal(1m, settings.CCPeriodMultiplier);
+    }
+
+    [Fact]
+    public async Task GetActiveSettingsAsync_TaxationRateAndPercentageModeMissing_DefaultsToCurrentYearForAll()
+    {
+        // A deployment that hasn't configured these new keys yet must get exactly today's
+        // behavior (one snapshot reused for every year) -- no migration required.
+        var rows = FullRowSet();
+        rows.RemoveAll(r => r.GuidelineCode is "TAXATION_RATE_MODE" or "TAX_PERCENTAGE_MODE" or "FIXED_TAX_PERCENTAGE");
+
+        var service = CreateService(rows);
+
+        var settings = await service.GetActiveSettingsAsync();
+
+        Assert.Equal("CURRENT_YEAR_FOR_ALL", settings.TaxationRateMode);
+        Assert.Equal("CURRENT_YEAR_FOR_ALL", settings.TaxPercentageMode);
+        Assert.Equal(0m, settings.FixedTaxPercentage);
     }
 }

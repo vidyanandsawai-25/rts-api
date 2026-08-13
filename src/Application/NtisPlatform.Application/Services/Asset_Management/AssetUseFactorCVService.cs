@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Asset_Management.AssetUseFactorCVMaster;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Models;
@@ -44,6 +45,54 @@ public class AssetUseFactorCVService :
         _subTypeOfUseRepository = subTypeOfUseRepository;
         _yearRangeRepository = yearRangeRepository;
         _referenceValidator = referenceValidator;
+    }
+
+    /// <summary>
+    /// Overridden solely to enrich the response with TypeOfUseDescription and
+    /// SubTypeOfUseDescription via SQL JOINs against TypeOfUseMaster/SubTypeOfUseMaster -
+    /// AssetUseFactorCVMasterEntity stays a pure POCO with only the FK ids (no navigation
+    /// properties), so ProjectTo can't reach either description on its own. Preserves the base
+    /// pipeline order: ApplyFilters -> ApplySearch -> ApplySort -> Count -> Skip/Take -> project.
+    /// </summary>
+    public override async Task<PagedResult<AssetUseFactorCVMasterDto>> GetAllAsync(
+        AssetUseFactorCVMasterQueryParameters queryParameters, CancellationToken cancellationToken = default)
+    {
+        var query = _repository.GetQueryable()
+            .ApplyFilters(queryParameters)
+            .ApplySearch(queryParameters)
+            .ApplySort(queryParameters);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedQuery = query
+            .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize);
+
+        var items = await (
+            from u in pagedQuery
+            join tou in _typeOfUseRepository.GetQueryable() on u.TypeOfUseId equals tou.Id into touJoin
+            from tou in touJoin.DefaultIfEmpty()
+            join stou in _subTypeOfUseRepository.GetQueryable() on u.SubTypeOfUseId equals stou.Id into stouJoin
+            from stou in stouJoin.DefaultIfEmpty()
+            select new AssetUseFactorCVMasterDto
+            {
+                Id = u.Id,
+                TypeOfUseId = u.TypeOfUseId,
+                TypeOfUseDescription = tou != null ? (tou.Description ?? string.Empty) : string.Empty,
+                SubTypeOfUseId = u.SubTypeOfUseId,
+                SubTypeOfUseDescription = stou != null ? stou.Description : string.Empty,
+                Factor = u.Factor,
+                YearRangeCVId = u.YearRangeCVId,
+                IsActive = u.IsActive,
+                CreatedDate = u.CreatedDate,
+                UpdatedDate = u.UpdatedDate
+            }
+        ).ToListAsync(cancellationToken);
+
+        var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+        var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+        return new PagedResult<AssetUseFactorCVMasterDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public override async Task<AssetUseFactorCVMasterDto> CreateAsync(

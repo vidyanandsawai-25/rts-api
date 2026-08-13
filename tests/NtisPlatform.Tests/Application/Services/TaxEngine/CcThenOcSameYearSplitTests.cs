@@ -118,7 +118,8 @@ public class CcThenOcSameYearSplitTests
     }
 
     private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock(
-        string invalidCcOcDateOrderAction = "USE_PRIORITY_AND_LOG")
+        string invalidCcOcDateOrderAction = "USE_PRIORITY_AND_LOG",
+        string noDateRule = "NO_TAX")
     {
         var mock = new Mock<ICertificateTaxGuidelineReaderService>();
         mock.Setup(g => g.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
@@ -140,8 +141,7 @@ public class CcThenOcSameYearSplitTests
                 CCPeriodMultiplier: 1.5m, OCPeriodMultiplier: 1.0m,
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                MinimumBackdateFinancialYear: 0,
+                NoDateRule: noDateRule, LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",
                 SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
@@ -151,7 +151,8 @@ public class CcThenOcSameYearSplitTests
                 ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
                 CertificateTaxScopeMode: "PROPERTY_WISE", AllowFloorWiseCertificateMetadata: false, EnableCcToOcSplit: true,
                 ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY"));
+                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
+                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
         return mock;
     }
 
@@ -173,8 +174,9 @@ public class CcThenOcSameYearSplitTests
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
-            policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            policyCodeLookup, financeYearProvider, guidelineReader.Object, Mock.Of<IHistoricalNetTaxBaselineService>(), unitOfWork,
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     private static List<(string PolicyCode, int TaxId, decimal? TaxAmount)> GetActivePolicyRows(ApplicationDbContext context, int propertyId)
@@ -220,9 +222,10 @@ public class CcThenOcSameYearSplitTests
         Assert.Contains(rows, r => r.PolicyCode == "PARTIAL_CC");
         Assert.DoesNotContain(rows, r => r.PolicyCode is "ELECTRIC_BILL" or "PARTIAL_ELECTRIC_BILL");
 
-        // 359 chargeable days (07-Apr..31-Mar inclusive) at 1.5x.
-        var chargeableDays = new FinanceYear(CurrentFyYear, 4, 1).ChargeableDaysFrom(ccDate);
-        var expectedGeneral = Math.Round(GeneralTaxAmount * chargeableDays / 365m * 1.5m, 0, MidpointRounding.AwayFromZero);
+        // ccDate (07-Apr) falls within the engine's 30-day grace period after FY start (01-Apr), so
+        // the current year bills in FULL at 1.5x rather than being prorated from the 6-day-old onset.
+        // CurrentFyYear (2020) is itself a leap finance year (BR7 add-back applies to a full year).
+        var expectedGeneral = Math.Round(GeneralTaxAmount + GeneralTaxAmount / 365m, 0, MidpointRounding.AwayFromZero) * 1.5m;
         var generalRow = rows.Single(r => r.PolicyCode == "PARTIAL_CC" && r.TaxId == 1);
         Assert.Equal(expectedGeneral, generalRow.TaxAmount);
     }

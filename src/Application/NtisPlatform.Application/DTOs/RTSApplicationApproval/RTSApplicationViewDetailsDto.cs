@@ -1,8 +1,8 @@
-﻿namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
+namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
 
 /// <summary>
-/// view applicationDetails Api Select DTOs admin And citizen screen 
+/// view applicationDetails Api Select DTOs admin And citizen screen
 /// </summary>
 public class RTSApplicationViewDetailsDto
 {
@@ -34,7 +34,7 @@ public class ApplicationFieldValueDto
 
 
     /// <summary>
-    /// Application Approval Stages 
+    /// Application Approval Stages
     /// </summary>
 
     public class ApplicationApprovalStageDetailsDto

@@ -19,6 +19,7 @@ public class UpdateHistoryDto
     public string? WardNo { get; set; }
     public string? PropertyNo { get; set; }
     public string? PartitionNo { get; set; }
+    public string Property { get; set; } = string.Empty;
     public string? OldValue { get; set; }
     public string? NewValue { get; set; }
     public string? UpdatedColumns { get; set; }

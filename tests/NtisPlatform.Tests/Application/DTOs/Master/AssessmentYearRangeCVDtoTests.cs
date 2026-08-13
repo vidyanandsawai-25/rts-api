@@ -39,11 +39,11 @@ public class AssessmentYearRangeCVDtoTests
     }
 
     [Fact]
-    public void CreateAssessmentYearRangeCVDto_EqualYears_FailsValidation()
+    public void CreateAssessmentYearRangeCVDto_EqualYears_PassesValidation()
     {
         var dto = new CreateAssessmentYearRangeCVDto { FromYear = 2023, ToYear = 2023 };
         var results = Validate(dto);
-        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanToYear");
+        Assert.Empty(results);
     }
 
     [Fact]
@@ -72,11 +72,11 @@ public class AssessmentYearRangeCVDtoTests
     }
 
     [Fact]
-    public void UpdateAssessmentYearRangeCVDto_EqualYears_FailsValidation()
+    public void UpdateAssessmentYearRangeCVDto_EqualYears_PassesValidation()
     {
         var dto = new UpdateAssessmentYearRangeCVDto { FromYear = 2023, ToYear = 2023 };
         var results = Validate(dto);
-        Assert.Contains(results, r => r.ErrorMessage == "FromYear_MustBeLessThanToYear");
+        Assert.Empty(results);
     }
 
     [Fact]

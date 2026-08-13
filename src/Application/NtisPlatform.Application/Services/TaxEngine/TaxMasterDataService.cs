@@ -16,6 +16,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
     {
 
         private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepo;
+        private readonly IRepository<PropertyCategoryEntity, int> _propertyCategoryRepo;
         private readonly IRepository<SubTypeOfUseEntity, int> _subTypeOfUseRepo;
         private readonly IRepository<FloorEntity, int> _floorRepo;
         private readonly IRepository<SubFloorEntity, int> _subFloorRepo;
@@ -32,6 +33,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
         public TaxMasterDataService(
             IRepository<TypeOfUseEntity, int> typeOfUseRepo,
+            IRepository<PropertyCategoryEntity, int> propertyCategoryRepo,
             IRepository<SubTypeOfUseEntity, int> subTypeOfUseRepo,
             IRepository<FloorEntity, int> floorRepo,
             IRepository<SubFloorEntity, int> subFloorRepo,
@@ -47,6 +49,7 @@ namespace NtisPlatform.Application.Services.TaxEngine
             IRepository<EmploymentTaxMasterEntity, int> employmentTaxRepo)
         {
             _typeOfUseRepo = typeOfUseRepo;
+            _propertyCategoryRepo = propertyCategoryRepo;
             _subTypeOfUseRepo = subTypeOfUseRepo;
             _floorRepo = floorRepo;
             _subFloorRepo = subFloorRepo;
@@ -71,7 +74,15 @@ namespace NtisPlatform.Application.Services.TaxEngine
 
         public virtual Task<List<TypeOfUseEntity>> GetActiveTypeOfUsesAsync() =>
             GetOrCacheAsync("tmd:TypeOfUses",
-                () => _typeOfUseRepo.GetQueryable().AsNoTracking().Where(x => x.IsActive).ToListAsync());
+                () => _typeOfUseRepo.GetQueryable()
+                          .AsNoTracking()
+                          .Include(x => x.TypeOfUseCategory)   // needed for TypeOfUseCategoryCode-based Plot/OpenPlot rule
+                          .Where(x => x.IsActive)
+                          .ToListAsync());
+
+        public virtual Task<List<PropertyCategoryEntity>> GetActivePropertyCategoriesAsync() =>
+            GetOrCacheAsync("tmd:PropertyCategories",
+                () => _propertyCategoryRepo.GetQueryable().AsNoTracking().Where(x => x.IsActive).ToListAsync());
 
         public virtual Task<List<SubTypeOfUseEntity>> GetActiveSubTypeOfUsesAsync() =>
             GetOrCacheAsync("tmd:SubTypeOfUses",

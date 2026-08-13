@@ -56,7 +56,7 @@ namespace NtisPlatform.Application.Mappings
                 .ForMember(dest => dest.ApplicableTaxes, opt => opt.Ignore())
                 .ForMember(dest => dest.ExemptedTaxes, opt => opt.Ignore())
                 .ForMember(dest => dest.FinancialYearId, opt => opt.Ignore())
-                .ForMember(dest => dest.TypeOfUseGroupId, opt => opt.Ignore());
+                .ForMember(dest => dest.TypeOfUseId, opt => opt.Ignore());
         }
     }
 }

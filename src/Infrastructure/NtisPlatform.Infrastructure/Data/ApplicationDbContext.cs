@@ -58,6 +58,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<RoleWiseScreenAccessMasterEntity> RoleWiseScreenAccessMasters { get; set; } = null!;
     public DbSet<RateSectionEntity> RateSection { get; set; } = null!;
     public DbSet<ModuleMasterEntity> ModuleMasters { get; set; } = null!;
+    public DbSet<SourceTableEntity> SourceTables { get; set; } = null!;
+    public DbSet<SourceTableDetailsEntity> SourceTableDetails { get; set; } = null!;
     public DbSet<ActiveTaxesEntity> ActiveTaxesMasters { get; set; } = null!;
     public DbSet<UlbImageMasterEntity> UlbImageMasters { get; set; } = null!;
     public DbSet<DepartmentLicenceDetailsEntity> DepartmentLicenceDetails { get; set; } = null!;
@@ -92,6 +94,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<PropertyWorkflowDetailsEntity> PropertyWorkflowDetails { get; set; } = null!;
     public DbSet<UserEntity> UserMasters { get; set; } = null!;
     public DbSet<RefreshTokenEntity> RefreshTokens { get; set; } = null!;
+    public DbSet<TwoFactorRecoveryCodeEntity> TwoFactorRecoveryCodes { get; set; } = null!;
+    public DbSet<MfaChallengeEntity> TwoFactorChallenges { get; set; } = null!;
+    public DbSet<SecurityAuditLogEntity> SecurityAuditLogs { get; set; } = null!;
     public DbSet<PropertyTaxCalculationCVResultsEntity> PropertyTaxCalculationCVResults { get; set; } = null!;
     public DbSet<RVCalculationResultsEntity> RVCalculationResults { get; set; } = null!;
     public DbSet<RVCalculationTaxDetailsEntity> RVCalculationTaxDetails { get; set; } = null!;
@@ -100,6 +105,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<FloorFactorCVMasterEntity> FloorFactorCVMasters { get; set; } = null!;
     public DbSet<TaxPercentageMasterCVEntity> TaxPercentageMasterCVs { get; set; } = null!;
     public DbSet<TaxMasterEntity> TaxMaster { get; set; } = null!;
+    public DbSet<DynamicTaxRuleEntity> DynamicTaxRuleMaster { get; set; } = null!;
+    public DbSet<TaxCalculationModeMasterEntity> TaxCalculationModeMaster { get; set; } = null!;
+    public DbSet<TaxMasterMappingEntity> TaxMasterMappings { get; set; } = null!;
+    public DbSet<TaxConditionRuleEntity> TaxConditionRules { get; set; } = null!;
+    public DbSet<TaxHybridConfigEntity> TaxHybridConfigs { get; set; } = null!;
     public DbSet<TaxCategoryMasterEntity> TaxCategoryMaster { get; set; } = null!;
     public DbSet<FlagMasterEntity> FlagMaster { get; set; } = null!;
     public DbSet<TransMastOldEntity> TransMastOld { get; set; } = null!;
@@ -150,10 +160,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
     public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
+
     //Asset Start
+    public DbSet<CVRateMasterEntity> CVRateMaster { get; set; } = null!;
     public DbSet<InventoryItemCategoryEntity> InventoryItemCategory { get; set; } = null!;
     public DbSet<InventoryItemNameEntity> InventoryItemName { get; set; } = null!;
-    public DbSet<InventoryItemConditionEntity> InventoryItemCondition { get; set; } = null!;
     public DbSet<InventoryItemModelEntity> InventoryItemModelMaster { get; set; } = null!;
     public DbSet<EducationTaxMasterEntity> EducationTaxMasters { get; set; } = null!;
     public DbSet<ScreenEntity> AssetScreen { get; set; } = null!;
@@ -161,13 +172,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<ScreenFormFieldMasterEntity> ScreenFormFieldMaster { get; set; } = null!;
     public DbSet<SocialAttributeEntity> SocialAttribute { get; set; } = null!;
     public DbSet<TypeOfUseGroupCVEntity> TypeOfUseGroupMasterCV { get; set; } = null!;
-
     public DbSet<EmploymentTaxMasterEntity> EmploymentTaxMasters { get; set; } = null!;
     public DbSet<AssetTypeEntity> AssetType { get; set; } = null!;
     public DbSet<AssetCategoryEntity> AssetCategory { get; set; } = null!;
     public DbSet<OwnershipTypeEntity> OwnershipType { get; set; } = null!;
     public DbSet<OwningDepartmentEntity> OwningDepartment { get; set; } = null!;
     public DbSet<AssetDesignationEntity> AssetDesignations { get; set; } = null!;
+    public DbSet<SubUnitsDetailsEntity> SubUnitsDetails { get; set; } = null!;
+    public DbSet<AssetCVCalculationHistoryEntity> AssetCVCalculationHistories { get; set; } = null!;
     public DbSet<AssetApplicationTypeEntity> AssetApplicationTypes { get; set; } = null!;
     public DbSet<RulesFieldEntity> RulesField { get; set; } = null!;
     public DbSet<RuleScopeFieldMappingEntity> RuleScopeFieldMapping { get; set; } = null!;
@@ -180,12 +192,19 @@ public class ApplicationDbContext : DbContext
     public DbSet<InventoryDocumentTypeEntity> InventoryDocumentTypes { get; set; } = null!;
     public DbSet<AssetPhotoEntity> AssetPhotos { get; set; } = null!;
     public DbSet<AssetMasterEntity> AssetMaster { get; set; } = null!;
-
+    public DbSet<AssetDetailsEntity> AssetDetails { get; set; } = null!;
+    public DbSet<AssetFieldValueEntity> AssetFieldValue { get; set; } = null!;
+    public DbSet<AssetLeaseRentDetailsEntity> AssetLeaseRentDetails { get; set; } = null!;
+    public DbSet<AssetRoomWiseSubmissionDetailsEntity> AssetRoomWiseSubmissionDetails { get; set; } = null!;
+    public DbSet<AssetRoomWiseMinusDataEntity> AssetRoomWiseMinusData { get; set; } = null!;
+    public DbSet<MonthWiseDemandEntity> MonthWiseDemand { get; set; } = null!;
+    public DbSet<LeaseRentBillTransactionEntity> LeaseRentBillTransactions { get; set; } = null!;
+    public DbSet<LeaseRentBillTransactionDetailEntity> LeaseRentBillTransactionDetails { get; set; } = null!;
+    public DbSet<InventoryAssetDetailEntity> InventoryAssetDetails { get; set; } = null!;
     // New child table entities with FK to PropertyMast
     public DbSet<ApplyTaxesMasterEntity> ApplyTaxesMaster { get; set; } = null!;
     public DbSet<PropertyAssessmentDetailsEntity> PropertyAssessmentDetails { get; set; } = null!;
     public DbSet<PropertyTaxCalculationSection129ResultsEntity> PropertyTaxCalculationSection129Results { get; set; } = null!;
-    public DbSet<PropertyOccupancyDetailsEntity> PropertyOccupancyDetails { get; set; } = null!;
     public DbSet<AssetRoomTypeMasterEntity> AssetRoomTypeMaster { get; set; } = null!;
     public DbSet<AssetAgeFactorCVMasterEntity> AssetAgeFactorCVMaster { get; set; } = null!;
     public DbSet<AssetNatureFactorCVMasterEntity> AssetNatureFactorCVMaster { get; set; } = null!;
@@ -206,6 +225,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TransMastLookupEntity> TransMastLookup { get; set; } = null!;
     public DbSet<RoomWiseMinusDataEntity> RoomWiseMinusData { get; set; } = null!;
     public DbSet<AssetDocumentDefinitionEntity> AssetDocumentDefinitions { get; set; } = null!;
+    public DbSet<AssetDocumentEntity> AssetDocuments { get; set; } = null!;
     public DbSet<AssetFieldDefinitionEntity> AssetFieldDefinitions { get; set; } = null!;
     public DbSet<AssetAuthorityMasterEntity> AssetAuthorityMasters { get; set; } = null!;
     public DbSet<AssetOrganizationMasterEntity> AssetOrganizationMasters { get; set; } = null!;
@@ -213,6 +233,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<SubZoneDetailsForCVEntity> SubZoneDetailsForCV { get; set; } = null!;
     public DbSet<PropertyRuleApplicationLogEntity> PropertyRuleApplicationLogs { get; set; } = null!;
     public DbSet<RTSCitizenSessionEntity> RTSCitizenSessions { get; set; } = null!;
+
+    // Property Sign-off Module
+    public DbSet<SignAuthorityMasterEntity> SignAuthorityMaster { get; set; } = null!;
+    public DbSet<PropertySignatureDetailsEntity> PropertySignatureDetails { get; set; } = null!;
     public DbSet<SocietyWingDetailsEntity> SocietyWingDetails { get; set; } = null!;
     public DbSet<GlobalSurveyWardAllocationEntity> GlobalSurveyWardAllocations { get; set; } = null!;
     public DbSet<PropertyMapDetailEntity> PropertyMapDetails { get; set; } = null!;
@@ -225,7 +249,12 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetSubTypeOfUseEntity> AssetSubTypeOfUseMaster { get; set; } = null!;
     public DbSet<AssetFloorFactorCVEntity> AssetFloorFactorCVMaster { get; set; } = null!;
     public DbSet<AssetPhotoTypeEntity> AssetPhotoTypeMaster { get; set; } = null!;
+    public DbSet<InventoryBatchEntity> InventoryBatches { get; set; } = null!;
+    public DbSet<InventoryDocumentEntity> InventoryDocuments { get; set; } = null!;
+    public DbSet<AssetGrievanceCategoryEntity> AssetGrievanceCategoryMaster { get; set; } = null!;
+    public DbSet<AssetGrievanceRemarkMasterEntity> AssetGrievanceRemarkMaster { get; set; } = null!;
 
+    public DbSet<CommunicationDetailsEntity> CommunicationDetails { get; set; } = null!;
 
     //public DbSet<ApprovalFlowMasterEntity> ApprovalFlowMasters { get; set; } = null!;
     //public DbSet<ApprovalFlowStageMasterEntity> ApprovalFlowStageMasters { get; set; } = null!;
@@ -918,9 +947,17 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.YearRangeRVId).IsRequired();
             entity.Property(e => e.TypeOfUseId).IsRequired();
-            // Add other property configurations as needed
+            entity.Property(e => e.BaseType).IsRequired().HasMaxLength(10).HasDefaultValue("RV");
             entity.HasIndex(e => e.YearRangeRVId);
             entity.HasIndex(e => e.TypeOfUseId);
+            // Matches an index that already exists on long-lived databases (verified via
+            // sys.indexes) but was never declared here — TaxId as the leading column also
+            // serves plain WHERE TaxId = @t reads (ValueBasedTaxService, the register's config
+            // overview) via an index seek, not just the (TaxId, TypeOfUseId, YearRangeRVId)
+            // uniqueness this was originally added to enforce.
+            entity.HasIndex(e => new { e.TaxId, e.TypeOfUseId, e.YearRangeRVId })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_TaxPercentageMasterRV_TaxId_TypeOfUseId_YearRangeRVId");
 
             entity.HasOne(e => e.TypeOfUse)
              .WithMany(c => c.TaxPercentageMasterRV)
@@ -1286,6 +1323,49 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.Department)
                 .WithMany()
                 .HasForeignKey(e => e.DepartmentId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SourceTableEntity>(entity =>
+        {
+            entity.ToTable("SourceTable", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TableName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.TableAliasName).HasMaxLength(200);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => new { e.ModuleId, e.TableName })
+                .IsUnique()
+                .HasDatabaseName("UQ_SourceTable_ModuleId_TableName");
+
+            entity.HasOne(e => e.Module)
+                .WithMany()
+                .HasForeignKey(e => e.ModuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SourceTableDetailsEntity>(entity =>
+        {
+            entity.ToTable("SourceTableDetails", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FieldName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.DisplayName).HasMaxLength(200);
+            entity.Property(e => e.ControlType).HasMaxLength(50);
+            entity.Property(e => e.DataType).HasMaxLength(50);
+            entity.Property(e => e.Placeholder).HasMaxLength(500);
+            entity.Property(e => e.ValidationRegex).HasMaxLength(500);
+            entity.Property(e => e.DefaultValue).HasMaxLength(500);
+            entity.Property(e => e.BindApi).HasMaxLength(500);
+            entity.Property(e => e.ApiResponse).HasMaxLength(500);
+            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.SequenceNo).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.HasIndex(e => new { e.SourceTableId, e.FieldName })
+                .IsUnique()
+                .HasDatabaseName("UQ_SourceTableDetails_SourceTableId_FieldName");
+
+            entity.HasOne(e => e.SourceTable)
+                .WithMany()
+                .HasForeignKey(e => e.SourceTableId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -2237,6 +2317,88 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.IsRevoked, e.ExpiresAt });
         });
 
+        // ── Two-factor authentication: new UserMaster columns ──────────────────
+        modelBuilder.Entity<UserEntity>(entity =>
+        {
+            entity.Property(e => e.TwoFactorEnabled).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.TwoFactorSecretEncrypted).HasMaxLength(500);
+            entity.Property(e => e.TwoFactorEnabledAt);
+            entity.Property(e => e.SecurityStamp).HasMaxLength(64);
+            entity.Property(e => e.TwoFactorRequired).IsRequired().HasDefaultValue(false);
+        });
+
+        // ── TwoFactorRecoveryCode ────────────────────────────────────────────
+        modelBuilder.Entity<TwoFactorRecoveryCodeEntity>(entity =>
+        {
+            entity.ToTable("TwoFactorRecoveryCode", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.CodeHash).IsRequired().HasMaxLength(255);
+            entity.Property(e => e.UsedAt);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate);
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => new { e.UserId, e.UsedAt, e.RevokedAt });
+        });
+
+        // ── TwoFactorChallenge (MFA login challenge) ────────────────────────
+        modelBuilder.Entity<MfaChallengeEntity>(entity =>
+        {
+            entity.ToTable("TwoFactorChallenge", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedNever();
+            entity.Property(e => e.ChallengeHash).IsRequired().HasMaxLength(64);
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.Purpose).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.ExpiresAt).IsRequired();
+            entity.Property(e => e.FailedAttemptCount).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ConsumedAt);
+            entity.Property(e => e.RevokedAt);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.CodeHash).HasMaxLength(64);
+            entity.Property(e => e.Channel).HasMaxLength(20);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasIndex(e => e.ChallengeHash).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.ExpiresAt);
+        });
+
+        // ── SecurityAuditLog ─────────────────────────────────────────────────
+        modelBuilder.Entity<SecurityAuditLogEntity>(entity =>
+        {
+            entity.ToTable("SecurityAuditLog", "CORE");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.EventType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.UserId);
+            entity.Property(e => e.Success).IsRequired();
+            entity.Property(e => e.CorrelationId).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+            entity.Property(e => e.UserAgent).HasMaxLength(500);
+            entity.Property(e => e.Detail).HasMaxLength(200);
+            entity.Property(e => e.CreatedAt).IsRequired();
+
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.EventType);
+            entity.HasIndex(e => e.CreatedAt);
+        });
+
         modelBuilder.Entity<WingEntity>(entity =>
         {
             entity.ToTable("WingMaster", "PTIS");
@@ -2981,7 +3143,12 @@ public class ApplicationDbContext : DbContext
         // TaxMaster configuration
         modelBuilder.Entity<TaxMasterEntity>(entity =>
         {
-            entity.ToTable("TaxMaster", "PTIS");
+            // UseSqlOutputClause(false): PTIS.TaxMaster carries database triggers (audit triggers in
+            // restored environments). EF Core 7+ saves via an OUTPUT clause by default, and SQL
+            // Server rejects OUTPUT-without-INTO on a trigger-bearing table — every settings save
+            // would fail with "the target table has database triggers". This opts that one table
+            // back onto the pre-EF7 write path.
+            entity.ToTable("TaxMaster", "PTIS", tb => tb.UseSqlOutputClause(false));
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxCode).IsRequired().HasMaxLength(20);
@@ -2993,6 +3160,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.TaxOnUnit).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.AssessmentStatus).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.OldTaxStatus).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.CalculationModeId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
@@ -3005,6 +3174,163 @@ public class ApplicationDbContext : DbContext
                   .WithMany(c => c.TaxMasters)
                   .HasForeignKey(e => e.TaxCategoryId)
                   .OnDelete(DeleteBehavior.Restrict);
+            // FK â†’ DynamicTaxRuleMaster (selected Rule Name), optional
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany(r => r.Taxes)
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            // FK → TaxCalculationModeMaster (DB-driven calculation mode + its capability flags)
+            entity.HasOne(e => e.CalculationModeMaster)
+                  .WithMany(m => m.TaxMasters)
+                  .HasForeignKey(e => e.CalculationModeId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.CalculationModeId).HasDatabaseName("IX_TaxMaster_CalculationModeId");
+        });
+
+        // TaxCalculationModeMaster configuration (DB-driven calculation modes — replaces the
+        // hardcoded (VALUE_BASED/CONDITION_BASED/MASTER_BASED/HYBRID list). The Uses*Config flags
+        // let code branch on CAPABILITIES rather than on a mode's code.
+        modelBuilder.Entity<TaxCalculationModeMasterEntity>(entity =>
+        {
+            entity.ToTable("TaxCalculationModeMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ModeCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.ModeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.UsesValueConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesConditionConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesMasterConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.UsesHybridConfig).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.ModeCode).IsUnique().HasDatabaseName("UQ_TaxCalculationModeMaster_ModeCode");
+        });
+
+        // DynamicTaxRuleMaster configuration (Rule Master registry)
+        modelBuilder.Entity<DynamicTaxRuleEntity>(entity =>
+        {
+            entity.ToTable("DynamicTaxRuleMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.DisplayName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RuleType).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.AttachedReference).HasMaxLength(200);
+            entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.Description);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.DisplayName).IsUnique().HasDatabaseName("UQ_DynamicTaxRuleMaster_DisplayName");
+        });
+
+        // TaxMasterMapping configuration (master-based lookup rows)
+        modelBuilder.Entity<TaxMasterMappingEntity>(entity =>
+        {
+            entity.ToTable("TaxMasterMapping", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
+            entity.Property(e => e.MasterKey).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.DisplayValue).HasMaxLength(200);
+            entity.Property(e => e.AssessmentYearRangeId).IsRequired();
+            entity.Property(e => e.ResultMode).IsRequired().HasMaxLength(10).HasDefaultValue("FIXED");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.ResultValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            // Scoped by RuleDefinitionId (not just Tax+Year+Key): a tax â€” especially a HYBRID
+            // one â€” can have more than one "Choose from List" rule attached to it over time,
+            // and each rule's master-key vocabulary (e.g. OwnerType categories vs PropertyType
+            // ids) is its own independent namespace. Without RuleDefinitionId in the key, two
+            // unrelated rules attached to the same tax that happen to reuse a key string (e.g.
+            // both have an "Ex. Militry Soldier"/"Self" entry) at the same Assessment Year could
+            // never coexist, blocking Save/Seed with an opaque unique-constraint violation.
+            entity.HasIndex(e => new { e.TaxId, e.RuleDefinitionId, e.AssessmentYearRangeId, e.MasterKey })
+                  .IsUnique()
+                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Rule_Year_Key");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany()
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxConditionRule configuration (condition-based rows — flat left-to-right AND/OR chain, priority-matched, FIXED/PERCENT result)
+        modelBuilder.Entity<TaxConditionRuleEntity>(entity =>
+        {
+            entity.ToTable("TaxConditionRule", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.RuleDefinitionId);
+            entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.ConditionsJson).IsRequired().HasColumnType("nvarchar(max)");
+            entity.Property(e => e.AssessmentYearRangeId);
+            entity.Property(e => e.ResultMode).IsRequired().HasMaxLength(10).HasDefaultValue("FIXED");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.ResultValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.ReferenceTaxId);
+            // Not a FK: RulesField is keyed by Id, but rules reference fields by their string
+            // FieldName/DatabaseColumnName (the same key conditions use), so this stays a plain
+            // column validated on save rather than a database relationship.
+            entity.Property(e => e.UnitFieldId).HasMaxLength(100);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            // Non-unique — unlike TaxMasterMapping there is no natural key (ConditionsJson is
+            // arbitrary JSON); this index only serves the Tax+SortOrder read pattern the
+            // evaluator and admin grid always use.
+            entity.HasIndex(e => new { e.TaxId, e.SortOrder })
+                  .HasDatabaseName("IX_TaxConditionRule_Tax_SortOrder");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.ReferenceTax)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReferenceTaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.RuleDefinition)
+                  .WithMany()
+                  .HasForeignKey(e => e.RuleDefinitionId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // TaxHybridConfig configuration (HYBRID strategy, one per tax)
+        modelBuilder.Entity<TaxHybridConfigEntity>(entity =>
+        {
+            entity.ToTable("TaxHybridConfig", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TaxId).IsRequired();
+            entity.Property(e => e.EvaluationPriority).IsRequired().HasMaxLength(30).HasDefaultValue("MASTER_THEN_CONDITION");
+            entity.Property(e => e.FallbackStrategy).IsRequired().HasMaxLength(20).HasDefaultValue("DEFAULT_ZERO");
+            entity.Property(e => e.ResultBase).IsRequired().HasMaxLength(10).HasDefaultValue("NONE");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+            entity.HasIndex(e => e.TaxId).IsUnique().HasDatabaseName("UQ_TaxHybridConfig_TaxId");
+            entity.HasOne(e => e.Tax)
+                  .WithMany()
+                  .HasForeignKey(e => e.TaxId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // TransMastOld configuration
@@ -3016,7 +3342,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.PropertyMastOldId).IsRequired();
             entity.Property(e => e.FinanceYearId).IsRequired();
             entity.Property(e => e.CalculationType).IsRequired().HasMaxLength(2).HasColumnType("char(2)");
-            entity.Property(e => e.CalculationValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculationAnnualValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.CalculationValue).HasColumnType("decimal(18,2)").HasDefaultValue(0m);
             entity.Property(e => e.TaxId).IsRequired();
             entity.Property(e => e.TaxAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0);
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
@@ -3689,10 +4016,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
             entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.UpdateCode).IsUnique().HasDatabaseName("UQ_BulkUpdateMaster_UpdateCode");
@@ -3709,17 +4033,16 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.DisplayName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayNameMarathi).HasMaxLength(200);
             entity.Property(e => e.ControlType).HasMaxLength(50).IsUnicode(false);
             entity.Property(e => e.DataType).HasMaxLength(50).IsUnicode(false);
             entity.Property(e => e.Placeholder).HasMaxLength(500);
-            entity.Property(e => e.SequenceNo).HasDefaultValue(0);
+            entity.Property(e => e.SequenceNo).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.ValidationRegex).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.DefaultValue).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.BindApi).HasMaxLength(500).IsUnicode(false);
+            entity.Property(e => e.ApiResponse).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
@@ -3862,50 +4185,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => new { e.JobId, e.Status }).HasDatabaseName("IX_PropertyTaxJobDetail_JobId_Status");
         });
 
-        modelBuilder.Entity<BulkUpdateMasterEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateMaster", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
-            entity.Property(e => e.UpdateNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplaySequence).HasDefaultValue(0);
-            entity.Property(e => e.Description).HasMaxLength(500);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.UpdateCode).IsUnique().HasDatabaseName("UQ_BulkUpdateMaster_UpdateCode");
-            entity.HasMany(e => e.FieldConfigs)
-                .WithOne(fc => fc.Master)
-                .HasForeignKey(fc => fc.BulkUpdateMasterId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<BulkUpdateFieldConfigEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateFieldConfig", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.IsRequired).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.IsReadonly).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayName).HasMaxLength(200).IsUnicode(false);
-            entity.Property(e => e.DisplayNameMarathi).HasMaxLength(200);
-            entity.Property(e => e.ControlType).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.DataType).HasMaxLength(50).IsUnicode(false);
-            entity.Property(e => e.Placeholder).HasMaxLength(500);
-            entity.Property(e => e.SequenceNo).HasDefaultValue(0);
-            entity.Property(e => e.ValidationRegex).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.DefaultValue).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.BindApi).HasMaxLength(500).IsUnicode(false);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
-        });
-
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
         {
             entity.ToTable("BulkUpdateHistory", "PTIS");
@@ -4021,32 +4300,6 @@ public class ApplicationDbContext : DbContext
 
             entity.HasIndex(e => e.PropertyDetailsId);
             entity.HasIndex(e => e.PropertyId);
-        });
-
-        // PropertyOccupancyDetails configuration
-        modelBuilder.Entity<PropertyOccupancyDetailsEntity>(entity =>
-        {
-            entity.ToTable("PropertyOccupancyDetails", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.PropertyDetailId).IsRequired();
-            entity.Property(e => e.OccupancyDate);
-            entity.Property(e => e.OccupancyNumber).HasColumnType("nvarchar(30)");
-            entity.Property(e => e.IssuedBy).HasColumnType("nvarchar(100)");
-            entity.Property(e => e.Remarks).HasColumnType("nvarchar(250)");
-            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
-            entity.Property(e => e.MarkedForDeletionDate);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate);
-
-            entity.HasOne(e => e.PropertyDetails)
-                .WithMany(p => p.PropertyOccupancyDetails)
-                .HasForeignKey(e => e.PropertyDetailId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasIndex(e => e.PropertyDetailId);
         });
 
         // PropertyImagesMast configuration
@@ -4263,11 +4516,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(x => x.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(x => x.MarkedForDeletionDate).HasColumnType("datetime");
 
-            entity.Property(x => x.IsMovable).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasFloorDetails).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasInventory).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.IsInventoryMandatory).IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.HasLegalCompliance).IsRequired().HasDefaultValue(false);
+            // ValueGeneratedNever prevents EF from treating an explicit "false" the same as "unset" and
+            // omitting the column from the INSERT -- the live AssetCategoryMaster table has no DB-level
+            // default constraint on these columns (unlike IsActive/MarkedForDeletion above), so a false
+            // sent by the client was being dropped from the INSERT and hitting the NOT NULL constraint.
+            entity.Property(x => x.IsMovable).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasFloorDetails).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasInventory).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.IsInventoryMandatory).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
+            entity.Property(x => x.HasLegalCompliance).IsRequired().HasDefaultValue(false).ValueGeneratedNever();
             entity.Property(x => x.ValuationType).IsRequired().HasMaxLength(20).HasDefaultValue("GENERIC");
 
             entity.HasIndex(e => e.CategoryName).IsUnique().HasDatabaseName("UQ_AssetCategoryMaster_CategoryName");
@@ -4405,18 +4662,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.IsActive).HasDefaultValue(true);
         });
         modelBuilder.Entity<EducationTaxMasterEntity>(entity =>
-       {
-           entity.ToTable("EducationTaxMaster", "PTIS");
-           entity.HasKey(e => e.Id);
-           entity.Property(e => e.Id).ValueGeneratedOnAdd();
-           entity.Property(e => e.Type).HasMaxLength(50);
-           entity.Property(e => e.Year);
-           entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
-           entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
-           entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-       });
+        {
+            entity.ToTable("EducationTaxMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.Type).HasMaxLength(50);
+            entity.Property(e => e.Year);
+            entity.Property(e => e.MinAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.MaxAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.Rate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.OnRVOrALV).HasMaxLength(10);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+        });
         modelBuilder.Entity<EmploymentTaxMasterEntity>(entity =>
         {
             entity.ToTable("EmploymentTaxMaster", "PTIS");
@@ -4462,24 +4719,43 @@ public class ApplicationDbContext : DbContext
         });
         //Asset Inventory Item Category configuration
         modelBuilder.Entity<InventoryItemCategoryEntity>(entity =>
-            {
-                entity.ToTable("InventoryItemCategoryMaster", "AMS");
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).ValueGeneratedOnAdd();
-                entity.Property(e => e.TypeCode).HasMaxLength(100);
-                entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
-                entity.Property(e => e.DisplayOrder).IsRequired().HasDefaultValue(0);
-                entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-                entity.Property(e => e.CreatedBy);
-                entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-                entity.Property(e => e.UpdatedBy);
-                entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+        {
+            entity.ToTable("InventoryItemCategoryMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.TypeCode).IsRequired().HasMaxLength(20).IsUnicode(false).HasColumnType("varchar(20)");
+            entity.Property(e => e.TypeName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+            entity.Property(e => e.DepreciationRate).HasPrecision(5, 4).HasDefaultValue(0.10m);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
 
-                // Indexes for performance
-                entity.HasIndex(e => e.TypeCode);
-                entity.HasIndex(e => e.TypeName);
-                entity.HasIndex(e => e.IsActive);
-            });
+            // UQ_InventoryItemCategoryMaster_TypeCode / _TypeName in the live DB are plain UNIQUE
+            // CONSTRAINTs, NOT filtered on MarkedForDeletion -- a row that's only marked-for-deletion
+            // (pending the nightly HardDeleteCleanupService purge) still physically occupies its
+            // TypeCode/TypeName. Same reasoning as TransMastEntity's UQ_TransMast_Property_Year_CalculationType_Tax
+            // above. InventoryItemCategoryService.CheckDuplicateAsync must NOT exclude MarkedForDeletion
+            // rows from the duplicate check, or app-level validation would pass while the DB rejects the insert.
+            entity.HasIndex(e => e.TypeCode).IsUnique().HasDatabaseName("UQ_InventoryItemCategoryMaster_TypeCode");
+            entity.HasIndex(e => e.TypeName).IsUnique().HasDatabaseName("UQ_InventoryItemCategoryMaster_TypeName");
+            entity.HasIndex(e => e.IsActive);
+
+            // Live DB has AssetCategoryId int NOT NULL with FK_InventoryItemCategoryMaster_AssetCategory --
+            // this column was missing from the entity/DTOs entirely, which is why every Create request
+            // failed with a raw NOT NULL violation swallowed into a generic 500.
+            entity.HasOne<AssetCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.AssetCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryItemCategoryMaster_AssetCategory");
+        });
 
         modelBuilder.Entity<InventoryItemNameEntity>(entity =>
         {
@@ -4507,32 +4783,6 @@ public class ApplicationDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.InventoryItemCategoryId)
                   .OnDelete(DeleteBehavior.Restrict);
-        });
-
-        modelBuilder.Entity<InventoryItemConditionEntity>(entity =>
-        {
-            entity.ToTable("InventoryItemConditionMaster", "AMS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
-            entity.Property(e => e.ConditionName).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.DisplayOrder).HasDefaultValue(0);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-
-            // Indexes for performance
-            entity.HasIndex(e => e.InventoryItemCategoryId);
-            entity.HasIndex(e => e.ConditionName);
-            entity.HasIndex(e => e.IsActive);
-
-            // Explicit foreign key relationship
-            entity.HasOne<InventoryItemCategoryEntity>()
-                  .WithMany()
-                  .HasForeignKey(e => e.InventoryItemCategoryId)
-                  .OnDelete(DeleteBehavior.Restrict); // or .Cascade, .SetNull as per your requirement
         });
 
         modelBuilder.Entity<InventoryItemModelEntity>(entity =>
@@ -4727,6 +4977,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.DateValue);
             entity.Property(e => e.DocumentBindingId);
             entity.Property(e => e.Remark).HasMaxLength(500);
+
+            // IHardDeletable
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate);
 
 
 
@@ -5015,12 +5269,22 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
             entity.Property(e => e.MarkedForDeletionDate);
 
+            entity.Property(e => e.RuleScopeId);
+            entity.Property(e => e.PropertyRuleEvaluationMasterId);
+
+            // Foreign key relationship
+            entity.HasOne(e => e.PropertyRuleEvaluationMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyRuleEvaluationMasterId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // Unique constraint on RuleCode
             entity.HasIndex(e => e.RuleCode).IsUnique().HasDatabaseName("UQ_RuleEngineMaster_RuleCode");
 
             // Indexes for performance
             entity.HasIndex(e => e.IsEnabled);
             entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.PropertyRuleEvaluationMasterId);
         });
 
         // RuleCategoryMaster configuration
@@ -5448,6 +5712,8 @@ public class ApplicationDbContext : DbContext
                 .HasDatabaseName("IX_PropertyWorkflowDetails_IsActive");
         });
 
+
+        //------------------RTS Api work started------------
         //----------------------------------------------------------------
         //--------------------RTS Api work started------------------------
 
@@ -5618,7 +5884,7 @@ public class ApplicationDbContext : DbContext
             entity.Ignore(e => e.UpdatedBy);
             entity.Ignore(e => e.UpdatedDate);
         });
-      
+
         modelBuilder.Entity<RTSFieldValueEntity>(entity =>
         {
             entity.ToTable("FieldValue", "RTS");
@@ -5877,11 +6143,58 @@ public class ApplicationDbContext : DbContext
         //--------------------RTSEND Api work ------------------------
 
 
-       
 
 
+        // Fluent mappings for Sign-off Module
+        modelBuilder.Entity<SignAuthorityMasterEntity>(entity =>
+        {
+            entity.ToTable("SignAuthorityMaster", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AuthorityName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.AuthorityCode).IsRequired().HasMaxLength(20);
+            entity.Property(e => e.SequenceOrder).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
 
+            entity.HasIndex(e => e.AuthorityCode).IsUnique();
+            entity.HasIndex(e => e.SequenceOrder).IsUnique();
+        });
 
+        modelBuilder.Entity<PropertySignatureDetailsEntity>(entity =>
+        {
+            entity.ToTable("PropertySignatureDetails", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.UserId).IsRequired();
+            entity.Property(e => e.PropertyId).IsRequired();
+            entity.Property(e => e.SignAuthorityId).IsRequired();
+            entity.Property(e => e.NoticeNo).HasMaxLength(30);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime");
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.PropertyId, e.SignAuthorityId }).IsUnique();
+
+            // FK to UserEntity
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK to PropertyEntity
+            entity.HasOne(e => e.Property)
+                .WithMany()
+                .HasForeignKey(e => e.PropertyId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // FK to SignAuthorityMasterEntity
+            entity.HasOne(e => e.SignAuthority)
+                .WithMany(s => s.SignatureDetails)
+                .HasForeignKey(e => e.SignAuthorityId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<AssetRoomTypeMasterEntity>(entity =>
         {
             entity.ToTable("AssetRoomTypeMaster", "AMS");
@@ -6201,7 +6514,8 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd().UseIdentityColumn(1, 1);
             entity.Property(e => e.PropertyMapId).IsRequired();
             entity.Property(e => e.PropertySide).IsRequired().HasMaxLength(10).IsUnicode(false).HasConversion<string>();
-            entity.Property(e => e.PropertyNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.PropertyNoOld).HasMaxLength(50).HasDefaultValue(string.Empty);
+            entity.Property(e => e.PropertyNoNew).IsRequired().HasMaxLength(50);
             entity.Property(e => e.TaxSharePercent).HasColumnType("decimal(9,4)");
             entity.Property(e => e.AreaSharePercent).HasColumnType("decimal(9,4)");
             entity.Property(e => e.Status).IsRequired().HasMaxLength(20).IsUnicode(false).HasDefaultValue("ACTIVE");
@@ -6461,14 +6775,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.DocumentTypeCode).IsUnique().HasDatabaseName("UQ_InventoryDocumentType_Code").HasFilter("[MarkedForDeletion] = 0");
         });
 
-        // AssetMaster minimal placeholder configuration (AMS schema)
-        modelBuilder.Entity<AssetMasterEntity>(entity =>
-        {
-            entity.ToTable("AssetMaster", "AMS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-        });
-
         // AssetPhoto configuration (AMS schema)
         modelBuilder.Entity<AssetPhotoEntity>(entity =>
         {
@@ -6499,6 +6805,800 @@ public class ApplicationDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.DocumentBindingId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        // AssetDocument configuration (AMS schema)
+        modelBuilder.Entity<AssetDocumentEntity>(entity =>
+        {
+            entity.ToTable("AssetDocument", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.DocumentDefinitionId).IsRequired();
+            entity.Property(e => e.DocumentBindingId).IsRequired(false);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder).IsRequired(false);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.DocumentDefinition)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentDefinitionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(e => e.DocumentBindingId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AssetMasterEntity>(entity =>
+        {
+            entity.ToTable("AssetMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.AssetName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.AssetCategoryId).IsRequired();
+            entity.Property(e => e.AssetTypeId).IsRequired();
+            entity.Property(e => e.ParentAssetId);
+            entity.Property(e => e.HierarchyLevel).IsRequired().HasDefaultValue(0);
+            entity.Property(e => e.HierarchyPath).HasMaxLength(500);
+            entity.Property(e => e.DepartmentId);
+            entity.Property(e => e.OwnershipType).HasMaxLength(50);
+            entity.Property(e => e.OccupancyStatus).HasMaxLength(50);
+            entity.Property(e => e.AssetConditionId);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Ignore(e => e.AssetLocationDetailsId);
+            entity.Ignore(e => e.PropertyNo);
+            entity.Ignore(e => e.PartitionNo);
+            entity.Ignore(e => e.UpicId);
+            entity.Ignore(e => e.PlotNo);
+            entity.Ignore(e => e.PurchaseValue);
+            entity.Ignore(e => e.PurchaseDate);
+            entity.Ignore(e => e.DepreciationId);
+            entity.Ignore(e => e.InventoryBatchId);
+            entity.Ignore(e => e.InventoryBatch);
+            entity.Ignore(e => e.SubUnitsDetails);
+            entity.HasOne(e => e.ParentAsset).WithMany().HasForeignKey(e => e.ParentAssetId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Parent");
+            entity.HasOne(e => e.AssetType).WithMany().HasForeignKey(e => e.AssetTypeId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Type");
+            entity.HasOne(e => e.AssetCategory).WithMany() .HasForeignKey(e => e.AssetCategoryId) .OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_Asset_Category");
+            entity.HasIndex(e => e.AssetNo).IsUnique().HasDatabaseName("UQ_AssetMaster_AssetNo");
+            entity.HasIndex(e => e.AssetCategoryId);
+            entity.HasIndex(e => e.AssetTypeId);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => e.ParentAssetId);
+        });
+
+        modelBuilder.Entity<AssetDetailsEntity>(entity =>
+        {
+            entity.ToTable("AssetDetails", "AMS");
+            entity.HasKey(e => e.AssetId);
+            entity.Property(e => e.AssetId).ValueGeneratedNever();
+            entity.Property(e => e.Id).ValueGeneratedOnAdd()
+                .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+
+            entity.Ignore(e => e.CapitalValue);
+            entity.Ignore(e => e.HasLift);
+            entity.Ignore(e => e.Length);
+            entity.Ignore(e => e.Width);
+            entity.Ignore(e => e.BuiltupAreaSqMeter);
+            entity.Ignore(e => e.CarpetAreaSqMeter);
+            entity.Ignore(e => e.GstNo);
+            entity.Ignore(e => e.ShopActNo);
+            entity.Property(e => e.OrganizationId).IsRequired();
+            entity.Property(e => e.ZoneId);
+            entity.Property(e => e.WardId);
+            entity.Property(e => e.MoujaId);
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.AssetWardNo).HasMaxLength(50);
+            entity.Property(e => e.PropertyNo).HasMaxLength(100);
+            entity.Property(e => e.PartitionNo).HasMaxLength(100);
+            entity.Property(e => e.UpicId).HasMaxLength(100);
+            entity.Property(e => e.PlotNo).HasMaxLength(50);
+            entity.Property(e => e.CSN).HasMaxLength(30);
+            entity.Property(e => e.LandRate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthFt).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LengthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthFt).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.WidthMtr).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.LandAreaSqFeet).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.LandAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.Address).HasMaxLength(500);
+            entity.Property(e => e.NearestLandmark).HasMaxLength(255);
+            entity.Property(e => e.PinCode).HasMaxLength(10);
+            entity.Property(e => e.Latitude).HasColumnType("decimal(10,8)");
+            entity.Property(e => e.Longitude).HasColumnType("decimal(11,8)");
+            entity.Property(e => e.BoundaryGeoJson).HasMaxLength(500);
+            entity.Property(e => e.InChargeName).HasColumnName("InchargeName").HasMaxLength(150);
+            entity.Property(e => e.InChargeDesignationId).HasColumnName("InchargeDesignationId");
+            entity.Property(e => e.InChargeMobile).HasColumnName("InchargeContact").HasMaxLength(30);
+            entity.Property(e => e.InChargeEmail).HasColumnName("InchargeEmail").HasMaxLength(150);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset)
+                .WithOne(a => a.Details)
+                .HasForeignKey<AssetDetailsEntity>(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_AssetDetails_AssetMaster");
+        });
+
+        modelBuilder.Entity<AssetFieldValueEntity>(entity =>
+        {
+            entity.ToTable("AssetFieldValue", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.FieldName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.FieldValue).HasMaxLength(2000);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset)
+                .WithMany(a => a.FieldValues)
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.AssetId);
+            entity.HasIndex(e => e.FieldDefinitionId);
+        });
+
+        modelBuilder.Entity<AssetLeaseRentDetailsEntity>(entity =>
+        {
+            entity.ToTable("AssetLeaseRentDetails", "AMS");
+            entity.Property(e => e.AssetId).IsRequired();
+            // Real schema column is SubUnitDetailsId (FK to AMS.SubUnitsDetails).
+            entity.Property(e => e.FloorDetailsId).HasColumnName("SubUnitDetailsId");
+            entity.Property(e => e.ShopNo).HasMaxLength(50);
+            entity.Property(e => e.ShopName).HasMaxLength(200);
+
+            entity.Property(e => e.TenantName).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.TenantMobile).IsRequired().IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantEmail).HasMaxLength(200);
+            entity.Property(e => e.TenantType).IsRequired().HasMaxLength(50).HasDefaultValue("Individual");
+            entity.Property(e => e.TenantAadhaarNo).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantPanCardNo).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.TenantAddress).HasMaxLength(500);
+            entity.Property(e => e.GSTNo).HasMaxLength(50);
+
+            entity.Property(e => e.TotalAreaSqFt).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.ApplicationTypeId);
+            entity.Property(e => e.LeaseType).IsRequired().HasMaxLength(20).HasDefaultValue("Rent");
+            entity.Property(e => e.LeaseStartDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.LeaseEndDate).HasColumnType("date");
+            entity.Property(e => e.Duration);
+            entity.Property(e => e.RentAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.SecurityDeposit).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.DepositType).HasMaxLength(50);
+            entity.Property(e => e.PaymentFrequency).IsRequired().HasMaxLength(20).HasDefaultValue("Monthly");
+            entity.Property(e => e.AgreementId).HasMaxLength(25);
+            entity.Property(e => e.IsIncrement).HasDefaultValue(false);
+            entity.Property(e => e.IncrementFrequency).HasMaxLength(35);
+            entity.Property(e => e.IncrementType).HasMaxLength(35);
+            entity.Property(e => e.IncrementValue);
+            entity.Property(e => e.IncrementMethod).HasMaxLength(35);
+            entity.Property(e => e.Reason).HasMaxLength(1000);
+
+            entity.Property(e => e.WorkflowStatus).IsRequired().HasMaxLength(30).HasDefaultValue("Pending");
+            entity.Property(e => e.RejectionReason).HasMaxLength(500);
+            entity.Property(e => e.IsRejection).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RejectionBy);
+            entity.Property(e => e.RejectionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsVerified).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.VerifiedBy);
+            entity.Property(e => e.VerifiedDate).HasColumnType("datetime");
+            entity.Property(e => e.IsApproved).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.ApprovedBy);
+            entity.Property(e => e.ApprovedDate).HasColumnType("datetime");
+
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.HasOne(e => e.Asset)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetLeaseRentDetails_Asset");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_AadhaarFormat", "([TenantAadhaarNo] IS NULL OR [TenantAadhaarNo] like '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' AND len([TenantAadhaarNo])=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_ApprovedDetails", "([IsApproved]=(0) OR [IsApproved]=(1) AND [ApprovedBy] IS NOT NULL AND [ApprovedDate] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_EmailFormat", "([TenantEmail] IS NULL OR [TenantEmail] like '%_@__%.__%')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_GSTFormat", "([GSTNo] IS NULL OR len([GSTNo])=(15) AND [GSTNo] like '[0-9][0-9][A-Z][A-Z][A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][A-Z][0-9][A-Z][0-9]')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_LeaseType", "([LeaseType]='Rent' OR [LeaseType]='Lease')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PanFormat", "([TenantPanCardNo] IS NULL OR [TenantPanCardNo] like '[A-Z][A-Z][A-Z][A-Z][A-Z][0-9][0-9][0-9][0-9][A-Z]')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PaymentFrequency", "([PaymentFrequency]='One-time' OR [PaymentFrequency]='Yearly' OR [PaymentFrequency]='Quarterly' OR [PaymentFrequency]='Monthly')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveDuration", "([Duration] IS NULL OR [Duration]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveIncrementValue", "([IncrementValue] IS NULL OR [IncrementValue]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveRentAmount", "([RentAmount] IS NULL OR [RentAmount]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveSecurityDeposit", "([SecurityDeposit]>=(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_PositiveTotalArea", "([TotalAreaSqFt] IS NULL OR [TotalAreaSqFt]>(0))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_RejectionDetails", "([IsRejection]=(0) OR [IsRejection]=(1) AND [RejectionBy] IS NOT NULL AND [RejectionDate] IS NOT NULL AND [RejectionReason] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_TenantMobileFormat", "([TenantMobile] like '+91-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR [TenantMobile] like '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]' OR len([TenantMobile])<=(15))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_TenantType", "([TenantType]='Organization' OR [TenantType]='Business' OR [TenantType]='Individual')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_ValidLeaseRange", "([LeaseEndDate] IS NULL OR [LeaseEndDate]>=[LeaseStartDate])"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_VerifiedDetails", "([IsVerified]=(0) OR [IsVerified]=(1) AND [VerifiedBy] IS NOT NULL AND [VerifiedDate] IS NOT NULL)"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_AssetLeaseRentDetails_WorkflowStatus", "([WorkflowStatus]='Rejected' OR [WorkflowStatus]='Approved' OR [WorkflowStatus]='Verified' OR [WorkflowStatus]='Pending')"));
+
+            entity.HasOne(e => e.ApplicationType)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationTypeId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_AssetLeaseRentDetails_ApplicationType");
+        });
+
+        // AssetRoomWiseSubmissionDetails configuration
+        modelBuilder.Entity<AssetRoomWiseSubmissionDetailsEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseSubmissionDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId);
+            entity.Property(e => e.SubUnitsDetailsId).HasColumnName("SubUnitsDetailsId");
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.LengthFt);
+            entity.Property(e => e.WidthFt);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.AreaSqFeet);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.HeightFt);
+            entity.Property(e => e.TotalAreaSqMtr);
+            entity.Property(e => e.TotalAreaSqFeet);
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.RoomNo).HasMaxLength(100);
+            entity.Property(e => e.OuterYesNo).HasColumnName("IsOuter").IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.RoomType).HasMaxLength(100);
+            entity.Property(e => e.MinusYesNo).HasColumnName("IsMinus").IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            // Foreign key relationships
+            entity.HasOne(e => e.Asset)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.SubUnitsDetails)
+                .WithMany()
+                .HasForeignKey(e => e.SubUnitsDetailsId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_RoomWiseSubmissionDetails_AssetId");
+            entity.HasIndex(e => e.SubUnitsDetailsId).HasDatabaseName("IX_RoomWiseSubmissionDetails_SubUnitsDetailsId");
+            entity.HasIndex(e => e.IsActive);
+
+            // CHECK constraints for positive values
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveArea", "[AreaSqMtr] IS NULL OR [AreaSqMtr] > 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveTotalArea", "[TotalAreaSqMtr] IS NULL OR [TotalAreaSqMtr] > 0"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_RoomWiseSubmissionDetails_PositiveDimensions",
+                "([LengthMtr] IS NULL OR [LengthMtr] > 0) AND ([WidthMtr] IS NULL OR [WidthMtr] > 0) AND ([HeightMtr] IS NULL OR [HeightMtr] > 0)"));
+
+            entity.HasMany(e => e.RoomMinusData)
+                .WithOne(m => m.RoomWiseSubmissionDetails)
+                .HasForeignKey(m => m.RoomWiseSubmissionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AssetRoomWiseMinusDataEntity>(entity =>
+        {
+            entity.ToTable("RoomWiseMinusData", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.RoomWiseSubmissionId);
+            entity.Property(e => e.LengthMtr);
+            entity.Property(e => e.LengthFt);
+            entity.Property(e => e.WidthMtr);
+            entity.Property(e => e.WidthFt);
+            entity.Property(e => e.AreaSqMtr);
+            entity.Property(e => e.AreaSqFeet);
+            entity.Property(e => e.HeightMtr);
+            entity.Property(e => e.HeightFt);
+            entity.Property(e => e.Shape).HasMaxLength(25);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.RoomWiseSubmissionId)
+                .HasDatabaseName("IX_RoomWiseMinusData_RoomWiseSubmissionId");
+        });
+
+        modelBuilder.Entity<SubUnitsDetailsEntity>(entity =>
+        {
+            entity.ToTable("SubUnitsDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AssetId).HasColumnName("AssetId").IsRequired();
+            entity.Property(e => e.FloorId).IsRequired();
+            entity.Property(e => e.SubFloorId);
+            entity.Property(e => e.ConstructionYear).HasMaxLength(4).HasColumnType("varchar(4)");
+            entity.Property(e => e.AssessmentYear).HasMaxLength(4);
+            entity.Property(e => e.ConstructionTypeId).IsRequired();
+            entity.Property(e => e.TypeOfUseId).IsRequired();
+            entity.Property(e => e.SubTypeOfUseId);
+            entity.Property(e => e.CarpetAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CarpetAreaSqFeet).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BuiltUpAreaSqMeter).HasColumnName("BuiltupAreaSqMeter").HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BuiltUpAreaSqFeet).HasColumnName("BuiltupAreaSqFeet").HasColumnType("decimal(18,4)");
+            entity.Property(e => e.NoOfRooms);
+
+            entity.Property(e => e.CVAgeFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVFloorFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVNatureFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVUseFactor).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.CVBaseRate).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.BaseValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CapitalValue).HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.IsRented).HasColumnName("IsRented");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.Asset).WithMany().HasForeignKey(e => e.AssetId).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_Asset");
+            entity.HasOne(e => e.Floor) .WithMany().HasForeignKey(e => e.FloorId).IsRequired(false).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_Floor");
+            entity.HasOne(e => e.SubFloor).WithMany().HasForeignKey(e => e.SubFloorId) .OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_SubFloor");
+            entity.HasOne(e => e.ConstructionType).WithMany().HasForeignKey(e => e.ConstructionTypeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict).HasConstraintName("FK_SubUnitsDetails_ConstructionType");
+            entity.HasOne(e => e.TypeOfUse).WithMany() .HasForeignKey(e => e.TypeOfUseId)  .IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.SubTypeOfUse).WithMany().HasForeignKey(e => e.SubTypeOfUseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_SubUnitsDetails_AssetId");
+            entity.HasIndex(e => e.FloorId);
+            entity.HasIndex(e => e.IsActive);
+            entity.HasIndex(e => new { e.AssetId, e.FloorId, e.SubFloorId })
+                .HasDatabaseName("IX_SubUnitsDetails_AssetFloor");
+        });
+
+        // AssetCVCalculationHistory configuration — audit trail of every CV calculation run,
+        // written by AssetCapitalValueService.SaveCalculationHistoryAsync.
+        modelBuilder.Entity<AssetCVCalculationHistoryEntity>(entity =>
+        {
+            entity.ToTable("AssetCVCalculationHistory", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.CalculationDate).HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.FinancialYear).IsRequired().HasMaxLength(9);
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.FloorId);
+            entity.Property(e => e.ConstructionTypeId);
+            entity.Property(e => e.TypeOfUseId);
+            entity.Property(e => e.SubTypeOfUseId);
+            entity.Property(e => e.ConstructionYear);
+            entity.Property(e => e.BuildingAge);
+            entity.Property(e => e.BuiltUpAreaSqMeter).HasColumnType("decimal(18,4)");
+            entity.Property(e => e.BaseRate).HasColumnType("decimal(18,2)");
+            // Source master tables (AgeFactorCVMaster, NatureFactorCVMaster, etc.) declare Factor as
+            // decimal(5,2) -- max 999.99. decimal(5,4) here (max 9.9999) caused a numeric-overflow
+            // SaveChangesAsync failure whenever a master row's factor was >= 10, which rolled back
+            // the entire (correctly computed) CV calculation for that floor. Widened to match.
+            entity.Property(e => e.AgeFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.FloorFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.NatureFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.UseFactor).HasColumnType("decimal(9,4)");
+            entity.Property(e => e.CapitalValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.CalculatedBy);
+            entity.Property(e => e.Remarks).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.AssetMaster).WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_CVHistory_Asset");
+
+            entity.HasIndex(e => e.AssetId).HasDatabaseName("IX_AssetCVCalculationHistory_AssetId");
+        });
+
+        modelBuilder.Entity<MonthWiseDemandEntity>(entity =>
+        {
+            entity.ToTable("MonthWiseDemand", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.DemandYear).IsRequired();
+            entity.Property(e => e.QuarterNo).IsRequired();
+            entity.Property(e => e.DemandMonth).IsRequired();
+            entity.Property(e => e.MonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PenaltyRuleMasterId);
+            entity.Property(e => e.PenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.GSTMasterId);
+            entity.Property(e => e.GSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])", stored: true);
+            entity.Property(e => e.PaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PendingAmount)
+                .HasComputedColumnSql("(([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])-[PaidAmount])", stored: true);
+            entity.Property(e => e.DemandStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.LastPaymentDate).HasColumnType("date");
+            entity.Property(e => e.DueDate).HasColumnType("date");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.AssetId, e.LeaseRegistrationId, e.FinanceYear, e.DemandYear, e.DemandMonth })
+                .IsUnique().HasDatabaseName("UQ_MonthWiseDemand_UniqueMonth");
+            entity.HasIndex(e => e.LeaseRegistrationId).HasDatabaseName("IX_MonthWiseDemand_LeaseRegistrationId");
+            entity.HasIndex(e => e.DemandStatus).HasDatabaseName("IX_MonthWiseDemand_DemandStatus");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Month", "([DemandMonth]>=(1) AND [DemandMonth]<=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Quarter", "([QuarterNo]>=(1) AND [QuarterNo]<=(4))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Status", "([DemandStatus]='Pending' OR [DemandStatus]='Partial' OR [DemandStatus]='Paid' OR [DemandStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_MonthWiseDemand_Amounts", "([MonthlyRentAmount]>=(0) AND [PenaltyAmount]>=(0) AND [GSTAmount]>=(0) AND [PaidAmount]>=(0))"));
+
+            entity.HasOne(e => e.GSTMaster)
+                .WithMany()
+                .HasForeignKey(e => e.GSTMasterId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MonthWiseDemand_GSTMaster");
+
+            entity.HasOne(e => e.PenaltyRuleMaster)
+                .WithMany()
+                .HasForeignKey(e => e.PenaltyRuleMasterId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_MonthWiseDemand_PenaltyRuleMaster");
+        });
+
+        modelBuilder.Entity<LeaseRentBillTransactionEntity>(entity =>
+        {
+            entity.ToTable("LeaseRentBillTransactions", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.TransactionNo).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.ReceiptNo).HasMaxLength(50);
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.TotalMonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalPenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalGSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([TotalMonthlyRentAmount]+[TotalPenaltyAmount]+[TotalGSTAmount])", stored: true);
+            entity.Property(e => e.DiscountAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.AdjustmentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.NetPayableAmount)
+                .HasComputedColumnSql("((([TotalMonthlyRentAmount]+[TotalPenaltyAmount]+[TotalGSTAmount])-[DiscountAmount])+[AdjustmentAmount])", stored: true);
+            entity.Property(e => e.PaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PaymentMode).IsRequired().HasMaxLength(30);
+            entity.Property(e => e.PaymentDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.BankName).HasMaxLength(100);
+            entity.Property(e => e.BranchName).HasMaxLength(100);
+            entity.Property(e => e.ChequeOrTransactionNo).HasMaxLength(100);
+            entity.Property(e => e.ChequeDate).HasColumnType("date");
+            entity.Property(e => e.OnlineTransactionId).HasMaxLength(100);
+            entity.Property(e => e.PaymentGatewayName).HasMaxLength(100);
+            entity.Property(e => e.PayerMobile).IsUnicode(false).HasMaxLength(20);
+            entity.Property(e => e.PayerEmail).HasMaxLength(200);
+            entity.Property(e => e.PaymentStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Success");
+            entity.Property(e => e.CancelledBy);
+            entity.Property(e => e.CancelledDate).HasColumnType("datetime");
+            entity.Property(e => e.CancellationReason).HasMaxLength(500);
+            entity.Property(e => e.Remark).HasMaxLength(500);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.TransactionNo).IsUnique().HasDatabaseName("UQ_LeaseRentBillTransactions_TransactionNo");
+            entity.HasIndex(e => e.ReceiptNo).IsUnique()
+                .HasFilter("[ReceiptNo] IS NOT NULL")
+                .HasDatabaseName("UQ_LeaseRentBillTransactions_ReceiptNo");
+            entity.HasIndex(e => e.LeaseRegistrationId).HasDatabaseName("IX_LeaseRentBillTransactions_LeaseRegistrationId");
+            entity.HasIndex(e => e.PaymentDate).HasDatabaseName("IX_LeaseRentBillTransactions_PaymentDate");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_PaymentMode", "([PaymentMode]='Cash' OR [PaymentMode]='Cheque' OR [PaymentMode]='DD' OR [PaymentMode]='UPI' OR [PaymentMode]='Online' OR [PaymentMode]='NEFT' OR [PaymentMode]='RTGS')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_Status", "([PaymentStatus]='Success' OR [PaymentStatus]='Pending' OR [PaymentStatus]='Failed' OR [PaymentStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactions_Amounts", "([TotalMonthlyRentAmount]>=(0) AND [TotalPenaltyAmount]>=(0) AND [TotalGSTAmount]>=(0) AND [DiscountAmount]>=(0) AND [PaidAmount]>=(0))"));
+        });
+
+        modelBuilder.Entity<LeaseRentBillTransactionDetailEntity>(entity =>
+        {
+            entity.ToTable("LeaseRentBillTransactionDetails", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.LeaseRentBillTransactionId).IsRequired();
+            entity.Property(e => e.MonthWiseDemandId).IsRequired();
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.LeaseRegistrationId).IsRequired();
+            entity.Property(e => e.FinanceYear).IsRequired();
+            entity.Property(e => e.DemandYear).IsRequired();
+            entity.Property(e => e.QuarterNo).IsRequired();
+            entity.Property(e => e.DemandMonth).IsRequired();
+            entity.Property(e => e.MonthlyRentAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PenaltyAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.GSTAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.TotalDemandAmount)
+                .HasComputedColumnSql("([MonthlyRentAmount]+[PenaltyAmount]+[GSTAmount])", stored: true);
+            entity.Property(e => e.PreviousPaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.CurrentPaidAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.BalanceAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
+            entity.Property(e => e.PaymentStatus).IsRequired().HasMaxLength(20).HasDefaultValue("Paid");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasIndex(e => new { e.LeaseRentBillTransactionId, e.MonthWiseDemandId })
+                .IsUnique().HasDatabaseName("UQ_LeaseRentBillTransactionDetails_MonthDemand");
+
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Month", "([DemandMonth]>=(1) AND [DemandMonth]<=(12))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Quarter", "([QuarterNo]>=(1) AND [QuarterNo]<=(4))"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Status", "([PaymentStatus]='Partial' OR [PaymentStatus]='Paid' OR [PaymentStatus]='Cancelled')"));
+            entity.ToTable(t => t.HasCheckConstraint("CK_LeaseRentBillTransactionDetails_Amounts", "([MonthlyRentAmount]>=(0) AND [PenaltyAmount]>=(0) AND [GSTAmount]>=(0) AND [PreviousPaidAmount]>=(0) AND [CurrentPaidAmount]>=(0) AND [BalanceAmount]>=(0))"));
+
+            entity.HasOne(e => e.Transaction)
+                .WithMany(t => t.Details)
+                .HasForeignKey(e => e.LeaseRentBillTransactionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_LeaseRentBillTransactionDetails_Transaction");
+
+            entity.HasOne(e => e.MonthWiseDemand)
+                .WithMany()
+                .HasForeignKey(e => e.MonthWiseDemandId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_LeaseRentBillTransactionDetails_MonthWiseDemand");
+        });
+
+        // InventoryDocument configuration (AMS schema)
+        // InventoryBatch configuration (AMS schema)
+        modelBuilder.Entity<InventoryBatchEntity>(entity =>
+        {
+            entity.ToTable("InventoryBatch", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ParentAssetId).IsRequired();
+            entity.Property(e => e.OwningDepartmentId).IsRequired();
+            entity.Property(e => e.InventoryItemCategoryId).IsRequired();
+            entity.Property(e => e.InventoryItemNameId).IsRequired();
+            entity.Property(e => e.InventoryItemModelId).IsRequired();
+            entity.Property(e => e.Specifications).HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.PurchaseDate).IsRequired().HasColumnType("date");
+            entity.Property(e => e.ConditionId).IsRequired().HasColumnName("ConditionId");
+            entity.Property(e => e.Quantity).IsRequired().HasDefaultValue(1);
+            entity.Property(e => e.UnitValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalBatchValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.TotalBatchCV).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(100).HasColumnType("varchar(100)");
+            entity.Property(e => e.InvoiceDate).HasColumnType("date");
+            entity.Property(e => e.InvoiceFileName).HasColumnName("InvoiceDocumentId").HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.PhotoFileName).HasColumnName("PhotoDocumentId").HasMaxLength(500).HasColumnType("varchar(500)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+
+            entity.HasOne(e => e.ParentAsset)
+                .WithMany()
+                .HasForeignKey(e => e.ParentAssetId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_ParentAsset");
+
+            entity.HasOne<OwningDepartmentEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.OwningDepartmentId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_OwningDepartment");
+
+            entity.HasOne<InventoryItemCategoryEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemCategoryId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemCategory");
+
+            entity.HasOne<InventoryItemNameEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemNameId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemName");
+
+            entity.HasOne<InventoryItemModelEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.InventoryItemModelId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemModel");
+
+            entity.HasOne<AssetConditionMasterEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ConditionId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("FK_InventoryBatch_InventoryItemCondition");
+
+            entity.HasIndex(e => e.ParentAssetId);
+            entity.HasIndex(e => e.OwningDepartmentId);
+            entity.HasIndex(e => e.InventoryItemCategoryId);
+            entity.HasIndex(e => e.InventoryItemNameId);
+            entity.HasIndex(e => e.InventoryItemModelId);
+            entity.HasIndex(e => e.ConditionId);
+        });
+
+        modelBuilder.Entity<InventoryDocumentEntity>(entity =>
+        {
+            entity.ToTable("InventoryDocument", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.InventoryBatchId).IsRequired();
+            entity.Property(e => e.DocumentTypeId).IsRequired();
+            entity.Property(e => e.DocumentBindingId);
+            entity.Property(e => e.IsLatest).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.DisplayOrder);
+            entity.Property(e => e.Remarks).HasMaxLength(500).HasColumnType("nvarchar(500)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime");
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
+
+            entity.HasOne(p => p.DocumentType)
+                .WithMany()
+                .HasForeignKey(p => p.DocumentTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(p => p.DocumentBinding)
+                .WithMany()
+                .HasForeignKey(p => p.DocumentBindingId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.InventoryBatchId).HasDatabaseName("IX_InventoryDocument_InventoryBatchId");
+            entity.HasIndex(e => e.DocumentTypeId).HasDatabaseName("IX_InventoryDocument_DocumentTypeId");
+            entity.HasIndex(e => e.DocumentBindingId).HasDatabaseName("IX_InventoryDocument_DocumentBindingId")
+                .HasFilter("[DocumentBindingId] IS NOT NULL");
+
+            entity.HasIndex(e => new { e.InventoryBatchId, e.DocumentTypeId })
+                .IsUnique()
+                .HasDatabaseName("IX_InventoryDocument_Item_Type_Latest")
+                .IncludeProperties(e => new { e.DocumentBindingId, e.DisplayOrder, e.IsLatest })
+                .HasFilter("[IsLatest] = 1 AND [IsActive] = 1 AND [MarkedForDeletion] = 0");
+        });
+
+        modelBuilder.Entity<InventoryAssetDetailEntity>(entity =>
+        {
+            entity.ToTable("InventoryAssetDetail", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.AssetId).IsRequired();
+            entity.Property(e => e.BatchId).IsRequired();
+            entity.Property(e => e.UnitNumber).IsRequired();
+            entity.Property(e => e.InventoryItemCategoryId);
+            entity.Property(e => e.InventoryItemNameId);
+            entity.Property(e => e.InventoryItemModelId);
+            entity.Property(e => e.InventoryItemConditionId).HasColumnName("ConditionId");
+            entity.Property(e => e.OwningDepartmentId);
+            entity.Property(e => e.Specifications).HasMaxLength(500);
+            entity.Property(e => e.PhotoFileId).HasMaxLength(300);
+            entity.Property(e => e.UnitPurchaseValue).IsRequired().HasColumnType("decimal(18,2)");
+            entity.Property(e => e.UnitCapitalValue).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
+
+            // Foreign keys
+            entity.HasOne(e => e.AssetMaster)
+                .WithMany()
+                .HasForeignKey(e => e.AssetId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Batch)
+                .WithMany(b => b.Units)
+                .HasForeignKey(e => e.BatchId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Indexes
+            entity.HasIndex(e => e.AssetId);
+            entity.HasIndex(e => e.BatchId);
+            entity.HasIndex(e => e.IsActive);
+        });
+
+        // AssetGrievanceCategory configuration (AMS schema)
+        modelBuilder.Entity<AssetGrievanceCategoryEntity>(entity =>
+        {
+            entity.ToTable("GrievanceCategoryMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.CategoryName).HasMaxLength(150).HasColumnType("nvarchar(150)").IsRequired();
+            entity.HasIndex(e => e.CategoryName).IsUnique();
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.ResolutionSlaDays).IsRequired().HasDefaultValue(7);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime").IsRequired(false);
+        });
+
+        // AssetGrievanceRemarkMaster configuration (AMS schema)
+        modelBuilder.Entity<AssetGrievanceRemarkMasterEntity>(entity =>
+        {
+            entity.ToTable("GrievanceRemarkMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.GrievanceCategoryId).IsRequired();
+            entity.Property(e => e.Remark).HasMaxLength(150).HasColumnType("nvarchar(150)").IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500).HasColumnType("nvarchar(500)").IsRequired(false);
+            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
+            entity.Property(e => e.MarkedForDeletion).IsRequired().HasDefaultValue(false);
+            entity.Property(e => e.MarkedForDeletionDate).HasColumnType("datetime").IsRequired(false);
+            entity.Property(e => e.CreatedBy).IsRequired(false);
+            entity.Property(e => e.CreatedDate).HasColumnName("CreatedDate").HasColumnType("datetime").IsRequired().HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy).IsRequired(false);
+            entity.Property(e => e.UpdatedDate).HasColumnName("UpdatedDate").HasColumnType("datetime").IsRequired(false);
+
+            entity.HasOne(e => e.GrievanceCategory)
+                .WithMany()
+                .HasForeignKey(e => e.GrievanceCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CVRateMasterEntity>(entity =>
+        {
+            entity.ToTable("CVRateMaster", "AMS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.SubZoneId);
+            entity.Property(e => e.TypeOfUseGroupCVId);
+            entity.Property(e => e.FloorGroupId);
+            entity.Property(e => e.AssessmentYearRangeId);
+            entity.Property(e => e.RateAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.IsActive).HasDefaultValue(true);
+            entity.Property(e => e.CreatedBy);
+            entity.Property(e => e.CreatedDate).HasDefaultValueSql("getdate()");
+            entity.Property(e => e.UpdatedBy);
+            entity.Property(e => e.UpdatedDate);
         });
     }
 }

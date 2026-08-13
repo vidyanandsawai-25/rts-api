@@ -625,6 +625,72 @@ namespace NtisPlatform.Tests.Application
             Assert.Equal("John Doe", inputDict["RenterName"]);
         }
 
+        [Fact]
+        public async Task ApplyRulesAsync_MismatchedParameterCode_SkipsRule()
+        {
+            // Arrange — Rule targets "Rate", but context.ValueKey is "Maintenance"
+            var context = CreateTestContext(
+                new PropertyDetailsEntity { FloorId = 1, Id = 1 },
+                new TypeOfUseEntity { TypeOfUseGroupId = 2 },
+                new PropertyEntity { Id = 1 });
+
+            context.ValueKey = "Maintenance";
+            context.InitialValue = 10m; // Initial maintenance %
+
+            _ruleExecutionServiceMock
+                .Setup(x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<RuleExecutionResultDto>
+                {
+                    new()
+                    {
+                        RuleCode = "MEZZANINE-RULE",
+                        EffectType = "DecreasePercent",
+                        EffectValue = 30m,
+                        Context = new Dictionary<string, string> { { "ParameterCode", "Rate" } }
+                    }
+                });
+
+            // Act
+            var result = await _service.ApplyRulesAsync(context);
+
+            // Assert — Maintenance rate should remain 10m (rule targeting Rate was skipped)
+            Assert.Equal(10m, result.FinalValue);
+            Assert.Empty(result.AppliedRules);
+        }
+
+        [Fact]
+        public async Task ApplyRulesAsync_MissingParameterCode_AppliesToCurrentValueKey()
+        {
+            // Arrange — Rule omits ParameterCode completely (legacy/generic rule)
+            var context = CreateTestContext(
+                new PropertyDetailsEntity { FloorId = 1, Id = 1 },
+                new TypeOfUseEntity { TypeOfUseGroupId = 2 },
+                new PropertyEntity { Id = 1 });
+
+            context.ValueKey = "Maintenance";
+            context.InitialValue = 10m; // Initial maintenance %
+
+            _ruleExecutionServiceMock
+                .Setup(x => x.ExecuteAsync(It.IsAny<RuleExecutionInputDto>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<RuleExecutionResultDto>
+                {
+                    new()
+                    {
+                        RuleCode = "GENERIC-MAINTENANCE-RULE",
+                        EffectType = "IncreasePercent",
+                        EffectValue = 10m,
+                        Context = new Dictionary<string, string>() // ParameterCode is absent
+                    }
+                });
+
+            // Act
+            var result = await _service.ApplyRulesAsync(context);
+
+            // Assert — Rule should apply to Maintenance (10m + 10% = 11m)
+            Assert.Equal(11m, result.FinalValue);
+            Assert.Single(result.AppliedRules);
+        }
+
         // ─── Factory Helper ────────────────────────────────────────────────────────
 
         /// <summary>

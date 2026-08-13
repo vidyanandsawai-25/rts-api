@@ -102,9 +102,9 @@ public class DocumentController : ControllerBase
         {
             var correlationId = Guid.NewGuid().ToString();
             _logger.LogWarning(ex, "Unauthorized access attempt. CorrelationId: {CorrelationId}", correlationId);
-            return Unauthorized(new ApiResponse<object> 
-            { 
-                Success = false, 
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
                 Message = "Valid user identification is required.",
                 CorrelationId = correlationId
             });
@@ -113,9 +113,9 @@ public class DocumentController : ControllerBase
         {
             var correlationId = Guid.NewGuid().ToString();
             _logger.LogWarning(ex, "Validation error during document upload. CorrelationId: {CorrelationId}", correlationId);
-            return BadRequest(new ApiResponse<object> 
-            { 
-                Success = false, 
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
                 Message = ex.Message,
                 CorrelationId = correlationId
             });
@@ -123,16 +123,16 @@ public class DocumentController : ControllerBase
         catch (Exception ex)
         {
             var correlationId = Guid.NewGuid().ToString();
-            _logger.LogError(ex, "Error uploading document. CorrelationId: {CorrelationId}, FileName: {FileName}", 
+            _logger.LogError(ex, "Error uploading document. CorrelationId: {CorrelationId}, FileName: {FileName}",
                 correlationId, formDto.File?.FileName ?? "unknown");
 
-            var errorMessage = _environment.IsDevelopment() 
-                ? $"An error occurred: {ex.Message}" 
+            var errorMessage = _environment.IsDevelopment()
+                ? $"An error occurred: {ex.Message}"
                 : "An error occurred";
 
             return StatusCode(500, new ApiResponse<object>
-            { 
-                Success = false, 
+            {
+                Success = false,
                 Message = errorMessage,
                 CorrelationId = correlationId
             });
@@ -155,7 +155,7 @@ public class DocumentController : ControllerBase
 
         if (!canAccess)
         {
-            _logger.LogWarning("User {UserId} attempted unauthorized access to document {DocumentGuid}", 
+            _logger.LogWarning("User {UserId} attempted unauthorized access to document {DocumentGuid}",
                 userId, documentGuid);
             return Forbid();
         }
@@ -170,7 +170,7 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// View document (inline display)
     /// </summary>
-    
+
 
 
     [AllowAnonymous]
@@ -186,7 +186,7 @@ public class DocumentController : ControllerBase
 
         if (!canAccess)
         {
-            _logger.LogWarning("User {UserId} attempted unauthorized view of document {DocumentGuid}", 
+            _logger.LogWarning("User {UserId} attempted unauthorized view of document {DocumentGuid}",
                 userId, documentGuid);
             return Forbid();
         }
@@ -204,7 +204,7 @@ public class DocumentController : ControllerBase
     /// <summary>
     /// Download document
     /// </summary>
-    /// 
+    ///
 
     [AllowAnonymous]
     [HttpGet("{documentGuid}/download")]
@@ -219,7 +219,7 @@ public class DocumentController : ControllerBase
 
         if (!canAccess)
         {
-            _logger.LogWarning("User {UserId} attempted unauthorized download of document {DocumentGuid}", 
+            _logger.LogWarning("User {UserId} attempted unauthorized download of document {DocumentGuid}",
                 userId, documentGuid);
             return Forbid();
         }
@@ -246,7 +246,7 @@ public class DocumentController : ControllerBase
 
         if (!canModify)
         {
-            _logger.LogWarning("User {UserId} attempted unauthorized deletion of document {DocumentGuid}", 
+            _logger.LogWarning("User {UserId} attempted unauthorized deletion of document {DocumentGuid}",
                 userId, documentGuid);
             return Forbid();
         }
@@ -272,7 +272,7 @@ public class DocumentController : ControllerBase
 
         if (!canAccess)
         {
-            _logger.LogWarning("User {UserId} attempted unauthorized update of binding {BindingId}", 
+            _logger.LogWarning("User {UserId} attempted unauthorized update of binding {BindingId}",
                 userId, documentBindingId);
             return Forbid();
         }

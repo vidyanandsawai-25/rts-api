@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Extensions;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Enums;
@@ -28,17 +29,44 @@ public class PropertySearchRepository : IPropertySearchRepository
 
     private readonly ApplicationDbContext _context;
     private readonly IMemoryCache _cache;
+    private readonly IFinanceYearProvider _financeYearProvider;
     private string[]? _cachedValuationMethods;
+    private int? _cachedCurrentFinanceYearId;
 
-    public PropertySearchRepository(ApplicationDbContext context, IMemoryCache cache)
+    public PropertySearchRepository(ApplicationDbContext context, IMemoryCache cache, IFinanceYearProvider financeYearProvider)
     {
         _context = context;
         _cache = cache;
+        _financeYearProvider = financeYearProvider;
     }
 
     /// <summary>
-    /// Gets valid valuation methods from PolicyConfiguration (RV and CV only).
-    /// Falls back to RV,CV if not configured in database.
+    /// Resolves the YearMaster.Id for the current fiscal year (e.g. FinanceYearId 3002 for FY 2026-27).
+    /// RV/CV/Total Tax must be scoped to this specific year -- a property can have TransMast rows
+    /// for several past years, and picking Max(CalculationValue)/Sum(TaxAmount) across all of them
+    /// (the old behavior) silently returns a stale or inflated figure whenever a value decreased
+    /// year-over-year or a property carries multiple years of tax history.
+    /// Returns -1 (matches nothing) if no YearMaster row exists for the current year.
+    /// </summary>
+    private async Task<int> GetCurrentFinanceYearIdAsync(CancellationToken cancellationToken = default)
+    {
+        if (_cachedCurrentFinanceYearId.HasValue)
+            return _cachedCurrentFinanceYearId.Value;
+
+        var currentYear = _financeYearProvider.GetCurrentFinanceYear();
+        var yearId = await _context.YearMaster
+            .AsNoTracking()
+            .Where(y => y.Year == currentYear)
+            .Select(y => (int?)y.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        _cachedCurrentFinanceYearId = yearId ?? -1;
+        return _cachedCurrentFinanceYearId.Value;
+    }
+
+    /// <summary>
+    /// Gets valid valuation methods from PolicyConfiguration (RV, CV, and Total Tax).
+    /// Falls back to RV,CV,TOTAL TAX if not configured in database.
     /// </summary>
     private async Task<string[]> GetValidValuationMethodsAsync(CancellationToken cancellationToken = default)
     {
@@ -62,14 +90,14 @@ public class PropertySearchRepository : IPropertySearchRepository
             }
             else
             {
-                // Fallback to RV and CV only
-                _cachedValuationMethods = new[] { "RV", "CV" };
+                // Fallback to RV, CV, and Total Tax
+                _cachedValuationMethods = new[] { "RV", "CV", "TOTAL TAX" };
             }
         }
         catch
         {
-            // If error reading from database, use default values (RV and CV only)
-            _cachedValuationMethods = new[] { "RV", "CV" };
+            // If error reading from database, use default values (RV, CV, and Total Tax)
+            _cachedValuationMethods = new[] { "RV", "CV", "TOTAL TAX" };
         }
 
         return _cachedValuationMethods;
@@ -85,35 +113,15 @@ public class PropertySearchRepository : IPropertySearchRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        // Handle dashboard card filters
-        if (searchRequest.DashboardFilter.HasValue)
+        // RV/CV/Total Tax must be scoped to the current fiscal year (see GetCurrentFinanceYearIdAsync).
+        var currentFinanceYearId = await GetCurrentFinanceYearIdAsync(cancellationToken);
+
+        // Handle workflow stage filtering (via WorkflowStageId or DashboardFilter)
+        int? targetWorkflowStageId = searchRequest.WorkflowStageId;
+        if (!targetWorkflowStageId.HasValue && searchRequest.DashboardFilter.HasValue)
         {
-            switch (searchRequest.DashboardFilter.Value)
-            {
-                case DashboardFilterType.RegisteredProperty:
-                case DashboardFilterType.GeoSequencing:
-                    break;
-
-                case DashboardFilterType.Survey:
-                case DashboardFilterType.DataProcessing:
-                case DashboardFilterType.QualityAnalysis:
-                case DashboardFilterType.AssessmentCompleted:
-                    return (0, new List<PropertySearchResponseDto>());
-            }
+            targetWorkflowStageId = (int)searchRequest.DashboardFilter.Value;
         }
-
-        if (searchRequest.PropertyProcessFilter.HasValue)
-        {
-            switch (searchRequest.PropertyProcessFilter.Value)
-            {
-                case PropertyProcessFilterType.SurveyCompleted:
-                case PropertyProcessFilterType.DataEntryCompleted:
-                case PropertyProcessFilterType.QCCompleted:
-                case PropertyProcessFilterType.NoticeDistributed:
-                    return (0, new List<PropertySearchResponseDto>());
-            }
-        }
-
 
         var query = from p in _context.PropertyMast.AsNoTracking()
                     where p.IsActive && !p.MarkedForDeletion
@@ -147,14 +155,50 @@ public class PropertySearchRepository : IPropertySearchRepository
                         Society = sd
                     };
 
-        // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo
-        query = query.Where(x =>
-            (x.Ward != null || x.Zone != null) &&
-            (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
-        );
+        // Filter by workflow stage when specified via WorkflowStageId or DashboardFilter
+        if (targetWorkflowStageId.HasValue && targetWorkflowStageId.Value > 0)
+        {
+            var stageId = targetWorkflowStageId.Value;
+            var propertyIdsInStage = _context.PropertyWorkflowDetails
+                .AsNoTracking()
+                .Where(d => d.IsActive && d.WorkflowStageId == stageId)
+                .Select(d => d.PropertyId)
+                .Distinct();
 
-        if (searchRequest.DashboardFilter == DashboardFilterType.GeoSequencing)
-            query = query.Where(x => !string.IsNullOrEmpty(x.Property.PropertyNo));
+            query = query.Where(x => propertyIdsInStage.Contains(x.Property.Id));
+        }
+
+        // A specific search (UPICId, PropertyNo, Address, Owner, Values & Dues, etc.) is asking for one
+        // known record, not browsing -- so it must never be defeated by the "hide incomplete rows"
+        // cleanup below. That cleanup is meant for the generic/browse grid only.
+        bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.Address) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OwnerName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OccupierName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.FlatOrShopName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SocietyName) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
+                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo) ||
+                                (!string.IsNullOrWhiteSpace(searchRequest.ValuationMethod) && !string.IsNullOrWhiteSpace(searchRequest.FilterType));
+
+        // Exclude incomplete entries that have no Zone/Ward and no PropertyNo/OldPropertyNo.
+        // NOTE: "no Zone/Ward" here means the WardMaster/ZoneMaster join failed to resolve -- this
+        // catches both properties that were never assigned a ward AND properties whose WardId points
+        // to a ward that is missing/inactive in WardMaster (a master-data sync gap, not an incomplete
+        // property). Only apply this cleanup to generic/browse searches; an exact search must still
+        // find a real property even if its ward reference is orphaned.
+        if (!isSpecificSearch)
+        {
+            query = query.Where(x =>
+                (x.Ward != null || x.Zone != null) &&
+                (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
+            );
+        }
 
         // ── Common top-row filters ───────────────────────────────────────────
         if (searchRequest.PropertyAssessmentStatusId.HasValue)
@@ -314,7 +358,9 @@ public class PropertySearchRepository : IPropertySearchRepository
             var filterType = searchRequest.FilterType.Trim();
             var validMethods = await GetValidValuationMethodsAsync(cancellationToken);
 
-            if (validMethods.Contains(valuationMethod) && searchRequest.AmountValue.HasValue)
+            // Total Tax is always filterable regardless of the PolicyConfiguration-driven
+            // RV/CV list, since that policy only governs which valuation method computes tax.
+            if ((valuationMethod == "TOTAL TAX" || validMethods.Contains(valuationMethod)) && searchRequest.AmountValue.HasValue)
             {
                 var amount = searchRequest.AmountValue.Value;
 
@@ -323,14 +369,33 @@ public class PropertySearchRepository : IPropertySearchRepository
                 {
                     var rvOrCv = valuationMethod;
 
-                    // Get matching property IDs from TransMast
+                    // Get matching property IDs from TransMast, scoped to the current fiscal year
                     var matchingPropertyIds = _context.TransMast
                         .AsNoTracking()
-                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv)
+                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv && t.FinanceYearId == currentFinanceYearId)
                         .GroupBy(t => t.PropertyId)
                         .Select(g => new { PropertyId = g.Key, Value = g.Max(x => x.CalculationValue) })
                         .Where(x =>
-                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value >= amount * 0.99m && x.Value <= amount * 1.01m) ||
+                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
+                            (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
+                            (filterType.Equals("Less Than", StringComparison.OrdinalIgnoreCase) && x.Value < amount) ||
+                            (filterType.Equals("Between", StringComparison.OrdinalIgnoreCase) && searchRequest.AmountTo.HasValue && x.Value >= amount && x.Value <= searchRequest.AmountTo.Value))
+                        .Select(x => x.PropertyId);
+
+                    query = query.Where(x => matchingPropertyIds.Contains(x.Property.Id));
+                }
+                // Handle Total Tax filtering (from TransMast joined with TaxMaster, TaxCode='TaxTotal', TaxName='TaxTotal')
+                else if (valuationMethod == "TOTAL TAX")
+                {
+                    var matchingPropertyIds = (
+                        from t in _context.TransMast.AsNoTracking()
+                        join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+                        where t.IsActive && !t.MarkedForDeletion && t.FinanceYearId == currentFinanceYearId
+                              && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+                        group t by t.PropertyId into g
+                        select new { PropertyId = g.Key, Value = g.Sum(x => x.TaxAmount) })
+                        .Where(x =>
+                            (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
                             (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
                             (filterType.Equals("Less Than", StringComparison.OrdinalIgnoreCase) && x.Value < amount) ||
                             (filterType.Equals("Between", StringComparison.OrdinalIgnoreCase) && searchRequest.AmountTo.HasValue && x.Value >= amount && x.Value <= searchRequest.AmountTo.Value))
@@ -343,20 +408,9 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         // Exclude apartment units from grid results: show only structures/main properties,
         // UNLESS the user is explicitly searching by specific text search criteria (UPICId, Address, Owner, etc.)
-        bool isSpecificSearch = !string.IsNullOrWhiteSpace(searchRequest.UPICId) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.Address) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.MobileNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OwnerName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OccupierName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.FlatOrShopName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.SocietyName) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.OldPropertyNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.CSN) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PlotNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.SubZoneNo) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoFrom) ||
-                                !string.IsNullOrWhiteSpace(searchRequest.PropertyNoTo);
-
+        // or by a Values & Dues filter (RV/CV/Total Tax) -- an exact/range amount search is asking for
+        // whichever specific unit holds that value, so hiding apartment sub-units would silently drop
+        // legitimate matches (an amount that only exists on a flat's own TransMast row would never surface).
         if (!isSpecificSearch)
         {
             query = query.Where(x => x.Category == null ||
@@ -379,14 +433,15 @@ public class PropertySearchRepository : IPropertySearchRepository
         {
             var allPropertyIds = await query.Select(x => x.Property.Id).ToListAsync(cancellationToken);
 
-            // Get RV values
+            // Get RV values (current fiscal year only)
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV")
+                    && t.CalculationType == "RV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -395,14 +450,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get CV values
+            // Get CV values (current fiscal year only)
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV")
+                    && t.CalculationType == "CV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -411,13 +467,14 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get TaxTotal values
+            // Get TaxTotal values (current fiscal year only)
             var totalTaxAmounts = await (
                 from t in _context.TransMast.AsNoTracking()
                 join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
                 where allPropertyIds.Contains(t.PropertyId)
                       && t.IsActive
                       && !t.MarkedForDeletion
+                      && t.FinanceYearId == currentFinanceYearId
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
@@ -461,14 +518,15 @@ public class PropertySearchRepository : IPropertySearchRepository
         // Load valuation values if not already loaded for Top N filter
         if (!isTopNFilter)
         {
-            // RV (Rateable Value) from TransMast where CalculationType = 'RV'
+            // RV (Rateable Value) from TransMast where CalculationType = 'RV', current fiscal year only
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV")
+                    && t.CalculationType == "RV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -477,14 +535,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // CV (Capital Value) from TransMast where CalculationType = 'CV'
+            // CV (Capital Value) from TransMast where CalculationType = 'CV', current fiscal year only
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV")
+                    && t.CalculationType == "CV"
+                    && t.FinanceYearId == currentFinanceYearId)
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
@@ -493,14 +552,15 @@ public class PropertySearchRepository : IPropertySearchRepository
                 })
                 .ToListAsync(cancellationToken);
 
-            // TaxTotal from TransMast joined with TaxMaster (TaxCode='TaxTotal', TaxName='TaxTotal')
-            // Sum all TaxAmounts across all finance years for the property
+            // TaxTotal from TransMast joined with TaxMaster (TaxCode='TaxTotal', TaxName='TaxTotal'),
+            // summed across TaxId components within the current fiscal year only
             var totalTaxAmounts = await (
                 from t in _context.TransMast.AsNoTracking()
                 join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
                 where propertyIds.Contains(t.PropertyId)
                       && t.IsActive
                       && !t.MarkedForDeletion
+                      && t.FinanceYearId == currentFinanceYearId
                       && tax.IsActive
                       && tax.TaxCode == TaxTotalCode
                       && tax.TaxName == TaxTotalName
@@ -653,13 +713,21 @@ public class PropertySearchRepository : IPropertySearchRepository
 
         foreach (var stage in stages)
         {
-            var propertiesQuery = _context.PropertyWorkflowDetails
-                .AsNoTracking()
-                .Where(d => d.IsActive && d.WorkflowStageId == stage.Id &&
-                            d.Property.IsActive && !d.Property.MarkedForDeletion &&
-                            d.Property.PropertyNo != null && d.Property.PropertyNo != "")
-                .Select(d => d.Property)
-                .Distinct();
+            var propertiesQuery = (
+                from d in _context.PropertyWorkflowDetails.AsNoTracking()
+                join p in _context.PropertyMast.AsNoTracking() on d.PropertyId equals p.Id
+                join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id
+                join z in _context.ZoneMaster.AsNoTracking() on w.ZoneId equals z.Id
+                where d.IsActive
+                   && d.WorkflowStageId == stage.Id
+                   && p.IsActive
+                   && !p.MarkedForDeletion
+                   && w.IsActive
+                   && z.IsActive
+                   && p.PropertyNo != null
+                   && p.PropertyNo != ""
+                select p
+            ).Distinct();
 
             propertiesQuery = ApplyDashboardFilters(propertiesQuery, searchRequest);
 
@@ -1609,26 +1677,21 @@ public class PropertySearchRepository : IPropertySearchRepository
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var propertyCount = await query.CountAsync(cancellationToken);
-
-        // Count Units = Apartment with non-empty PartitionNo only
-        // IMPORTANT: Trim PartitionNo to handle whitespace
-        var unitsOnlyCount = await (
+        var stats = await (
             from p in query
-            join pc in _context.PropertyCategoryMaster on p.CategoryId equals pc.Id into categoryJoin
+            join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
             from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
-            where pc != null
-                  && pc.PropertyCategoryName == ApartmentCategoryName
-                  && p.PartitionNo != null
-                  && p.PartitionNo.Trim() != ""
-            select p.Id
-        ).CountAsync(cancellationToken);
+            group new { p, pc } by 1 into g
+            select new
+            {
+                Total = g.Count(),
+                UnitsOnly = g.Count(x => x.pc != null && x.pc.PropertyCategoryName == ApartmentCategoryName && x.p.PartitionNo != null && x.p.PartitionNo != "")
+            }
+        ).FirstOrDefaultAsync(cancellationToken);
 
-        // Structure = All properties EXCEPT Units (Apartment + empty/null PartitionNo + Individual/Industry/Plot)
+        var propertyCount = stats?.Total ?? 0;
+        var unitsOnlyCount = stats?.UnitsOnly ?? 0;
         var structureCount = propertyCount - unitsOnlyCount;
-
-        // Unit = All properties (Structures + Units both included)
-        // Since all properties are units, UnitCount = PropertyCount
         var unitCount = propertyCount;
 
         return (propertyCount, structureCount, unitCount);
@@ -1648,8 +1711,8 @@ public class PropertySearchRepository : IPropertySearchRepository
     {
         var sum = await (
             from pid in propertyIdQuery
-            join t in _context.TransMast on pid equals t.PropertyId
-            join tax in _context.TaxMaster on t.TaxId equals tax.Id
+            join t in _context.TransMast.AsNoTracking() on pid equals t.PropertyId
+            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
             where t.IsActive && !t.MarkedForDeletion
                   && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
             select (decimal?)t.TaxAmount
@@ -1659,25 +1722,43 @@ public class PropertySearchRepository : IPropertySearchRepository
     }
 
     /// <summary>
-    /// Sum of TaxTotal demand from PTIS.TransMastOld + PTIS.TaxMaster for properties that
-    /// have a linked PropertyMastOld record (via PropertyMast.PropertyMastOldId).
-    /// Only rows where TaxMaster.TaxCode='TaxTotal' AND TaxMaster.TaxName='TaxTotal' are included.
+    /// Sum of TaxTotal demand from PTIS.TransMastOld + PTIS.TaxMaster (or fallback PropertyMastOld.OldTotalTax)
+    /// for properties that are mapped via PropertyMapDetail or PropertyMastOldId.
     /// </summary>
     private async Task<decimal> GetOldTaxTotalDemandAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var sum = await (
-            from p in query
-            where p.PropertyMastOldId != null
-            join tmo in _context.TransMastOld on p.PropertyMastOldId equals tmo.PropertyMastOldId
-            join tax in _context.TaxMaster on tmo.TaxId equals tax.Id
-            where tmo.IsActive && !tmo.MarkedForDeletion
-                  && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
+        var oldPropertyIdsFromPmd = from p in query
+                                    join pmd in _context.PropertyMapDetails.AsNoTracking() on p.Id equals pmd.PropertyIdNew
+                                    where pmd.IsActive && pmd.PropertyIdOld != null
+                                    select pmd.PropertyIdOld!.Value;
+
+        var oldPropertyIdsFromMast = query
+            .Where(p => p.PropertyMastOldId != null)
+            .Select(p => p.PropertyMastOldId!.Value);
+
+        var oldPropertyIdsQuery = oldPropertyIdsFromPmd.Union(oldPropertyIdsFromMast);
+
+        var transSum = await (
+            from tmo in _context.TransMastOld.AsNoTracking()
+            join tax in _context.TaxMaster.AsNoTracking() on tmo.TaxId equals tax.Id
+            where oldPropertyIdsQuery.Contains(tmo.PropertyMastOldId)
+                  && tmo.IsActive && !tmo.MarkedForDeletion
+                  && tax.IsActive && (tax.TaxCode == "TaxTotal" || tax.TaxCode == "TAXTOTAL" || tax.TaxName == "TaxTotal" || tax.TaxCode == "TOTAL" || tax.TaxCode == "totaltax")
             select (decimal?)tmo.TaxAmount
         ).SumAsync(cancellationToken);
 
-        return sum ?? 0m;
+        if (transSum.HasValue)
+        {
+            return transSum.Value;
+        }
+
+        var mastOldSum = await _context.PropertyMastOld.AsNoTracking()
+            .Where(pmo => oldPropertyIdsQuery.Contains(pmo.Id) && pmo.IsActive && !pmo.MarkedForDeletion)
+            .SumAsync(pmo => (decimal?)(pmo.OldTotalTax ?? 0), cancellationToken);
+
+        return mastOldSum ?? 0m;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -1685,14 +1766,16 @@ public class PropertySearchRepository : IPropertySearchRepository
     // ──────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Previously Registered = current active properties that have a linked old record.
-    /// Demand comes from PTIS.TransMastOld (TaxTotal) via PropertyMastOld.
+    /// Previously Registered = active properties that have a mapped old record via PropertyMapDetail or PropertyMastOldId.
     /// </summary>
     private async Task<DashboardCardBreakdownDto> CalculatePreviouslyRegisteredAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        var prevQuery = query.Where(p => p.PropertyMastOldId != null);
+        var prevQuery = query.Where(p =>
+            p.PropertyMastOldId != null ||
+            _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
+        );
 
         var (propertyCount, structureCount, unitCount) = await CountPropertiesAsync(prevQuery, cancellationToken);
         var demand = await GetOldTaxTotalDemandAsync(prevQuery, cancellationToken);
@@ -1744,15 +1827,16 @@ public class PropertySearchRepository : IPropertySearchRepository
     }
 
     /// <summary>
-    /// Additional Revenue = NewTaxTotal (TransMast) minus OldTaxTotal (TransMastOld).
-    /// Only cases where new demand exceeds old demand are counted and summed.
+    /// Additional Revenue = NewTaxTotal (TransMast) minus OldTaxTotal (TransMastOld or PropertyMastOld.OldTotalTax).
     /// </summary>
     private async Task<DashboardCardBreakdownDto> CalculateAdditionalRevenueAsync(
         IQueryable<PropertyEntity> query,
         CancellationToken cancellationToken)
     {
-        // Properties that have both old and new demand records
-        var revenueQuery = query.Where(p => p.PropertyMastOldId != null);
+        var revenueQuery = query.Where(p =>
+            p.PropertyMastOldId != null ||
+            _context.PropertyMapDetails.Any(pmd => pmd.PropertyIdNew == p.Id && pmd.IsActive && pmd.PropertyIdOld != null)
+        );
 
         var (propertyCount, structureCount, unitCount) = await CountPropertiesAsync(revenueQuery, cancellationToken);
 
@@ -1776,55 +1860,79 @@ public class PropertySearchRepository : IPropertySearchRepository
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        // Tier 1: Heuristic Classifier
-        var classifiedRequest = UnifiedQueryClassifier.Classify(query);
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return (0, new List<PropertySearchResponseDto>());
+        }
+
+        var normalizedQuery = query.Trim();
+        var cacheKey = $"unified_search_{normalizedQuery.ToLowerInvariant()}_{pageNumber}_{pageSize}";
+        if (_cache.TryGetValue(cacheKey, out (int TotalCount, List<PropertySearchResponseDto> Items) cachedResult))
+        {
+            return cachedResult;
+        }
+
+        var skip = (pageNumber - 1) * pageSize;
+
+        // Fast-Path Step 1: Direct Primary Identifier Index Seek Lookups (UPIC, PropertyNo, CSN, MobileNo)
+        // Avoids scanning all text columns when searching for codes, numbers, or UPIC IDs
+        var fastMatchQuery = _context.PropertyMast.AsNoTracking()
+            .Where(p => p.IsActive && !p.MarkedForDeletion &&
+                ((p.UPICId != null && (p.UPICId == normalizedQuery || p.UPICId.StartsWith(normalizedQuery))) ||
+                 (p.PropertyNo != null && p.PropertyNo == normalizedQuery) ||
+                 (p.CSN != null && (p.CSN == normalizedQuery || p.CSN.StartsWith(normalizedQuery))) ||
+                 (p.MobileNo != null && p.MobileNo == normalizedQuery)));
+
+        var fastCount = await fastMatchQuery.CountAsync(cancellationToken);
+        if (fastCount > 0)
+        {
+            var fastPagedIds = await fastMatchQuery
+                .OrderBy(p => p.Id)
+                .Select(p => p.Id)
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync(cancellationToken);
+
+            var fastResult = await HydratePropertyDetailsAsync(fastPagedIds, fastCount, cancellationToken);
+            SetCache(cacheKey, fastResult, TimeSpan.FromMinutes(5));
+            return fastResult;
+        }
+
+        // Tier 1: Heuristic Classifier Fallback
+        var classifiedRequest = UnifiedQueryClassifier.Classify(normalizedQuery);
         if (classifiedRequest != null)
         {
-            return await SearchPropertiesAsync(classifiedRequest, pageNumber, pageSize, cancellationToken);
+            var classifiedResult = await SearchPropertiesAsync(classifiedRequest, pageNumber, pageSize, cancellationToken);
+            SetCache(cacheKey, classifiedResult, TimeSpan.FromMinutes(5));
+            return classifiedResult;
         }
 
         // Tier 2: General Text Search (Multi-Word Contains All terms)
-        var terms = query.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var terms = normalizedQuery.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
         if (terms.Length == 0)
         {
             return (0, new List<PropertySearchResponseDto>());
         }
 
-        var dbQuery = from p in _context.PropertyMast.AsNoTracking()
-                    where p.IsActive && !p.MarkedForDeletion
+        // ID-First Search Phase - Join ONLY PropertyMastOld and SocietyDetailsMast needed for search terms.
+        var searchBase = from p in _context.PropertyMast.AsNoTracking()
+                         where p.IsActive && !p.MarkedForDeletion
 
-                    join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
-                    from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                         join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+                         from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
-                    join z in _context.ZoneMaster.AsNoTracking() on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
-                    from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
+                         join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+                         from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
 
-                    join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
-                    from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
-
-                    join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
-                    from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
-
-                    join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
-                    from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
-
-                    join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
-                    from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
-
-                    select new
-                    {
-                        Property = p,
-                        Ward = w,
-                        Zone = z,
-                        Category = pc,
-                        PropertyType = pt,
-                        OldProperty = pmo,
-                        Society = sd
-                    };
+                         select new
+                         {
+                             Property = p,
+                             OldProperty = pmo,
+                             Society = sd
+                         };
 
         // Exclude incomplete entries
-        dbQuery = dbQuery.Where(x =>
-            (x.Ward != null || x.Zone != null) &&
+        searchBase = searchBase.Where(x =>
             (!string.IsNullOrEmpty(x.Property.PropertyNo) || (x.OldProperty != null && !string.IsNullOrEmpty(x.OldProperty.OldPropertyNo)))
         );
 
@@ -1832,7 +1940,7 @@ public class PropertySearchRepository : IPropertySearchRepository
         foreach (var term in terms)
         {
             var t = term.Trim().ToLower();
-            dbQuery = dbQuery.Where(x =>
+            searchBase = searchBase.Where(x =>
                 (x.Property.OwnerName != null && x.Property.OwnerName.ToLower().Contains(t)) ||
                 (x.Property.OwnerNameEnglish != null && x.Property.OwnerNameEnglish.ToLower().Contains(t)) ||
                 (x.Property.OccupierName != null && x.Property.OccupierName.ToLower().Contains(t)) ||
@@ -1851,64 +1959,94 @@ public class PropertySearchRepository : IPropertySearchRepository
             );
         }
 
-        var totalCount = await dbQuery.CountAsync(cancellationToken);
+        var totalCount = await searchBase.CountAsync(cancellationToken);
 
-        var orderedQuery = dbQuery.OrderBy(x => x.Property.Id);
-        var skip = (pageNumber - 1) * pageSize;
-        var propertyResults = await orderedQuery.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+        var pagedPropertyIds = await searchBase.OrderBy(x => x.Property.Id).Select(x => x.Property.Id).Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
 
-        if (!propertyResults.Any())
+        if (!pagedPropertyIds.Any())
+        {
+            var emptyResult = (totalCount, new List<PropertySearchResponseDto>());
+            SetCache(cacheKey, emptyResult, TimeSpan.FromMinutes(5));
+            return emptyResult;
+        }
+
+        var result = await HydratePropertyDetailsAsync(pagedPropertyIds, totalCount, cancellationToken);
+        SetCache(cacheKey, result, TimeSpan.FromMinutes(5));
+        return result;
+    }
+
+    private void SetCache<T>(string key, T value, TimeSpan expiration)
+    {
+        _cache.Set(key, value, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = expiration,
+            Size = 1
+        });
+    }
+
+    private async Task<(int TotalCount, List<PropertySearchResponseDto> Items)> HydratePropertyDetailsAsync(
+        List<int> propertyIds,
+        int totalCount,
+        CancellationToken cancellationToken)
+    {
+        if (!propertyIds.Any())
             return (totalCount, new List<PropertySearchResponseDto>());
 
-        var propertyIds = propertyResults.Select(x => x.Property.Id).ToList();
+        var propertyResults = await (
+            from p in _context.PropertyMast.AsNoTracking()
+            where propertyIds.Contains(p.Id)
 
-        // Load valuations (RV, CV, and Total Tax)
-        var rvValues = await _context.TransMast
-            .AsNoTracking()
-            .Where(t =>
-                propertyIds.Contains(t.PropertyId)
-                && t.IsActive
-                && !t.MarkedForDeletion
-                && t.CalculationType == "RV")
-            .GroupBy(t => t.PropertyId)
-            .Select(g => new
+            join w in _context.WardMaster.AsNoTracking() on p.WardId equals w.Id into wardJoin
+            from w in wardJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+            join z in _context.ZoneMaster.AsNoTracking() on (w != null ? w.ZoneId : (int?)null) equals z.Id into zoneJoin
+            from z in zoneJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+            join pc in _context.PropertyCategoryMaster.AsNoTracking() on p.CategoryId equals pc.Id into categoryJoin
+            from pc in categoryJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+            join pt in _context.PropertyTypeMasters.AsNoTracking() on p.PropertyTypeId equals pt.Id into propertyTypeJoin
+            from pt in propertyTypeJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+            join pmo in _context.PropertyMastOld.AsNoTracking() on p.PropertyMastOldId equals pmo.Id into oldJoin
+            from pmo in oldJoin.Where(x => x.IsActive).DefaultIfEmpty()
+
+            join sd in _context.SocietyDetailsMast.AsNoTracking() on p.SocietyDetailId equals sd.Id into societyJoin
+            from sd in societyJoin.Where(x => x.IsActive && !x.MarkedForDeletion).DefaultIfEmpty()
+
+            select new
             {
-                PropertyId = g.Key,
-                RateableValue = g.Max(x => x.CalculationValue)
-            })
-            .ToListAsync(cancellationToken);
+                Property = p,
+                Ward = w,
+                Zone = z,
+                Category = pc,
+                PropertyType = pt,
+                OldProperty = pmo,
+                Society = sd
+            }
+        ).ToListAsync(cancellationToken);
 
-        var cvValues = await _context.TransMast
-            .AsNoTracking()
-            .Where(t =>
-                propertyIds.Contains(t.PropertyId)
-                && t.IsActive
-                && !t.MarkedForDeletion
-                && t.CalculationType == "CV")
-            .GroupBy(t => t.PropertyId)
-            .Select(g => new
-            {
-                PropertyId = g.Key,
-                CapitalValue = g.Max(x => x.CalculationValue)
-            })
-            .ToListAsync(cancellationToken);
-
-        var totalTaxAmounts = await (
+        // Single consolidated query for TransMast (RV, CV, and Total Tax)
+        var valuationResults = await (
             from t in _context.TransMast.AsNoTracking()
-            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
+            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id into taxJoin
+            from tax in taxJoin.DefaultIfEmpty()
             where propertyIds.Contains(t.PropertyId)
                   && t.IsActive
                   && !t.MarkedForDeletion
-                  && tax.IsActive
-                  && tax.TaxCode == TaxTotalCode
-                  && tax.TaxName == TaxTotalName
-            group t by t.PropertyId into g
-            select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
+            group new { t, tax } by t.PropertyId into g
+            select new
+            {
+                PropertyId = g.Key,
+                RV = g.Where(x => x.t.CalculationType == "RV").Max(x => (decimal?)x.t.CalculationValue),
+                CV = g.Where(x => x.t.CalculationType == "CV").Max(x => (decimal?)x.t.CalculationValue),
+                TotalTax = g.Where(x => x.tax != null && x.tax.IsActive && x.tax.TaxCode == TaxTotalCode && x.tax.TaxName == TaxTotalName).Sum(x => (decimal?)x.t.TaxAmount)
+            }
         ).ToListAsync(cancellationToken);
 
-        var rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
-        var cvDictionary = cvValues.ToDictionary(x => x.PropertyId, x => x.CapitalValue);
-        var totalTaxDictionary = totalTaxAmounts.ToDictionary(x => x.PropertyId, x => x.TotalTax);
+        var rvDictionary = valuationResults.Where(x => x.RV.HasValue).ToDictionary(x => x.PropertyId, x => x.RV!.Value);
+        var cvDictionary = valuationResults.Where(x => x.CV.HasValue).ToDictionary(x => x.PropertyId, x => x.CV!.Value);
+        var totalTaxDictionary = valuationResults.Where(x => x.TotalTax.HasValue && x.TotalTax.Value > 0).ToDictionary(x => x.PropertyId, x => x.TotalTax!.Value);
 
         // Pre-calculate unit counts for apartment main properties (empty PartitionNo)
         var apartmentMainProperties = propertyResults
@@ -1921,20 +2059,24 @@ public class PropertySearchRepository : IPropertySearchRepository
         var mainPropNos = apartmentMainProperties.Select(a => a.PropertyNo).Distinct().ToList();
         var mainWardIds = apartmentMainProperties.Select(a => a.WardId).Distinct().ToList();
 
-        var unitCountsList = await _context.PropertyMast
-            .AsNoTracking()
-            .Where(p => p.IsActive && !p.MarkedForDeletion &&
-                       mainPropNos.Contains(p.PropertyNo) &&
-                       mainWardIds.Contains(p.WardId) &&
-                       !string.IsNullOrEmpty(p.PartitionNo))
-            .GroupBy(p => new { p.PropertyNo, p.WardId })
-            .Select(g => new { g.Key.PropertyNo, g.Key.WardId, UnitCount = g.Count() })
-            .ToListAsync(cancellationToken);
+        Dictionary<string, int> unitCountsDictionary = new();
+        if (mainPropNos.Any() && mainWardIds.Any())
+        {
+            var unitCountsList = await _context.PropertyMast
+                .AsNoTracking()
+                .Where(p => p.IsActive && !p.MarkedForDeletion &&
+                           mainPropNos.Contains(p.PropertyNo) &&
+                           mainWardIds.Contains(p.WardId) &&
+                           !string.IsNullOrEmpty(p.PartitionNo))
+                .GroupBy(p => new { p.PropertyNo, p.WardId })
+                .Select(g => new { g.Key.PropertyNo, g.Key.WardId, UnitCount = g.Count() })
+                .ToListAsync(cancellationToken);
 
-        var unitCountsDictionary = unitCountsList.ToDictionary(
-            x => $"{x.PropertyNo}_{x.WardId}",
-            x => x.UnitCount
-        );
+            unitCountsDictionary = unitCountsList.ToDictionary(
+                x => $"{x.PropertyNo}_{x.WardId}",
+                x => x.UnitCount
+            );
+        }
 
         var items = propertyResults.Select(pr =>
         {

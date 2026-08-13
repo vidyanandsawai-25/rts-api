@@ -296,10 +296,9 @@ public class CombinePropertyTaxService : ICombinePropertyTaxService
             {
                 _logger.LogInformation(
                     "RV tax recalculation completed using RateableValueService.CalculateAndSaveAsync(). " +
-                    "SourcePropertyId={SourcePropertyId}, TotalRV={TotalRV}, TotalTax={TotalTax}",
+                    "SourcePropertyId={SourcePropertyId}, TotalRV={TotalRV}",
                     sourcePropertyId,
-                    result.TotalRateableValue,
-                    result.TotalTax);
+                    result.TotalRateableValue);
                 return true;
             }
 

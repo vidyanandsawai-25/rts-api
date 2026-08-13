@@ -58,8 +58,8 @@ public class AssetNatureFactorCVControllerTests
         var query = new AssetNatureFactorCVMasterQueryParameters { PageNumber = 1, PageSize = 10 };
         var data = new List<AssetNatureFactorCVMasterDto>
         {
-            new() { Id = 1, ConstructionTypeId = 1, YearRangeCVId = 1, Factor = 1.0m, IsActive = true },
-            new() { Id = 2, ConstructionTypeId = 2, YearRangeCVId = 1, Factor = 0.9m, IsActive = true }
+            new() { Id = 1, ConstructionTypeId = 1, ConstructionTypeDescription = "Type A", YearRangeCVId = 1, Factor = 1.0m, IsActive = true },
+            new() { Id = 2, ConstructionTypeId = 2, ConstructionTypeDescription = "Type B", YearRangeCVId = 1, Factor = 0.9m, IsActive = true }
         };
         var pagedResult = new PagedResult<AssetNatureFactorCVMasterDto>(data, 2, 1, 10);
 
@@ -72,6 +72,8 @@ public class AssetNatureFactorCVControllerTests
         var returnedData = Assert.IsType<PagedResult<AssetNatureFactorCVMasterDto>>(okResult.Value);
         Assert.Equal(2, returnedData.TotalCount);
         Assert.Equal(2, returnedData.Items.Count());
+        Assert.Contains(returnedData.Items, x => x.Id == 1 && x.ConstructionTypeDescription == "Type A");
+        Assert.Contains(returnedData.Items, x => x.Id == 2 && x.ConstructionTypeDescription == "Type B");
     }
 
     [Fact]

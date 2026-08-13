@@ -45,7 +45,7 @@ public class PropertyDiscountService : IPropertyDiscountService
         // Single timestamp: consistent across all record creates/updates in this operation.
         var now = DateTime.Now;
 
-        var existingRecords = await _repository.GetActiveSocialDetailsAsync(propertyId, cancellationToken);
+        var existingRecords = await _repository.GetSocialDetailsIncludingDeletedAsync(propertyId, cancellationToken);
         var allowedAttributeIds = await _repository.GetDiscountApplicableAttributeIdsAsync(cancellationToken);
 
         if (dto.DiscountAttributes != null && dto.DiscountAttributes.Any())
@@ -134,5 +134,7 @@ public class PropertyDiscountService : IPropertyDiscountService
         record.UpdatedBy = updatedBy;
         record.UpdatedDate = now;
         record.IsActive = true;
+        record.MarkedForDeletion = false;
+        record.MarkedForDeletionDate = null;
     }
 }

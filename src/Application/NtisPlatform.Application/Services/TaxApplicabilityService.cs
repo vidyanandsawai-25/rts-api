@@ -6,6 +6,7 @@ using NtisPlatform.Application.Models;
 using NtisPlatform.Core.Entities;
 using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
+using NtisPlatform.Core.Models;
 
 namespace NtisPlatform.Application.Services;
 
@@ -19,6 +20,8 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
     private readonly IRepository<TransMastEntity, int> _transMastRepository;
     private readonly IRepository<AssessmentYearRangeEntity, int> _yearRangeRepository;
     private readonly IRepository<TypeOfUseEntity, int> _typeOfUseRepository;
+    private readonly IRepository<PropertyDetailsEntity, int> _propertyDetailsRepository;
+    private readonly IRepository<YearMasterEntity, int> _yearMasterRepository;
 
     public TaxApplicabilityService(
         IRepository<TaxMasterEntity, int> taxMasterRepository,
@@ -26,6 +29,8 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         IRepository<TransMastEntity, int> transMastRepository,
         IRepository<AssessmentYearRangeEntity, int> yearRangeRepository,
         IRepository<TypeOfUseEntity, int> typeOfUseRepository,
+        IRepository<PropertyDetailsEntity, int> propertyDetailsRepository,
+        IRepository<YearMasterEntity, int> yearMasterRepository,
         IRepository<ApplyTaxesMasterEntity, int> applyTaxesRepository,
         IUnitOfWork unitOfWork,
         IMapper mapper)
@@ -36,6 +41,8 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         _transMastRepository = transMastRepository;
         _yearRangeRepository = yearRangeRepository;
         _typeOfUseRepository = typeOfUseRepository;
+        _propertyDetailsRepository = propertyDetailsRepository;
+        _yearMasterRepository = yearMasterRepository;
     }
 
     public override async Task<PagedResult<TaxApplicabilityResponseDto>> GetAllAsync(
@@ -89,20 +96,17 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         {
             PropertyId = request.PropertyId,
             FinancialYearId = request.FinancialYearId,
-            TypeOfUseGroupId = request.TypeOfUseGroupId
+            TypeOfUseId = request.TypeOfUseId
         };
 
-        // Query TaxMaster joined with TaxPercentageMasterRV, TypeOfUseMaster, TransMast, and ApplyTaxesMaster
+        // Query TaxMaster joined with TaxPercentageMasterRV, TransMast, and ApplyTaxesMaster
         var query = from tm in _taxMasterRepository.GetQueryable()
+                        .Where(x => x.IsActive)
                     join tpr in _taxPercentageRVRepository.GetQueryable()
-                        .Where(x => x.YearRangeRVId == request.FinancialYearId && x.IsActive)
+                        .Where(x => x.TypeOfUseId == request.TypeOfUseId 
+                                 && x.IsActive)
                         on tm.Id equals tpr.TaxId into tprGroup
                     from tpr in tprGroup.DefaultIfEmpty()
-
-                    join tu in _typeOfUseRepository.GetQueryable()
-                        .Where(x => x.TypeOfUseGroupId == request.TypeOfUseGroupId)
-                        on tpr.TypeOfUseId equals tu.Id into tuGroup
-                    from tu in tuGroup.DefaultIfEmpty()
 
                     join tr in _transMastRepository.GetQueryable()
                         .Where(x => x.PropertyId == request.PropertyId
@@ -262,6 +266,18 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         return "No changes detected. All taxes already have the requested status.";
     }
 
+    public async Task<HashSet<int>> GetExemptedTaxIdsAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var exemptedTaxIds = await _repository.GetQueryable()
+            .Where(x => x.PropertyId == propertyId && x.IsActive && !x.MarkedForDeletion)
+            .Select(x => x.TaxId)
+            .ToListAsync(cancellationToken);
+
+        return new HashSet<int>(exemptedTaxIds);
+    }
+
     public async Task<string> UpdateTaxApplicabilityAsync(
         int id,
         UpdateTaxApplicabilityRequestDto request,
@@ -362,5 +378,57 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         }
 
         return "No changes detected. All taxes already have the requested status.";
+    }
+
+    public async Task<IEnumerable<PropertyFinanceYearTypeOfUseDto>> GetPropertyFinanceYearTypeOfUseAsync(
+        int propertyId,
+        CancellationToken cancellationToken = default)
+    {
+        var uniqueFinanceYears = await _transMastRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(t => t.PropertyId == propertyId && !t.MarkedForDeletion)
+            .Select(t => t.FinanceYearId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var yearMasterEntries = await _yearMasterRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(ym => uniqueFinanceYears.Contains(ym.Id))
+            .ToDictionaryAsync(ym => ym.Id, ym => ym.YearCode ?? ym.Year.ToString(), cancellationToken);
+
+        var propertyDetails = await _propertyDetailsRepository.GetQueryable()
+            .AsNoTracking()
+            .Where(pd => pd.PropertyId == propertyId && !pd.MarkedForDeletion)
+            .Include(pd => pd.TypeOfUse)
+            .ToListAsync(cancellationToken);
+
+        if (propertyDetails == null || !propertyDetails.Any())
+        {
+            return Enumerable.Empty<PropertyFinanceYearTypeOfUseDto>();
+        }
+
+        var result = propertyDetails
+            .SelectMany(
+                pd => uniqueFinanceYears.DefaultIfEmpty(),
+                (pd, fyId) => new PropertyFinanceYearTypeOfUseDto
+                {
+                    PropertyId = pd.PropertyId,
+                    PropertyDetailId = pd.Id,
+                    FinanceYearId = fyId != 0 ? fyId : null,
+                    FinanceYear = fyId != 0 && yearMasterEntries.TryGetValue(fyId, out var yearStr) ? yearStr : null,
+                    FloorId = pd.FloorId,
+                    SubFloorId = pd.SubFloorId,
+                    TypeOfUseId = pd.TypeOfUseId,
+                    TypeOfUseCode = pd.TypeOfUse?.TypeOfUseCode,
+                    TypeOfUseDescription = pd.TypeOfUse?.Description
+                }
+            )
+            .GroupBy(x => x.TypeOfUseId)
+            .Select(g => g.First())
+            .OrderBy(x => x.PropertyDetailId)
+            .ThenBy(x => x.FinanceYearId)
+            .ToList();
+
+        return result;
     }
 }

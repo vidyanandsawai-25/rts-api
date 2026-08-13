@@ -297,11 +297,11 @@ public class PropertySearchService : IPropertySearchService
                 throw new PropertyValidationException("ValuationMethod is required when FilterType is provided.");
             }
 
-            // Validate ValuationMethod - only RV and CV are allowed from PolicyConfiguration
-            var validValuationMethods = new[] { "RV", "CV" };
+            // Validate ValuationMethod - RV, CV, and Total Tax are allowed from PolicyConfiguration
+            var validValuationMethods = new[] { "RV", "CV", "Total Tax" };
             if (!validValuationMethods.Any(v => v.Equals(valuationMethod, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new PropertyValidationException($"Invalid ValuationMethod: '{valuationMethod}'. Valid values from PolicyConfiguration are: RV, CV");
+                throw new PropertyValidationException($"Invalid ValuationMethod: '{valuationMethod}'. Valid values from PolicyConfiguration are: RV, CV, Total Tax");
             }
 
             // Validate FilterType value

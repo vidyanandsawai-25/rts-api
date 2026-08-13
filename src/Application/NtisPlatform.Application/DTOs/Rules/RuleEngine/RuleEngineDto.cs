@@ -47,6 +47,17 @@ namespace NtisPlatform.Application.DTOs.Rules.RuleEngine
         public string? RuleScopeName { get; set; }
 
         /// <summary>
+        /// FK to PTIS.PropertyRuleEvaluationMaster. Null means default parameter.
+        /// </summary>
+        public int? PropertyRuleEvaluationMasterId { get; set; }
+
+        /// <summary>Display name of the evaluation parameter (from navigation property).</summary>
+        public string? PropertyRuleEvaluationMasterName { get; set; }
+
+        /// <summary>Code of the evaluation parameter (e.g. Rate, Rent, Maintenance).</summary>
+        public string? ParameterCode { get; set; }
+
+        /// <summary>
         /// Populated when ConditionsJson is a JSON array of sub-rules.
         /// Each entry carries the sub-rule id, description, enabled flag, and stopProcessing flag.
         /// Null when the RuleSet uses a single flat condition group.

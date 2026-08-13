@@ -23,7 +23,7 @@ public interface IRTSApplicationApprovalService:ICommonCrudService<RTSApplicatio
     Task<CurrentApprovalOfficerDto?> GetCurrentApprovalOfficerAsync(int applicationId, CancellationToken cancellationToken = default);
 
     // <summary>
-    // Clerk opertation verify Document Revert Application and Make Minor Correction In Application 
+    // Clerk opertation verify Document Revert Application and Make Minor Correction In Application
     Task<RTSApplicationApprovalResponseDto> VerifyDocumentsAndProcessApplicationAsync(int applicationId, UpdateRTSApplicationProcessDto dto, CancellationToken cancellationToken = default);
     Task<RTSApplicationApprovalResponseDto> VerifyAndCorrectApplicationAsync(int applicationId,UpdateRTSApplicationVerificationDto dto, CancellationToken cancellationToken = default);
     Task<RTSApplicationApprovalResponseDto> VerifyAndRevertApplicationAsync(int applicationId, UpdateRTSApplicationProcessDto dto,CancellationToken cancellationToken = default);

@@ -90,10 +90,7 @@ public class RateSectionServiceTests : IDisposable
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             _mockMapper.Object,
-            _mockReferenceValidator.Object,
-            _mockLocalizationProcessor.Object,
-            _mockLocalizedQueryService.Object,
-            _mockHttpContextAccessor.Object);
+            _mockReferenceValidator.Object);
     }
 
     public void Dispose()
@@ -211,10 +208,7 @@ public class RateSectionServiceTests : IDisposable
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper,
-            _mockReferenceValidator.Object,
-            _mockLocalizationProcessor.Object,
-            _mockLocalizedQueryService.Object,
-            _mockHttpContextAccessor.Object);
+            _mockReferenceValidator.Object);
 
         var queryParams = new RateSectionQueryParameters
         {
@@ -265,10 +259,7 @@ public class RateSectionServiceTests : IDisposable
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper,
-            _mockReferenceValidator.Object,
-            _mockLocalizationProcessor.Object,
-            _mockLocalizedQueryService.Object,
-            _mockHttpContextAccessor.Object);
+            _mockReferenceValidator.Object);
 
         var queryParams = new RateSectionQueryParameters
         {
@@ -308,10 +299,7 @@ public class RateSectionServiceTests : IDisposable
             _mockRepository.Object,
             _mockUnitOfWork.Object,
             mapper,
-            _mockReferenceValidator.Object,
-            _mockLocalizationProcessor.Object,
-            _mockLocalizedQueryService.Object,
-            _mockHttpContextAccessor.Object);
+            _mockReferenceValidator.Object);
 
         var queryParams = new RateSectionQueryParameters
         {
@@ -381,8 +369,7 @@ public class RateSectionServiceTests : IDisposable
         Assert.True(result.IsActive);
 
         _mockRepository.Verify(r => r.AddAsync(It.IsAny<RateSectionEntity>(), It.IsAny<CancellationToken>()), Times.Once);
-        _mockUnitOfWork.Verify(u => u.BeginTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _mockUnitOfWork.Verify(u => u.CommitTransactionAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockUnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()),Times.Once);
     }
 
     [Fact]

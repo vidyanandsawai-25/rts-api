@@ -171,6 +171,21 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         };
         _context.PropertyMastOld.Add(propertyMastOld);
 
+        _context.TaxMaster.Add(new TaxMasterEntity { Id = 5, TaxCode = "TAXTOTAL", TaxName = "TaxTotal", TaxNameAlias = "TAXTOTAL", TaxCategoryId = 1, OldTaxStatus = true, IsActive = true, DisplayOrder = 5 });
+
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 1,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            CalculationAnnualValue = 45000,
+            CalculationValue = 50000,
+            TaxId = 5,
+            TaxAmount = 5000,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
+
         var property = new PropertyEntity
         {
             Id = 2,
@@ -710,6 +725,19 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         };
         _context.PropertyMastOld.Add(propertyMastOld);
 
+        _context.TaxMaster.Add(new TaxMasterEntity { Id = 5, TaxCode = "TAXTOTAL", TaxName = "TaxTotal", TaxNameAlias = "TAXTOTAL", TaxCategoryId = 1, OldTaxStatus = true, IsActive = true, DisplayOrder = 5 });
+
+        _context.TransMastOld.Add(new TransMastOldEntity
+        {
+            PropertyMastOldId = 10,
+            FinanceYearId = 1,
+            CalculationType = "RV",
+            TaxId = 5,
+            TaxAmount = 8000,
+            IsActive = true,
+            MarkedForDeletion = false
+        });
+
         var property = new PropertyEntity
         {
             Id = 11,
@@ -1217,8 +1245,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 1,
                 TaxAmount = 1000m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             },
@@ -1228,8 +1256,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 2,
                 TaxAmount = 500m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             },
@@ -1239,8 +1267,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
                 FinanceYearId = 3, // Active year
                 TaxId = 3,
                 TaxAmount = 100m,
-                RVorCV = "RV",
-                RVorCVValue = 0m,
+                CalculationType = "RV",
+                CalculationValue = 0m,
                 IsActive = true,
                 MarkedForDeletion = false
             }
@@ -1301,9 +1329,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Add transactions for multiple years
         _context.TransMastOld.AddRange(
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 1, TaxId = 1, TaxAmount = 1000m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 2, TaxId = 1, TaxAmount = 1100m, RVorCV = "RV", RVorCVValue = 55000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 3, TaxId = 1, TaxAmount = 1200m, RVorCV = "RV", RVorCVValue = 60000m, IsActive = true, MarkedForDeletion = false }
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 1, TaxId = 1, TaxAmount = 1000m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 2, TaxId = 1, TaxAmount = 1100m, CalculationType = "RV", CalculationValue = 55000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 23, FinanceYearId = 3, TaxId = 1, TaxAmount = 1200m, CalculationType = "RV", CalculationValue = 60000m, IsActive = true, MarkedForDeletion = false }
         );
 
         await _context.SaveChangesAsync();
@@ -1313,11 +1341,13 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year (year 2022 is active)
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(3, result.TaxYears.Count);
 
-        // Verify the active year is returned
+        // Verify all years are returned in descending order
         Assert.Equal(2022, result.TaxYears[0].Year);
+        Assert.Equal(2021, result.TaxYears[1].Year);
+        Assert.Equal(2020, result.TaxYears[2].Year);
     }
 
     [Fact]
@@ -1346,9 +1376,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Add active and inactive transactions for the active year (year 3)
         _context.TransMastOld.AddRange(
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 1, TaxAmount = 1000m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 2, TaxAmount = 500m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = false, MarkedForDeletion = false },
-            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 3, TaxAmount = 100m, RVorCV = "RV", RVorCVValue = 50000m, IsActive = true, MarkedForDeletion = true }
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 1, TaxAmount = 1000m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 2, TaxAmount = 500m, CalculationType = "RV", CalculationValue = 50000m, IsActive = false, MarkedForDeletion = false },
+            new TransMastOldEntity { PropertyMastOldId = 24, FinanceYearId = 3, TaxId = 3, TaxAmount = 100m, CalculationType = "RV", CalculationValue = 50000m, IsActive = true, MarkedForDeletion = true }
         );
 
         await _context.SaveChangesAsync();
@@ -1478,8 +1508,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         });
@@ -1533,8 +1563,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         });
@@ -1590,8 +1620,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = false,
             MarkedForDeletion = true
         });
@@ -1720,8 +1750,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year in GET response
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(2, result.TaxYears.Count);
+        Assert.Equal(2, result.TaxYears[0].FinanceYearId);
+        Assert.Equal(1, result.TaxYears[1].FinanceYearId);
 
         var transactions = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == 104)
@@ -2161,11 +2193,11 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Contains("Duplicate TaxId", exception.Message);
     }
 
-    // Test removed: RVorCV validation is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType validation is no longer applicable as the field has been removed from the API
 
-    // Test removed: RVorCV default value logic is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType default value logic is no longer applicable as the field has been removed from the API
 
-    // Test removed: RVorCV default value logic is no longer applicable as the field has been removed from the API
+    // Test removed: CalculationType default value logic is no longer applicable as the field has been removed from the API
 
     [Fact]
     public async Task UpdateOldTaxesDetailsAsync_InsertNewTransaction_Success()
@@ -2217,8 +2249,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         var tax1 = transactions.First(t => t.TaxId == 1);
         Assert.Equal(1000m, tax1.TaxAmount);
-        Assert.Equal("RV", tax1.RVorCV);
-        Assert.Equal(0m, tax1.RVorCVValue);
+        Assert.Equal("RV", tax1.CalculationType);
+        Assert.Equal(0m, tax1.CalculationValue);
 
         var tax2 = transactions.First(t => t.TaxId == 2);
         Assert.Equal(500m, tax2.TaxAmount);
@@ -2249,8 +2281,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = true,
             MarkedForDeletion = false
         };
@@ -2283,7 +2315,7 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         Assert.NotNull(updatedTransaction);
         Assert.Equal(1500m, updatedTransaction.TaxAmount);
-        // RVorCV is preserved from existing record, not overwritten
+        // CalculationType is preserved from existing record, not overwritten
         Assert.True(updatedTransaction.IsActive);
         Assert.False(updatedTransaction.MarkedForDeletion);
     }
@@ -2313,8 +2345,8 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
             FinanceYearId = 1,
             TaxId = 1,
             TaxAmount = 1000m,
-            RVorCV = string.Empty,
-            RVorCVValue = 0m,
+            CalculationType = string.Empty,
+            CalculationValue = 0m,
             IsActive = false,
             MarkedForDeletion = true,
             MarkedForDeletionDate = DateTime.Now
@@ -2401,8 +2433,10 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
 
         // Assert
         Assert.NotNull(result);
-        // Current behavior: Returns only active year in GET response
-        Assert.Single(result.TaxYears);
+        // Now returns all years in descending order
+        Assert.Equal(2, result.TaxYears.Count);
+        Assert.Equal(2, result.TaxYears[0].FinanceYearId);
+        Assert.Equal(1, result.TaxYears[1].FinanceYearId);
 
         var transactions = await _context.TransMastOld
             .Where(t => t.PropertyMastOldId == 40)
@@ -2413,14 +2447,14 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         // Verify year 1 transactions
         var year1Transactions = transactions.Where(t => t.FinanceYearId == 1).ToList();
         Assert.Equal(3, year1Transactions.Count);
-        // RVorCV defaults to "RV" when not provided by API
-        Assert.All(year1Transactions, t => Assert.Equal("RV", t.RVorCV));
+        // CalculationType defaults to "RV" when not provided by API
+        Assert.All(year1Transactions, t => Assert.Equal("RV", t.CalculationType));
 
         // Verify year 2 transactions
         var year2Transactions = transactions.Where(t => t.FinanceYearId == 2).ToList();
         Assert.Equal(2, year2Transactions.Count);
-        // RVorCV defaults to "RV" when not provided by API
-        Assert.All(year2Transactions, t => Assert.Equal("RV", t.RVorCV));
+        // CalculationType defaults to "RV" when not provided by API
+        Assert.All(year2Transactions, t => Assert.Equal("RV", t.CalculationType));
     }
 
     #endregion
@@ -3340,7 +3374,15 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
     public async Task GetFloorDetailsOldAsync_WithFloorRecords_ReturnsCompleteData()
     {
         // Arrange
-        var propertyMastOld = new PropertyMastOldEntity { Id = 71, IsActive = true, MarkedForDeletion = false };
+        var propertyMastOld = new PropertyMastOldEntity
+        {
+            Id = 71,
+            IsActive = true,
+            MarkedForDeletion = false,
+            OldWardNo = "W1",
+            OldPropertyNo = "P1",
+            OldPartitionNo = "PA1"
+        };
         _context.PropertyMastOld.Add(propertyMastOld);
 
         var property = new PropertyEntity
@@ -3415,6 +3457,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal(2020, floor1.ConstructionYearValue);
         Assert.Equal("2021", floor1.OldAssessmentYear);
         Assert.Equal(2021, floor1.AssessmentYearValue);
+        Assert.Equal("W1", floor1.OldWardNo);
+        Assert.Equal("P1", floor1.OldPropertyNo);
+        Assert.Equal("PA1", floor1.OldPartitionNo);
 
         // Verify second floor
         var floor2 = result.FloorDetails[1];
@@ -3427,6 +3472,9 @@ public class PropertyRepositoryOldDetailsIntegrationTests : IDisposable
         Assert.Equal(2019, floor2.ConstructionYearValue);
         Assert.Null(floor2.OldAssessmentYear);
         Assert.Null(floor2.AssessmentYearValue);
+        Assert.Equal("W1", floor2.OldWardNo);
+        Assert.Equal("P1", floor2.OldPropertyNo);
+        Assert.Equal("PA1", floor2.OldPartitionNo);
     }
 
     [Fact]

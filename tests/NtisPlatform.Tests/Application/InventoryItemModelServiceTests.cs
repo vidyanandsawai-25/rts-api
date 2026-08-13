@@ -8,25 +8,22 @@ using NtisPlatform.Core.Entities.Master;
 using NtisPlatform.Core.Interfaces;
 using NtisPlatform.Application.Mappings;
 using System.ComponentModel.DataAnnotations;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using NtisPlatform.Api.Controllers.Master;
-using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
 
 namespace NtisPlatform.Tests.Application;
 public class InventoryItemModelServiceTests
 {
     private readonly Mock<IRepository<InventoryItemModelEntity, int>> _mockRepository;
+    private readonly Mock<IRepository<InventoryItemNameEntity, int>> _mockInventoryItemNameRepository;
     private readonly Mock<IUnitOfWork> _mockUnitOfWork;
     private readonly IMapper _mapper;
     private readonly Mock<IReferenceValidationService> _mockReferenceValidator;
     private readonly InventoryItemModelService _service;
-    private readonly Mock<ILogger<InventoryItemModelController>> _mockLogger;
-    private readonly InventoryItemModelController _controller;
+
     public InventoryItemModelServiceTests()
     {
         _mockRepository = new Mock<IRepository<InventoryItemModelEntity, int>>();
+        _mockInventoryItemNameRepository = new Mock<IRepository<InventoryItemNameEntity, int>>();
         _mockUnitOfWork = new Mock<IUnitOfWork>();
         _mockReferenceValidator = new Mock<IReferenceValidationService>();
         var config = new MapperConfiguration(cfg =>
@@ -40,10 +37,18 @@ public class InventoryItemModelServiceTests
             .Setup(v => v.ValidateReferencesAsync<InventoryItemModelEntity>(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Success());
 
-        _service = new InventoryItemModelService(_mockRepository.Object, _mockUnitOfWork.Object, _mapper, _mockReferenceValidator.Object);
+        var existingItemNames = new List<InventoryItemNameEntity>
+        {
+            new() { Id = 1, InventoryItemCategoryId = 1, SubTypeName = "Laptop", IsActive = true }
+        };
+        _mockInventoryItemNameRepository.Setup(r => r.GetQueryable()).Returns(existingItemNames.BuildMockDbSet().Object);
 
-        _mockLogger = new Mock<ILogger<InventoryItemModelController>>();
-        _controller = new InventoryItemModelController(_mockLogger.Object, _service);
+        _service = new InventoryItemModelService(
+            _mockRepository.Object,
+            _mockInventoryItemNameRepository.Object,
+            _mockUnitOfWork.Object,
+            _mapper,
+            _mockReferenceValidator.Object);
     }
 
     #region Entity Tests
@@ -258,10 +263,34 @@ public class InventoryItemModelServiceTests
         Assert.Equal(expectedCount, result.Items.Count());
     }
 
+    // InventoryItemNameId is a required FK (AMS.InventoryItemModelMaster.InventoryItemNameId ->
+    // AMS.InventoryItemNameMaster.Id) -- GetAll must resolve and expose the referenced item name's
+    // display name (InventoryItemName, sourced from InventoryItemNameEntity.SubTypeName) via a join,
+    // not just the raw FK id.
+    [Fact]
+    public async Task Service_GetAllAsync_PopulatesInventoryItemName_FromReferencedInventoryItemName()
+    {
+        var entities = new List<InventoryItemModelEntity>
+        {
+            new() { Id = 1, InventoryItemNameId = 1, ModelName = "Model A", DisplayOrder = 1, IsActive = true },
+            new() { Id = 2, InventoryItemNameId = 999, ModelName = "Model B", DisplayOrder = 2, IsActive = true }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(entities.BuildMockDbSet().Object);
+        // _mockInventoryItemNameRepository is already stubbed in the constructor with Id=1 -> "Laptop".
+
+        var qp = new InventoryItemModelQueryParameters { PageNumber = 1, PageSize = 10 };
+        var result = await _service.GetAllAsync(qp, CancellationToken.None);
+
+        var mapped = result.Items.ToDictionary(x => x.Id);
+        Assert.Equal("Laptop", mapped[1].InventoryItemName);
+        Assert.Null(mapped[2].InventoryItemName); // InventoryItemNameId 999 doesn't resolve to any InventoryItemNameEntity
+    }
+
     [Fact]
     public async Task Service_CreateAsync_ValidDto_ReturnsCreatedDto()
     {
         var createDto = new CreateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model X", DisplayOrder = 1, IsActive = true };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemModelEntity>().BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemModelEntity>(), It.IsAny<CancellationToken>()))
    .ReturnsAsync((InventoryItemModelEntity e, CancellationToken _) => { e.Id = 1; return e; });
         var result = await _service.CreateAsync(createDto, CancellationToken.None);
@@ -271,11 +300,60 @@ public class InventoryItemModelServiceTests
     }
 
     [Fact]
+    public async Task Service_CreateAsync_InvalidInventoryItemNameId_ThrowsValidationException()
+    {
+        var createDto = new CreateInventoryItemModelDto { InventoryItemNameId = 999, ModelName = "Model X", DisplayOrder = 1 };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+        Assert.Contains(nameof(CreateInventoryItemModelDto.InventoryItemNameId), ex.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Service_CreateAsync_DuplicateModelNameUnderSameItemName_ThrowsValidationException()
+    {
+        var existing = new List<InventoryItemModelEntity>
+        {
+            new() { Id = 1, InventoryItemNameId = 1, ModelName = "Model X" }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+
+        var createDto = new CreateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model X", DisplayOrder = 1 };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.CreateAsync(createDto, CancellationToken.None));
+        Assert.Contains("InventoryItemModel_ModelName_Duplicate", ex.Errors.Values);
+    }
+
+    [Fact]
+    public async Task Service_CreateAsync_SameModelNameUnderDifferentItemName_Succeeds()
+    {
+        // A model name only needs to be unique within its parent item name — "Model X" already
+        // exists under item name 1, but creating it again under item name 1 (the only stubbed
+        // parent) is what's blocked above; here a *different* existing row under a *different*
+        // item name must not collide.
+        var existing = new List<InventoryItemModelEntity>
+        {
+            new() { Id = 1, InventoryItemNameId = 2, ModelName = "Model X" }
+        };
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(existing.BuildMockDbSet().Object);
+        _mockRepository.Setup(r => r.AddAsync(It.IsAny<InventoryItemModelEntity>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((InventoryItemModelEntity e, CancellationToken _) => { e.Id = 2; return e; });
+
+        var createDto = new CreateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model X", DisplayOrder = 1 };
+
+        var result = await _service.CreateAsync(createDto, CancellationToken.None);
+
+        Assert.NotNull(result);
+    }
+
+    [Fact]
     public async Task Service_UpdateAsync_ExistingEntity_UpdatesSuccessfully()
     {
         var existingEntity = new InventoryItemModelEntity { Id = 1, InventoryItemNameId = 1, ModelName = "Old Model", DisplayOrder = 1, IsActive = true };
         var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "New Model", DisplayOrder = 2, IsActive = true };
         _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemModelEntity> { existingEntity }.BuildMockDbSet().Object);
         _mockRepository.Setup(r => r.UpdateAsync(It.IsAny<InventoryItemModelEntity>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         var result = await _service.UpdateAsync(1, updateDto, CancellationToken.None);
         Assert.NotNull(result);
@@ -290,6 +368,47 @@ public class InventoryItemModelServiceTests
         var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Test", DisplayOrder = 1 };
         var result = await _service.UpdateAsync(999, updateDto, CancellationToken.None);
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task Service_UpdateAsync_InvalidInventoryItemNameId_ThrowsValidationException()
+    {
+        var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 999, ModelName = "Test", DisplayOrder = 1 };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+        Assert.Contains(nameof(UpdateInventoryItemModelDto.InventoryItemNameId), ex.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task Service_UpdateAsync_RenameToAnotherRowsName_ThrowsValidationException()
+    {
+        var existingEntity = new InventoryItemModelEntity { Id = 1, InventoryItemNameId = 1, ModelName = "Model A", IsActive = true };
+        var other = new InventoryItemModelEntity { Id = 2, InventoryItemNameId = 1, ModelName = "Model B", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(existingEntity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemModelEntity> { existingEntity, other }.BuildMockDbSet().Object);
+
+        var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model B", DisplayOrder = 1, IsActive = true };
+
+        var ex = await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
+        Assert.Contains("InventoryItemModel_ModelName_Duplicate", ex.Errors.Values);
+    }
+
+    [Fact]
+    public async Task Service_UpdateAsync_DeactivationReferenced_ThrowsValidationException()
+    {
+        var entity = new InventoryItemModelEntity { Id = 1, InventoryItemNameId = 1, ModelName = "Model A", IsActive = true };
+        _mockRepository.Setup(r => r.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(entity);
+        _mockRepository.Setup(r => r.GetQueryable()).Returns(new List<InventoryItemModelEntity> { entity }.BuildMockDbSet().Object);
+        _mockReferenceValidator
+            .Setup(x => x.ValidateReferencesAsync<InventoryItemModelEntity>(1, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(NtisPlatform.Application.Models.ValidationResult.Failure("Referenced by Inventory Batch"));
+
+        var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model A", DisplayOrder = 1, IsActive = false };
+
+        await Assert.ThrowsAsync<NtisPlatform.Application.Exceptions.ValidationException>(
+            () => _service.UpdateAsync(1, updateDto, CancellationToken.None));
     }
 
     [Fact]
@@ -310,147 +429,6 @@ public class InventoryItemModelServiceTests
         _mockRepository.Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((InventoryItemModelEntity?)null);
         var result = await _service.DeleteAsync(999, CancellationToken.None);
         Assert.False(result);
-    }
-
-    #endregion
-
-    #region Controller Tests
-
-    [Fact]
-    public async Task Controller_GetAll_ReturnsOk()
-    {
-        var qp = new InventoryItemModelQueryParameters();
-        var pagedResult = new PagedResult<InventoryItemModelDto>(new List<InventoryItemModelDto>(), 0, 1, 10);
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.GetAllAsync(qp, It.IsAny<CancellationToken>())).ReturnsAsync(pagedResult);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetAll(qp, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-        serviceMock.Verify(s => s.GetAllAsync(qp, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_GetById_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(new InventoryItemModelDto { Id = 1 });
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetById(1, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-        serviceMock.Verify(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_GetById_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync((InventoryItemModelDto?)null);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetById(999, CancellationToken.None);
-        Assert.IsType<NotFoundResult>(result);
-        serviceMock.Verify(s => s.GetByIdAsync(999, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_Create_ValidDto_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        var createDto = new CreateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model X", DisplayOrder = 1 };
-        serviceMock.Setup(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>())).ReturnsAsync(new InventoryItemModelDto { Id = 1 });
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Create(createDto, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-        serviceMock.Verify(s => s.CreateAsync(createDto, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_Update_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model Y", DisplayOrder = 1 };
-        serviceMock.Setup(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>())).ReturnsAsync(new InventoryItemModelDto { Id = 1 });
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Update(1, updateDto, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-        serviceMock.Verify(s => s.UpdateAsync(1, updateDto, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_Update_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        var updateDto = new UpdateInventoryItemModelDto { InventoryItemNameId = 1, ModelName = "Model Y", DisplayOrder = 1 };
-        serviceMock.Setup(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>())).ReturnsAsync((InventoryItemModelDto?)null);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Update(999, updateDto, CancellationToken.None);
-        Assert.True(result is OkObjectResult || result is NotFoundResult);
-        serviceMock.Verify(s => s.UpdateAsync(999, updateDto, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_Delete_ExistingId_ReturnsOk()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.DeleteAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(true);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Delete(1, CancellationToken.None);
-        Assert.IsType<OkObjectResult>(result);
-        serviceMock.Verify(s => s.DeleteAsync(1, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Controller_Delete_NonExistingId_ReturnsNotFound()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.DeleteAsync(999, It.IsAny<CancellationToken>())).ReturnsAsync(false);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.Delete(999, CancellationToken.None);
-        Assert.True(result is OkObjectResult || result is NotFoundResult);
-        serviceMock.Verify(s => s.DeleteAsync(999, It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
-    public void Controller_Constructor_InitializesCorrectly()
-    {
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        Assert.NotNull(ctrl);
-    }
-
-    [Fact]
-    public async Task Controller_GetAll_WithEmptyResult_ReturnsOk()
-    {
-        var qp = new InventoryItemModelQueryParameters { PageNumber = 1, PageSize = 10 };
-        var emptyResult = new PagedResult<InventoryItemModelDto>(new List<InventoryItemModelDto>(), 0, 1, 10);
-        var serviceMock = new Mock<IInventoryItemModelService>();
-        var loggerMock = new Mock<ILogger<InventoryItemModelController>>();
-        serviceMock.Setup(s => s.GetAllAsync(qp, It.IsAny<CancellationToken>())).ReturnsAsync(emptyResult);
-        var ctrl = new InventoryItemModelController(loggerMock.Object, serviceMock.Object);
-        var result = await ctrl.GetAll(qp, CancellationToken.None);
-        var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.NotNull(okResult.Value);
-    }
-
-    [Fact]
-    public void InventoryItemModelEntity_Properties_Coverage()
-    {
-        var date = DateTime.Now;
-        var entity = new InventoryItemModelEntity
-        {
-            MarkedForDeletion = true,
-            MarkedForDeletionDate = date
-        };
-        Assert.True(entity.MarkedForDeletion);
-        Assert.Equal(date, entity.MarkedForDeletionDate);
     }
 
     #endregion

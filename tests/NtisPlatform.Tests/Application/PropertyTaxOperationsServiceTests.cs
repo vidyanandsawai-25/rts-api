@@ -31,6 +31,8 @@ public class PropertyTaxOperationsServiceTests
     private readonly Mock<IRepository<YearMasterEntity, int>> _yearMasterRepo = new();
     private readonly Mock<IRepository<WardEntity, int>> _wardRepo = new();
     private readonly Mock<IRepository<ZoneEntity, int>> _zoneRepo = new();
+    private readonly Mock<IRepository<PropertyTypeMasterEntity, int>> _propertyTypeRepo = new();
+    private readonly Mock<IRepository<PropertyAssessmentStatusEntity, int>> _propertyAssessmentStatusRepo = new();
     private readonly Mock<IUnitOfWork> _uow = new();
     private readonly Mock<IUserScreenAccessService> _screenAccessService = new();
     private readonly Mock<IConfiguration> _config = new();
@@ -42,6 +44,9 @@ public class PropertyTaxOperationsServiceTests
 
         _wardRepo.Setup(r => r.GetQueryable()).Returns(new List<WardEntity>().BuildMock());
         _zoneRepo.Setup(r => r.GetQueryable()).Returns(new List<ZoneEntity>().BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyTypeMasterEntity>().BuildMock());
+        _propertyAssessmentStatusRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyAssessmentStatusEntity>().BuildMock());
+        
         var mockYears = new List<YearMasterEntity>
         {
             new() { Id = 1, Year = 2025, YearCode = "2025-26", IsActive = true, StartDate = new DateTime(2025, 4, 1), EndDate = new DateTime(2026, 3, 31) },
@@ -70,6 +75,8 @@ public class PropertyTaxOperationsServiceTests
             _yearMasterRepo.Object,
             _wardRepo.Object,
             _zoneRepo.Object,
+            _propertyTypeRepo.Object,
+            _propertyAssessmentStatusRepo.Object,
             _uow.Object,
             NullLogger<PropertyTaxOperationsService>.Instance,
             _screenAccessService.Object,
@@ -253,7 +260,6 @@ public class PropertyTaxOperationsServiceTests
 
         var rvResult = new NtisPlatform.Application.DTOs.RateableValue.RateableValueResponseDto
         {
-            TotalTax = 100m,
             Policy = new NtisPlatform.Application.DTOs.RateableValue.PolicyTaxDto
             {
                 Taxes = new Dictionary<string, decimal>
@@ -387,5 +393,377 @@ public class PropertyTaxOperationsServiceTests
 
         var text = System.Text.Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
         text.Should().Contain("उथळसर");
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithSearchText_PerformsExactMatch()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyNo = "P1", MobileNo = "1234567890", UPICId = "UPIC1", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyNo = "P2", MobileNo = "12345", UPICId = "UPIC2", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyNo = "P3", MobileNo = "98765", UPICId = "UPIC123", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+
+        var service = CreateService();
+
+        // Act: Search for exact MobileNo "12345"
+        var result1 = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Property",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto { SearchText = "12345" }
+            },
+            actingUserId: 7);
+
+        // Assert: Only Property 2 matches (not Property 1)
+        result1.Eligible.Should().Be(1);
+
+        // Act: Search for exact UPICId "UPIC1"
+        var result2 = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Property",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto { SearchText = "UPIC1" }
+            },
+            actingUserId: 7);
+
+        // Assert: Only Property 1 matches (not Property 2 or 3)
+        result2.Eligible.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetAuditListAsync_WithJobCodeFilter_ReturnsOnlyMatchingJob()
+    {
+        // Arrange
+        var mockJobs = new List<PropertyTaxJobEntity>
+        {
+            new() { Id = 101, JobCode = "JOB-101", Operation = "AddTax", FinanceYearId = 1, Status = "Completed", MarkedForDeletion = false, StartTime = new DateTime(2025, 5, 1) },
+            new() { Id = 102, JobCode = "JOB-102", Operation = "AddTax", FinanceYearId = 1, Status = "Completed", MarkedForDeletion = false, StartTime = new DateTime(2025, 5, 2) }
+        };
+
+        _jobRepo.Setup(r => r.GetQueryable()).Returns(mockJobs.BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetAuditListAsync(
+            new OperationAuditQueryParameters
+            {
+                JobCode = "JOB-102"
+            },
+            actingUserId: 7);
+
+        // Assert
+        result.TotalCount.Should().Be(1);
+        result.Items.First().JobId.Should().Be("JOB-102");
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithRangeScopeType_FiltersNumerically()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyNo = "2", PartitionNo = "S1", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyNo = "2", PartitionNo = "S2", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyNo = "2", PartitionNo = "S10", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 4, PropertyNo = "2", PartitionNo = "S11", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Range",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    FromPropertyNo = "2-S1",
+                    ToPropertyNo = "2-S10"
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: S1, S2, and S10 match (not S11)
+        result.Eligible.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithAllPropertyTypesSelected_IncludesNullPropertyTypeProperties()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyTypeId = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        var activePtOptions = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 1, IsActive = true },
+            new() { Id = 2, IsActive = true }
+        };
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(activePtOptions.BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Ward",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    PropertyTypeIds = new List<int> { 1, 2 }
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: all 3 properties should be eligible (ID 1, ID 2 which is null, and ID 3)
+        result.Eligible.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithSubsetPropertyTypesSelected_ExcludesNullPropertyTypeProperties()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyTypeId = 1, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyTypeId = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyTypeId = 2, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        var activePtOptions = new List<PropertyTypeMasterEntity>
+        {
+            new() { Id = 1, IsActive = true },
+            new() { Id = 2, IsActive = true }
+        };
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+        _propertyTypeRepo.Setup(r => r.GetQueryable()).Returns(activePtOptions.BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Ward",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    PropertyTypeIds = new List<int> { 1 }
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: only Property 1 matches (Property 2 has null, Property 3 has ID 2)
+        result.Eligible.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithAllAssessmentStatusesSelected_IncludesNullAssessmentStatusProperties()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyAssessmentStatusId = 1, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyAssessmentStatusId = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyAssessmentStatusId = 2, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        var activeAsOptions = new List<PropertyAssessmentStatusEntity>
+        {
+            new() { Id = 1, IsActive = true },
+            new() { Id = 2, IsActive = true }
+        };
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+        _propertyAssessmentStatusRepo.Setup(r => r.GetQueryable()).Returns(activeAsOptions.BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Ward",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    AssessmentStatusIds = new List<int> { 1, 2 }
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: all 3 properties should be eligible (ID 1, ID 2 which is null, and ID 3)
+        result.Eligible.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithSubsetAssessmentStatusesSelected_ExcludesNullAssessmentStatusProperties()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyAssessmentStatusId = 1, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyAssessmentStatusId = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, PropertyAssessmentStatusId = 2, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        var activeAsOptions = new List<PropertyAssessmentStatusEntity>
+        {
+            new() { Id = 1, IsActive = true },
+            new() { Id = 2, IsActive = true }
+        };
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+        _propertyAssessmentStatusRepo.Setup(r => r.GetQueryable()).Returns(activeAsOptions.BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Ward",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    AssessmentStatusIds = new List<int> { 1 }
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: only Property 1 matches (Property 2 has null, Property 3 has ID 2)
+        result.Eligible.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetEligibleCountAsync_WithCompoundBuildingKeys_MatchesPrecisePairsWithoutCrossProduct()
+    {
+        // Arrange
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, WardId = 1, PropertyNo = "100", PartitionNo = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, WardId = 2, PropertyNo = "200", PartitionNo = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 3, WardId = 1, PropertyNo = "200", PartitionNo = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }, // Cross-product (should not match)
+            new() { Id = 4, WardId = 2, PropertyNo = "100", PartitionNo = null, IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }  // Cross-product (should not match)
+        };
+        var details = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+
+        var service = CreateService();
+
+        // Act
+        var result = await service.GetEligibleCountAsync(
+            new EligibleCountRequestDto
+            {
+                FinanceYearId = 1,
+                ScopeType = "Building",
+                Operation = "AddTax",
+                Scope = new OperationScopeDto
+                {
+                    Building = new List<string> { "1:100", "2:200" }
+                }
+            },
+            actingUserId: 7);
+
+        // Assert: only Prop 1 and Prop 2 match (no cross-product)
+        result.Eligible.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ProcessJobAsync_WithRetriedFailedDetails_CalculatesSuccessAndFailedCountsDynamically()
+    {
+        // Arrange
+        var job = new PropertyTaxJobEntity
+        {
+            Id = 42,
+            JobCode = "JOB-42",
+            Operation = "AddTax",
+            ScopeType = "Ward",
+            Status = "InProgress",
+            RecordsSelected = 2,
+            StartedByUserId = 7,
+            FinanceYearId = 1,
+            FinanceYear = new YearMasterEntity { Id = 1, Year = 2025, YearCode = "2025-26", IsActive = true }
+        };
+
+        var details = new List<PropertyTaxJobDetailEntity>
+        {
+            new() { Id = 10, JobId = 42, PropertyId = 1, PropertyNo = "P1", Status = "Failed", MarkedForDeletion = false },
+            new() { Id = 20, JobId = 42, PropertyId = 2, PropertyNo = "P2", Status = "Added", MarkedForDeletion = false }
+        };
+
+        var properties = new List<PropertyEntity>
+        {
+            new() { Id = 1, PropertyNo = "P1", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) },
+            new() { Id = 2, PropertyNo = "P2", IsActive = true, MarkedForDeletion = false, CreatedDate = new DateTime(2025, 5, 1) }
+        };
+
+        var propDetails = properties.Select(p => new PropertyDetailsEntity { Id = p.Id, PropertyId = p.Id, IsActive = true }).ToList();
+        _detailsRepo.Setup(r => r.GetQueryable()).Returns(propDetails.BuildMock());
+        _lockRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyScreenLockEntity>().BuildMock());
+
+        _jobRepo.Setup(r => r.GetQueryable()).Returns(new List<PropertyTaxJobEntity> { job }.BuildMock());
+        _jobDetailRepo.Setup(r => r.GetQueryable()).Returns(details.BuildMock());
+        _propertyRepo.Setup(r => r.GetQueryable()).Returns(properties.BuildMock());
+        
+        // Mock RateableValueService to succeed
+        _rv.Setup(s => s.CalculateAndSaveAsync(1)).ReturnsAsync(new NtisPlatform.Application.DTOs.RateableValue.RateableValueResponseDto { Policy = new NtisPlatform.Application.DTOs.RateableValue.PolicyTaxDto { Taxes = new Dictionary<string, decimal> { { "TaxTotal", 1500m } } } });
+
+        var service = CreateService();
+
+        // Act
+        await service.ProcessJobAsync(42);
+
+        // Assert
+        job.SuccessCount.Should().Be(2); // Retried one succeeded, plus the already successful one
+        job.FailedCount.Should().Be(0);
+        job.RecordsProcessed.Should().Be(2);
     }
 }

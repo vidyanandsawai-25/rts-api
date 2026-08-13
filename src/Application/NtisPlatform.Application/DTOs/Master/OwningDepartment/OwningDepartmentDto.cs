@@ -16,7 +16,7 @@ public class CreateOwningDepartmentDto : CreateBaseDtos
     public string? OwningDepartmentName { get; set; }
 
     [StringLength(500, ErrorMessage = "OwningDepartment_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "OwningDepartment_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "OwningDepartment_Description_Invalid")]
     public string? Description { get; set; }
 }
 
@@ -28,6 +28,6 @@ public class UpdateOwningDepartmentDto : UpdateBaseDtos
     public string? OwningDepartmentName { get; set; }
 
     [StringLength(500, ErrorMessage = "OwningDepartment_Description_MaxLengthExceeded_500")]
-    [RegularExpression(@"^[\p{L}\p{N} \.,&\-\u0900-\u097F\u0980-\u09FF]*$", ErrorMessage = "OwningDepartment_Description_Invalid")]
+    [RegularExpression(@"^$|^(?!^0+$)(?!.* {2})(?!.*[\/,.\-()&]{2,})(?!.* $)[\p{L}\p{M}\p{N}](?:[\p{L}\p{M}\p{N} \/,.\-()&]*[\p{L}\p{M}\p{N}.)])?$", ErrorMessage = "OwningDepartment_Description_Invalid")]
     public string? Description { get; set; }
 }

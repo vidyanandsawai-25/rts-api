@@ -4,6 +4,7 @@ using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Auth;
 using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Core.Interfaces;
 using Xunit;
 
 namespace NtisPlatform.Tests.Api.Controllers;
@@ -20,7 +21,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new RefreshTokenRequestDto { RefreshToken = "valid_refresh_token" };
         var response = new RefreshTokenResponseDto
@@ -47,7 +56,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new RefreshTokenRequestDto { RefreshToken = "invalid_token" };
         var response = new RefreshTokenResponseDto
@@ -70,7 +87,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new RefreshTokenRequestDto { RefreshToken = "" };
         controller.ModelState.AddModelError("RefreshToken", "RefreshToken is required");
@@ -85,7 +110,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new RefreshTokenRequestDto { RefreshToken = "token" };
 
@@ -103,7 +136,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new RefreshTokenRequestDto { RefreshToken = "token" };
 
@@ -123,7 +164,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new ValidateSessionRequestDto { AccessToken = "valid_token" };
         var response = new ValidateSessionResponseDto
@@ -149,7 +198,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new ValidateSessionRequestDto { AccessToken = "invalid_token" };
         var response = new ValidateSessionResponseDto
@@ -173,7 +230,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new ValidateSessionRequestDto { AccessToken = "" };
         controller.ModelState.AddModelError("AccessToken", "AccessToken is required");
@@ -188,7 +253,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new ValidateSessionRequestDto { AccessToken = "token" };
 
@@ -206,7 +279,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new ValidateSessionRequestDto { AccessToken = "token" };
 
@@ -226,7 +307,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LogoutRequestDto { RefreshToken = "refresh_token" };
         var response = new LogoutResponseDto
@@ -250,7 +339,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LogoutRequestDto { RefreshToken = "invalid_token" };
         var response = new LogoutResponseDto
@@ -273,7 +370,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LogoutRequestDto { RefreshToken = "" };
         controller.ModelState.AddModelError("RefreshToken", "RefreshToken is required");
@@ -288,7 +393,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LogoutRequestDto { RefreshToken = "token" };
 
@@ -306,7 +419,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LogoutRequestDto { RefreshToken = "token" };
 
@@ -326,7 +447,15 @@ public class AuthControllerComprehensiveTests
     {
         var mockService = new Mock<IAuthService>();
         var mockLogger = new Mock<ILogger<AuthController>>();
-        var controller = new AuthController(mockService.Object, mockLogger.Object);
+        var mockMfaChallengeService = new Mock<IMfaChallengeService>();
+        var controller = new AuthController(
+            mockService.Object,
+            mockMfaChallengeService.Object,
+            new Mock<IOtpChallengeService>().Object,
+            new Mock<IPasswordResetService>().Object,
+            new Mock<IAuthTokenIssuerService>().Object,
+            new Mock<IUserRepository>().Object,
+            mockLogger.Object);
 
         var request = new LoginRequestDto { Username = "testuser", Password = "password" };
 

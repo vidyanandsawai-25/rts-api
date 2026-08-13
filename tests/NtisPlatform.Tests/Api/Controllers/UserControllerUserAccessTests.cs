@@ -16,9 +16,10 @@ public class UserControllerUserAccessTests
         out Mock<IUserScreenAccessService> screenAccessService)
     {
         var userService = new Mock<IUserService>();
+        var twoFactorService = new Mock<ITwoFactorAuthenticationService>();
         var logger = new Mock<ILogger<UserController>>();
         screenAccessService = new Mock<IUserScreenAccessService>();
-        return new UserController(userService.Object, logger.Object, screenAccessService.Object);
+        return new UserController(userService.Object, twoFactorService.Object, logger.Object, screenAccessService.Object);
     }
 
     [Fact]

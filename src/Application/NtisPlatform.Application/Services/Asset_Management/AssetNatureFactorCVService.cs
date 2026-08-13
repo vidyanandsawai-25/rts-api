@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using NtisPlatform.Application.DTOs.Asset_Management.AssetNatureFactorCVMaster;
 using NtisPlatform.Application.Enums;
 using NtisPlatform.Application.Exceptions;
+using NtisPlatform.Application.Extensions;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Models;
@@ -42,6 +43,50 @@ public class AssetNatureFactorCVService :
         _constructionTypeRepository = constructionTypeRepository;
         _yearRangeRepository = yearRangeRepository;
         _referenceValidator = referenceValidator;
+    }
+
+    /// <summary>
+    /// Overridden solely to enrich the response with ConstructionTypeDescription via a SQL JOIN
+    /// against ConstructionTypeMaster - AssetNatureFactorCVMasterEntity stays a pure POCO with only
+    /// ConstructionTypeId (no navigation property), so ProjectTo can't reach the description on its
+    /// own. Preserves the base pipeline order: ApplyFilters -> ApplySearch -> ApplySort -> Count ->
+    /// Skip/Take -> project.
+    /// </summary>
+    public override async Task<PagedResult<AssetNatureFactorCVMasterDto>> GetAllAsync(
+        AssetNatureFactorCVMasterQueryParameters queryParameters, CancellationToken cancellationToken = default)
+    {
+        var query = _repository.GetQueryable()
+            .ApplyFilters(queryParameters)
+            .ApplySearch(queryParameters)
+            .ApplySort(queryParameters);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var pagedQuery = query
+            .Skip(queryParameters.PageSize == -1 ? 0 : (queryParameters.PageNumber - 1) * queryParameters.PageSize)
+            .Take(queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize);
+
+        var items = await (
+            from n in pagedQuery
+            join ct in _constructionTypeRepository.GetQueryable() on n.ConstructionTypeId equals ct.Id into ctJoin
+            from ct in ctJoin.DefaultIfEmpty()
+            select new AssetNatureFactorCVMasterDto
+            {
+                Id = n.Id,
+                ConstructionTypeId = n.ConstructionTypeId,
+                ConstructionTypeDescription = ct != null ? (ct.Description ?? string.Empty) : string.Empty,
+                Factor = n.Factor,
+                YearRangeCVId = n.YearRangeCVId,
+                IsActive = n.IsActive,
+                CreatedDate = n.CreatedDate,
+                UpdatedDate = n.UpdatedDate
+            }
+        ).ToListAsync(cancellationToken);
+
+        var pageNumber = queryParameters.PageSize == -1 ? 1 : queryParameters.PageNumber;
+        var pageSize = queryParameters.PageSize == -1 ? totalCount : queryParameters.PageSize;
+
+        return new PagedResult<AssetNatureFactorCVMasterDto>(items, totalCount, pageNumber, pageSize);
     }
 
     public override async Task<AssetNatureFactorCVMasterDto> CreateAsync(

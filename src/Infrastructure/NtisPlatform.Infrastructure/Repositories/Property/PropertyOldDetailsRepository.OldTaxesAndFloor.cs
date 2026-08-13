@@ -12,17 +12,17 @@ public partial class PropertyOldDetailsRepository
 {
     public async Task<PropertyOldTaxesDetailsDto?> GetOldTaxesDetailsAsync(int propertyId, CancellationToken cancellationToken = default)
     {
-        // Step 1: Get PropertyMastOldId from PropertyMast — read-only projection.
+        // Step 1: Get the new property details (including PropertyMastOldId).
         var property = await _context.PropertyMast
             .AsNoTracking()
             .Where(p => p.Id == propertyId && p.IsActive && !p.MarkedForDeletion)
-            .Select(p => new { p.Id, p.PropertyMastOldId })
+            .Select(p => new { p.PropertyMastOldId })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (property == null)
             return null;
 
-        // Step 2: Get all taxes from TaxMaster where OldTaxStatus = true (regardless of IsActive)
+        // Step 2: Get all old taxes configured from TaxMaster (ordered by DisplayOrder).
         var oldTaxes = await _context.TaxMaster.AsNoTracking()
             .Where(t => t.OldTaxStatus)
             .OrderBy(t => t.DisplayOrder)
@@ -31,7 +31,6 @@ public partial class PropertyOldDetailsRepository
 
         if (!oldTaxes.Any())
         {
-            // Return empty result if no old taxes are configured
             return new PropertyOldTaxesDetailsDto
             {
                 PropertyId = propertyId,
@@ -39,99 +38,156 @@ public partial class PropertyOldDetailsRepository
             };
         }
 
-        // Step 3: Build the result
-        var result = new PropertyOldTaxesDetailsDto
+        // Step 3: Resolve old property IDs via PropertyMapDetail (PropertyIdOld where PropertyIdNew = propertyId)
+        //         with fallback to property.PropertyMastOldId.
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId)
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
         {
-            PropertyId = propertyId,
-            TaxYears = new List<OldTaxYearDto>()
-        };
-
-        // Step 4: Check if TransMastOld records exist for this property
-        int? financeYearId = null;
-        int? year = null;
-        string? yearCode = null;
-        Dictionary<int, decimal>? transactionLookup = null;
-
-        if (property.PropertyMastOldId.HasValue)
-        {
-            var propertyMastOldId = property.PropertyMastOldId.Value;
-
-            // First, get distinct FinanceYearId values, then join with YearMaster (optimized: prevents duplicate joins)
-            // Use left join to handle orphaned FinanceYearId rows without matching YearMaster
-            var latestYear = await _context.TransMastOld
-                .Where(t => t.PropertyMastOldId == propertyMastOldId &&
-                           t.IsActive &&
-                           !t.MarkedForDeletion)
-                .Select(t => t.FinanceYearId)
-                .Distinct()
-                .GroupJoin(_context.YearMaster,
-                          financeYearId => financeYearId,
-                          y => y.Id,
-                          (financeYearId, yearGroup) => new
-                          {
-                              FinanceYearId = financeYearId,
-                              YearInfo = yearGroup.DefaultIfEmpty().FirstOrDefault()
-                          })
-                .Select(x => new
-                {
-                    Id = x.FinanceYearId,
-                    Year = x.YearInfo != null ? x.YearInfo.Year : (int?)null,
-                    YearCode = x.YearInfo != null ? x.YearInfo.YearCode : null
-                })
-                .OrderByDescending(y => y.Year ?? 0) // Handle null years by sorting them last
-                .ThenByDescending(y => y.Id) // If Year is null, use FinanceYearId as secondary sort
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (latestYear != null)
-            {
-                financeYearId = latestYear.Id;
-                year = latestYear.Year;
-                yearCode = latestYear.YearCode;
-
-                // Now fetch only the transactions for the latest year
-                var transMastOldData = await _context.TransMastOld
-                    .Where(t => t.PropertyMastOldId == propertyMastOldId &&
-                               t.FinanceYearId == latestYear.Id &&
-                               t.IsActive &&
-                               !t.MarkedForDeletion)
-                    .Select(t => new { t.TaxId, t.TaxAmount })
-                    .ToListAsync(cancellationToken);
-
-                // Build lookup dictionary for O(1) access: TaxId -> TaxAmount
-                transactionLookup = transMastOldData.ToDictionary(t => t.TaxId, t => t.TaxAmount);
-            }
+            oldPropertyIds.Add(property.PropertyMastOldId.Value);
         }
 
-        // Step 5: Build result with year data (null if no records exist)
-        var taxes = new List<TaxDetailDto>();
+        // Step 4: Execute the query that mirrors the SQL:
+        //
+        //   FROM   ptis.PropertyMapDetail   PMD
+        //   INNER JOIN ptis.PropertyMastOld PM  ON PM.Id  = PMD.PropertyIdOld
+        //   INNER JOIN ptis.TransMastOld    TMO ON TMO.PropertyMastOldId = PM.Id
+        //   LEFT  JOIN ptis.TaxMaster       TM  ON TM.Id  = TMO.TaxId
+        //   LEFT  JOIN core.YearMaster      YM  ON YM.Id  = TMO.FinanceYearId
+        //   WHERE PMD.PropertyIdNew = @propertyId
+        //   ORDER BY PM.Id, TMO.FinanceYearId, TMO.TaxId
+        //
+        //   For business rules and correctness, we filter active and non-deleted transactions.
+        var rawRows = await (
+            from pm in _context.PropertyMastOld
+            where oldPropertyIds.Contains(pm.Id)
 
-        foreach (var tax in oldTaxes)
-        {
-            // Get tax amount from existing data or default to 0
-            var taxAmount = 0m;
-            if (transactionLookup != null && transactionLookup.TryGetValue(tax.Id, out var amount))
+            join tmo in _context.TransMastOld
+                on pm.Id equals tmo.PropertyMastOldId
+            where tmo.IsActive && !tmo.MarkedForDeletion
+
+            join tm in _context.TaxMaster
+                on tmo.TaxId equals tm.Id into tmJoin
+            from tm in tmJoin.DefaultIfEmpty()
+
+            join ym in _context.YearMaster
+                on tmo.FinanceYearId equals ym.Id into ymJoin
+            from ym in ymJoin.DefaultIfEmpty()
+
+            orderby pm.Id, tmo.FinanceYearId, tmo.TaxId
+
+            select new
             {
-                taxAmount = amount;
+                OldPropertyId  = pm.Id,
+                OldWardNo      = pm.OldWardNo,
+                OldPropertyNo  = pm.OldPropertyNo,
+                OldPartitionNo = pm.OldPartitionNo,
+                tmo.FinanceYearId,
+                Year           = ym != null ? ym.Year     : (int?)null,
+                YearCode       = ym != null ? ym.YearCode : null,
+                tmo.TaxId,
+                TaxName        = tm != null ? (tm.TaxNameAlias ?? tm.TaxName) : null,
+                tmo.TaxAmount
+            }
+        ).ToListAsync(cancellationToken);
+
+        // Step 5: Group by (OldPropertyId, FinanceYearId) to build the nested DTO structure.
+        //         Order the year groups descending by Year (or FinanceYearId) so that they are presented in standard historical order.
+        var taxYears = new List<OldTaxYearDto>();
+
+        if (!rawRows.Any())
+        {
+            // If no transaction data exists, return a single year entry with null fields and all configured taxes defaulted to 0m.
+            int? fallbackOldPropertyId = oldPropertyIds.FirstOrDefault();
+            string? fallbackWardNo = null;
+            string? fallbackPropertyNo = null;
+            string? fallbackPartitionNo = null;
+
+            if (fallbackOldPropertyId.HasValue)
+            {
+                var oldProp = await _context.PropertyMastOld.AsNoTracking()
+                    .Where(p => p.Id == fallbackOldPropertyId.Value)
+                    .Select(p => new { p.OldWardNo, p.OldPropertyNo, p.OldPartitionNo })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (oldProp != null)
+                {
+                    fallbackWardNo = oldProp.OldWardNo;
+                    fallbackPropertyNo = oldProp.OldPropertyNo;
+                    fallbackPartitionNo = oldProp.OldPartitionNo;
+                }
             }
 
-            taxes.Add(new TaxDetailDto
+            var defaultTaxes = oldTaxes.Select(t => new TaxDetailDto
             {
-                TaxId = tax.Id,
-                TaxName = tax.TaxNameAlias ?? tax.TaxName,
-                TaxAmount = taxAmount
+                TaxId = t.Id,
+                TaxName = t.TaxNameAlias ?? t.TaxName,
+                TaxAmount = 0m
+            }).ToList();
+
+            taxYears.Add(new OldTaxYearDto
+            {
+                OldPropertyId = fallbackOldPropertyId,
+                OldWardNo = fallbackWardNo,
+                OldPropertyNo = fallbackPropertyNo,
+                OldPartitionNo = fallbackPartitionNo,
+                FinanceYearId = null,
+                Year = null,
+                YearCode = null,
+                Taxes = defaultTaxes
             });
         }
-
-        result.TaxYears.Add(new OldTaxYearDto
+        else
         {
-            FinanceYearId = financeYearId,
-            Year = year,
-            YearCode = yearCode,
-            Taxes = taxes
-        });
+            var groups = rawRows
+                .GroupBy(r => (r.OldPropertyId, r.FinanceYearId))
+                .OrderByDescending(g => g.First().Year ?? 0)
+                .ThenByDescending(g => g.Key.FinanceYearId);
 
-        return result;
+            foreach (var g in groups)
+            {
+                var first = g.First();
+                var groupLookup = g.ToDictionary(r => r.TaxId, r => r.TaxAmount);
+
+                var taxes = oldTaxes.Select(t => new TaxDetailDto
+                {
+                    TaxId = t.Id,
+                    TaxName = t.TaxNameAlias ?? t.TaxName,
+                    TaxAmount = groupLookup.TryGetValue(t.Id, out var amt) ? amt : 0m
+                }).ToList();
+
+                taxYears.Add(new OldTaxYearDto
+                {
+                    OldPropertyId  = first.OldPropertyId,
+                    OldWardNo      = first.OldWardNo,
+                    OldPropertyNo  = first.OldPropertyNo,
+                    OldPartitionNo = first.OldPartitionNo,
+                    FinanceYearId  = first.FinanceYearId,
+                    Year           = first.Year,
+                    YearCode       = first.YearCode,
+                    Taxes          = taxes
+                });
+            }
+        }
+
+        return new PropertyOldTaxesDetailsDto
+        {
+            PropertyId = propertyId,
+            TaxYears   = taxYears
+        };
     }
+
 
     // ---- Old Taxes: validation-data queries (the service applies the business rules) ----
 
@@ -218,8 +274,8 @@ public partial class PropertyOldDetailsRepository
                             FinanceYearId = yearDto.FinanceYearId,
                             TaxId = taxDto.TaxId,
                             TaxAmount = taxDto.TaxAmount,
-                            RVorCV = "RV",
-                            RVorCVValue = 0m,
+                            CalculationType = "RV",
+                            CalculationValue = 0m,
                             IsActive = true,
                             MarkedForDeletion = false,
                             CreatedDate = DateTime.Now
@@ -308,8 +364,8 @@ public partial class PropertyOldDetailsRepository
                         FinanceYearId = yearDto.FinanceYearId,
                         TaxId = taxDto.TaxId,
                         TaxAmount = taxDto.TaxAmount,
-                        RVorCV = "RV",
-                        RVorCVValue = 0m,
+                        CalculationType = "RV",
+                        CalculationValue = 0m,
                         IsActive = true,
                         MarkedForDeletion = false,
                         CreatedDate = DateTime.Now
@@ -415,14 +471,34 @@ public partial class PropertyOldDetailsRepository
         if (property == null)
             return null;
 
-        if (!property.PropertyMastOldId.HasValue)
-            return new PropertyDetailsOldListDto { PropertyId = propertyId, FloorDetails = new List<PropertyDetailsOldDto>() };
+        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId)
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
-        var propertyMastOldId = property.PropertyMastOldId.Value;
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
+        {
+            oldPropertyIds.Add(property.PropertyMastOldId.Value);
+        }
+
+        if (!oldPropertyIds.Any())
+            return new PropertyDetailsOldListDto { PropertyId = propertyId, FloorDetails = new List<PropertyDetailsOldDto>() };
 
         // Step 2: Query PropertyDetailsOld with joins to master tables by ID
         var query = from pd in _context.PropertyDetailsOld
-                    where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
+                    where oldPropertyIds.Contains(pd.PropertyMastOldId) && pd.IsActive && !pd.MarkedForDeletion
+
+                    join pmo in _context.PropertyMastOld on pd.PropertyMastOldId equals pmo.Id into pmoJoin
+                    from pmo in pmoJoin.DefaultIfEmpty()
 
                     join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                     from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
@@ -461,7 +537,10 @@ public partial class PropertyOldDetailsRepository
                         OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
                         OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
                         MarkedForDeletion = pd.MarkedForDeletion,
-                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate,
+                        OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                        OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                        OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null
                     };
 
         var queryResults = await query.ToListAsync(cancellationToken);
@@ -490,7 +569,10 @@ public partial class PropertyOldDetailsRepository
             OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter.HasValue ? Math.Round(x.OldBuiltupAreaSqMeter.Value, 2) : null,
             OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet.HasValue ? Math.Round(x.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = x.MarkedForDeletion,
-            MarkedForDeletionDate = x.MarkedForDeletionDate
+            MarkedForDeletionDate = x.MarkedForDeletionDate,
+            OldWardNo = x.OldWardNo,
+            OldPropertyNo = x.OldPropertyNo,
+            OldPartitionNo = x.OldPartitionNo
         }).ToList();
 
         return new PropertyDetailsOldListDto
@@ -512,7 +594,26 @@ public partial class PropertyOldDetailsRepository
         if (property == null)
             return null;
 
-        if (!property.PropertyMastOldId.HasValue)
+        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId)
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
+        {
+            oldPropertyIds.Add(property.PropertyMastOldId.Value);
+        }
+
+        if (!oldPropertyIds.Any())
         {
             // Normalize metadata for empty result set with unpaged mode
             var emptyPageSize = query.PageSize == -1 ? 1 : query.PageSize;
@@ -526,11 +627,12 @@ public partial class PropertyOldDetailsRepository
             };
         }
 
-        var propertyMastOldId = property.PropertyMastOldId.Value;
-
         // Step 2: Build base query with joins to master tables by ID
         var baseQuery = from pd in _context.PropertyDetailsOld
-                        where pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
+                        where oldPropertyIds.Contains(pd.PropertyMastOldId) && pd.IsActive && !pd.MarkedForDeletion
+
+                        join pmo in _context.PropertyMastOld on pd.PropertyMastOldId equals pmo.Id into pmoJoin
+                        from pmo in pmoJoin.DefaultIfEmpty()
 
                         join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                         from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
@@ -568,7 +670,10 @@ public partial class PropertyOldDetailsRepository
                             OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
                             OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
                             MarkedForDeletion = pd.MarkedForDeletion,
-                            MarkedForDeletionDate = pd.MarkedForDeletionDate
+                            MarkedForDeletionDate = pd.MarkedForDeletionDate,
+                            OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                            OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                            OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null
                         };
 
         // Step 3: Apply filters
@@ -605,7 +710,7 @@ public partial class PropertyOldDetailsRepository
                 (x.SubTypeOfUseDescription != null && x.SubTypeOfUseDescription.ToLower().Contains(searchTerm))
             );
         }
-         
+
         // Step 5: Apply sorting
         var isDescending = query.SortOrder?.ToLower() == "desc";
         var sortBy = query.SortBy?.ToLower();
@@ -661,7 +766,10 @@ public partial class PropertyOldDetailsRepository
             OldBuiltupAreaSqMeter = x.OldBuiltupAreaSqMeter.HasValue ? Math.Round(x.OldBuiltupAreaSqMeter.Value, 2) : null,
             OldBuiltupAreaSqFeet = x.OldBuiltupAreaSqFeet.HasValue ? Math.Round(x.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = x.MarkedForDeletion,
-            MarkedForDeletionDate = x.MarkedForDeletionDate
+            MarkedForDeletionDate = x.MarkedForDeletionDate,
+            OldWardNo = x.OldWardNo,
+            OldPropertyNo = x.OldPropertyNo,
+            OldPartitionNo = x.OldPartitionNo
         }).ToList();
 
         // Normalize pagination metadata for unpaged mode to avoid division by zero in TotalPages calculation
@@ -690,14 +798,34 @@ public partial class PropertyOldDetailsRepository
         if (property == null)
             return null;
 
-        if (!property.PropertyMastOldId.HasValue)
-            return null;
+        // Resolve all mapped old property IDs (from PropertyMapDetail and/or direct PropertyMastOldId)
+        var mappedOldPropertyIds = await _context.PropertyMapDetails
+            .AsNoTracking()
+            .Where(pmd => pmd.PropertyIdNew == propertyId)
+            .Select(pmd => pmd.PropertyIdOld)
+            .Where(id => id != null)
+            .Distinct()
+            .ToListAsync(cancellationToken);
 
-        var propertyMastOldId = property.PropertyMastOldId.Value;
+        var oldPropertyIds = mappedOldPropertyIds
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        if (!oldPropertyIds.Any() && property.PropertyMastOldId.HasValue)
+        {
+            oldPropertyIds.Add(property.PropertyMastOldId.Value);
+        }
+
+        if (!oldPropertyIds.Any())
+            return null;
 
         // Step 2: Query single PropertyDetailsOld record with joins
         var query = from pd in _context.PropertyDetailsOld
-                    where pd.Id == floorId && pd.PropertyMastOldId == propertyMastOldId && pd.IsActive && !pd.MarkedForDeletion
+                    where pd.Id == floorId && oldPropertyIds.Contains(pd.PropertyMastOldId) && pd.IsActive && !pd.MarkedForDeletion
+
+                    join pmo in _context.PropertyMastOld on pd.PropertyMastOldId equals pmo.Id into pmoJoin
+                    from pmo in pmoJoin.DefaultIfEmpty()
 
                     join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                     from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
@@ -734,7 +862,10 @@ public partial class PropertyOldDetailsRepository
                         OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
                         OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
                         MarkedForDeletion = pd.MarkedForDeletion,
-                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate,
+                        OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                        OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                        OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null
                     };
 
         var result = await query.FirstOrDefaultAsync(cancellationToken);
@@ -765,7 +896,10 @@ public partial class PropertyOldDetailsRepository
             OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
             OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
-            MarkedForDeletionDate = result.MarkedForDeletionDate
+            MarkedForDeletionDate = result.MarkedForDeletionDate,
+            OldWardNo = result.OldWardNo,
+            OldPropertyNo = result.OldPropertyNo,
+            OldPartitionNo = result.OldPartitionNo
         };
     }
 
@@ -839,6 +973,9 @@ public partial class PropertyOldDetailsRepository
         var query = from pd in _context.PropertyDetailsOld
                     where pd.Id == newEntity.Id
 
+                    join pmo in _context.PropertyMastOld on pd.PropertyMastOldId equals pmo.Id into pmoJoin
+                    from pmo in pmoJoin.DefaultIfEmpty()
+
                     join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                     from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
@@ -874,7 +1011,10 @@ public partial class PropertyOldDetailsRepository
                         OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
                         OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
                         MarkedForDeletion = pd.MarkedForDeletion,
-                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate,
+                        OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                        OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                        OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null
                     };
 
         var result = await query.FirstOrDefaultAsync(cancellationToken);
@@ -905,7 +1045,10 @@ public partial class PropertyOldDetailsRepository
             OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
             OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
-            MarkedForDeletionDate = result.MarkedForDeletionDate
+            MarkedForDeletionDate = result.MarkedForDeletionDate,
+            OldWardNo = result.OldWardNo,
+            OldPropertyNo = result.OldPropertyNo,
+            OldPartitionNo = result.OldPartitionNo
         };
     }
 
@@ -954,6 +1097,9 @@ public partial class PropertyOldDetailsRepository
         var query = from pd in _context.PropertyDetailsOld
                     where pd.Id == floorId
 
+                    join pmo in _context.PropertyMastOld on pd.PropertyMastOldId equals pmo.Id into pmoJoin
+                    from pmo in pmoJoin.DefaultIfEmpty()
+
                     join f in _context.FloorEntity on pd.OldFloorId equals f.Id into floorJoin
                     from f in floorJoin.Where(x => x.IsActive).DefaultIfEmpty()
 
@@ -989,7 +1135,10 @@ public partial class PropertyOldDetailsRepository
                         OldBuiltupAreaSqMeter = pd.OldBuiltupAreaSqMeter,
                         OldBuiltupAreaSqFeet = pd.OldBuiltupAreaSqFeet,
                         MarkedForDeletion = pd.MarkedForDeletion,
-                        MarkedForDeletionDate = pd.MarkedForDeletionDate
+                        MarkedForDeletionDate = pd.MarkedForDeletionDate,
+                        OldWardNo = pmo != null ? pmo.OldWardNo : null,
+                        OldPropertyNo = pmo != null ? pmo.OldPropertyNo : null,
+                        OldPartitionNo = pmo != null ? pmo.OldPartitionNo : null
                     };
 
         var result = await query.FirstOrDefaultAsync(cancellationToken);
@@ -1020,7 +1169,10 @@ public partial class PropertyOldDetailsRepository
             OldBuiltupAreaSqMeter = result.OldBuiltupAreaSqMeter.HasValue ? Math.Round(result.OldBuiltupAreaSqMeter.Value, 2) : null,
             OldBuiltupAreaSqFeet = result.OldBuiltupAreaSqFeet.HasValue ? Math.Round(result.OldBuiltupAreaSqFeet.Value, 2) : null,
             MarkedForDeletion = result.MarkedForDeletion,
-            MarkedForDeletionDate = result.MarkedForDeletionDate
+            MarkedForDeletionDate = result.MarkedForDeletionDate,
+            OldWardNo = result.OldWardNo,
+            OldPropertyNo = result.OldPropertyNo,
+            OldPartitionNo = result.OldPartitionNo
         };
     }
 

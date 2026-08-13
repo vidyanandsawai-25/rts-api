@@ -99,7 +99,24 @@ public sealed class PropertyPhotoDocumentBindingHandler : IDocumentBindingHandle
             .Include(db => db.Document)
             .FirstOrDefaultAsync(db => db.Id == bindingId, cancellationToken);
 
-        if (binding != null && string.Equals(binding.ReferencePropertyName, "PropertyId", StringComparison.OrdinalIgnoreCase))
+        var isPropertyId = binding != null && string.Equals(binding.ReferencePropertyName, "PropertyId", StringComparison.OrdinalIgnoreCase);
+
+        if (binding != null && !isPropertyId && string.IsNullOrWhiteSpace(binding.ReferencePropertyName))
+        {
+            var photoExists = await _context.PropertyPhotos
+                .AnyAsync(x => x.Id == referenceTableId && !x.MarkedForDeletion, cancellationToken);
+            if (!photoExists)
+            {
+                var propertyExists = await _context.PropertyMast
+                    .AnyAsync(x => x.Id == referenceTableId && x.IsActive && !x.MarkedForDeletion, cancellationToken);
+                if (propertyExists)
+                {
+                    isPropertyId = true;
+                }
+            }
+        }
+
+        if (binding != null && isPropertyId)
         {
             var docType = binding.Document?.DocumentType;
             if (string.IsNullOrEmpty(docType))

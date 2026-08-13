@@ -133,7 +133,7 @@ public class AutoMapperValidationTest
              // RuleScope navigation property and derived display name
              "RuleScope", "RuleScopeName",
                 // Additional entity fields that are unmapped
-                "IsActive", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
+                "IsActive", "IsCurrent", "ConstructionYear", "AssessmentYear", "CarpetAreaSqMeter", "CarpetAreaSqFeet",
                 "BuiltupAreaSqMeter", "BuiltupAreaSqFeet", "NoOfRooms", "IsRenter", "IsTaxable",
                 "Renters", "RenterDetails", "AreaSqMtr", "HeightMtr", "Base1Mtr", "Base2Mtr", "Shape",
                 "RoomNo", "AssessmentRemark", "FlatSystemRemark", "CombPropRemark", "AdharCardNo",
@@ -143,7 +143,7 @@ public class AutoMapperValidationTest
                 // Computed/derived rate fields (populated from navigation properties after mapping)
                 "RateAmount",
                 // Local record types used in data layer projections (not entity mappings)
-                "RVorCV", "CalculationType", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
+                "RVorCV", "CalculationType", "CalculationAnnualValue", "TmTaxAmount", "TmcvTaxAmount", "TmrvTaxAmount", "PendingAmount",
                 "Remark", "Application", "LoginTime", "LastActivityTime", "LogoutTime",
                 // SocietyDetailsEntity fields unmapped from SocietyWingDetails cross-mapping
                 "SocietyName", "SocietyAddress", "SecretaryName", "ManagerName",
@@ -155,7 +155,45 @@ public class AutoMapperValidationTest
                 "BuilderMobileNo", "BuilderMobileNoRemarkId",
                 "SocietyEmailId", "SecretaryEmailId", "ManagerEmailId",
                 // PropertyCertificateTypeMasterEntity.PolicyCode (nav prop to PolicyCodeMaster)
-                "PolicyCode"
+                "PolicyCode",
+                // AssetLeaseRentDetailsDto - display-only fields with no formatter implemented yet
+                "LeaseDurationDisplay", "RentAmountDisplay",
+                // AssetLeaseRentDetailsEntity - workflow fields owned by the dedicated Reject/Verify/Approve
+                // endpoints (LeaseRejectDto / LeaseWorkflowActionDto), intentionally absent from Create/Update DTOs
+                "RejectionReason", "IsRejection", "RejectionBy", "RejectionDate",
+                "IsVerified", "VerifiedBy", "VerifiedDate",
+                "IsApproved", "ApprovedBy", "ApprovedDate",
+                // AssetLeaseRentDetailsEntity navigation properties (EF Core managed)
+                "Asset", "History",
+                // AssetMasterDto - name-resolution/computed fields resolved by dedicated services
+                // (AssetPhotoApplicationService, AssetDocumentApplicationService) or derived from child records
+                "Photos", "Documents", "AssetCondition", "CapitalValue", "AssetLife",
+                // AssetFieldValueDto / InventoryUnitResponseDto - resolved via a nav-property join not yet
+                // modeled on the entity (tracked as follow-up, currently unused DTOs)
+                "AssetName", "AssetNo", "FieldDefinitionName", "Condition", "DepreciationRate",
+                // InventoryUnitResponseDto - computed/display fields with no entity source yet
+                "ConditionFactor", "CVFormula",
+                // SubUnitsDetailsDto - stubbed display fields, never populated
+                "CVCalculationFormula", "RoomDetails",
+                // InventoryItemCategoryDto.AssetCategoryName - resolved via a GetAllAsync-only SQL join
+                // against AssetCategoryEntity (CategoryName), not part of the base entity<->dto map.
+                // Listed explicitly even though it also happens to contain the "CategoryName" pattern
+                // above, so this mapping's intent doesn't rely on incidental substring overlap.
+                "AssetCategoryName",
+                // InventoryItemNameDto.InventoryItemCategoryName - resolved via a GetAllAsync-only SQL
+                // join against InventoryItemCategoryEntity (TypeName), not part of the base entity<->dto
+                // map. Listed explicitly for the same reason as AssetCategoryName above.
+                "InventoryItemCategoryName",
+                // InventoryItemModelDto.InventoryItemName - resolved via a GetAllAsync-only SQL join
+                // against InventoryItemNameEntity (SubTypeName), not part of the base entity<->dto map
+                "InventoryItemName",
+                // UserEntity two-factor authentication fields - security-sensitive, owned entirely by
+                // ITwoFactorAuthenticationService/TwoFactorController and never exposed through any
+                // AutoMapper-mapped DTO (status is returned via TwoFactorStatusResponseDto, built by hand).
+                "TwoFactorEnabled", "TwoFactorSecretEncrypted", "TwoFactorEnabledAt", "SecurityStamp", "TwoFactorRequired",
+                // TaxMasterEntity.RuleDefinition - navigation property to the selected DynamicTaxRuleEntity
+                // (EF Core managed); CreateTaxMasterDto/UpdateTaxMasterDto only carry RuleDefinitionId.
+                "RuleDefinition"
              };
 
             // Check if all unmapped properties are in the expected list

@@ -33,4 +33,19 @@ public class OperationScopeDto
     public string? SearchText { get; set; }
     public List<string>? UpicIds { get; set; }
     public List<string>? MobileNumbers { get; set; }
+
+    /// <summary>
+    /// Raw ward name values from the uploaded Excel. Used as a FALLBACK when WardIds
+    /// could not be resolved on the frontend (ward lookup failed) — matches against
+    /// Ward.WardNo and Ward.Description so properties are still correctly narrowed
+    /// to the requested wards rather than querying ALL wards for the building pairs.
+    /// </summary>
+    public List<string>? WardNames { get; set; }
+
+    /// <summary>
+    /// Raw zone name values from the uploaded Excel. Used as a FALLBACK when ZoneIds
+    /// could not be resolved on the frontend (zone lookup failed) — matches against
+    /// Zone.ZoneNo and Zone.Description.
+    /// </summary>
+    public List<string>? ZoneNames { get; set; }
 }

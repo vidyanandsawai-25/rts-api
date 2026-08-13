@@ -1,11 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs.Asset_Management;
-using NtisPlatform.Application.Interfaces;
+using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.Interfaces.Asset_Management;
 using NtisPlatform.Application.Models;
-using NtisPlatform.Core.Entities.Asset_Management;
 
 namespace NtisPlatform.Api.Controllers.Asset_Management;
 
@@ -15,19 +13,11 @@ namespace NtisPlatform.Api.Controllers.Asset_Management;
 public class AssetFloorFactorCVController : ControllerBase
 {
     private readonly IAssetFloorFactorCVService _service;
-    private readonly IHardDeleteCleanupService _cleanupService;
-    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<AssetFloorFactorCVController> _logger;
 
-    public AssetFloorFactorCVController(
-        IAssetFloorFactorCVService service,
-        IHardDeleteCleanupService cleanupService,
-        IReferenceValidationService referenceValidationService,
-        ILogger<AssetFloorFactorCVController> logger)
+    public AssetFloorFactorCVController(IAssetFloorFactorCVService service, ILogger<AssetFloorFactorCVController> logger)
     {
         _service = service;
-        _cleanupService = cleanupService;
-        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -58,8 +48,15 @@ public class AssetFloorFactorCVController : ControllerBase
     public Task<IActionResult> Delete(int id, CancellationToken ct)
         => this.ExecuteDelete(_service, id, _logger, ct);
 
-    [Authorize]
-    [HttpDelete("{id}/purge")]
-    public Task<IActionResult> Purge(int id, CancellationToken ct)
-        => this.ExecuteForceDelete<AssetFloorFactorCVEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
+    [HttpPost("Bulk")]
+    public Task<IActionResult> BulkCreate([FromBody] CreateAssetFloorFactorCVDto[] items, CancellationToken ct)
+        => this.ExecuteBulkCreate(_service, items, _logger, ct);
+
+    [HttpPut("Bulk")]
+    public Task<IActionResult> BulkUpdate([FromBody] BulkUpdateItem<int, UpdateAssetFloorFactorCVDto>[] items, CancellationToken ct)
+        => this.ExecuteBulkUpdate(_service, items, _logger, ct);
+
+    [HttpDelete("Bulk")]
+    public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkDelete(_service, ids, _logger, ct);
 }

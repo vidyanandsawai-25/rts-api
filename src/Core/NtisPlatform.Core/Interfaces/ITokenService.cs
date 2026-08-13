@@ -6,12 +6,21 @@ namespace NtisPlatform.Core.Interfaces;
 public interface ITokenService
 {
     /// <summary>
-    /// Generate a JWT access token for authenticated user
+    /// Generate a JWT access token for authenticated user.
     /// </summary>
     /// <param name="userId">User ID</param>
     /// <param name="username">Username</param>
+    /// <param name="authenticationMethod">
+    /// Authentication method reference (amr claim) — "pwd" for password-only login,
+    /// "mfa" once a second factor has also been verified.
+    /// </param>
+    /// <param name="securityStamp">
+    /// The user's current security stamp, embedded as the "sst" claim so the token can be
+    /// invalidated immediately on a sensitive security change (2FA disable/reset) instead of
+    /// only at natural expiry. Pass null if the user has no stamp yet (skips the claim).
+    /// </param>
     /// <returns>JWT token string</returns>
-    string GenerateToken(int userId, string username);
+    string GenerateToken(int userId, string username, string authenticationMethod = "pwd", string? securityStamp = null);
 
     /// <summary>
     /// Generate a cryptographically secure refresh token

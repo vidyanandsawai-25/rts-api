@@ -118,7 +118,7 @@ public class TaxAuditVerificationTests
         return cert;
     }
 
-    private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock(bool allowFloorWise = false)
+    private static Mock<ICertificateTaxGuidelineReaderService> BuildGuidelineReaderMock(bool allowFloorWise = false, string noDateRule = "NO_TAX")
     {
         var mock = new Mock<ICertificateTaxGuidelineReaderService>();
         mock.Setup(g => g.GetActiveSettingsAsync(It.IsAny<CancellationToken>()))
@@ -140,8 +140,7 @@ public class TaxAuditVerificationTests
                 CCPeriodMultiplier: 1.5m, OCPeriodMultiplier: 1.0m,
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
-                NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                MinimumBackdateFinancialYear: 0,
+                NoDateRule: noDateRule, LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",
                 SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
@@ -151,7 +150,8 @@ public class TaxAuditVerificationTests
                 ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
                 CertificateTaxScopeMode: "PROPERTY_WISE", AllowFloorWiseCertificateMetadata: allowFloorWise, EnableCcToOcSplit: true,
                 ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY"));
+                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
+                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
         return mock;
     }
 
@@ -173,8 +173,9 @@ public class TaxAuditVerificationTests
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
-            policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            policyCodeLookup, financeYearProvider, guidelineReader.Object, Mock.Of<IHistoricalNetTaxBaselineService>(), unitOfWork,
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     private static List<(int FinanceYearId, decimal TaxAmount)> GetActiveTransMast(ApplicationDbContext context, int propertyId) =>
@@ -405,5 +406,76 @@ public class TaxAuditVerificationTests
         Assert.Single(allRetroRows);
         var allTransMastRows = context.TransMast.Where(t => t.PropertyId == propertyId && t.FinanceYearId == currentFy && t.TaxId == GeneralTaxId && t.CalculationType == "RV").ToList();
         Assert.Single(allTransMastRows);
+    }
+
+    // ============================================================================================
+    // 2026-07-30 reported bug: "applied property-wise CC, then floor-wise OC on one floor -- OC is
+    // not applied at all". Root cause: a floor with its OWN OC but no CC of its own falls back to
+    // the property-wide CC for date-order comparison; when that floor's own OC predates the
+    // property-wide CC (a real scenario -- a specific unit's occupancy can predate the whole
+    // building's completion certificate), the combination was treated as a genuine CC/OC conflict
+    // and routed through INVALID_CC_OC_DATE_ORDER_ACTION, which (with every DATE_PRIORITY_1="CC"
+    // config in this repo) silently recomputed the floor as CC, discarding its own OC entirely --
+    // with no user-visible indication. The floor's own certificate must govern it alone whenever the
+    // OTHER date came only from the property-wide fallback (i.e. this floor has no certificate of
+    // that type itself).
+    // ============================================================================================
+    [Fact]
+    public async Task FloorWise_OwnOcPredatesPropertyWideCcFallback_OcGovernsThatFloorAlone()
+    {
+        const int currentFy = 2026;
+        const decimal annualTax = 800m; // splits evenly across 2 floors -> 400 each
+        var rates = new Dictionary<int, decimal> { [2025] = annualTax, [currentFy] = annualTax };
+
+        using var context = CreateContext();
+        var propertyId = Seed(context, rates);
+
+        const int ocFloorId = 301;   // has its own OC, no CC of its own
+        const int ccOnlyFloorId = 302; // no certificate of its own -> falls back to property-wide CC
+        context.PropertyDetails.AddRange(
+            new PropertyDetailsEntity { Id = ocFloorId, PropertyId = propertyId, TypeOfUseId = 1, IsActive = true, MarkedForDeletion = false, BuiltupAreaSqMeter = 30d },
+            new PropertyDetailsEntity { Id = ccOnlyFloorId, PropertyId = propertyId, TypeOfUseId = 1, IsActive = true, MarkedForDeletion = false, BuiltupAreaSqMeter = 100d });
+        context.SaveChanges();
+
+        // Property-wide CC, at FY2026 start -> full year, unprorated, 1.5x for the floor(s) that fall
+        // back to it.
+        var ccDate = new DateTime(currentFy, 4, 1);
+        AddCertificate(context, propertyId, CcTypeId, ccDate, propertyDetailsId: null);
+
+        // ocFloorId's OWN OC, dated a full finance year BEFORE the property-wide CC -- this floor has
+        // no CC of its own, so without the fix this looks like an "OC before CC" conflict and gets
+        // silently recast as CC.
+        var ocDate = new DateTime(2025, 4, 1);
+        AddCertificate(context, propertyId, OcTypeId, ocDate, propertyDetailsId: ocFloorId);
+
+        var service = BuildService(context, currentFy, BuildGuidelineReaderMock(allowFloorWise: true));
+        await service.ApplyAsync(propertyId, userId: 1);
+
+        const decimal perFloorGeneralTax = annualTax / 2; // 400
+
+        // ocFloorId: governed by its OWN OC alone (1.0x, full unprorated years, from FY2025 onward --
+        // no CC-then-OC merge, since the property-wide CC never really applied to this floor).
+        var expectedOcFloorRetro2025 = perFloorGeneralTax * 1.0m; // 400
+        var expectedOcFloorCurrent2026 = perFloorGeneralTax * 1.0m; // 400
+
+        // ccOnlyFloorId: governed by the property-wide CC (1.5x, full unprorated current year only,
+        // no retro since the CC date is exactly the current FY start).
+        var expectedCcOnlyFloorCurrent2026 = perFloorGeneralTax * 1.5m; // 600
+
+        var expectedCurrentYearTotal = expectedOcFloorCurrent2026 + expectedCcOnlyFloorCurrent2026; // 1,000
+
+        var transMast = GetActiveTransMast(context, propertyId);
+        Assert.Single(transMast);
+        Assert.Equal((currentFy, expectedCurrentYearTotal), transMast[0]);
+
+        // Before the fix, both floors were silently recomputed as CC (400*1.5 + 400*1.5 = 1,200) and
+        // there was no FY2025 retro row at all -- assert both the wrong total and the missing retro
+        // row do NOT occur.
+        Assert.NotEqual(1_200m, transMast[0].TaxAmount);
+
+        var retro = GetActiveRetro(context, propertyId);
+        Assert.Single(retro); // ocFloorId's own OC correctly produced a FY2025 arrears row
+        Assert.Equal(2025, retro[0].PendingYearId);
+        Assert.Equal(expectedOcFloorRetro2025, retro[0].Amount);
     }
 }

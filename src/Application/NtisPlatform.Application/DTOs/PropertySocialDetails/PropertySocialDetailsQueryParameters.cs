@@ -15,4 +15,7 @@ public class PropertySocialDetailsQueryParameters : BaseQueryParameters
 
     [Filterable]
     public bool? IsActive { get; set; }
+
+    [Filterable]
+    public bool? MarkedForDeletion { get; set; }
 }

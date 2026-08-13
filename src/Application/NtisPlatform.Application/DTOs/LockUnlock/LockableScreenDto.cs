@@ -11,4 +11,5 @@ public class LockableScreenDto
     public string? ModuleCode { get; set; }
     public string? ModuleName { get; set; }
     public string? ModuleNameLocal { get; set; }
+    public string? ModuleLabel { get; set; }
 }

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using NtisPlatform.Api.Controllers;
 using NtisPlatform.Application.DTOs.Master.UserMaster;
+using NtisPlatform.Application.DTOs.TwoFactor;
 using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
 using NtisPlatform.Application.Models;
@@ -16,6 +17,7 @@ namespace NtisPlatform.Tests.Api;
 public class UserControllerTests
 {
     private readonly Mock<IUserService> _userServiceMock;
+    private readonly Mock<ITwoFactorAuthenticationService> _twoFactorServiceMock;
     private readonly Mock<ILogger<UserController>> _loggerMock;
     private readonly Mock<IUserScreenAccessService> _userScreenAccessServiceMock;
     private readonly UserController _controller;
@@ -23,10 +25,12 @@ public class UserControllerTests
     public UserControllerTests()
     {
         _userServiceMock = new Mock<IUserService>();
+        _twoFactorServiceMock = new Mock<ITwoFactorAuthenticationService>();
         _loggerMock = new Mock<ILogger<UserController>>();
         _userScreenAccessServiceMock = new Mock<IUserScreenAccessService>();
         _controller = new UserController(
-            _userServiceMock.Object, 
+            _userServiceMock.Object,
+            _twoFactorServiceMock.Object,
             _loggerMock.Object,
             _userScreenAccessServiceMock.Object);
     }
@@ -594,6 +598,200 @@ public class UserControllerTests
 
         // Assert
         Assert.IsType<NotFoundResult>(result);
+    }
+
+    #endregion
+
+    #region Admin-Assisted Two-Factor Endpoint Tests
+
+    [Fact]
+    public async Task BeginTwoFactorSetupForUser_WhenNotEnabled_ReturnsOkWithSetupResponse()
+    {
+        // Arrange
+        var userId = 1006;
+        var expectedResponse = new TwoFactorSetupResponseDto
+        {
+            SharedKey = "J4GO 3LE2 ER7P X6YH GEUZ JGUJ BHG5 2ZEP",
+            AuthenticatorUri = "otpauth://totp/NtisPlatform:mangesh?secret=ABC&issuer=NtisPlatform",
+            Issuer = "NtisPlatform",
+            AccountName = "mangesh"
+        };
+
+        _twoFactorServiceMock
+            .Setup(x => x.BeginSetupAsync(userId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorSetupResponseDto>.Succeeded(expectedResponse));
+
+        // Act
+        var result = await _controller.BeginTwoFactorSetupForUser(userId, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<TwoFactorSetupResponseDto>(okResult.Value);
+        Assert.Equal(expectedResponse.SharedKey, response.SharedKey);
+    }
+
+    [Fact]
+    public async Task BeginTwoFactorSetupForUser_WhenAlreadyEnabled_ReturnsConflict()
+    {
+        // Arrange
+        var userId = 1;
+        _twoFactorServiceMock
+            .Setup(x => x.BeginSetupAsync(userId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorSetupResponseDto>.Failed(TwoFactorOperationError.AlreadyEnabled));
+
+        // Act
+        var result = await _controller.BeginTwoFactorSetupForUser(userId, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task BeginTwoFactorSetupForUser_WhenUserNotFound_ReturnsNotFound_NotConflict()
+    {
+        // Arrange — regression test: the setup endpoint used to report EVERY failure (including
+        // an unknown/invalid target id) as "already enabled", which was actively misleading.
+        var userId = 999999;
+        _twoFactorServiceMock
+            .Setup(x => x.BeginSetupAsync(userId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorSetupResponseDto>.Failed(TwoFactorOperationError.UserNotFound));
+
+        // Act
+        var result = await _controller.BeginTwoFactorSetupForUser(userId, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<NotFoundObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task BeginTwoFactorSetupForUser_RequiresEmailOnFile()
+    {
+        // Arrange — regression test: admin-assisted setup must fail fast when the target has no
+        // email on file, since the enrollment can never be completed without one.
+        var userId = 1006;
+        _twoFactorServiceMock
+            .Setup(x => x.BeginSetupAsync(userId, false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorSetupResponseDto>.Failed(TwoFactorOperationError.EmailNotOnFile));
+
+        // Act
+        var result = await _controller.BeginTwoFactorSetupForUser(userId, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<ConflictObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task EnableTwoFactorForUser_WithValidTotpCode_ReturnsOkWithPendingEmailVerification()
+    {
+        // Arrange — admin-assisted "enable" no longer enables immediately: a valid TOTP code
+        // only unlocks a one-time code emailed to the target's registered address.
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "123456" };
+        var expectedResponse = new TwoFactorEmailVerificationPendingResponseDto { MaskedEmail = "ma***@example.com" };
+
+        _twoFactorServiceMock
+            .Setup(x => x.EnableAsync(userId, request.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorEmailVerificationPendingResponseDto>.Succeeded(expectedResponse));
+
+        // Act
+        var result = await _controller.EnableTwoFactorForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<TwoFactorEmailVerificationPendingResponseDto>(okResult.Value);
+        Assert.Equal(expectedResponse.MaskedEmail, response.MaskedEmail);
+    }
+
+    [Fact]
+    public async Task EnableTwoFactorForUser_WithInvalidTotpCode_ReturnsUnauthorized()
+    {
+        // Arrange
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "000000" };
+
+        _twoFactorServiceMock
+            .Setup(x => x.EnableAsync(userId, request.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<TwoFactorEmailVerificationPendingResponseDto>.Failed(TwoFactorOperationError.InvalidCode));
+
+        // Act
+        var result = await _controller.EnableTwoFactorForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task EnableTwoFactorForUser_WithInvalidModelState_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "123456" };
+        _controller.ModelState.AddModelError("Code", "Code is required");
+
+        // Act
+        var result = await _controller.EnableTwoFactorForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ConfirmTwoFactorEmailForUser_WithValidCode_ReturnsOkWithRecoveryCodes()
+    {
+        // Arrange
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "482913" };
+        var expectedResponse = new EnableTwoFactorResponseDto
+        {
+            IsEnabled = true,
+            RecoveryCodes = new[] { "ABCDE-12345", "FGHJK-67890" }
+        };
+
+        _twoFactorServiceMock
+            .Setup(x => x.ConfirmEnableAsync(userId, request.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<EnableTwoFactorResponseDto>.Succeeded(expectedResponse));
+
+        // Act
+        var result = await _controller.ConfirmTwoFactorEmailForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<EnableTwoFactorResponseDto>(okResult.Value);
+        Assert.True(response.IsEnabled);
+        Assert.Equal(2, response.RecoveryCodes.Count);
+    }
+
+    [Fact]
+    public async Task ConfirmTwoFactorEmailForUser_WithInvalidCode_ReturnsUnauthorized()
+    {
+        // Arrange
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "000000" };
+
+        _twoFactorServiceMock
+            .Setup(x => x.ConfirmEnableAsync(userId, request.Code, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TwoFactorOperationResult<EnableTwoFactorResponseDto>.Failed(TwoFactorOperationError.InvalidCode));
+
+        // Act
+        var result = await _controller.ConfirmTwoFactorEmailForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<UnauthorizedObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ConfirmTwoFactorEmailForUser_WithInvalidModelState_ReturnsBadRequest()
+    {
+        // Arrange
+        var userId = 1006;
+        var request = new EnableTwoFactorRequestDto { Code = "" };
+        _controller.ModelState.AddModelError("Code", "Code is required");
+
+        // Act
+        var result = await _controller.ConfirmTwoFactorEmailForUser(userId, request, CancellationToken.None);
+
+        // Assert
+        Assert.IsType<BadRequestObjectResult>(result);
     }
 
     #endregion

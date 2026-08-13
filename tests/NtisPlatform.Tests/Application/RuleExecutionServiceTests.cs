@@ -2020,5 +2020,170 @@ public class RuleExecutionServiceTests
         Assert.Contains("Exception while parsing expression", subRule.MatchStatus);
     }
 
+    [Fact]
+    public async Task DryRunAsync_WithUserDemoMaintenanceSetZeroRuleJson_EvaluatesMaintenanceToZero()
+    {
+        // Arrange - User's exact Rule JSON
+        string userRuleJson = """
+        {
+            "RuleName": "demo",
+            "isActive": true,
+            "RuleCategory": "RV",
+            "rules": [
+                {
+                    "RuleCode": "19dfd872-fc2b-4886-9053-5dcb0864d303",
+                    "errorMessage": "demo    ",
+                    "enabled": true,
+                    "ruleExpressionType": "LambdaExpression",
+                    "expression": "input.TypeOfUseGroupId == 5",
+                    "Actions": {
+                        "OnSuccess": {
+                            "Name": "MultiEffect",
+                            "Context": {
+                                "effects": [
+                                    {
+                                        "Expression": "input.Maintenance * (1 - 0 / 100)",
+                                        "effectType": "Set",
+                                        "value": "0",
+                                        "ParameterCode": "Maintenance",
+                                        "overrideRate": "6",
+                                        "overrideRateLabel": "Maintenance - Maintenance"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "stopProcessing": false
+                }
+            ]
+        }
+        """;
+
+        var input = new RuleDryRunInputDto
+        {
+            RuleJson = userRuleJson,
+            Input = new Dictionary<string, object>
+            {
+                { "TypeOfUseGroupId", 5 },
+                { "Maintenance", 10.0 }
+            }
+        };
+
+        // Act
+        var result = await _service.DryRunAsync(input);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Single(result.Workflows);
+        var workflow = result.Workflows[0];
+        Assert.Equal("demo", workflow.WorkflowName);
+        Assert.Single(workflow.SubRules);
+
+        var subRule = workflow.SubRules[0];
+        Assert.True(subRule.IsMatch, "SubRule should match TypeOfUseGroupId == 5");
+        Assert.Single(subRule.Effects);
+
+        var effect = subRule.Effects[0];
+        Assert.Equal("Set", effect.EffectType);
+        Assert.Equal(0m, effect.EffectValue);
+        Assert.Equal(0m, effect.ComputedValue); // Evaluated Maintenance percentage becomes 0
+    }
+
+    [Theory]
+    [InlineData("Override", true)]
+    [InlineData("equal", true)]
+    [InlineData("Equals", true)]
+    [InlineData("Equal To", true)]
+    [InlineData("Set", true)]
+    [InlineData("Fixed", true)]
+    [InlineData("=", true)]
+    [InlineData("Reset", false)]
+    [InlineData("NotEqual", false)]
+    [InlineData("GreaterThanOrEqual", false)]
+    [InlineData("Dataset", false)]
+    public void OverrideApplicator_CanHandle_ValidatesExactAliasesOnly(string effectType, bool expectedResult)
+    {
+        var applicator = new NtisPlatform.Application.Services.Rules.Effects.OverrideApplicator();
+        var result = applicator.CanHandle(effectType);
+        Assert.Equal(expectedResult, result);
+    }
+
+    #endregion
+
+    #region PropertyRuleEvaluationMasterId Filtering Tests
+
+    [Fact]
+    public async Task ExecuteAsync_WithPropertyRuleEvaluationMasterId_FiltersRulesCorrectly()
+    {
+        // Arrange: Create rules with specific PropertyRuleEvaluationMasterId values and one legacy rule (null)
+        var rule1 = CreateRuleWithEffect("RULE-RATE-1", "RV", 1, "input.Rate > 0", "Decrease %", 10);
+        rule1.PropertyRuleEvaluationMasterId = 1; // Rate
+
+        var rule2 = CreateRuleWithEffect("RULE-RENT-1", "RV", 2, "input.Rent > 0", "Increase %", 5);
+        rule2.PropertyRuleEvaluationMasterId = 2; // Rent
+
+        var ruleLegacy = CreateRuleWithEffect("RULE-LEGACY", "RV", 3, "input.Rate > 0", "Decrease %", 2);
+        ruleLegacy.PropertyRuleEvaluationMasterId = null; // Legacy / unset
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(
+                new List<RuleEngineEntity> { rule1, rule2, ruleLegacy }));
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            PropertyRuleEvaluationMasterId = 1, // Filtering for Rate (ID = 1)
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000.0 },
+                { "Rent", 5000.0 }
+            }
+        };
+
+        // Act
+        var results = await _service.ExecuteAsync(input);
+
+        // Assert: Should execute rule1 (matching ID=1) and ruleLegacy (null ID), but NOT rule2 (ID=2)
+        Assert.NotNull(results);
+        Assert.Contains(results, r => r.RuleCode == "RULE-RATE-1");
+        Assert.Contains(results, r => r.RuleCode == "RULE-LEGACY");
+        Assert.DoesNotContain(results, r => r.RuleCode == "RULE-RENT-1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithNullPropertyRuleEvaluationMasterId_ExecutesAllCategoryRules()
+    {
+        // Arrange
+        var rule1 = CreateRuleWithEffect("RULE-RATE-1", "RV", 1, "input.Rate > 0", "Decrease %", 10);
+        rule1.PropertyRuleEvaluationMasterId = 1;
+
+        var rule2 = CreateRuleWithEffect("RULE-RENT-1", "RV", 2, "input.Rent > 0", "Increase %", 5);
+        rule2.PropertyRuleEvaluationMasterId = 2;
+
+        _mockRuleRepository.Setup(r => r.GetQueryable())
+            .Returns(MockQueryableExtensions.BuildMock(
+                new List<RuleEngineEntity> { rule1, rule2 }));
+
+        var input = new RuleExecutionInputDto
+        {
+            Category = "RV",
+            PropertyRuleEvaluationMasterId = null, // No filter (legacy mode)
+            Input = new Dictionary<string, object>
+            {
+                { "Rate", 1000.0 },
+                { "Rent", 5000.0 }
+            }
+        };
+
+        // Act
+        var results = await _service.ExecuteAsync(input);
+
+        // Assert: Should return results for both rules
+        Assert.NotNull(results);
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, r => r.RuleCode == "RULE-RATE-1");
+        Assert.Contains(results, r => r.RuleCode == "RULE-RENT-1");
+    }
+
     #endregion
 }

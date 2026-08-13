@@ -20,6 +20,10 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly IRepository<UserRoleMasterEntity> _userRoleRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IMfaChallengeService _mfaChallengeService;
+    private readonly IAuthTokenIssuerService _authTokenIssuer;
+    private readonly ISecuritySettingsService _securitySettings;
+    private readonly IOtpChallengeService _otpChallengeService;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -29,6 +33,10 @@ public class AuthService : IAuthService
         IConfiguration configuration,
         IRepository<UserRoleMasterEntity> userRoleRepository,
         IRefreshTokenRepository refreshTokenRepository,
+        IMfaChallengeService mfaChallengeService,
+        IAuthTokenIssuerService authTokenIssuer,
+        ISecuritySettingsService securitySettings,
+        IOtpChallengeService otpChallengeService,
         ILogger<AuthService> logger)
     {
         _userRepository = userRepository;
@@ -37,6 +45,10 @@ public class AuthService : IAuthService
         _configuration = configuration;
         _userRoleRepository = userRoleRepository;
         _refreshTokenRepository = refreshTokenRepository;
+        _mfaChallengeService = mfaChallengeService;
+        _authTokenIssuer = authTokenIssuer;
+        _securitySettings = securitySettings;
+        _otpChallengeService = otpChallengeService;
         _logger = logger;
     }
 
@@ -99,51 +111,56 @@ public class AuthService : IAuthService
         await _userRepository.ResetFailedLoginCountAsync(user.Id, cancellationToken);
         await _userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
 
-        // Generate JWT access token
-        var token = _tokenService.GenerateToken(user.Id, user.UserName);
-
-
-
-        // Generate refresh token
-        var refreshToken = _tokenService.GenerateRefreshToken();
-        var refreshTokenExpiryDays = int.TryParse(_configuration["Jwt:RefreshTokenExpiryDays"], out var days) ? days : 7;
-
-        // Hash the refresh token before storing (same security as passwords)
-        var refreshTokenHash = _passwordHasher.HashPassword(refreshToken);
-
-        // Save refresh token hash to database
-        var refreshTokenEntity = new RefreshTokenEntity
+        // 2FA-enabled accounts do not get an access/refresh token yet — a short-lived challenge
+        // must be verified first via IMfaChallengeService.
+        if (user.TwoFactorEnabled)
         {
-            Token = refreshTokenHash, // Store hash, not plaintext
-            UserId = user.Id,
-            ExpiresAt = DateTime.Now.AddDays(refreshTokenExpiryDays),
-            IsRevoked = false,
-            CreatedBy = user.Id,
-            CreatedDate = DateTime.Now
-        };
+            var challenge = await _mfaChallengeService.CreateLoginChallengeAsync(user.Id, ipAddress: null, userAgent: null, cancellationToken);
 
-        await _refreshTokenRepository.AddAsync(refreshTokenEntity, cancellationToken);
-        await _refreshTokenRepository.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("Password verified for user {UserId}; awaiting MFA verification", user.Id);
 
-        // Calculate token expiration
-        var expiresInMinutes = int.TryParse(_configuration["Jwt:ExpiresInMinutes"], out var minutes) ? minutes : 60;
-        var expiresAt = DateTime.Now.AddMinutes(expiresInMinutes);
+            return new LoginResponseDto
+            {
+                Success = true,
+                RequiresTwoFactor = true,
+                TwoFactorMethod = "totp",
+                ChallengeId = challenge.ChallengeId,
+                ChallengeExpiresAtUtc = challenge.ExpiresAtUtc,
+                UserId = user.Id,
+                Username = user.UserName,
+                Message = "Two-factor authentication code required"
+            };
+        }
+
+        // No per-user TOTP enrollment — fall back to the config-driven (SECURITY_AUTH) OTP layer
+        // if the organization has switched it on. This makes 2FA mandatory org-wide instead of
+        // leaving unenrolled users with no second factor at all.
+        if (await _securitySettings.GetAsync("2FALOGIN", false, cancellationToken))
+        {
+            var sendEmail = await _securitySettings.GetAsync("LOGINOTPONMAIL", false, cancellationToken);
+            var sendSms = await _securitySettings.GetAsync("LoginOtpOnSms", false, cancellationToken);
+
+            var otpChallenge = await _otpChallengeService.CreateAsync(
+                user, OtpChallengePurpose.LoginOtp, sendEmail, sendSms, ipAddress: null, userAgent: null, cancellationToken);
+
+            _logger.LogInformation("Password verified for user {UserId}; awaiting login OTP verification", user.Id);
+
+            return new LoginResponseDto
+            {
+                Success = true,
+                RequiresTwoFactor = true,
+                TwoFactorMethod = "otp",
+                ChallengeId = otpChallenge.ChallengeId,
+                ChallengeExpiresAtUtc = otpChallenge.ExpiresAtUtc,
+                UserId = user.Id,
+                Username = user.UserName,
+                Message = "One-time verification code sent"
+            };
+        }
 
         _logger.LogInformation("Successful login for user: {UserId}", user.Id);
 
-        return new LoginResponseDto
-        {
-            Success = true,
-            Token = token,
-            RefreshToken = refreshToken,
-            UserId = user.Id,
-            Username = user.UserName,
-            FirstName = user.FirstName,
-            MiddleName = user.MiddleName,
-            LastName = user.LastName,
-            Message = "Login successful",
-            ExpiresAt = expiresAt
-        };
+        return await _authTokenIssuer.IssueAsync(user, "pwd", cancellationToken);
     }
 
     public async Task<RefreshTokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request, CancellationToken cancellationToken = default)
@@ -164,7 +181,7 @@ public class AuthService : IAuthService
         // Check if token is active (not revoked and not expired)
         if (!refreshTokenEntity.IsActive)
         {
-            _logger.LogWarning("Attempted to use inactive refresh token for user: {UserId}", refreshTokenEntity.Id);
+            _logger.LogWarning("Attempted to use inactive refresh token for user: {UserId}", refreshTokenEntity.UserId);
             return new RefreshTokenResponseDto
             {
                 Success = false,
@@ -173,11 +190,11 @@ public class AuthService : IAuthService
         }
 
         // Get the user
-        var user = await _userRepository.GetByIdAsync(refreshTokenEntity.Id, cancellationToken);
+        var user = await _userRepository.GetByIdAsync(refreshTokenEntity.UserId, cancellationToken);
 
         if (user == null || !user.IsActive)
         {
-            _logger.LogWarning("User not found or inactive for refresh token: {UserId}", refreshTokenEntity.Id);
+            _logger.LogWarning("User not found or inactive for refresh token: {UserId}", refreshTokenEntity.UserId);
             return new RefreshTokenResponseDto
             {
                 Success = false,
@@ -202,7 +219,7 @@ public class AuthService : IAuthService
         // Token successfully consumed - now generate new tokens
         // Generate new access token
 
-        var newAccessToken = _tokenService.GenerateToken(user.Id, user.UserName);
+        var newAccessToken = _tokenService.GenerateToken(user.Id, user.UserName, "pwd", user.SecurityStamp);
 
         // Generate new refresh token (rotating refresh tokens for security)
         var newRefreshToken = _tokenService.GenerateRefreshToken();
@@ -312,7 +329,7 @@ public class AuthService : IAuthService
         // Revoke the token
         await _refreshTokenRepository.RevokeTokenAsync(request.RefreshToken, cancellationToken);
 
-        _logger.LogInformation("User logged out: {UserId}", refreshTokenEntity.Id);
+        _logger.LogInformation("User logged out: {UserId}", refreshTokenEntity.UserId);
 
         return new LogoutResponseDto
         {

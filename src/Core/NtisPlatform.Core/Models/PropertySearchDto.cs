@@ -27,6 +27,9 @@ public class PropertySearchRequestDto
     /// </summary>
     public int? PropertyTypeId { get; set; }
 
+    public int? PropertyTypeCategoryId { get; set; }
+
+ 
     /// <summary>
     /// Filter by Type of Use (Property Description)
     /// </summary>
@@ -46,6 +49,11 @@ public class PropertySearchRequestDto
     /// Filter by Property Category
     /// </summary>
     public int? CategoryId { get; set; }
+
+    /// <summary>
+    /// Filter by PropertyNo (contains search)
+    /// </summary>
+    public string? PropertyNo { get; set; }
 
     /// <summary>
     /// Filter by PropertyNo - From Property

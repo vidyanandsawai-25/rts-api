@@ -13,6 +13,7 @@ public class FilterPropertiesRequestDto : BaseQueryParameters
     public string? Wing { get; set; }
 
     [Required(ErrorMessage = "CommonDetails_UpdateCode_Required")]
-    public string UpdateCode { get; set; } = string.Empty;
+    [MinLength(1, ErrorMessage = "CommonDetails_UpdateCode_Required")]
+    public List<string> UpdateCode { get; set; } = [];
 
 }

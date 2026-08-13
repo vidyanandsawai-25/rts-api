@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Two-Factor Authentication Setup</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #ffffff;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .content h2 {
+            color: #667eea;
+            font-size: 22px;
+            margin-top: 0;
+        }
+        .credential {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            text-align: center;
+        }
+        .credential strong {
+            display: block;
+            color: #856404;
+            margin-bottom: 8px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .credential .value {
+            font-size: 28px;
+            letter-spacing: 6px;
+            color: #000;
+            background: #fff;
+            padding: 12px;
+            border-radius: 4px;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .warning strong {
+            color: #856404;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Confirm Two-Factor Authentication</h1>
+        </div>
+
+        <div class="content">
+            <h2>Hello {{UserName}}!</h2>
+
+            <p>An administrator is setting up two-factor authentication (2FA) for your account on {{CompanyName}}. To finish enabling it, enter the code below in the setup screen.</p>
+
+            <div class="credential">
+                <strong>Your Verification Code</strong>
+                <div class="value">{{VerificationCode}}</div>
+            </div>
+
+            <div class="warning">
+                <strong>&#9888; Didn't request this?</strong>
+                <p>If you weren't expecting 2FA to be set up on your account right now, do not share this code with anyone and contact your system administrator immediately.</p>
+            </div>
+
+            <p>This code expires in {{ExpiryMinutes}} minutes and can only be used once.</p>
+        </div>
+
+        <div class="footer">
+            <p><strong>{{CompanyName}}</strong></p>
+            <p>This is an automated message. Please do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>

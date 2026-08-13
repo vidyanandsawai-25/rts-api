@@ -30,6 +30,16 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
             .FirstOrDefaultAsync(u => u.UserName.ToUpper() == username.ToUpper(), cancellationToken);
     }
 
+    public async Task<UserEntity?> GetByUsernameOrEmailAsync(string usernameOrEmail, CancellationToken cancellationToken = default)
+    {
+        var normalized = usernameOrEmail.ToUpper();
+        return await _context.UserMasters
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.IsActive &&
+                (u.UserName.ToUpper() == normalized || (u.Email != null && u.Email.ToUpper() == normalized)),
+                cancellationToken);
+    }
+
     public async Task UpdateLastLoginAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await _context.UserMasters
@@ -73,5 +83,81 @@ public class UserRepository : Repository<UserEntity, int>, IUserRepository
             user.LockedUntilAt = null;
             await _context.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    public async Task SetPendingTwoFactorSecretAsync(int userId, string encryptedSecret, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.UserMasters
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user == null) return;
+
+        user.TwoFactorSecretEncrypted = encryptedSecret;
+        user.TwoFactorEnabled = false;
+        user.TwoFactorEnabledAt = null;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> EnableTwoFactorAsync(int userId, string newSecurityStamp, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.UserMasters
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user == null) return false;
+
+        user.TwoFactorEnabled = true;
+        user.TwoFactorEnabledAt = DateTime.UtcNow;
+        user.SecurityStamp = newSecurityStamp;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> DisableTwoFactorAsync(int userId, string newSecurityStamp, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.UserMasters
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user == null) return false;
+
+        user.TwoFactorEnabled = false;
+        user.TwoFactorEnabledAt = null;
+        user.TwoFactorSecretEncrypted = null;
+        user.SecurityStamp = newSecurityStamp;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task UpdateSecurityStampAsync(int userId, string newSecurityStamp, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.UserMasters
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user == null) return;
+
+        user.SecurityStamp = newSecurityStamp;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<string?> GetSecurityStampAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await _context.UserMasters
+            .AsNoTracking()
+            .Where(u => u.Id == userId)
+            .Select(u => u.SecurityStamp)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<bool> ResetPasswordAsync(int userId, string newPasswordHash, string newSecurityStamp, CancellationToken cancellationToken = default)
+    {
+        var user = await _context.UserMasters
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user == null) return false;
+
+        user.PasswordHash = newPasswordHash;
+        user.MustChangePassword = false;
+        user.SecurityStamp = newSecurityStamp;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 }

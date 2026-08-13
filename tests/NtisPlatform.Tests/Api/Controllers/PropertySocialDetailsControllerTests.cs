@@ -516,35 +516,37 @@ public class PropertySocialDetailsControllerTests
     #region Delete Tests
 
     [Fact]
-    public async Task Delete_WithValidId_ReturnsNoContent()
+    public async Task DeleteByPropertyAndAttribute_WithValidParams_ReturnsOk()
     {
         // Arrange
-        var id = 1;
+        var propertyId = 100;
+        var socialAttributeId = 5;
 
-        _mockService.Setup(s => s.DeleteAsync(id, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         // Act
-        var result = await _controller.Delete(id, CancellationToken.None);
+        var result = await _controller.DeleteByPropertyAndAttribute(propertyId, socialAttributeId, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
         var apiResponse = Assert.IsType<ApiResponse<PropertySocialDetailsDto>>(okResult.Value);
         Assert.True(apiResponse.Success);
-        _mockService.Verify(s => s.DeleteAsync(id, It.IsAny<CancellationToken>()), Times.Once);
+        _mockService.Verify(s => s.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Delete_WithNonExistentId_ReturnsNotFound()
+    public async Task DeleteByPropertyAndAttribute_WithNonExistentParams_ReturnsErrorResponse()
     {
         // Arrange
-        var id = 999;
+        var propertyId = 999;
+        var socialAttributeId = 999;
 
-        _mockService.Setup(s => s.DeleteAsync(id, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         // Act
-        var result = await _controller.Delete(id, CancellationToken.None);
+        var result = await _controller.DeleteByPropertyAndAttribute(propertyId, socialAttributeId, CancellationToken.None);
 
         // Assert
         var okResult = Assert.IsType<OkObjectResult>(result);
@@ -554,16 +556,17 @@ public class PropertySocialDetailsControllerTests
     }
 
     [Fact]
-    public async Task Delete_WithException_ReturnsInternalServerError()
+    public async Task DeleteByPropertyAndAttribute_WithException_ReturnsInternalServerError()
     {
         // Arrange
-        var id = 1;
+        var propertyId = 100;
+        var socialAttributeId = 5;
 
-        _mockService.Setup(s => s.DeleteAsync(id, It.IsAny<CancellationToken>()))
+        _mockService.Setup(s => s.DeleteByPropertyAndAttributeAsync(propertyId, socialAttributeId, It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Unexpected error"));
 
         // Act
-        var result = await _controller.Delete(id, CancellationToken.None);
+        var result = await _controller.DeleteByPropertyAndAttribute(propertyId, socialAttributeId, CancellationToken.None);
 
         // Assert
         var statusCodeResult = Assert.IsType<ObjectResult>(result);

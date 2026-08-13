@@ -142,6 +142,28 @@ public class AssetAssessmentYearRangeCVControllerTests
     }
 
     [Fact]
+    public async Task GetAll_WithMarkedForDeletionFilter_ReturnsFilteredResults()
+    {
+        // MarkedForDeletion was recently added to AssetAssessmentYearRangeMasterCVQueryParameters
+        // (split out into its own file alongside the AssetAgeFactorCV/AssetNatureFactorCV siblings).
+        var controller = Create(out var service, out _, out _);
+        var query = new AssetAssessmentYearRangeMasterCVQueryParameters { MarkedForDeletion = true };
+        var pagedResult = new PagedResult<AssetAssessmentYearRangeMasterCVDto>(
+            new List<AssetAssessmentYearRangeMasterCVDto> { new() { Id = 3, FromYear = 2011, ToYear = 2015, IsActive = false } },
+            1, 1, 10);
+
+        service.Setup(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pagedResult);
+
+        var result = await controller.GetAll(query, CancellationToken.None);
+
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var returnedData = Assert.IsType<PagedResult<AssetAssessmentYearRangeMasterCVDto>>(okResult.Value);
+        Assert.Single(returnedData.Items);
+        service.Verify(s => s.GetAllAsync(query, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GetAll_WithCancellationToken_PassesTokenToService()
     {
         var controller = Create(out var service, out _, out _);

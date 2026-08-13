@@ -1,4 +1,4 @@
-﻿namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
+namespace NtisPlatform.Application.DTOs.RTSApplicationApproval;
 
 /// <summary>
 /// Application Dashboard cards Counts
@@ -14,7 +14,7 @@ public class RTSApplicationDashboardCardsCountDto
     public int? OverdueApplications { get; set; }
     public int DueToday { get; set; }
     /// <summary>
-    /// Application Dashboard Cards appplication status wise percentage Percentage 
+    /// Application Dashboard Cards appplication status wise percentage Percentage
     /// </summary>
     public decimal PendingPercentage { get; set; }
     public decimal ApprovedPercentage { get; set; }

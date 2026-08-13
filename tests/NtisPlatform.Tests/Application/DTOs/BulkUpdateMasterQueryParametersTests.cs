@@ -69,21 +69,6 @@ public class BulkUpdateMasterQueryParametersTests
     }
 
     [Fact]
-    public void BulkUpdateMasterQueryParameters_DisplaySequence_HasFilterableAndSortableAttributes()
-    {
-        // Arrange
-        var property = typeof(BulkUpdateMasterQueryParameters).GetProperty(nameof(BulkUpdateMasterQueryParameters.DisplaySequence));
-
-        // Act
-        var hasFilterable = property?.GetCustomAttributes(typeof(FilterableAttribute), false).Any();
-        var hasSortable = property?.GetCustomAttributes(typeof(SortableAttribute), false).Any();
-
-        // Assert
-        hasFilterable.Should().BeTrue();
-        hasSortable.Should().BeTrue();
-    }
-
-    [Fact]
     public void BulkUpdateMasterQueryParameters_CanSetUpdateCode()
     {
         // Arrange
@@ -123,19 +108,6 @@ public class BulkUpdateMasterQueryParametersTests
     }
 
     [Fact]
-    public void BulkUpdateMasterQueryParameters_CanSetDisplaySequence()
-    {
-        // Arrange
-        var queryParameters = new BulkUpdateMasterQueryParameters();
-
-        // Act
-        queryParameters.DisplaySequence = 5;
-
-        // Assert
-        queryParameters.DisplaySequence.Should().Be(5);
-    }
-
-    [Fact]
     public void BulkUpdateMasterQueryParameters_AllPropertiesAreNullableOrOptional()
     {
         // Arrange & Act
@@ -145,7 +117,6 @@ public class BulkUpdateMasterQueryParametersTests
         queryParameters.UpdateCode.Should().BeNull();
         queryParameters.UpdateName.Should().BeNull();
         queryParameters.ReferenceTableName.Should().BeNull();
-        queryParameters.DisplaySequence.Should().BeNull();
     }
 
     [Fact]
@@ -158,12 +129,10 @@ public class BulkUpdateMasterQueryParametersTests
         queryParameters.UpdateCode = "PROP";
         queryParameters.UpdateName = "Property";
         queryParameters.ReferenceTableName = "PropertyTypeMaster";
-        queryParameters.DisplaySequence = 1;
 
         // Assert
         queryParameters.UpdateCode.Should().Be("PROP");
         queryParameters.UpdateName.Should().Be("Property");
         queryParameters.ReferenceTableName.Should().Be("PropertyTypeMaster");
-        queryParameters.DisplaySequence.Should().Be(1);
     }
 }

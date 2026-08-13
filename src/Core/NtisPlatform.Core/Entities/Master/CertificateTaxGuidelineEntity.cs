@@ -5,12 +5,12 @@ namespace NtisPlatform.Core.Entities.Master;
 /// </summary>
 public class CertificateTaxGuidelineEntity : BaseEntity
 {
-    public string GuidelineCode { get; set; } = string.Empty;
-    public string GuidelineName { get; set; } = string.Empty;
+    public string? GuidelineCode { get; set; }
+    public string? GuidelineName { get; set; }
     public string? Description { get; set; }
-    public string GuidelineGroup { get; set; } = string.Empty;
+    public string? GuidelineGroup { get; set; }
     public int DisplayOrder { get; set; }
-    public string DataType { get; set; } = string.Empty;
-    public string GuidelineValue { get; set; } = string.Empty;
+    public string? DataType { get; set; }
+    public string? GuidelineValue { get; set; }
     public string? AllowedValues { get; set; }
 }

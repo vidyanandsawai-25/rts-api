@@ -25,4 +25,40 @@ public class LoginResponseDto
     public string? Message { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public bool RequiresPasswordChange { get; set; }
+
+    /// <summary>
+    /// True when the password was valid but the account has 2FA enabled — no access or refresh
+    /// token has been issued yet. The client must call the two-factor verify endpoint with
+    /// <see cref="ChallengeId"/> to complete login. <see cref="Token"/> and
+    /// <see cref="RefreshToken"/> are guaranteed null whenever this is true.
+    /// </summary>
+    public bool RequiresTwoFactor { get; set; }
+
+    /// <summary>
+    /// Which verification flow the pending challenge belongs to: "totp" (authenticator app or
+    /// recovery code, verify via <c>two-factor/verify</c>) or "otp" (emailed/texted one-time
+    /// code, verify via <c>login-otp/verify</c>). Only present when
+    /// <see cref="RequiresTwoFactor"/> is true.
+    /// </summary>
+    public string? TwoFactorMethod { get; set; }
+
+    /// <summary>
+    /// Opaque, one-time-use challenge id for the pending MFA verification. Only present when
+    /// <see cref="RequiresTwoFactor"/> is true.
+    /// </summary>
+    public string? ChallengeId { get; set; }
+
+    /// <summary>
+    /// UTC expiry of the MFA challenge. Only present when <see cref="RequiresTwoFactor"/> is true.
+    /// </summary>
+    public DateTime? ChallengeExpiresAtUtc { get; set; }
+
+    /// <summary>
+    /// True when an administrator has required this account to set up 2FA but the user hasn't
+    /// completed enrollment yet. Unlike <see cref="RequiresTwoFactor"/>, this does NOT block
+    /// login — <see cref="Token"/>/<see cref="RefreshToken"/> are still issued normally. It's a
+    /// signal for the frontend to route the user to the authenticator setup page instead of
+    /// their usual landing page.
+    /// </summary>
+    public bool RequiresTwoFactorSetup { get; set; }
 }

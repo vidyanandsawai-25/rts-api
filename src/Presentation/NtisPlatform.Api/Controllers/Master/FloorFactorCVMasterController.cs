@@ -1,9 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NtisPlatform.Api.Extensions;
 using NtisPlatform.Application.DTOs;
 using NtisPlatform.Application.DTOs.Bulk;
 using NtisPlatform.Application.DTOs.Master.FloorFactorCVMaster;
+using NtisPlatform.Application.Interfaces;
 using NtisPlatform.Application.Interfaces.Master;
+using NtisPlatform.Core.Entities.Master;
 
 namespace NtisPlatform.Api.Controllers.Master;
 
@@ -12,11 +15,19 @@ namespace NtisPlatform.Api.Controllers.Master;
 public class FloorFactorCVMasterController : ControllerBase
 {
     private readonly IFloorFactorCVMasterService _service;
+    private readonly IHardDeleteCleanupService _cleanupService;
+    private readonly IReferenceValidationService _referenceValidationService;
     private readonly ILogger<FloorFactorCVMasterController> _logger;
 
-    public FloorFactorCVMasterController(IFloorFactorCVMasterService service, ILogger<FloorFactorCVMasterController> logger)
+    public FloorFactorCVMasterController(
+        IFloorFactorCVMasterService service,
+        IHardDeleteCleanupService cleanupService,
+        IReferenceValidationService referenceValidationService,
+        ILogger<FloorFactorCVMasterController> logger)
     {
         _service = service;
+        _cleanupService = cleanupService;
+        _referenceValidationService = referenceValidationService;
         _logger = logger;
     }
 
@@ -51,4 +62,17 @@ public class FloorFactorCVMasterController : ControllerBase
     [HttpDelete("Bulk")]
     public Task<IActionResult> BulkDelete([FromBody] int[] ids, CancellationToken ct)
         => this.ExecuteBulkDelete(_service, ids, _logger, ct);
+
+    [Authorize]
+    [HttpDelete("{id}/purge")]
+    public Task<IActionResult> Purge(int id, CancellationToken ct)
+        => this.ExecuteForceDelete<FloorFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, id, _logger, ct);
+
+    /// <summary>
+    /// Permanently deletes multiple records by IDs. This is an irreversible operation.
+    /// </summary>
+    [Authorize]
+    [HttpDelete("Bulk/purge")]
+    public Task<IActionResult> BulkPurge([FromBody] int[] ids, CancellationToken ct)
+        => this.ExecuteBulkForceDelete<FloorFactorCVMasterEntity, int>(_cleanupService, _referenceValidationService, ids, _logger, ct);
 }

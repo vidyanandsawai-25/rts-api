@@ -20,7 +20,7 @@ public class JwtTokenService : ITokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(int userId, string username)
+    public string GenerateToken(int userId, string username, string authenticationMethod = "pwd", string? securityStamp = null)
     {
         var jwtKey = _configuration["Jwt:Key"];
         var jwtIssuer = _configuration["Jwt:Issuer"];
@@ -40,9 +40,14 @@ public class JwtTokenService : ITokenService
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, username),
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new Claim("amr", authenticationMethod)
         };
 
+        if (!string.IsNullOrEmpty(securityStamp))
+        {
+            claims.Add(new Claim("sst", securityStamp));
+        }
 
         var token = new JwtSecurityToken(
             issuer: jwtIssuer,

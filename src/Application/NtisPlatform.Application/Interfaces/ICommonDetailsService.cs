@@ -11,7 +11,8 @@ public interface ICommonDetailsService
     Task<PagedResult<PropertyPreviewDto>> FilterPropertiesAsync(FilterPropertiesRequestDto request, CancellationToken ct);
     Task<PagedResult<PropertyPreviewDto>> FilterPropertiesByCategoryAsync(FilterPropertiesByCategoryRequestDto request, CancellationToken ct);
     Task<BulkUpdateResultDto> BulkUpdateAsync(BulkUpdateRequestDto request, int updatedBy, string? ipAddress, CancellationToken ct);
-    Task<byte[]> ExportPropertiesToExcelAsync(FilterPropertiesRequestDto request, CancellationToken ct);
+    Task<List<BulkUpdateResultDto>> BulkUpdateBatchAsync(List<BulkUpdateRequestDto> requests, int updatedBy, string? ipAddress, CancellationToken ct);
+    Task<byte[]> ExportPropertiesToExcelAsync(ExportPropertiesRequestDto request, CancellationToken ct);
     Task<BulkUpdateResultDto> ImportPropertiesFromExcelAsync(
         string updateCode, Stream fileStream, int updatedBy, string? ipAddress, CancellationToken ct);
 
@@ -20,4 +21,10 @@ public interface ICommonDetailsService
 
     Task<byte[]> ExportUpdateHistoryToExcelAsync(
         UpdateHistoryQueryParameters request, CancellationToken ct);
+
+    Task<List<SourceTableLookupDto>> GetSourceTablesAsync(CancellationToken ct);
+    Task<List<SourceTableFieldLookupDto>> GetSourceTableFieldsAsync(int sourceTableId, CancellationToken ct);
+
+    Task<BulkUpdateDefinitionResultDto> CreateFromSourceTableAsync(
+        CreateBulkUpdateDefinitionFromSourceDto request, int createdBy, CancellationToken ct);
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -56,7 +57,7 @@ public class AssetPhotoServiceTests
 
         var service = new AssetPhotoService(context, uow.Object);
 
-        var photoId = await service.CreateAsync(10, 2, 1, "Front photo", 42);
+        var photoId = await service.CreateAsync(10, 2, null, 1, "Front photo", 42);
 
         Assert.True(photoId > 0);
         uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -68,7 +69,7 @@ public class AssetPhotoServiceTests
         var context = GetInMemoryDbContext();
         var service = new AssetPhotoService(context, Mock.Of<IUnitOfWork>());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(999, 2, 1, "test", 42));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(999, 2, null, 1, "test", 42));
     }
 
     [Fact]
@@ -80,7 +81,70 @@ public class AssetPhotoServiceTests
 
         var service = new AssetPhotoService(context, Mock.Of<IUnitOfWork>());
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(10, 999, 1, "test", 42));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(10, 999, null, 1, "test", 42));
+    }
+
+    [Fact]
+    public async Task CreateAsync_ValidSubUnitDetailsId_CreatesPhotoRecordLinkedToSubUnit()
+    {
+        var context = GetInMemoryDbContext();
+        var uow = new Mock<IUnitOfWork>();
+
+        context.AssetMaster.Add(new AssetMasterEntity { Id = 10, CreatedDate = DateTime.Now });
+        context.Set<SubUnitsDetailsEntity>().Add(new SubUnitsDetailsEntity
+        {
+            Id = 5,
+            AssetId = 10,
+            FloorId = 1,
+            ConstructionTypeId = 1,
+            TypeOfUseId = 1,
+            CreatedDate = DateTime.Now
+        });
+        await context.SaveChangesAsync();
+
+        var service = new AssetPhotoService(context, uow.Object);
+
+        var photoId = await service.CreateAsync(10, 2, 5, 1, "Sub-unit photo", 42);
+
+        var savedPhoto = context.ChangeTracker.Entries<AssetPhotoEntity>()
+            .Select(e => e.Entity)
+            .Single(p => p.Id == photoId);
+        Assert.Equal(5, savedPhoto.SubUnitsDetailsId);
+        uow.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateAsync_SubUnitDetailsNotFound_ThrowsArgumentException()
+    {
+        var context = GetInMemoryDbContext();
+        context.AssetMaster.Add(new AssetMasterEntity { Id = 10, CreatedDate = DateTime.Now });
+        await context.SaveChangesAsync();
+
+        var service = new AssetPhotoService(context, Mock.Of<IUnitOfWork>());
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(10, 2, 999, 1, "test", 42));
+    }
+
+    [Fact]
+    public async Task CreateAsync_SubUnitDetailsBelongsToDifferentAsset_ThrowsArgumentException()
+    {
+        var context = GetInMemoryDbContext();
+        context.AssetMaster.Add(new AssetMasterEntity { Id = 10, CreatedDate = DateTime.Now });
+        context.AssetMaster.Add(new AssetMasterEntity { Id = 20, CreatedDate = DateTime.Now });
+        context.Set<SubUnitsDetailsEntity>().Add(new SubUnitsDetailsEntity
+        {
+            Id = 5,
+            AssetId = 20, // belongs to a DIFFERENT asset than the one requested below
+            FloorId = 1,
+            ConstructionTypeId = 1,
+            TypeOfUseId = 1,
+            CreatedDate = DateTime.Now
+        });
+        await context.SaveChangesAsync();
+
+        var service = new AssetPhotoService(context, Mock.Of<IUnitOfWork>());
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.CreateAsync(10, 2, 5, 1, "test", 42));
     }
 
     [Fact]

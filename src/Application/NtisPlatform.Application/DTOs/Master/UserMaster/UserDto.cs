@@ -19,6 +19,13 @@ public class UserDto : BaseDtos
     public string? Language { get; set; }
     public string? Remark { get; set; }
     public int? EmployeeTypeID { get; set; }
+
+    /// <summary>Whether authenticator-app 2FA is currently enabled. Never exposes the secret.</summary>
+    public bool TwoFactorEnabled { get; set; }
+
+    /// <summary>Whether an administrator has required this user to set up 2FA.</summary>
+    public bool TwoFactorRequired { get; set; }
+
     public List<UserDepartmentAllocationDto>? Departments { get; set; }
     public List<UserModuleAllocationDto>? ModuleAccess { get; set; }
     public List<UserRoleAllocationDto>? RoleAllocations { get; set; }
@@ -137,12 +144,30 @@ public class ActivateUserDto : UpdateBaseDtos { }
 // MustChangePassword always forced true.
 public class ResetPasswordDto : UpdateBaseDtos { }
 
-// Returned by activate / deactivate / reset-password
+// PUT /users/{id}/require-2fa
+// Sets TwoFactorRequired = true. Does not itself enable 2FA — the user still completes
+// setup themselves; this only makes login route them to the setup page until they do.
+public class RequireTwoFactorDto : UpdateBaseDtos { }
+
+// PUT /users/{id}/unrequire-2fa
+// Clears the TwoFactorRequired policy flag. Does not disable 2FA if the user already enabled it.
+public class UnrequireTwoFactorDto : UpdateBaseDtos { }
+
+// PUT /users/{id}/reset-2fa
+// Admin-forced recovery/reset: clears the user's current authenticator enrollment and recovery
+// codes, rotates their security stamp (revoking existing sessions), and revokes refresh tokens —
+// same effect as the user's own self-service reset, but without needing their code (e.g. lost
+// device). Does not touch TwoFactorRequired.
+public class AdminResetTwoFactorDto : UpdateBaseDtos { }
+
+// Returned by activate / deactivate / reset-password / require-2fa / unrequire-2fa / reset-2fa
 public class UserSecurityStatusDto
 {
     public int Id { get; set; }
     public string UserName { get; set; } = null!;
     public bool IsActive { get; set; }
     public bool MustChangePassword { get; set; }
+    public bool TwoFactorEnabled { get; set; }
+    public bool TwoFactorRequired { get; set; }
     public DateTime? UpdatedDate { get; set; }
 }

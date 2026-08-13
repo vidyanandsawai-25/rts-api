@@ -14,9 +14,11 @@ namespace NtisPlatform.Application.Services;
 
 public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseSubmissionDetailsEntity, RoomWiseSubmissionDetailsDto, CreateRoomWiseSubmissionDetailsDto, UpdateRoomWiseSubmissionDetailsDto, RoomWiseSubmissionQueryParameters, int>, IRoomWiseSubmissionDetailsService
 {
-     
-    public RoomWiseSubmissionDetailsService( IRepository<RoomWiseSubmissionDetailsEntity, int> repository, IUnitOfWork unitOfWork,  IMapper mapper) : base(repository, unitOfWork, mapper)
+    private readonly IRepository<RoomWiseMinusDataEntity, int> _roomWiseMinusRepository;
+
+    public RoomWiseSubmissionDetailsService( IRepository<RoomWiseSubmissionDetailsEntity, int> repository, IUnitOfWork unitOfWork,  IMapper mapper, IRepository<RoomWiseMinusDataEntity, int> roomWiseMinusRepository) : base(repository, unitOfWork, mapper)
     {
+        _roomWiseMinusRepository = roomWiseMinusRepository;
     } 
 
    public override async Task<PagedResult<RoomWiseSubmissionDetailsDto>> GetAllAsync(
@@ -204,7 +206,18 @@ public class RoomWiseSubmissionDetailsService :  BaseCommonCrudService<RoomWiseS
             .ToListAsync(cancellationToken);
 
         foreach (var entity in existing)
+        {
+            // Soft-delete child RoomWiseMinusData records first
+            var minusRecords = await _roomWiseMinusRepository.GetQueryable()
+                .Where(m => m.RoomWiseSubmissionId == entity.Id && m.IsActive)
+                .ToListAsync(cancellationToken);
+
+            foreach (var minus in minusRecords)
+                await _roomWiseMinusRepository.DeleteAsync(minus.Id, cancellationToken);
+
+            // Then soft-delete the parent submission record
             await _repository.DeleteAsync(entity.Id, cancellationToken);
+        }
     }
 
    

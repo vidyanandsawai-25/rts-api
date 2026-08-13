@@ -95,6 +95,7 @@ public class TaxPendingDetailsSummaryTests
         {
             context.TaxMaster.Add(new TaxMasterEntity { Id = taxId, TaxName = $"Component{taxId}", TaxCode = $"C{taxId}", DisplayOrder = taxId, TaxCategoryId = 1, IsActive = true });
         }
+        context.TaxMaster.Add(new TaxMasterEntity { Id = 99, TaxName = "TaxTotal", TaxCode = "TaxTotal", DisplayOrder = 99, TaxCategoryId = 1, IsActive = true });
 
         // Exactly ONE active NETTAX row per (PropertyId, TaxId) -- the DBA-confirmed schema has no
         // PolicyYear column, so this single current rate is used uniformly for every finance year
@@ -142,7 +143,6 @@ public class TaxPendingDetailsSummaryTests
                 ElectricBillDateRule: "FROM_FY_START", ElectricBillAddMonths: 0, ElectricBillMultiplier: 1.0m,
                 ElectricBillMinimumFinancialYear: 2016, EnableRetrospectiveTax: true,
                 NoDateRule: "DEFAULT_RETROSPECTIVE", LookbackYears: 6, DefaultRetrospectiveMultiplier: 1.0m,
-                MinimumBackdateFinancialYear: 0,
                 EnableCurrentYearProration: true, ProrationMethod: "DAILY", CurrentYearProrationStartRule: "EXACT_DATE",
                 TaxPersistenceMode: "PROPERTY_AGGREGATED",
                 SaveInPolicyTaxDetails: true, SaveInTransMast: true, DoNotUpdateNettax: true,
@@ -152,7 +152,8 @@ public class TaxPendingDetailsSummaryTests
                 ElectricBillPartialPolicyCode: "PARTIAL_ELECTRIC_BILL", ElectricBillFullPolicyCode: "ELECTRIC_BILL",
                 CertificateTaxScopeMode: "PROPERTY_WISE", AllowFloorWiseCertificateMetadata: false, EnableCcToOcSplit: true,
                 ElectricBillCertificateCodes: "ELECTRIC_BILL", RetrospectiveCurrentYearCount: 1,
-                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY"));
+                RetrospectivePendingYearCountMode: "TOTAL_MINUS_CURRENT", FloorPolicyDisplayRule: "BIGGEST_AREA_FLOOR_POLICY",
+                TaxationRateMode: "CURRENT_YEAR_FOR_ALL", TaxPercentageMode: "CURRENT_YEAR_FOR_ALL", FixedTaxPercentage: 0m));
         return mock;
     }
 
@@ -174,8 +175,9 @@ public class TaxPendingDetailsSummaryTests
         return new OccupationTaxApplicationService(
             engine, propertyRepo, certRepo, policyTaxRepo, transMastRepo, yearRepo,
             taxPendingRepo, taxPendingRetroRepo,
-            policyCodeLookup, financeYearProvider, guidelineReader.Object, unitOfWork,
-            NullLogger<OccupationTaxApplicationService>.Instance);
+            policyCodeLookup, financeYearProvider, guidelineReader.Object, Mock.Of<IHistoricalNetTaxBaselineService>(), unitOfWork,
+            NullLogger<OccupationTaxApplicationService>.Instance,
+            NtisPlatform.Tests.Helpers.NoOpTaxApplicabilityService.Instance);
     }
 
     [Fact]
@@ -250,7 +252,7 @@ public class TaxPendingDetailsSummaryTests
         // DBA-confirmed unique index (PropertyId, PolicyCodeId, TaxId) -- proves the certificate
         // family (OC) never produced a second active row per TaxId for 2024/2025's retro amounts. ----
         var policyRows = context.PolicyTaxDetails
-            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion && p.PolicyCodeId != NetTaxPolicyCodeId)
+            .Where(p => p.PropertyId == propertyId && p.IsActive && !p.MarkedForDeletion && p.PolicyCodeId != NetTaxPolicyCodeId && p.TaxId != 99)
             .ToList();
         Assert.Equal(11, policyRows.Count); // one row per TaxId, current year only
         Assert.Equal(11, policyRows.Select(p => p.TaxId).Distinct().Count()); // no duplicate TaxId

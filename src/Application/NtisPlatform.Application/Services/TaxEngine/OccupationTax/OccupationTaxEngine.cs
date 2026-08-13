@@ -99,10 +99,14 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
         // the current year is prorated exactly like an OC would be. Electricity Bill is excluded:
         // its onset is always normalized to the finance-year start (see ResolveCondition), so it
         // can never land mid-year here -- day-accurate Electric Bill billing is a separate,
-        // undocumented business rule, not implemented here to avoid inventing one.
+        // undocumented business rule, not implemented here to avoid inventing one. A 30-day grace
+        // period is also excluded from proration: a certificate landing within the first month of
+        // the finance year bills the FULL year instead, rather than a near-full prorated amount that
+        // differs from it by only a few rupees.
         if (onsetFinanceYear.StartYear == currentFinanceYear.StartYear &&
             (condition == OccupationCondition.OccupationCertificate || condition == OccupationCondition.CompletionCertificate) &&
-            onsetDate > currentFinanceYear.Start)
+            onsetDate > currentFinanceYear.Start &&
+            (onsetDate - currentFinanceYear.Start).TotalDays > 30)
         {
             currentYear = BuildProratedYear(options, currentFinanceYear, onsetDate);
         }
@@ -156,13 +160,14 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
 
     /// <summary>
     /// BR4: Build the retrospective finance years between the onset FY and the current FY
-    /// (exclusive of the current FY, which is handled separately). The window floor is the
-    /// later of (onset FY) and the configured cut-off; when no cut-off is configured the default
-    /// look-back cap applies. <see cref="OccupationTaxOptions.DefaultRetroLookbackYears"/> is the
-    /// TOTAL span of years (retro + current) per the business definition -- e.g. 6 means 5 retro
-    /// years plus the 1 current year, not 6 retro years on top of the current one -- so the floor
-    /// is CurrentFY - (DefaultRetroLookbackYears - 1).
-    /// The onset year itself is prorated from the onset date (BR5); all later retro years are full.
+    /// (exclusive of the current FY, which is handled separately). This method is only ever
+    /// called when a real certificate/electricity-bill date exists (<see cref="Compute"/> rejects
+    /// before reaching here when none is present), so the window floor is simply the onset FY --
+    /// tax is owed for every year from the actual certificate date to today, with no truncation.
+    /// <see cref="OccupationTaxOptions.DefaultRetroLookbackYears"/> is NOT consulted here; it
+    /// exists only for the no-certificate-date fallback (ComputeNoCertificateFallback in the
+    /// Application layer). The onset year itself is prorated from the onset date (BR5); all later
+    /// retro years are full.
     /// </summary>
     private List<OccupationTaxYearResult> BuildRetroYears(
         OccupationTaxOptions options,
@@ -178,20 +183,9 @@ public sealed class OccupationTaxEngine : IOccupationTaxEngine
             return results;
         }
 
-        // Determine the earliest retro finance year (the window floor).
-        int floorStartYear;
-        if (options.RetroCutoffDate.HasValue)
-        {
-            // Config-driven cut-off overrides the default look-back cap (BR4).
-            var cutoffFy = FinanceYear.ForDate(options.RetroCutoffDate.Value, currentFinanceYear.StartMonth, currentFinanceYear.StartDay);
-            floorStartYear = Math.Max(onsetFinanceYear.StartYear, cutoffFy.StartYear);
-        }
-        else
-        {
-            // Default cut-off: cap the look-back so the TOTAL span (retro + current) is N years.
-            var defaultFloor = currentFinanceYear.StartYear - (options.DefaultRetroLookbackYears - 1);
-            floorStartYear = Math.Max(onsetFinanceYear.StartYear, defaultFloor);
-        }
+        // The retro window floor is always the onset FY itself -- tax is owed for every year
+        // since the actual certificate date, full stop.
+        int floorStartYear = onsetFinanceYear.StartYear;
 
         for (var year = floorStartYear; year < currentFinanceYear.StartYear; year++)
         {

@@ -1,10 +1,27 @@
 namespace NtisPlatform.Application.Services.Rules.Effects
 {
-    /// <summary>Handles effectType "Override" — replaces the base rate with a fixed value.</summary>
+    /// <summary>Handles effectTypes like "Override", "Equal", "Equals", "Equal To", "Set", "Fixed", "=" — replaces/sets the base value equal to the effect value.</summary>
     public sealed class OverrideApplicator : IRuleEffectApplicator
     {
-        public bool CanHandle(string effectType) =>
-            effectType.Contains("override", StringComparison.OrdinalIgnoreCase);
+        private static readonly HashSet<string> SupportedAliases = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "override",
+            "equal",
+            "equals",
+            "equal to",
+            "equalto",
+            "set",
+            "fixed",
+            "="
+        };
+
+        public bool CanHandle(string effectType)
+        {
+            if (string.IsNullOrWhiteSpace(effectType))
+                return false;
+
+            return SupportedAliases.Contains(effectType.Trim());
+        }
 
         /// <summary>Result = effectValue (ignores baseRate entirely). E.g. fixed rate = 500.</summary>
         public Task<decimal> Apply(decimal baseRate, decimal effectValue) =>
