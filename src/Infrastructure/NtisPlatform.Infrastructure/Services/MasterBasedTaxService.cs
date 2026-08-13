@@ -40,7 +40,6 @@ public class MasterBasedTaxService : IMasterBasedTaxService
         int? assessmentYearRangeId,
         int pageNumber,
         int pageSize,
-        int? ruleDefinitionId = null,
         CancellationToken cancellationToken = default)
     {
         var query = _context.TaxMasterMappings
@@ -50,14 +49,6 @@ public class MasterBasedTaxService : IMasterBasedTaxService
         if (assessmentYearRangeId.HasValue)
         {
             query = query.Where(m => m.AssessmentYearRangeId == assessmentYearRangeId.Value);
-        }
-
-        if (ruleDefinitionId.HasValue)
-        {
-            // Rows seeded under a previously-linked "Choose from List" rule stay in the table
-            // (never auto-deleted) — scope to the currently selected rule so switching Rule
-            // Name doesn't show a stale mix of the old and new source's keys.
-            query = query.Where(m => m.RuleDefinitionId == ruleDefinitionId.Value);
         }
 
         query = query.OrderBy(m => m.Id);
@@ -74,7 +65,6 @@ public class MasterBasedTaxService : IMasterBasedTaxService
             {
                 Id = m.Id,
                 TaxId = m.TaxId,
-                RuleDefinitionId = m.RuleDefinitionId,
                 MasterKey = m.MasterKey,
                 DisplayValue = m.DisplayValue,
                 AssessmentYearRangeId = m.AssessmentYearRangeId,
@@ -115,22 +105,18 @@ public class MasterBasedTaxService : IMasterBasedTaxService
             // Scoped to this TaxId — a stale or mismatched Id from another tax falls through to
             // the natural-key/insert path below instead of silently overwriting that other tax's row.
             var existingById = await _context.TaxMasterMappings
-                .Where(m => ids.Contains(m.Id)
-                         && m.TaxId == request.TaxId
-                         && m.RuleDefinitionId == request.RuleDefinitionId)
+                .Where(m => ids.Contains(m.Id) && m.TaxId == request.TaxId)
                 .ToDictionaryAsync(m => m.Id, cancellationToken);
 
             // Natural-key fallback: Id-only matching misses rows the client never learned the Id
             // of (e.g. inserted moments earlier by the Data tab's auto-seed, or by a separate
-            // concurrent save) — that blind-insert path is how a stale/drifted client-side
-            // RuleDefinitionId used to create a second physical row for "the same" MasterKey+Year,
-            // since the unique index is partly keyed on RuleDefinitionId (nullable — two rows can
-            // legally differ only there and both pass the index). Load every row on file for this
-            // (TaxId, RuleDefinitionId) once — a tax's mapping set is bounded — and key it in
-            // memory by (AssessmentYearRangeId, MasterKey); a tuple-keyed .Contains/.Where does not
-            // reliably translate to SQL in EF Core, so this is one flat query, not a per-row lookup.
-            var existingForRule = await _context.TaxMasterMappings
-                .Where(m => m.TaxId == request.TaxId && m.RuleDefinitionId == request.RuleDefinitionId)
+            // concurrent save), which would otherwise blind-insert a second row for the same
+            // MasterKey+Year and trip the unique index. Load every row on file for this tax once —
+            // a tax's mapping set is bounded — and key it in memory by (AssessmentYearRangeId,
+            // MasterKey); a tuple-keyed .Contains/.Where does not reliably translate to SQL in
+            // EF Core, so this is one flat query, not a per-row lookup.
+            var existingForTax = await _context.TaxMasterMappings
+                .Where(m => m.TaxId == request.TaxId)
                 .ToListAsync(cancellationToken);
 
             static (int Year, string Key) NaturalKey(int yearId, string masterKey) =>
@@ -138,7 +124,7 @@ public class MasterBasedTaxService : IMasterBasedTaxService
 
             // GroupBy + First (not a straight ToDictionary) defensively tolerates any duplicate
             // rows that may already exist in the table today, instead of throwing on load.
-            var existingByNaturalKey = existingForRule
+            var existingByNaturalKey = existingForTax
                 .GroupBy(m => NaturalKey(m.AssessmentYearRangeId, m.MasterKey))
                 .ToDictionary(g => g.Key, g => g.First());
 
@@ -167,7 +153,6 @@ public class MasterBasedTaxService : IMasterBasedTaxService
                     entity.ResultMode = row.ResultMode;
                     entity.ResultBase = row.ResultBase;
                     entity.ResultValue = row.ResultValue;
-                    entity.RuleDefinitionId = request.RuleDefinitionId;
                     entity.UpdatedBy = request.UpdatedBy;
                     entity.UpdatedDate = DateTime.Now;
                 }
@@ -176,7 +161,6 @@ public class MasterBasedTaxService : IMasterBasedTaxService
                     entity = new TaxMasterMappingEntity
                     {
                         TaxId = request.TaxId,
-                        RuleDefinitionId = request.RuleDefinitionId,
                         MasterKey = row.MasterKey,
                         DisplayValue = row.DisplayValue,
                         AssessmentYearRangeId = row.AssessmentYearRangeId,
@@ -218,14 +202,8 @@ public class MasterBasedTaxService : IMasterBasedTaxService
                      && m.AssessmentYearRangeId == request.AssessmentYearRangeId
                      && m.IsActive);
 
-        // Scope to the requesting rule when provided — a Hybrid tax can have more than one
-        // rule's rows coexisting at the same TaxId+year; without this a bulk-apply meant for
-        // one rule would also silently overwrite a different rule's rows.
-        if (request.RuleDefinitionId.HasValue)
-        {
-            query = query.Where(m => m.RuleDefinitionId == request.RuleDefinitionId.Value);
-        }
-
+        // Every mapping row for this tax+year is in scope: a tax's mappings now belong to the tax
+        // itself, so there is no longer a second rule's set that a bulk-apply could overwrite.
         var rows = await query.ToListAsync(cancellationToken);
 
         foreach (var row in rows)

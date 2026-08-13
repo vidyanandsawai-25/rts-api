@@ -69,8 +69,7 @@ internal static class DynamicTaxTestContext
     public static TaxConditionRuleEntity ConditionRule(
         int id, int taxId, int sortOrder = 1, string resultMode = "FIXED", string resultBase = "NONE",
         decimal resultValue = 0m, string conditionsJson = "[]", bool isActive = true,
-        int? assessmentYearRangeId = null, int? referenceTaxId = null, string? unitFieldId = null,
-        int? ruleDefinitionId = null) => new()
+        int? assessmentYearRangeId = null, int? referenceTaxId = null, string? unitFieldId = null) => new()
         {
             Id = id,
             TaxId = taxId,
@@ -83,6 +82,5 @@ internal static class DynamicTaxTestContext
             AssessmentYearRangeId = assessmentYearRangeId,
             ReferenceTaxId = referenceTaxId,
             UnitFieldId = unitFieldId,
-            RuleDefinitionId = ruleDefinitionId,
         };
 }

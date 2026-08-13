@@ -13,11 +13,10 @@ public interface ITaxConditionRuleService
 {
     /// <summary>
     /// All condition rows for a tax (both active and inactive — admins need to see and
-    /// re-enable inactive rows), optionally filtered by the linked rule.
+    /// re-enable inactive rows).
     /// </summary>
     Task<PagedResult<TaxConditionRuleDto>> GetByTaxAsync(
         int taxId,
-        int? ruleDefinitionId,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken = default);

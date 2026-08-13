@@ -31,7 +31,6 @@ public class TaxConditionRuleDto
     [Range(1, int.MaxValue, ErrorMessage = "ConditionBasedTax_TaxId_Invalid")]
     public int TaxId { get; set; }
 
-    public int? RuleDefinitionId { get; set; }
     public int SortOrder { get; set; } = 0;
 
     public List<TaxConditionItemDto> Conditions { get; set; } = new();
@@ -79,7 +78,6 @@ public class SaveTaxConditionRuleRequest
     [Range(1, int.MaxValue, ErrorMessage = "ConditionBasedTax_TaxId_Invalid")]
     public int TaxId { get; set; }
 
-    public int? RuleDefinitionId { get; set; }
     public int? UpdatedBy { get; set; }
 
     /// <summary>Empty list is valid — "zero condition rows" is a legitimate state.</summary>

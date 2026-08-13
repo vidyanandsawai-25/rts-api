@@ -3229,7 +3229,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.MasterKey).IsRequired().HasMaxLength(50);
             entity.Property(e => e.DisplayValue).HasMaxLength(200);
             entity.Property(e => e.AssessmentYearRangeId).IsRequired();
@@ -3241,23 +3240,18 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.CreatedDate).HasDefaultValueSql("GETDATE()");
             entity.Property(e => e.UpdatedBy);
             entity.Property(e => e.UpdatedDate);
-            // Scoped by RuleDefinitionId (not just Tax+Year+Key): a tax â€” especially a HYBRID
-            // one â€” can have more than one "Choose from List" rule attached to it over time,
-            // and each rule's master-key vocabulary (e.g. OwnerType categories vs PropertyType
-            // ids) is its own independent namespace. Without RuleDefinitionId in the key, two
-            // unrelated rules attached to the same tax that happen to reuse a key string (e.g.
-            // both have an "Ex. Militry Soldier"/"Self" entry) at the same Assessment Year could
-            // never coexist, blocking Save/Seed with an opaque unique-constraint violation.
-            entity.HasIndex(e => new { e.TaxId, e.RuleDefinitionId, e.AssessmentYearRangeId, e.MasterKey })
+            // Natural key is (Tax, Year, MasterKey). RuleDefinitionId was previously part of this
+            // key so a tax could hold mapping sets from several rules at once; that is no longer
+            // supported — a tax's mappings belong to the tax, and switching its rule no longer
+            // leaves a second, invisible set behind. One consequence to be aware of: two rules
+            // whose master-key vocabularies overlap can no longer both be configured on the same
+            // tax at the same year.
+            entity.HasIndex(e => new { e.TaxId, e.AssessmentYearRangeId, e.MasterKey })
                   .IsUnique()
-                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Rule_Year_Key");
+                  .HasDatabaseName("UQ_TaxMasterMapping_Tax_Year_Key");
             entity.HasOne(e => e.Tax)
                   .WithMany()
                   .HasForeignKey(e => e.TaxId)
-                  .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.RuleDefinition)
-                  .WithMany()
-                  .HasForeignKey(e => e.RuleDefinitionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -3268,7 +3262,6 @@ public class ApplicationDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.TaxId).IsRequired();
-            entity.Property(e => e.RuleDefinitionId);
             entity.Property(e => e.SortOrder).IsRequired().HasDefaultValue(0);
             entity.Property(e => e.ConditionsJson).IsRequired().HasColumnType("nvarchar(max)");
             entity.Property(e => e.AssessmentYearRangeId);
@@ -3297,10 +3290,6 @@ public class ApplicationDbContext : DbContext
             entity.HasOne(e => e.ReferenceTax)
                   .WithMany()
                   .HasForeignKey(e => e.ReferenceTaxId)
-                  .OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(e => e.RuleDefinition)
-                  .WithMany()
-                  .HasForeignKey(e => e.RuleDefinitionId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
