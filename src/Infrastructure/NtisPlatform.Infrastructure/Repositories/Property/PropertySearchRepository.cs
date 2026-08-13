@@ -369,12 +369,12 @@ public class PropertySearchRepository : IPropertySearchRepository
                 {
                     var rvOrCv = valuationMethod;
 
-                    // Get matching property IDs from TransMast, scoped to the current fiscal year
+                    // Get matching property IDs from TransMast, taking the latest active assessment
                     var matchingPropertyIds = _context.TransMast
                         .AsNoTracking()
-                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv && t.FinanceYearId == currentFinanceYearId)
+                        .Where(t => t.IsActive && !t.MarkedForDeletion && t.CalculationType == rvOrCv)
                         .GroupBy(t => t.PropertyId)
-                        .Select(g => new { PropertyId = g.Key, Value = g.Max(x => x.CalculationValue) })
+                        .Select(g => new { PropertyId = g.Key, Value = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault() })
                         .Where(x =>
                             (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
                             (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
@@ -388,12 +388,14 @@ public class PropertySearchRepository : IPropertySearchRepository
                 else if (valuationMethod == "TOTAL TAX")
                 {
                     var matchingPropertyIds = (
-                        from t in _context.TransMast.AsNoTracking()
-                        join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-                        where t.IsActive && !t.MarkedForDeletion && t.FinanceYearId == currentFinanceYearId
-                              && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
-                        group t by t.PropertyId into g
-                        select new { PropertyId = g.Key, Value = g.Sum(x => x.TaxAmount) })
+                        from td in _context.PolicyTaxDetails.AsNoTracking()
+                        join tax in _context.TaxMaster.AsNoTracking() on td.TaxId equals tax.Id
+                        join pcm in _context.PolicyCodeMaster.AsNoTracking() on td.PolicyCodeId equals pcm.Id
+                        where td.IsActive && !td.MarkedForDeletion
+                              && tax.IsActive && tax.TaxCode != TaxTotalCode
+                              && pcm.IsActive && pcm.PolicyCode == "NETTAX"
+                        group td by td.PropertyId into g
+                        select new { PropertyId = g.Key, Value = g.Sum(x => x.TaxAmount ?? 0m) })
                         .Where(x =>
                             (filterType.Equals("Exact Value", StringComparison.OrdinalIgnoreCase) && x.Value == amount) ||
                             (filterType.Equals("More Than", StringComparison.OrdinalIgnoreCase) && x.Value > amount) ||
@@ -433,53 +435,52 @@ public class PropertySearchRepository : IPropertySearchRepository
         {
             var allPropertyIds = await query.Select(x => x.Property.Id).ToListAsync(cancellationToken);
 
-            // Get RV values (current fiscal year only)
+            // RV (Rateable Value) from TransMast where CalculationType = 'RV'
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV"
-                    && t.FinanceYearId == currentFinanceYearId)
+                    && t.CalculationType == "RV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    RateableValue = g.Max(x => x.CalculationValue)
+                    RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get CV values (current fiscal year only)
+            // CV (Capital Value) from TransMast where CalculationType = 'CV'
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     allPropertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV"
-                    && t.FinanceYearId == currentFinanceYearId)
+                    && t.CalculationType == "CV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    CapitalValue = g.Max(x => x.CalculationValue)
+                    CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
                 })
                 .ToListAsync(cancellationToken);
 
-            // Get TaxTotal values (current fiscal year only)
+            // Total Tax from active PolicyTaxDetails (excluding sentinel TaxTotal row)
             var totalTaxAmounts = await (
-                from t in _context.TransMast.AsNoTracking()
-                join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-                where allPropertyIds.Contains(t.PropertyId)
-                      && t.IsActive
-                      && !t.MarkedForDeletion
-                      && t.FinanceYearId == currentFinanceYearId
+                from td in _context.PolicyTaxDetails.AsNoTracking()
+                join tax in _context.TaxMaster.AsNoTracking() on td.TaxId equals tax.Id
+                join pcm in _context.PolicyCodeMaster.AsNoTracking() on td.PolicyCodeId equals pcm.Id
+                where allPropertyIds.Contains(td.PropertyId)
+                      && td.IsActive
+                      && !td.MarkedForDeletion
                       && tax.IsActive
-                      && tax.TaxCode == TaxTotalCode
-                      && tax.TaxName == TaxTotalName
-                group t by t.PropertyId into g
-                select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
+                      && tax.TaxCode != TaxTotalCode
+                      && pcm.IsActive
+                      && pcm.PolicyCode == "NETTAX"
+                group td by td.PropertyId into g
+                select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount ?? 0m) }
             ).ToListAsync(cancellationToken);
 
             rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
@@ -518,54 +519,53 @@ public class PropertySearchRepository : IPropertySearchRepository
         // Load valuation values if not already loaded for Top N filter
         if (!isTopNFilter)
         {
-            // RV (Rateable Value) from TransMast where CalculationType = 'RV', current fiscal year only
+            // RV (Rateable Value) from TransMast where CalculationType = 'RV'
             var rvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "RV"
-                    && t.FinanceYearId == currentFinanceYearId)
+                    && t.CalculationType == "RV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    RateableValue = g.Max(x => x.CalculationValue)
+                    RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
                 })
                 .ToListAsync(cancellationToken);
 
-            // CV (Capital Value) from TransMast where CalculationType = 'CV', current fiscal year only
+            // CV (Capital Value) from TransMast where CalculationType = 'CV'
             var cvValues = await _context.TransMast
                 .AsNoTracking()
                 .Where(t =>
                     propertyIds.Contains(t.PropertyId)
                     && t.IsActive
                     && !t.MarkedForDeletion
-                    && t.CalculationType == "CV"
-                    && t.FinanceYearId == currentFinanceYearId)
+                    && t.CalculationType == "CV")
                 .GroupBy(t => t.PropertyId)
                 .Select(g => new
                 {
                     PropertyId = g.Key,
-                    CapitalValue = g.Max(x => x.CalculationValue)
+                    CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
                 })
                 .ToListAsync(cancellationToken);
 
-            // TaxTotal from TransMast joined with TaxMaster (TaxCode='TaxTotal', TaxName='TaxTotal'),
-            // summed across TaxId components within the current fiscal year only
+            // Total Tax from active PolicyTaxDetails (excluding sentinel TaxTotal row)
+            // Get the total tax based ONLY on the standard NETTAX policy (matches the green box in PTIS)
             var totalTaxAmounts = await (
-                from t in _context.TransMast.AsNoTracking()
-                join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-                where propertyIds.Contains(t.PropertyId)
-                      && t.IsActive
-                      && !t.MarkedForDeletion
-                      && t.FinanceYearId == currentFinanceYearId
+                from td in _context.PolicyTaxDetails.AsNoTracking()
+                join tax in _context.TaxMaster.AsNoTracking() on td.TaxId equals tax.Id
+                join pcm in _context.PolicyCodeMaster.AsNoTracking() on td.PolicyCodeId equals pcm.Id
+                where propertyIds.Contains(td.PropertyId)
+                      && td.IsActive
+                      && !td.MarkedForDeletion
                       && tax.IsActive
-                      && tax.TaxCode == TaxTotalCode
-                      && tax.TaxName == TaxTotalName
-                group t by t.PropertyId into g
-                select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
+                      && tax.TaxCode != TaxTotalCode
+                      && pcm.IsActive
+                      && pcm.PolicyCode == "NETTAX"
+                group td by td.PropertyId into g
+                select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount ?? 0m) }
             ).ToListAsync(cancellationToken);
 
             rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
@@ -1044,7 +1044,7 @@ public class PropertySearchRepository : IPropertySearchRepository
             .Select(g => new
             {
                 PropertyId = g.Key,
-                RateableValue = g.OrderByDescending(x => x.Id).Select(x => (decimal?)x.CalculationValue).FirstOrDefault()
+                RateableValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
@@ -1054,17 +1054,17 @@ public class PropertySearchRepository : IPropertySearchRepository
             .Select(g => new
             {
                 PropertyId = g.Key,
-                CapitalValue = g.OrderByDescending(x => x.Id).Select(x => (decimal?)x.CalculationValue).FirstOrDefault()
+                CapitalValue = g.OrderByDescending(x => x.Id).Select(x => x.CalculationValue).FirstOrDefault()
             })
             .ToListAsync(cancellationToken);
 
         var totalTaxAmounts = await (
-            from t in _context.TransMast.AsNoTracking()
-            join tax in _context.TaxMaster.AsNoTracking() on t.TaxId equals tax.Id
-            where propertyIds.Contains(t.PropertyId) && t.IsActive && !t.MarkedForDeletion
-                  && tax.IsActive && tax.TaxCode == TaxTotalCode && tax.TaxName == TaxTotalName
-            group t by t.PropertyId into g
-            select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount) }
+            from td in _context.PolicyTaxDetails.AsNoTracking()
+            join tax in _context.TaxMaster.AsNoTracking() on td.TaxId equals tax.Id
+            where propertyIds.Contains(td.PropertyId) && td.IsActive && !td.MarkedForDeletion
+                  && tax.IsActive && tax.TaxCode != TaxTotalCode
+            group td by td.PropertyId into g
+            select new { PropertyId = g.Key, TotalTax = g.Sum(x => x.TaxAmount ?? 0m) }
         ).ToListAsync(cancellationToken);
 
         var rvDictionary = rvValues.ToDictionary(x => x.PropertyId, x => x.RateableValue);
