@@ -17,8 +17,10 @@ public class GeoSequencingStageRepository : WorkflowStageBaseRepository, IGeoSeq
     [
         "ASSESSED",
         "UNASSESSED",
-        "PARTIALLY_ASSESSED",
-        "UNDER_UNASSESSED"
+        "PARTIALLYASSESSED",
+        "NEWLYASSESSEDFOUND",
+        "UNDERUNASSESSED",
+        "ASSESSMENTINPROCESS"
     ];
 
     public GeoSequencingStageRepository(ApplicationDbContext context) : base(context)
@@ -151,11 +153,24 @@ public class GeoSequencingStageRepository : WorkflowStageBaseRepository, IGeoSeq
     /// </summary>
     public Task<Dictionary<string, int>> ReadAssessmentStatusIdsByNameAsync(
         CancellationToken cancellationToken = default)
-        => _context.PropertyAssessmentStatuses
+        => ReadAssessmentStatusIdsByNameCoreAsync(cancellationToken);
+
+    private async Task<Dictionary<string, int>> ReadAssessmentStatusIdsByNameCoreAsync(CancellationToken cancellationToken)
+    {
+        var statuses = await _context.PropertyAssessmentStatuses
             .AsNoTracking()
-            .Where(s => s.IsActive && AssessmentStatusNames.Contains(s.StatusName.ToUpper()))
-            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
-            .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
+            .Where(s => s.IsActive)
+            .Select(s => new { s.Id, s.StatusName })
+            .ToListAsync(cancellationToken);
+
+        return statuses
+            .Where(s => AssessmentStatusNames.Contains(NormalizeStatusName(s.StatusName)))
+            .GroupBy(s => NormalizeStatusName(s.StatusName))
+            .ToDictionary(g => g.Key, g => g.First().Id);
+    }
+
+    private static string NormalizeStatusName(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     #endregion
 

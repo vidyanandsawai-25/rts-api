@@ -1,15 +1,12 @@
+
 namespace NtisPlatform.Core.Models.AutomationDashboard;
 
 /// <summary>
 /// Projection for workflow-stage properties used by Assessment dashboard queries.
 /// </summary>
-public  class AssessmentStagePropertyProjection
+public class AssessmentStagePropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public int? AssessmentStatusId { get; set; }
     public bool IsRented { get; set; }
 }
@@ -17,14 +14,10 @@ public  class AssessmentStagePropertyProjection
 /// <summary>
 /// Projection for assessed properties with old values needed for classification.
 /// </summary>
-public  class AssessedClassificationPropertyProjection
+public class AssessedClassificationPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public int? PropertyMastOldId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public double? OldConstructionArea { get; set; }
     public string? OldUseType { get; set; }
     public double? OldRV { get; set; }
@@ -33,54 +26,38 @@ public  class AssessedClassificationPropertyProjection
 /// <summary>
 /// Projection for assessed properties after service-side classification.
 /// </summary>
-public  class AssessedClassifiedPropertyProjection
+public class AssessedClassifiedPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public int? PropertyMastOldId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public string ClassificationType { get; set; } = string.Empty;
 }
 
 /// <summary>
 /// Projection for unassessed properties before service-side type classification.
 /// </summary>
-public  class UnassessedPropertyProjection
+public class UnassessedPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public int? PropertyTypeId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public bool IsOpenPlot { get; set; }
 }
 
 /// <summary>
 /// Projection for unassessed properties after service-side property-type classification.
 /// </summary>
-public  class UnassessedClassifiedPropertyProjection
+public class UnassessedClassifiedPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public string PropertyType { get; set; } = string.Empty;
 }
 
 /// <summary>
 /// Projection for rented-tab properties after owner/renter classification.
 /// </summary>
-public  class RentedClassifiedPropertyProjection
+public class RentedClassifiedPropertyProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public string ClassificationType { get; set; } = string.Empty;
     public decimal OldDemand { get; set; }
     public decimal CurrentDemand { get; set; }
@@ -90,13 +67,9 @@ public  class RentedClassifiedPropertyProjection
 /// <summary>
 /// Raw Rented tab row with renter flag and demand values.
 /// </summary>
-public  class RentedPropertyDemandProjection
+public class RentedPropertyDemandProjection : AutomationDashboardPropertyZoneDisplayDto
 {
-    public int PropertyId { get; set; }
     public string? PartitionNo { get; set; }
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public bool HasRenterTaxLiability { get; set; }
     public decimal OldDemand { get; set; }
     public decimal CurrentDemand { get; set; }
@@ -106,9 +79,8 @@ public  class RentedPropertyDemandProjection
 /// <summary>
 /// Projection for current property details and use-type metadata.
 /// </summary>
-public  class AssessmentPropertyUseDetailProjection
+public class AssessmentPropertyUseDetailProjection : AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public double CarpetArea { get; set; }
     public bool IsOpenPlot { get; set; }
     public string? Type { get; set; }
@@ -119,11 +91,8 @@ public  class AssessmentPropertyUseDetailProjection
 /// <summary>
 /// Projection for zone-wise structure and unit counts.
 /// </summary>
-public  class AssessmentZoneCountProjection
+public class AssessmentZoneCountProjection : AutomationDashboardZoneDisplayDto
 {
-    public int ZoneId { get; set; }
-    public string ZoneName { get; set; } = string.Empty;
-    public string ZoneNo { get; set; } = string.Empty;
     public int StructureCount { get; set; }
     public int UnitCount { get; set; }
 }

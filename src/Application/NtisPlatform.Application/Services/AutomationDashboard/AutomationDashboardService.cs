@@ -12,6 +12,9 @@ namespace NtisPlatform.Application.Services
     /// </summary>
     public class AutomationDashboardService : IAutomationDashboardService
     {
+        private const string AssessedStatusName = "ASSESSED";
+        private const string UnassessedStatusName = "UNASSESSED";
+
         private readonly IAutomationDashboardRepository _dashboardRepository;
         private readonly IGeoSequencingStageService _geoSequencingStageService;
         private readonly IInternalSurveyStageService _internalSurveyStageService;
@@ -37,11 +40,49 @@ namespace NtisPlatform.Application.Services
         /// <summary>
         /// Gets main dashboard cards (Previously Registered, Assessment Approved, Additional Revenue).
         /// </summary>
-        public Task<MainCardsResponseDto> GetMainCardsAsync()
-            => _dashboardRepository.GetMainCardsAsync();
+        public async Task<MainCardsResponseDto> GetMainCardsAsync()
+        {
+            var assessmentStatusIds = await _dashboardRepository.ReadAssessmentStatusIdsAsync();
 
-        public Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync()
-            => _dashboardRepository.GetWorkflowCardsAsync();
+            var previouslyRegistered = await _dashboardRepository.ReadPreviouslyRegisteredBreakdownAsync();
+            var assessed = await _dashboardRepository.ReadPropertyBreakdownByAssessmentStatusAsync(
+                assessmentStatusIds.GetValueOrDefault(AssessedStatusName),
+                includeDemand: true);
+            var unassessed = await _dashboardRepository.ReadPropertyBreakdownByAssessmentStatusAsync(
+                assessmentStatusIds.GetValueOrDefault(UnassessedStatusName));
+            var additionalRevenue = await _dashboardRepository.ReadAcdApprovedPropertyBreakdownAsync();
+
+            return new MainCardsResponseDto
+            {
+                PreviouslyRegistered = MapDashboardCardBreakdown(previouslyRegistered),
+                AssessmentApproved = new AssessmentApprovedDto
+                {
+                    Assessed = MapDashboardCardBreakdown(assessed),
+                    Unassessed = MapDashboardCardBreakdown(unassessed)
+                },
+                AdditionalRevenueGenerated = MapDashboardCardBreakdown(additionalRevenue)
+            };
+        }
+
+        public async Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync()
+        {
+            var stages = await _dashboardRepository.ReadWorkflowStagesAsync();
+            var countsByStageId = await _dashboardRepository.ReadWorkflowStageCountsAsync(
+                stages.Select(s => s.WorkflowStageId));
+
+            return stages.Select(stage =>
+            {
+                countsByStageId.TryGetValue(stage.WorkflowStageId, out var counts);
+
+                return new WorkflowStageCardDto
+                {
+                    Id = stage.WorkflowStageId,
+                    StageName = stage.StageName,
+                    StructureCount = counts?.StructureCount ?? 0,
+                    UnitCount = counts?.UnitCount ?? 0
+                };
+            }).ToList();
+        }
 
         public Task<GeoSequencingGridResponseDto> GetGeoSequencingGridDataAsync(
             DashboardGridQueryParameters queryParameters, CancellationToken cancellationToken = default)
@@ -82,7 +123,7 @@ namespace NtisPlatform.Application.Services
         public Task<List<TrackStageStatusDto>> TrackStageStatusAsync(
             int propertyId,
             CancellationToken cancellationToken = default)
-            => _dashboardRepository.TrackStageStatusAsync(propertyId, cancellationToken);
+            => GetTrackStageStatusAsync(propertyId, cancellationToken);
 
         #endregion
 
@@ -108,6 +149,30 @@ namespace NtisPlatform.Application.Services
         private async Task<SubGridPDDataDto> GetSubGridResponseAsync(
             Func<Task<SubGridDataProjection>> fetchSnapshot)
             => BuildSubGridResponse(await fetchSnapshot());
+
+        private async Task<List<TrackStageStatusDto>> GetTrackStageStatusAsync(
+            int propertyId,
+            CancellationToken cancellationToken)
+        {
+            var stages = await _dashboardRepository.ReadWorkflowStageCompletionsAsync(propertyId, cancellationToken);
+
+            return stages.Select(stage => new TrackStageStatusDto
+            {
+                WorkflowStageId = stage.WorkflowStageId,
+                StageName = stage.StageName,
+                DisplayOrder = stage.DisplayOrder,
+                IsCompleted = stage.IsCompleted ? 1 : 0
+            }).ToList();
+        }
+
+        private static DashboardCardBreakdownDto MapDashboardCardBreakdown(DashboardCardBreakdownProjection projection)
+            => new()
+            {
+                PropertyCount = projection.PropertyCount,
+                StructureCount = projection.StructureCount,
+                UnitCount = projection.UnitCount,
+                Demand = projection.Demand
+            };
 
         private async Task<PendingAssessmentSubGridPDDataDto> GetPendingAssessmentSubGridResponseAsync(
             Func<Task<SubGridDataProjection>> fetchSnapshot)

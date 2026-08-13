@@ -95,7 +95,8 @@ public class AutomationDashboardQueryParameterValidationTests
             PropertyTypeId = 0,
             AssessmentTypeId = 0,
             PropertyNo = new string('P', 101),
-            OwnerName = new string('O', 251)
+            OwnerName = new string('O', 251),
+            Search = new string('S', 251)
         };
 
         var results = Validate(query);
@@ -108,6 +109,7 @@ public class AutomationDashboardQueryParameterValidationTests
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(SubGridQueryParameters.AssessmentTypeId)));
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(SubGridQueryParameters.PropertyNo)));
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(SubGridQueryParameters.OwnerName)));
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(SubGridQueryParameters.Search)));
     }
 
     [Fact]

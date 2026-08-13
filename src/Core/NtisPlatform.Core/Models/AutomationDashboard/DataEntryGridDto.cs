@@ -55,10 +55,8 @@ public class DataEntryDivisionDataDto
     public AssessmentStatusBreakdownDto AssessmentStatusBreakdown { get; set; } = new();
 }
 
-public class DataEntryWardDataDto
+public class DataEntryWardDataDto : AutomationDashboardWardDisplayDto
 {
-    public int WardId { get; set; }
-    public string WardNo { get; set; } = string.Empty;
     public int Structure { get; set; }
     public int Unit { get; set; }
     public InternalSurveyBreakdownDto InternalSurvey { get; set; } = new();

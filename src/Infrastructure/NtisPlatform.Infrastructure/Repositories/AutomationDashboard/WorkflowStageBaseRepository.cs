@@ -104,12 +104,12 @@ public abstract class WorkflowStageBaseRepository
     {
         var statuses = await _context.PropertyAssessmentStatuses
             .AsNoTracking()
-            .Where(s => s.IsActive && (s.StatusName.ToUpper() == "ASSESSED" || s.StatusName.ToUpper() == "UNASSESSED"))
-            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
+            .Where(s => s.IsActive)
+            .Select(s => new { s.Id, s.StatusName })
             .ToListAsync(cancellationToken);
 
-        var assessedId = statuses.FirstOrDefault(s => s.StatusName == "ASSESSED")?.Id ?? 0;
-        var unassessedId = statuses.FirstOrDefault(s => s.StatusName == "UNASSESSED")?.Id ?? 0;
+        var assessedId = statuses.FirstOrDefault(s => NormalizeAssessmentStatusName(s.StatusName) == "ASSESSED")?.Id ?? 0;
+        var unassessedId = statuses.FirstOrDefault(s => NormalizeAssessmentStatusName(s.StatusName) == "UNASSESSED")?.Id ?? 0;
 
         return (assessedId, unassessedId);
     }
@@ -675,12 +675,16 @@ public abstract class WorkflowStageBaseRepository
         if (!propertyIds.Any())
             return new AssessmentStatusBreakdownDto();
 
-        var statusNames = new[] { "ASSESSED", "UNASSESSED", "PARTIALLY_ASSESSED", "UNDER_UNASSESSED" };
-        var statusIdsByName = await _context.PropertyAssessmentStatuses
+        var statuses = await _context.PropertyAssessmentStatuses
             .AsNoTracking()
-            .Where(s => s.IsActive && statusNames.Contains(s.StatusName.ToUpper()))
-            .Select(s => new { s.Id, StatusName = s.StatusName.ToUpper() })
-            .ToDictionaryAsync(s => s.StatusName, s => s.Id, cancellationToken);
+            .Where(s => s.IsActive)
+            .Select(s => new { s.Id, s.StatusName })
+            .ToListAsync(cancellationToken);
+
+        var statusIdsByName = statuses
+            .Where(s => IsTrackedAssessmentStatus(s.StatusName))
+            .GroupBy(s => NormalizeAssessmentStatusName(s.StatusName))
+            .ToDictionary(g => g.Key, g => g.First().Id);
 
         var statusIds = statusIdsByName.Values.ToList();
         var countsByStatusId = await (
@@ -706,9 +710,9 @@ public abstract class WorkflowStageBaseRepository
                 cancellationToken);
 
         var assessed = GetStatusCounts(statusIdsByName, countsByStatusId, "ASSESSED");
-        var unassessed = GetStatusCounts(statusIdsByName, countsByStatusId, "UNASSESSED");
-        var newlyAssessed = GetStatusCounts(statusIdsByName, countsByStatusId, "PARTIALLY_ASSESSED");
-        var assessmentInProcess = GetStatusCounts(statusIdsByName, countsByStatusId, "UNDER_UNASSESSED");
+        var unassessed = GetStatusCounts(statusIdsByName, countsByStatusId, "UNASSESSED", "UN ASSESSED");
+        var newlyAssessed = GetStatusCounts(statusIdsByName, countsByStatusId, "PARTIALLY_ASSESSED", "PARTIALLY ASSESSED", "NEWLY_ASSESSED_FOUND", "NEWLY ASSESSED FOUND");
+        var assessmentInProcess = GetStatusCounts(statusIdsByName, countsByStatusId, "UNDER_UNASSESSED", "UNDER UNASSESSED", "ASSESSMENT_IN_PROCESS", "ASSESSMENT IN PROCESS");
 
         return new AssessmentStatusBreakdownDto
         {
@@ -722,20 +726,46 @@ public abstract class WorkflowStageBaseRepository
     private static StructureUnitCountDto GetStatusCounts(
         Dictionary<string, int> statusIdsByName,
         Dictionary<int, (int StructureCount, int UnitCount)> countsByStatusId,
-        string statusName)
+        params string[] statusNames)
     {
-        if (!statusIdsByName.TryGetValue(statusName, out var statusId) ||
-            !countsByStatusId.TryGetValue(statusId, out var counts))
+        var statusId = ResolveAssessmentStatusId(statusIdsByName, statusNames);
+        if (!countsByStatusId.TryGetValue(statusId, out var counts))
         {
-            return new StructureUnitCountDto();
+            return new StructureUnitCountDto { StatusId = statusId };
         }
 
         return new StructureUnitCountDto
         {
+            StatusId = statusId,
             StructureCount = counts.StructureCount,
             UnitCount = counts.UnitCount
         };
     }
+
+    private static int ResolveAssessmentStatusId(Dictionary<string, int> statusIdsByName, params string[] aliases)
+    {
+        foreach (var alias in aliases)
+        {
+            if (statusIdsByName.TryGetValue(NormalizeAssessmentStatusName(alias), out var statusId))
+                return statusId;
+        }
+
+        return 0;
+    }
+
+    private static bool IsTrackedAssessmentStatus(string statusName)
+    {
+        var normalized = NormalizeAssessmentStatusName(statusName);
+        return normalized is "ASSESSED"
+            or "UNASSESSED"
+            or "PARTIALLYASSESSED"
+            or "NEWLYASSESSEDFOUND"
+            or "UNDERUNASSESSED"
+            or "ASSESSMENTINPROCESS";
+    }
+
+    private static string NormalizeAssessmentStatusName(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     /// <summary>
     /// Get properties in a zone for a specific workflow stage

@@ -92,7 +92,7 @@ public class InternalSurveyStageService : IInternalSurveyStageService
                     photoCount));
             }
 
-            result.TotalRow = CalculateDivisionTotals(result.DivisionData);
+            result.TotalRow = WorkflowStageDataBuilder.CalculateInternalSurveyDivisionTotals(result.DivisionData);
 
             _logger.LogInformation(
                 "Successfully retrieved Internal Survey grid data for stage {WorkflowStageId} with {DivisionCount} divisions",
@@ -183,11 +183,11 @@ public class InternalSurveyStageService : IInternalSurveyStageService
 
             // Order by data presence and apply pagination
             var orderedWardData = allWardData
-                .OrderByDescending(GetWardSummaryScore)
+                .OrderByDescending(WorkflowStageDataBuilder.GetInternalSurveyWardSummaryScore)
                 .ThenBy(w => w.WardNo)
                 .ToList();
 
-            result.TotalRow = CalculateWardTotals(allWardData);
+            result.TotalRow = WorkflowStageDataBuilder.CalculateInternalSurveyWardTotals(allWardData);
             result.WardData = WorkflowStagePagingHelper.PageWardData(orderedWardData, context.PageNumber, context.PageSize);
 
             _logger.LogInformation(
@@ -307,132 +307,6 @@ public class InternalSurveyStageService : IInternalSurveyStageService
             PageSize: pageSize,
             Wards: wards);
     }
-
-    /// <summary>
-    /// Calculates division totals from all division data
-    /// </summary>
-    private static InternalSurveyDivisionDataDto CalculateDivisionTotals(List<InternalSurveyDivisionDataDto> divisionData)
-    {
-        return new InternalSurveyDivisionDataDto
-        {
-            DivisionName = "TOTAL",
-            GeoSequencingProperties = new GeoSequencingPropertiesDto
-            {
-                Structure = divisionData.Sum(d => d.GeoSequencingProperties.Structure),
-                Unit = divisionData.Sum(d => d.GeoSequencingProperties.Unit)
-            },
-            SurveyProperties = new SurveyPropertiesDto
-            {
-                Structure = divisionData.Sum(d => d.SurveyProperties.Structure),
-                Unit = divisionData.Sum(d => d.SurveyProperties.Unit)
-            },
-            PropertyType = new PropertyTypesBreakdownDto
-            {
-                Residential = divisionData.Sum(d => d.PropertyType.Residential),
-                NonResidential = divisionData.Sum(d => d.PropertyType.NonResidential),
-                Mixed = divisionData.Sum(d => d.PropertyType.Mixed),
-                PublicUtility = divisionData.Sum(d => d.PropertyType.PublicUtility),
-                UnderConstruction = divisionData.Sum(d => d.PropertyType.UnderConstruction)
-            },
-            AssessedProperties = new AssessedPropertiesSimpleDto
-            {
-                Structure = divisionData.Sum(d => d.AssessedProperties.Structure),
-                Units = divisionData.Sum(d => d.AssessedProperties.Units)
-            },
-            UnassessedProperties = new UnassessedPropertiesDto
-            {
-                Structure = divisionData.Sum(d => d.UnassessedProperties.Structure),
-                Units = divisionData.Sum(d => d.UnassessedProperties.Units)
-            },
-            NewlyAssessedFound = new NewlyAssessedFoundDto
-            {
-                Structure = divisionData.Sum(d => d.NewlyAssessedFound.Structure),
-                Unit = divisionData.Sum(d => d.NewlyAssessedFound.Unit)
-            },
-            AssessmentInprocess = new AssessmentInprocessDto
-            {
-                Structure = divisionData.Sum(d => d.AssessmentInprocess.Structure),
-                Unit = divisionData.Sum(d => d.AssessmentInprocess.Unit)
-            },
-            PhotoCount = divisionData.Sum(d => d.PhotoCount)
-        };
-    }
-
-    /// <summary>
-    /// Calculates ward totals from all ward data
-    /// </summary>
-    private static InternalSurveyWardDataDto CalculateWardTotals(List<InternalSurveyWardDataDto> wardData)
-    {
-        return new InternalSurveyWardDataDto
-        {
-            WardNo = "TOTAL",
-            GeoSequencingProperties = new GeoSequencingPropertiesDto
-            {
-                Structure = wardData.Sum(w => w.GeoSequencingProperties.Structure),
-                Unit = wardData.Sum(w => w.GeoSequencingProperties.Unit)
-            },
-            SurveyProperties = new SurveyPropertiesDto
-            {
-                Structure = wardData.Sum(w => w.SurveyProperties.Structure),
-                Unit = wardData.Sum(w => w.SurveyProperties.Unit)
-            },
-            PropertyType = new PropertyTypesBreakdownDto
-            {
-                Residential = wardData.Sum(w => w.PropertyType.Residential),
-                NonResidential = wardData.Sum(w => w.PropertyType.NonResidential),
-                Mixed = wardData.Sum(w => w.PropertyType.Mixed),
-                PublicUtility = wardData.Sum(w => w.PropertyType.PublicUtility),
-                UnderConstruction = wardData.Sum(w => w.PropertyType.UnderConstruction)
-            },
-            AssessedProperties = new AssessedPropertiesSimpleDto
-            {
-                Structure = wardData.Sum(w => w.AssessedProperties.Structure),
-                Units = wardData.Sum(w => w.AssessedProperties.Units)
-            },
-            UnassessedProperties = new UnassessedPropertiesDto
-            {
-                Structure = wardData.Sum(w => w.UnassessedProperties.Structure),
-                Units = wardData.Sum(w => w.UnassessedProperties.Units)
-            },
-            NewlyAssessedFound = new NewlyAssessedFoundDto
-            {
-                Structure = wardData.Sum(w => w.NewlyAssessedFound.Structure),
-                Unit = wardData.Sum(w => w.NewlyAssessedFound.Unit)
-            },
-            AssessmentInprocess = new AssessmentInprocessDto
-            {
-                Structure = wardData.Sum(w => w.AssessmentInprocess.Structure),
-                Unit = wardData.Sum(w => w.AssessmentInprocess.Unit)
-            },
-            PhotoCount = wardData.Sum(w => w.PhotoCount)
-        };
-    }
-
-    /// <summary>
-    /// Checks if ward has any summary data
-    /// </summary>
-    private static bool HasWardSummaryData(InternalSurveyWardDataDto ward)
-        => GetWardSummaryScore(ward) > 0;
-
-    private static int GetWardSummaryScore(InternalSurveyWardDataDto ward)
-        => ward.GeoSequencingProperties.Structure
-           + ward.GeoSequencingProperties.Unit
-           + ward.SurveyProperties.Structure
-           + ward.SurveyProperties.Unit
-           + ward.PropertyType.Residential
-           + ward.PropertyType.NonResidential
-           + ward.PropertyType.Mixed
-           + ward.PropertyType.PublicUtility
-           + ward.PropertyType.UnderConstruction
-           + ward.AssessedProperties.Structure
-           + ward.AssessedProperties.Units
-           + ward.UnassessedProperties.Structure
-           + ward.UnassessedProperties.Units
-           + ward.NewlyAssessedFound.Structure
-           + ward.NewlyAssessedFound.Unit
-           + ward.AssessmentInprocess.Structure
-           + ward.AssessmentInprocess.Unit
-           + ward.PhotoCount;
 
     #endregion
 

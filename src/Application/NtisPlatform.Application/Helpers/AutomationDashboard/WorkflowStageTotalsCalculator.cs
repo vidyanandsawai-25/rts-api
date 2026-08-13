@@ -31,6 +31,7 @@ public static class WorkflowStageTotalsCalculator
     {
         return new StructureUnitCount
         {
+            StatusId = dataItems.Select(d => getCount(d)?.StatusId ?? 0).FirstOrDefault(id => id > 0),
             StructureCount = dataItems.Sum(d => getCount(d)?.StructureCount ?? 0),
             UnitCount = dataItems.Sum(d => getCount(d)?.UnitCount ?? 0)
         };

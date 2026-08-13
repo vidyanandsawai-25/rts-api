@@ -52,15 +52,13 @@ public  class SubGridPropertyProjection
     public string AssessmentStatusName { get; set; } = string.Empty;
 }
 
-public  class SubGridCountProjection
+public class SubGridCountProjection : NtisPlatform.Core.Models.AutomationDashboard.AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public int Count { get; set; }
 }
 
-public  class SubGridDocumentProjection
+public class SubGridDocumentProjection : NtisPlatform.Core.Models.AutomationDashboard.AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public string? DocumentGuid { get; set; }
 }
 
@@ -85,15 +83,13 @@ public  class SubGridOldPropertyDetailProjection
     public double OldRV { get; set; }
 }
 
-public  class SubGridTaxValueProjection
+public class SubGridTaxValueProjection : NtisPlatform.Core.Models.AutomationDashboard.AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public decimal Amount { get; set; }
 }
 
-public  class SubGridAssessmentDetailProjection
+public class SubGridAssessmentDetailProjection : NtisPlatform.Core.Models.AutomationDashboard.AutomationDashboardPropertyKeyDto
 {
-    public int PropertyId { get; set; }
     public DateTime? PartOCDate { get; set; }
     public short? ApplyTaxesFrom { get; set; }
 }

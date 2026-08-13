@@ -9,19 +9,27 @@ namespace NtisPlatform.Core.Interfaces.IAutomationDashboard;
 /// </summary>
 public interface IAutomationDashboardRepository
 {
-    /// <summary>
-    /// Gets the 3 main dashboard cards: Previously Registered, Assessment Approved, Additional Revenue Generated.
-    /// Supports optional filters: property type, type of use, zone, ward, category.
-    /// </summary>
-    Task<MainCardsResponseDto> GetMainCardsAsync(
+    Task<Dictionary<string, int>> ReadAssessmentStatusIdsAsync(CancellationToken cancellationToken = default);
+
+    Task<DashboardCardBreakdownProjection> ReadPreviouslyRegisteredBreakdownAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<DashboardCardBreakdownProjection> ReadPropertyBreakdownByAssessmentStatusAsync(
+        int statusId,
+        PropertySearchRequestDto? searchRequest = null,
+        bool includeDemand = false,
+        CancellationToken cancellationToken = default);
+
+    Task<DashboardCardBreakdownProjection> ReadAcdApprovedPropertyBreakdownAsync(
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets workflow stage cards showing structure/unit counts at each stage.
-    /// Supports the same optional filters as GetMainCardsAsync.
-    /// </summary>
-    Task<List<WorkflowStageCardDto>> GetWorkflowCardsAsync(
+    Task<List<WorkflowStageProjection>> ReadWorkflowStagesAsync(
+        int? workflowStageId = null,
+        CancellationToken cancellationToken = default);
+
+    Task<Dictionary<int, WorkflowStageCountProjection>> ReadWorkflowStageCountsAsync(
+        IEnumerable<int> stageIds,
         PropertySearchRequestDto? searchRequest = null,
         CancellationToken cancellationToken = default);
 
@@ -46,10 +54,7 @@ public interface IAutomationDashboardRepository
         PendingAssessmentQueryParameters query,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets all workflow stages with completion status for the provided property.
-    /// </summary>
-    Task<List<TrackStageStatusDto>> TrackStageStatusAsync(
+    Task<List<WorkflowStageCompletionProjection>> ReadWorkflowStageCompletionsAsync(
         int propertyId,
         CancellationToken cancellationToken = default);
 }

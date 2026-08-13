@@ -25,7 +25,7 @@ public static class WorkflowStageAssessmentStatusBuilder
             .ToList();
 
         if (!statusProperties.Any())
-            return new StructureUnitCount();
+            return new StructureUnitCount { StatusId = statusId };
 
         // If category name is provided, use it to detect apartment units
         var unitCount = getCategoryName != null
@@ -34,6 +34,7 @@ public static class WorkflowStageAssessmentStatusBuilder
 
         return new StructureUnitCount
         {
+            StatusId = statusId,
             StructureCount = statusProperties.Count - unitCount,
             UnitCount = unitCount
         };
@@ -53,30 +54,48 @@ public static class WorkflowStageAssessmentStatusBuilder
         {
             Assessed = GetStatusCounts(
                 properties, 
-                statusIdsByName.GetValueOrDefault("ASSESSED"), 
+                ResolveStatusId(statusIdsByName, "ASSESSED"), 
                 getAssessmentStatusId, 
                 getPartitionNo, 
                 getCategoryName),
             Unassessed = GetStatusCounts(
                 properties, 
-                statusIdsByName.GetValueOrDefault("UNASSESSED"), 
+                ResolveStatusId(statusIdsByName, "UNASSESSED", "UN ASSESSED"), 
                 getAssessmentStatusId, 
                 getPartitionNo, 
                 getCategoryName),
             NewlyAssessedFound = GetStatusCounts(
                 properties, 
-                statusIdsByName.GetValueOrDefault("PARTIALLY_ASSESSED"), 
+                ResolveStatusId(statusIdsByName, "PARTIALLY_ASSESSED", "PARTIALLY ASSESSED", "NEWLY_ASSESSED_FOUND", "NEWLY ASSESSED FOUND"), 
                 getAssessmentStatusId, 
                 getPartitionNo, 
                 getCategoryName),
             AssessmentInProcess = GetStatusCounts(
                 properties, 
-                statusIdsByName.GetValueOrDefault("UNDER_UNASSESSED"), 
+                ResolveStatusId(statusIdsByName, "UNDER_UNASSESSED", "UNDER UNASSESSED", "ASSESSMENT_IN_PROCESS", "ASSESSMENT IN PROCESS"), 
                 getAssessmentStatusId, 
                 getPartitionNo, 
                 getCategoryName)
         };
     }
+
+    private static int ResolveStatusId(Dictionary<string, int> statusIdsByName, params string[] aliases)
+    {
+        var normalizedLookup = statusIdsByName
+            .GroupBy(kvp => NormalizeStatusName(kvp.Key))
+            .ToDictionary(g => g.Key, g => g.First().Value);
+
+        foreach (var alias in aliases)
+        {
+            if (normalizedLookup.TryGetValue(NormalizeStatusName(alias), out var statusId))
+                return statusId;
+        }
+
+        return 0;
+    }
+
+    private static string NormalizeStatusName(string value)
+        => new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     /// <summary>
     /// Counts structures (properties without partition number)

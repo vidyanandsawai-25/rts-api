@@ -3,11 +3,8 @@ namespace NtisPlatform.Core.Models.AutomationDashboard;
 /// <summary>
 /// Property row used for Internal Survey dashboard aggregation.
 /// </summary>
-public  class InternalSurveyStagePropertyProjection
+public class InternalSurveyStagePropertyProjection : AutomationDashboardPropertyWardZoneDto
 {
-    public int PropertyId { get; set; }
-    public int WardId { get; set; }
-    public int ZoneId { get; set; }
     public string? PartitionNo { get; set; }
     public string? PropertyTypeCode { get; set; }
     public int? AssessmentStatusId { get; set; }
@@ -16,11 +13,8 @@ public  class InternalSurveyStagePropertyProjection
 /// <summary>
 /// Property use row used for Internal Survey property-type grouping.
 /// </summary>
-public  class InternalSurveyPropertyUseSourceProjection
+public class InternalSurveyPropertyUseSourceProjection : AutomationDashboardPropertyWardZoneDto
 {
-    public int PropertyId { get; set; }
-    public int WardId { get; set; }
-    public int ZoneId { get; set; }
     public string? Type { get; set; }
     public string? TypeOfUseCode { get; set; }
 }
