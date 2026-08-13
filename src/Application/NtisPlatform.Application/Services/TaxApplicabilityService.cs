@@ -95,23 +95,56 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
         var response = new TaxApplicabilityResponseDto
         {
             PropertyId = request.PropertyId,
-            FinancialYearId = request.FinancialYearId,
+            AssessmentYearRangeId = request.AssessmentYearRangeId,
             TypeOfUseId = request.TypeOfUseId
         };
 
-        // Query TaxMaster joined with TaxPercentageMasterRV, TransMast, and ApplyTaxesMaster
+        // 1. Resolve YearRangeRVId using AssessmentYearRange (and fallback to YearMaster if needed)
+        int? yearRangeRVId = null;
+
+        // Try direct lookup in AssessmentYearRangeMasterRV (_yearRangeRepository)
+        var assessmentYearRange = await _yearRangeRepository.GetQueryable()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(yr => yr.Id == request.AssessmentYearRangeId && yr.IsActive, cancellationToken);
+
+        if (assessmentYearRange != null)
+        {
+            yearRangeRVId = assessmentYearRange.Id;
+        }
+        else
+        {
+            // Fallback: lookup via YearMaster if AssessmentYearRangeId represents a single YearMaster Id
+            var yearMaster = await _yearMasterRepository.GetQueryable()
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ym => ym.Id == request.AssessmentYearRangeId, cancellationToken);
+
+            if (yearMaster != null)
+            {
+                var yearRange = await _yearRangeRepository.GetQueryable()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(yr => yr.FromYear <= yearMaster.Year && yr.ToYear >= yearMaster.Year && yr.IsActive, cancellationToken);
+                if (yearRange != null)
+                {
+                    yearRangeRVId = yearRange.Id;
+                }
+            }
+        }
+
+        var calcTypeNormalized = (request.CalculationType ?? string.Empty).Trim().ToUpperInvariant();
+
+        // 2. Query TaxMaster joined with TaxPercentageMasterRV (INNER JOIN), TransMast (LEFT JOIN), and ApplyTaxesMaster (LEFT JOIN) according to exact SQL criteria
         var query = from tm in _taxMasterRepository.GetQueryable()
-                        .Where(x => x.IsActive)
+                        .Where(x => x.AssessmentStatus)
+
                     join tpr in _taxPercentageRVRepository.GetQueryable()
-                        .Where(x => x.TypeOfUseId == request.TypeOfUseId 
+                        .Where(x => (yearRangeRVId == null || x.YearRangeRVId == yearRangeRVId)
+                                 && x.TypeOfUseId == request.TypeOfUseId 
                                  && x.IsActive)
-                        on tm.Id equals tpr.TaxId into tprGroup
-                    from tpr in tprGroup.DefaultIfEmpty()
+                        on tm.Id equals tpr.TaxId
 
                     join tr in _transMastRepository.GetQueryable()
                         .Where(x => x.PropertyId == request.PropertyId
-                                 && x.FinanceYearId == request.FinancialYearId
-                                 && x.CalculationType == request.CalculationType.Trim().ToUpperInvariant()
+                                 && x.CalculationType.Trim().ToUpper() == calcTypeNormalized
                                  && !x.MarkedForDeletion)
                         on tm.Id equals tr.TaxId into trGroup
                     from tr in trGroup.DefaultIfEmpty()
@@ -130,6 +163,7 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
                         tm.TaxCode,
                         tm.DisplayOrder,
                         tm.IsActive,
+                        tm.AssessmentStatus,
                         trCalculationType = tr != null ? tr.CalculationType : null
                     } into g
                     orderby g.Key.DisplayOrder
@@ -139,11 +173,12 @@ public class TaxApplicabilityService : BaseCommonCrudService<ApplyTaxesMasterEnt
                         TaxHead = g.Key.TaxName,
                         TaxCode = g.Key.TaxCode ?? string.Empty,
                         CalculationType = g.Key.trCalculationType,
-                        TaxPercentage = g.Max(x => x.tpr != null ? (decimal?)x.tpr.TaxPercentage : null) ?? 0,
+                        TaxPercentage = g.Max(x => (decimal?)x.tpr.TaxPercentage) ?? 0,
                         TaxAmount = g.Max(x => x.tr != null ? (decimal?)x.tr.TaxAmount : null) ?? 0,
-                        // If an active exemption record exists in ApplyTaxesMaster, it is exempted (IsApplicable = false)
+                        // CASE WHEN COUNT(tpr.Id) > 0 AND COUNT(app.Id) = 0 THEN 1 ELSE 0 END
                         IsApplicable = g.Any(x => x.tpr != null) && !g.Any(x => x.app != null),
-                        IsActive = g.Key.IsActive
+                        IsActive = g.Key.IsActive,
+                        AssessmentStatus = g.Key.AssessmentStatus
                     };
 
         var taxDetails = await query.ToListAsync(cancellationToken);

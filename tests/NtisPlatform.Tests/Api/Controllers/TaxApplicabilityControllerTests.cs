@@ -34,7 +34,7 @@ public class TaxApplicabilityControllerTests
         var request = new TaxApplicabilityRequestDto
         {
             PropertyId = 1,
-            FinancialYearId = 2,
+            AssessmentYearRangeId = 2,
             TypeOfUseId = 3,
             CalculationType = "RV",
             PageNumber = 1,
@@ -44,7 +44,7 @@ public class TaxApplicabilityControllerTests
         var serviceResponse = new TaxApplicabilityResponseDto
         {
             PropertyId = 1,
-            FinancialYearId = 2,
+            AssessmentYearRangeId = 2,
             TypeOfUseId = 3,
             ApplicableCount = 1,
             ExemptedCount = 0,
@@ -83,7 +83,7 @@ public class TaxApplicabilityControllerTests
         var request = new TaxApplicabilityRequestDto
         {
             PropertyId = 1,
-            FinancialYearId = 2,
+            AssessmentYearRangeId = 2,
             TypeOfUseId = 3,
             CalculationType = "RV"
         };
@@ -123,7 +123,7 @@ public class TaxApplicabilityControllerTests
         var resultDto = new TaxApplicabilityResponseDto
         {
             PropertyId = 1,
-            FinancialYearId = 0,
+            AssessmentYearRangeId = 0,
             TypeOfUseId = 0,
             ApplicableCount = 1,
             ExemptedCount = 0
@@ -301,7 +301,7 @@ public class TaxApplicabilityControllerTests
         var resultDto = new TaxApplicabilityResponseDto
         {
             PropertyId = 1,
-            FinancialYearId = 0,
+            AssessmentYearRangeId = 0,
             TypeOfUseId = 0,
             ApplicableCount = 0,
             ExemptedCount = 1

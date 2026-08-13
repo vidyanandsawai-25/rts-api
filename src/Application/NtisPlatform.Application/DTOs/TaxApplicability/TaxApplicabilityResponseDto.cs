@@ -6,7 +6,7 @@ namespace NtisPlatform.Application.DTOs.TaxApplicability;
 public class TaxApplicabilityResponseDto
 {
     public int PropertyId { get; set; }
-    public int FinancialYearId { get; set; }
+    public int AssessmentYearRangeId { get; set; }
     public int TypeOfUseId { get; set; }
     public int ApplicableCount { get; set; }
     public int ExemptedCount { get; set; }
@@ -27,4 +27,5 @@ public class TaxApplicabilityDetailDto
     public decimal TaxAmount { get; set; }
     public bool IsApplicable { get; set; }
     public bool IsActive { get; set; }
+    public bool AssessmentStatus { get; set; }
 }
