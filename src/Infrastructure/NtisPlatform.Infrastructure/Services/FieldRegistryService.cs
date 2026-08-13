@@ -184,7 +184,6 @@ public class FieldRegistryService : IFieldRegistryService
                 UpdateCode = createDto.UpdateCode,
                 UpdateName = createDto.UpdateName,
                 ReferenceTableName = createDto.ReferenceTableName,
-                IsApprovalRequired = createDto.IsApprovalRequired,
                 IsActive = createDto.IsActive,
                 CreatedBy = createDto.CreatedBy,
                 CreatedDate = DateTime.Now
@@ -371,7 +370,6 @@ public class FieldRegistryService : IFieldRegistryService
 
             masterEntity.UpdateName = updateDto.UpdateName;
             masterEntity.ReferenceTableName = updateDto.ReferenceTableName;
-            masterEntity.IsApprovalRequired = updateDto.IsApprovalRequired;
             masterEntity.IsActive = updateDto.IsActive;
             masterEntity.UpdatedDate = now;
             if (updateDto.UpdatedBy.HasValue)
@@ -536,7 +534,6 @@ public class FieldRegistryService : IFieldRegistryService
             UpdateCode = master.UpdateCode,
             UpdateName = master.UpdateName,
             ReferenceTableName = master.ReferenceTableName,
-            IsApprovalRequired = master.IsApprovalRequired,
             IsActive = master.IsActive,
             CreatedDate = master.CreatedDate,
             CreatedBy = master.CreatedBy,

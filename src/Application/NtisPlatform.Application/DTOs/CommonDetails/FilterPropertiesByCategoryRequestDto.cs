@@ -13,5 +13,6 @@ namespace NtisPlatform.Application.DTOs.CommonDetails;
 public class FilterPropertiesByCategoryRequestDto : PropertySearchByCategoryQueryParameters
 {
     [Required(ErrorMessage = "CommonDetails_UpdateCode_Required")]
-    public string UpdateCode { get; set; } = string.Empty;
+    [MinLength(1, ErrorMessage = "CommonDetails_UpdateCode_Required")]
+    public List<string> UpdateCode { get; set; } = [];
 }

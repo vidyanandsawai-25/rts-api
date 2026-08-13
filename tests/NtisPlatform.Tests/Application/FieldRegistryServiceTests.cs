@@ -35,7 +35,6 @@ public class FieldRegistryServiceTests : IDisposable
                 UpdateCode = "UPD001",
                 UpdateName = "Update Owner Name",
                 ReferenceTableName = "PropertyMast",
-                IsApprovalRequired = true,
                 IsActive = true,
                 CreatedBy = 1,
                 CreatedDate = DateTime.Now,
@@ -46,7 +45,6 @@ public class FieldRegistryServiceTests : IDisposable
                 UpdateCode = "UPD002",
                 UpdateName = "Update Tax Rate",
                 ReferenceTableName = "TaxMast",
-                IsApprovalRequired = false,
                 IsActive = true,
                 CreatedBy = 1,
                 CreatedDate = DateTime.Now,
@@ -57,7 +55,6 @@ public class FieldRegistryServiceTests : IDisposable
                 UpdateCode = "UPD003",
                 UpdateName = "Update Address",
                 ReferenceTableName = "PropertyMast",
-                IsApprovalRequired = false,
                 IsActive = false,
                 CreatedBy = 2,
                 CreatedDate = DateTime.Now,
@@ -590,7 +587,6 @@ public class FieldRegistryServiceTests : IDisposable
         Assert.NotNull(result);
         Assert.Equal("Renamed Update", result.UpdateName);
         Assert.Equal("NewTable", result.ReferenceTableName);
-        Assert.True(result.IsApprovalRequired);
         Assert.False(result.IsActive);
     }
 

@@ -158,6 +158,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<BulkUpdateMasterEntity> BulkUpdateMasters { get; set; } = null!;
     public DbSet<BulkUpdateFieldConfigEntity> BulkUpdateFieldConfigs { get; set; } = null!;
     public DbSet<BulkUpdateHistoryEntity> BulkUpdateHistory { get; set; } = null!;
+    public DbSet<BulkUpdateActivityEntity> BulkUpdateActivity { get; set; } = null!;
     public DbSet<PropertyTaxJobEntity> PropertyTaxJobs { get; set; } = null!;
     public DbSet<PropertyTaxJobDetailEntity> PropertyTaxJobDetails { get; set; } = null!;
 
@@ -4007,7 +4008,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.UpdateCode).IsRequired().HasMaxLength(100).IsUnicode(false);
-            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.UpdateName).IsRequired().HasMaxLength(200).HasColumnName("GroupName");
             entity.Property(e => e.ReferenceTableName).HasMaxLength(200).IsUnicode(false);
             entity.Property(e => e.CreatedDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()").ValueGeneratedOnAdd();
             entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
@@ -4040,18 +4041,36 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateFieldConfig_BulkUpdateMasterId");
         });
 
+        modelBuilder.Entity<BulkUpdateActivityEntity>(entity =>
+        {
+            entity.ToTable("BulkUpdateActivity", "PTIS");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityType).HasMaxLength(100).IsUnicode(false);
+            entity.Property(e => e.ActivityStatus).HasMaxLength(50).IsUnicode(false);
+            entity.Property(e => e.DateAndTime).IsRequired().HasColumnName("CreatedDateTime").HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(e => e.Records).HasColumnName("RecordCount");
+            entity.Property(e => e.IPAddress).HasColumnName("ClientIpAddress").HasMaxLength(100);
+            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.UpdateName).HasColumnName("GroupName").HasMaxLength(200);
+            entity.Property(e => e.DoneBy).HasColumnName("ExecutedBy").HasMaxLength(200);
+            entity.Property(e => e.StartTime).HasColumnName("StartDateTime").HasColumnType("datetime");
+            entity.Property(e => e.EndTime).HasColumnName("EndDateTime").HasColumnType("datetime");
+            entity.Property(e => e.Duration).HasColumnName("DurationInSeconds");
+            entity.Property(e => e.ActivityRemark).HasMaxLength(1000);
+        });
+
         modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
         {
             entity.ToTable("BulkUpdateHistory", "PTIS");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).ValueGeneratedOnAdd();
+            entity.Property(e => e.ActivityId).HasColumnName("ActivityID").IsRequired();
             entity.Property(e => e.BulkUpdateMasterId).IsRequired();
             entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
+            entity.Property(e => e.OldValue).HasMaxLength(4000);
+            entity.Property(e => e.NewValue).HasMaxLength(4000);
+            entity.Property(e => e.UpdatedColumns).HasMaxLength(500).IsUnicode(false);
             entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
             entity.Property(e => e.CreatedBy);
             entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
@@ -4062,31 +4081,14 @@ public class ApplicationDbContext : DbContext
                 .HasForeignKey(e => e.BulkUpdateMasterId)
                 .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateMaster")
                 .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<BulkUpdateActivityEntity>()
+                .WithMany()
+                .HasForeignKey(e => e.ActivityId)
+                .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateActivity")
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
-            // Note: IsActive, CreatedBy, CreatedDate exist in the DB table but are not yet on
-            // BulkUpdateHistoryEntity — add those properties to the entity to map them here.
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.BulkUpdateMasterId).IsRequired();
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
+            entity.HasIndex(e => e.ActivityId).HasDatabaseName("IX_BulkUpdateHistory_ActivityID");
         });
 
         modelBuilder.Entity<PropertyTaxJobEntity>(entity =>
@@ -4175,46 +4177,6 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.JobId).HasDatabaseName("IX_PropertyTaxJobDetail_JobId");
             entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_PropertyTaxJobDetail_PropertyId");
             entity.HasIndex(e => new { e.JobId, e.Status }).HasDatabaseName("IX_PropertyTaxJobDetail_JobId_Status");
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasOne<BulkUpdateMasterEntity>()
-                .WithMany()
-                .HasForeignKey(e => e.BulkUpdateMasterId)
-                .HasConstraintName("FK_BulkUpdateHistory_BulkUpdateMaster")
-                .OnDelete(DeleteBehavior.Restrict);
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
-            // Note: IsActive, CreatedBy, CreatedDate exist in the DB table but are not yet on
-            // BulkUpdateHistoryEntity — add those properties to the entity to map them here.
-        });
-
-        modelBuilder.Entity<BulkUpdateHistoryEntity>(entity =>
-        {
-            entity.ToTable("BulkUpdateHistory", "PTIS");
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).ValueGeneratedOnAdd();
-            entity.Property(e => e.BulkUpdateMasterId).IsRequired();
-            entity.Property(e => e.PropertyId).IsRequired();
-            entity.Property(e => e.OldValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.NewValue).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.UpdatedColumns).HasColumnType("nvarchar(max)");
-            entity.Property(e => e.IpAddress).HasColumnName("IPAddress").HasMaxLength(100);
-            entity.Property(e => e.Remarks).HasMaxLength(1000);
-            entity.Property(e => e.IsActive).IsRequired().HasDefaultValue(true);
-            entity.Property(e => e.CreatedBy);
-            entity.Property(e => e.CreatedDate).IsRequired().HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(e => e.UpdatedBy);
-            entity.Property(e => e.UpdatedDate).HasColumnType("datetime");
-            entity.HasIndex(e => e.BulkUpdateMasterId).HasDatabaseName("IX_BulkUpdateHistory_BulkUpdateMasterId");
-            entity.HasIndex(e => e.PropertyId).HasDatabaseName("IX_BulkUpdateHistory_PropertyId");
         });
 
         // ApplyTaxesMaster configuration

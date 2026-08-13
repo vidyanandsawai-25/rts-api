@@ -175,7 +175,6 @@ public class BulkUpdateMasterServiceTests
             UpdateCode = "ZONE_UPDATE",
             UpdateName = "Zone Update",
             ReferenceTableName = "ZoneMaster",
-            IsApprovalRequired = null,
             CreatedBy = 1
         };
         var entity = new BulkUpdateMasterEntity

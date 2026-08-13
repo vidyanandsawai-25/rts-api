@@ -14,8 +14,6 @@ public class CreateBulkUpdateDefinitionFromSourceDto : IValidatableObject
 
     public List<int> TableFieldIds { get; set; } = [];
 
-    public bool IsApprovalRequired { get; set; }
-
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (TableFieldIds.Count == 0)

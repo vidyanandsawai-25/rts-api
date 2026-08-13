@@ -39,7 +39,7 @@ namespace NtisPlatform.Tests.Application;
 ///               master 2 -> BHK, AssessmentRemark; master 3 -> OwnerName(required)
 /// History:    5 rows (H1..H5) with distinct Updated/CreatedDate combinations - see inline comments.
 ///             H1/H2/H4/H5 set their own UpdatedBy (100=alice, 101=bob) - GetUpdateHistoryAsync's
-///             Username filter joins via the history row's own UpdatedBy ?? CreatedBy, not the master's.
+///             DoneBy filter joins via the history row's own CreatedBy ?? UpdatedBy, not the master's.
 /// </summary>
 public class CommonDetailsServiceTests : IDisposable
 {
@@ -59,6 +59,7 @@ public class CommonDetailsServiceTests : IDisposable
         var masterRepo = new Repository<BulkUpdateMasterEntity>(_context);
         var fieldConfigRepo = new Repository<BulkUpdateFieldConfigEntity>(_context);
         var historyRepo = new Repository<BulkUpdateHistoryEntity>(_context);
+        var activityRepo = new Repository<BulkUpdateActivityEntity, int>(_context);
         var propertyRepo = new Repository<PropertyEntity>(_context);
         var wardRepo = new Repository<WardEntity>(_context);
         var societyRepo = new Repository<SocietyDetailsEntity>(_context);
@@ -72,7 +73,7 @@ public class CommonDetailsServiceTests : IDisposable
         _mockLogger = new Mock<ILogger<CommonDetailsService>>();
 
         _service = new CommonDetailsService(
-            masterRepo, fieldConfigRepo, historyRepo, propertyRepo, wardRepo, societyRepo, userRepo,
+            masterRepo, fieldConfigRepo, historyRepo, activityRepo, propertyRepo, wardRepo, societyRepo, userRepo,
             sourceTableRepo, sourceTableDetailsRepo, moduleRepo,
             unitOfWork, entityLoader, _mockPropertySearchService.Object, _mockLogger.Object);
 
@@ -91,7 +92,12 @@ public class CommonDetailsServiceTests : IDisposable
             new PropertyEntity { Id = 3, WardId = 1, PropertyNo = "P003", PartitionNo = "C", OwnerName = "Charlie", MobileNo = "9000000003", IsActive = true },
             new PropertyEntity { Id = 4, WardId = 1, PropertyNo = "P004", PartitionNo = "D", OwnerName = "Dave", MobileNo = "9000000004", IsActive = true },
             new PropertyEntity { Id = 5, WardId = 1, PropertyNo = "P005", PartitionNo = "E", OwnerName = "Eve", MobileNo = "9000000005", IsActive = true },
-            new PropertyEntity { Id = 6, WardId = 2, PropertyNo = "X001", PartitionNo = "Z", OwnerName = "Zed", MobileNo = "9000000006", IsActive = true });
+            new PropertyEntity { Id = 6, WardId = 2, PropertyNo = "X001", PartitionNo = "Z", OwnerName = "Zed", MobileNo = "9000000006", IsActive = true },
+            // Main property (blank PartitionNo) sharing WardId+PropertyNo with property 6's partition "Z" -
+            // exercises IdentityKey disambiguation between a Main row and a Partition row of the same property.
+            // Placed in ward 2 (not ward 1) so it doesn't shift the property-count assertions several
+            // FilterPropertiesAsync tests make against ward 1's fixed set of 5 properties.
+            new PropertyEntity { Id = 7, WardId = 2, PropertyNo = "X001", PartitionNo = null, OwnerName = "MainOwner", MobileNo = "9000000007", IsActive = true });
 
         _context.PropertyMastDetails.AddRange(
             new PropertyAssessmentEntity { Id = 1, PropertyId = 1, BHK = "2BHK", AssessmentRemark = "Good" },
@@ -145,36 +151,59 @@ public class CommonDetailsServiceTests : IDisposable
             new BulkUpdateFieldConfigEntity { Id = 5, BulkUpdateMasterId = 2, FieldName = "AssessmentRemark", DisplayName = "Assessment Remark", IsRequired = false, SequenceNo = 2, IsActive = true, ControlType = "text", DataType = "string" },
             new BulkUpdateFieldConfigEntity { Id = 6, BulkUpdateMasterId = 3, FieldName = "OwnerName", DisplayName = "Owner Name", IsRequired = true, SequenceNo = 1, IsActive = true, ControlType = "text", DataType = "string" });
 
+        // A1/A2 back H1/H2 respectively (carry the IPAddress/Remarks that used to live on History).
+        // H3/H4/H5 reference Activity ids (901/902/903) with no matching Activity row, proving the left join on Activity.
+        _context.BulkUpdateActivity.AddRange(
+            new BulkUpdateActivityEntity
+            {
+                Id = 1, ActivityType = "Screen", ActivityStatus = "Success",
+                DateAndTime = new DateTime(2026, 7, 1), Records = 1, IPAddress = "10.0.0.1", Remarks = "Owner correction",
+                ActivityRemark = "[OWNER_UPDATE] Updated 1 of 1 property successfully.",
+                UpdateName = "Owner Update", DoneBy = "alice.user",
+                StartTime = new DateTime(2026, 7, 1, 12, 0, 0), EndTime = new DateTime(2026, 7, 1, 12, 1, 0), Duration = 1,
+            },
+            new BulkUpdateActivityEntity
+            {
+                Id = 2, ActivityType = "Screen", ActivityStatus = "Success",
+                DateAndTime = new DateTime(2026, 7, 2), Records = 1, IPAddress = "10.0.0.2",
+                UpdateName = "Assessment Update", DoneBy = "bob.user",
+                StartTime = new DateTime(2026, 7, 2, 12, 0, 0), EndTime = new DateTime(2026, 7, 2, 12, 1, 0), Duration = 1,
+            });
+
         // H3 = master invalid (999) but property valid (6, ward 2) -> proves left join on master.
         // H4 = master valid (1) but property invalid (9999) -> proves left join on property/ward.
+        // CreatedDate/UpdatedDate below are the "recency" value (CreatedDate ?? UpdatedDate) and its
+        // fallback, respectively. CreatedDate is a required (non-null) column in the real schema, so
+        // every row must set it - the UpdatedDate-fallback branch is defensive C# only, not reachable
+        // via valid seed data.
         _context.BulkUpdateHistory.AddRange(
             new BulkUpdateHistoryEntity
             {
-                Id = 1, BulkUpdateMasterId = 1, PropertyId = 1,
+                Id = 1, ActivityId = 1, BulkUpdateMasterId = 1, PropertyId = 1,
                 OldValue = "{\"OwnerName\":\"Alice\"}", NewValue = "{\"OwnerName\":\"NewOwner\"}",
-                UpdatedColumns = "OwnerName,MobileNo", IpAddress = "10.0.0.1", UpdatedBy = 100,
-                UpdatedDate = new DateTime(2026, 7, 20), CreatedDate = new DateTime(2026, 7, 1),
+                UpdatedColumns = "OwnerName,MobileNo", UpdatedBy = 100,
+                CreatedDate = new DateTime(2026, 7, 20), UpdatedDate = new DateTime(2026, 7, 1),
             },
             new BulkUpdateHistoryEntity
             {
-                Id = 2, BulkUpdateMasterId = 2, PropertyId = 2,
-                UpdatedColumns = "BHK", IpAddress = "10.0.0.2", UpdatedBy = 101,
-                UpdatedDate = new DateTime(2026, 7, 22), CreatedDate = new DateTime(2026, 7, 2),
+                Id = 2, ActivityId = 2, BulkUpdateMasterId = 2, PropertyId = 2,
+                UpdatedColumns = "BHK", UpdatedBy = 101,
+                CreatedDate = new DateTime(2026, 7, 22), UpdatedDate = new DateTime(2026, 7, 2),
             },
             new BulkUpdateHistoryEntity
             {
-                Id = 3, BulkUpdateMasterId = 999, PropertyId = 6,
-                UpdatedColumns = "Foo", UpdatedDate = null, CreatedDate = new DateTime(2026, 7, 25),
+                Id = 3, ActivityId = 901, BulkUpdateMasterId = 999, PropertyId = 6,
+                UpdatedColumns = "Foo", CreatedDate = new DateTime(2026, 7, 25), UpdatedDate = null,
             },
             new BulkUpdateHistoryEntity
             {
-                Id = 4, BulkUpdateMasterId = 1, PropertyId = 9999, UpdatedBy = 100,
-                UpdatedColumns = "Bar", UpdatedDate = new DateTime(2026, 7, 18), CreatedDate = new DateTime(2026, 7, 3),
+                Id = 4, ActivityId = 902, BulkUpdateMasterId = 1, PropertyId = 9999, UpdatedBy = 100,
+                UpdatedColumns = "Bar", CreatedDate = new DateTime(2026, 7, 18), UpdatedDate = new DateTime(2026, 7, 3),
             },
             new BulkUpdateHistoryEntity
             {
-                Id = 5, BulkUpdateMasterId = 1, PropertyId = 3, UpdatedBy = 100,
-                UpdatedColumns = "PlotArea,OwnerName", UpdatedDate = new DateTime(2026, 7, 24), CreatedDate = new DateTime(2026, 7, 4),
+                Id = 5, ActivityId = 903, BulkUpdateMasterId = 1, PropertyId = 3, UpdatedBy = 100,
+                UpdatedColumns = "PlotArea,OwnerName", CreatedDate = new DateTime(2026, 7, 24), UpdatedDate = new DateTime(2026, 7, 4),
             });
 
         _context.SaveChanges();
@@ -298,6 +327,7 @@ public class CommonDetailsServiceTests : IDisposable
 
         var item = result.Single(t => t.Id == 1);
         Assert.Equal("Property Property Master", item.TableName);
+        Assert.Equal("PTIS.PropertyMast", item.ReferenceTableName);
     }
 
     [Fact]
@@ -339,6 +369,7 @@ public class CommonDetailsServiceTests : IDisposable
 
         var item = result.Single(f => f.Id == 21);
         Assert.Equal("Owner Name", item.TableFieldName);
+        Assert.Equal("OwnerName", item.FieldName);
     }
 
     #endregion
@@ -353,7 +384,6 @@ public class CommonDetailsServiceTests : IDisposable
             UpdateName = "FlatOrShop No Name",
             TableId = 1,
             TableFieldIds = [21, 22],
-            IsApprovalRequired = false
         };
 
         var result = await _service.CreateFromSourceTableAsync(request, createdBy: 100, CancellationToken.None);
@@ -628,7 +658,7 @@ public class CommonDetailsServiceTests : IDisposable
     {
         var request = new FilterPropertiesByCategoryRequestDto
         {
-            UpdateCode = "OWNER_UPDATE", SearchCategory = PropertySearchCategory.WardWise, WardId = 1,
+            UpdateCode = ["OWNER_UPDATE"], SearchCategory = PropertySearchCategory.WardWise, WardId = 1,
         };
         var searchItems = new List<PropertySearchByCategoryResponseDto>
         {
@@ -646,6 +676,42 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal("Alice", item1.CurrentValues["OwnerName"]);
         var item2 = result.Items.Single(i => i.PropertyNo == "P002");
         Assert.Equal("Bob", item2.CurrentValues["OwnerName"]);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesByCategoryAsync_MergesCurrentValues_FromMultipleUpdateCodes()
+    {
+        var request = new FilterPropertiesByCategoryRequestDto
+        {
+            UpdateCode = ["OWNER_UPDATE", "ASSESSMENT_UPDATE"], SearchCategory = PropertySearchCategory.WardWise, WardId = 1,
+        };
+        var searchItems = new List<PropertySearchByCategoryResponseDto>
+        {
+            new() { PropertyId = 1, WardId = 1, WardNo = "001", PropertyNo = "P001", PartitionNo = "A" },
+        };
+        _mockPropertySearchService
+            .Setup(s => s.SearchByCategoryAsync(request, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResult<PropertySearchByCategoryResponseDto>(searchItems, totalCount: 1, pageNumber: 1, pageSize: 10));
+
+        var result = await _service.FilterPropertiesByCategoryAsync(request, CancellationToken.None);
+
+        var item = result.Items.Single();
+        Assert.Equal("Alice", item.CurrentValues["OwnerName"]);
+        Assert.Equal("9000000001", item.CurrentValues["MobileNo"]);
+        Assert.Equal("2BHK", item.CurrentValues["BHK"]);
+        Assert.Equal("Good", item.CurrentValues["AssessmentRemark"]);
+    }
+
+    [Fact]
+    public async Task FilterPropertiesByCategoryAsync_ThrowsArgumentException_WhenAnyUpdateCodeInListIsUnknown()
+    {
+        var request = new FilterPropertiesByCategoryRequestDto
+        {
+            UpdateCode = ["OWNER_UPDATE", "NO_SUCH_CODE"], SearchCategory = PropertySearchCategory.WardWise, WardId = 1,
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.FilterPropertiesByCategoryAsync(request, CancellationToken.None));
     }
 
     #endregion
@@ -717,7 +783,7 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal(7, p1.UpdatedBy);
 
         var newHistory = await _context.BulkUpdateHistory.AsNoTracking()
-            .Where(h => h.BulkUpdateMasterId == 1 && (h.PropertyId == 1 || h.PropertyId == 2) && h.IpAddress == "3.3.3.3")
+            .Where(h => h.BulkUpdateMasterId == 1 && (h.PropertyId == 1 || h.PropertyId == 2) && h.Id > 5)
             .ToListAsync();
         Assert.Equal(2, newHistory.Count);
 
@@ -727,6 +793,15 @@ public class CommonDetailsServiceTests : IDisposable
             Assert.Equal("Alice", oldDoc.RootElement.GetProperty("OwnerName").GetString());
         using (var newDoc = JsonDocument.Parse(h1.NewValue!))
             Assert.Equal("UpdatedOwner", newDoc.RootElement.GetProperty("OwnerName").GetString());
+
+        var activity = await _context.BulkUpdateActivity.AsNoTracking()
+            .SingleAsync(a => a.Id == h1.ActivityId);
+        Assert.Equal("Screen", activity.ActivityType);
+        Assert.Equal("Success", activity.ActivityStatus);
+        Assert.Equal("3.3.3.3", activity.IPAddress);
+        Assert.Equal(2, activity.Records);
+        Assert.Equal("Owner Update", activity.UpdateName);
+        Assert.Equal("[OWNER_UPDATE] Updated 2 of 2 properties successfully.", activity.ActivityRemark);
     }
 
     [Fact]
@@ -759,6 +834,41 @@ public class CommonDetailsServiceTests : IDisposable
         var p1 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 1);
         Assert.Equal("Alice", p1.OwnerName);
         Assert.Equal(5, await _context.BulkUpdateHistory.CountAsync()); // unchanged from seed
+
+        // Even though the exception was thrown before any per-property iteration completed, a Failed
+        // Activity row still survives - it's written outside/after the rolled-back transaction.
+        var activity = await _context.BulkUpdateActivity.AsNoTracking()
+            .Where(a => a.UpdateName == "Owner Update" && a.Records == 3)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Equal("Failed", activity.ActivityStatus);
+        Assert.StartsWith("[OWNER_UPDATE] ", activity.ActivityRemark);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_RecordsFailedActivityWithRemark_WhenFieldValidationFails()
+    {
+        // Validation runs before the properties transaction even begins, but an Activity row must
+        // still be written - the whole point of ActivityRemark is to explain *why* an attempt failed,
+        // including rejections that never touch BulkUpdateHistory at all.
+        var request = new BulkUpdateRequestDto
+        {
+            UpdateCode = "OWNER_UPDATE",
+            PropertyIds = [1],
+            UpdateData = new() { ["OwnerName"] = "Alice", ["MobileNo"] = "not-a-number" },
+        };
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.BulkUpdateAsync(request, 1, null, CancellationToken.None));
+        Assert.Equal("Mobile No has invalid format.", ex.Message);
+
+        var activity = await _context.BulkUpdateActivity.AsNoTracking()
+            .Where(a => a.UpdateName == "Owner Update" && a.Records == 1)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Equal("Failed", activity.ActivityStatus);
+        Assert.Equal("[OWNER_UPDATE] Mobile No has invalid format.", activity.ActivityRemark);
+
+        // The failure happened before the transaction started - nothing was ever written to History.
+        Assert.Equal(5, await _context.BulkUpdateHistory.CountAsync());
     }
 
     [Fact]
@@ -955,7 +1065,7 @@ public class CommonDetailsServiceTests : IDisposable
             ["wardNo", "propertyNo", "partitionNo", "OwnerName"],
             [["001", "P001", "A", "ExcelOwner1"]]);
 
-        var result = await _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", CancellationToken.None);
+        var result = await _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", null, CancellationToken.None);
 
         Assert.Equal(1, result.TotalRequested);
         Assert.Equal(1, result.SuccessCount);
@@ -963,6 +1073,40 @@ public class CommonDetailsServiceTests : IDisposable
 
         var p1 = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 1);
         Assert.Equal("ExcelOwner1", p1.OwnerName);
+
+        var activity = await _context.BulkUpdateActivity.AsNoTracking()
+            .Where(a => a.ActivityType == "Excel").OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Equal("Success", activity.ActivityStatus);
+        Assert.Equal("4.4.4.4", activity.IPAddress);
+        Assert.Equal(1, activity.Records);
+        Assert.Equal("[OWNER_UPDATE] Updated 1 of 1 property successfully.", activity.ActivityRemark);
+    }
+
+    [Fact]
+    public async Task ImportPropertiesFromExcelAsync_UpdatesBothMainAndPartitionRows_InSameUpload()
+    {
+        // Row 1 targets the Main property (blank partitionNo, property 7); row 2 targets the
+        // Partition property (partitionNo "Z", property 6) - same ward+propertyNo, different partition.
+        // Regression coverage for the candidate-narrowing filter incorrectly excluding blank-partition
+        // rows once any row in the file has a non-blank partitionNo.
+        using var stream = BuildWorkbookStream(
+            ["wardNo", "propertyNo", "partitionNo", "OwnerName"],
+            [
+                ["002", "X001", null, "MainOwnerUpdated"],
+                ["002", "X001", "Z", "PartitionOwnerUpdated"],
+            ]);
+
+        var result = await _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", null, CancellationToken.None);
+
+        Assert.Equal(2, result.TotalRequested);
+        Assert.Equal(2, result.SuccessCount);
+        Assert.Equal(0, result.FailedCount);
+        Assert.Empty(result.Errors);
+
+        var mainProperty = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 7);
+        var partitionProperty = await _context.PropertyMast.AsNoTracking().SingleAsync(p => p.Id == 6);
+        Assert.Equal("MainOwnerUpdated", mainProperty.OwnerName);
+        Assert.Equal("PartitionOwnerUpdated", partitionProperty.OwnerName);
     }
 
     [Fact]
@@ -972,7 +1116,7 @@ public class CommonDetailsServiceTests : IDisposable
             ["wardNo", "propertyNo", "partitionNo", "OwnerName"],
             [["999", "P999", "Z", "NoSuchOwner"]]);
 
-        var result = await _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", CancellationToken.None);
+        var result = await _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", null, CancellationToken.None);
 
         Assert.Equal(1, result.TotalRequested);
         Assert.Equal(0, result.SuccessCount);
@@ -988,8 +1132,82 @@ public class CommonDetailsServiceTests : IDisposable
             [["001", "P001", "ExcelOwner1"]]);
 
         var ex = await Assert.ThrowsAsync<ArgumentException>(
-            () => _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", CancellationToken.None));
+            () => _service.ImportPropertiesFromExcelAsync("OWNER_UPDATE", stream, 9, "4.4.4.4", null, CancellationToken.None));
         Assert.Contains("partitionNo", ex.Message);
+    }
+
+    #endregion
+
+    #region ValidateImportExcelAsync Tests
+
+    [Fact]
+    public async Task ValidateImportExcelAsync_ReturnsNoRows_WhenAllRowsAreClean()
+    {
+        using var stream = BuildWorkbookStream(
+            ["wardNo", "propertyNo", "partitionNo", "MobileNo"],
+            [["001", "P001", "A", "9999999999"]]);
+
+        var result = await _service.ValidateImportExcelAsync("OWNER_UPDATE", stream, CancellationToken.None);
+
+        Assert.Equal(1, result.TotalRows);
+        Assert.Equal(0, result.FlaggedRowCount);
+        Assert.Empty(result.Rows);
+        Assert.Equal(["wardNo", "propertyNo", "partitionNo", "MobileNo", "ValidationRemark"], result.Columns);
+    }
+
+    [Fact]
+    public async Task ValidateImportExcelAsync_ReturnsOnlyProblemRows_WithValidationRemarks()
+    {
+        using var stream = BuildWorkbookStream(
+            ["wardNo", "propertyNo", "partitionNo", "MobileNo"],
+            [
+                ["001", "P001", "A", "9999999999"],   // clean - must NOT appear in the report
+                ["999", "P999", "Z", "9999999999"],   // no matching property
+                ["001", "P002", "B", "notanumber"],   // fails MobileNo's regex
+            ]);
+
+        var result = await _service.ValidateImportExcelAsync("OWNER_UPDATE", stream, CancellationToken.None);
+
+        Assert.Equal(3, result.TotalRows);
+        Assert.Equal(2, result.FlaggedRowCount);
+        Assert.Equal(2, result.Rows.Count);
+
+        var noPropertyRow = result.Rows[0];
+        Assert.Equal("999", noPropertyRow["wardNo"]);
+        Assert.Contains("No property found", (string)noPropertyRow["ValidationRemark"]!);
+
+        var badFormatRow = result.Rows[1];
+        Assert.Equal("P002", badFormatRow["propertyNo"]);
+        Assert.Contains("Mobile No has invalid format", (string)badFormatRow["ValidationRemark"]!);
+    }
+
+    [Fact]
+    public async Task ValidateImportExcelAsync_ThrowsArgumentException_WhenIdentityColumnMissing()
+    {
+        using var stream = BuildWorkbookStream(
+            ["wardNo", "propertyNo", "OwnerName"], // partitionNo missing
+            [["001", "P001", "ExcelOwner1"]]);
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(
+            () => _service.ValidateImportExcelAsync("OWNER_UPDATE", stream, CancellationToken.None));
+        Assert.Contains("partitionNo", ex.Message);
+    }
+
+    [Fact]
+    public async Task ValidateImportExcelAsync_MakesNoDatabaseChanges()
+    {
+        var historyCountBefore = await _context.BulkUpdateHistory.CountAsync();
+        var activityCountBefore = await _context.BulkUpdateActivity.CountAsync();
+
+        using var stream = BuildWorkbookStream(
+            ["wardNo", "propertyNo", "partitionNo", "MobileNo"],
+            [["999", "P999", "Z", "notanumber"]]); // fails both identity and format checks
+
+        var result = await _service.ValidateImportExcelAsync("OWNER_UPDATE", stream, CancellationToken.None);
+
+        Assert.Equal(1, result.FlaggedRowCount);
+        Assert.Equal(historyCountBefore, await _context.BulkUpdateHistory.CountAsync());
+        Assert.Equal(activityCountBefore, await _context.BulkUpdateActivity.CountAsync());
     }
 
     #endregion
@@ -997,27 +1215,27 @@ public class CommonDetailsServiceTests : IDisposable
     #region GetUpdateHistoryAsync Tests
 
     [Fact]
-    public async Task GetUpdateHistoryAsync_NoFilters_ReturnsAllOrderedByUpdatedDateThenIdDescending()
+    public async Task GetUpdateHistoryAsync_NoFilters_ReturnsAllOrderedByCreatedDateThenIdDescending()
     {
         var request = new UpdateHistoryQueryParameters { PageSize = -1 };
 
         var result = await _service.GetUpdateHistoryAsync(request, CancellationToken.None);
 
         Assert.Equal(5, result.TotalCount);
-        // H3 (07-25, via CreatedDate fallback), H5 (07-24), H2 (07-22), H1 (07-20), H4 (07-18)
+        // H3 (07-25), H5 (07-24), H2 (07-22), H1 (07-20), H4 (07-18)
         Assert.Equal(new[] { 3, 5, 2, 1, 4 }, result.Items.Select(i => i.Id));
     }
 
     [Fact]
-    public async Task GetUpdateHistoryAsync_UpdatedDateComesFromHistoryRow_NotFromMaster()
+    public async Task GetUpdateHistoryAsync_CreatedDateComesFromHistoryRow_NotFromMaster()
     {
-        // Master 1's own UpdatedDate is sentinel-far-future (2099); history row 1's UpdatedDate is 2026-07-20.
+        // Master 1's own UpdatedDate is sentinel-far-future (2099); history row 1's CreatedDate is 2026-07-20.
         var request = new UpdateHistoryQueryParameters { PropertyNo = "P001", PageSize = -1 };
 
         var result = await _service.GetUpdateHistoryAsync(request, CancellationToken.None);
 
         var item = result.Items.Single();
-        Assert.Equal(new DateTime(2026, 7, 20), item.UpdatedDate);
+        Assert.Equal(new DateTime(2026, 7, 20), item.CreatedDate);
     }
 
     [Fact]
@@ -1072,14 +1290,14 @@ public class CommonDetailsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetUpdateHistoryAsync_FiltersByUsername_ViaHistoryRowsOwnUpdatedByOrCreatedBy()
+    public async Task GetUpdateHistoryAsync_FiltersByDoneBy_ViaHistoryRowsOwnCreatedByOrUpdatedBy()
     {
         var aliceResult = await _service.GetUpdateHistoryAsync(
-            new UpdateHistoryQueryParameters { Username = "alice.user", PageSize = -1 }, CancellationToken.None);
+            new UpdateHistoryQueryParameters { DoneBy = "alice.user", PageSize = -1 }, CancellationToken.None);
         Assert.Equal(new[] { 5, 1, 4 }, aliceResult.Items.Select(i => i.Id));
 
         var bobResult = await _service.GetUpdateHistoryAsync(
-            new UpdateHistoryQueryParameters { Username = "bob.user", PageSize = -1 }, CancellationToken.None);
+            new UpdateHistoryQueryParameters { DoneBy = "bob.user", PageSize = -1 }, CancellationToken.None);
         Assert.Equal([2], bobResult.Items.Select(i => i.Id));
     }
 
@@ -1103,7 +1321,7 @@ public class CommonDetailsServiceTests : IDisposable
 
         var orphanMasterRow = result.Items.Single(i => i.Id == 3);
         Assert.Null(orphanMasterRow.UpdateName);
-        Assert.Null(orphanMasterRow.Username);
+        Assert.Null(orphanMasterRow.DoneBy);
         // Its property (6, ward 2) is valid, so those fields ARE populated - proving this is a
         // per-join left join, not one big inner join that would have dropped the whole row.
         Assert.Equal("002", orphanMasterRow.WardNo);
@@ -1168,7 +1386,7 @@ public class CommonDetailsServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingUsername_AcrossMultipleRows()
+    public async Task GetUpdateHistoryAsync_FiltersBySearchTerm_MatchingDoneBy_AcrossMultipleRows()
     {
         var result = await _service.GetUpdateHistoryAsync(
             new UpdateHistoryQueryParameters { SearchTerm = "alice", PageSize = -1 }, CancellationToken.None);
@@ -1194,6 +1412,100 @@ public class CommonDetailsServiceTests : IDisposable
         Assert.Equal(new[] { 5, 1, 4 }, result.Items.Select(i => i.Id));
     }
 
+    [Fact]
+    public async Task GetUpdateHistoryAsync_IncludesJoinedActivityFields()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { PropertyNo = "P001", PageSize = -1 }, CancellationToken.None);
+
+        var item = result.Items.Single();
+        Assert.Equal("Screen", item.ActivityType);
+        Assert.Equal("Success", item.ActivityStatus);
+        Assert.Equal("alice.user", item.ActivityDoneBy);
+        Assert.Equal(1, item.Records);
+        Assert.Equal("10.0.0.1", item.IPAddress);
+        Assert.Equal("Owner correction", item.Remarks);
+        Assert.Equal("[OWNER_UPDATE] Updated 1 of 1 property successfully.", item.ActivityRemark);
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_LeftJoin_ActivityFieldsNullWhenNoMatchingActivity()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { PageSize = -1 }, CancellationToken.None);
+
+        var orphanActivityRow = result.Items.Single(i => i.Id == 5);
+        Assert.Null(orphanActivityRow.ActivityType);
+        Assert.Null(orphanActivityRow.ActivityStatus);
+        Assert.Null(orphanActivityRow.ActivityDoneBy);
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersByActivityStatus()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { ActivityStatus = "Success", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal(new[] { 2, 1 }, result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersById()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { Id = 1, PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersByActivityId()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { ActivityId = 2, PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([2], result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersByProperty_UsingContainsSemantics()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { Property = "001-P001", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_FiltersByIsActive()
+    {
+        _context.BulkUpdateHistory.Add(new BulkUpdateHistoryEntity
+        {
+            Id = 6, ActivityId = 904, BulkUpdateMasterId = 1, PropertyId = 4,
+            UpdatedColumns = "OwnerName", IsActive = false, CreatedDate = new DateTime(2026, 7, 5),
+        });
+        await _context.SaveChangesAsync();
+
+        var activeResult = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { IsActive = true, PageSize = -1 }, CancellationToken.None);
+        Assert.DoesNotContain(activeResult.Items, i => i.Id == 6);
+
+        var inactiveResult = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { IsActive = false, PageSize = -1 }, CancellationToken.None);
+        Assert.Equal([6], inactiveResult.Items.Select(i => i.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateHistoryAsync_IncludesPropertyIdAndIsActiveInProjection()
+    {
+        var result = await _service.GetUpdateHistoryAsync(
+            new UpdateHistoryQueryParameters { Id = 1, PageSize = -1 }, CancellationToken.None);
+
+        var item = result.Items.Single();
+        Assert.Equal(1, item.PropertyId);
+        Assert.True(item.IsActive);
+    }
+
     #endregion
 
     #region ExportUpdateHistoryToExcelAsync Tests
@@ -1210,8 +1522,10 @@ public class CommonDetailsServiceTests : IDisposable
         var ws = workbook.Worksheet(1);
         var expectedHeaders = new[]
         {
-            "Id", "UpdateName", "WardNo", "PropertyNo", "PartitionNo", "Property",
-            "OldValue", "NewValue", "UpdatedColumns", "Remarks", "IPAddress", "Username", "UpdatedDate"
+            "Id", "UpdateName", "PropertyId", "WardNo", "PropertyNo", "PartitionNo", "Property",
+            "OldValue", "NewValue", "UpdatedColumns", "IsActive", "Remarks", "IPAddress", "DoneBy", "CreatedDate",
+            "ActivityId", "ActivityType", "ActivityStatus", "ActivityDoneBy", "Records", "StartTime", "EndTime", "Duration",
+            "ActivityRemark"
         };
         for (var c = 0; c < expectedHeaders.Length; c++)
             Assert.Equal(expectedHeaders[c], ws.Cell(1, c + 1).GetString());
@@ -1234,6 +1548,160 @@ public class CommonDetailsServiceTests : IDisposable
         for (var r = 2; r <= usedRange.RowCount(); r++)
             idColumnValues.Add(ws.Cell(r, 1).GetValue<int>());
         Assert.Equal(new[] { 5, 2, 1 }, idColumnValues);
+    }
+
+    #endregion
+
+    #region GetUpdateActivityAsync Tests
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_NoFilters_ReturnsAllOrderedByDateAndTimeDescending()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal(new[] { 2, 1 }, result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersById()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { Id = 1, PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByActivityType()
+    {
+        _context.BulkUpdateActivity.Add(new BulkUpdateActivityEntity
+        {
+            Id = 3, ActivityType = "Excel", ActivityStatus = "Success",
+            DateAndTime = new DateTime(2026, 7, 3),
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { ActivityType = "Excel", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([3], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByActivityStatus()
+    {
+        _context.BulkUpdateActivity.Add(new BulkUpdateActivityEntity
+        {
+            Id = 3, ActivityType = "Screen", ActivityStatus = "Failed",
+            DateAndTime = new DateTime(2026, 7, 3),
+        });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { ActivityStatus = "Failed", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([3], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByCreatedDateRange()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters
+            {
+                CreatedDateFrom = new DateTime(2026, 7, 2),
+                CreatedDateTo = new DateTime(2026, 7, 2),
+                PageSize = -1
+            }, CancellationToken.None);
+
+        Assert.Equal([2], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByDoneBy()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { DoneBy = "bob.user", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([2], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByRemarks_UsingContainsSemantics()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { Remarks = "correction", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersByActivityRemark_UsingContainsSemantics()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { ActivityRemark = "Updated 1 of 1", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([1], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_FiltersBySearchTerm_MatchingDoneBy()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { SearchTerm = "bob", PageSize = -1 }, CancellationToken.None);
+
+        Assert.Equal([2], result.Items.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task GetUpdateActivityAsync_ReturnsCorrectPage()
+    {
+        var result = await _service.GetUpdateActivityAsync(
+            new UpdateActivityQueryParameters { PageNumber = 1, PageSize = 1 }, CancellationToken.None);
+
+        Assert.Equal(2, result.TotalCount);
+        Assert.Equal([2], result.Items.Select(a => a.Id));
+    }
+
+    #endregion
+
+    #region ExportUpdateActivityToExcelAsync Tests
+
+    [Fact]
+    public async Task ExportUpdateActivityToExcelAsync_ProducesValidWorkbook_WithExpectedHeaders()
+    {
+        var bytes = await _service.ExportUpdateActivityToExcelAsync(
+            new UpdateActivityQueryParameters { PageSize = -1 }, CancellationToken.None);
+
+        Assert.NotEmpty(bytes);
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+        var expectedHeaders = new[]
+        {
+            "Id", "ActivityType", "ActivityStatus", "CreatedDate", "Records", "IPAddress",
+            "Remarks", "UpdateName", "DoneBy", "StartTime", "EndTime", "Duration", "ActivityRemark"
+        };
+        for (var c = 0; c < expectedHeaders.Length; c++)
+            Assert.Equal(expectedHeaders[c], ws.Cell(1, c + 1).GetString());
+    }
+
+    [Fact]
+    public async Task ExportUpdateActivityToExcelAsync_IgnoresCallerPaging_ExportsAllMatchingRows()
+    {
+        var bytes = await _service.ExportUpdateActivityToExcelAsync(
+            new UpdateActivityQueryParameters { PageNumber = 1, PageSize = 1 }, CancellationToken.None);
+
+        using var workbook = new XLWorkbook(new MemoryStream(bytes));
+        var ws = workbook.Worksheet(1);
+        var usedRange = ws.RangeUsed()!;
+        Assert.Equal(3, usedRange.RowCount()); // header + 2 matching rows, paging ignored
+
+        var idColumnValues = new List<int>();
+        for (var r = 2; r <= usedRange.RowCount(); r++)
+            idColumnValues.Add(ws.Cell(r, 1).GetValue<int>());
+        Assert.Equal(new[] { 2, 1 }, idColumnValues);
     }
 
     #endregion

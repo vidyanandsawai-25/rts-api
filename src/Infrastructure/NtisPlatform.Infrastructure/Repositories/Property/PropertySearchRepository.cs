@@ -1273,7 +1273,11 @@ public class PropertySearchRepository : IPropertySearchRepository
             query = query.Where(x =>
                 (x.Ward != null && x.Ward.WardNo != null && x.Ward.WardNo.Contains(searchTerm)) ||
                 (x.Property.PropertyNo != null && x.Property.PropertyNo.Contains(searchTerm)) ||
-                (x.Property.PartitionNo != null && x.Property.PartitionNo.Contains(searchTerm)));
+                (x.Property.PartitionNo != null && x.Property.PartitionNo.Contains(searchTerm)) ||
+                (x.Ward != null && x.Ward.WardNo != null && x.Property.PropertyNo != null &&
+                    (string.IsNullOrEmpty(x.Property.PartitionNo)
+                        ? (x.Ward.WardNo + "-" + x.Property.PropertyNo).Contains(searchTerm)
+                        : (x.Ward.WardNo + "-" + x.Property.PropertyNo + "-" + x.Property.PartitionNo).Contains(searchTerm))));
         }
 
         return (query, wingNumbers);
@@ -1594,6 +1598,9 @@ public class PropertySearchRepository : IPropertySearchRepository
             WardNo = ward?.WardNo,
             PropertyNo = property.PropertyNo,
             PartitionNo = property.PartitionNo ?? string.Empty,
+            Property = string.IsNullOrEmpty(property.PartitionNo)
+                ? $"{ward?.WardNo}-{property.PropertyNo}"
+                : $"{ward?.WardNo}-{property.PropertyNo}-{property.PartitionNo}",
             MobileNo = property.MobileNo,
             UPICId = property.UPICId,
             PropertyTypeId = property.PropertyTypeId,

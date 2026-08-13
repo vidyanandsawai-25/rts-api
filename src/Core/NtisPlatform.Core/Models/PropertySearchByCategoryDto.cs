@@ -70,8 +70,8 @@ public class PropertySearchByCategoryRequestDto
     public bool? IsWing { get; set; }
 
     /// <summary>
-    /// Optional free-text filter matched against WardNo, PropertyNo, and PartitionNo (any match).
-    /// Applies in addition to the SearchCategory scope.
+    /// Optional free-text filter matched against WardNo, PropertyNo, PartitionNo, and the
+    /// composed Property code (any match). Applies in addition to the SearchCategory scope.
     /// </summary>
     public string? SearchTerm { get; set; }
 }
@@ -89,6 +89,12 @@ public class PropertySearchByCategoryResponseDto
     public string? WardNo { get; set; }
     public string? PropertyNo { get; set; }
     public string PartitionNo { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Composed property code: "{WardNo}-{PropertyNo}" or, when PartitionNo is set,
+    /// "{WardNo}-{PropertyNo}-{PartitionNo}".
+    /// </summary>
+    public string? Property { get; set; }
     public string? MobileNo { get; set; }
     public string? UPICId { get; set; }
     public int? PropertyTypeId { get; set; }

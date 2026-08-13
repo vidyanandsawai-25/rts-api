@@ -7,7 +7,6 @@ public class BulkUpdateMasterDto : BaseDtos
     public string UpdateCode { get; set; } = string.Empty;
     public string UpdateName { get; set; } = string.Empty;
     public string? ReferenceTableName { get; set; }
-    public bool? IsApprovalRequired { get; set; }
 }
 
 public class CreateBulkUpdateMasterDto : CreateBaseDtos
@@ -23,8 +22,6 @@ public class CreateBulkUpdateMasterDto : CreateBaseDtos
     [Required(ErrorMessage = "BulkUpdateMaster_ReferenceTableName_Required")]
     [StringLength(200, ErrorMessage = "BulkUpdateMaster_ReferenceTableName_MaxLen_200")]
     public string ReferenceTableName { get; set; } = string.Empty;
-
-    public bool? IsApprovalRequired { get; set; }
 }
 
 public class UpdateBulkUpdateMasterDto : UpdateBaseDtos
